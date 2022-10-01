@@ -160,11 +160,10 @@ class RowTest {
       assertEquals(c.getSmallInt("smallInt_vector"), c.getSmallInt(2));
       assertEquals(c.getTinyInt("tinyInt_vector"), c.getTinyInt(3));
 
-      // TODO: Uncomment these when GenerateSampleData supports UInts
-      // assertEquals(c.getUInt1("uInt1_vector"), c.getUInt1(0));
-      // assertEquals(c.getUInt2("uInt2_vector"), c.getUInt2(1));
-      // assertEquals(c.getUInt4("uInt4_vector"), c.getUInt4(2));
-      // assertEquals(c.getUInt8("uInt8_vector"), c.getUInt8(3));
+      assertEquals(c.getUInt1("uInt1_vector"), c.getUInt1(4));
+      assertEquals(c.getUInt2("uInt2_vector"), c.getUInt2(5));
+      assertEquals(c.getUInt4("uInt4_vector"), c.getUInt4(6));
+      assertEquals(c.getUInt8("uInt8_vector"), c.getUInt8(7));
 
       assertEquals(c.getFloat4("float4_vector"), c.getFloat4(8));
       assertEquals(c.getFloat8("float8_vector"), c.getFloat8(9));

@@ -100,7 +100,7 @@ class TableTest {
   }
 
   /**
-   * Tests construction with an iterable that's not a list (there is a specialty constructor for Lists)
+   * Tests construction with an iterable that's not a list (there is a specialty constructor for Lists).
    */
   @Test
   void constructor2() {

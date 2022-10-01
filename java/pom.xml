@@ -43,8 +43,10 @@
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
+<!--
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.13.1</error_prone_core.version>
+-->
     <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
   </properties>
 
@@ -775,9 +777,12 @@
               <fork>true</fork>
               <compilerArgs combine.children="append">
                 <arg>-XDcompilePolicy=simple</arg>
+<!--
                 <arg>-Xplugin:ErrorProne</arg>
                 <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${errorprone.javac.version}/javac-${errorprone.javac.version}.jar</arg>
+-->
               </compilerArgs>
+<!--
               <annotationProcessorPaths combine.children="append">
                 <path>
                   <groupId>com.google.errorprone</groupId>
@@ -785,6 +790,7 @@
                   <version>2.4.0</version>
                 </path>
               </annotationProcessorPaths>
+-->
             </configuration>
           </plugin>
         </plugins>
@@ -810,7 +816,9 @@
               <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
                 <arg>-XDcompilePolicy=simple</arg>
+<!--
                 <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/(target/generated-sources)/.*</arg>
+-->
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
@@ -822,6 +830,7 @@
                 <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
                 <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
               </compilerArgs>
+<!--
               <annotationProcessorPaths combine.children="append">
                 <path>
                   <groupId>com.google.errorprone</groupId>
@@ -829,6 +838,7 @@
                   <version>${error_prone_core.version}</version>
                 </path>
               </annotationProcessorPaths>
+-->
             </configuration>
           </plugin>
           <plugin>
