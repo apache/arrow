@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.memory.netty;
 
 import static org.junit.Assert.assertEquals;
 
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.memory.RootAllocator;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -34,8 +37,10 @@ public class TestEmptyArrowBuf {
   public static void beforeClass() {
     allocator = new RootAllocator(MAX_ALLOCATION);
   }
-  
-  /** Ensure the allocator is closed. */
+
+  /**
+   * Ensure the allocator is closed.
+   */
   @AfterClass
   public static void afterClass() {
     if (allocator != null) {
@@ -48,7 +53,7 @@ public class TestEmptyArrowBuf {
     // Exercise the historical log inside the empty ArrowBuf. This is initialized statically, and there is a circular
     // dependency between ArrowBuf and BaseAllocator, so if the initialization happens in the wrong order, the
     // historical log will be null even though BaseAllocator.DEBUG is true.
-    allocator.getEmpty().print(new StringBuilder(), 0, BaseAllocator.Verbosity.LOG_WITH_STACKTRACE);
+    allocator.getEmpty().print(new StringBuilder(), 0, RootAllocator.Verbosity.LOG_WITH_STACKTRACE);
   }
 
   @Test

@@ -15,25 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.memory.netty;
 
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
+import org.apache.arrow.memory.AllocationManager;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
 
 /**
- * Test cases for {@link AllocationManager}.
+ * The default Allocation Manager Factory for a module.
+ *
  */
-public class TestAllocationManagerNetty {
+public class DefaultAllocationManagerFactory implements AllocationManager.Factory {
 
-  @Test
-  public void testAllocationManagerType() {
-    // test netty allocation manager type
-    System.setProperty(
-        DefaultAllocationManagerOption.ALLOCATION_MANAGER_TYPE_PROPERTY_NAME, "Netty");
-    DefaultAllocationManagerOption.AllocationManagerType mgrType =
-        DefaultAllocationManagerOption.getDefaultAllocationManagerType();
+  public static final AllocationManager.Factory FACTORY = NettyAllocationManager.FACTORY;
 
-    assertEquals(DefaultAllocationManagerOption.AllocationManagerType.Netty, mgrType);
+  @Override
+  public AllocationManager create(BufferAllocator accountingAllocator, long size) {
+    return FACTORY.create(accountingAllocator, size);
   }
+
+  @Override
+  public ArrowBuf empty() {
+    return FACTORY.empty();
+  }
+
 }

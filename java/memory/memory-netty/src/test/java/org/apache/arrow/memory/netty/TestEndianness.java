@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.memory.netty;
 
 import static org.junit.Assert.assertEquals;
 
 import java.nio.ByteOrder;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
 
 import io.netty.buffer.ByteBuf;
