@@ -131,6 +131,35 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
                        openldap-devel \
                        openssl-devel
       ;;
+    zypper)
+      # "pkg-config --static --libs libcurl" has
+      #   * -lnghttp2
+      #   * -lidn2
+      #   * -lssh
+      #   * -lpsl
+      #   * -lssl
+      #   * -lcrypto
+      #   * -lgssapi_krb5
+      #   * -lkrb5
+      #   * -lk5crypto
+      #   * -lcom_err
+      #   * -lldap
+      #   * -llber
+      #   * -lzstd
+      #   * -lbrotlidec
+      #   * -lz
+      $PACKAGE_MANAGER install -y \
+                       krb5-devel \
+                       libbrotli-devel \
+                       libcurl-devel \
+                       libidn2-devel \
+                       libnghttp2-devel \
+                       libpsl-devel \
+                       libssh-devel \
+                       libzstd-devel \
+                       openldap2-devel \
+                       openssl-devel
+      ;;
     *)
       $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
       ;;
