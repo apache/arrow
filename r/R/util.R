@@ -225,8 +225,8 @@ handle_csv_read_error <- function(e, schema, call) {
         "header being read in as data."
       )
     )
-    abort(msg, call = call)
   }
+  abort(msg, call = call)
 }
 
 # This function only raises an error if
