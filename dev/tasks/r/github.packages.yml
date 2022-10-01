@@ -324,14 +324,24 @@ jobs:
           curl -s \
             https://raw.githubusercontent.com/{{ arrow.github_repo }}/{{ arrow.head }}/ci/scripts/install_sccache.sh | \
             bash -s unknown-linux-musl /usr/local/bin
-      - name: Prepare PKG_CONFIG_PATH for Homebrew
-        run: |
-          # zstd is installed by Homebrew on GitHub Actions.
-          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
-            >> "$GITHUB_ENV"
       - name: Install R package system dependencies
         run: |
-          sudo apt update && sudo apt install libcurl4-openssl-dev
+          sudo apt update
+          sudo apt install -y \
+            libbrotli-dev \
+            libcurl4-openssl-dev \
+            libidn2-dev \
+            libkrb5-dev \
+            libldap-dev \
+            libnghttp2-dev \
+            libpsl-dev \
+            librtmp-dev \
+            libssh-dev \
+            libssh2-1-dev \
+            libssl-dev \
+            libzstd-dev
+      - name: Enable parallel build
+        run: |
           echo "MAKEFLAGS=-j$(nproc)" >> $GITHUB_ENV
       - name: Install arrow from nightly repo
         env:
