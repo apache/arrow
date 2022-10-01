@@ -338,11 +338,11 @@ boolean flags to ``cmake``.
 * ``-DPARQUET_REQUIRE_ENCRYPTION=ON``: Parquet Modular Encryption
 * ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
 * ``-DARROW_PLASMA_JAVA_CLIENT=ON``: Build Java client for Plasma
-* ``-DARROW_PYTHON=ON``: Arrow Python C++ integration library (required for
-  building pyarrow). This library must be built against the same Python version
-  for which you are building pyarrow. NumPy must also be installed. Enabling
-  this option also enables ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
-  ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON``.
+* ``-DARROW_PYTHON=ON``: This option is deprecated since 10.0.0. This
+  will be removed in a future release. Use CMake presets instead. Or
+  you can enable ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
+  ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON`` directly
+  instead.
 * ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
 * ``-DARROW_WITH_RE2=ON`` Build with support for regular expressions using the re2 
   library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA`` is ``ON``

@@ -122,6 +122,8 @@ endmacro()
 
 macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
+    # ARROW-17817: ORC can't be built on Windows.
+    set(ARROW_ORC OFF)
     # Plasma using glog is not fully tested on windows.
     set(ARROW_USE_GLOG OFF)
   endif()
@@ -381,6 +383,18 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_ZSTD)
 
   define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
+
+  define_option(ARROW_PYTHON
+                "Build some components needed by PyArrow.;\
+(This is a deprecated option. Use CMake presets instead.)"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
+                ARROW_CSV
+                ARROW_DATASET
+                ARROW_FILESYSTEM
+                ARROW_HDFS
+                ARROW_JSON)
 
   define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
 
@@ -676,6 +690,9 @@ macro(config_summary_message)
 
   endforeach()
 
+  if(ARROW_PYTHON)
+    message(WARNING "ARROW_PYTHON is deprecated. Use CMake presets instead.")
+  endif()
 endmacro()
 
 macro(config_summary_json)
