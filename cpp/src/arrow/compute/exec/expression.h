@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <string_view>
 #include <memory>
 #include <string>
 #include <utility>
@@ -127,6 +128,8 @@ class ARROW_EXPORT Expression {
   explicit Expression(Call call);
   explicit Expression(Datum literal);
   explicit Expression(Parameter parameter);
+
+  static Result<Expression> FromString(std::string_view expr);
 
  private:
   using Impl = std::variant<Datum, Parameter, Call>;

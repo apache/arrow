@@ -31,6 +31,7 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/compute/exec/test_util.h"
 
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
@@ -1561,6 +1562,21 @@ TEST(Expression, SerializationRoundTrips) {
                          equal(field_ref("alpha"), literal(int32_t(0))),
                          equal(field_ref("beta"), literal(3.25f))}));
 }
+
+    TEST(Expression, ParseBasic)
+    {
+        const char *expr_str = "(add $int32:1 !.i32_0)";
+        ASSERT_OK_AND_ASSIGN(
+            Expression expr, Expression::FromString(expr_str));
+        ExecBatch batch = ExecBatchFromJSON({ int32(), int32() }, "[[1, 2], [1, 2]]");
+        std::shared_ptr<Schema> sch = schema({ field("i32_0", int32()), field("i32_1", int32()) });
+        ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*sch.get()));
+        ASSERT_OK_AND_ASSIGN(Datum result, ExecuteScalarExpression(expr, batch));
+        const int32_t *vals = reinterpret_cast<const int32_t *>(result.array()->buffers[1]->data());
+        ASSERT_EQ(result.array()->length, 2);
+        ASSERT_EQ(vals[0], 2);
+        ASSERT_EQ(vals[1], 2);
+    } 
 
 TEST(Projection, AugmentWithNull) {
   // NB: input contains *no columns* except i32

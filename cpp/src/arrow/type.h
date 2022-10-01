@@ -1723,7 +1723,7 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   /// Note: When parsing a name, a '\' preceding any other character will be dropped from
   /// the resulting name. Therefore if a name must contain the characters '.', '\', or '['
   /// those must be escaped with a preceding '\'.
-  static Result<FieldRef> FromDotPath(const std::string& dot_path);
+  static Result<FieldRef> FromDotPath(const std::string_view dot_path);
   std::string ToDotPath() const;
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
