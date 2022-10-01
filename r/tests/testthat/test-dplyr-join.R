@@ -347,7 +347,8 @@ test_that("joins on datasets handles keep", {
   full_data_df <- tibble::tibble(
     x = rep(c("a", "b"), each = 5),
     y = rep(1:5, 2),
-    z = rep("zzz", 10)
+    z = rep("zzz", 10),
+    index = 1:10
   )
   small_dataset_df <- tibble::tibble(
     value = c(0.1, 0.2, 0.3, 0.4, 0.5),
@@ -359,8 +360,11 @@ test_that("joins on datasets handles keep", {
   small_dataset <- InMemoryDataset$create(small_dataset_df)
 
   assert_full_join_equal <- function(keep) {
-    result <- full_join(small_dataset, full_data, by = c("y", "x"), keep = keep) |> collect()
+    result <- full_join(small_dataset, full_data, by = c("y", "x"), keep = keep) |>
+      arrange(index) |>
+      collect()
     expected <- full_join(small_dataset_df, full_data_df, by = c("y", "x"), keep = keep) |>
+      arrange(index) |>
       collect()
     expect_equal(result, expected)
   }
