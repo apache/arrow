@@ -119,7 +119,7 @@ test_that("collect(as_data_frame=FALSE)", {
     filter(int > 5) %>%
     group_by(int) %>%
     collect(as_data_frame = FALSE)
-  expect_s3_class(b4, "arrow_dplyr_query")
+  expect_r6_class(b4, "Table")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -156,7 +156,7 @@ test_that("compute()", {
     filter(int > 5) %>%
     group_by(int) %>%
     compute()
-  expect_s3_class(b4, "arrow_dplyr_query")
+  expect_r6_class(b4, "Table")
   expect_equal(
     as.data.frame(b4),
     expected %>%
