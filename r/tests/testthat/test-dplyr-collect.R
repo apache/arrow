@@ -286,7 +286,6 @@ test_that("compute", {
   expect_equal(
     as.data.frame(tab1),
     tbl %>%
-      group_by(int) %>%
-      collect()
+      group_by(int)
   )
 })
