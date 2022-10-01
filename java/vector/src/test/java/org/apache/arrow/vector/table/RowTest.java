@@ -47,6 +47,16 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.holders.NullableBigIntHolder;
+import org.apache.arrow.vector.holders.NullableFloat4Holder;
+import org.apache.arrow.vector.holders.NullableFloat8Holder;
+import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.holders.NullableSmallIntHolder;
+import org.apache.arrow.vector.holders.NullableTinyIntHolder;
+import org.apache.arrow.vector.holders.NullableUInt1Holder;
+import org.apache.arrow.vector.holders.NullableUInt2Holder;
+import org.apache.arrow.vector.holders.NullableUInt4Holder;
+import org.apache.arrow.vector.holders.NullableUInt8Holder;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -154,20 +164,87 @@ class RowTest {
     try (Table t = new Table(vectorList)) {
       Row c = t.immutableRow();
       c.setPosition(1);
+      // integer tests using vector name and index
       assertFalse(c.isNull("bigInt_vector"));
       assertEquals(c.getInt("int_vector"), c.getInt(0));
       assertEquals(c.getBigInt("bigInt_vector"), c.getBigInt(1));
       assertEquals(c.getSmallInt("smallInt_vector"), c.getSmallInt(2));
       assertEquals(c.getTinyInt("tinyInt_vector"), c.getTinyInt(3));
 
+      // integer tests using Nullable Holders
+      NullableIntHolder int4Holder = new NullableIntHolder();
+      NullableTinyIntHolder int1Holder = new NullableTinyIntHolder();
+      NullableSmallIntHolder int2Holder = new NullableSmallIntHolder();
+      NullableBigIntHolder int8Holder = new NullableBigIntHolder();
+      c.getInt(0, int4Holder);
+      c.getBigInt(1, int8Holder);
+      c.getSmallInt(2, int2Holder);
+      c.getTinyInt(3, int1Holder);
+      assertEquals(c.getInt("int_vector"), int4Holder.value);
+      assertEquals(c.getBigInt("bigInt_vector"), int8Holder.value);
+      assertEquals(c.getSmallInt("smallInt_vector"), int2Holder.value);
+      assertEquals(c.getTinyInt("tinyInt_vector"), int1Holder.value);
+
+      c.getInt("int_vector", int4Holder);
+      c.getBigInt("bigInt_vector", int8Holder);
+      c.getSmallInt("smallInt_vector", int2Holder);
+      c.getTinyInt("tinyInt_vector", int1Holder);
+      assertEquals(c.getInt("int_vector"), int4Holder.value);
+      assertEquals(c.getBigInt("bigInt_vector"), int8Holder.value);
+      assertEquals(c.getSmallInt("smallInt_vector"), int2Holder.value);
+      assertEquals(c.getTinyInt("tinyInt_vector"), int1Holder.value);
+
+      // uint tests using vector name and index
       assertEquals(c.getUInt1("uInt1_vector"), c.getUInt1(4));
       assertEquals(c.getUInt2("uInt2_vector"), c.getUInt2(5));
       assertEquals(c.getUInt4("uInt4_vector"), c.getUInt4(6));
       assertEquals(c.getUInt8("uInt8_vector"), c.getUInt8(7));
 
+      // UInt tests using Nullable Holders
+      NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
+      NullableUInt1Holder uInt1Holder = new NullableUInt1Holder();
+      NullableUInt2Holder uInt2Holder = new NullableUInt2Holder();
+      NullableUInt8Holder uInt8Holder = new NullableUInt8Holder();
+      // fill the holders using vector index and test
+      c.getUInt1(4, uInt1Holder);
+      c.getUInt2(5, uInt2Holder);
+      c.getUInt4(6, uInt4Holder);
+      c.getUInt8(7, uInt8Holder);
+      assertEquals(c.getUInt1("uInt1_vector"), uInt1Holder.value);
+      assertEquals(c.getUInt2("uInt2_vector"), uInt2Holder.value);
+      assertEquals(c.getUInt4("uInt4_vector"), uInt4Holder.value);
+      assertEquals(c.getUInt8("uInt8_vector"), uInt8Holder.value);
+
+      // refill the holders using vector name and retest
+      c.getUInt1("uInt1_vector", uInt1Holder);
+      c.getUInt2("uInt2_vector", uInt2Holder);
+      c.getUInt4("uInt4_vector", uInt4Holder);
+      c.getUInt8("uInt8_vector", uInt8Holder);
+      assertEquals(c.getUInt1("uInt1_vector"), uInt1Holder.value);
+      assertEquals(c.getUInt2("uInt2_vector"), uInt2Holder.value);
+      assertEquals(c.getUInt4("uInt4_vector"), uInt4Holder.value);
+      assertEquals(c.getUInt8("uInt8_vector"), uInt8Holder.value);
+
+      // tests floating point
       assertEquals(c.getFloat4("float4_vector"), c.getFloat4(8));
       assertEquals(c.getFloat8("float8_vector"), c.getFloat8(9));
 
+      // floating point tests using Nullable Holders
+      NullableFloat4Holder float4Holder = new NullableFloat4Holder();
+      NullableFloat8Holder float8Holder = new NullableFloat8Holder();
+      // fill the holders using vector index and test
+      c.getFloat4(8, float4Holder);
+      c.getFloat8(9, float8Holder);
+      assertEquals(c.getFloat4("float4_vector"), float4Holder.value);
+      assertEquals(c.getFloat8("float8_vector"), float8Holder.value);
+
+      // refill the holders using vector name and retest
+      c.getFloat4("float4_vector", float4Holder);
+      c.getFloat8("float8_vector", float8Holder);
+      assertEquals(c.getFloat4("float4_vector"), float4Holder.value);
+      assertEquals(c.getFloat8("float8_vector"), float8Holder.value);
+
+      // test time values using vector name versus vector index
       assertEquals(c.getTimeSec("timeSec_vector"), c.getTimeSec(10));
       assertEquals(c.getTimeMilli("timeMilli_vector"), c.getTimeMilli(11));
       assertEquals(c.getTimeMicro("timeMicro_vector"), c.getTimeMicro(12));
