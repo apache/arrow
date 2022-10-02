@@ -53,6 +53,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
@@ -63,6 +64,7 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
+import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
@@ -198,6 +200,31 @@ class RowTest {
       c.getDuration("duration_vector", holder2);
       assertEquals(holder1.value + 100, holder2.value);
       // TODO: FIXME assertEquals(c.getDuration(0).memoryAddress(), c.getDuration("duration_vector").memoryAddress());
+    }
+  }
+
+  @Test
+  void getBit() {
+    List<FieldVector> vectors = new ArrayList<>();
+
+    BitVector bitVector = new BitVector("bit_vector", allocator);
+    NullableBitHolder holder1 = new NullableBitHolder();
+    NullableBitHolder holder2 = new NullableBitHolder();
+
+    vectors.add(bitVector);
+    bitVector.setSafe(0, 0);
+    bitVector.setSafe(1, 1);
+    bitVector.setValueCount(2);
+
+    int one = bitVector.get(1);
+    try (Table t = new Table(vectors)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertEquals(one, c.getBit("bit_vector"));
+      assertEquals(one, c.getBit(0));
+      c.getBit(0, holder1);
+      c.getBit("bit_vector", holder2);
+      assertEquals(holder1.value, holder2.value);
     }
   }
 
