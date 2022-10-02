@@ -233,7 +233,8 @@ TEST_F(TestBooleanRLE, TestBatchRead) {
               testing::ElementsAre(1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1));
 
   // Validate inserted data is as expected
-  ASSERT_THAT(values, testing::ElementsAre(1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0 ,0));
+  ASSERT_THAT(values,
+              testing::ElementsAre(1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0));
 
   // Loop through rest of the values and assert batch_size read
   for (int i = batch_size; i < nvalues; i = i + batch_size) {
