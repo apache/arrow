@@ -46,12 +46,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -61,6 +63,7 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
+import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -78,6 +81,9 @@ import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -137,7 +143,6 @@ class RowTest {
     }
   }
 
-
   @Test
   void getDecimal() {
     List<FieldVector> vectors = new ArrayList<>();
@@ -159,6 +164,39 @@ class RowTest {
       c.getDecimal("decimal_vector", holder2);
       assertEquals(holder1.buffer, holder2.buffer);
       assertEquals(c.getDecimal(0).memoryAddress(), c.getDecimal("decimal_vector").memoryAddress());
+    }
+  }
+
+  @Test
+  void getDuration() {
+    List<FieldVector> vectors = new ArrayList<>();
+    TimeUnit unit = TimeUnit.SECOND;
+    final FieldType fieldType = FieldType.nullable(new ArrowType.Duration(unit));
+
+    DurationVector durationVector = new DurationVector("duration_vector", fieldType, allocator);
+    NullableDurationHolder holder1 = new NullableDurationHolder();
+    NullableDurationHolder holder2 = new NullableDurationHolder();
+
+    holder1.value = 100;
+    holder1.unit = TimeUnit.SECOND;
+    holder2.value = 200;
+    holder2.unit = TimeUnit.SECOND;
+
+    vectors.add(durationVector);
+    durationVector.setSafe(0, holder1);
+    durationVector.setSafe(1, holder2);
+    durationVector.setValueCount(2);
+
+    Duration one = durationVector.getObject(1);
+    try (Table t = new Table(vectors)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertEquals(one, c.getDurationObj("duration_vector"));
+      assertEquals(one, c.getDurationObj(0));
+      c.getDuration(0, holder1);
+      c.getDuration("duration_vector", holder2);
+      assertEquals(holder1.value + 100, holder2.value);
+      // TODO: FIXME assertEquals(c.getDuration(0).memoryAddress(), c.getDuration("duration_vector").memoryAddress());
     }
   }
 
