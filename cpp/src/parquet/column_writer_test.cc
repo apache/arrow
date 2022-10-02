@@ -400,8 +400,9 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
 
 TYPED_TEST_SUITE(TestPrimitiveWriter, TestTypes);
 
-using TestValuesWriterInt32Type = TestPrimitiveWriter<Int32Type>;
-using TestValuesWriterInt64Type = TestPrimitiveWriter<Int64Type>;
+using TestInt32TypeValuesWriter = TestPrimitiveWriter<Int32Type>;
+using TestInt64TypeValuesWriter = TestPrimitiveWriter<Int64Type>;
+using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
@@ -421,19 +422,19 @@ TYPED_TEST(TestPrimitiveWriter, RequiredBitPacked) {
 }
 */
 
-TEST_F(TestValuesWriterInt32Type, RequiredDeltaBinaryPacked) {
+TEST_F(TestInt32TypeValuesWriter, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
 }
 
-TEST_F(TestValuesWriterInt64Type, RequiredDeltaBinaryPacked) {
+TEST_F(TestInt64TypeValuesWriter, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
 }
 
-/*
-TYPED_TEST(TestPrimitiveWriter, RequiredDeltaLengthByteArray) {
+TEST_F(TestByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
+/*
 TYPED_TEST(TestPrimitiveWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
@@ -654,7 +655,7 @@ TEST(TestWriter, NullValuesBuffer) {
 
 // PARQUET-719
 // Test case for NULL values
-TEST_F(TestValuesWriterInt32Type, OptionalNullValueChunk) {
+TEST_F(TestInt32TypeValuesWriter, OptionalNullValueChunk) {
   this->SetUpSchema(Repetition::OPTIONAL);
 
   this->GenerateData(LARGE_SIZE);
@@ -692,7 +693,6 @@ TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
 
 // PARQUET-979
 // Prevent writing large MIN, MAX stats
-using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 TEST_F(TestByteArrayValuesWriter, OmitStats) {
   int min_len = 1024 * 4;
   int max_len = 1024 * 8;
