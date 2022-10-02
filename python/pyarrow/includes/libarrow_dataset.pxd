@@ -122,6 +122,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus UseThreads(c_bool use_threads)
         CStatus Pool(CMemoryPool* pool)
         CStatus BatchSize(int64_t batch_size)
+        CStatus BatchReadahead(int32_t batch_readahead)
+        CStatus FragmentReadahead(int32_t fragment_readahead)
         CStatus FragmentScanOptions(
             shared_ptr[CFragmentScanOptions] fragment_scan_options)
         CResult[shared_ptr[CScanner]] Finish()
@@ -277,6 +279,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::CsvFragmentScanOptions"(CFragmentScanOptions):
         CCSVConvertOptions convert_options
         CCSVReadOptions read_options
+        function[StreamWrapFunc] stream_transform_func
 
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const

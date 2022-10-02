@@ -26,11 +26,12 @@ URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://issues.apache.org/jira/projects/ARROW/issues
 Encoding: UTF-8
 Language: en-US
-SystemRequirements: C++11; for AWS S3 support on Linux, libcurl and openssl (optional)
+SystemRequirements: C++17; for AWS S3 support on Linux, libcurl and openssl (optional)
 Biarch: true
 Imports:
     assertthat,
     bit64 (>= 0.9-7),
+    glue,
     methods,
     purrr,
     R6,
@@ -40,7 +41,7 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.2.0
+RoxygenNote: 7.2.1
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
@@ -91,6 +92,7 @@ Collate:
     'dataset-scan.R'
     'dataset-write.R'
     'dictionary.R'
+    'dplyr-across.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'
     'dplyr-count.R'
@@ -101,6 +103,7 @@ Collate:
     'dplyr-funcs-augmented.R'
     'dplyr-funcs-conditional.R'
     'dplyr-funcs-datetime.R'
+    'dplyr-funcs-doc.R'
     'dplyr-funcs-math.R'
     'dplyr-funcs-string.R'
     'dplyr-funcs-type.R'

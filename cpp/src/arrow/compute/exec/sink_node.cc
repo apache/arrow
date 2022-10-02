@@ -17,6 +17,7 @@
 // under the License.
 
 #include <mutex>
+#include <optional>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
@@ -34,7 +35,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
@@ -89,7 +89,7 @@ class BackpressureReservoir : public BackpressureMonitor {
 class SinkNode : public ExecNode {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-           AsyncGenerator<util::optional<ExecBatch>>* generator,
+           AsyncGenerator<std::optional<ExecBatch>>* generator,
            BackpressureOptions backpressure,
            BackpressureMonitor** backpressure_monitor_out)
       : ExecNode(plan, std::move(inputs), {"collected"}, {},
@@ -102,12 +102,12 @@ class SinkNode : public ExecNode {
       *backpressure_monitor_out = &backpressure_queue_;
     }
     auto node_destroyed_capture = node_destroyed_;
-    *generator = [this, node_destroyed_capture]() -> Future<util::optional<ExecBatch>> {
+    *generator = [this, node_destroyed_capture]() -> Future<std::optional<ExecBatch>> {
       if (*node_destroyed_capture) {
         return Status::Invalid(
             "Attempt to consume data after the plan has been destroyed");
       }
-      return push_gen_().Then([this](const util::optional<ExecBatch>& batch) {
+      return push_gen_().Then([this](const std::optional<ExecBatch>& batch) {
         if (batch) {
           RecordBackpressureBytesFreed(*batch);
         }
@@ -247,8 +247,8 @@ class SinkNode : public ExecNode {
 
   // Needs to be a shared_ptr as the push generator can technically outlive the node
   BackpressureReservoir backpressure_queue_;
-  PushGenerator<util::optional<ExecBatch>> push_gen_;
-  PushGenerator<util::optional<ExecBatch>>::Producer producer_;
+  PushGenerator<std::optional<ExecBatch>> push_gen_;
+  PushGenerator<std::optional<ExecBatch>>::Producer producer_;
   std::shared_ptr<bool> node_destroyed_;
 };
 
@@ -404,7 +404,7 @@ static Result<ExecNode*> MakeTableConsumingSinkNode(
 struct OrderBySinkNode final : public SinkNode {
   OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                   std::unique_ptr<OrderByImpl> impl,
-                  AsyncGenerator<util::optional<ExecBatch>>* generator)
+                  AsyncGenerator<std::optional<ExecBatch>>* generator)
       : SinkNode(plan, std::move(inputs), generator, /*backpressure=*/{},
                  /*backpressure_monitor_out=*/nullptr),
         impl_(std::move(impl)) {}

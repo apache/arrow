@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/kernels"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/ipc"
 	"github.com/apache/arrow/go/v10/arrow/memory"
@@ -476,18 +477,12 @@ type StrptimeOptions struct {
 
 func (StrptimeOptions) TypeName() string { return "StrptimeOptions" }
 
-type NullSelectionBehavior int8
+type NullSelectionBehavior = kernels.NullSelectionBehavior
 
 const (
-	DropNulls NullSelectionBehavior = iota
-	EmitNulls
+	SelectionEmitNulls = kernels.EmitNulls
+	SelectionDropNulls = kernels.DropNulls
 )
-
-type FilterOptions struct {
-	NullSelection NullSelectionBehavior `compute:"null_selection_behavior"`
-}
-
-func (FilterOptions) TypeName() string { return "FilterOptions" }
 
 type ArithmeticOptions struct {
 	CheckOverflow bool `compute:"check_overflow"`
@@ -495,17 +490,15 @@ type ArithmeticOptions struct {
 
 func (ArithmeticOptions) TypeName() string { return "ArithmeticOptions" }
 
-type CastOptions struct {
-	ToType               arrow.DataType `compute:"to_type"`
-	AllowIntOverflow     bool           `compute:"allow_int_overflow"`
-	AllowTimeTruncate    bool           `compute:"allow_time_truncate"`
-	AllowTimeOverflow    bool           `compute:"allow_time_overflow"`
-	AllowDecimalTruncate bool           `compute:"allow_decimal_truncate"`
-	AllowFloatTruncate   bool           `compute:"allow_float_truncate"`
-	AllowInvalidUtf8     bool           `compute:"allow_invalid_utf8"`
-}
+type (
+	CastOptions   = kernels.CastOptions
+	FilterOptions = kernels.FilterOptions
+	TakeOptions   = kernels.TakeOptions
+)
 
-func (CastOptions) TypeName() string { return "CastOptions" }
+func DefaultFilterOptions() *FilterOptions { return &FilterOptions{} }
+
+func DefaultTakeOptions() *TakeOptions { return &TakeOptions{BoundsCheck: true} }
 
 func DefaultCastOptions(safe bool) *CastOptions {
 	if safe {
@@ -519,6 +512,14 @@ func DefaultCastOptions(safe bool) *CastOptions {
 		AllowFloatTruncate:   true,
 		AllowInvalidUtf8:     true,
 	}
+}
+
+func UnsafeCastOptions(dt arrow.DataType) *CastOptions {
+	return NewCastOptions(dt, false)
+}
+
+func SafeCastOptions(dt arrow.DataType) *CastOptions {
+	return NewCastOptions(dt, true)
 }
 
 func NewCastOptions(dt arrow.DataType, safe bool) *CastOptions {

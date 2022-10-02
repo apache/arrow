@@ -193,10 +193,18 @@ cdef class SignalStopHandler:
             _break_traceback_cycle_from_frame(sys._getframe(0))
 
         self._stop_token = StopToken()
+
         if not self._signals.empty():
-            self._stop_token.init(GetResultValue(
-                SetSignalStopSource()).token())
-            self._enabled = True
+            maybe_source = SetSignalStopSource()
+            if not maybe_source.ok():
+                # See ARROW-11841 / ARROW-17173: in complex interaction
+                # scenarios (such as R calling into Python), SetSignalStopSource()
+                # may have already activated a signal-receiving StopSource.
+                # Just warn instead of erroring out.
+                maybe_source.status().Warn()
+            else:
+                self._stop_token.init(deref(maybe_source).token())
+                self._enabled = True
 
     def _init_signals(self):
         if (signal_handlers_enabled and

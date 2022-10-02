@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
@@ -28,11 +29,13 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.function.Function;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.junit.After;
 import org.junit.Before;
@@ -58,6 +61,7 @@ public abstract class AbstractJdbcToArrowTest {
   protected static final String DOUBLE = "DOUBLE_FIELD7";
   protected static final String INT = "INT_FIELD1";
   protected static final String LIST = "LIST_FIELD19";
+  protected static final String MAP = "MAP_FIELD20";
   protected static final String REAL = "REAL_FIELD8";
   protected static final String SMALLINT = "SMALLINT_FIELD4";
   protected static final String TIME = "TIME_FIELD9";
@@ -155,8 +159,10 @@ public abstract class AbstractJdbcToArrowTest {
    * Abstract method to implement logic to assert test various datatype values.
    *
    * @param root VectorSchemaRoot for test
+   * @param isIncludeMapVector is this dataset checks includes map column.
+   *          Jdbc type to 'map' mapping declared in configuration only manually
    */
-  public abstract void testDataSets(VectorSchemaRoot root);
+  public abstract void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector);
 
   /**
    * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
@@ -340,6 +346,36 @@ public abstract class AbstractJdbcToArrowTest {
     }
     JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root, config);
     return root;
+  }
+
+  /**
+   * Register MAP_FIELD20 as ArrowType.Map
+   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
+   * @param rsmd ResultSetMetaData to lookup column name from result set metadata
+   * @return typeConverter instance with mapping column to Map type
+   */
+  protected Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter(
+          Calendar calendar, ResultSetMetaData rsmd) {
+    return (jdbcFieldInfo) -> {
+      String columnLabel = null;
+      try {
+        int columnIndex = jdbcFieldInfo.getColumn();
+        if (columnIndex != 0) {
+          columnLabel = rsmd.getColumnLabel(columnIndex);
+        }
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
+      }
+      if (MAP.equals(columnLabel)) {
+        return new ArrowType.Map(false);
+      } else {
+        return JdbcToArrowUtils.getArrowTypeFromJdbcType(jdbcFieldInfo, calendar);
+      }
+    };
+  }
+
+  protected ResultSetMetaData getQueryMetaData(String query) throws SQLException {
+    return conn.createStatement().executeQuery(query).getMetaData();
   }
 
 }

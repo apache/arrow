@@ -34,6 +34,7 @@ type testDataType struct {
 func (d *testDataType) ID() arrow.Type            { return d.id }
 func (d *testDataType) Name() string              { panic("implement me") }
 func (d *testDataType) BitWidth() int             { return 8 }
+func (d *testDataType) Bytes() int                { return 1 }
 func (d *testDataType) Fingerprint() string       { return "" }
 func (testDataType) Layout() arrow.DataTypeLayout { return arrow.DataTypeLayout{} }
 func (testDataType) String() string               { return "" }

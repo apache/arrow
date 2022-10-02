@@ -112,7 +112,7 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
   /// \param[in] compression If nullopt, guess the compression scheme from the
   ///     filename, else decompress with the given codec
   Result<std::shared_ptr<io::InputStream>> OpenCompressed(
-      util::optional<Compression::type> compression = util::nullopt) const;
+      std::optional<Compression::type> compression = std::nullopt) const;
 
   /// \brief equality comparison with another FileSource
   bool Equals(const FileSource& other) const;
@@ -154,7 +154,7 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const = 0;
 
-  virtual Future<util::optional<int64_t>> CountRows(
+  virtual Future<std::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options);
 
@@ -187,7 +187,7 @@ class ARROW_DS_EXPORT FileFragment : public Fragment,
  public:
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
-  Future<util::optional<int64_t>> CountRows(
+  Future<std::optional<int64_t>> CountRows(
       compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 
@@ -344,7 +344,7 @@ class ARROW_DS_EXPORT FileWriter {
   std::shared_ptr<FileWriteOptions> options_;
   std::shared_ptr<io::OutputStream> destination_;
   fs::FileLocator destination_locator_;
-  util::optional<int64_t> bytes_written_;
+  std::optional<int64_t> bytes_written_;
 };
 
 /// \brief Options for writing a dataset.

@@ -354,8 +354,8 @@ using TestPromoteTableToSchema = TestTable;
 
 TEST_F(TestPromoteTableToSchema, IdenticalSchema) {
   const int length = 10;
-  auto metadata =
-      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto metadata = std::make_shared<KeyValueMetadata>(std::vector<std::string>{"foo"},
+                                                     std::vector<std::string>{"bar"});
   MakeExample1(length);
   std::shared_ptr<Table> table = Table::Make(schema_, arrays_);
 
@@ -385,8 +385,8 @@ TEST_F(TestPromoteTableToSchema, FieldsReorderedAfterPromotion) {
 
 TEST_F(TestPromoteTableToSchema, PromoteNullTypeField) {
   const int length = 10;
-  auto metadata =
-      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto metadata = std::make_shared<KeyValueMetadata>(std::vector<std::string>{"foo"},
+                                                     std::vector<std::string>{"bar"});
   auto table_with_null_column = MakeTableWithOneNullFilledColumn("field", null(), length)
                                     ->ReplaceSchemaMetadata(metadata);
   auto promoted_schema = schema({field("field", int32())});

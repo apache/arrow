@@ -28,11 +28,12 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/python_build.sh'
 
+permissions:
+  contents: read
+  
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
@@ -49,7 +50,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .docker
           key: conda-docs-${{ hashFiles('cpp/**') }}
@@ -61,4 +62,7 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run conda-python-docs

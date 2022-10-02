@@ -24,6 +24,7 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <string_view>
 #include <typeinfo>
 #include <utility>
 
@@ -38,7 +39,6 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -107,7 +107,7 @@ const IOContext& Readable::io_context() const { return g_default_io_context; }
 
 Status InputStream::Advance(int64_t nbytes) { return Read(nbytes).status(); }
 
-Result<util::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
+Result<std::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
   return Status::NotImplemented("Peek not implemented");
 }
 
@@ -178,7 +178,7 @@ Status RandomAccessFile::WillNeed(const std::vector<ReadRange>& ranges) {
   return Status::OK();
 }
 
-Status Writable::Write(util::string_view data) {
+Status Writable::Write(std::string_view data) {
   return Write(data.data(), static_cast<int64_t>(data.size()));
 }
 

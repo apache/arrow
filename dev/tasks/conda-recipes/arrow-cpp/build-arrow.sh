@@ -7,11 +7,14 @@ mkdir cpp/build
 pushd cpp/build
 
 EXTRA_CMAKE_ARGS=""
+ARROW_GCS="OFF"
 
-# Include g++'s system headers
 if [ "$(uname)" == "Linux" ]; then
+  # Include g++'s system headers
   SYSTEM_INCLUDES=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
   EXTRA_CMAKE_ARGS=" -DARROW_GANDIVA_PC_CXX_FLAGS=${SYSTEM_INCLUDES}"
+  # GCS doesn't produce any abseil-induced linker error on Linux, enable it
+  ARROW_GCS="ON"
 fi
 
 # Enable CUDA support
@@ -47,11 +50,9 @@ else
     EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=ON"
 fi
 
-if [[ "${target_platform}" == osx-* ]]; then
-   EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=14"
-else
-   EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=17"
-fi
+# See https://conda-forge.org/docs/maintainer/knowledge_base.html#newer-c-features-with-old-sdk
+CXXFLAGS="${CXXFLAGS} -D_LIBCPP_DISABLE_AVAILABILITY"
+ARROW_GANDIVA_PC_CXX_FLAGS="-D_LIBCPP_DISABLE_AVAILABILITY"
 
 cmake \
     -DARROW_BOOST_USE_SHARED=ON \
@@ -59,21 +60,24 @@ cmake \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_BUILD_UTILITIES=OFF \
-    -DBUILD_SHARED_LIBS=ON \
+    -DARROW_COMPUTE=ON \
+    -DARROW_CSV=ON \
+    -DARROW_CXXFLAGS="${CXXFLAGS}" \
     -DARROW_DATASET=ON \
     -DARROW_DEPENDENCY_SOURCE=SYSTEM \
+    -DARROW_FILESYSTEM=ON \
     -DARROW_FLIGHT=ON \
     -DARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=ON \
-    -DARROW_GCS=ON \
+    -DARROW_GANDIVA_PC_CXX_FLAGS="${ARROW_GANDIVA_PC_CXX_FLAGS}" \
+    -DARROW_GCS=${ARROW_GCS} \
     -DARROW_HDFS=ON \
     -DARROW_JEMALLOC=ON \
+    -DARROW_JSON=ON \
     -DARROW_MIMALLOC=ON \
     -DARROW_ORC=ON \
     -DARROW_PACKAGE_PREFIX=$PREFIX \
     -DARROW_PARQUET=ON \
-    -DPARQUET_REQUIRE_ENCRYPTION=ON \
     -DARROW_PLASMA=ON \
-    -DARROW_PYTHON=ON \
     -DARROW_S3=ON \
     -DARROW_SIMD_LEVEL=NONE \
     -DARROW_USE_LD_GOLD=ON \
@@ -83,12 +87,15 @@ cmake \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
+    -DBUILD_SHARED_LIBS=ON \
     -DCMAKE_BUILD_TYPE=release \
+    -DCMAKE_CXX_STANDARD=17 \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=$PREFIX \
     -DLLVM_TOOLS_BINARY_DIR=$PREFIX/bin \
-    -DPython3_EXECUTABLE=${PYTHON} \
+    -DPARQUET_REQUIRE_ENCRYPTION=ON \
     -DProtobuf_PROTOC_EXECUTABLE=$BUILD_PREFIX/bin/protoc \
+    -DPython3_EXECUTABLE=${PYTHON} \
     -GNinja \
     ${EXTRA_CMAKE_ARGS} \
     ..

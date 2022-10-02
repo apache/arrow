@@ -321,3 +321,7 @@ split_vector_as_list <- function(vec) {
   vec2 <- vec[seq(from = min(length(vec), vec_split + 1), to = length(vec), by = 1)]
   list(vec1, vec2)
 }
+
+expect_across_equal <- function(actual, expected, tbl) {
+  expect_identical(expand_across(tbl, actual), as.list(expected))
+}

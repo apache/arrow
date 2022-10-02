@@ -692,7 +692,7 @@ test_that("map_batches", {
 test_that("map_batches with explicit schema", {
   fun_with_dots <- function(batch, first_col, first_col_val) {
     record_batch(
-      !! first_col := first_col_val,
+      !!first_col := first_col_val,
       b = batch$a$cast(float64())
     )
   }
@@ -736,7 +736,7 @@ test_that("map_batches with explicit schema", {
 test_that("map_batches without explicit schema", {
   fun_with_dots <- function(batch, first_col, first_col_val) {
     record_batch(
-      !! first_col := first_col_val,
+      !!first_col := first_col_val,
       b = batch$a$cast(float64())
     )
   }

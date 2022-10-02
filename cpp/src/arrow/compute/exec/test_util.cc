@@ -25,6 +25,7 @@
 #include <iterator>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -46,7 +47,6 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
 
@@ -142,8 +142,7 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
   return node;
 }
 
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
-                            util::string_view json) {
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json) {
   auto fields = ::arrow::internal::MapVector(
       [](const TypeHolder& th) { return field("", th.GetSharedPtr()); }, types);
 
@@ -153,7 +152,7 @@ ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
 }
 
 ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
-                            const std::vector<ArgShape>& shapes, util::string_view json) {
+                            const std::vector<ArgShape>& shapes, std::string_view json) {
   DCHECK_EQ(types.size(), shapes.size());
 
   ExecBatch batch = ExecBatchFromJSON(types, json);
@@ -180,7 +179,7 @@ Future<> StartAndFinish(ExecPlan* plan) {
 }
 
 Future<std::vector<ExecBatch>> StartAndCollect(
-    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
+    ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());
   RETURN_NOT_OK(plan->StartProducing());
 
@@ -190,7 +189,7 @@ Future<std::vector<ExecBatch>> StartAndCollect(
       .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
         ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
         return ::arrow::internal::MapVector(
-            [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+            [](std::optional<ExecBatch> batch) { return std::move(*batch); },
             std::move(collected));
       });
 }
@@ -235,9 +234,9 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
   return out;
 }
 
-BatchesWithSchema MakeBatchesFromString(
-    const std::shared_ptr<Schema>& schema,
-    const std::vector<util::string_view>& json_strings, int multiplicity) {
+BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,
+                                        const std::vector<std::string_view>& json_strings,
+                                        int multiplicity) {
   BatchesWithSchema out_batches{{}, schema};
 
   std::vector<TypeHolder> types;
@@ -424,7 +423,7 @@ void PrintTo(const Declaration& decl, std::ostream* os) {
 
   *os << "{";
   for (const auto& input : decl.inputs) {
-    if (auto decl = util::get_if<Declaration>(&input)) {
+    if (auto decl = std::get_if<Declaration>(&input)) {
       PrintTo(*decl, os);
     }
   }

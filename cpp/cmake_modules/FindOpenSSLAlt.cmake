@@ -15,40 +15,41 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(ARROW_OPENSSL_USE_SHARED)
-  # Find shared OpenSSL libraries.
-  set(OpenSSL_USE_STATIC_LIBS OFF)
-  set(OPENSSL_USE_STATIC_LIBS OFF)
-  find_package(OpenSSL)
-else()
-  # Find static OpenSSL headers and libs
-  set(OpenSSL_USE_STATIC_LIBS ON)
-  set(OPENSSL_USE_STATIC_LIBS ON)
-  find_package(OpenSSL)
+if(OpenSSLAlt_FOUND)
+  return()
 endif()
 
-if(OPENSSL_FOUND)
-  message(STATUS "OpenSSL found with ${OPENSSL_VERSION} version")
-  if(OPENSSL_VERSION LESS "1.1.0")
-    message(SEND_ERROR "The OpenSSL must be greater than or equal to 1.1.0")
-  endif()
-else()
-  message(SEND_ERROR "Not found the OpenSSL library")
-endif()
-
-if(NOT GANDIVA_OPENSSL_LIBS)
-  if(WIN32)
-    if(CMAKE_VERSION VERSION_LESS 3.18)
-      set(GANDIVA_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
+if(APPLE AND NOT OPENSSL_ROOT_DIR)
+  find_program(BREW brew)
+  if(BREW)
+    execute_process(COMMAND ${BREW} --prefix "openssl@1.1"
+                    OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(OPENSSL11_BREW_PREFIX)
+      set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
     else()
-      set(GANDIVA_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL OpenSSL::applink)
+      execute_process(COMMAND ${BREW} --prefix "openssl"
+                      OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(OPENSSL_BREW_PREFIX)
+        set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+      endif()
     endif()
-  else()
-    set(GANDIVA_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
   endif()
 endif()
 
-if(NOT GANDIVA_OPENSSL_INCLUDE_DIR)
-  set(GANDIVA_OPENSSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIR})
-  message(STATUS "OpenSSL include dir: ${GANDIVA_OPENSSL_INCLUDE_DIR}")
+set(find_package_args)
+if(OpenSSLAlt_FIND_VERSION)
+  list(APPEND find_package_args ${OpenSSLAlt_FIND_VERSION})
 endif()
+if(OpenSSLAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+if(ARROW_OPENSSL_USE_SHARED)
+  set(OPENSSL_USE_STATIC_LIBS OFF)
+else()
+  set(OPENSSL_USE_STATIC_LIBS ON)
+endif()
+find_package(OpenSSL ${find_package_args})
+
+set(OpenSSLAlt_FOUND ${OPENSSL_FOUND})

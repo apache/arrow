@@ -351,7 +351,7 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
 class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>> {
   using PlanFactory = std::function<std::vector<cp::Declaration>(
       const FileSystemDatasetWriteOptions&,
-      std::function<Future<util::optional<cp::ExecBatch>>()>*)>;
+      std::function<Future<std::optional<cp::ExecBatch>>()>*)>;
 
  protected:
   bool IsParallel() { return std::get<0>(GetParam()); }
@@ -379,7 +379,7 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
                               "[[5, null], [6, false], [7, false]]")};
     source_data.schema = schema({field("i32", int32()), field("bool", boolean())});
 
-    AsyncGenerator<util::optional<cp::ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
     ASSERT_OK_AND_ASSIGN(auto plan, cp::ExecPlan::Make());
     auto source_decl = cp::Declaration::Sequence(
@@ -422,7 +422,7 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
 TEST_P(FileSystemWriteTest, Write) {
   auto plan_factory =
       [](const FileSystemDatasetWriteOptions& write_options,
-         std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen) {
+         std::function<Future<std::optional<cp::ExecBatch>>()>* sink_gen) {
         return std::vector<cp::Declaration>{{"write", WriteNodeOptions{write_options}}};
       };
   TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/false);
@@ -431,7 +431,7 @@ TEST_P(FileSystemWriteTest, Write) {
 TEST_P(FileSystemWriteTest, TeeWrite) {
   auto plan_factory =
       [](const FileSystemDatasetWriteOptions& write_options,
-         std::function<Future<util::optional<cp::ExecBatch>>()>* sink_gen) {
+         std::function<Future<std::optional<cp::ExecBatch>>()>* sink_gen) {
         return std::vector<cp::Declaration>{
             {"tee", WriteNodeOptions{write_options}},
             {"sink", cp::SinkNodeOptions{sink_gen}},

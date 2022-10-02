@@ -183,7 +183,7 @@ func (b *baseFunction) checkArity(nargs int) error {
 //
 // Currently only ScalarKernels are allowed to be used.
 type kernelType interface {
-	exec.ScalarKernel
+	exec.ScalarKernel | exec.VectorKernel
 
 	// specifying the Kernel interface here allows us to utilize
 	// the methods of the Kernel interface on the generic
@@ -305,4 +305,124 @@ func (s *ScalarFunction) AddKernel(k exec.ScalarKernel) error {
 // If opts is nil, then the DefaultOptions() will be used.
 func (s *ScalarFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 	return execInternal(ctx, s, opts, -1, args...)
+}
+
+type VectorFunction struct {
+	funcImpl[exec.VectorKernel]
+}
+
+func NewVectorFunction(name string, arity Arity, doc FunctionDoc) *VectorFunction {
+	return &VectorFunction{
+		funcImpl: funcImpl[exec.VectorKernel]{
+			baseFunction: baseFunction{
+				name:  name,
+				arity: arity,
+				doc:   doc,
+				kind:  FuncVector,
+			},
+		},
+	}
+}
+
+func (f *VectorFunction) SetDefaultOptions(opts FunctionOptions) {
+	f.defaultOpts = opts
+}
+
+func (f *VectorFunction) DispatchExact(vals ...arrow.DataType) (exec.Kernel, error) {
+	return f.funcImpl.DispatchExact(vals...)
+}
+
+func (f *VectorFunction) DispatchBest(vals ...arrow.DataType) (exec.Kernel, error) {
+	return f.DispatchExact(vals...)
+}
+
+func (f *VectorFunction) AddNewKernel(inTypes []exec.InputType, outType exec.OutputType, execFn exec.ArrayKernelExec, init exec.KernelInitFn) error {
+	if err := f.checkArity(len(inTypes)); err != nil {
+		return err
+	}
+
+	if f.arity.IsVarArgs && len(inTypes) != 1 {
+		return fmt.Errorf("%w: varags signatures must have exactly one input type", arrow.ErrInvalid)
+	}
+
+	sig := &exec.KernelSignature{
+		InputTypes: inTypes,
+		OutType:    outType,
+		IsVarArgs:  f.arity.IsVarArgs,
+	}
+	f.kernels = append(f.kernels, exec.NewVectorKernelWithSig(sig, execFn, init))
+	return nil
+}
+
+func (f *VectorFunction) AddKernel(kernel exec.VectorKernel) error {
+	if err := f.checkArity(len(kernel.Signature.InputTypes)); err != nil {
+		return err
+	}
+
+	if f.arity.IsVarArgs && !kernel.Signature.IsVarArgs {
+		return fmt.Errorf("%w: function accepts varargs but kernel signature does not", arrow.ErrInvalid)
+	}
+	f.kernels = append(f.kernels, kernel)
+	return nil
+}
+
+func (f *VectorFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	return execInternal(ctx, f, opts, -1, args...)
+}
+
+// MetaFunctionImpl is the signature needed for implementing a MetaFunction
+// which is a function that dispatches to another function instead.
+type MetaFunctionImpl func(context.Context, FunctionOptions, ...Datum) (Datum, error)
+
+// MetaFunction is a function which dispatches to other functions, the impl
+// must not be nil.
+//
+// For Array, ChunkedArray and Scalar datums, this may rely on the execution
+// of concrete function types, but this must handle other Datum kinds on its
+// own.
+type MetaFunction struct {
+	baseFunction
+	impl MetaFunctionImpl
+}
+
+// NewMetaFunction constructs a new MetaFunction which will call the provided
+// impl for dispatching with the expected arity.
+//
+// Will panic if impl is nil.
+func NewMetaFunction(name string, arity Arity, doc FunctionDoc, impl MetaFunctionImpl) *MetaFunction {
+	if impl == nil {
+		panic("arrow/compute: cannot construct MetaFunction with nil impl")
+	}
+	return &MetaFunction{
+		baseFunction: baseFunction{
+			name:  name,
+			arity: arity,
+			doc:   doc,
+		},
+		impl: impl,
+	}
+}
+
+func (MetaFunction) NumKernels() int { return 0 }
+func (m *MetaFunction) DispatchExact(...arrow.DataType) (exec.Kernel, error) {
+	return nil, fmt.Errorf("%w: dispatch for metafunction", arrow.ErrNotImplemented)
+}
+
+func (m *MetaFunction) DispatchBest(...arrow.DataType) (exec.Kernel, error) {
+	return nil, fmt.Errorf("%w: dispatch for metafunction", arrow.ErrNotImplemented)
+}
+
+func (m *MetaFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	if err := m.checkArity(len(args)); err != nil {
+		return nil, err
+	}
+	if err := checkOptions(m, opts); err != nil {
+		return nil, err
+	}
+
+	if opts == nil {
+		opts = m.defaultOpts
+	}
+
+	return m.impl(ctx, opts, args...)
 }

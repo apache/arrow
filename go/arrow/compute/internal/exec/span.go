@@ -18,6 +18,7 @@ package exec
 
 import (
 	"reflect"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
@@ -85,16 +86,22 @@ type ArraySpan struct {
 	Children []ArraySpan
 }
 
+func (a *ArraySpan) MayHaveNulls() bool {
+	return atomic.LoadInt64(&a.Nulls) != 0 && a.Buffers[0].Buf != nil
+}
+
 // UpdateNullCount will count the bits in the null bitmap and update the
 // number of nulls if the current null count is unknown, otherwise it just
 // returns the value of a.Nulls
 func (a *ArraySpan) UpdateNullCount() int64 {
-	if a.Nulls != array.UnknownNullCount {
-		return a.Nulls
+	curNulls := atomic.LoadInt64(&a.Nulls)
+	if curNulls != array.UnknownNullCount {
+		return curNulls
 	}
 
-	a.Nulls = a.Len - int64(bitutil.CountSetBits(a.Buffers[0].Buf, int(a.Offset), int(a.Len)))
-	return a.Nulls
+	newNulls := a.Len - int64(bitutil.CountSetBits(a.Buffers[0].Buf, int(a.Offset), int(a.Len)))
+	atomic.StoreInt64(&a.Nulls, newNulls)
+	return newNulls
 }
 
 // Dictionary returns a pointer to the array span for the dictionary which
@@ -126,7 +133,7 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 	}
 
 	var (
-		nulls    = int(a.Nulls)
+		nulls    = int(atomic.LoadInt64(&a.Nulls))
 		length   = int(a.Len)
 		off      = int(a.Offset)
 		dt       = a.Type
@@ -134,7 +141,7 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 	)
 
 	if a.Type.ID() == arrow.NULL {
-		nulls = int(length)
+		nulls = length
 	} else if len(a.Buffers[0].Buf) == 0 {
 		nulls = 0
 	}
@@ -153,6 +160,9 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 		defer dict.Release()
 		result.SetDictionary(dict)
 		return result
+	} else if dt.ID() == arrow.DENSE_UNION || dt.ID() == arrow.SPARSE_UNION {
+		bufs[0] = nil
+		nulls = 0
 	}
 
 	if len(a.Children) > 0 {
@@ -178,7 +188,9 @@ func (a *ArraySpan) MakeArray() arrow.Array {
 func (a *ArraySpan) SetSlice(off, length int64) {
 	a.Offset, a.Len = off, length
 	if a.Type.ID() != arrow.NULL {
-		a.Nulls = array.UnknownNullCount
+		if a.Nulls != 0 {
+			a.Nulls = array.UnknownNullCount
+		}
 	} else {
 		a.Nulls = a.Len
 	}
@@ -300,6 +312,12 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 		a.Buffers[2].Buf = dataBuffer
 	case typeID == arrow.FIXED_SIZE_BINARY:
 		sc := val.(scalar.BinaryScalar)
+		if !sc.IsValid() {
+			a.Buffers[1].Buf = make([]byte, sc.DataType().(*arrow.FixedSizeBinaryType).ByteWidth)
+			a.Buffers[1].Owner = nil
+			a.Buffers[1].SelfAlloc = false
+			break
+		}
 		a.Buffers[1].Buf = sc.Data()
 		a.Buffers[1].Owner = sc.Buffer()
 		a.Buffers[1].SelfAlloc = false
@@ -388,6 +406,66 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 			a.Buffers[i].Buf = nil
 			a.Buffers[i].Owner = nil
 			a.Buffers[i].SelfAlloc = false
+		}
+	}
+}
+
+// TakeOwnership is like SetMembers only this takes ownership of
+// the buffers by calling Retain on them so that the passed in
+// ArrayData can be released without negatively affecting this
+// ArraySpan
+func (a *ArraySpan) TakeOwnership(data arrow.ArrayData) {
+	a.Type = data.DataType()
+	a.Len = int64(data.Len())
+	if a.Type.ID() == arrow.NULL {
+		a.Nulls = a.Len
+	} else {
+		a.Nulls = int64(data.NullN())
+	}
+	a.Offset = int64(data.Offset())
+
+	for i, b := range data.Buffers() {
+		if b != nil {
+			a.Buffers[i].WrapBuffer(b)
+			b.Retain()
+		} else {
+			a.Buffers[i].Buf = nil
+			a.Buffers[i].Owner = nil
+			a.Buffers[i].SelfAlloc = false
+		}
+	}
+
+	typeID := a.Type.ID()
+	if a.Buffers[0].Buf == nil {
+		switch typeID {
+		case arrow.NULL, arrow.SPARSE_UNION, arrow.DENSE_UNION:
+		default:
+			// should already be zero, but we make sure
+			a.Nulls = 0
+		}
+	}
+
+	for i := len(data.Buffers()); i < 3; i++ {
+		a.Buffers[i].Buf = nil
+		a.Buffers[i].Owner = nil
+		a.Buffers[i].SelfAlloc = false
+	}
+
+	if typeID == arrow.DICTIONARY {
+		if cap(a.Children) >= 1 {
+			a.Children = a.Children[:1]
+		} else {
+			a.Children = make([]ArraySpan, 1)
+		}
+		a.Children[0].TakeOwnership(data.Dictionary())
+	} else {
+		if cap(a.Children) >= len(data.Children()) {
+			a.Children = a.Children[:len(data.Children())]
+		} else {
+			a.Children = make([]ArraySpan, len(data.Children()))
+		}
+		for i, c := range data.Children() {
+			a.Children[i].TakeOwnership(c)
 		}
 	}
 }

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <numeric>
 #include <string>
 #include <type_traits>
@@ -52,7 +53,6 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"

@@ -34,9 +34,6 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
-#include "arrow/util/string_view.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 
@@ -83,7 +80,7 @@ class UuidType : public ExtensionType {
 };
 
 std::shared_ptr<Array> SliceArrayFromJSON(const std::shared_ptr<DataType>& ty,
-                                          util::string_view json, int64_t offset = 0,
+                                          std::string_view json, int64_t offset = 0,
                                           int64_t length = -1) {
   auto array = *ArrayFromJSON(ty, json);
   if (length != -1) {
@@ -122,24 +119,10 @@ void TestSession() {
   auto error_result = Result<int>(error_status);
   auto error_detail_result = Result<int>(error_detail_status);
 
-  // Optionals
-  util::optional<int> int_optional{42};
-  util::optional<int> null_int_optional{};
-
-  // Variants
-  using VariantType = util::Variant<int, bool, std::string>;
-
-  VariantType int_variant{42};
-  VariantType bool_variant{false};
-  VariantType string_variant{std::string("hello")};
-
   // String views
-  util::string_view string_view_empty{};
-  util::string_view string_view_abc{"abc"};
+  std::string_view string_view_abc{"abc"};
   std::string special_chars = std::string("foo\"bar") + '\x00' + "\r\n\t\x1f";
-  util::string_view string_view_special_chars(special_chars);
-  std::string very_long = "abc" + std::string(5000, 'K') + "xyz";
-  util::string_view string_view_very_long(very_long);
+  std::string_view string_view_special_chars(special_chars);
 
   // Buffers
   Buffer buffer_null{nullptr, 0};

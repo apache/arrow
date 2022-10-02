@@ -19,7 +19,7 @@
 
 # Apache Arrow Ruby
 
-There are the official Ruby bindings for Apache Arrow.
+Here are the official Ruby bindings for Apache Arrow.
 
 [Red Arrow](https://github.com/apache/arrow/tree/master/ruby/red-arrow) is the base Apache Arrow bindings.
 
@@ -29,7 +29,7 @@ There are the official Ruby bindings for Apache Arrow.
 
 [Red Gandiva](https://github.com/apache/arrow/tree/master/ruby/red-gandiva) is the Gandiva bindings.
 
-[Red Plasma](https://github.com/apache/arrow/tree/master/ruby/red-plasma) is the Plasma bindings.
+[Red Plasma](https://github.com/apache/arrow/tree/master/ruby/red-plasma) is the Plasma bindings. (This is deprecated since 10.0.0. This will be removed from 12.0.0 or so.)
 
 [Red Parquet](https://github.com/apache/arrow/tree/master/ruby/red-parquet) is the Parquet bindings.
 
@@ -65,12 +65,12 @@ Suppose you have your data available via HTTP. Let's connect to demo ClickHouse 
 require 'net/http'
 
 params = {
-  query: "SELECT WatchID as watch FROM hits_v1 LIMIT 10 FORMAT Arrow",
-  user: "playground",
-  password: "clickhouse",
-  database: "datasets"
+  query: "SELECT WatchID as watch FROM hits LIMIT 10 FORMAT Arrow",
+  user: "play",
+  password: "",
+  database: "default"
 }
-uri = URI('https://play-api.clickhouse.com:8443')
+uri = URI('https://play.clickhouse.com:443/')
 uri.query = URI.encode_www_form(params)
 resp = Net::HTTP.get(uri)
 table = Arrow::Table.load(Arrow::Buffer.new(resp))

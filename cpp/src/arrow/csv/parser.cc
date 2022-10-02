@@ -212,7 +212,7 @@ class BlockParserImpl {
         batch_.num_rows_ + batch_.num_skipped_rows();
     InvalidRow row{batch_.num_cols_, num_cols,
                    first_row_ < 0 ? -1 : first_row_ + batch_row_including_skipped,
-                   util::string_view(start, end - start)};
+                   std::string_view(start, end - start)};
 
     if (options_.invalid_row_handler &&
         options_.invalid_row_handler(row) == InvalidRowResult::Skip) {
@@ -508,7 +508,7 @@ class BlockParserImpl {
   }
 
   template <typename SpecializedOptions>
-  Status ParseSpecialized(const std::vector<util::string_view>& views, bool is_final,
+  Status ParseSpecialized(const std::vector<std::string_view>& views, bool is_final,
                           uint32_t* out_size) {
     internal::PreferredBulkFilterType<SpecializedOptions> bulk_filter(options_);
 
@@ -604,7 +604,7 @@ class BlockParserImpl {
     return Status::OK();
   }
 
-  Status Parse(const std::vector<util::string_view>& data, bool is_final,
+  Status Parse(const std::vector<std::string_view>& data, bool is_final,
                uint32_t* out_size) {
     if (options_.quoting) {
       if (options_.escaping) {
@@ -651,21 +651,20 @@ BlockParser::BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_col
 
 BlockParser::~BlockParser() {}
 
-Status BlockParser::Parse(const std::vector<util::string_view>& data,
-                          uint32_t* out_size) {
+Status BlockParser::Parse(const std::vector<std::string_view>& data, uint32_t* out_size) {
   return impl_->Parse(data, false /* is_final */, out_size);
 }
 
-Status BlockParser::ParseFinal(const std::vector<util::string_view>& data,
+Status BlockParser::ParseFinal(const std::vector<std::string_view>& data,
                                uint32_t* out_size) {
   return impl_->Parse(data, true /* is_final */, out_size);
 }
 
-Status BlockParser::Parse(util::string_view data, uint32_t* out_size) {
+Status BlockParser::Parse(std::string_view data, uint32_t* out_size) {
   return impl_->Parse({data}, false /* is_final */, out_size);
 }
 
-Status BlockParser::ParseFinal(util::string_view data, uint32_t* out_size) {
+Status BlockParser::ParseFinal(std::string_view data, uint32_t* out_size) {
   return impl_->Parse({data}, true /* is_final */, out_size);
 }
 

@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/ipc/options.h"
@@ -32,7 +33,6 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/cancel.h"
-#include "arrow/util/variant.h"
 
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"  // IWYU pragma: keep
@@ -118,7 +118,7 @@ struct ARROW_FLIGHT_EXPORT FlightClientOptions {
 
   /// \brief Generic connection options, passed to the underlying
   ///     transport; interpretation is implementation-dependent.
-  std::vector<std::pair<std::string, util::Variant<int, std::string>>> generic_options;
+  std::vector<std::pair<std::string, std::variant<int, std::string>>> generic_options;
 
   /// \brief Use TLS without validating the server certificate. Use with caution.
   bool disable_server_verification = false;

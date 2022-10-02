@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "arrow/status.h"
 #include "arrow/util/config.h"  // IWYU pragma: export
-#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -70,7 +70,7 @@ struct RuntimeInfo {
   bool using_os_timezone_db;
 
   /// The path to the timezone database; by default None.
-  util::optional<std::string> timezone_db_path;
+  std::optional<std::string> timezone_db_path;
 };
 
 /// \brief Get runtime build info.
@@ -89,7 +89,7 @@ RuntimeInfo GetRuntimeInfo();
 struct GlobalOptions {
   /// Path to text timezone database. This is only configurable on Windows,
   /// which does not have a compatible OS timezone database.
-  util::optional<std::string> timezone_db_path;
+  std::optional<std::string> timezone_db_path;
 };
 
 ARROW_EXPORT

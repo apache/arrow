@@ -46,6 +46,8 @@ repository_version="${distribution_version}"
 
 cmake_package=cmake
 cmake_command=cmake
+devtoolset=
+scl_package=
 have_arrow_libs=no
 have_flight=yes
 have_gandiva=yes
@@ -93,6 +95,8 @@ case "${distribution}-${distribution_version}" in
     distribution_prefix="centos"
     cmake_package=cmake3
     cmake_command=cmake3
+    devtoolset=11
+    scl_package=centos-release-scl-rh
     have_arrow_libs=yes
     have_flight=no
     have_gandiva=no
@@ -192,20 +196,31 @@ echo "::endgroup::"
 
 echo "::group::Test Apache Arrow C++"
 ${install_command} --enablerepo=epel arrow-devel-${package_version}
+if [ -n "${devtoolset}" ]; then
+  ${install_command} ${scl_package}
+fi
 ${install_command} \
   ${cmake_package} \
-  gcc-c++ \
   git \
   libarchive \
-  make \
   pkg-config
+if [ -n "${devtoolset}" ]; then
+  ${install_command} \
+    devtoolset-${devtoolset}-gcc-c++ \
+    devtoolset-${devtoolset}-make
+  . /opt/rh/devtoolset-${devtoolset}/enable
+else
+  ${install_command} \
+    gcc-c++ \
+    make
+fi
 mkdir -p build
 cp -a /arrow/cpp/examples/minimal_build build/
 pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
 ./arrow-example
-c++ -std=c++11 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+c++ -std=c++17 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
 ./arrow-example
 popd
 echo "::endgroup::"

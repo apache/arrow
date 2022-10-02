@@ -37,4 +37,58 @@
     </dependency>
   </dependencies>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+
+        <configuration>
+          <excludes>
+            <!-- Test is only useful when NOT running with add-opens -->
+            <exclude>**/TestOpens.java</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>opens-tests</id>
+      <!-- Run tests WITHOUT add-opens to make sure we fail-fast -->
+      <activation>
+        <jdk>[16,]</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+
+            <executions>
+              <execution>
+                <id>opens-tests</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>test</goal>
+                </goals>
+                <configuration>
+                  <!-- Dummy value to stop inheriting the default add-opens flag -->
+                  <argLine>-Dfoo=bar</argLine>
+                  <excludes>
+                    <!-- Need something (anything) here to make Maven not inherit the value above -->
+                    <exclude>**/TestArrowBuf.java</exclude>
+                  </excludes>
+                  <includes>
+                    <include>**/TestOpens.java</include>
+                  </includes>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

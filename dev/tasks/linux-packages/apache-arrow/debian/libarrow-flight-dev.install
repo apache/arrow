@@ -1,6 +1,4 @@
-usr/lib/*/cmake/arrow/ArrowFlightConfig*.cmake
-usr/lib/*/cmake/arrow/ArrowFlightTargets*.cmake
-usr/lib/*/cmake/arrow/FindArrowFlight.cmake
+usr/lib/*/cmake/ArrowFlight/
 usr/lib/*/libarrow_flight.a
 usr/lib/*/libarrow_flight.so
 usr/lib/*/pkgconfig/arrow-flight.pc

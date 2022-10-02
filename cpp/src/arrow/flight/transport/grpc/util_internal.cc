@@ -55,25 +55,25 @@ static bool FromGrpcContext(const ::grpc::ClientContext& ctx,
   if (code_val == trailers.end()) return false;
 
   const auto message_val = trailers.find(kGrpcStatusMessageHeader);
-  const util::optional<std::string> message =
+  const std::optional<std::string> message =
       message_val == trailers.end()
-          ? util::nullopt
-          : util::optional<std::string>(
+          ? std::nullopt
+          : std::optional<std::string>(
                 std::string(message_val->second.data(), message_val->second.size()));
 
   const auto detail_val = trailers.find(kGrpcStatusDetailHeader);
-  const util::optional<std::string> detail_message =
+  const std::optional<std::string> detail_message =
       detail_val == trailers.end()
-          ? util::nullopt
-          : util::optional<std::string>(
+          ? std::nullopt
+          : std::optional<std::string>(
                 std::string(detail_val->second.data(), detail_val->second.size()));
 
   const auto grpc_detail_val = trailers.find(kBinaryErrorDetailsKey);
-  const util::optional<std::string> detail_bin =
+  const std::optional<std::string> detail_bin =
       grpc_detail_val == trailers.end()
-          ? util::nullopt
-          : util::optional<std::string>(std::string(grpc_detail_val->second.data(),
-                                                    grpc_detail_val->second.size()));
+          ? std::nullopt
+          : std::optional<std::string>(std::string(grpc_detail_val->second.data(),
+                                                   grpc_detail_val->second.size()));
 
   std::string code_str(code_val->second.data(), code_val->second.size());
   *status = internal::ReconstructStatus(code_str, current_status, std::move(message),

@@ -79,17 +79,13 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
 #ifdef ARROW_WITH_OPENTELEMETRY
   // Wrap the task to propagate a parent tracing span to it
-  struct SpanWrapper {
-    void operator()() {
-      auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
-      std::move(func)();
-    }
-    FnOnce<void()> func;
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
+  // XXX should there be a generic utility in tracing_internal.h for this?
+  task = [func = std::move(task),
+          active_span =
+              ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()]() mutable {
+    auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
+    std::move(func)();
   };
-  SpanWrapper wrapper{std::move(task),
-                      ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
-  task = std::move(wrapper);
 #endif
   // While the SerialExecutor runs tasks synchronously on its main thread,
   // SpawnReal may be called from external threads (e.g. when transferring back

@@ -141,6 +141,12 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetPrimaryKeys(
       const ServerCallContext& context, const GetPrimaryKeys& command) override;
 
+  arrow::Result<ActionBeginTransactionResult> BeginTransaction(
+      const ServerCallContext& context,
+      const ActionBeginTransactionRequest& request) override;
+  Status EndTransaction(const ServerCallContext& context,
+                        const ActionEndTransactionRequest& request) override;
+
  private:
   class Impl;
   std::shared_ptr<Impl> impl_;

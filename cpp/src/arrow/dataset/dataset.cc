@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dataset/dataset.h"
-
 #include <memory>
 #include <utility>
 
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/table.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -55,9 +55,9 @@ Result<std::shared_ptr<Schema>> Fragment::ReadPhysicalSchema() {
   return physical_schema_;
 }
 
-Future<util::optional<int64_t>> Fragment::CountRows(compute::Expression,
-                                                    const std::shared_ptr<ScanOptions>&) {
-  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+Future<std::optional<int64_t>> Fragment::CountRows(compute::Expression,
+                                                   const std::shared_ptr<ScanOptions>&) {
+  return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
 }
 
 Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchemaImpl() {
@@ -129,16 +129,16 @@ Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
                    options->batch_size);
 }
 
-Future<util::optional<int64_t>> InMemoryFragment::CountRows(
+Future<std::optional<int64_t>> InMemoryFragment::CountRows(
     compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   int64_t total = 0;
   for (const auto& batch : record_batches_) {
     total += batch->num_rows();
   }
-  return Future<util::optional<int64_t>>::MakeFinished(total);
+  return Future<std::optional<int64_t>>::MakeFinished(total);
 }
 
 Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression)
@@ -158,6 +158,33 @@ Result<FragmentIterator> Dataset::GetFragments(compute::Expression predicate) {
       predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
   return predicate.IsSatisfiable() ? GetFragmentsImpl(std::move(predicate))
                                    : MakeEmptyIterator<std::shared_ptr<Fragment>>();
+}
+
+Result<FragmentGenerator> Dataset::GetFragmentsAsync() {
+  return GetFragmentsAsync(compute::literal(true));
+}
+
+Result<FragmentGenerator> Dataset::GetFragmentsAsync(compute::Expression predicate) {
+  ARROW_ASSIGN_OR_RAISE(
+      predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
+  return predicate.IsSatisfiable()
+             ? GetFragmentsAsyncImpl(std::move(predicate),
+                                     arrow::internal::GetCpuThreadPool())
+             : MakeEmptyGenerator<std::shared_ptr<Fragment>>();
+}
+
+// Default impl delegating the work to `GetFragmentsImpl` and wrapping it into
+// BackgroundGenerator/TransferredGenerator, which offloads potentially
+// IO-intensive work to the default IO thread pool and then transfers the control
+// back to the specified executor.
+Result<FragmentGenerator> Dataset::GetFragmentsAsyncImpl(
+    compute::Expression predicate, arrow::internal::Executor* executor) {
+  ARROW_ASSIGN_OR_RAISE(auto iter, GetFragmentsImpl(std::move(predicate)));
+  ARROW_ASSIGN_OR_RAISE(
+      auto background_gen,
+      MakeBackgroundGenerator(std::move(iter), io::default_io_context().executor()));
+  auto transferred_gen = MakeTransferredGenerator(std::move(background_gen), executor);
+  return transferred_gen;
 }
 
 struct VectorRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {

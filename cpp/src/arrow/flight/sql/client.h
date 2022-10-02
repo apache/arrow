@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -32,6 +33,13 @@ namespace flight {
 namespace sql {
 
 class PreparedStatement;
+class Transaction;
+class Savepoint;
+
+/// \brief A default transaction to use when the default behavior
+///   (auto-commit) is desired.
+ARROW_FLIGHT_SQL_EXPORT
+const Transaction& no_transaction();
 
 /// \brief Flight client with Flight SQL semantics.
 ///
@@ -47,23 +55,51 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
 
   virtual ~FlightSqlClient() = default;
 
-  /// \brief Execute a query on the server.
+  /// \brief Execute a SQL query on the server.
   /// \param[in] options      RPC-layer hints for this call.
-  /// \param[in] query        The query to be executed in the UTF-8 format.
+  /// \param[in] query        The UTF8-encoded SQL query to be executed.
+  /// \param[in] transaction  A transaction to associate this query with.
   /// \return The FlightInfo describing where to access the dataset.
-  arrow::Result<std::unique_ptr<FlightInfo>> Execute(const FlightCallOptions& options,
-                                                     const std::string& query);
+  arrow::Result<std::unique_ptr<FlightInfo>> Execute(
+      const FlightCallOptions& options, const std::string& query,
+      const Transaction& transaction = no_transaction());
+
+  /// \brief Execute a Substrait plan that returns a result set on the server.
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] plan         The plan to be executed.
+  /// \param[in] transaction  A transaction to associate this query with.
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> ExecuteSubstrait(
+      const FlightCallOptions& options, const SubstraitPlan& plan,
+      const Transaction& transaction = no_transaction());
 
   /// \brief Get the result set schema from the server.
   arrow::Result<std::unique_ptr<SchemaResult>> GetExecuteSchema(
-      const FlightCallOptions& options, const std::string& query);
+      const FlightCallOptions& options, const std::string& query,
+      const Transaction& transaction = no_transaction());
+
+  /// \brief Get the result set schema from the server.
+  arrow::Result<std::unique_ptr<SchemaResult>> GetExecuteSubstraitSchema(
+      const FlightCallOptions& options, const SubstraitPlan& plan,
+      const Transaction& transaction = no_transaction());
 
   /// \brief Execute an update query on the server.
   /// \param[in] options      RPC-layer hints for this call.
-  /// \param[in] query        The query to be executed in the UTF-8 format.
+  /// \param[in] query        The UTF8-encoded SQL query to be executed.
+  /// \param[in] transaction  A transaction to associate this query with.
   /// \return The quantity of rows affected by the operation.
   arrow::Result<int64_t> ExecuteUpdate(const FlightCallOptions& options,
-                                       const std::string& query);
+                                       const std::string& query,
+                                       const Transaction& transaction = no_transaction());
+
+  /// \brief Execute a Substrait plan that does not return a result set on the server.
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] plan         The plan to be executed.
+  /// \param[in] transaction  A transaction to associate this query with.
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<int64_t> ExecuteSubstraitUpdate(
+      const FlightCallOptions& options, const SubstraitPlan& plan,
+      const Transaction& transaction = no_transaction());
 
   /// \brief Request a list of catalogs.
   /// \param[in] options      RPC-layer hints for this call.
@@ -215,9 +251,20 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \brief Create a prepared statement object.
   /// \param[in] options              RPC-layer hints for this call.
   /// \param[in] query                The query that will be executed.
+  /// \param[in] transaction          A transaction to associate this query with.
   /// \return The created prepared statement.
   arrow::Result<std::shared_ptr<PreparedStatement>> Prepare(
-      const FlightCallOptions& options, const std::string& query);
+      const FlightCallOptions& options, const std::string& query,
+      const Transaction& transaction = no_transaction());
+
+  /// \brief Create a prepared statement object.
+  /// \param[in] options              RPC-layer hints for this call.
+  /// \param[in] plan                 The Substrait plan that will be executed.
+  /// \param[in] transaction          A transaction to associate this query with.
+  /// \return The created prepared statement.
+  arrow::Result<std::shared_ptr<PreparedStatement>> PrepareSubstrait(
+      const FlightCallOptions& options, const SubstraitPlan& plan,
+      const Transaction& transaction = no_transaction());
 
   /// \brief Call the underlying Flight client's GetFlightInfo.
   virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfo(
@@ -230,6 +277,58 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
       const FlightCallOptions& options, const FlightDescriptor& descriptor) {
     return impl_->GetSchema(options, descriptor);
   }
+
+  /// \brief Begin a new transaction.
+  ::arrow::Result<Transaction> BeginTransaction(const FlightCallOptions& options);
+
+  /// \brief Create a new savepoint within a transaction.
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] transaction  The parent transaction.
+  /// \param[in] name         A friendly name for the savepoint.
+  ::arrow::Result<Savepoint> BeginSavepoint(const FlightCallOptions& options,
+                                            const Transaction& transaction,
+                                            const std::string& name);
+
+  /// \brief Commit a transaction.
+  ///
+  /// After this, the transaction and all associated savepoints will
+  /// be invalidated.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] transaction  The transaction.
+  Status Commit(const FlightCallOptions& options, const Transaction& transaction);
+
+  /// \brief Release a savepoint.
+  ///
+  /// After this, the savepoint (and all savepoints created after it) will be invalidated.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] savepoint    The savepoint.
+  Status Release(const FlightCallOptions& options, const Savepoint& savepoint);
+
+  /// \brief Rollback a transaction.
+  ///
+  /// After this, the transaction and all associated savepoints will be invalidated.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] transaction  The transaction.
+  Status Rollback(const FlightCallOptions& options, const Transaction& transaction);
+
+  /// \brief Rollback a savepoint.
+  ///
+  /// After this, the savepoint will still be valid, but all
+  /// savepoints created after it will be invalidated.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] savepoint    The savepoint.
+  Status Rollback(const FlightCallOptions& options, const Savepoint& savepoint);
+
+  /// \brief Explicitly cancel a query.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] info         The FlightInfo of the query to cancel.
+  ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
+                                            const FlightInfo& info);
 
   /// \brief Explicitly shut down and clean up the client.
   Status Close();
@@ -278,6 +377,10 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   /// errors can't be caught.
   ~PreparedStatement();
 
+  /// \brief Create a PreparedStatement by parsing the server response.
+  static arrow::Result<std::shared_ptr<PreparedStatement>> ParseResponse(
+      FlightSqlClient* client, std::unique_ptr<ResultStream> results);
+
   /// \brief Executes the prepared statement query on the server.
   /// \return A FlightInfo object representing the stream(s) to fetch.
   arrow::Result<std::unique_ptr<FlightInfo>> Execute(
@@ -295,8 +398,8 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   /// \return The ResultSet schema from the query.
   std::shared_ptr<Schema> dataset_schema() const;
 
-  /// \brief Set a RecordBatch that contains the parameters that will be bind.
-  /// \param parameter_binding   The parameters that will be bind.
+  /// \brief Set a RecordBatch that contains the parameters that will be bound.
+  /// \param parameter_binding   The parameters that will be bound.
   /// \return                     Status.
   Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
 
@@ -305,9 +408,9 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
       const FlightCallOptions& options = {});
 
-  /// \brief Close the prepared statement, so that this PreparedStatement can not used
-  /// anymore and server can free up any resources.
-  /// \return Status.
+  /// \brief Close the prepared statement so the server can free up any resources.
+  ///
+  /// After this, the prepared statement may not be used anymore.
   Status Close(const FlightCallOptions& options = {});
 
   /// \brief Check if the prepared statement is closed.
@@ -321,6 +424,29 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   std::shared_ptr<Schema> parameter_schema_;
   std::shared_ptr<RecordBatch> parameter_binding_;
   bool is_closed_;
+};
+
+/// \brief A handle for a server-side savepoint.
+class ARROW_FLIGHT_SQL_EXPORT Savepoint {
+ public:
+  explicit Savepoint(std::string savepoint_id) : savepoint_id_(std::move(savepoint_id)) {}
+  const std::string& savepoint_id() const { return savepoint_id_; }
+  bool is_valid() const { return !savepoint_id_.empty(); }
+
+ private:
+  std::string savepoint_id_;
+};
+
+/// \brief A handle for a server-side transaction.
+class ARROW_FLIGHT_SQL_EXPORT Transaction {
+ public:
+  explicit Transaction(std::string transaction_id)
+      : transaction_id_(std::move(transaction_id)) {}
+  const std::string& transaction_id() const { return transaction_id_; }
+  bool is_valid() const { return !transaction_id_.empty(); }
+
+ private:
+  std::string transaction_id_;
 };
 
 }  // namespace sql

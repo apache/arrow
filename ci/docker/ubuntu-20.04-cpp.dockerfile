@@ -68,6 +68,7 @@ RUN apt-get update -y -q && \
         ca-certificates \
         ccache \
         cmake \
+        curl \
         g++ \
         gcc \
         gdb \
@@ -120,6 +121,9 @@ RUN /arrow/ci/scripts/install_azurite.sh
 
 COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ceph.sh
+
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
