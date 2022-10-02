@@ -25,7 +25,6 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
-import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -39,9 +38,13 @@ import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeNanoVector;
 import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampMilliTZVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
+import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
@@ -251,6 +254,16 @@ public class TestUtils {
   static List<FieldVector> simpleTemporalVectors(BufferAllocator allocator, int rowCount) {
     List<FieldVector> vectors = new ArrayList<>();
     return simpleTemporalVectors(vectors, allocator, rowCount);
+  }
+
+  static List<FieldVector> timezoneTemporalVectors(BufferAllocator allocator, int rowCount) {
+    List<FieldVector> vectors = new ArrayList<>();
+    vectors.add(new TimeStampSecTZVector("timeStampSecTz_vector", allocator, "UTC"));
+    vectors.add(new TimeStampMilliTZVector("timeStampMilliTz_vector", allocator, "UTC"));
+    vectors.add(new TimeStampMicroTZVector("timeStampMicroTz_vector", allocator, "UTC"));
+    vectors.add(new TimeStampNanoTZVector("timeStampNanoTz_vector", allocator, "UTC"));
+    vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
+    return vectors;
   }
 
   /** Returns a list vector of ints. */

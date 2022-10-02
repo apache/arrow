@@ -47,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -379,6 +380,10 @@ class RowTest {
       assertEquals(c.getTimeStampMicro("timeStampMicro_vector"), timeStampMicroHolder.value);
       assertEquals(c.getTimeStampNano("timeStampNano_vector"), timeStampNanoHolder.value);
 
+      LocalDateTime microDT = c.getTimeStampMicroObj(16);
+      assertNotNull(microDT);
+      assertEquals(microDT, c.getTimeStampMicroObj("timeStampMicro_vector"));
+
       // refill the holders using vector name and retest
       c.getTimeStampSec("timeStampSec_vector", timeStampSecHolder);
       c.getTimeStampMilli("timeStampMilli_vector", timeStampMilliHolder);
@@ -390,6 +395,7 @@ class RowTest {
       assertEquals(c.getTimeStampNano("timeStampNano_vector"), timeStampNanoHolder.value);
     }
   }
+
 
   @Test
   void getVarChar() {
