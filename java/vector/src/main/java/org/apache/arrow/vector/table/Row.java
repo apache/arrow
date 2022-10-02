@@ -68,6 +68,7 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
+import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
@@ -1522,6 +1523,26 @@ public class Row extends BaseRow implements Iterator<Row> {
   public int getIntervalYear(int columnIndex) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnIndex);
     return vector.get(rowNumber);
+  }
+
+  /**
+   * Updates the value of the holder with data from vector at the given index at the current row. An
+   * IllegalStateException is thrown if the column is not present, and an IllegalArgumentException
+   * is thrown if it is present but has a different type
+   */
+  public void getDecimal(int columnIndex, NullableDecimalHolder holder) {
+    DecimalVector vector = (DecimalVector) table.getVector(columnIndex);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Updates the value of the holder with data from the vector with given name at the current row. An
+   * IllegalStateException is thrown if the column is not present, and an IllegalArgumentException
+   * is thrown if it is present but has a different type
+   */
+  public void getDecimal(String columnName, NullableDecimalHolder holder) {
+    DecimalVector vector = (DecimalVector) table.getVector(columnName);
+    vector.get(rowNumber, holder);
   }
 
   /**

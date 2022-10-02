@@ -25,7 +25,9 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.GenerateSampleData;
@@ -68,6 +70,7 @@ public class TestUtils {
   public static final String INT_VECTOR_NAME_1 = "intCol1";
   public static final String VARCHAR_VECTOR_NAME_1 = "varcharCol1";
   public static final String VARBINARY_VECTOR_NAME_1 = "varbinaryCol1";
+  public static final String FIXEDBINARY_VECTOR_NAME_1 = "varbinaryCol1";
   public static final String INT_VECTOR_NAME_2 = "intCol2";
   public static final String INT_LIST_VECTOR_NAME = "int list vector";
   public static final String BIGINT_INT_MAP_VECTOR_NAME = "bigint-int map vector";
@@ -161,6 +164,24 @@ public class TestUtils {
     return vectorList;
   }
 
+  /**
+   * Returns a list of two FieldVectors to be used to instantiate Tables for testing. The first
+   * vector is an IntVector and the second is a FixedSizeBinary vector. Each vector has two values set.
+   * The large binary vectors values are "one" and "two" encoded with UTF-8
+   */
+  static List<FieldVector> intPlusFixedBinaryColumns(BufferAllocator allocator) {
+    List<FieldVector> vectorList = new ArrayList<>();
+    IntVector v1 = getSimpleIntVector(allocator);
+    FixedSizeBinaryVector v2 = new FixedSizeBinaryVector(FIXEDBINARY_VECTOR_NAME_1, allocator, 3);
+    v2.allocateNew(2);
+    v2.set(0, "one".getBytes());
+    v2.set(1, "two".getBytes());
+    v2.setValueCount(2);
+    vectorList.add(v1);
+    vectorList.add(v2);
+    return vectorList;
+  }
+
   private static IntVector getSimpleIntVector(BufferAllocator allocator) {
     IntVector v1 = new IntVector(INT_VECTOR_NAME_1, allocator);
     v1.allocateNew(2);
@@ -182,7 +203,8 @@ public class TestUtils {
   static List<FieldVector> fixedWidthVectors(BufferAllocator allocator, int rowCount) {
     List<FieldVector> vectors = new ArrayList<>();
     numericVectors(vectors, allocator, rowCount);
-    return simpleTemporalVectors(vectors, allocator, rowCount);
+    simpleTemporalVectors(vectors, allocator, rowCount);
+    return vectors;
   }
 
   /**

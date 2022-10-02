@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.table;
 
 import static org.apache.arrow.vector.table.TestUtils.BIGINT_INT_MAP_VECTOR_NAME;
+import static org.apache.arrow.vector.table.TestUtils.FIXEDBINARY_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.INT_LIST_VECTOR_NAME;
 import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.STRUCT_VECTOR_NAME;
@@ -25,6 +26,7 @@ import static org.apache.arrow.vector.table.TestUtils.UNION_VECTOR_NAME;
 import static org.apache.arrow.vector.table.TestUtils.VARBINARY_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.VARCHAR_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.fixedWidthVectors;
+import static org.apache.arrow.vector.table.TestUtils.intPlusFixedBinaryColumns;
 import static org.apache.arrow.vector.table.TestUtils.intPlusLargeVarBinaryColumns;
 import static org.apache.arrow.vector.table.TestUtils.intPlusLargeVarcharColumns;
 import static org.apache.arrow.vector.table.TestUtils.intPlusVarBinaryColumns;
@@ -42,11 +44,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -55,6 +60,7 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
+import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -128,6 +134,31 @@ class RowTest {
       Row c = t.immutableRow();
       c.setPosition(1);
       assertEquals(2, c.getInt(INT_VECTOR_NAME_1));
+    }
+  }
+
+
+  @Test
+  void getDecimal() {
+    List<FieldVector> vectors = new ArrayList<>();
+    DecimalVector decimalVector = new DecimalVector("decimal_vector", allocator, 55, 10);
+    vectors.add(decimalVector);
+    decimalVector.setSafe(0, new BigDecimal("0.0543278923"));
+    decimalVector.setSafe(1, new BigDecimal("2.0543278923"));
+    decimalVector.setValueCount(2);
+    BigDecimal one = decimalVector.getObject(1);
+
+    NullableDecimalHolder holder1 = new NullableDecimalHolder();
+    NullableDecimalHolder holder2 = new NullableDecimalHolder();
+    try (Table t = new Table(vectors)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertEquals(one, c.getDecimalObj("decimal_vector"));
+      assertEquals(one, c.getDecimalObj(0));
+      c.getDecimal(0, holder1);
+      c.getDecimal("decimal_vector", holder2);
+      assertEquals(holder1.buffer, holder2.buffer);
+      assertEquals(c.getDecimal(0).memoryAddress(), c.getDecimal("decimal_vector").memoryAddress());
     }
   }
 
@@ -363,6 +394,17 @@ class RowTest {
       c.setPosition(1);
       assertEquals(c.getLargeVarChar(1), "two");
       assertEquals(c.getLargeVarChar(1), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
+    }
+  }
+
+  @Test
+  void getFixedBinary() {
+    List<FieldVector> vectorList = intPlusFixedBinaryColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertArrayEquals(c.getFixedSizeBinary(1), "two".getBytes());
+      assertArrayEquals(c.getFixedSizeBinary(1), c.getFixedSizeBinary(FIXEDBINARY_VECTOR_NAME_1));
     }
   }
 
