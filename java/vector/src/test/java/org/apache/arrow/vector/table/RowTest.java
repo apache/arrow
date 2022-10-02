@@ -411,9 +411,21 @@ class RowTest {
       assertEquals(c.getTimeStampMicro("timeStampMicro_vector"), timeStampMicroHolder.value);
       assertEquals(c.getTimeStampNano("timeStampNano_vector"), timeStampNanoHolder.value);
 
+      LocalDateTime secDT = c.getTimeStampSecObj(14);
+      assertNotNull(secDT);
+      assertEquals(secDT, c.getTimeStampSecObj("timeStampSec_vector"));
+
+      LocalDateTime milliDT1 = c.getTimeStampMilliObj(15);
+      assertNotNull(milliDT1);
+      assertEquals(milliDT1, c.getTimeStampMilliObj("timeStampMilli_vector"));
+
       LocalDateTime microDT = c.getTimeStampMicroObj(16);
       assertNotNull(microDT);
       assertEquals(microDT, c.getTimeStampMicroObj("timeStampMicro_vector"));
+
+      LocalDateTime nanoDT = c.getTimeStampNanoObj(17);
+      assertNotNull(nanoDT);
+      assertEquals(nanoDT, c.getTimeStampNanoObj("timeStampNano_vector"));
 
       // refill the holders using vector name and retest
       c.getTimeStampSec("timeStampSec_vector", timeStampSecHolder);
