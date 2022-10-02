@@ -640,3 +640,20 @@ test_that("Can use across() within mutate()", {
     fixed = TRUE
   )
 })
+
+test_that("Can use across() within transmute()", {
+
+  # expressions work in the right order
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        dbl2 = dbl * 2,
+        across(c(dbl, dbl2), round),
+        int2 = int * 2,
+        dbl = dbl + 3
+      ) %>%
+      collect(),
+    example_data
+  )
+
+})
