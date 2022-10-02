@@ -54,6 +54,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 
@@ -260,13 +261,13 @@ struct AzurePath {
     // Expected input here => s = synapsemlfs/testdir/testfile.txt,
     // http://127.0.0.1/accountName/pathToBlob
     auto src = internal::RemoveTrailingSlash(s);
-    if (src.starts_with("https://127.0.0.1") || src.starts_with("http://127.0.0.1")) {
+    if (arrow::internal::StartsWith(src, "https://127.0.0.1") || arrow::internal::StartsWith(src, "http://127.0.0.1")) {
       RETURN_NOT_OK(FromLocalHostString(&src));
     }
     auto input_path = std::string(src.data());
     if (internal::IsLikelyUri(input_path)) {
       RETURN_NOT_OK(ExtractBlobPath(&input_path));
-      src = util::string_view(input_path);
+      src = std::string_view(input_path);
     }
     src = internal::RemoveLeadingSlash(src);
     auto first_sep = src.find_first_of(kSep);
@@ -285,7 +286,7 @@ struct AzurePath {
     return path;
   }
 
-  static Status FromLocalHostString(util::string_view* src) {
+  static Status FromLocalHostString(std::string_view* src) {
     // src = http://127.0.0.1:10000/accountName/pathToBlob
     Uri uri;
     RETURN_NOT_OK(uri.Parse(src->data()));
