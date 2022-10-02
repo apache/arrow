@@ -377,6 +377,10 @@ class RowTest {
       assertEquals(c.getTimeMicro("timeMicro_vector"), timeMicroHolder.value);
       assertEquals(c.getTimeNano("timeNano_vector"), timeNanoHolder.value);
 
+      LocalDateTime milliDT = c.getTimeMilliObj(11);
+      assertNotNull(milliDT);
+      assertEquals(milliDT, c.getTimeMilliObj("timeMilli_vector"));
+
       // refill the holders using vector name and retest
       c.getTimeSec("timeSec_vector", timeSecHolder);
       c.getTimeMilli("timeMilli_vector", timeMilliHolder);
