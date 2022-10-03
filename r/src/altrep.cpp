@@ -342,7 +342,13 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     auto n = chunked_array->length();
     auto null_count = chunked_array->null_count();
     if ((na_rm || n == 0) && null_count == n) {
-      return Rf_ScalarReal(Min ? R_PosInf : R_NegInf);
+      if (Min) {
+        Rf_warning("no non-missing arguments to min; returning Inf");
+        return Rf_ScalarReal(R_PosInf);
+      } else {
+        Rf_warning("no non-missing arguments to max; returning -Inf");
+        return Rf_ScalarReal(R_NegInf);
+      }
     }
     if (!na_rm && null_count > 0) {
       return cpp11::as_sexp(cpp11::na<data_type>());
@@ -365,6 +371,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   static SEXP Max(SEXP alt, Rboolean narm) { return MinMax<false>(alt, narm); }
 
   static SEXP Sum(SEXP alt, Rboolean narm) {
+    if (IsMaterialized(alt)) {
+      return nullptr;
+    }
+
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
     const auto& chunked_array = GetChunkedArray(alt);
@@ -1174,7 +1184,7 @@ sexp test_arrow_altrep_copy_by_region(sexp x, R_xlen_t region_size) {
     return out;
   } else if (TYPEOF(x) == REALSXP) {
     writable::doubles out(Rf_xlength(x));
-    writable::integers buf_shelter(region_size);
+    writable::doubles buf_shelter(region_size);
     double* buf = REAL(buf_shelter);
     for (R_xlen_t i = 0; i < n; i++) {
       if ((i % region_size) == 0) {

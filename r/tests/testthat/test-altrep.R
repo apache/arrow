@@ -71,27 +71,52 @@ test_that("altrep vectors from int32 and dbl arrays with no nulls", {
   expect_false(is_arrow_altrep(as.vector(v_dbl$Slice(1))))
 })
 
-test_that("element access methods for chunked int32 array with no nulls", {
+test_that("element access methods for int32 ALTREP with no nulls", {
   withr::local_options(list(arrow.use_altrep = TRUE))
-  v_int <- Array$create(1:1000)
+  original <- 1:1000
+  v_int <- Array$create(original)
   altrep <- as.vector(v_int)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
   # altrep-aware iterating should not materialize
-  expect_identical(test_arrow_altrep_copy_by_element(altrep), 1:1000)
-  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), 1:1000)
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # because there are no nulls, DATAPTR-style does not materialize
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), 1:1000)
+  # because there are no nulls, DATAPTR() does not materialize
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
   # test element access after forcing materialization
   expect_true(test_arrow_altrep_force_materialize(altrep))
   expect_true(test_arrow_altrep_is_materialized(altrep))
-  expect_identical(test_arrow_altrep_copy_by_element(altrep), 1:1000)
-  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), 1:1000)
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), 1:1000)
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+})
+
+test_that("element access methods for double ALTREP with no nulls", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  original <- as.double(1:1000)
+  v_int <- Array$create(original)
+  altrep <- as.vector(v_int)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # altrep-aware iterating should not materialize
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # because there are no nulls, DATAPTR() does not materialize
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # test element access after forcing materialization
+  expect_true(test_arrow_altrep_force_materialize(altrep))
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
 test_that("altrep vectors from int32 and dbl arrays with nulls", {
@@ -124,6 +149,52 @@ test_that("altrep vectors from int32 and dbl arrays with nulls", {
   expect_true(is_arrow_altrep(as.vector(c_dbl)))
   expect_true(is_arrow_altrep(as.vector(c_int$Slice(3))))
   expect_true(is_arrow_altrep(as.vector(c_dbl$Slice(3))))
+})
+
+test_that("element access methods for int32 ALTREP with nulls", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  original <- c(NA, 1:1000)
+  v_int <- Array$create(original)
+  altrep <- as.vector(v_int)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # altrep-aware iterating should not materialize
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # because there are no nulls, DATAPTR() does not materialize
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+
+  # test element access after materialization
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+})
+
+test_that("element access methods for double ALTREP with nulls", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  original <- as.double(c(NA, 1:1000))
+  v_int <- Array$create(original)
+  altrep <- as.vector(v_int)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # altrep-aware iterating should not materialize
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # because there are no nulls, DATAPTR() does not materialize
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+
+  # test element access after materialization
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
 test_that("empty vectors are not altrep", {
@@ -188,20 +259,28 @@ test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
 })
 
 expect_altrep_roundtrip <- function(x, fn, ..., .expect_warning = NA) {
+  # check altrep Array
   alt <- Array$create(x)$as_vector()
-
   expect_true(is_arrow_altrep(alt))
   expect_warning(
-    expect_identical(fn(x, ...), fn(alt, ...)), .expect_warning
+    expect_identical(fn(alt, ...), suppressWarnings(fn(x, ...))), .expect_warning
   )
-  expect_true(is_arrow_altrep(alt))
+  expect_false(test_arrow_altrep_is_materialized(alt))
 
+  # check altrep ChunkedArray
   alt2 <- ChunkedArray$create(x, x)$as_vector()
   expect_true(is_arrow_altrep(alt2))
   expect_warning(
-    expect_identical(fn(c(x, x), ...), fn(alt2, ...)), .expect_warning
+    expect_identical(fn(alt2, ...), suppressWarnings(fn(c(x, x), ...))), .expect_warning
   )
-  expect_true(is_arrow_altrep(alt2))
+  expect_false(test_arrow_altrep_is_materialized(alt2))
+
+  # Check materialized altrep
+  alt3 <- Array$create(x)$as_vector()
+  expect_true(test_arrow_altrep_force_materialize(alt3))
+  expect_warning(
+    expect_identical(fn(alt3, ...), suppressWarnings(fn(x, ...))), .expect_warning
+  )
 }
 
 test_that("altrep min/max/sum identical to R versions for double", {
