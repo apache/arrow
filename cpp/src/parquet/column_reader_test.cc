@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -37,9 +37,9 @@
 
 namespace parquet {
 
+using parquet::internal::BinaryRecordReader;
 using schema::NodePtr;
 using testing::ElementsAre;
-using parquet::internal::BinaryRecordReader;
 
 namespace test {
 

@@ -349,7 +349,7 @@ class RecordReader {
   bool read_dictionary() const { return read_dictionary_; }
 
  protected:
-   /// \brief Indicates if we can have nullable values.
+  /// \brief Indicates if we can have nullable values.
   bool nullable_values_;
 
   bool at_record_start_;

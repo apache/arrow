@@ -1149,7 +1149,8 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
     } else {
       // We need to read this Page
       // Jump to the right offset in the Page
-      int64_t batch_size = kMinLevelBatchSize;  // ReadBatch with a smaller memory footprint
+      int64_t batch_size =
+          kMinLevelBatchSize;  // ReadBatch with a smaller memory footprint
       int64_t values_read = 0;
 
       // This will be enough scratch space to accommodate 16-bit levels or any
@@ -1225,8 +1226,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
  public:
   using T = typename DType::c_type;
   using BASE = TypedColumnReaderImpl<DType>;
-  TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                    MemoryPool* pool)
+  TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool)
       // Pager must be set using SetPageReader.
       : BASE(descr, /* pager = */ nullptr, pool) {
     leaf_info_ = leaf_info;
@@ -1377,8 +1377,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     validity_io.values_read_upper_bound = skipped_records;
     validity_io.valid_bits = valid_bits->mutable_data();
     validity_io.valid_bits_offset = 0;
-    DefLevelsToBitmap(def_levels() + start_levels_position,
-                      skipped_records,
+    DefLevelsToBitmap(def_levels() + start_levels_position, skipped_records,
                       this->leaf_info_, &validity_io);
     int64_t values_to_read = validity_io.values_read - validity_io.null_count;
 
@@ -1483,8 +1482,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         this->pool_, batch_size * std::max<int>(sizeof(int16_t), value_size));
     do {
       batch_size = std::min<int>(batch_size, values_left);
-      values_read = this->ReadValues(
-          batch_size, reinterpret_cast<T*>(scratch->mutable_data()));
+      values_read =
+          this->ReadValues(batch_size, reinterpret_cast<T*>(scratch->mutable_data()));
       values_left -= values_read;
     } while (values_read > 0 && values_left > 0);
     return num_values - values_left;
