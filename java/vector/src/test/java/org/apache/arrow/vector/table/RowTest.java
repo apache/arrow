@@ -49,6 +49,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,6 +61,9 @@ import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
+import org.apache.arrow.vector.IntervalYearVector;
+import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -74,6 +78,8 @@ import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
+import org.apache.arrow.vector.holders.NullableIntervalMonthDayNanoHolder;
+import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
 import org.apache.arrow.vector.holders.NullableSmallIntHolder;
 import org.apache.arrow.vector.holders.NullableTimeMicroHolder;
 import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
@@ -251,6 +257,80 @@ class RowTest {
       ArrowBuf intDayBuf1 = c.getIntervalDay(0);
       ArrowBuf intDayBuf2 = c.getIntervalDay("intervalDay_vector");
       assertEquals(intDayBuf1.memoryAddress(), intDayBuf2.memoryAddress());
+    }
+  }
+
+  @Test
+  void getIntervalMonth() {
+    List<FieldVector> vectors = new ArrayList<>();
+    IntervalUnit unit = IntervalUnit.MONTH_DAY_NANO;
+    final FieldType fieldType = FieldType.nullable(new ArrowType.Interval(unit));
+
+    IntervalMonthDayNanoVector intervalMonthVector = new IntervalMonthDayNanoVector("intervalMonth_vector", fieldType, allocator);
+    NullableIntervalMonthDayNanoHolder holder1 = new NullableIntervalMonthDayNanoHolder();
+    NullableIntervalMonthDayNanoHolder holder2 = new NullableIntervalMonthDayNanoHolder();
+
+    holder1.days = 1;
+    holder1.months = 10;
+    holder1.isSet = 1;
+    holder2.days = 2;
+    holder2.months = 20;
+    holder2.isSet = 1;
+
+    vectors.add(intervalMonthVector);
+    intervalMonthVector.setSafe(0, holder1);
+    intervalMonthVector.setSafe(1, holder2);
+    intervalMonthVector.setValueCount(2);
+
+    PeriodDuration one = intervalMonthVector.getObject(1);
+    try (Table t = new Table(vectors)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertEquals(one, c.getIntervalMonthDayNanoObj("intervalMonth_vector"));
+      assertEquals(one, c.getIntervalMonthDayNanoObj(0));
+      c.getIntervalMonthDayNano(0, holder1);
+      c.getIntervalMonthDayNano("intervalMonth_vector", holder2);
+      assertEquals(holder1.days, holder2.days);
+      assertEquals(holder1.months, holder2.months);
+      ArrowBuf intMonthBuf1 = c.getIntervalMonthDayNano(0);
+      ArrowBuf intMonthBuf2 = c.getIntervalMonthDayNano("intervalMonth_vector");
+      assertEquals(intMonthBuf1.memoryAddress(), intMonthBuf2.memoryAddress());
+    }
+  }
+
+  @Test
+  void getIntervalYear() {
+    List<FieldVector> vectors = new ArrayList<>();
+    IntervalUnit unit = IntervalUnit.YEAR_MONTH;
+    final FieldType fieldType = FieldType.nullable(new ArrowType.Interval(unit));
+
+    IntervalYearVector intervalYearVector = new IntervalYearVector("intervalYear_vector", fieldType, allocator);
+    NullableIntervalYearHolder holder1 = new NullableIntervalYearHolder();
+    NullableIntervalYearHolder holder2 = new NullableIntervalYearHolder();
+
+    holder1.value = 1;
+    holder1.isSet = 1;
+    holder2.value = 2;
+    holder2.isSet = 1;
+
+    vectors.add(intervalYearVector);
+    intervalYearVector.setSafe(0, holder1);
+    intervalYearVector.setSafe(1, holder2);
+    intervalYearVector.setValueCount(2);
+
+    Period one = intervalYearVector.getObject(1);
+    try (Table t = new Table(vectors)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertEquals(one, c.getIntervalYearObj("intervalYear_vector"));
+      assertEquals(one, c.getIntervalYearObj(0));
+      c.getIntervalYear(0, holder1);
+      c.getIntervalYear("intervalYear_vector", holder2);
+      assertEquals(holder1.value, holder2.value);
+      int intYear1 = c.getIntervalYear(0);
+      int intYear2 = c.getIntervalYear("intervalYear_vector");
+      assertEquals(2, intYear1);
+      assertEquals(intYear1, intYear2);
     }
   }
 

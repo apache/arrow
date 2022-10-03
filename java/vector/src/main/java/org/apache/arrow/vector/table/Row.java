@@ -75,6 +75,7 @@ import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
 import org.apache.arrow.vector.holders.NullableIntervalMonthDayNanoHolder;
+import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
 import org.apache.arrow.vector.holders.NullableSmallIntHolder;
 import org.apache.arrow.vector.holders.NullableTimeMicroHolder;
 import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
@@ -1523,6 +1524,26 @@ public class Row extends BaseRow implements Iterator<Row> {
   public int getIntervalYear(int columnIndex) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnIndex);
     return vector.get(rowNumber);
+  }
+
+  /**
+   * Returns a Duration from the column of the given name at the current row. An
+   * IllegalStateException is thrown if the column is not present, and an IllegalArgumentException
+   * is thrown if it is present but has a different type
+   */
+  public void getIntervalYear(String columnName, NullableIntervalYearHolder holder) {
+    IntervalYearVector vector = (IntervalYearVector) table.getVector(columnName);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Returns an ArrowBuf from the column with the given index at the current row. An
+   * IllegalStateException is thrown if the column is not present, and an IllegalArgumentException
+   * is thrown if it is present but has a different type
+   */
+  public void getIntervalYear(int columnIndex, NullableIntervalYearHolder holder) {
+    IntervalYearVector vector = (IntervalYearVector) table.getVector(columnIndex);
+    vector.get(rowNumber, holder);
   }
 
   /**
