@@ -211,9 +211,6 @@ struct ARROW_EXPORT Datum {
 
   bool Equals(const Datum& other) const;
 
-  /// \brief Construct a zero-copy view of the datum.
-  Result<Datum> View(const std::shared_ptr<DataType>& out_type) const;
-
   bool operator==(const Datum& other) const { return Equals(other); }
   bool operator!=(const Datum& other) const { return !Equals(other); }
 

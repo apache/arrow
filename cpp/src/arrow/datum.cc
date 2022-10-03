@@ -177,30 +177,6 @@ bool Datum::Equals(const Datum& other) const {
   }
 }
 
-Result<Datum> Datum::View(const std::shared_ptr<DataType>& out_type) const {
-  if (this->is_scalar()) {
-    std::shared_ptr<Array> tmp_array;
-    ARROW_ASSIGN_OR_RAISE(
-        tmp_array, MakeArrayFromScalar(*this->scalar().get(), 1, default_memory_pool()));
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array,
-                          ::arrow::internal::GetArrayView(tmp_array->data(), out_type));
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> out, MakeArray(array)->GetScalar(0));
-    return Datum(out);
-  } else if (this->is_array()) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array,
-                          ::arrow::internal::GetArrayView(this->array(), out_type));
-    return Datum(array);
-  } else if (this->is_chunked_array()) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ChunkedArray> array,
-                          this->chunked_array()->View(out_type));
-    return Datum(array);
-  } else if (this->kind() == Datum::NONE) {
-    return Datum();
-  } else {
-    return Status::TypeError("Cannot cast tabular structure to a single data type.");
-  }
-}
-
 std::string Datum::ToString() const {
   switch (this->kind()) {
     case Datum::NONE:
