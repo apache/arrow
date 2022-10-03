@@ -74,7 +74,6 @@ quosures_from_setup <- function(setup, quo_env) {
       func_list_full, cols_list_full,
       ~ as_across_fn_call(.x, .y, quo_env)
     )
-
   } else {
     # if there's no functions, just map to variables themselves
     new_quo_list <- map(
@@ -84,11 +83,9 @@ quosures_from_setup <- function(setup, quo_env) {
   }
 
   set_names(new_quo_list, setup$names)
-
 }
 
 across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
-
   cols <- enquo(cols)
 
   vars <- names(dplyr::select(mask, !!cols))
@@ -197,4 +194,3 @@ node_walk_replace <- function(node, old, new) {
     node <- node_cdr(node)
   }
 }
-
