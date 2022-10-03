@@ -17,10 +17,13 @@
 
 #pragma once
 
+#include <functional>
+
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/mutex.h"
 
 #include <memory>
@@ -147,6 +150,13 @@ class ARROW_EXPORT AsyncTaskScheduler {
     /// This will possibly complete waiting futures and should probably not be
     /// called while holding locks.
     virtual void Release(int amt) = 0;
+
+    /// The size of the largest task that can run
+    ///
+    /// Incoming tasks will have their cost latched to this value to ensure
+    /// they can still run (although they will generally be the only thing allowed to
+    /// run at that time).
+    virtual int Capacity() = 0;
   };
   /// Create a throttle
   ///
@@ -175,6 +185,64 @@ class ARROW_EXPORT AsyncTaskScheduler {
   ///
   /// \return true if the task was submitted or queued, false if the task was ignored
   virtual bool AddTask(std::unique_ptr<Task> task) = 0;
+
+  /// Adds an async generator to the scheduler
+  ///
+  /// The async generator will be visited, one item at a time.  Submitting a task
+  /// will consist of polling the generator for the next future.  The generator's future
+  /// will then represent the task itself.
+  ///
+  /// This visits the task serially without readahead.  If readahead or parallelism
+  /// is desired then it should be added in the generator itself.
+  ///
+  /// The tasks will be submitted to a subscheduler which will be ended when the generator
+  /// is exhausted.
+  ///
+  /// The generator itself will be kept alive until all tasks have been completed.
+  /// However, if the scheduler is aborted, the generator will be destroyed as soon as the
+  /// next item would be requested.
+  template <typename T>
+  bool AddAsyncGenerator(std::function<Future<T>()> generator,
+                         std::function<Status(const T&)> visitor,
+                         FnOnce<Status()> finish_callback) {
+    AsyncTaskScheduler* generator_scheduler =
+        MakeSubScheduler(std::move(finish_callback));
+    struct State {
+      State(std::function<Future<T>()> generator, std::function<Status(const T&)> visitor)
+          : generator(std::move(generator)), visitor(std::move(visitor)) {}
+      std::function<Future<T>()> generator;
+      std::function<Status(const T&)> visitor;
+    };
+    std::unique_ptr<State> state_holder =
+        std::make_unique<State>(std::move(generator), std::move(visitor));
+    struct SubmitTask : public Task {
+      explicit SubmitTask(std::unique_ptr<State> state_holder)
+          : state_holder(std::move(state_holder)) {}
+      struct SubmitTaskCallback {
+        SubmitTaskCallback(AsyncTaskScheduler* scheduler,
+                           std::unique_ptr<State> state_holder)
+            : scheduler(scheduler), state_holder(std::move(state_holder)) {}
+        Status operator()(const T& item) {
+          if (IsIterationEnd(item)) {
+            scheduler->End();
+            return Status::OK();
+          }
+          ARROW_RETURN_NOT_OK(state_holder->visitor(item));
+          scheduler->AddTask(std::make_unique<SubmitTask>(std::move(state_holder)));
+          return Status::OK();
+        }
+        AsyncTaskScheduler* scheduler;
+        std::unique_ptr<State> state_holder;
+      };
+      Result<Future<>> operator()(AsyncTaskScheduler* scheduler) {
+        Future<T> next = state_holder->generator();
+        return next.Then(SubmitTaskCallback(scheduler, std::move(state_holder)));
+      }
+      std::unique_ptr<State> state_holder;
+    };
+    return generator_scheduler->AddTask(
+        std::make_unique<SubmitTask>(std::move(state_holder)));
+  }
 
   template <typename Callable>
   struct SimpleTask : public Task {

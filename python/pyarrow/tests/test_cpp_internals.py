@@ -15,18 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#
-# arrow/python_test_main
-#
+from pyarrow._pyarrow_cpp_tests import get_cpp_tests
 
-if(PYARROW_BUILD_TESTS)
-  add_library(arrow/python_test_main STATIC test_main.cc)
 
-  if(APPLE)
-    target_link_libraries(arrow/python_test_main GTest::gtest dl)
-    set_target_properties(arrow/python_test_main PROPERTIES LINK_FLAGS
-                                                            "-undefined dynamic_lookup")
-  else()
-    target_link_libraries(arrow/python_test_main GTest::gtest pthread dl)
-  endif()
-endif()
+def inject_cpp_tests(ns):
+    """
+    Inject C++ tests as Python functions into namespace `ns` (a dict).
+    """
+    for case in get_cpp_tests():
+        def wrapper(case=case):
+            case()
+        wrapper.__name__ = wrapper.__qualname__ = case.name
+        wrapper.__module__ = ns['__name__']
+        ns[case.name] = wrapper
+
+
+inject_cpp_tests(globals())

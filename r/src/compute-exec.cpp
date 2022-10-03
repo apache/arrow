@@ -73,10 +73,14 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   ExecPlanReader(const std::shared_ptr<arrow::compute::ExecPlan>& plan,
                  const std::shared_ptr<arrow::Schema>& schema,
                  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen)
-      : schema_(schema), plan_(plan), sink_gen_(sink_gen), status_(PLAN_NOT_STARTED) {}
+      : schema_(schema),
+        plan_(plan),
+        sink_gen_(sink_gen),
+        plan_status_(PLAN_NOT_STARTED),
+        stop_token_(MainRThread::GetInstance().GetStopToken()) {}
 
   std::string PlanStatus() const {
-    switch (status_) {
+    switch (plan_status_) {
       case PLAN_NOT_STARTED:
         return "PLAN_NOT_STARTED";
       case PLAN_RUNNING:
@@ -91,19 +95,25 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   std::shared_ptr<arrow::Schema> schema() const override { return schema_; }
 
   arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) override {
-    // TODO(ARROW-11841) check a StopToken to potentially cancel this plan
-
     // If this is the first batch getting pulled, tell the exec plan to
     // start producing
-    if (status_ == PLAN_NOT_STARTED) {
+    if (plan_status_ == PLAN_NOT_STARTED) {
       ARROW_RETURN_NOT_OK(StartProducing());
     }
 
     // If we've closed the reader, keep sending nullptr
     // (consistent with what most RecordBatchReader subclasses do)
-    if (status_ == PLAN_FINISHED) {
+    if (plan_status_ == PLAN_FINISHED) {
       batch_out->reset();
       return arrow::Status::OK();
+    }
+
+    // Check for cancellation and stop the plan if we have a request. When
+    // the ExecPlan supports passing a StopToken and handling this itself,
+    // this will be redundant.
+    if (stop_token_.IsStopRequested()) {
+      StopProducing();
+      return stop_token_.Poll();
     }
 
     auto out = sink_gen_().result();
@@ -141,16 +151,17 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   std::shared_ptr<arrow::Schema> schema_;
   std::shared_ptr<arrow::compute::ExecPlan> plan_;
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen_;
-  int status_;
+  ExecPlanReaderStatus plan_status_;
+  arrow::StopToken stop_token_;
 
   arrow::Status StartProducing() {
     ARROW_RETURN_NOT_OK(plan_->StartProducing());
-    status_ = PLAN_RUNNING;
+    plan_status_ = PLAN_RUNNING;
     return arrow::Status::OK();
   }
 
   void StopProducing() {
-    if (status_ == PLAN_RUNNING) {
+    if (plan_status_ == PLAN_RUNNING) {
       // We're done with the plan, but it may still need some time
       // to finish and clean up after itself. To do this, we give a
       // callable with its own copy of the shared_ptr<ExecPlan> so
@@ -164,7 +175,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       }
     }
 
-    status_ = PLAN_FINISHED;
+    plan_status_ = PLAN_FINISHED;
     plan_.reset();
     sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
   }

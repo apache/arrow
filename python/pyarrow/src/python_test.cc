@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gtest/gtest.h"
-
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -27,25 +25,86 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_util.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/logging.h"
 
 #include "arrow_to_pandas.h"
 #include "decimal.h"
 #include "helpers.h"
 #include "numpy_convert.h"
 #include "numpy_interop.h"
+#include "python_test.h"
 #include "python_to_arrow.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+
+#define ASSERT_EQ(x, y) { \
+  auto&& _left = (x); \
+  auto&& _right = (y); \
+  if (_left != _right) { \
+    return Status::Invalid("Expected equality between `", #x, "` and `", #y, \
+                           "`, but ", _left, " != ", _right); \
+  } \
+}
+
+#define ASSERT_NE(x, y) { \
+  auto&& _left = (x); \
+  auto&& _right = (y); \
+  if (_left == _right) { \
+    return Status::Invalid("Expected inequality between `", #x, "` and `", #y, \
+                           "`, but ", _left, " == ", _right); \
+  } \
+}
+
+#define ASSERT_FALSE(v) { \
+  auto&& _v = (v); \
+  if (!!_v) { \
+    return Status::Invalid("Expected `", #v, "` to evaluate to false, but got ", _v); \
+  } \
+}
+
+#define ASSERT_TRUE(v){ \
+  auto&& _v = (v); \
+  if (!_v) { \
+    return Status::Invalid("Expected `", #v, "` to evaluate to true, but got ", _v); \
+  } \
+}
+
+#define ASSERT_FALSE_MSG(v, msg) { \
+  auto&& _v = (v); \
+  if (!!_v) { \
+    return Status::Invalid("Expected `", #v, "` to evaluate to false, but got ", \
+                           _v, ": ", msg); \
+  } \
+}
+
+#define ASSERT_TRUE_MSG(v, msg) { \
+  auto&& _v = (v); \
+  if (!_v) { \
+    return Status::Invalid("Expected `", #v, "` to evaluate to true, but got ", \
+                           _v, ": ", msg); \
+  } \
+}
+
+#define ASSERT_OK(expr) { \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
+  return Status::Invalid("`", #expr, "` failed with ", _st.ToString()); \
+}
+
+#define ASSERT_RAISES(code, expr) { \
+  for (::arrow::Status _st_expr = ::arrow::internal::GenericToStatus((expr)); \
+       !_st_expr.Is##code();) \
+  return Status::Invalid("Expected `", #expr, "` to fail with ", \
+                         #code, ", but got ", _st_expr.ToString()); \
+}
 
 namespace arrow {
 
 using internal::checked_cast;
 
 namespace py {
+namespace testing {
+namespace {
 
-TEST(OwnedRef, TestMoves) {
+Status TestOwnedRefMoves() {
   std::vector<OwnedRef> vec;
   PyObject *u, *v;
   u = PyList_New(0);
@@ -59,9 +118,10 @@ TEST(OwnedRef, TestMoves) {
   vec.emplace_back(v);
   ASSERT_EQ(Py_REFCNT(u), 1);
   ASSERT_EQ(Py_REFCNT(v), 1);
+  return Status::OK();
 }
 
-TEST(OwnedRefNoGIL, TestMoves) {
+Status TestOwnedRefNoGILMoves() {
   PyAcquireGIL lock;
   lock.release();
 
@@ -82,6 +142,7 @@ TEST(OwnedRefNoGIL, TestMoves) {
     vec.emplace_back(v);
     ASSERT_EQ(Py_REFCNT(u), 1);
     ASSERT_EQ(Py_REFCNT(v), 1);
+    return Status::OK();
   }
 }
 
@@ -92,8 +153,9 @@ std::string FormatPythonException(const std::string& exc_class_name) {
   return ss.str();
 }
 
-TEST(CheckPyError, TestStatus) {
+Status TestCheckPyErrorStatus() {
   Status st;
+  std::string expected_detail = "";
 
   auto check_error = [](Status& st, const char* expected_message = "some error",
                         std::string expected_detail = "") {
@@ -105,34 +167,35 @@ TEST(CheckPyError, TestStatus) {
       ASSERT_NE(detail, nullptr);
       ASSERT_EQ(detail->ToString(), expected_detail);
     }
+    return Status::OK();
   };
 
   for (PyObject* exc_type : {PyExc_Exception, PyExc_SyntaxError}) {
     PyErr_SetString(exc_type, "some error");
-    check_error(st);
+    ASSERT_OK(check_error(st));
     ASSERT_TRUE(st.IsUnknownError());
   }
 
   PyErr_SetString(PyExc_TypeError, "some error");
-  check_error(st, "some error", FormatPythonException("TypeError"));
+  ASSERT_OK(check_error(st, "some error", FormatPythonException("TypeError")));
   ASSERT_TRUE(st.IsTypeError());
 
   PyErr_SetString(PyExc_ValueError, "some error");
-  check_error(st);
+  ASSERT_OK(check_error(st));
   ASSERT_TRUE(st.IsInvalid());
 
   PyErr_SetString(PyExc_KeyError, "some error");
-  check_error(st, "'some error'");
+  ASSERT_OK(check_error(st, "'some error'"));
   ASSERT_TRUE(st.IsKeyError());
 
   for (PyObject* exc_type : {PyExc_OSError, PyExc_IOError}) {
     PyErr_SetString(exc_type, "some error");
-    check_error(st);
+    ASSERT_OK(check_error(st));
     ASSERT_TRUE(st.IsIOError());
   }
 
   PyErr_SetString(PyExc_NotImplementedError, "some error");
-  check_error(st, "some error", FormatPythonException("NotImplementedError"));
+  ASSERT_OK(check_error(st, "some error", FormatPythonException("NotImplementedError")));
   ASSERT_TRUE(st.IsNotImplemented());
 
   // No override if a specific status code is given
@@ -141,9 +204,11 @@ TEST(CheckPyError, TestStatus) {
   ASSERT_TRUE(st.IsSerializationError());
   ASSERT_EQ(st.message(), "some error");
   ASSERT_FALSE(PyErr_Occurred());
+
+  return Status::OK();
 }
 
-TEST(CheckPyError, TestStatusNoGIL) {
+Status TestCheckPyErrorStatusNoGIL() {
   PyAcquireGIL lock;
   {
     Status st;
@@ -154,10 +219,11 @@ TEST(CheckPyError, TestStatusNoGIL) {
     ASSERT_TRUE(st.IsUnknownError());
     ASSERT_EQ(st.message(), "zzzt");
     ASSERT_EQ(st.detail()->ToString(), FormatPythonException("ZeroDivisionError"));
+    return Status::OK();
   }
 }
 
-TEST(RestorePyError, Basics) {
+Status TestRestorePyErrorBasics() {
   PyErr_SetString(PyExc_ZeroDivisionError, "zzzt");
   auto st = ConvertPyError();
   ASSERT_FALSE(PyErr_Occurred());
@@ -175,33 +241,36 @@ TEST(RestorePyError, Basics) {
   std::string py_message;
   ASSERT_OK(internal::PyObject_StdStringStr(exc_value, &py_message));
   ASSERT_EQ(py_message, "zzzt");
+
+  return Status::OK();
 }
 
-TEST(PyBuffer, InvalidInputObject) {
+Status TestPyBufferInvalidInputObject() {
   std::shared_ptr<Buffer> res;
   PyObject* input = Py_None;
   auto old_refcnt = Py_REFCNT(input);
   {
     Status st = PyBuffer::FromPyObject(input).status();
-    ASSERT_TRUE(IsPyError(st)) << st.ToString();
+    ASSERT_TRUE_MSG(IsPyError(st), st.ToString());
     ASSERT_FALSE(PyErr_Occurred());
   }
   ASSERT_EQ(old_refcnt, Py_REFCNT(input));
+  return Status::OK();
 }
 
 // Because of how it is declared, the Numpy C API instance initialized
 // within libarrow_python.dll may not be visible in this test under Windows
 // ("unresolved external symbol arrow_ARRAY_API referenced").
 #ifndef _WIN32
-TEST(PyBuffer, NumpyArray) {
-  const npy_intp dims[1] = {10};
+Status TestPyBufferNumpyArray() {
+  npy_intp dims[1] = {10};
 
   OwnedRef arr_ref(PyArray_SimpleNew(1, dims, NPY_FLOAT));
   PyObject* arr = arr_ref.obj();
   ASSERT_NE(arr, nullptr);
   auto old_refcnt = Py_REFCNT(arr);
+  auto buf = std::move(PyBuffer::FromPyObject(arr)).ValueOrDie();
 
-  ASSERT_OK_AND_ASSIGN(auto buf, PyBuffer::FromPyObject(arr));
   ASSERT_TRUE(buf->is_cpu());
   ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
   ASSERT_TRUE(buf->is_mutable());
@@ -212,16 +281,18 @@ TEST(PyBuffer, NumpyArray) {
 
   // Read-only
   PyArray_CLEARFLAGS(reinterpret_cast<PyArrayObject*>(arr), NPY_ARRAY_WRITEABLE);
-  ASSERT_OK_AND_ASSIGN(buf, PyBuffer::FromPyObject(arr));
+  buf = std::move(PyBuffer::FromPyObject(arr)).ValueOrDie();
   ASSERT_TRUE(buf->is_cpu());
   ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
   ASSERT_FALSE(buf->is_mutable());
   ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
   buf.reset();
   ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+
+  return Status::OK();
 }
 
-TEST(NumPyBuffer, NumpyArray) {
+Status TestNumPyBufferNumpyArray() {
   npy_intp dims[1] = {10};
 
   OwnedRef arr_ref(PyArray_SimpleNew(1, dims, NPY_FLOAT));
@@ -247,50 +318,44 @@ TEST(NumPyBuffer, NumpyArray) {
   ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
   buf.reset();
   ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+
+  return Status::OK();
 }
 #endif
 
-class DecimalTest : public ::testing::Test {
- public:
-  DecimalTest() : lock_(), decimal_constructor_() {
-    OwnedRef decimal_module;
-
-    Status status = internal::ImportModule("decimal", &decimal_module);
-    ARROW_CHECK_OK(status);
-
-    status = internal::ImportFromModule(decimal_module.obj(), "Decimal",
-                                        &decimal_constructor_);
-    ARROW_CHECK_OK(status);
-  }
-
-  OwnedRef CreatePythonDecimal(const std::string& string_value) {
-    OwnedRef ref(internal::DecimalFromString(decimal_constructor_.obj(), string_value));
-    return ref;
-  }
-
-  PyObject* decimal_constructor() const { return decimal_constructor_.obj(); }
-
- private:
-  PyAcquireGIL lock_;
+Status TestPythonDecimalToString(){
   OwnedRef decimal_constructor_;
-};
+  OwnedRef decimal_module;
 
-TEST_F(DecimalTest, TestPythonDecimalToString) {
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
   std::string decimal_string("-39402950693754869342983");
-
-  OwnedRef python_object(this->CreatePythonDecimal(decimal_string));
-  ASSERT_NE(python_object.obj(), nullptr);
+  PyObject* python_object = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+  ASSERT_NE(python_object, nullptr);
 
   std::string string_result;
-  ASSERT_OK(internal::PythonDecimalToString(python_object.obj(), &string_result));
+  ASSERT_OK(internal::PythonDecimalToString(python_object, &string_result));
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestInferPrecisionAndScale) {
+Status TestInferPrecisionAndScale(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
   std::string decimal_string("-394029506937548693.42983");
-  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
 
   internal::DecimalMetadata metadata;
-  ASSERT_OK(metadata.Update(python_decimal.obj()));
+  ASSERT_OK(metadata.Update(python_decimal));
 
   const auto expected_precision =
       static_cast<int32_t>(decimal_string.size() - 2);  // 1 for -, 1 for .
@@ -298,51 +363,94 @@ TEST_F(DecimalTest, TestInferPrecisionAndScale) {
 
   ASSERT_EQ(expected_precision, metadata.precision());
   ASSERT_EQ(expected_scale, metadata.scale());
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestInferPrecisionAndNegativeScale) {
+Status TestInferPrecisionAndNegativeScale(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
   std::string decimal_string("-3.94042983E+10");
-  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
 
   internal::DecimalMetadata metadata;
-  ASSERT_OK(metadata.Update(python_decimal.obj()));
+  ASSERT_OK(metadata.Update(python_decimal));
 
   const auto expected_precision = 11;
   const int32_t expected_scale = 0;
 
   ASSERT_EQ(expected_precision, metadata.precision());
   ASSERT_EQ(expected_scale, metadata.scale());
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestInferAllLeadingZeros) {
+Status TestInferAllLeadingZeros(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
   std::string decimal_string("0.001");
-  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
 
   internal::DecimalMetadata metadata;
-  ASSERT_OK(metadata.Update(python_decimal.obj()));
+  ASSERT_OK(metadata.Update(python_decimal));
   ASSERT_EQ(3, metadata.precision());
   ASSERT_EQ(3, metadata.scale());
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestInferAllLeadingZerosExponentialNotationPositive) {
+Status TestInferAllLeadingZerosExponentialNotationPositive(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
   std::string decimal_string("0.01E5");
-  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+
   internal::DecimalMetadata metadata;
-  ASSERT_OK(metadata.Update(python_decimal.obj()));
+  ASSERT_OK(metadata.Update(python_decimal));
   ASSERT_EQ(4, metadata.precision());
   ASSERT_EQ(0, metadata.scale());
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestInferAllLeadingZerosExponentialNotationNegative) {
+Status TestInferAllLeadingZerosExponentialNotationNegative(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
   std::string decimal_string("0.01E3");
-  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
   internal::DecimalMetadata metadata;
-  ASSERT_OK(metadata.Update(python_decimal.obj()));
+  ASSERT_OK(metadata.Update(python_decimal));
   ASSERT_EQ(2, metadata.precision());
   ASSERT_EQ(0, metadata.scale());
+
+  return Status::OK();
 }
 
-TEST(PandasConversionTest, TestObjectBlockWriteFails) {
+Status TestObjectBlockWriteFails(){
   StringBuilder builder;
   const char value[] = {'\xf1', '\0'};
 
@@ -370,9 +478,11 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   st = ConvertTableToPandas(options, table, &out);
   Py_END_ALLOW_THREADS;
   ASSERT_RAISES(UnknownError, st);
+
+  return Status::OK();
 }
 
-TEST(BuiltinConversionTest, TestMixedTypeFails) {
+Status TestMixedTypeFails(){
   OwnedRef list_ref(PyList_New(3));
   PyObject* list = list_ref.obj();
 
@@ -394,110 +504,179 @@ TEST(BuiltinConversionTest, TestMixedTypeFails) {
   ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
 
   ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, {}));
+
+  return Status::OK();
 }
 
 template <typename DecimalValue>
-void DecimalTestFromPythonDecimalRescale(std::shared_ptr<DataType> type,
-                                         OwnedRef python_decimal,
+Status DecimalTestFromPythonDecimalRescale(std::shared_ptr<DataType> type,
+                                         PyObject* python_decimal,
                                          std::optional<int> expected) {
   DecimalValue value;
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
 
   if (expected.has_value()) {
     ASSERT_OK(
-        internal::DecimalFromPythonDecimal(python_decimal.obj(), decimal_type, &value));
+        internal::DecimalFromPythonDecimal(python_decimal, decimal_type, &value));
     ASSERT_EQ(expected.value(), value);
 
-    ASSERT_OK(internal::DecimalFromPyObject(python_decimal.obj(), decimal_type, &value));
+    ASSERT_OK(internal::DecimalFromPyObject(python_decimal, decimal_type, &value));
     ASSERT_EQ(expected.value(), value);
   } else {
-    ASSERT_RAISES(Invalid, internal::DecimalFromPythonDecimal(python_decimal.obj(),
-                                                              decimal_type, &value));
-    ASSERT_RAISES(Invalid, internal::DecimalFromPyObject(python_decimal.obj(),
-                                                         decimal_type, &value));
+    ASSERT_RAISES(Invalid,
+                  internal::DecimalFromPythonDecimal(python_decimal,
+                                                     decimal_type, &value));
+    ASSERT_RAISES(Invalid,
+                  internal::DecimalFromPyObject(python_decimal,
+                                                decimal_type, &value));
   }
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
+Status TestFromPythonDecimalRescaleNotTruncateable(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("1.001");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
   // We fail when truncating values that would lose data if cast to a decimal type with
   // lower scale
-  DecimalTestFromPythonDecimalRescale<Decimal128>(::arrow::decimal128(10, 2),
-                                                  this->CreatePythonDecimal("1.001"), {});
-  DecimalTestFromPythonDecimalRescale<Decimal256>(::arrow::decimal256(10, 2),
-                                                  this->CreatePythonDecimal("1.001"), {});
+  ASSERT_OK(DecimalTestFromPythonDecimalRescale<Decimal128>(::arrow::decimal128(10, 2),
+                                                            python_decimal, {}));
+  ASSERT_OK(DecimalTestFromPythonDecimalRescale<Decimal256>(::arrow::decimal256(10, 2),
+                                                            python_decimal, {}));
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
+Status TestFromPythonDecimalRescaleTruncateable(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("1.000");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
   // We allow truncation of values that do not lose precision when dividing by 10 * the
   // difference between the scales, e.g., 1.000 -> 1.00
-  DecimalTestFromPythonDecimalRescale<Decimal128>(
-      ::arrow::decimal128(10, 2), this->CreatePythonDecimal("1.000"), 100);
-  DecimalTestFromPythonDecimalRescale<Decimal256>(
-      ::arrow::decimal256(10, 2), this->CreatePythonDecimal("1.000"), 100);
+  ASSERT_OK(DecimalTestFromPythonDecimalRescale<Decimal128>(
+      ::arrow::decimal128(10, 2), python_decimal, 100));
+  ASSERT_OK(DecimalTestFromPythonDecimalRescale<Decimal256>(
+      ::arrow::decimal256(10, 2), python_decimal, 100));
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, FromPythonNegativeDecimalRescale) {
-  DecimalTestFromPythonDecimalRescale<Decimal128>(
-      ::arrow::decimal128(10, 9), this->CreatePythonDecimal("-1.000"), -1000000000);
-  DecimalTestFromPythonDecimalRescale<Decimal256>(
-      ::arrow::decimal256(10, 9), this->CreatePythonDecimal("-1.000"), -1000000000);
+Status TestFromPythonNegativeDecimalRescale(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("-1.000");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+  ASSERT_OK(DecimalTestFromPythonDecimalRescale<Decimal128>(
+      ::arrow::decimal128(10, 9), python_decimal, -1000000000));
+  ASSERT_OK(DecimalTestFromPythonDecimalRescale<Decimal256>(
+      ::arrow::decimal256(10, 9), python_decimal, -1000000000));
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, Decimal128FromPythonInteger) {
+Status TestDecimal128FromPythonInteger(){
   Decimal128 value;
   OwnedRef python_long(PyLong_FromLong(42));
   auto type = ::arrow::decimal128(10, 2);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_OK(internal::DecimalFromPyObject(python_long.obj(), decimal_type, &value));
   ASSERT_EQ(4200, value);
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, Decimal256FromPythonInteger) {
+Status TestDecimal256FromPythonInteger(){
   Decimal256 value;
   OwnedRef python_long(PyLong_FromLong(42));
   auto type = ::arrow::decimal256(10, 2);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_OK(internal::DecimalFromPyObject(python_long.obj(), decimal_type, &value));
   ASSERT_EQ(4200, value);
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestDecimal128OverflowFails) {
+Status TestDecimal128OverflowFails(){
   Decimal128 value;
-  OwnedRef python_decimal(
-      this->CreatePythonDecimal("9999999999999999999999999999999999999.9"));
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("9999999999999999999999999999999999999.9");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
   internal::DecimalMetadata metadata;
-  ASSERT_OK(metadata.Update(python_decimal.obj()));
+  ASSERT_OK(metadata.Update(python_decimal));
   ASSERT_EQ(38, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
   auto type = ::arrow::decimal(38, 38);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
-  ASSERT_RAISES(Invalid, internal::DecimalFromPythonDecimal(python_decimal.obj(),
-                                                            decimal_type, &value));
+  ASSERT_RAISES(Invalid,
+                internal::DecimalFromPythonDecimal(python_decimal,
+                                                   decimal_type, &value));
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestDecimal256OverflowFails) {
+Status TestDecimal256OverflowFails(){
   Decimal256 value;
-  OwnedRef python_decimal(this->CreatePythonDecimal(
-      "999999999999999999999999999999999999999999999999999999999999999999999999999.9"));
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("999999999999999999999999999999999999999999999999999999999999999999999999999.9");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+
   internal::DecimalMetadata metadata;
-  ASSERT_OK(metadata.Update(python_decimal.obj()));
+  ASSERT_OK(metadata.Update(python_decimal));
   ASSERT_EQ(76, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
   auto type = ::arrow::decimal(76, 76);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
-  ASSERT_RAISES(Invalid, internal::DecimalFromPythonDecimal(python_decimal.obj(),
-                                                            decimal_type, &value));
+  ASSERT_RAISES(Invalid,
+                internal::DecimalFromPythonDecimal(python_decimal,
+                                                   decimal_type, &value));
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestNoneAndNaN) {
+Status TestNoneAndNaN(){
   OwnedRef list_ref(PyList_New(4));
   PyObject* list = list_ref.obj();
 
   ASSERT_NE(list, nullptr);
 
-  PyObject* constructor = this->decimal_constructor();
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+  PyObject* constructor = decimal_constructor_.obj();
   PyObject* decimal_value = internal::DecimalFromString(constructor, "1.234");
   ASSERT_NE(decimal_value, nullptr);
 
@@ -519,10 +698,11 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
   ASSERT_EQ(0, PyList_SetItem(list, 3, missing_value3));
 
   PyConversionOptions options;
-  ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, options));
+  ASSERT_RAISES(TypeError,
+                ConvertPySequence(list, nullptr, options));
 
   options.from_pandas = true;
-  ASSERT_OK_AND_ASSIGN(auto chunked, ConvertPySequence(list, nullptr, options));
+  auto chunked = std::move(ConvertPySequence(list, nullptr, options)).ValueOrDie();
   ASSERT_EQ(chunked->num_chunks(), 1);
 
   auto arr = chunked->chunk(0);
@@ -530,9 +710,11 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
   ASSERT_TRUE(arr->IsNull(1));
   ASSERT_TRUE(arr->IsNull(2));
   ASSERT_TRUE(arr->IsNull(3));
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
+Status TestMixedPrecisionAndScale(){
   std::vector<std::string> strings{{"0.001", "1.01E5", "1.01E5"}};
 
   OwnedRef list_ref(PyList_New(static_cast<Py_ssize_t>(strings.size())));
@@ -540,28 +722,46 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
 
   ASSERT_NE(list, nullptr);
 
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
   // PyList_SetItem steals a reference to the item so we don't decref it later
-  PyObject* decimal_constructor = this->decimal_constructor();
+  PyObject* decimal_constructor = decimal_constructor_.obj();
   for (Py_ssize_t i = 0; i < static_cast<Py_ssize_t>(strings.size()); ++i) {
     const int result = PyList_SetItem(
         list, i, internal::DecimalFromString(decimal_constructor, strings.at(i)));
     ASSERT_EQ(0, result);
   }
 
-  ASSERT_OK_AND_ASSIGN(auto arr, ConvertPySequence(list, nullptr, {}))
+  auto arr = std::move(ConvertPySequence(list, nullptr, {})).ValueOrDie();
   const auto& type = checked_cast<const DecimalType&>(*arr->type());
 
   int32_t expected_precision = 9;
   int32_t expected_scale = 3;
   ASSERT_EQ(expected_precision, type.precision());
   ASSERT_EQ(expected_scale, type.scale());
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
-  PyObject* value1 = this->CreatePythonDecimal("0.01").detach();
+Status TestMixedPrecisionAndScaleSequenceConvert(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string_1("0.01");
+  PyObject* value1 = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string_1);
   ASSERT_NE(value1, nullptr);
 
-  PyObject* value2 = this->CreatePythonDecimal("0.001").detach();
+  std::string decimal_string_2("0.001");
+  PyObject* value2 = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string_2);
   ASSERT_NE(value2, nullptr);
 
   OwnedRef list_ref(PyList_New(2));
@@ -572,28 +772,94 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
   ASSERT_EQ(PyList_SetItem(list, 0, value1), 0);
   ASSERT_EQ(PyList_SetItem(list, 1, value2), 0);
 
-  ASSERT_OK_AND_ASSIGN(auto arr, ConvertPySequence(list, nullptr, {}));
+  auto arr = std::move(ConvertPySequence(list, nullptr, {})).ValueOrDie();
   const auto& type = checked_cast<const Decimal128Type&>(*arr->type());
   ASSERT_EQ(3, type.precision());
   ASSERT_EQ(3, type.scale());
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, SimpleInference) {
-  OwnedRef value(this->CreatePythonDecimal("0.01"));
-  ASSERT_NE(value.obj(), nullptr);
+Status TestSimpleInference(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("0.01");
+  PyObject* value = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+  ASSERT_NE(value, nullptr);
   internal::DecimalMetadata metadata;
-  ASSERT_OK(metadata.Update(value.obj()));
+  ASSERT_OK(metadata.Update(value));
   ASSERT_EQ(2, metadata.precision());
   ASSERT_EQ(2, metadata.scale());
+
+  return Status::OK();
 }
 
-TEST_F(DecimalTest, UpdateWithNaN) {
+Status TestUpdateWithNaN(){
   internal::DecimalMetadata metadata;
-  OwnedRef nan_value(this->CreatePythonDecimal("nan"));
-  ASSERT_OK(metadata.Update(nan_value.obj()));
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+  std::string decimal_string("nan");
+  PyObject* nan_value = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+
+  ASSERT_OK(metadata.Update(nan_value));
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.precision());
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.scale());
+
+  return Status::OK();
 }
 
+}  // namespace
+
+std::vector<TestCase> GetCppTestCases() {
+  return {
+    {"test_owned_ref_moves", TestOwnedRefMoves},
+    {"test_owned_ref_nogil_moves", TestOwnedRefNoGILMoves},
+    {"test_check_pyerror_status", TestCheckPyErrorStatus},
+    {"test_check_pyerror_status_nogil", TestCheckPyErrorStatusNoGIL},
+    {"test_restore_pyerror_basics", TestRestorePyErrorBasics},
+    {"test_pybuffer_invalid_input_object", TestPyBufferInvalidInputObject},
+#ifndef _WIN32
+    {"test_pybuffer_numpy_array", TestPyBufferNumpyArray},
+    {"test_numpybuffer_numpy_array", TestNumPyBufferNumpyArray},
+#endif
+    {"test_python_decimal_to_string", TestPythonDecimalToString},
+    {"test_infer_precision_and_scale", TestInferPrecisionAndScale},
+    {"test_infer_precision_and_negative_scale", TestInferPrecisionAndNegativeScale},
+    {"test_infer_all_leading_zeros", TestInferAllLeadingZeros},
+    {"test_infer_all_leading_zeros_exponential_notation_positive",
+     TestInferAllLeadingZerosExponentialNotationPositive},
+    {"test_infer_all_leading_zeros_exponential_notation_negative",
+     TestInferAllLeadingZerosExponentialNotationNegative},
+    {"test_object_block_write_fails", TestObjectBlockWriteFails},
+    {"test_mixed_type_fails", TestMixedTypeFails},
+    {"test_from_python_decimal_rescale_not_truncateable",
+     TestFromPythonDecimalRescaleNotTruncateable},
+    {"test_from_python_decimal_rescale_truncateable",
+     TestFromPythonDecimalRescaleTruncateable},
+    {"test_from_python_negative_decimal_rescale", TestFromPythonNegativeDecimalRescale},
+    {"test_decimal128_from_python_integer", TestDecimal128FromPythonInteger},
+    {"test_decimal256_from_python_integer", TestDecimal256FromPythonInteger},
+    {"test_decimal128_overflow_fails", TestDecimal128OverflowFails},
+    {"test_decimal256_overflow_fails", TestDecimal256OverflowFails},
+    {"test_none_and_nan", TestNoneAndNaN},
+    {"test_mixed_precision_and_scale", TestMixedPrecisionAndScale},
+    {"test_mixed_precision_and_scale_sequence_convert",
+     TestMixedPrecisionAndScaleSequenceConvert},
+    {"test_simple_inference", TestSimpleInference},
+    {"test_update_with_nan", TestUpdateWithNaN},
+  };
+}
+
+}  // namespace testing
 }  // namespace py
 }  // namespace arrow
