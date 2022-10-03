@@ -21,8 +21,9 @@ module org.apache.arrow.memory.core {
   exports org.apache.arrow.memory.util;
   exports org.apache.arrow.memory.util.hash;
   exports org.apache.arrow.util;
-  requires slf4j.api;
-  requires org.immutables.value;
   requires transitive jdk.unsupported;
   requires jsr305;
+  requires org.immutables.value;
+  requires slf4j.api;
+
 }

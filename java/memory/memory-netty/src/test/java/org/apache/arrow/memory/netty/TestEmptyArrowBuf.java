@@ -38,9 +38,7 @@ public class TestEmptyArrowBuf {
     allocator = new RootAllocator(MAX_ALLOCATION);
   }
 
-  /**
-   * Ensure the allocator is closed.
-   */
+  /** Ensure the allocator is closed. */
   @AfterClass
   public static void afterClass() {
     if (allocator != null) {

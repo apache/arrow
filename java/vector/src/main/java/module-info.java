@@ -16,15 +16,15 @@
  */
 
 module org.apache.arrow.vector {
-  requires org.apache.arrow.format;
-  requires org.apache.arrow.memory.core;
-  requires io.netty.common;
   requires com.fasterxml.jackson.annotation;
   requires com.fasterxml.jackson.core;
   requires com.fasterxml.jackson.databind;
-  requires java.sql;
-  requires flatbuffers.java;
-  requires org.apache.commons.codec;
   requires com.fasterxml.jackson.datatype.jsr310;
+  requires flatbuffers.java;
+  requires io.netty.common;
+  requires java.sql;
+  requires org.apache.arrow.format;
+  requires org.apache.arrow.memory.core;
+  requires org.apache.commons.codec;
   requires slf4j.api;
 }
