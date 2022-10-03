@@ -360,11 +360,11 @@ test_that("joins on datasets handles keep", {
   small_dataset <- InMemoryDataset$create(small_dataset_df)
 
   assert_full_join_equal <- function(keep) {
-    result <- full_join(small_dataset, full_data, by = c("y", "x"), keep = keep) |>
-      arrange(index) |>
+    result <- full_join(small_dataset, full_data, by = c("y", "x"), keep = keep) %>%
+      arrange(index) %>%
       collect()
-    expected <- full_join(small_dataset_df, full_data_df, by = c("y", "x"), keep = keep) |>
-      arrange(index) |>
+    expected <- full_join(small_dataset_df, full_data_df, by = c("y", "x"), keep = keep) %>%
+      arrange(index) %>%
       collect()
     expect_equal(result, expected)
   }
