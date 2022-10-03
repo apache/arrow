@@ -25,6 +25,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 
 namespace arrow {
 
@@ -119,9 +120,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
   ~AsyncTaskSchedulerImpl() {
     {
-      std::unique_lock<std::mutex> lk(mutex_);
+      std::unique_lock<std::shared_mutex> lk(mutex_);
       if (state_ == State::kRunning) {
-        AbortUnlocked(
+        AbortUnlocked<std::unique_lock<std::shared_mutex>>(
             Status::UnknownError("AsyncTaskScheduler abandoned before completion"),
             std::move(lk));
       }
@@ -130,7 +131,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   }
 
   bool AddTask(std::unique_ptr<Task> task) override {
-    std::unique_lock<std::mutex> lk(mutex_);
+    std::shared_lock<std::shared_mutex> lk(mutex_);
     // When a scheduler has been ended that usually signals to the caller that the
     // scheduler is free to be deleted (and any associated resources).  In this case the
     // task likely has dangling pointers/references and would be unsafe to execute.
@@ -156,7 +157,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
         queue_->Push(std::move(task));
         lk.unlock();
         maybe_backoff->AddCallback([this](const Status&) {
-          std::unique_lock<std::mutex> lk2(mutex_);
+          std::shared_lock<std::shared_mutex> lk2(mutex_);
           ContinueTasksUnlocked(std::move(lk2));
         });
       } else {
@@ -177,7 +178,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     AsyncTaskScheduler* child = owned_child.get();
     std::list<std::unique_ptr<AsyncTaskSchedulerImpl>>::iterator child_itr;
     {
-      std::lock_guard<std::mutex> lk(mutex_);
+      std::lock_guard<std::shared_mutex> lk(mutex_);
       running_tasks_++;
       sub_schedulers_.push_back(std::move(owned_child));
       child_itr = --sub_schedulers_.end();
@@ -185,7 +186,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
     struct Finalizer {
       void operator()(const Status& st) {
-        std::unique_lock<std::mutex> lk(self->mutex_);
+        std::shared_lock<std::shared_mutex> lk(self->mutex_);
         FnOnce<Status()> finish_callback;
         if (!st.ok()) {
           self->running_tasks_--;
@@ -221,7 +222,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   }
 
   void End() override {
-    std::unique_lock<std::mutex> lk(mutex_);
+    std::shared_lock<std::shared_mutex> lk(mutex_);
     if (state_ == State::kAborted) {
       return;
     }
@@ -235,7 +236,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   Future<> OnFinished() const override { return finished_; }
 
  private:
-  void ContinueTasksUnlocked(std::unique_lock<std::mutex>&& lk) {
+  void ContinueTasksUnlocked(std::shared_lock<std::shared_mutex>&& lk) {
     while (!queue_->Empty()) {
       int next_cost = queue_->Peek().cost();
       std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(next_cost);
@@ -243,7 +244,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
         lk.unlock();
         if (!maybe_backoff->TryAddCallback([this] {
               return [this](const Status&) {
-                std::unique_lock<std::mutex> lk2(mutex_);
+                std::shared_lock<std::shared_mutex> lk2(mutex_);
                 ContinueTasksUnlocked(std::move(lk2));
               };
             })) {
@@ -269,13 +270,13 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     Result<Future<>> submit_result = (*task)(this);
     if (!submit_result.ok()) {
       global_abort_->store(true);
-      std::unique_lock<std::mutex> lk(mutex_);
+      std::unique_lock<std::shared_mutex> lk(mutex_);
       running_tasks_--;
       AbortUnlocked(submit_result.status(), std::move(lk));
       return;
     }
     submit_result->AddCallback([this, cost](const Status& st) {
-      std::unique_lock<std::mutex> lk(mutex_);
+      std::shared_lock<std::shared_mutex> lk(mutex_);
       if (!st.ok()) {
         running_tasks_--;
         AbortUnlocked(st, std::move(lk));
@@ -302,7 +303,8 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     });
   }
 
-  void AbortUnlocked(const Status& st, std::unique_lock<std::mutex>&& lk) {
+  template <typename L = std::shared_lock<std::shared_mutex>>
+  void AbortUnlocked(const Status& st, L&& lk) {
     if (state_ == State::kRunning) {
       maybe_error_ = st;
       state_ = State::kAborted;
@@ -320,7 +322,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     }
   }
 
-  void SubmitTaskUnlocked(std::unique_ptr<Task> task, std::unique_lock<std::mutex>&& lk) {
+  void SubmitTaskUnlocked(std::unique_ptr<Task> task, std::shared_lock<std::shared_mutex>&& lk) {
     running_tasks_++;
     lk.unlock();
     DoSubmitTask(std::move(task));
@@ -339,7 +341,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   // Starts as ok but may transition to an error if aborted.  Will be the first
   // error that caused the abort.  If multiple errors occur, only the first is captured.
   Status maybe_error_;
-  std::mutex mutex_;
+  std::shared_mutex mutex_;
 
   std::list<std::unique_ptr<AsyncTaskSchedulerImpl>> sub_schedulers_;
 
