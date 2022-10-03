@@ -70,6 +70,6 @@ used as foundations to build easier to use entities.
   so that in the other ``.pyx`` files they can be used to implement Python classes,
   functions and helpers.
 * PyArrow is also based on dedicated pieces of code that are written into Arrow itself.
-  Those live into ``cpp/src/arrow/python`` directory and provide the low level
+  Those live in ``python/pyarrow/src/arrow/python`` directory and provide the low level
   code for capabilities like converting to and from numpy or pandas and the classes
   that allow to use Python objects and callbacks in C++.
