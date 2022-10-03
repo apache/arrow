@@ -1713,12 +1713,6 @@ public class Row extends BaseRow implements Iterator<Row> {
     return new String(vector.get(rowNumber), getDefaultCharacterSet());
   }
 
-  // TODO: Implement getters for
-  //   List & LargeList
-  //   plus (for dealing with nulls?)
-  //       all the object getters for things like TimeStampTz for Boxed return results (e.g. long v Long)
-  //   plus ones using holders
-
   /**
    * Returns true if there is at least one more non-deleted row in the table that has yet to be
    * processed.

@@ -244,8 +244,6 @@ public abstract class BaseTable implements AutoCloseable {
    * Returns the vector with the given name, or {@code null} if the name is not found. Names are
    * case-sensitive.
    *
-   * <p>TODO: Consider whether we could avoid doing a linear search of the entries
-   *
    * @param columnName The name of the vector
    * @return the Vector with the given name, or null
    */
@@ -278,8 +276,6 @@ public abstract class BaseTable implements AutoCloseable {
 
   /**
    * Returns a tab separated value of vectors (based on their java object representation).
-   *
-   * TODO: Consider moving to a separate object so code can be shared with VSR
    */
   public String contentToTSVString() {
     StringBuilder sb = new StringBuilder();
@@ -321,8 +317,6 @@ public abstract class BaseTable implements AutoCloseable {
    * Returns true if the row at the given index has been deleted and false otherwise.
    *
    * <p>If the index is larger than the number of rows, the method returns true.
-   *
-   * TODO: Consider renaming to a test that includes the notion of within the valid range
    *
    * @param rowNumber The 0-based index of the possibly deleted row
    * @return true if the row at the index was deleted; false otherwise
