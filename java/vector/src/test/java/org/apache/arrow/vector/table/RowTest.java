@@ -59,6 +59,7 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -72,6 +73,7 @@ import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
 import org.apache.arrow.vector.holders.NullableSmallIntHolder;
 import org.apache.arrow.vector.holders.NullableTimeMicroHolder;
 import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
@@ -90,6 +92,7 @@ import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
+import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -210,6 +213,44 @@ class RowTest {
       ArrowBuf durationBuf1 = c.getDuration(0);
       ArrowBuf durationBuf2 = c.getDuration("duration_vector");
       assertEquals(durationBuf1.memoryAddress(), durationBuf2.memoryAddress());
+    }
+  }
+
+  @Test
+  void getIntervalDay() {
+    List<FieldVector> vectors = new ArrayList<>();
+    IntervalUnit unit = IntervalUnit.DAY_TIME;
+    final FieldType fieldType = FieldType.nullable(new ArrowType.Interval(unit));
+
+    IntervalDayVector intervalDayVector = new IntervalDayVector("intervalDay_vector", fieldType, allocator);
+    NullableIntervalDayHolder holder1 = new NullableIntervalDayHolder();
+    NullableIntervalDayHolder holder2 = new NullableIntervalDayHolder();
+
+    holder1.days = 100;
+    holder1.milliseconds = 1000;
+    holder1.isSet = 1;
+    holder2.days = 200;
+    holder2.milliseconds = 2000;
+    holder2.isSet = 1;
+
+    vectors.add(intervalDayVector);
+    intervalDayVector.setSafe(0, holder1);
+    intervalDayVector.setSafe(1, holder2);
+    intervalDayVector.setValueCount(2);
+
+    Duration one = intervalDayVector.getObject(1);
+    try (Table t = new Table(vectors)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertEquals(one, c.getIntervalDayObj("intervalDay_vector"));
+      assertEquals(one, c.getIntervalDayObj(0));
+      c.getIntervalDay(0, holder1);
+      c.getIntervalDay("intervalDay_vector", holder2);
+      assertEquals(holder1.days, holder2.days);
+      assertEquals(holder1.milliseconds, holder2.milliseconds);
+      ArrowBuf intDayBuf1 = c.getIntervalDay(0);
+      ArrowBuf intDayBuf2 = c.getIntervalDay("intervalDay_vector");
+      assertEquals(intDayBuf1.memoryAddress(), intDayBuf2.memoryAddress());
     }
   }
 
