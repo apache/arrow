@@ -15,27 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "../platform.h"
+#pragma once
 
-#include <gtest/gtest.h>
+#include <functional>
+#include <string>
+#include <vector>
 
-#include "../datetime.h"
-#include "../init.h"
-#include "../pyarrow.h"
+#include "arrow/status.h"
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
+#include "visibility.h"
 
-  Py_Initialize();
-  int ret = arrow_init_numpy();
-  if (ret != 0) {
-    return ret;
-  }
-  ::arrow::py::internal::InitDatetime();
+namespace arrow {
+namespace py {
+namespace testing {
 
-  ret = RUN_ALL_TESTS();
+struct TestCase {
+  std::string name;
+  std::function<Status()> func;
+};
 
-  Py_Finalize();
+ARROW_PYTHON_EXPORT
+std::vector<TestCase> GetCppTestCases();
 
-  return ret;
-}
+}  // namespace testing
+}  // namespace py
+}  // namespace arrow
