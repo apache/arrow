@@ -15,7 +15,16 @@
  * limitations under the License.
  */
 
-module org.apache.arrow.format {
-  exports org.apache.arrow.flatbuf;
+module org.apache.arrow.vector {
+  requires org.apache.arrow.format;
+  requires org.apache.arrow.memory.core;
+  requires io.netty.common;
+  requires com.fasterxml.jackson.annotation;
+  requires com.fasterxml.jackson.core;
+  requires com.fasterxml.jackson.databind;
+  requires java.sql;
   requires flatbuffers.java;
+  requires org.apache.commons.codec;
+  requires com.fasterxml.jackson.datatype.jsr310;
+  requires slf4j.api;
 }
