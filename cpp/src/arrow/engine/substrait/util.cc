@@ -81,7 +81,7 @@ class SubstraitExecutor {
     }
     RETURN_NOT_OK(plan_->Validate());
     plan_started_ = true;
-    RETURN_NOT_OK(plan_->StartProducing());
+    RETURN_NOT_OK(plan_->StartProducing(exec_context_.executor()));
     auto schema = sink_consumer_->schema();
     std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
         std::move(schema), std::move(generator_), exec_context_.memory_pool());
@@ -125,7 +125,7 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const ConversionOptions& conversion_options) {
   compute::ExecContext exec_context(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool(), func_registry);
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
   SubstraitExecutor executor(std::move(plan), exec_context, conversion_options);
   RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());

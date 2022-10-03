@@ -35,6 +35,7 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -61,9 +62,10 @@ static constexpr int64_t kDefaultExecChunksize = UINT16_MAX;
 class ARROW_EXPORT ExecContext {
  public:
   // If no function registry passed, the default is used.
-  explicit ExecContext(MemoryPool* pool = default_memory_pool(),
-                       ::arrow::internal::Executor* executor = NULLPTR,
-                       FunctionRegistry* func_registry = NULLPTR);
+  explicit ExecContext(
+      MemoryPool* pool = default_memory_pool(),
+      ::arrow::internal::Executor* executor = ::arrow::internal::GetCpuThreadPool(),
+      FunctionRegistry* func_registry = NULLPTR);
 
   /// \brief The MemoryPool used for allocations, default is
   /// default_memory_pool().
@@ -89,14 +91,6 @@ class ARROW_EXPORT ExecContext {
   // kernels. Contiguous array inputs with longer length will be split into
   // smaller chunks.
   int64_t exec_chunksize() const { return exec_chunksize_; }
-
-  /// \brief Set whether to use multiple threads for function execution. This
-  /// is not yet used.
-  void set_use_threads(bool use_threads = true) { use_threads_ = use_threads; }
-
-  /// \brief If true, then utilize multiple threads where relevant for function
-  /// execution. This is not yet used.
-  bool use_threads() const { return use_threads_; }
 
   // Set the preallocation strategy for kernel execution as it relates to
   // chunked execution. For chunked execution, whether via ChunkedArray inputs
@@ -124,7 +118,6 @@ class ARROW_EXPORT ExecContext {
   FunctionRegistry* func_registry_;
   int64_t exec_chunksize_ = std::numeric_limits<int64_t>::max();
   bool preallocate_contiguous_ = true;
-  bool use_threads_ = true;
 };
 
 // TODO: Consider standardizing on uint16 selection vectors and only use them

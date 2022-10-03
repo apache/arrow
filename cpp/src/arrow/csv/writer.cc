@@ -127,7 +127,6 @@ class ColumnPopulator {
     compute::ExecContext ctx(pool_);
     // Populators are intented to be applied to reasonably small data.  In most cases
     // threading overhead would not be justified.
-    ctx.set_use_threads(false);
     ASSIGN_OR_RAISE(
         std::shared_ptr<Array> casted,
         compute::Cast(data, /*to_type=*/utf8(), compute::CastOptions(), &ctx));

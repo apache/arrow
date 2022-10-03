@@ -28,6 +28,7 @@ namespace compute {
 
 class Function;
 class FunctionOptions;
+class FunctionRegistry;
 
 class CastOptions;
 

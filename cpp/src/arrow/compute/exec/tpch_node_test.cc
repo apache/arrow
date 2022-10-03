@@ -64,8 +64,7 @@ Status AddTableAndSinkToPlan(ExecPlan& plan, TpchGen& gen,
 
 Result<std::vector<ExecBatch>> GenerateTable(TableNodeFn table,
                                              double scale_factor = kDefaultScaleFactor) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<TpchGen> gen,
                         TpchGen::Make(plan.get(), scale_factor));
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
@@ -623,8 +622,7 @@ TEST(TpchNode, AllTables) {
   };
 
   std::array<AsyncGenerator<std::optional<ExecBatch>>, kNumTables> gens;
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<TpchGen> gen,
                        TpchGen::Make(plan.get(), kScaleFactor));
   for (int i = 0; i < kNumTables; i++) {
@@ -632,7 +630,7 @@ TEST(TpchNode, AllTables) {
   }
 
   ASSERT_OK(plan->Validate());
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
   ASSERT_OK(plan->finished().status());
   for (int i = 0; i < kNumTables; i++) {
     auto fut = CollectAsyncGenerator(gens[i]);

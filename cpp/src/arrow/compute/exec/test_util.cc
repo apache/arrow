@@ -172,20 +172,20 @@ ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
   return batch;
 }
 
-Future<> StartAndFinish(ExecPlan* plan) {
+Future<> StartAndFinish(ExecPlan* plan, bool use_threads) {
   RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
-  return plan->finished();
+  return ::arrow::internal::RunSynchronously<Future<>>(
+      [plan](::arrow::internal::Executor* executor) -> Future<> {
+        ARROW_RETURN_NOT_OK(plan->StartProducing(executor));
+        return plan->finished();
+      },
+      use_threads);
 }
 
 Future<std::vector<ExecBatch>> StartAndCollect(
-    ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen) {
-  RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
-
+    ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen, bool use_threads) {
   auto collected_fut = CollectAsyncGenerator(gen);
-
-  return AllFinished({plan->finished(), Future<>(collected_fut)})
+  return AllComplete({StartAndFinish(plan, use_threads), Future<>(collected_fut)})
       .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
         ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
         return ::arrow::internal::MapVector(

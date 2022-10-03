@@ -90,14 +90,12 @@ struct SourceNode : ExecNode {
 
     CallbackOptions options;
     auto executor = plan()->exec_context()->executor();
-    if (executor) {
-      // These options will transfer execution to the desired Executor if necessary.
-      // This can happen for in-memory scans where batches didn't require
-      // any CPU work to decode. Otherwise, parsing etc should have already
-      // been placed us on the desired Executor and no queues will be pushed to.
-      options.executor = executor;
-      options.should_schedule = ShouldSchedule::IfDifferentExecutor;
-    }
+    // These options will transfer execution to the desired Executor if necessary.
+    // This can happen for in-memory scans where batches didn't require
+    // any CPU work to decode. Otherwise, parsing etc should have already
+    // been placed us on the desired Executor and no queues will be pushed to.
+    options.executor = executor;
+    options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->BeginExternalTask());
     if (!scan_task.is_valid()) {
       finished_.MarkFinished();
