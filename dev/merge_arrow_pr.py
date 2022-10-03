@@ -54,7 +54,7 @@ try:
     import jira.exceptions
 except ImportError:
     print("Could not find jira library. "
-          "Run 'sudo pip install jira' to install.")
+          "Run 'pip install jira' to install.")
     print("Exiting without trying to close the associated JIRA.")
     sys.exit(1)
 
@@ -116,7 +116,7 @@ def fix_version_from_branch(branch, versions):
         return [x for x in versions if x.name.startswith(branch_ver)][-1]
 
 
-# We can merge both ARROW and PARQUET patchesa
+# We can merge both ARROW and PARQUET patches
 SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
 PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
                     for project in SUPPORTED_PROJECTS]
