@@ -1099,7 +1099,24 @@ logicals test_arrow_altrep_is_materialized(sexp x) {
     return logicals({NA_LOGICAL});
   }
 
-  return logicals({R_altrep_data2(x) != R_NilValue});
+  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
+  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
+
+  int result = NA_LOGICAL;
+  if (class_name == "arrow::array_dbl_vector") {
+    result = arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::IsMaterialized(x);
+  } else if (class_name == "arrow::array_int_vector") {
+    result = arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::IsMaterialized(x);
+  } else if (class_name == "arrow::array_string_vector") {
+    result = arrow::r::altrep::AltrepVectorString<arrow::StringType>::IsMaterialized(x);
+  } else if (class_name == "arrow::array_large_string_vector") {
+    result =
+        arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::IsMaterialized(x);
+  } else if (class_name == "arrow::array_factor") {
+    result = arrow::r::altrep::AltrepFactor::IsMaterialized(x);
+  }
+
+  return logicals({result});
 }
 
 // [[arrow::export]]
@@ -1108,7 +1125,8 @@ bool test_arrow_altrep_force_materialize(sexp x) {
     stop("x is not arrow ALTREP");
   }
 
-  if (R_altrep_data2(x) != R_NilValue) {
+  bool already_materialized = as_cpp<bool>(test_arrow_altrep_is_materialized(x));
+  if (already_materialized) {
     stop("x is already materialized");
   }
 

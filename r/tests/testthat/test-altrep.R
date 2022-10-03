@@ -390,17 +390,20 @@ test_that("altrep vectors handle serialization", {
   ints <- c(1L, 2L, NA_integer_)
   dbls <- c(1, 2, NA_real_)
   strs <- c("un", "deux", NA_character_)
+  fctrs <- as.factor(strs)
 
   expect_identical(ints, unserialize(serialize(Array$create(ints)$as_vector(), NULL)))
   expect_identical(dbls, unserialize(serialize(Array$create(dbls)$as_vector(), NULL)))
   expect_identical(strs, unserialize(serialize(Array$create(strs)$as_vector(), NULL)))
   expect_identical(strs, unserialize(serialize(Array$create(strs, large_utf8())$as_vector(), NULL)))
+  expect_identical(fctrs, unserialize(serialize(Array$create(fctrs)$as_vector(), NULL)))
 })
 
 test_that("altrep vectors handle coercion", {
   ints <- c(1L, 2L, NA_integer_)
   dbls <- c(1, 2, NA_real_)
   strs <- c("1", "2", NA_character_)
+  fctrs <- as.factor(strs)
 
   expect_identical(ints, as.integer(Array$create(dbls)$as_vector()))
   expect_identical(ints, as.integer(Array$create(strs)$as_vector()))
@@ -410,6 +413,9 @@ test_that("altrep vectors handle coercion", {
 
   expect_identical(strs, as.character(Array$create(ints)$as_vector()))
   expect_identical(strs, as.character(Array$create(dbls)$as_vector()))
+
+  expect_identical(fctrs, as.factor(Array$create(fctrs)$as_vector()))
+  expect_identical(strs, as.character(Array$create(fctrs)$as_vector()))
 })
 
 test_that("columns of struct types may be altrep", {
@@ -510,6 +516,50 @@ test_that("dictionaries chunked arrays are made altrep", {
   expect_true(is_arrow_altrep(f))
   expect_equal(levels(f), c("a", "b", "d", "c", "e"))
   expect_equal(as.integer(f), c(1L, 2L, 3L, 4L, 1L, NA_integer_, 5L))
+})
+
+test_that("element access methods for ALTREP factors", {
+  index_types <- list(int8(), uint8(), int16(), uint16(), int32(), uint32())
+
+  for (index_type in index_types) {
+    # without unification
+    int_indices <- c(1L, 2L, 4L, 3L, 1L, NA_integer_, 5L)
+    x <- ChunkedArray$create(
+      factor(c("a", "b"), levels = letters[1:5]),
+      factor(c("d", "c", "a", NA, "e"), levels = letters[1:5]),
+      type = dictionary(index_type, string())
+    )
+    f <- x$as_vector()
+    expect_true(is_arrow_altrep(f))
+    # This may fail interactively because str() currently
+    # calls unclass(f), which calls our duplicate method
+    expect_false(test_arrow_altrep_is_materialized(f))
+
+    expect_identical(test_arrow_altrep_copy_by_element(f), int_indices)
+    expect_identical(test_arrow_altrep_copy_by_region(f, 3), int_indices)
+    expect_false(test_arrow_altrep_is_materialized(f))
+
+    expect_identical(test_arrow_altrep_copy_by_dataptr(f), int_indices)
+    expect_true(test_arrow_altrep_is_materialized(f))
+
+    # with unification
+    int_indices <- c(1L, 2L, 3L, 4L, 1L, NA_integer_, 5L)
+    x <- ChunkedArray$create(
+      factor(c("a", "b"), levels = c("a", "b")),
+      factor(c("d", "c", "a", NA, "e"), levels = c("d", "c", "a", "e")),
+      type = dictionary(index_type, string())
+    )
+    f <- x$as_vector()
+    expect_true(is_arrow_altrep(f))
+    expect_false(test_arrow_altrep_is_materialized(f))
+
+    expect_identical(test_arrow_altrep_copy_by_element(f), int_indices)
+    expect_identical(test_arrow_altrep_copy_by_region(f, 3), int_indices)
+    expect_false(test_arrow_altrep_is_materialized(f))
+
+    expect_identical(test_arrow_altrep_copy_by_dataptr(f), int_indices)
+    expect_true(test_arrow_altrep_is_materialized(f))
+  }
 })
 
 
