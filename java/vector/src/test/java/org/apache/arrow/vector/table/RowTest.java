@@ -267,7 +267,8 @@ class RowTest {
     IntervalUnit unit = IntervalUnit.MONTH_DAY_NANO;
     final FieldType fieldType = FieldType.nullable(new ArrowType.Interval(unit));
 
-    IntervalMonthDayNanoVector intervalMonthVector = new IntervalMonthDayNanoVector("intervalMonth_vector", fieldType, allocator);
+    IntervalMonthDayNanoVector intervalMonthVector =
+        new IntervalMonthDayNanoVector("intervalMonth_vector", fieldType, allocator);
     NullableIntervalMonthDayNanoHolder holder1 = new NullableIntervalMonthDayNanoHolder();
     NullableIntervalMonthDayNanoHolder holder2 = new NullableIntervalMonthDayNanoHolder();
 
