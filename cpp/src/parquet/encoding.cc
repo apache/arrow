@@ -2080,7 +2080,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         sink_(pool),
         bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
         bit_writer_(bits_buffer_->mutable_data(), static_cast<int>(bits_buffer_->size())),
-        deltas_(std::vector<T>(values_per_block_)) {}
+        deltas_(std::vector<int64_t>(values_per_block_)) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
@@ -2110,7 +2110,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   ::arrow::BufferBuilder sink_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::bit_util::BitWriter bit_writer_;
-  std::vector<T> deltas_;
+  std::vector<int64_t> deltas_;
 
  private:
   void FlushBlock();
@@ -2129,11 +2129,7 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
     idx = 1;
   }
   total_value_count_ += num_values;
-
-  int increment = total_value_count_ * sizeof(T);
-  if (ARROW_PREDICT_FALSE(sink_.capacity() + increment > sink_.capacity())) {
-    PARQUET_THROW_NOT_OK(sink_.Resize(increment, false));
-  }
+  PARQUET_THROW_NOT_OK(sink_.Resize(total_value_count_ * sizeof(T), false));
 
   while (idx < static_cast<uint32_t>(num_values)) {
     T value = src[idx];
@@ -2157,8 +2153,8 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     return;
   }
 
-  const auto min_delta =
-      static_cast<int64_t>(*std::min_element(deltas_.begin(), deltas_.end()));
+  const int64_t min_delta = static_cast<int64_t>(
+      *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_));
   DCHECK(bit_writer_.PutZigZagVlqInt(min_delta));
 
   uint8_t* bit_width_offsets = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
@@ -2173,7 +2169,7 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     }
 
     const uint32_t start = i * values_per_mini_block_;
-    const auto max_delta = static_cast<int64_t>(
+    const int64_t max_delta = static_cast<int64_t>(
         *std::max_element(deltas_.begin() + start, deltas_.begin() + start + n));
 
     const uint32_t num_bits = bit_util::NumRequiredBits(max_delta - min_delta);
@@ -2223,13 +2219,13 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
 
 template <>
 void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
-  auto src = reinterpret_cast<int32_t*>(values.data()->buffers[0]->mutable_data());
+  auto src = values.data()->GetValues<int32_t>(1);
   Put(src, static_cast<int>(values.length()));
 }
 
 template <>
 void DeltaBitPackEncoder<Int64Type>::Put(const ::arrow::Array& values) {
-  auto src = reinterpret_cast<int64_t*>(values.data()->buffers[0]->mutable_data());
+  auto src = values.data()->GetValues<int64_t>(1);
   Put(src, static_cast<int>(values.length()));
 }
 
