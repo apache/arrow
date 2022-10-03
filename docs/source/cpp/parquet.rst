@@ -35,8 +35,8 @@ from tight integration with the Arrow C++ classes and facilities.
 Reading Parquet files
 =====================
 
-The :class:`arrow::FileReader` class reads data for an entire
-file or row group into an :class:`arrow::Table`.
+The :class:`arrow::FileReader` class reads data into Arrow Tables and Record
+Batches.
 
 The :class:`StreamReader` and :class:`StreamWriter` classes allow for
 data to be written using a C++ input/output streams approach to
@@ -52,9 +52,10 @@ checking and the fact that column values are processed one at a time.
 FileReader
 ----------
 
-The Parquet :class:`arrow::FileReader` requires a
-:class:`::arrow::io::RandomAccessFile` instance representing the input
-file.
+To read Parquet data into Arrow structures, use :class:`arrow::FileReader`.
+To construct, it requires a :class:`::arrow::io::RandomAccessFile` instance 
+representing the input file. To read the whole file at once, 
+use :func:`arrow::FileReader::ReadTable`:
 
 .. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
    :language: cpp
@@ -78,6 +79,11 @@ size set in :class:`ArrowReaderProperties`.
    :emphasize-lines: 25
    :dedent: 2
 
+.. seealso::
+
+   For reading multi-file datasets or pushing down filters to prune row groups,
+   see :ref:`Tabular Datasets<cpp-dataset>`.
+
 Performance and Memory Efficiency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -85,9 +91,8 @@ For remote filesystems, use read coalescing (pre-buffering) to reduce number of 
 
 .. code-block:: cpp
 
-   auto reader_properties = parquet::ReaderProperties(pool);
-   reader_properties.enable_buffered_stream();
-   reader_properties.set_buffer_size(4096 * 4); // This is default value
+   auto arrow_reader_props = parquet::ArrowReaderProperties();
+   reader_properties.set_prebuffer(true);
 
 The defaults are generally tuned towards good performance, but parallel column
 decoding is off by default. Enable it in the constructor of :class:`ArrowReaderProperties`:
@@ -98,9 +103,9 @@ decoding is off by default. Enable it in the constructor of :class:`ArrowReaderP
 
 If memory efficiency is more important than performance, then:
 
-#. Do not turn on read coalescing (pre-buffering).
-#. Read data in batches.
-#. Turn off ``use_buffered_stream``.
+#. Do *not* turn on read coalescing (pre-buffering) in :class:`parquet::ArrowReaderProperties`.
+#. Read data in batches using :func:`arrow::FileReader::GetRecordBatchReader`.
+#. Turn on ``enable_buffered_stream`` in :class:`parquet::ReaderProperties`.
 
 In addition, if you know certain columns contain many repeated values, you can
 read them as :term:`dictionary encoded<dictionary-encoding>` columns. This is 
@@ -182,11 +187,6 @@ To write out data batch-by-batch, use :class:`arrow::FileWriter`.
    :end-before: return arrow::Status::OK();
    :emphasize-lines: 23-25,32,36
    :dedent: 2
-
-.. seealso::
-
-   For reading multi-file datasets or pushing down filters to prune row groups,
-   see :ref:`Tabular Datasets<cpp-dataset>`.
 
 StreamWriter
 ------------
