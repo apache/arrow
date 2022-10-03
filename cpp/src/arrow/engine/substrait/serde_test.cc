@@ -40,6 +40,7 @@
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/discovery.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/partition.h"
@@ -3808,6 +3809,115 @@ TEST(Substrait, ReadRelWithGlobFiles) {
   compute::SortOptions options({compute::SortKey("A", compute::SortOrder::Ascending)});
   CheckRoundTripResult(std::move(dummy_schema), std::move(expected_table), exec_context,
                        buf, {}, {}, &options);
+}
+
+TEST(Substrait, RootRelationOutputNames) {
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  const std::vector<std::string> str_data_vec = {
+      R"([
+      [10, 1, 80],
+      [20, 2, 70],
+      [30, 3, 30]
+  ])"};
+  auto input_table = TableFromJSON(dummy_schema, str_data_vec);
+
+  const std::string substrait_json = R"({
+    "relations": [{
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "emit": {
+                "outputMapping": [3, 4, 5]
+              }
+            },
+            "input": {
+              "read": {
+                "common": {
+                  "direct": {
+                  }
+                },
+                "baseSchema": {
+                  "names": ["A", "B", "C"],
+                  "struct": {
+                    "types": [{
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }, {
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }, {
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }],
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["SIMPLEDATA"]
+                }
+              }
+            },
+            "expressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 1
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 2
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }]
+          }
+        },
+        "names": ["X", "Y", "Z"]
+      }
+    }]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema =
+      schema({field("X", int32()), field("Y", int32()), field("Z", int32())});
+  auto expected_table = TableFromJSON(output_schema, str_data_vec);
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+  CheckRoundTripResultTableConsumer(expected_table, exec_context, buf, {},
+                                    conversion_options);
 }
 
 }  // namespace engine

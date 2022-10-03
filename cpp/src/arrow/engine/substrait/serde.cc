@@ -96,23 +96,6 @@ using DeclarationFactory = std::function<Result<compute::Declaration>(
 
 namespace {
 
-DeclarationFactory MakeConsumingSinkDeclarationFactory(
-    const ConsumerFactory& consumer_factory) {
-  return [&consumer_factory](
-             compute::Declaration input,
-             std::vector<std::string> names) -> Result<compute::Declaration> {
-    std::shared_ptr<compute::SinkNodeConsumer> consumer = consumer_factory();
-    if (consumer == nullptr) {
-      return Status::Invalid("consumer factory is exhausted");
-    }
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::ConsumingSinkNodeOptions>(
-            compute::ConsumingSinkNodeOptions{std::move(consumer), std::move(names)});
-    return compute::Declaration::Sequence(
-        {std::move(input), {"consuming_sink", options}});
-  };
-}
-
 compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
                                                std::vector<std::string> names) {
   int names_size = static_cast<int>(names.size());
@@ -127,6 +110,24 @@ compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
       {std::move(input),
        {"project",
         compute::ProjectNodeOptions{std::move(expressions), std::move(names)}}});
+}
+
+DeclarationFactory MakeConsumingSinkDeclarationFactory(
+    const ConsumerFactory& consumer_factory) {
+  return [&consumer_factory](
+             compute::Declaration input,
+             std::vector<std::string> names) -> Result<compute::Declaration> {
+    std::shared_ptr<compute::SinkNodeConsumer> consumer = consumer_factory();
+    if (consumer == nullptr) {
+      return Status::Invalid("consumer factory is exhausted");
+    }
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::ConsumingSinkNodeOptions>(
+            compute::ConsumingSinkNodeOptions{std::move(consumer), std::move(names)});
+    compute::Declaration projected = ProjectByNamesDeclaration(input, names);
+    return compute::Declaration::Sequence(
+        {std::move(projected), {"consuming_sink", options}});
+  };
 }
 
 DeclarationFactory MakeWriteDeclarationFactory(
