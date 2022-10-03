@@ -35,6 +35,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-buffer</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -43,6 +44,7 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.immutables</groupId>
@@ -72,6 +74,26 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+
+    <profile>
+      <id>memory-jdk11+</id>
+      <activation>
+        <jdk>[11,]</jdk>
+      </activation>
+            <build>
+              <plugins>
+                <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-compiler-plugin</artifactId>
+                  <configuration>
+                    <compilerArgs combine.children="append">
+                      <arg>--patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</arg>
+                    </compilerArgs>
+                  </configuration>
+                </plugin>
+              </plugins>
+            </build>
     </profile>
   </profiles>
 </project>

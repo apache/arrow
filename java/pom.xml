@@ -331,6 +331,7 @@
           <format>html</format>
           <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
           <linkXRef>false</linkXRef>
+          <excludes>**/module-info.*</excludes>
         </configuration>
       </plugin>
       <plugin>
@@ -420,6 +421,7 @@
               which in turn can cause OOM. -->
               <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
             </systemPropertyVariables>
+            <useModulePath>false</useModulePath>
           </configuration>
         </plugin>
         <plugin>
@@ -786,6 +788,31 @@
                 </path>
               </annotationProcessorPaths>
             </configuration>
+            <executions>
+              <execution>
+                <id>default-compile</id>
+                <configuration>
+                  <source>8</source>
+                  <target>8</target>
+                  <excludes>
+                    <exclude>module-info.java</exclude>
+                  </excludes>
+                </configuration>
+              </execution>
+              <execution>
+                <id>base-compile</id>
+                <goals>
+                  <goal>compile</goal>
+                </goals>
+                <configuration>
+                  <source>8</source>
+                  <target>8</target>
+                  <excludes>
+                    <exclude>module-info.java</exclude>
+                  </excludes>
+                </configuration>
+              </execution>
+            </executions>
           </plugin>
         </plugins>
       </build>
@@ -830,6 +857,33 @@
                 </path>
               </annotationProcessorPaths>
             </configuration>
+            <executions>
+              <execution>
+                <id>default-compile</id>
+                <configuration>
+                  <release>11</release>
+                </configuration>
+              </execution>
+              <execution>
+                <id>default-testCompile</id>
+                <configuration>
+                  <release>11</release>
+                </configuration>
+              </execution>
+              <execution>
+                <id>base-compile</id>
+                <goals>
+                  <goal>compile</goal>
+                </goals>
+                <configuration>
+                  <source>8</source>
+                  <target>8</target>
+                  <excludes>
+                    <exclude>module-info.java</exclude>
+                  </excludes>
+                </configuration>
+              </execution>
+            </executions>
           </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
