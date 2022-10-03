@@ -395,7 +395,8 @@ class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
 
 DirectFileOutputStream::DirectFileOutputStream(int64_t sector_size) {
   sector_size_ = sector_size;
-  uintptr_t mask = (uintptr_t)(sector_size - 1);
+
+  uintptr_t mask = static_cast<uintptr_t>(sector_size - 1);
   cached_data_.reserve(sector_size * 2 - 1);
   aligned_cached_data_ = reinterpret_cast<uint8_t*>(
       reinterpret_cast<uintptr_t>(&cached_data_[0] + sector_size - 1) & ~(mask));
@@ -433,8 +434,9 @@ Status DirectFileOutputStream::Close() {
     }
     ARROW_ASSIGN_OR_RAISE(auto file_pos, impl_->Tell());
     auto new_length = file_pos - sector_size_ + cached_length_;
-    // fsync(impl_->fd());
-    ftruncate(impl_->fd(), new_length);
+    if (ftruncate(impl_->fd(), new_length) != 0) {
+      return Status::IOError("failed to truncate the file.");
+    }
   }
   cached_length_ = 0;
   return impl_->Close();
@@ -458,14 +460,13 @@ Status DirectFileOutputStream::Write(const void* data, int64_t length) {
 
   auto bytes_to_write = (cached_length_ + length) / sector_size_ * sector_size_;
   auto bytes_leftover = cached_length_ + length - bytes_to_write;
-  uintptr_t mask = (uintptr_t)(sector_size_ - 1);
+  uintptr_t mask = static_cast<uintptr_t>(sector_size_ - 1);
   std::vector<uint8_t> mem;
   mem.reserve(bytes_to_write + sector_size_ - 1);
   uint8_t* new_ptr = reinterpret_cast<uint8_t*>(
       reinterpret_cast<uintptr_t>(&mem[0] + sector_size_ - 1) & ~(mask));
   std::memcpy(new_ptr, aligned_cached_data_, cached_length_);
   std::memcpy(new_ptr + cached_length_, data, bytes_to_write - cached_length_);
-  std::memset(aligned_cached_data_, 0, cached_length_);  // this is not required.
   std::memcpy(aligned_cached_data_,
               reinterpret_cast<const uint8_t*>(data) + bytes_to_write - cached_length_,
               bytes_leftover);
