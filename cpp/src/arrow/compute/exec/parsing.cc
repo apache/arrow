@@ -76,11 +76,11 @@ using InstantiateTypeFn =
 static Result<int32_t> ParseInt32(std::string_view& args) {
   ConsumeWhitespace(args);
   int32_t result;
-  auto [finish, ec] = std::from_chars(args.begin(), args.end(), result);
+  auto [finish, ec] = std::from_chars(args.data(), args.data() + args.size(), result);
   if (ec == std::errc::invalid_argument)
     return Status::Invalid("Could not parse ", args, " as an int32!");
 
-  args.remove_prefix(finish - args.begin());
+  args.remove_prefix(finish - args.data());
   return result;
 }
 
