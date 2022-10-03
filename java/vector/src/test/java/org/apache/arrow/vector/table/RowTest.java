@@ -36,6 +36,7 @@ import static org.apache.arrow.vector.table.TestUtils.simpleListVector;
 import static org.apache.arrow.vector.table.TestUtils.simpleMapVector;
 import static org.apache.arrow.vector.table.TestUtils.simpleStructVector;
 import static org.apache.arrow.vector.table.TestUtils.simpleUnionVector;
+import static org.apache.arrow.vector.table.TestUtils.timezoneTemporalVectors;
 import static org.apache.arrow.vector.table.TestUtils.twoIntColumns;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,6 +52,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BitVector;
@@ -76,9 +78,13 @@ import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
 import org.apache.arrow.vector.holders.NullableTimeNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMicroHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampMicroTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampMilliTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampSecTZHolder;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
@@ -182,8 +188,10 @@ class RowTest {
 
     holder1.value = 100;
     holder1.unit = TimeUnit.SECOND;
+    holder1.isSet = 1;
     holder2.value = 200;
     holder2.unit = TimeUnit.SECOND;
+    holder2.isSet = 1;
 
     vectors.add(durationVector);
     durationVector.setSafe(0, holder1);
@@ -198,8 +206,10 @@ class RowTest {
       assertEquals(one, c.getDurationObj(0));
       c.getDuration(0, holder1);
       c.getDuration("duration_vector", holder2);
-      assertEquals(holder1.value + 100, holder2.value);
-      // TODO: FIXME assertEquals(c.getDuration(0).memoryAddress(), c.getDuration("duration_vector").memoryAddress());
+      assertEquals(holder1.value, holder2.value);
+      ArrowBuf durationBuf1 = c.getDuration(0);
+      ArrowBuf durationBuf2 = c.getDuration("duration_vector");
+      assertEquals(durationBuf1.memoryAddress(), durationBuf2.memoryAddress());
     }
   }
 
@@ -439,6 +449,52 @@ class RowTest {
     }
   }
 
+  @Test
+  void timestampsWithTimezones() {
+    List<FieldVector> vectorList = timezoneTemporalVectors(allocator, 2);
+    try (Table t = new Table(vectorList)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+
+      assertEquals(c.getTimeStampSecTZ("timeStampSecTZ_vector"), c.getTimeStampSecTZ(0));
+      assertEquals(c.getTimeStampMilliTZ("timeStampMilliTZ_vector"), c.getTimeStampMilliTZ(1));
+      assertEquals(c.getTimeStampMicroTZ("timeStampMicroTZ_vector"), c.getTimeStampMicroTZ(2));
+      assertEquals(c.getTimeStampNanoTZ("timeStampNanoTZ_vector"), c.getTimeStampNanoTZ(3));
+
+      // time stamp tests using Nullable Holders
+      NullableTimeStampSecTZHolder timeStampSecHolder = new NullableTimeStampSecTZHolder();
+      NullableTimeStampMilliTZHolder timeStampMilliHolder = new NullableTimeStampMilliTZHolder();
+      NullableTimeStampMicroTZHolder timeStampMicroHolder = new NullableTimeStampMicroTZHolder();
+      NullableTimeStampNanoTZHolder timeStampNanoHolder = new NullableTimeStampNanoTZHolder();
+
+      // fill the holders using vector index and test
+      c.getTimeStampSecTZ(0, timeStampSecHolder);
+      c.getTimeStampMilliTZ(1, timeStampMilliHolder);
+      c.getTimeStampMicroTZ(2, timeStampMicroHolder);
+      c.getTimeStampNanoTZ(3, timeStampNanoHolder);
+
+      long tsSec = timeStampSecHolder.value;
+      long tsMil = timeStampMilliHolder.value;
+      long tsMic = timeStampMicroHolder.value;
+      long tsNan = timeStampNanoHolder.value;
+
+      assertEquals(c.getTimeStampSecTZ("timeStampSecTZ_vector"), timeStampSecHolder.value);
+      assertEquals(c.getTimeStampMilliTZ("timeStampMilliTZ_vector"), timeStampMilliHolder.value);
+      assertEquals(c.getTimeStampMicroTZ("timeStampMicroTZ_vector"), timeStampMicroHolder.value);
+      assertEquals(c.getTimeStampNanoTZ("timeStampNanoTZ_vector"), timeStampNanoHolder.value);
+
+      // fill the holders using vector index and test
+      c.getTimeStampSecTZ("timeStampSecTZ_vector", timeStampSecHolder);
+      c.getTimeStampMilliTZ("timeStampMilliTZ_vector", timeStampMilliHolder);
+      c.getTimeStampMicroTZ("timeStampMicroTZ_vector", timeStampMicroHolder);
+      c.getTimeStampNanoTZ("timeStampNanoTZ_vector", timeStampNanoHolder);
+
+      assertEquals(tsSec, timeStampSecHolder.value);
+      assertEquals(tsMil, timeStampMilliHolder.value);
+      assertEquals(tsMic, timeStampMicroHolder.value);
+      assertEquals(tsNan, timeStampNanoHolder.value);
+    }
+  }
 
   @Test
   void getVarChar() {

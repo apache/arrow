@@ -1325,7 +1325,7 @@ public class Row extends BaseRow implements Iterator<Row> {
   }
 
   /**
-   * Returns a Duration from the column of the given name at the current row. An
+   * Returns an ArrowBuf from the column of the given name at the current row. An
    * IllegalStateException is thrown if the column is not present, and an IllegalArgumentException
    * is thrown if it is present but has a different type
    */
@@ -1335,7 +1335,7 @@ public class Row extends BaseRow implements Iterator<Row> {
   }
 
   /**
-   * Returns a Duration from the column with the given index at the current row. An
+   * Returns an ArrowBuf from the column with the given index at the current row. An
    * IllegalStateException is thrown if the column is not present, and an IllegalArgumentException
    * is thrown if it is present but has a different type
    */

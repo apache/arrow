@@ -258,10 +258,10 @@ public class TestUtils {
 
   static List<FieldVector> timezoneTemporalVectors(BufferAllocator allocator, int rowCount) {
     List<FieldVector> vectors = new ArrayList<>();
-    vectors.add(new TimeStampSecTZVector("timeStampSecTz_vector", allocator, "UTC"));
-    vectors.add(new TimeStampMilliTZVector("timeStampMilliTz_vector", allocator, "UTC"));
-    vectors.add(new TimeStampMicroTZVector("timeStampMicroTz_vector", allocator, "UTC"));
-    vectors.add(new TimeStampNanoTZVector("timeStampNanoTz_vector", allocator, "UTC"));
+    vectors.add(new TimeStampSecTZVector("timeStampSecTZ_vector", allocator, "UTC"));
+    vectors.add(new TimeStampMilliTZVector("timeStampMilliTZ_vector", allocator, "UTC"));
+    vectors.add(new TimeStampMicroTZVector("timeStampMicroTZ_vector", allocator, "UTC"));
+    vectors.add(new TimeStampNanoTZVector("timeStampNanoTZ_vector", allocator, "UTC"));
     vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
     return vectors;
   }
