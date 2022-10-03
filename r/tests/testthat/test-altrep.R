@@ -17,8 +17,25 @@
 
 skip_on_r_older_than("3.6")
 
-test_that("is_arrow_altrep() does not include base altrep", {
+test_that("altrep test functions do not include base altrep", {
   expect_false(is_arrow_altrep(1:10))
+  expect_identical(test_arrow_altrep_is_materialized(1:10), NA)
+  expect_error(
+    test_arrow_altrep_force_materialize(1:10),
+    "is not arrow ALTREP"
+  )
+  expect_error(
+    test_arrow_altrep_copy_by_element(1:10),
+    "is not arrow ALTREP"
+  )
+  expect_error(
+    test_arrow_altrep_copy_by_region(1:10, 1024),
+    "is not arrow ALTREP"
+  )
+  expect_error(
+    test_arrow_altrep_copy_by_dataptr(1:10),
+    "is not arrow ALTREP"
+  )
 })
 
 test_that("altrep vectors from int32 and dbl arrays with no nulls", {
@@ -54,6 +71,29 @@ test_that("altrep vectors from int32 and dbl arrays with no nulls", {
   expect_false(is_arrow_altrep(as.vector(v_dbl$Slice(1))))
 })
 
+test_that("element access methods for chunked int32 array with no nulls", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  v_int <- Array$create(1:1000)
+  altrep <- as.vector(v_int)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # altrep-aware iterating should not materialize
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), 1:1000)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), 1:1000)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # because there are no nulls, DATAPTR-style does not materialize
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), 1:1000)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # test element access after forcing materialization
+  expect_true(test_arrow_altrep_force_materialize(altrep))
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), 1:1000)
+  expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), 1:1000)
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), 1:1000)
+})
+
 test_that("altrep vectors from int32 and dbl arrays with nulls", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   v_int <- Array$create(c(1L, NA, 3L))
@@ -75,7 +115,6 @@ test_that("altrep vectors from int32 and dbl arrays with nulls", {
   expect_true(is_arrow_altrep(as.vector(c_int$Slice(2))))
   expect_true(is_arrow_altrep(as.vector(c_dbl$Slice(2))))
 
-  # chunked array with 2 chunks cannot be altrep
   c_int <- ChunkedArray$create(0L, c(1L, NA, 3L))
   c_dbl <- ChunkedArray$create(0, c(1, NA, 3))
   expect_equal(c_int$num_chunks, 2L)

@@ -131,7 +131,13 @@ struct AltrepVectorBase {
     }
   }
 
-  static int No_NA(SEXP alt) { return GetChunkedArray(alt)->null_count() == 0; }
+  static int No_NA(SEXP alt) {
+    if (IsMaterialized(alt)) {
+      return false;
+    }
+
+    return GetChunkedArray(alt)->null_count() == 0;
+  }
 
   static int Is_sorted(SEXP alt) { return UNKNOWN_SORTEDNESS; }
 
@@ -191,7 +197,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
   // Force materialization. After calling this, the data2 slot of the altrep
   // object contains a standard R vector with the same data, with
-  // R sentinels where the Array has nulls.
+  // R sentinels where the Array has nulls. This method also releases the
+  // reference to the original ChunkedArray.
   static SEXP Materialize(SEXP alt) {
     if (!IsMaterialized(alt)) {
       auto size = Base::Length(alt);
@@ -322,6 +329,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
   template <bool Min>
   static SEXP MinMax(SEXP alt, Rboolean narm) {
+    if (IsMaterialized(alt)) {
+      return nullptr;
+    }
+
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
     using scalar_type =
         typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
@@ -913,13 +924,12 @@ void InitAltvecMethods(R_altrep_class_t class_t, DllInfo* dll) {
 
 template <typename AltrepClass>
 void InitAltRealMethods(R_altrep_class_t class_t, DllInfo* dll) {
-  // R_set_altreal_No_NA_method(class_t, AltrepClass::No_NA);
+  R_set_altreal_No_NA_method(class_t, AltrepClass::No_NA);
   R_set_altreal_Is_sorted_method(class_t, AltrepClass::Is_sorted);
 
-  // TODO: reenable when we get materialization sorted
-  // R_set_altreal_Sum_method(class_t, AltrepClass::Sum);
-  // R_set_altreal_Min_method(class_t, AltrepClass::Min);
-  // R_set_altreal_Max_method(class_t, AltrepClass::Max);
+  R_set_altreal_Sum_method(class_t, AltrepClass::Sum);
+  R_set_altreal_Min_method(class_t, AltrepClass::Min);
+  R_set_altreal_Max_method(class_t, AltrepClass::Max);
 
   R_set_altreal_Elt_method(class_t, AltrepClass::Elt);
   R_set_altreal_Get_region_method(class_t, AltrepClass::Get_region);
@@ -927,13 +937,12 @@ void InitAltRealMethods(R_altrep_class_t class_t, DllInfo* dll) {
 
 template <typename AltrepClass>
 void InitAltIntegerMethods(R_altrep_class_t class_t, DllInfo* dll) {
-  // R_set_altinteger_No_NA_method(class_t, AltrepClass::No_NA);
+  R_set_altinteger_No_NA_method(class_t, AltrepClass::No_NA);
   R_set_altinteger_Is_sorted_method(class_t, AltrepClass::Is_sorted);
 
-  // TODO: reenable when we get materialization sorted
-  // R_set_altinteger_Sum_method(class_t, AltrepClass::Sum);
-  // R_set_altinteger_Min_method(class_t, AltrepClass::Min);
-  // R_set_altinteger_Max_method(class_t, AltrepClass::Max);
+  R_set_altinteger_Sum_method(class_t, AltrepClass::Sum);
+  R_set_altinteger_Min_method(class_t, AltrepClass::Min);
+  R_set_altinteger_Max_method(class_t, AltrepClass::Max);
 
   R_set_altinteger_Elt_method(class_t, AltrepClass::Elt);
   R_set_altinteger_Get_region_method(class_t, AltrepClass::Get_region);
@@ -971,7 +980,7 @@ void InitAltStringClass(DllInfo* dll, const char* name) {
 
   R_set_altstring_Elt_method(AltrepClass::class_t, AltrepClass::Elt);
   R_set_altstring_Set_elt_method(AltrepClass::class_t, AltrepClass::Set_elt);
-  // R_set_altstring_No_NA_method(AltrepClass::class_t, AltrepClass::No_NA);
+  R_set_altstring_No_NA_method(AltrepClass::class_t, AltrepClass::No_NA);
   R_set_altstring_Is_sorted_method(AltrepClass::class_t, AltrepClass::Is_sorted);
 }
 
@@ -1063,7 +1072,145 @@ std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) { return nullpt
 #endif
 
 // [[arrow::export]]
-void test_SET_STRING_ELT(SEXP s) { SET_STRING_ELT(s, 0, Rf_mkChar("forbidden")); }
+bool is_arrow_altrep(cpp11::sexp x) { return arrow::r::altrep::is_arrow_altrep(x); }
 
 // [[arrow::export]]
-bool is_arrow_altrep(cpp11::sexp x) { return arrow::r::altrep::is_arrow_altrep(x); }
+void test_arrow_altrep_set_string_elt(sexp x, int i, std::string value) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  SET_STRING_ELT(x, i, Rf_mkChar(value.c_str()));
+}
+
+// [[arrow::export]]
+logicals test_arrow_altrep_is_materialized(sexp x) {
+  if (!is_arrow_altrep(x)) {
+    return logicals({NA_LOGICAL});
+  }
+
+  return logicals({R_altrep_data2(x) != R_NilValue});
+}
+
+// [[arrow::export]]
+bool test_arrow_altrep_force_materialize(sexp x) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  if (R_altrep_data2(x) != R_NilValue) {
+    stop("x is already materialized");
+  }
+
+  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
+  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
+
+  if (class_name == "arrow::array_dbl_vector") {
+    arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::Materialize(x);
+  } else if (class_name == "arrow::array_int_vector") {
+    arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::Materialize(x);
+  } else if (class_name == "arrow::array_string_vector") {
+    arrow::r::altrep::AltrepVectorString<arrow::StringType>::Materialize(x);
+  } else if (class_name == "arrow::array_large_string_vector") {
+    arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::Materialize(x);
+  } else if (class_name == "arrow::array_factor") {
+    arrow::r::altrep::AltrepFactor::Materialize(x);
+  } else {
+    return false;
+  }
+
+  return true;
+}
+
+// [[arrow::export]]
+sexp test_arrow_altrep_copy_by_element(sexp x) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  R_xlen_t n = Rf_xlength(x);
+
+  if (TYPEOF(x) == INTSXP) {
+    writable::integers out(Rf_xlength(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = INTEGER_ELT(x, i);
+    }
+    return out;
+  } else if (TYPEOF(x) == REALSXP) {
+    writable::doubles out(Rf_xlength(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = REAL_ELT(x, i);
+    }
+    return out;
+  } else if (TYPEOF(x) == STRSXP) {
+    writable::strings out(Rf_xlength(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = STRING_ELT(x, i);
+    }
+    return out;
+  } else {
+    return R_NilValue;
+  }
+}
+
+// [[arrow::export]]
+sexp test_arrow_altrep_copy_by_region(sexp x, R_xlen_t region_size) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  R_xlen_t n = Rf_xlength(x);
+
+  if (TYPEOF(x) == INTSXP) {
+    writable::integers out(Rf_xlength(x));
+    writable::integers buf_shelter(region_size);
+    int* buf = INTEGER(buf_shelter);
+    for (R_xlen_t i = 0; i < n; i++) {
+      if ((i % region_size) == 0) {
+        INTEGER_GET_REGION(x, i, region_size, buf);
+      }
+      out[i] = buf[i % region_size];
+    }
+    return out;
+  } else if (TYPEOF(x) == REALSXP) {
+    writable::doubles out(Rf_xlength(x));
+    writable::integers buf_shelter(region_size);
+    double* buf = REAL(buf_shelter);
+    for (R_xlen_t i = 0; i < n; i++) {
+      if ((i % region_size) == 0) {
+        REAL_GET_REGION(x, i, region_size, buf);
+      }
+      out[i] = buf[i % region_size];
+    }
+    return out;
+  } else {
+    return R_NilValue;
+  }
+}
+
+// [[arrow::export]]
+sexp test_arrow_altrep_copy_by_dataptr(sexp x) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  R_xlen_t n = Rf_xlength(x);
+
+  if (TYPEOF(x) == INTSXP) {
+    writable::integers out(Rf_xlength(x));
+    int* ptr = reinterpret_cast<int*>(DATAPTR(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = ptr[i];
+    }
+    return out;
+  } else if (TYPEOF(x) == REALSXP) {
+    writable::doubles out(Rf_xlength(x));
+    double* ptr = reinterpret_cast<double*>(DATAPTR(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = ptr[i];
+    }
+    return out;
+  } else {
+    return R_NilValue;
+  }
+}
