@@ -707,9 +707,16 @@ class RowTest {
         @SuppressWarnings("unchecked")
         JsonStringHashMap<String, ?> struct =
             (JsonStringHashMap<String, ?>) c.getStruct(STRUCT_VECTOR_NAME);
+        @SuppressWarnings("unchecked")
+        JsonStringHashMap<String, ?> struct1 =
+            (JsonStringHashMap<String, ?>) c.getStruct(0);
         int a = (int) struct.get("struct_int_child");
         double b = (double) struct.get("struct_flt_child");
+        int a1 = (int) struct1.get("struct_int_child");
+        double b1 = (double) struct1.get("struct_flt_child");
         assertNotNull(struct);
+        assertEquals(a, a1);
+        assertEquals(b, b1);
         assertTrue(a >= 0);
         assertTrue(b <= a, String.format("a = %s and b = %s", a, b));
       }
@@ -724,6 +731,8 @@ class RowTest {
       Row c = table.immutableRow();
       c.setPosition(0);
       Object object0 = c.getUnion(UNION_VECTOR_NAME);
+      Object object1 = c.getUnion(0);
+      assertEquals(object0, object1);
       c.setPosition(1);
       assertNull(c.getUnion(UNION_VECTOR_NAME));
       c.setPosition(2);
@@ -741,6 +750,8 @@ class RowTest {
       Row c = table.immutableRow();
       c.setPosition(0);
       Object object0 = c.getDenseUnion(UNION_VECTOR_NAME);
+      Object object1 = c.getDenseUnion(0);
+      assertEquals(object0, object1);
       c.setPosition(1);
       assertNull(c.getDenseUnion(UNION_VECTOR_NAME));
       c.setPosition(2);
@@ -760,6 +771,12 @@ class RowTest {
         @SuppressWarnings("unchecked")
         List<JsonStringHashMap<String, ?>> list =
             (List<JsonStringHashMap<String, ?>>) c.getMap(BIGINT_INT_MAP_VECTOR_NAME);
+        @SuppressWarnings("unchecked")
+        List<JsonStringHashMap<String, ?>> list1 =
+            (List<JsonStringHashMap<String, ?>>) c.getMap(0);
+        for (int j = 0; j < list1.size(); j++) {
+          assertEquals(list.get(j), list1.get(j));
+        }
         if (list != null && !list.isEmpty()) {
           assertEquals(i, list.size());
           for (JsonStringHashMap<String, ?> sv : list) {
