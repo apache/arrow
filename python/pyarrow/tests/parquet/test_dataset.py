@@ -1877,3 +1877,12 @@ def test_write_to_dataset_conflicting_keywords(tempdir):
                             use_legacy_dataset=False,
                             metadata_collector=[],
                             file_visitor=lambda x: x)
+
+
+def test_read_table_nested_columns(tempdir):
+    table = pa.table({"user_id": ["abc123", "qrs456"],
+                      "interaction": [{"type":  "click", "element": "button"},
+                                      {"type": "scroll", "element": "window"}]})
+    pq.write_table(table, tempdir / 'example.parquet')
+    pq.read_table(tempdir / "example.parquet",
+                  columns=["user_id", "interaction.type"])
