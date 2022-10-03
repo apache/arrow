@@ -161,7 +161,7 @@ and completing different tasks using Apache Arrow. They are also a great way to 
   `How to contribute to Apache Arrow Cookbook <https://github.com/apache/arrow-cookbook/blob/main/CONTRIBUTING.md>`_
   located in the Apache Arrow Cookbook repository.
 
-You can also welcome take a look at :ref:`other-resources` section.
+You are also welcome to take a look at :ref:`other-resources` section.
 
 **We want to encourage everyone to contribute to Arrow!**
 
