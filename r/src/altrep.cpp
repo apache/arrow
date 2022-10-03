@@ -1220,6 +1220,13 @@ sexp test_arrow_altrep_copy_by_dataptr(sexp x) {
       out[i] = ptr[i];
     }
     return out;
+  } else if (TYPEOF(x) == STRSXP) {
+    writable::strings out(Rf_xlength(x));
+    SEXP* ptr = reinterpret_cast<SEXP*>(DATAPTR(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = ptr[i];
+    }
+    return out;
   } else {
     return R_NilValue;
   }

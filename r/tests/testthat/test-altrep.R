@@ -98,8 +98,8 @@ test_that("element access methods for int32 ALTREP with no nulls", {
 test_that("element access methods for double ALTREP with no nulls", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   original <- as.double(1:1000)
-  v_int <- Array$create(original)
-  altrep <- as.vector(v_int)
+  v_dbl <- Array$create(original)
+  altrep <- as.vector(v_dbl)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
   # altrep-aware iterating should not materialize
@@ -177,8 +177,8 @@ test_that("element access methods for int32 ALTREP with nulls", {
 test_that("element access methods for double ALTREP with nulls", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   original <- as.double(c(NA, 1:1000))
-  v_int <- Array$create(original)
-  altrep <- as.vector(v_int)
+  v_dbl <- Array$create(original)
+  altrep <- as.vector(v_dbl)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
   # altrep-aware iterating should not materialize
@@ -194,6 +194,47 @@ test_that("element access methods for double ALTREP with nulls", {
   expect_true(test_arrow_altrep_is_materialized(altrep))
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
   expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+})
+
+test_that("altrep vectors from string arrays", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  v_chr <- Array$create(c("one", NA, "three"))
+  c_chr <- ChunkedArray$create(c("one", NA, "three"))
+
+  expect_true(is_arrow_altrep(as.vector(v_chr)))
+  expect_true(is_arrow_altrep(as.vector(v_chr$Slice(1))))
+  expect_true(is_arrow_altrep(as.vector(c_chr)))
+  expect_true(is_arrow_altrep(as.vector(c_chr$Slice(1))))
+
+  expect_true(is_arrow_altrep(as.vector(v_chr$Slice(2))))
+  expect_true(is_arrow_altrep(as.vector(c_chr$Slice(2))))
+
+  c_chr <- ChunkedArray$create("zero", c("one", NA, "three"))
+  expect_equal(c_chr$num_chunks, 2L)
+
+  expect_true(is_arrow_altrep(as.vector(c_chr)))
+  expect_true(is_arrow_altrep(as.vector(c_chr$Slice(3))))
+})
+
+test_that("element access methods for character ALTREP", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  original <- as.character(c(NA, 1:1000))
+  v_chr <- Array$create(original)
+  altrep <- as.vector(v_chr)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # altrep-aware iterating should not materialize
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # DATAPTR() should always materialize for strings
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+
+  # test element access after materialization
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
   expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
