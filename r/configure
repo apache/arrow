@@ -170,8 +170,8 @@ else
       if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ]; then
         pkg-config --version >/dev/null 2>&1
         if [ $? -ne 0 ]; then
-          export ARROW_DEPENDENCY_SOURCE=BUNDLED
-          echo "**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED"
+          echo "**** pkg-config is required to use automatically installed Apache Arrow C++"
+          exit 1
         fi
       fi
 
@@ -180,37 +180,10 @@ else
       LIB_DIR="libarrow/arrow-${VERSION}/lib"
       if [ -d "$LIB_DIR" ]; then
         # Use pkg-config to do static linking of libarrow's dependencies
-        if [ "$ARROW_DEPENDENCY_SOURCE" = "AUTO" ] || [ "$ARROW_DEPENDENCY_SOURCE" = "SYSTEM" ]; then
-          export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-          PKG_CFLAGS="`pkg-config --cflags --static --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
-          PKG_DIRS="`pkg-config --libs-only-L --static --silence-errors ${PKG_CONFIG_NAME}`"
-          PKG_LIBS="`pkg-config --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}`"
-        else
-          # Enumerate the static libs, put their -l flags in BUNDLED_LIBS,
-          # and put their -L location in PKG_DIRS
-          #
-          # If tools/nixlibs.R fails to produce libs, this dir won't exist
-          # so don't try (the error message from `ls` would be misleading)
-          # Assume nixlibs.R has handled and messaged about its failure already
-          #
-          # TODO: what about non-bundled deps?
-          # Set CDPATH locally to prevent interference from global
-          # CDPATH (if set)
-          PKG_CFLAGS="-I`pwd`/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
-          BUNDLED_LIBS=`CDPATH=''; cd $LIB_DIR && ls *.a`
-          BUNDLED_LIBS=`echo "$BUNDLED_LIBS" | sed -e "s/\\.a lib/ -l/g" | sed -e "s/\\.a$//" | sed -e "s/^lib/-l/" | tr '\n' ' ' | sed -e "s/ $//"`
-          PKG_DIRS="-L`pwd`/$LIB_DIR"
-
-          # When using brew's openssl it is not bundled and it is not
-          # on the system search path and so we must add the lib path
-          # to BUNDLED_LIBS if we are using it. Note the order is
-          # important, this must be after the arrow lib path + the pkg
-          # and bundled libs above so this is why we're appending to
-          # BUNDLED_LIBS and not PKG_DIRS
-          if [ "$OPENSSL_ROOT_DIR" != "" ]; then
-            BUNDLED_LIBS="$BUNDLED_LIBS -L$OPENSSL_ROOT_DIR/lib"
-          fi
-        fi
+        export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+        PKG_CFLAGS="`pkg-config --cflags --static --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
+        PKG_DIRS="`pkg-config --libs-only-L --static --silence-errors ${PKG_CONFIG_NAME}`"
+        PKG_LIBS="`pkg-config --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}`"
       fi
     fi
   fi
