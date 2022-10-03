@@ -39,6 +39,7 @@ struct ARROW_PYTHON_EXPORT ScalarUdfOptions {
   compute::FunctionDoc func_doc;
   std::vector<std::shared_ptr<DataType>> input_types;
   std::shared_ptr<DataType> output_type;
+  compute::FunctionRegistry* registry;
 };
 
 /// \brief A context passed as the first argument of scalar UDF functions.

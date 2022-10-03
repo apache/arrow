@@ -115,8 +115,7 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
   RETURN_NOT_OK(scalar_func->AddKernel(std::move(kernel)));
-  auto registry = compute::GetFunctionRegistry();
-  RETURN_NOT_OK(registry->AddFunction(std::move(scalar_func)));
+  RETURN_NOT_OK(options.registry->AddFunction(std::move(scalar_func)));
   return Status::OK();
 }
 

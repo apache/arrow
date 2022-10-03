@@ -27,6 +27,12 @@ cdef class ScalarUdfContext(_Weakrefable):
 
     cdef void init(self, const CScalarUdfContext& c_context)
 
+cdef class FunctionRegistry(_Weakrefable):
+    cdef:
+        CFunctionRegistry* registry
+    
+    cdef void init(self, const unique_ptr[CFunctionRegistry]& registry)
+
 cdef class FunctionOptions(_Weakrefable):
     cdef:
         shared_ptr[CFunctionOptions] wrapped

@@ -477,10 +477,12 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
 
 
 cdef class FunctionRegistry(_Weakrefable):
-    cdef CFunctionRegistry* registry
 
     def __init__(self):
         self.registry = GetFunctionRegistry()
+
+    cdef void init(self, const unique_ptr[CFunctionRegistry]& registry):
+        self.registry = <CFunctionRegistry*>registry.get()
 
     def list_functions(self):
         """
@@ -505,13 +507,26 @@ cdef class FunctionRegistry(_Weakrefable):
             func = GetResultValue(self.registry.GetFunction(c_name))
         return wrap_function(func)
 
-
 cdef FunctionRegistry _global_func_registry = FunctionRegistry()
 
+cdef object box_registry(const unique_ptr[CFunctionRegistry]& c_registry):
+    cdef FunctionRegistry registry = FunctionRegistry.__new__(FunctionRegistry)
+    registry.init(c_registry)
+    return registry
+
+def make_registry(parent):
+    cdef:
+        FunctionRegistry default
+        unique_ptr[CFunctionRegistry] up_registry
+    if parent is None:
+        raise ValueError("Parent registry not provided")
+    else:
+        default = <FunctionRegistry>(parent)
+        up_registry = CFunctionRegistry.Make(default.registry)
+    return box_registry(up_registry)
 
 def function_registry():
-    return _global_func_registry
-
+    return _global_func_registry    
 
 def get_function(name):
     """
@@ -2515,7 +2530,7 @@ def _get_scalar_udf_context(memory_pool, batch_length):
 
 
 def register_scalar_function(func, function_name, function_doc, in_types,
-                             out_type):
+                             out_type, registry=function_registry()):
     """
     Register a user-defined scalar function.
 
@@ -2593,6 +2608,8 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         PyObject* c_function
         shared_ptr[CDataType] c_out_type
         CScalarUdfOptions c_options
+        CFunctionRegistry* c_registry
+        FunctionRegistry func_registry
 
     if callable(func):
         c_function = <PyObject*>func
@@ -2628,11 +2645,17 @@ def register_scalar_function(func, function_name, function_doc, in_types,
 
     c_out_type = pyarrow_unwrap_data_type(ensure_type(out_type))
 
+    func_registry = <FunctionRegistry>(registry)
+
     c_options.func_name = c_func_name
     c_options.arity = c_arity
     c_options.func_doc = c_func_doc
     c_options.input_types = c_in_types
     c_options.output_type = c_out_type
+    c_options.registry = func_registry.registry
+
+    print(">>reg1")
 
     check_status(RegisterScalarFunction(c_function,
                                         <function[CallbackUdf]> &_scalar_udf_callback, c_options))
+

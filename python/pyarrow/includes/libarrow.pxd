@@ -1955,6 +1955,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             const c_string& name) const
         vector[c_string] GetFunctionNames() const
         int num_functions() const
+        
+        @staticmethod
+        unique_ptr[CFunctionRegistry] Make(CFunctionRegistry* parent)
+
 
     CFunctionRegistry* GetFunctionRegistry()
 
@@ -2762,6 +2766,7 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
     cdef cppclass CScalarUdfContext" arrow::py::ScalarUdfContext":
         CMemoryPool *pool
         int64_t batch_length
+        CFunctionRegistry *registry
 
     cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions":
         c_string func_name
@@ -2769,6 +2774,7 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
         CFunctionDoc func_doc
         vector[shared_ptr[CDataType]] input_types
         shared_ptr[CDataType] output_type
+        CFunctionRegistry* registry
 
     CStatus RegisterScalarFunction(PyObject* function,
                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options)
