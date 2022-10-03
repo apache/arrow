@@ -1502,7 +1502,6 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
       // Once the MinMax kernel supports all data types we should use that kernel instead
       // as it does not make any copies.
       ::arrow::compute::ExecContext exec_ctx(ctx->memory_pool);
-      exec_ctx.set_use_threads(false);
       PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
                               ::arrow::compute::Unique(*indices, &exec_ctx));
       std::shared_ptr<::arrow::Array> referenced_dictionary;

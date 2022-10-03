@@ -100,10 +100,6 @@ void MinimalEndToEndScan(
     size_t num_batches, size_t batch_size, const std::string& factory_name,
     std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
         options_factory) {
-  // Specify a MemoryPool and ThreadPool for the ExecPlan
-  compute::ExecContext exec_context(default_memory_pool(),
-                                    ::arrow::internal::GetCpuThreadPool());
-
   // ensure arrow::dataset node factories are in the registry
   ::arrow::dataset::internal::Initialize();
 
@@ -112,7 +108,7 @@ void MinimalEndToEndScan(
   // predicate pushdown, a projection to skip materialization of unnecessary columns,
   // ...)
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(&exec_context));
+                       compute::ExecPlan::Make());
 
   RecordBatchVector batches = GetBatches(num_batches, batch_size);
 
@@ -153,10 +149,10 @@ void MinimalEndToEndScan(
 
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      schema({field("a*2", int32())}), std::move(sink_gen), exec_context.memory_pool());
+      schema({field("a*2", int32())}), std::move(sink_gen), default_memory_pool());
 
   // start the ExecPlan
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(compute::default_exec_context()));
 
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
@@ -171,14 +167,11 @@ void ScanOnly(
     size_t num_batches, size_t batch_size, const std::string& factory_name,
     std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
         options_factory) {
-  compute::ExecContext exec_context(default_memory_pool(),
-                                    ::arrow::internal::GetCpuThreadPool());
-
   // ensure arrow::dataset node factories are in the registry
   ::arrow::dataset::internal::Initialize();
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(&exec_context));
+                       compute::ExecPlan::Make());
 
   RecordBatchVector batches = GetBatches(num_batches, batch_size);
 
@@ -202,10 +195,10 @@ void ScanOnly(
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<RecordBatchReader> sink_reader =
       compute::MakeGeneratorReader(schema({field("a", int32()), field("b", boolean())}),
-                                   std::move(sink_gen), exec_context.memory_pool());
+                                   std::move(sink_gen), default_memory_pool());
 
   // start the ExecPlan
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(compute::default_exec_context()));
 
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));

@@ -76,23 +76,20 @@ static void FilterOverhead(benchmark::State& state, std::vector<Expression> expr
   arrow::compute::BatchesWithSchema data = MakeRandomBatchesWithNullProbability(
       schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size,
       null_prob, bool_true_probability);
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   std::vector<arrow::compute::Declaration> filter_node_dec;
   for (Expression expr : expr_vector) {
     filter_node_dec.push_back({"filter", FilterNodeOptions(expr)});
   }
-  ASSERT_OK(
-      BenchmarkNodeOverhead(state, ctx, num_batches, batch_size, data, filter_node_dec));
+  ASSERT_OK(BenchmarkNodeOverhead(state, num_batches, batch_size, data, filter_node_dec));
 }
 
 static void FilterOverheadIsolated(benchmark::State& state, Expression expr) {
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   const int32_t batch_size = static_cast<int32_t>(state.range(0));
   const int32_t num_batches = kTotalBatchSize / batch_size;
   arrow::compute::BatchesWithSchema data = MakeRandomBatches(
       schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
   FilterNodeOptions options = FilterNodeOptions{expr};
-  ASSERT_OK(BenchmarkIsolatedNodeOverhead(state, ctx, expr, num_batches, batch_size, data,
+  ASSERT_OK(BenchmarkIsolatedNodeOverhead(state, expr, num_batches, batch_size, data,
                                           "filter", options));
 }
 

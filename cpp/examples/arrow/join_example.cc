@@ -82,12 +82,9 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
 }
 
 arrow::Status DoHashJoin() {
-  cp::ExecContext exec_context;
-
   arrow::dataset::internal::Initialize();
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
@@ -131,12 +128,12 @@ arrow::Status DoHashJoin() {
                                                       cp::SinkNodeOptions{&sink_gen}));
   // expected columns l_a, l_b
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-      hashjoin->output_schema(), std::move(sink_gen), exec_context.memory_pool());
+      hashjoin->output_schema(), std::move(sink_gen), arrow::default_memory_pool());
 
   // validate the ExecPlan
   ARROW_RETURN_NOT_OK(plan->Validate());
   // start the ExecPlan
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing(arrow::internal::GetCpuThreadPool()));
 
   // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;

@@ -79,7 +79,7 @@ void WriteIpcData(const std::string& path,
 Result<std::shared_ptr<Table>> GetTableFromPlan(
     compute::Declaration& other_declrs, compute::ExecContext& exec_context,
     const std::shared_ptr<Schema>& output_schema) {
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
 
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
   auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
@@ -94,7 +94,7 @@ Result<std::shared_ptr<Table>> GetTableFromPlan(
       output_schema, std::move(sink_gen), exec_context.memory_pool());
 
   RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
+  RETURN_NOT_OK(plan->StartProducing(exec_context.executor()));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
                         arrow::Table::FromRecordBatchReader(sink_reader.get()));
   RETURN_NOT_OK(plan->finished().status());
@@ -1082,7 +1082,7 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
   auto& prev_node = sink_node->inputs()[0];
   ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
 
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
   ASSERT_FINISHES_OK(plan->finished());
 }
 
@@ -1098,7 +1098,7 @@ TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
   auto& prev_node = sink_node->inputs()[0];
   ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
 
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
   ASSERT_FINISHES_OK(plan->finished());
 }
 
@@ -1137,7 +1137,7 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
   auto& prev_node = sink_node->inputs()[0];
   ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
 
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
   ASSERT_FINISHES_OK(plan->finished());
 }
 

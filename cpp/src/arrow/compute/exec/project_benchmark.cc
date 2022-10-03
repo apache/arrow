@@ -44,11 +44,10 @@ static void ProjectionOverhead(benchmark::State& state, Expression expr) {
 
   arrow::compute::BatchesWithSchema data = MakeRandomBatches(
       schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   std::vector<arrow::compute::Declaration> project_node_dec = {
       {"project", ProjectNodeOptions{{expr}}}};
   ASSERT_OK(
-      BenchmarkNodeOverhead(state, ctx, num_batches, batch_size, data, project_node_dec));
+      BenchmarkNodeOverhead(state, num_batches, batch_size, data, project_node_dec));
 }
 
 static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr) {
@@ -57,9 +56,8 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
 
   arrow::compute::BatchesWithSchema data = MakeRandomBatches(
       schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   ProjectNodeOptions options = ProjectNodeOptions{{expr}};
-  ASSERT_OK(BenchmarkIsolatedNodeOverhead(state, ctx, expr, num_batches, batch_size, data,
+  ASSERT_OK(BenchmarkIsolatedNodeOverhead(state, expr, num_batches, batch_size, data,
                                           "project", options));
 }
 

@@ -69,10 +69,7 @@ void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
                     const std::vector<FieldRef>& left_keys,
                     const std::vector<FieldRef>& right_keys,
                     const BatchesWithSchema& exp_batches, bool parallel = false) {
-  auto exec_ctx = std::make_unique<ExecContext>(
-      default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
-
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
   HashJoinNodeOptions join_options{type, left_keys, right_keys};
   Declaration join{"hashjoin", join_options};
@@ -90,7 +87,8 @@ void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
   ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                 .AddToPlan(plan.get()));
 
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto res,
+                                StartAndCollect(plan.get(), sink_gen, parallel));
 
   ASSERT_OK_AND_ASSIGN(auto exp_table,
                        TableFromExecBatches(exp_batches.schema, exp_batches.batches));
@@ -419,12 +417,12 @@ std::vector<std::shared_ptr<Array>> GenRandomRecords(
 
 // Index < 0 means appending null values to all columns.
 //
-void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>& input,
+void TakeUsingVector(const std::vector<std::shared_ptr<Array>>& input,
                      const std::vector<int32_t> indices,
                      std::vector<std::shared_ptr<Array>>* result) {
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<Buffer> buf,
-      AllocateBuffer(indices.size() * sizeof(int32_t), ctx->memory_pool()));
+      AllocateBuffer(indices.size() * sizeof(int32_t), default_memory_pool()));
   int32_t* buf_indices = reinterpret_cast<int32_t*>(buf->mutable_data());
   bool has_null_rows = false;
   for (size_t i = 0; i < indices.size(); ++i) {
@@ -447,7 +445,7 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
     for (size_t i = 0; i < result->size(); ++i) {
       if ((*result)[i]->data()->buffers[0] == NULLPTR) {
         ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> null_buf,
-                             AllocateBitmap(indices.size(), ctx->memory_pool()));
+                             AllocateBitmap(indices.size(), default_memory_pool()));
         uint8_t* non_nulls = null_buf->mutable_data();
         memset(non_nulls, 0xFF, bit_util::BytesForBits(indices.size()));
         if ((*result)[i]->data()->buffers.size() == 2) {
@@ -511,7 +509,7 @@ std::vector<std::shared_ptr<Array>> GenRandomUniqueRecords(
   *num_actual = static_cast<int>(uniques.size());
 
   std::vector<std::shared_ptr<Array>> output;
-  TakeUsingVector(ctx, result, ids, &output);
+  TakeUsingVector(result, ids, &output);
   return output;
 }
 
@@ -544,9 +542,9 @@ std::vector<bool> NullInKey(const std::vector<JoinKeyCmp>& cmp,
   return result;
 }
 
-void GenRandomJoinTables(ExecContext* ctx, Random64Bit& rng, int num_rows_l,
-                         int num_rows_r, int num_keys_common, int num_keys_left,
-                         int num_keys_right, const RandomDataTypeVector& key_types,
+void GenRandomJoinTables(Random64Bit& rng, int num_rows_l, int num_rows_r,
+                         int num_keys_common, int num_keys_left, int num_keys_right,
+                         const RandomDataTypeVector& key_types,
                          const RandomDataTypeVector& payload_left_types,
                          const RandomDataTypeVector& payload_right_types,
                          std::vector<int32_t>* key_id_l, std::vector<int32_t>* key_id_r,
@@ -598,8 +596,8 @@ void GenRandomJoinTables(ExecContext* ctx, Random64Bit& rng, int num_rows_l,
 
   std::vector<std::shared_ptr<Array>> key_l;
   std::vector<std::shared_ptr<Array>> key_r;
-  TakeUsingVector(ctx, keys, *key_id_l, &key_l);
-  TakeUsingVector(ctx, keys, *key_id_r, &key_r);
+  TakeUsingVector(keys, *key_id_l, &key_l);
+  TakeUsingVector(keys, *key_id_r, &key_r);
   std::vector<std::shared_ptr<Array>> payload_l =
       GenRandomRecords(rng, payload_left_types.data_types, num_rows_l);
   std::vector<std::shared_ptr<Array>> payload_r =
@@ -622,14 +620,14 @@ void GenRandomJoinTables(ExecContext* ctx, Random64Bit& rng, int num_rows_l,
 }
 
 std::vector<std::shared_ptr<Array>> ConstructJoinOutputFromRowIds(
-    ExecContext* ctx, const std::vector<int32_t>& row_ids_l,
-    const std::vector<int32_t>& row_ids_r, const std::vector<std::shared_ptr<Array>>& l,
+    const std::vector<int32_t>& row_ids_l, const std::vector<int32_t>& row_ids_r,
+    const std::vector<std::shared_ptr<Array>>& l,
     const std::vector<std::shared_ptr<Array>>& r,
     const std::vector<int>& shuffle_output_l, const std::vector<int>& shuffle_output_r) {
   std::vector<std::shared_ptr<Array>> full_output_l;
   std::vector<std::shared_ptr<Array>> full_output_r;
-  TakeUsingVector(ctx, l, row_ids_l, &full_output_l);
-  TakeUsingVector(ctx, r, row_ids_r, &full_output_r);
+  TakeUsingVector(l, row_ids_l, &full_output_l);
+  TakeUsingVector(r, row_ids_r, &full_output_r);
   std::vector<std::shared_ptr<Array>> result;
   result.resize(shuffle_output_l.size() + shuffle_output_r.size());
   for (size_t i = 0; i < shuffle_output_l.size(); ++i) {
@@ -851,9 +849,8 @@ void GenJoinFieldRefs(Random64Bit& rng, int num_key_fields, bool no_output,
 }
 
 std::shared_ptr<Table> HashJoinSimple(
-    ExecContext* ctx, JoinType join_type, const std::vector<JoinKeyCmp>& cmp,
-    int num_key_fields, const std::vector<int32_t>& key_id_l,
-    const std::vector<int32_t>& key_id_r,
+    JoinType join_type, const std::vector<JoinKeyCmp>& cmp, int num_key_fields,
+    const std::vector<int32_t>& key_id_l, const std::vector<int32_t>& key_id_r,
     const std::vector<std::shared_ptr<Array>>& original_l,
     const std::vector<std::shared_ptr<Array>>& original_r,
     const std::vector<std::shared_ptr<Array>>& l,
@@ -875,7 +872,7 @@ std::shared_ptr<Table> HashJoinSimple(
                     &row_ids_r, output_length_limit, length_limit_reached);
 
   std::vector<std::shared_ptr<Array>> result = ConstructJoinOutputFromRowIds(
-      ctx, row_ids_l, row_ids_r, l, r, output_ids_l, output_ids_r);
+      row_ids_l, row_ids_r, l, r, output_ids_l, output_ids_r);
 
   std::vector<std::shared_ptr<Field>> fields(result.size());
   for (size_t i = 0; i < result.size(); ++i) {
@@ -890,10 +887,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
     const std::shared_ptr<Schema>& output_schema,
     const std::vector<std::shared_ptr<Array>>& l,
     const std::vector<std::shared_ptr<Array>>& r, int num_batches_l, int num_batches_r) {
-  auto exec_ctx = std::make_unique<ExecContext>(
-      default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
-
-  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(exec_ctx.get()));
+  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make());
 
   // add left source
   BatchesWithSchema l_batches = TableToBatches(rng, num_batches_l, l, "l_");
@@ -919,7 +913,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
   ARROW_ASSIGN_OR_RAISE(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
 
-  auto batches_fut = StartAndCollect(plan.get(), sink_gen);
+  auto batches_fut = StartAndCollect(plan.get(), sink_gen, parallel);
   if (!batches_fut.Wait(::arrow::kDefaultAssertFinishesWaitSeconds)) {
     plan->StopProducing();
     // If this second wait fails then there isn't much we can do.  We will abort
@@ -961,9 +955,7 @@ TEST(HashJoin, Suffix) {
                             field("ldistinct", int32()), field("rkey", int32()),
                             field("shared_r", int32()), field("rdistinct", int32())});
 
-  ExecContext exec_ctx;
-
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ExecNode* left_source;
@@ -1009,8 +1001,6 @@ TEST(HashJoin, Random) {
   for (int test_id = 0; test_id < num_tests; ++test_id) {
     bool parallel = (rng.from_range(0, 1) == 1);
     bool disable_bloom_filter = (rng.from_range(0, 1) == 1);
-    auto exec_ctx = std::make_unique<ExecContext>(
-        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     // Constraints
     RandomDataTypeConstraints type_constraints;
@@ -1092,10 +1082,10 @@ TEST(HashJoin, Random) {
     int num_keys_l = num_keys_common + (num_keys - num_keys_r);
     std::vector<int> key_id_vectors[2];
     std::vector<std::shared_ptr<Array>> input_arrays[2];
-    GenRandomJoinTables(exec_ctx.get(), rng, num_rows_l, num_rows_r, num_keys_common,
-                        num_keys_l, num_keys_r, key_types, payload_types[0],
-                        payload_types[1], &(key_id_vectors[0]), &(key_id_vectors[1]),
-                        &(input_arrays[0]), &(input_arrays[1]));
+    GenRandomJoinTables(rng, num_rows_l, num_rows_r, num_keys_common, num_keys_l,
+                        num_keys_r, key_types, payload_types[0], payload_types[1],
+                        &(key_id_vectors[0]), &(key_id_vectors[1]), &(input_arrays[0]),
+                        &(input_arrays[1]));
     std::vector<std::shared_ptr<Array>> shuffled_input_arrays[2];
     std::vector<FieldRef> key_fields[2];
     std::vector<FieldRef> output_fields[2];
@@ -1125,8 +1115,8 @@ TEST(HashJoin, Random) {
     int64_t output_length_limit = 100000;
     bool length_limit_reached = false;
     std::shared_ptr<Table> output_rows_ref = HashJoinSimple(
-        exec_ctx.get(), join_type, key_cmp, num_key_fields, key_id_vectors[0],
-        key_id_vectors[1], input_arrays[0], input_arrays[1], shuffled_input_arrays[0],
+        join_type, key_cmp, num_key_fields, key_id_vectors[0], key_id_vectors[1],
+        input_arrays[0], input_arrays[1], shuffled_input_arrays[0],
         shuffled_input_arrays[1], output_field_ids[0], output_field_ids[1],
         output_length_limit, &length_limit_reached);
     if (length_limit_reached) {
@@ -1310,9 +1300,7 @@ void TestHashJoinDictionaryHelper(
     r_batches.batches.resize(0);
   }
 
-  auto exec_ctx = std::make_unique<ExecContext>(
-      default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(
       ExecNode * l_source,
       MakeExecNode("source", plan.get(), {},
@@ -1338,10 +1326,11 @@ void TestHashJoinDictionaryHelper(
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto res,
+                                StartAndCollect(plan.get(), sink_gen, parallel));
 
   for (auto& batch : res) {
-    DecodeScalarsAndDictionariesInBatch(&batch, exec_ctx->memory_pool());
+    DecodeScalarsAndDictionariesInBatch(&batch, default_memory_pool());
   }
   std::shared_ptr<Schema> output_schema =
       UpdateSchemaAfterDecodingDictionaries(join->output_schema());
@@ -1358,7 +1347,7 @@ void TestHashJoinDictionaryHelper(
                                                           r_out_key, r_out_payload}));
   }
 
-  DecodeScalarsAndDictionariesInBatch(&expected_batch, exec_ctx->memory_pool());
+  DecodeScalarsAndDictionariesInBatch(&expected_batch, default_memory_pool());
 
   // Slice expected batch into two to separate rows on right side with no matches from
   // everything else.
@@ -1734,8 +1723,7 @@ TEST(HashJoin, DictNegative) {
                          ExecBatch::Make({i == 2 ? datumSecondB : datumSecondA,
                                           i == 3 ? datumSecondB : datumSecondA}));
 
-    auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
     ASSERT_OK_AND_ASSIGN(
         ExecNode * l_source,
         MakeExecNode("source", plan.get(), {},
@@ -1787,8 +1775,7 @@ TEST(HashJoin, UnsupportedTypes) {
     BatchesWithSchema l_batches = GenerateBatchesFromString(schemas.first, {R"([])"});
     BatchesWithSchema r_batches = GenerateBatchesFromString(schemas.second, {R"([])"});
 
-    ExecContext exec_ctx;
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
     HashJoinNodeOptions join_options{JoinType::LEFT_SEMI, l_keys, r_keys};
     Declaration join{"hashjoin", join_options};
@@ -1803,8 +1790,7 @@ TEST(HashJoin, UnsupportedTypes) {
 
 void TestSimpleJoinHelper(BatchesWithSchema input_left, BatchesWithSchema input_right,
                           BatchesWithSchema expected) {
-  ExecContext exec_ctx;
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ExecNode* left_source;
@@ -1910,8 +1896,7 @@ TEST(HashJoin, ExtensionTypesHashJoin) {
 }
 
 TEST(HashJoin, CheckHashJoinNodeOptionsValidation) {
-  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
   BatchesWithSchema input_left;
   input_left.batches = {ExecBatchFromJSON({int32(), int32(), int32()}, R"([
@@ -1995,10 +1980,7 @@ TEST(HashJoin, ResidualFilter) {
     input_right.schema =
         schema({field("r1", int32()), field("r2", int32()), field("r_str", utf8())});
 
-    auto exec_ctx = std::make_unique<ExecContext>(
-        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
-
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
     AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ExecNode* left_source;
@@ -2031,7 +2013,8 @@ TEST(HashJoin, ResidualFilter) {
     ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {hashjoin},
                                                    SinkNodeOptions{&sink_gen}));
 
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto result,
+                                  StartAndCollect(plan.get(), sink_gen, parallel));
 
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), int32(), utf8(), int32(), int32(), utf8()}, R"([
@@ -2072,11 +2055,7 @@ TEST(HashJoin, TrivialResidualFilter) {
                  ])")};
       input_right.schema = schema({field("r1", int32()), field("r_str", utf8())});
 
-      auto exec_ctx = std::make_unique<ExecContext>(
-          default_memory_pool(),
-          parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
-
-      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       ExecNode* left_source;
@@ -2105,7 +2084,8 @@ TEST(HashJoin, TrivialResidualFilter) {
       ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {hashjoin},
                                                      SinkNodeOptions{&sink_gen}));
 
-      ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto result,
+                                    StartAndCollect(plan.get(), sink_gen, parallel));
 
       std::vector<ExecBatch> expected = {ExecBatchFromJSON(
           {int32(), utf8(), int32(), utf8()}, expected_strings[test_id])};
@@ -2212,9 +2192,7 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
   for (bool bloom_filters : {false, true}) {
     bool kParallel = true;
     ARROW_SCOPED_TRACE(bloom_filters ? "bloom filtered" : "unfiltered");
-    auto exec_ctx = std::make_unique<ExecContext>(
-        default_memory_pool(), kParallel ? arrow::internal::GetCpuThreadPool() : nullptr);
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
     ExecNode* left_source;
     ASSERT_OK_AND_ASSIGN(
@@ -2243,7 +2221,8 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
     AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     ASSERT_OK(
         MakeExecNode("sink", plan.get(), {joins.back()}, SinkNodeOptions{&sink_gen}));
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto result,
+                                  StartAndCollect(plan.get(), sink_gen, kParallel));
     if (!bloom_filters)
       reference = std::move(result);
     else

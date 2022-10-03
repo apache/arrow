@@ -1262,6 +1262,7 @@ int64_t InferBatchLength(const std::vector<Datum>& values, bool* all_same) {
 ExecContext::ExecContext(MemoryPool* pool, ::arrow::internal::Executor* executor,
                          FunctionRegistry* func_registry)
     : pool_(pool), executor_(executor) {
+  DCHECK_NE(executor, nullptr);
   this->func_registry_ = func_registry == nullptr ? GetFunctionRegistry() : func_registry;
 }
 

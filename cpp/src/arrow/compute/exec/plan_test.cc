@@ -46,6 +46,8 @@ using testing::UnorderedElementsAreArray;
 
 namespace arrow {
 
+using internal::GetCpuThreadPool;
+
 namespace compute {
 
 TEST(ExecPlanConstruction, Empty) {
@@ -158,7 +160,7 @@ TEST(ExecPlan, DummyStartProducing) {
   ASSERT_EQ(t.started.size(), 0);
   ASSERT_EQ(t.stopped.size(), 0);
 
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(GetCpuThreadPool()));
   // Note that any correct reverse topological order may do
   ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1",
                                      "source2", "source1"));
@@ -169,7 +171,7 @@ TEST(ExecPlan, DummyStartProducing) {
   ASSERT_THAT(t.stopped, ElementsAre("source1", "source2", "process1", "process2",
                                      "process3", "sink"));
 
-  ASSERT_THAT(plan->StartProducing(),
+  ASSERT_THAT(plan->StartProducing(GetCpuThreadPool()),
               Raises(StatusCode::Invalid, HasSubstr("restarted")));
 }
 
@@ -205,7 +207,7 @@ TEST(ExecPlan, DummyStartProducingError) {
   ASSERT_EQ(t.stopped.size(), 0);
 
   // `process1` raises IOError
-  ASSERT_THAT(plan->StartProducing(), Raises(StatusCode::IOError));
+  ASSERT_THAT(plan->StartProducing(GetCpuThreadPool()), Raises(StatusCode::IOError));
   ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1"));
   // Nodes that started successfully were stopped in reverse order
   ASSERT_THAT(t.stopped, ElementsAre("process2", "process3", "sink"));
@@ -250,7 +252,7 @@ TEST(ExecPlanExecution, UseSinkAfterExecution) {
                       {"sink", SinkNodeOptions{&sink_gen}},
                   })
                   .AddToPlan(plan.get()));
-    ASSERT_OK(plan->StartProducing());
+    ASSERT_OK(plan->StartProducing(GetCpuThreadPool()));
     ASSERT_FINISHES_OK(plan->finished());
   }
   ASSERT_FINISHES_AND_RAISES(Invalid, sink_gen());
@@ -319,7 +321,7 @@ TEST(ExecPlanExecution, SinkNodeBackpressure) {
                       })
                       .AddToPlan(plan.get()));
   ASSERT_TRUE(backpressure_monitor);
-  ARROW_EXPECT_OK(plan->StartProducing());
+  ARROW_EXPECT_OK(plan->StartProducing(GetCpuThreadPool()));
 
   ASSERT_FALSE(backpressure_monitor->is_paused());
 
@@ -543,7 +545,7 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
                                                       basic_data.gen(parallel, slow))));
       ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
                              ConsumingSinkNodeOptions(consumer)));
-      ASSERT_OK(plan->StartProducing());
+      ASSERT_OK(plan->StartProducing(GetCpuThreadPool()));
       // Source should finish fairly quickly
       ASSERT_FINISHES_OK(source->finished());
       SleepABit();
@@ -576,7 +578,7 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
                                     SourceNodeOptions(basic_data.schema,
                                                       basic_data.gen(parallel, slow))));
       ASSERT_OK(MakeExecNode("table_sink", plan.get(), {source}, options));
-      ASSERT_OK(plan->StartProducing());
+      ASSERT_OK(plan->StartProducing(GetCpuThreadPool()));
       // Source should finish fairly quickly
       ASSERT_FINISHES_OK(source->finished());
       SleepABit();
@@ -618,10 +620,10 @@ TEST(ExecPlanExecution, ConsumingSinkNames) {
                            ConsumingSinkNodeOptions(consumer, names)));
     if (names.size() != 0 &&
         names.size() != static_cast<size_t>(basic_data.batches[0].num_values())) {
-      ASSERT_RAISES(Invalid, plan->StartProducing());
+      ASSERT_RAISES(Invalid, plan->StartProducing(GetCpuThreadPool()));
     } else {
       auto expected_names = names.size() == 0 ? basic_data.schema->field_names() : names;
-      ASSERT_OK(plan->StartProducing());
+      ASSERT_OK(plan->StartProducing(GetCpuThreadPool()));
       ASSERT_FINISHES_OK(plan->finished());
       ASSERT_EQ(expected_names, consumer->schema_->field_names());
     }
@@ -674,9 +676,9 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
     // If we fail at init we see it during StartProducing.  Other
     // failures are not seen until we start running.
     if (std::dynamic_pointer_cast<InitErrorConsumer>(consumer)) {
-      ASSERT_RAISES(Invalid, plan->StartProducing());
+      ASSERT_RAISES(Invalid, plan->StartProducing(GetCpuThreadPool()));
     } else {
-      ASSERT_OK(plan->StartProducing());
+      ASSERT_OK(plan->StartProducing(GetCpuThreadPool()));
       ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
     }
   }
@@ -777,9 +779,7 @@ TEST(ExecPlanExecution, StressSourceGroupedSumStop) {
               .AddToPlan(plan.get()));
 
       ASSERT_OK(plan->Validate());
-      ASSERT_OK(plan->StartProducing());
-      plan->StopProducing();
-      ASSERT_FINISHES_OK(plan->finished());
+      ASSERT_FINISHES_OK(StartAndFinish(plan.get(), parallel));
     }
   }
 }
@@ -808,7 +808,7 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
                     .AddToPlan(plan.get()));
 
       ASSERT_OK(plan->Validate());
-      ASSERT_OK(plan->StartProducing());
+      ASSERT_OK(plan->StartProducing(GetCpuThreadPool()));
 
       EXPECT_THAT(sink_gen(), Finishes(ResultWith(Optional(random_data.batches[0]))));
 
@@ -1316,10 +1316,7 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
 
     auto input = MakeGroupableBatches();
 
-    auto exec_ctx = std::make_unique<ExecContext>(
-        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
-
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
     AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ExecNode* left_source;
@@ -1354,7 +1351,8 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
     ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {hashjoin},
                                                    SinkNodeOptions{&sink_gen}));
 
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto result,
+                                  StartAndCollect(plan.get(), sink_gen, parallel));
 
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
@@ -1373,10 +1371,7 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
 
     auto input = MakeGroupableBatches();
 
-    auto exec_ctx = std::make_unique<ExecContext>(
-        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
-
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
     AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ExecNode* left_source;
@@ -1411,7 +1406,8 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
     ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {hashjoin},
                                                    SinkNodeOptions{&sink_gen}));
 
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto result,
+                                  StartAndCollect(plan.get(), sink_gen, parallel));
 
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([

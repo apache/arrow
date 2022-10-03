@@ -92,11 +92,12 @@ struct BatchesWithSchema {
 };
 
 ARROW_TESTING_EXPORT
-Future<> StartAndFinish(ExecPlan* plan);
+Future<> StartAndFinish(ExecPlan* plan, bool use_threads = true);
 
 ARROW_TESTING_EXPORT
 Future<std::vector<ExecBatch>> StartAndCollect(
-    ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen);
+    ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen,
+    bool use_threads = true);
 
 ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBasicBatches();

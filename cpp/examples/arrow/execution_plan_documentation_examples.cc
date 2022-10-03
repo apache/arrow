@@ -268,7 +268,7 @@ arrow::Status ExecutePlanAndCollectAsTable(
   ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
   // start the ExecPlan
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing(exec_context.executor()));
 
   // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;
@@ -297,8 +297,7 @@ arrow::Status ExecutePlanAndCollectAsTable(
 /// via the sink node.
 arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
   // Execution plan created
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
@@ -332,8 +331,7 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
 /// and the sink node emits the data as an output represented in
 /// a table.
 arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
@@ -362,8 +360,7 @@ arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
 /// receiving data from a table and the sink node emits
 /// the data to a generator which we collect into a table.
 arrow::Status TableSourceSinkExample(cp::ExecContext& exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
 
@@ -392,8 +389,7 @@ arrow::Status TableSourceSinkExample(cp::ExecContext& exec_context) {
 /// along with the source and sink operations. The output from the
 /// exeuction plan is obtained as a table via the sink node.
 arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
@@ -446,8 +442,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
 /// into the execution plan, how project operation can be applied on the
 /// data stream and how the output is obtained as a table via the sink node.
 arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
@@ -491,8 +486,7 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
 /// data and the aggregation (counting unique types in column 'a')
 /// is applied on this data. The output is obtained from the sink node as a table.
 arrow::Status SourceScalarAggregateSinkExample(cp::ExecContext& exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
@@ -527,8 +521,7 @@ arrow::Status SourceScalarAggregateSinkExample(cp::ExecContext& exec_context) {
 /// data and the aggregation (counting unique types in column 'a') is
 /// applied on this data. The output is obtained from the sink node as a table.
 arrow::Status SourceGroupAggregateSinkExample(cp::ExecContext& exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
@@ -566,8 +559,7 @@ arrow::Status SourceGroupAggregateSinkExample(cp::ExecContext& exec_context) {
 /// This example shows how the data can be consumed within the execution plan
 /// by using a ConsumingSink node. There is no data output from this execution plan.
 arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
@@ -611,7 +603,7 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
   ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "Exec Plan created: " << plan->ToString() << std::endl;
   // plan start producing
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
   // Source should finish fairly quickly
   ARROW_RETURN_NOT_OK(source->finished().status());
   std::cout << "Source Finished!" << std::endl;
@@ -633,8 +625,7 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
 /// ASCENDING or DESCENDING and it is configurable. The output
 /// is obtained as a table from the sink node.
 arrow::Status SourceOrderBySinkExample(cp::ExecContext& exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeSortTestBasicBatches());
 
@@ -667,8 +658,7 @@ arrow::Status SourceOrderBySinkExample(cp::ExecContext& exec_context) {
 /// is obtained as a table via the sink node.
 arrow::Status SourceHashJoinSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
@@ -712,8 +702,7 @@ arrow::Status SourceHashJoinSinkExample(cp::ExecContext& exec_context) {
 /// sink node where output can be obtained as a table.
 arrow::Status SourceKSelectExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   ARROW_ASSIGN_OR_RAISE(
@@ -745,8 +734,7 @@ arrow::Status SourceKSelectExample(cp::ExecContext& exec_context) {
 /// and after processing how it can be written to disk.
 arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
                                      const std::string& file_path) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
@@ -797,7 +785,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "Execution Plan Created : " << plan->ToString() << std::endl;
   // // // start the ExecPlan
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
   auto future = plan->finished();
   ARROW_RETURN_NOT_OK(future.status());
   future.Wait();
@@ -818,8 +806,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
 arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   cp::Declaration union_node{"union", cp::ExecNodeOptions{}};
@@ -859,8 +846,7 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
 /// receiving data as batches and the table sink node
 /// which emits the output as a table.
 arrow::Status TableSinkExample(cp::ExecContext& exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
@@ -878,7 +864,7 @@ arrow::Status TableSinkExample(cp::ExecContext& exec_context) {
   ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
   // start the ExecPlan
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
 
   // Wait for the plan to finish
   auto finished = plan->finished();
