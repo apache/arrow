@@ -97,7 +97,7 @@ else()
   endif()
 endif()
 
-if("${zstdAlt_VERSION}" STREQUAL "" AND NOT "${ZSTD_INCLUDE_DIR}" STREQUAL "")
+if("${zstdAlt_VERSION}" STREQUAL "" AND ZSTD_INCLUDE_DIR)
   file(READ "${ZSTD_INCLUDE_DIR}/zstd.h" ZSTD_H_CONTENT)
   string(REGEX MATCH "#define ZSTD_VERSION_MAJOR +([0-9]+)" ZSTD_VERSION_MAJOR_DEFINITION
                "${ZSTD_H_CONTENT}")
