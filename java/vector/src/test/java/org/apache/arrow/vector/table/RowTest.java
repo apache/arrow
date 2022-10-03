@@ -102,6 +102,7 @@ import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.TestExtensionType;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -758,6 +759,27 @@ class RowTest {
       Object object2 = c.getDenseUnion(UNION_VECTOR_NAME);
       assertEquals(100, object0);
       assertEquals(100, object2);
+    }
+  }
+
+  @Test
+  void testExtensionTypeVector() {
+    TestExtensionType.LocationVector vector = new TestExtensionType.LocationVector("location", allocator);
+    vector.allocateNew();
+    vector.set(0, 34.073814f, -118.240784f);
+    vector.setValueCount(1);
+
+    try (VectorSchemaRoot vsr = VectorSchemaRoot.of(vector);
+         Table table = new Table(vsr)) {
+      Row c = table.immutableRow();
+      c.setPosition(0);
+      Object object0 = c.getExtensionType("location");
+      Object object1 = c.getExtensionType(0);
+      assertEquals(object0, object1);
+      @SuppressWarnings("unchecked")
+     JsonStringHashMap<String, ?> struct0 =
+          (JsonStringHashMap<String, ?>) object0;
+      assertEquals(34.073814f, struct0.get("Latitude"));
     }
   }
 

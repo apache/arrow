@@ -31,6 +31,7 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -168,7 +169,7 @@ public class Row extends BaseRow implements Iterator<Row> {
    * IllegalArgumentException is thrown if the type is incorrect.
    */
   public Object getExtensionType(int vectorIndex) {
-    ExtensionTypeVector<?> vector = (ExtensionTypeVector<?>) table.getVector(vectorIndex);
+    FieldVector vector = table.getVector(vectorIndex);
     return vector.getObject(rowNumber);
   }
 
@@ -181,7 +182,7 @@ public class Row extends BaseRow implements Iterator<Row> {
    * @return The object in the named column at the current row
    */
   public Object getExtensionType(String columnName) {
-    ExtensionTypeVector<?> vector = (ExtensionTypeVector<?>) table.getVector(columnName);
+    FieldVector vector = table.getVector(columnName);
     return vector.getObject(rowNumber);
   }
 
