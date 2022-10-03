@@ -32,6 +32,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.patch.ArrowByteBufAllocator;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 
 import io.netty.util.internal.PlatformDependent;
 
@@ -42,8 +43,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   private final ArrowBuf arrowBuf;
   private final ArrowByteBufAllocator arrowByteBufAllocator;
-  private final long address;
   private int length;
+  private final long address;
 
   /**
    * Constructs a new instance.
@@ -61,32 +62,6 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     this.arrowByteBufAllocator = new ArrowByteBufAllocator(bufferAllocator);
     this.length = length;
     this.address = arrowBuf.memoryAddress();
-  }
-
-  /**
-   * Determine if the requested {@code index} and {@code length} will fit within {@code capacity}.
-   *
-   * @param index    The starting index.
-   * @param length   The length which will be utilized (starting from {@code index}).
-   * @param capacity The capacity that {@code index + length} is allowed to be within.
-   * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code capacity}.
-   * {@code false} if this would result in an index out of bounds exception.
-   */
-  private static boolean isOutOfBounds(int index, int length, int capacity) {
-    return (index | length | (index + length) | (capacity - (index + length))) < 0;
-  }
-
-  /**
-   * unwrap arrow buffer into a netty buffer.
-   */
-  public static NettyArrowBuf unwrapBuffer(ArrowBuf buf) {
-    final NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
-        buf,
-        buf.getReferenceManager().getAllocator(),
-        LargeMemoryUtil.checkedCastToInt(buf.capacity()));
-    nettyArrowBuf.readerIndex(LargeMemoryUtil.checkedCastToInt(buf.readerIndex()));
-    nettyArrowBuf.writerIndex(LargeMemoryUtil.checkedCastToInt(buf.writerIndex()));
-    return nettyArrowBuf;
   }
 
   @Override
@@ -234,7 +209,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   public ByteBuffer internalNioBuffer(int index, int length) {
     ByteBuffer nioBuf = getDirectBuffer(index);
     // Follows convention from other ByteBuf implementations.
-    return nioBuf.clear().limit(length);
+    return (ByteBuffer) nioBuf.clear().limit(length);
   }
 
   @Override
@@ -251,6 +226,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   public ByteBuffer nioBuffer() {
     return nioBuffer(readerIndex(), readableBytes());
   }
+
 
   /**
    * Returns a buffer that is zero positioned but points
@@ -308,6 +284,19 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
+  /**
+   * Determine if the requested {@code index} and {@code length} will fit within {@code capacity}.
+   *
+   * @param index    The starting index.
+   * @param length   The length which will be utilized (starting from {@code index}).
+   * @param capacity The capacity that {@code index + length} is allowed to be within.
+   * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code capacity}.
+   * {@code false} if this would result in an index out of bounds exception.
+   */
+  private static boolean isOutOfBounds(int index, int length, int capacity) {
+    return (index | length | (index + length) | (capacity - (index + length))) < 0;
+  }
+
   @Override
   public ByteBuf getBytes(int index, ByteBuf dst, int dstIndex, int length) {
     chk(index, length);
@@ -318,10 +307,10 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
       final long srcAddress = addr(index);
       if (dst.hasMemoryAddress()) {
         final long dstAddress = dst.memoryAddress() + (long) dstIndex;
-        PlatformDependent.copyMemory(srcAddress, dstAddress, length);
+        PlatformDependent.copyMemory(srcAddress, dstAddress, (long) length);
       } else if (dst.hasArray()) {
         dstIndex += dst.arrayOffset();
-        PlatformDependent.copyMemory(srcAddress, dst.array(), dstIndex, length);
+        PlatformDependent.copyMemory(srcAddress, dst.array(), dstIndex, (long) length);
       } else {
         dst.setBytes(dstIndex, this, index, length);
       }
@@ -340,10 +329,10 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
         final long dstAddress = addr(index);
         if (src.hasMemoryAddress()) {
           final long srcAddress = src.memoryAddress() + (long) srcIndex;
-          PlatformDependent.copyMemory(srcAddress, dstAddress, length);
+          PlatformDependent.copyMemory(srcAddress, dstAddress, (long) length);
         } else if (src.hasArray()) {
           srcIndex += src.arrayOffset();
-          PlatformDependent.copyMemory(src.array(), srcIndex, dstAddress, length);
+          PlatformDependent.copyMemory(src.array(), srcIndex, dstAddress, (long) length);
         } else {
           src.getBytes(srcIndex, this, index, length);
         }
@@ -413,13 +402,6 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return getUnsignedMedium(index);
   }
 
-
-  /*-------------------------------------------------*
-   |                                                 |
-   |            get() APIs                           |
-   |                                                 |
-   *-------------------------------------------------*/
-
   @Override
   protected int _getUnsignedMediumLE(int index) {
     this.chk(index, 3);
@@ -427,6 +409,14 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return PlatformDependent.getByte(addr) & 255 |
         (Short.reverseBytes(PlatformDependent.getShort(addr + 1L)) & '\uffff') << 8;
   }
+
+
+  /*-------------------------------------------------*
+   |                                                 |
+   |            get() APIs                           |
+   |                                                 |
+   *-------------------------------------------------*/
+
 
   @Override
   protected byte _getByte(int index) {
@@ -481,6 +471,11 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return getLong(index);
   }
 
+  @Override
+  public long getLong(int index) {
+    return arrowBuf.getLong(index);
+  }
+
 
   /*-------------------------------------------------*
    |                                                 |
@@ -488,10 +483,6 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
    |                                                 |
    *-------------------------------------------------*/
 
-  @Override
-  public long getLong(int index) {
-    return arrowBuf.getLong(index);
-  }
 
   @Override
   protected void _setByte(int index, int value) {
@@ -582,6 +573,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
+  @VisibleForTesting
   protected void _setInt(int index, int value) {
     setInt(index, value);
   }
@@ -599,6 +591,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
+  @VisibleForTesting
   protected void _setLong(int index, long value) {
     setLong(index, value);
   }
@@ -613,6 +606,19 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   public NettyArrowBuf setLong(int index, long value) {
     arrowBuf.setLong(index, value);
     return this;
+  }
+
+  /**
+   * unwrap arrow buffer into a netty buffer.
+   */
+  public static NettyArrowBuf unwrapBuffer(ArrowBuf buf) {
+    final NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
+        buf,
+        buf.getReferenceManager().getAllocator(),
+        LargeMemoryUtil.checkedCastToInt(buf.capacity()));
+    nettyArrowBuf.readerIndex(LargeMemoryUtil.checkedCastToInt(buf.readerIndex()));
+    nettyArrowBuf.writerIndex(LargeMemoryUtil.checkedCastToInt(buf.writerIndex()));
+    return nettyArrowBuf;
   }
 
 }
