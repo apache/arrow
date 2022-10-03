@@ -436,9 +436,9 @@ gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
                                                     arrow_output_stream,
                                                     parquet_writer_properties);
   }
-  if (garrow_error_check(error,
-                         maybe_writer,
-                         "[parquet][arrow][file-writer][new-arrow]")) {
+  if (garrow::check(error,
+                    maybe_writer,
+                    "[parquet][arrow][file-writer][new-arrow]")) {
     parquet_arrow_file_writer = std::move(*maybe_writer);
     return gparquet_arrow_file_writer_new_raw(parquet_arrow_file_writer.release());
   } else {
