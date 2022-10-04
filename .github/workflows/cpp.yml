@@ -182,7 +182,9 @@ jobs:
           key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-ccache-macos-
       - name: Build
+        # pin LLVM version on MacOS to 14 ARROW-17902
         run: |
+          export LLVM_ROOT=$(brew --prefix llvm@14)
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
