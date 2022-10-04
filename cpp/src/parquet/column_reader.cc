@@ -1659,8 +1659,6 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     }
   }
 
-
-// XXXXXXXXXXX I SHOULD DO SOMETHING LIKE THIS WHEN SHIFTING THE LEVELS.
   void Reset() override {
     ResetValues();
 
