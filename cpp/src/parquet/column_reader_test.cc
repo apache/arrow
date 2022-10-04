@@ -593,7 +593,7 @@ TEST(RecordReaderTest, BasicReadRepeatedField) {
 
   std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      &descr, values, /*num_values=*/def_levels.size(), Encoding::PLAIN,
+      &descr, values, /*num_values=*/static_cast<int>(def_levels.size()), Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0, def_levels, level_info.def_level, rep_levels,
       level_info.rep_level);
@@ -641,8 +641,8 @@ TEST(RecordReaderTest, SkipRequiredTopLevel) {
 
   std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      &descr, values, /*num_values=*/values.size(), Encoding::PLAIN,
-      /*indices=*/{},
+      &descr, values, /*num_values=*/static_cast<int>(values.size()),
+      Encoding::PLAIN, /*indices=*/{},
       /*indices_size=*/0, /*def_levels=*/{}, level_info.def_level,
       /*rep_levels=*/{}, level_info.rep_level);
   pages.push_back(std::move(page));
@@ -691,8 +691,8 @@ TEST(RecordReaderTest, SkipOptional) {
 
   std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      &descr, values, /*num_values=*/values.size(), Encoding::PLAIN,
-      /*indices=*/{},
+      &descr, values, /*num_values=*/static_cast<int>(values.size()),
+      Encoding::PLAIN, /*indices=*/{},
       /*indices_size=*/0, def_levels, level_info.def_level,
       /*rep_levels=*/{}, level_info.rep_level);
   pages.push_back(std::move(page));
@@ -814,8 +814,8 @@ TEST(RecordReaderTest, SkipRepeated) {
 
   std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      &descr, values, /*num_values=*/values.size(), Encoding::PLAIN,
-      /*indices=*/{},
+      &descr, values, /*num_values=*/static_cast<int>(values.size()),
+      Encoding::PLAIN, /*indices=*/{},
       /*indices_size=*/0, def_levels, level_info.def_level, rep_levels,
       level_info.rep_level);
   pages.push_back(std::move(page));
