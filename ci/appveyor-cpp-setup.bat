@@ -46,7 +46,7 @@ conda info -a
 @rem
 @rem Install mamba to the base environment
 @rem
-conda install -q -y -c conda-forge mamba python=3.9 || exit /B
+conda install -q -y -c conda-forge mamba python=3.10 || exit /B
 
 @rem Update for newer CA certificates
 mamba update -q -y -c conda-forge --all || exit /B
@@ -55,10 +55,6 @@ mamba update -q -y -c conda-forge --all || exit /B
 @rem Create conda environment
 @rem
 
-@rem Workaround for ARROW-17172
-@rem This seems necessary for test_cython.py to succeed, otherwise
-@rem the extension module being built would fail loading in a subprocess.
-set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
 set CONDA_PACKAGES=
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
