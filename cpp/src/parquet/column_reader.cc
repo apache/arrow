@@ -1341,14 +1341,18 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   void ThrowAwayLevels(int64_t start_levels_position) {
     ARROW_DCHECK_LE(levels_position_, levels_written_);
     ARROW_DCHECK_LE(start_levels_position, levels_position_);
+    ARROW_DCHECK_GT(this->max_def_level_, 0);
 
     int64_t gap = levels_position_ - start_levels_position;
     if (gap == 0) return;
 
     std::copy(def_levels() + levels_position_, def_levels() + levels_written_,
               def_levels() + levels_position_ - gap);
-    std::copy(rep_levels() + levels_position_, rep_levels() + levels_written_,
-              rep_levels() + levels_position_ - gap);
+
+    if (this->max_rep_level_ > 0) {
+      std::copy(rep_levels() + levels_position_, rep_levels() + levels_written_,
+                rep_levels() + levels_position_ - gap);
+    }
 
     levels_written_ -= gap;
     levels_position_ -= gap;
@@ -1358,7 +1362,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // non-repeated fields.
   int64_t SkipRecordsInBufferNonRepeated(int64_t num_records) {
     ARROW_DCHECK_EQ(this->max_rep_level_, 0);
-    if (!this->has_values_to_process()) return 0;
+    if (!this->has_values_to_process() || num_records == 0) return 0;
 
     int64_t remaining_records = levels_written_ - levels_position_;
     int64_t skipped_records = std::min(num_records, remaining_records);
@@ -1655,6 +1659,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     }
   }
 
+
+// XXXXXXXXXXX I SHOULD DO SOMETHING LIKE THIS WHEN SHIFTING THE LEVELS.
   void Reset() override {
     ResetValues();
 
