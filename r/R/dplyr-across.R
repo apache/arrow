@@ -103,12 +103,17 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
   }
 
   # apply `.names` smart default
-  if (is.function(fns) || is_formula(fns) || is.name(fns)) {
+  if (is.function(fns) || is_formula(fns) || is.name(fns) || is_call(fns, "function")) {
     names <- names %||% "{.col}"
     fns <- list("1" = fns)
   } else {
     names <- names %||% "{.col}_{.fn}"
     fns <- call_args(fns)
+  }
+
+  # ARROW-14071
+  if (all(map_lgl(fns, is_call, name = "function"))) {
+    abort("Anonymous functions are not yet supported in Arrow")
   }
 
   # make sure fns has names, use number to replace unnamed
