@@ -317,10 +317,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
             result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
-                                     pool)
+                                       pool)
     else:
         # ConvertPySequence does strict conversion if type is explicitly passed
         result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+
     if extension_type is not None:
         result = ExtensionArray.from_storage(extension_type, result)
     return result
