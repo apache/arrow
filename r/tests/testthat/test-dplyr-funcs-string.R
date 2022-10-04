@@ -143,7 +143,7 @@ test_that("paste, paste0, and str_c", {
   # In next release of stringr (late 2022), str_c also errors
   expect_error(
     call_binding("str_c", x, y, sep = NA_character_),
-    "Invalid separator"
+    "`sep` must be a single string, not `NA`."
   )
 
   # sep passed in dots to paste0 (which doesn't take a sep argument)

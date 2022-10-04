@@ -196,7 +196,7 @@ register_bindings_string_join <- function() {
         msg = "str_c() with the collapse argument is not yet supported in Arrow"
       )
       if (!inherits(sep, "Expression")) {
-        assert_that(!is.na(sep), msg = "Invalid separator")
+        assert_that(!is.na(sep), msg = "`sep` must be a single string, not `NA`.")
       }
       arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
     },
