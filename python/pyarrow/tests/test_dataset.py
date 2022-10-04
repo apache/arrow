@@ -422,6 +422,16 @@ def test_dataset(dataset, dataset_reader):
     assert result['new'] == [False, False, True, True, False, False,
                              False, False, True, True]
 
+    # FileFragment convenience methods
+    for fragment in dataset.get_fragments():
+        assert isinstance(fragment.metadata, pq.FileMetaData)
+        with fragment.open() as nf:
+            assert isinstance(nf, pa.NativeFile)
+            assert not nf.closed
+            assert nf.seekable()
+            assert nf.readable()
+            assert not nf.writable()
+
 
 @pytest.mark.parquet
 def test_scanner_options(dataset):

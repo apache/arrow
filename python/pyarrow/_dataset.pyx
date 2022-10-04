@@ -1053,6 +1053,39 @@ cdef class FileFragment(Fragment):
             self.partition_expression
         )
 
+    def open(self):
+        """
+        Open a NativeFile of the buffer or file viewed by this fragment.
+        """
+        cdef:
+            shared_ptr[CFileSystem] c_filesystem
+            shared_ptr[CRandomAccessFile] opened
+            c_string c_path
+            NativeFile out = NativeFile()
+
+        if self.buffer is not None:
+            return pa.io.BufferReader(self.buffer)
+
+        c_path = tobytes(self.file_fragment.source().path())
+        with nogil:
+            c_filesystem = self.file_fragment.source().filesystem()
+            opened = GetResultValue(c_filesystem.get().OpenInputFile(c_path))
+
+        out.set_random_access_file(opened)
+        out.is_readable = True
+        return out
+
+    @property
+    def metadata(self):
+        """
+        Get the FileMetaData of this fragment.
+        """
+        from pyarrow._parquet import ParquetReader
+        reader = ParquetReader()
+        with self.open() as nf:
+            reader.open(nf)
+            return reader.metadata
+
     @property
     def path(self):
         """
