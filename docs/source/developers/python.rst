@@ -558,6 +558,7 @@ Now, we can build pyarrow:
 
    $ pushd arrow\python
    $ set PYARROW_WITH_PARQUET=1
+   $ set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
    $ python setup.py build_ext --inplace
    $ popd
 
@@ -565,6 +566,14 @@ Now, we can build pyarrow:
 
    For building pyarrow, the above defined environment variables need to also
    be set. Remember this if to want to re-build ``pyarrow`` after your initial build.
+
+.. note::
+
+   In case you are following this steps and are therefore using Python
+   version < 3.10 together with Conda, then ``CONDA_DLL_SEARCH_MODIFICATION_ENABLE``
+   environment variable needs to be set to ``1``.
+
+   If you are using Python 3.10 or newer then this environment variable is not needed.
 
 Then run the unit tests with:
 
