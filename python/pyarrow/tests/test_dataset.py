@@ -194,7 +194,7 @@ def multisourcefs(request):
 
     # create one with hive partitioning by color
     mockfs.create_dir('hive_color')
-    for part, chunk in df_d.groupby(["color"]):
+    for part, chunk in df_d.groupby("color"):
         folder = 'hive_color/color={}'.format(*part)
         path = '{}/chunk.parquet'.format(folder)
         mockfs.create_dir(folder)
