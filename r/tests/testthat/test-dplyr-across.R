@@ -247,4 +247,13 @@ test_that("purrr-style lambda functions are supported", {
     ),
     example_data
   )
+
+  # internal function for lambda functions
+  expect_identical(
+    arrow:::expr_substitute(
+      quote(~ round(.x * 2, digits = 0)),
+      sym(".x"), sym("dbl2")
+    ),
+    quote(~ round(dbl2 * 2, digits = 0))
+  )
 })
