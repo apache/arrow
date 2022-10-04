@@ -226,6 +226,15 @@ test_that("altrep vectors from string arrays", {
   expect_true(is_arrow_altrep(as.vector(c_chr$Slice(3))))
 })
 
+test_that("can't SET_STRING_ELT() on character ALTREP", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  alt <- as.vector(Array$create(c("one", "two", "three")))
+  expect_error(
+    test_arrow_altrep_set_string_elt(alt, 0, "value"),
+    "are immutable"
+  )
+})
+
 test_that("element access methods for character ALTREP", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   original <- as.character(c(NA, 1:1000))
