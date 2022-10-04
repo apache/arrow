@@ -598,52 +598,6 @@ Then run the unit tests with:
    incompatibilities when ``pyarrow`` is later built without
    ``--bundle-arrow-cpp``.
 
-Running C++ unit tests for Python integration
----------------------------------------------
-
-Running C++ unit tests should not be necessary for most developers. If you do
-want to run them, you need to pass ``-DARROW_BUILD_TESTS=ON`` during
-configuration of the Arrow C++ library build:
-
-.. code-block::
-
-   $ mkdir arrow\cpp\build
-   $ pushd arrow\cpp\build
-   $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
-         -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-         -DARROW_BUILD_TESTS=ON ^
-         -DARROW_COMPUTE=ON ^
-         -DARROW_CSV=ON ^
-         -DARROW_CXXFLAGS="/WX /MP" ^
-         -DARROW_DATASET=ON ^
-         -DARROW_FILESYSTEM=ON ^
-         -DARROW_HDFS=ON ^
-         -DARROW_JSON=ON ^
-         -DARROW_PARQUET=ON ^
-         ..
-   $ cmake --build . --target INSTALL --config Release
-   $ popd
-
-Getting ``arrow-python-test.exe`` (C++ unit tests for python integration) to
-run is a bit tricky because your ``%PYTHONHOME%`` must be configured to point
-to the active conda environment:
-
-.. code-block::
-
-   $ set PYTHONHOME=%CONDA_PREFIX%
-   $ pushd arrow\cpp\build\release\Release
-   $ arrow-python-test.exe
-   $ popd
-
-To run all tests of the Arrow C++ library, you can also run ``ctest``:
-
-.. code-block::
-
-   $ set PYTHONHOME=%CONDA_PREFIX%
-   $ pushd arrow\cpp\build
-   $ ctest
-   $ popd
-
 Caveats
 -------
 
