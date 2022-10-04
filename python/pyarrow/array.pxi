@@ -266,11 +266,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
         if hasattr(values, '__arrow_array__'):
             return _handle_arrow_array_protocol(values, type, mask, size)
-        elif (pandas_api.is_categorical(values) 
-              and type is not None and type.id != Type_DICTIONARY):
+        elif (pandas_api.is_categorical(values) and
+              type is not None and type.id != Type_DICTIONARY):
             result = _ndarray_to_array(
-                np.asarray(values), mask, type, c_from_pandas, safe,
-                pool)
+                np.asarray(values), mask, type, c_from_pandas, safe, pool
+            )
         elif pandas_api.is_categorical(values):
             if type is not None:
                 index_type = type.index_type
