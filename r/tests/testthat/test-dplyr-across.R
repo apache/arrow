@@ -224,6 +224,7 @@ test_that("purrr-style lambda functions are supported", {
     example_data
   )
 
+  # testing both `.` and `.x` in lambda functions
   expect_across_equal(
     quos(across(c(dbl, dbl2), c(~ round(.x, digits = 0), ~ . * 2))),
     quos(
