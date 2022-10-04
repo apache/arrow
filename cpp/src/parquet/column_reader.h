@@ -267,7 +267,7 @@ namespace internal {
 ///
 /// \note API EXPERIMENTAL
 /// \since 1.3.0
-class RecordReader {
+class PARQUET_EXPORT RecordReader {
  public:
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
