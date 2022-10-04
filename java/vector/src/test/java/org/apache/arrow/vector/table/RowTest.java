@@ -170,7 +170,7 @@ class RowTest {
       Row c = t.immutableRow();
       c.setPosition(1);
       assertThrows(IllegalStateException.class,
-          ()-> c.getVarChar("wrong name"));
+          () -> c.getVarChar("wrong name"));
     }
   }
 
@@ -181,7 +181,7 @@ class RowTest {
       Row c = t.immutableRow();
       c.setPosition(1);
       assertThrows(ClassCastException.class,
-          ()-> c.getVarChar(INT_VECTOR_NAME_1));
+          () -> c.getVarChar(INT_VECTOR_NAME_1));
     }
   }
 
