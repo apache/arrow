@@ -32,7 +32,8 @@ namespace util {
 
 class ThrottleImpl : public AsyncTaskScheduler::Throttle {
  public:
-  explicit ThrottleImpl(int max_concurrent_cost) : available_cost_(max_concurrent_cost) {}
+  explicit ThrottleImpl(int max_concurrent_cost)
+      : max_concurrent_cost_(max_concurrent_cost), available_cost_(max_concurrent_cost) {}
 
   std::optional<Future<>> TryAcquire(int amt) override {
     std::lock_guard<std::mutex> lk(mutex_);
@@ -61,8 +62,11 @@ class ThrottleImpl : public AsyncTaskScheduler::Throttle {
     }
   }
 
+  int Capacity() override { return max_concurrent_cost_; }
+
  private:
   std::mutex mutex_;
+  int max_concurrent_cost_;
   int available_cost_;
   Future<> backoff_;
 };
@@ -151,7 +155,8 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
         queue_->Push(std::move(task));
         return true;
       }
-      std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(task->cost());
+      int latched_cost = std::min(task->cost(), throttle_->Capacity());
+      std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(latched_cost);
       if (maybe_backoff) {
         queue_->Push(std::move(task));
         lk.unlock();
@@ -237,7 +242,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
  private:
   void ContinueTasksUnlocked(std::unique_lock<std::mutex>&& lk) {
     while (!queue_->Empty()) {
-      int next_cost = queue_->Peek().cost();
+      int next_cost = std::min(queue_->Peek().cost(), throttle_->Capacity());
       std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(next_cost);
       if (maybe_backoff) {
         lk.unlock();
@@ -266,6 +271,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
   void DoSubmitTask(std::unique_ptr<Task> task) {
     int cost = task->cost();
+    if (throttle_) {
+      cost = std::min(cost, throttle_->Capacity());
+    }
     Result<Future<>> submit_result = (*task)(this);
     if (!submit_result.ok()) {
       global_abort_->store(true);
@@ -274,7 +282,8 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       AbortUnlocked(submit_result.status(), std::move(lk));
       return;
     }
-    submit_result->AddCallback([this, cost](const Status& st) {
+    // Capture `task` to keep it alive until finished
+    submit_result->AddCallback([this, cost, task = std::move(task)](const Status& st) {
       std::unique_lock<std::mutex> lk(mutex_);
       if (!st.ok()) {
         running_tasks_--;

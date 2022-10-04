@@ -19,7 +19,7 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dbl map_dfr map_int map_lgl keep imap imap_chr flatten
 #' @importFrom assertthat assert_that is.string
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos quo
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
@@ -102,7 +102,10 @@ supported_dplyr_methods <- list(
     configure_tzdb()
   }
 
-  # register extension types that we use internally
+  # Set interrupt handlers
+  SetEnableSignalStopSource(TRUE)
+
+  # Register extension types that we use internally
   reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
 
   invisible()
@@ -142,6 +145,19 @@ configure_tzdb <- function() {
   })
 }
 
+# Clean up the StopSource that was registered in .onLoad() so that if the
+# package is reloaded we don't get an error from C++ informing us that
+# a StopSource has already been set up.
+.onUnload <- function(...) {
+  DeinitializeMainRThread()
+}
+
+# While .onUnload should be sufficient, devtools::load_all() does not call it
+# (but it does call .onDetach()). It is safe to call DeinitializeMainRThread()
+# more than once.
+.onDetach <- function(...) {
+  DeinitializeMainRThread()
+}
 
 # True when the OS is linux + and the R version is development
 # helpful for skipping on Valgrind, and the sanitizer checks (clang + gcc) on cran

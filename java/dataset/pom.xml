@@ -101,7 +101,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>${dep.guava.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -147,7 +146,7 @@
             <resource>
                 <directory>${arrow.cpp.build.dir}</directory>
                 <includes>
-                    <include>**/libarrow_dataset_jni.*</include>
+                    <include>**/*arrow_dataset_jni.*</include>
                 </includes>
             </resource>
         </resources>

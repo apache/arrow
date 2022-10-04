@@ -162,8 +162,8 @@ For running the benchmarks, see :ref:`python-benchmarks`.
 
 .. _build_pyarrow:
 
-Building on Linux and MacOS
-=============================
+Building on Linux and macOS
+===========================
 
 System Requirements
 -------------------
@@ -313,21 +313,24 @@ created above (stored in ``$ARROW_HOME``):
 
    $ mkdir arrow/cpp/build
    $ pushd arrow/cpp/build
-
    $ cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_INSTALL_LIBDIR=lib \
            -DCMAKE_BUILD_TYPE=Debug \
+           -DARROW_BUILD_TESTS=ON \
+           -DARROW_COMPUTE=ON \
+           -DARROW_CSV=ON \
            -DARROW_DATASET=ON \
+           -DARROW_FILESYSTEM=ON \
+           -DARROW_HDFS=ON \
+           -DARROW_JSON=ON \
+           -DARROW_PARQUET=ON \
+           -DARROW_WITH_BROTLI=ON \
            -DARROW_WITH_BZ2=ON \
-           -DARROW_WITH_ZLIB=ON \
-           -DARROW_WITH_ZSTD=ON \
            -DARROW_WITH_LZ4=ON \
            -DARROW_WITH_SNAPPY=ON \
-           -DARROW_WITH_BROTLI=ON \
-           -DARROW_PARQUET=ON \
+           -DARROW_WITH_ZLIB=ON \
+           -DARROW_WITH_ZSTD=ON \
            -DPARQUET_REQUIRE_ENCRYPTION=ON \
-           -DARROW_PYTHON=ON \
-           -DARROW_BUILD_TESTS=ON \
            ..
    $ make -j4
    $ make install
@@ -533,13 +536,18 @@ Let's configure, build and install the Arrow C++ libraries:
    $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_UNITY_BUILD=ON ^
+         -DARROW_COMPUTE=ON ^
+         -DARROW_CSV=ON ^
          -DARROW_CXXFLAGS="/WX /MP" ^
-         -DARROW_WITH_LZ4=on ^
-         -DARROW_WITH_SNAPPY=on ^
-         -DARROW_WITH_ZLIB=on ^
-         -DARROW_WITH_ZSTD=on ^
-         -DARROW_PARQUET=on ^
-         -DARROW_PYTHON=on ^
+         -DARROW_DATASET=ON ^
+         -DARROW_FILESYSTEM=ON ^
+         -DARROW_HDFS=ON ^
+         -DARROW_JSON=ON ^
+         -DARROW_PARQUET=ON ^
+         -DARROW_WITH_LZ4=ON ^
+         -DARROW_WITH_SNAPPY=ON ^
+         -DARROW_WITH_ZLIB=ON ^
+         -DARROW_WITH_ZSTD=ON ^
          ..
    $ cmake --build . --target INSTALL --config Release
    $ popd
@@ -603,10 +611,15 @@ configuration of the Arrow C++ library build:
    $ pushd arrow\cpp\build
    $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-         -DARROW_CXXFLAGS="/WX /MP" ^
-         -DARROW_PARQUET=on ^
-         -DARROW_PYTHON=on ^
          -DARROW_BUILD_TESTS=ON ^
+         -DARROW_COMPUTE=ON ^
+         -DARROW_CSV=ON ^
+         -DARROW_CXXFLAGS="/WX /MP" ^
+         -DARROW_DATASET=ON ^
+         -DARROW_FILESYSTEM=ON ^
+         -DARROW_HDFS=ON ^
+         -DARROW_JSON=ON ^
+         -DARROW_PARQUET=ON ^
          ..
    $ cmake --build . --target INSTALL --config Release
    $ popd
@@ -635,6 +648,46 @@ Caveats
 -------
 
 The Plasma component is not supported on Windows.
+
+Deleting stale build artifacts
+==============================
+
+When there have been changes to the structure of the Arrow C++ library or PyArrow,
+a thorough cleaning is recommended as a first attempt to fixing build errors.
+
+.. note::
+
+   It is not necessarily intuitive from the error itself that the problem is due to stale artifacts.
+   Example of a build error from stale artifacts is "Unknown CMake command "arrow_keep_backward_compatibility"".
+
+To delete stale Arrow C++ build artifacts:
+
+.. code-block::
+
+   $ rm -rf arrow/cpp/build
+
+To delete stale PyArrow build artifacts:
+
+.. code-block::
+
+   $ git clean -Xfd python
+
+If using a Conda environment, there are some build artifacts that get installed in
+``$ARROW_HOME`` (aka ``$CONDA_PREFIX``). For example, ``$ARROW_HOME/lib/cmake/Arrow*``,
+``$ARROW_HOME/include/arrow``, ``$ARROW_HOME/lib/libarrow*``, etc.
+
+These files can be manually deleted. If unsure which files to erase, one approach
+is to recreate the Conda environment.
+
+Either delete the current one, and start fresh:
+
+.. code-block::
+
+   $ conda deactivate
+   $ conda remove -n pyarrow-dev
+
+Or, less destructively, create a different environment with a different name.
+
 
 Installing Nightly Packages
 ===========================

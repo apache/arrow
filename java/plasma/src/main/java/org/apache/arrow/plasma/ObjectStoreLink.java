@@ -24,7 +24,10 @@ import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
 
 /**
  * Object store interface, which provides the capabilities to put and get raw byte array, and serves.
+ *
+ * @deprecated Plasma is deprecated since 10.0.0. Plasma will not be released from Apache Arrow 12.0.0 or so.
  */
+@Deprecated
 public interface ObjectStoreLink {
 
   /**
