@@ -643,7 +643,6 @@ test_that("Can use across() within mutate()", {
 
 test_that("Can use across() within transmute()", {
 
-  # expressions work in the right order
   compare_dplyr_binding(
     .input %>%
       transmute(
