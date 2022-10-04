@@ -314,9 +314,12 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       return false;
     }
     // Capture `task` to keep it alive until finished
-    if (!submit_result->TryAddCallback([this, cost, task_inner = std::move(task)]() {
-          return [this, cost](const Status& st) { OnTaskFinished(st, cost); };
-        })) {
+    if (!submit_result->TryAddCallback(
+            [this, cost, task_inner = std::move(task)]() mutable {
+              return [this, cost, task_inner2 = std::move(task_inner)](const Status& st) {
+                OnTaskFinished(st, cost);
+              };
+            })) {
       return OnTaskFinished(submit_result->status(), cost);
     }
     return true;
