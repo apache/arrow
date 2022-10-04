@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/status.h>
 #include <google/protobuf/io/coded_stream.h>
 
 #include <map>
@@ -712,15 +713,31 @@ class JavaResizableBuffer : public arrow::ResizableBuffer {
 
   Status Resize(const int64_t new_size, bool shrink_to_fit) override;
 
-  Status Reserve(const int64_t new_capacity) override {
-    return Status::NotImplemented("reserve not implemented");
-  }
+  Status Reserve(const int64_t new_capacity) override;
 
  private:
   JNIEnv* env_;
   jobject jexpander_;
   int32_t vector_idx_;
 };
+
+Status JavaResizableBuffer::Reserve(const int64_t new_capacity) {
+  // callback into java to expand the buffer
+  jobject ret = env_->CallObjectMethod(jexpander_, vector_expander_method_, vector_idx_,
+                                       new_capacity);
+  if (env_->ExceptionCheck()) {
+    env_->ExceptionDescribe();
+    env_->ExceptionClear();
+    return Status::OutOfMemory("buffer expand failed in java");
+  }
+
+  jlong ret_address = env_->GetLongField(ret, vector_expander_ret_address_);
+  jlong ret_capacity = env_->GetLongField(ret, vector_expander_ret_capacity_);
+
+  data_ = reinterpret_cast<uint8_t*>(ret_address);
+  capacity_ = ret_capacity;
+  return Status::OK();
+}
 
 Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
   if (shrink_to_fit == true) {
@@ -733,22 +750,9 @@ Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
     return Status::OK();
   }
 
-  // callback into java to expand the buffer
-  jobject ret =
-      env_->CallObjectMethod(jexpander_, vector_expander_method_, vector_idx_, new_size);
-  if (env_->ExceptionCheck()) {
-    env_->ExceptionDescribe();
-    env_->ExceptionClear();
-    return Status::OutOfMemory("buffer expand failed in java");
-  }
-
-  jlong ret_address = env_->GetLongField(ret, vector_expander_ret_address_);
-  jlong ret_capacity = env_->GetLongField(ret, vector_expander_ret_capacity_);
-  DCHECK_GE(ret_capacity, new_size);
-
-  data_ = reinterpret_cast<uint8_t*>(ret_address);
+  RETURN_NOT_OK(Reserve(new_size));
+  DCHECK_GE(capacity_, new_size);
   size_ = new_size;
-  capacity_ = ret_capacity;
   return Status::OK();
 }
 
