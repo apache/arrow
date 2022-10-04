@@ -736,8 +736,7 @@ class ORCFileWriter::Impl {
     } else {
       bool schemas_matching = table.schema()->Equals(arrow_schema_, false);
       if (!schemas_matching) {
-        return (Status(
-            StatusCode::Invalid,
+        return Status::Invalid(
             "The schema of the table does not match"
             " the initial schema. All exported tables must have the same schema."));
       }
