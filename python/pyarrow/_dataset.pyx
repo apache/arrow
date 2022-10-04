@@ -1064,7 +1064,7 @@ cdef class FileFragment(Fragment):
             NativeFile out = NativeFile()
 
         if self.buffer is not None:
-            return pa.io.BufferReader(self.buffer)
+            return pa.BufferReader(self.buffer)
 
         c_path = tobytes(self.file_fragment.source().path())
         with nogil:

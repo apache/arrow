@@ -965,6 +965,9 @@ def test_make_csv_fragment_from_buffer(dataset_reader):
     csv_format = ds.CsvFileFormat()
     fragment = csv_format.make_fragment(buffer)
 
+    # When buffer, fragment open returns a BufferReader, not NativeFile
+    assert isinstance(fragment.open(), pa.BufferReader)
+
     expected = pa.table([['a', 'b', 'c'],
                          [12, 11, 10],
                          ['dog', 'cat', 'rabbit']],
