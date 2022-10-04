@@ -36,6 +36,8 @@
 #include "arrow/gpu/cuda_api.h"
 #endif
 
+#warning "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so."
+
 namespace plasma {
 
 enum class ObjectLocation : int32_t { Local, Remote, NotFound };
