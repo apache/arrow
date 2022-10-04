@@ -24,6 +24,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/io/memory.h"
@@ -77,9 +78,15 @@ Expression call(std::string function, std::vector<Expression> arguments,
   return Expression(std::move(call));
 }
 
-const Datum* Expression::literal() const { return std::get_if<Datum>(impl_.get()); }
+const Datum* Expression::literal() const {
+  if (impl_ == nullptr) return nullptr;
+
+  return std::get_if<Datum>(impl_.get());
+}
 
 const Expression::Parameter* Expression::parameter() const {
+  if (impl_ == nullptr) return nullptr;
+
   return std::get_if<Parameter>(impl_.get());
 }
 
@@ -91,6 +98,8 @@ const FieldRef* Expression::field_ref() const {
 }
 
 const Expression::Call* Expression::call() const {
+  if (impl_ == nullptr) return nullptr;
+
   return std::get_if<Call>(impl_.get());
 }
 
@@ -654,7 +663,7 @@ bool ExpressionHasFieldRefs(const Expression& expr) {
 }
 
 Result<Expression> FoldConstants(Expression expr) {
-  return Modify(
+  return ModifyExpression(
       std::move(expr), [](Expression expr) { return expr; },
       [](Expression expr, ...) -> Result<Expression> {
         auto call = CallNotNull(expr);
@@ -799,7 +808,7 @@ Result<Expression> ReplaceFieldsWithKnownValues(const KnownFieldValues& known_va
         "ReplaceFieldsWithKnownValues called on an unbound Expression");
   }
 
-  return Modify(
+  return ModifyExpression(
       std::move(expr),
       [&known_values](Expression expr) -> Result<Expression> {
         if (auto ref = expr.field_ref()) {
@@ -870,7 +879,7 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
     }
   } AlreadyCanonicalized;
 
-  return Modify(
+  return ModifyExpression(
       std::move(expr),
       [&AlreadyCanonicalized, exec_context](Expression expr) -> Result<Expression> {
         auto call = expr.call();
@@ -1112,7 +1121,7 @@ Result<Expression> SimplifyIsValidGuarantee(Expression expr,
                                             const Expression::Call& guarantee) {
   if (guarantee.function_name != "is_valid") return expr;
 
-  return Modify(
+  return ModifyExpression(
       std::move(expr), [](Expression expr) { return expr; },
       [&](Expression expr, ...) -> Result<Expression> {
         auto call = expr.call();
@@ -1154,7 +1163,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
 
     if (auto inequality = Inequality::ExtractOne(guarantee)) {
       ARROW_ASSIGN_OR_RAISE(auto simplified,
-                            Modify(
+                            ModifyExpression(
                                 std::move(expr), [](Expression expr) { return expr; },
                                 [&](Expression expr, ...) -> Result<Expression> {
                                   return inequality->Simplify(std::move(expr));

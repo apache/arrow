@@ -55,8 +55,9 @@ static Status ParseError(T&&... t) {
 }
 
 const std::string& Kind::Name(Kind::type kind) {
-  static const std::string names[] = {"null",   "boolean", "number",
-                                      "string", "array",   "object"};
+  static const std::string names[] = {
+      "null", "boolean", "number", "string", "array", "object", "number_or_string",
+  };
 
   return names[kind];
 }
@@ -69,6 +70,7 @@ const std::shared_ptr<const KeyValueMetadata>& Kind::Tag(Kind::type kind) {
       key_value_metadata({{"json_kind", Kind::Name(Kind::kString)}}),
       key_value_metadata({{"json_kind", Kind::Name(Kind::kArray)}}),
       key_value_metadata({{"json_kind", Kind::Name(Kind::kObject)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kNumberOrString)}}),
   };
   return tags[kind];
 }
@@ -76,7 +78,7 @@ const std::shared_ptr<const KeyValueMetadata>& Kind::Tag(Kind::type kind) {
 static arrow::internal::Trie MakeFromTagTrie() {
   arrow::internal::TrieBuilder builder;
   for (auto kind : {Kind::kNull, Kind::kBoolean, Kind::kNumber, Kind::kString,
-                    Kind::kArray, Kind::kObject}) {
+                    Kind::kArray, Kind::kObject, Kind::kNumberOrString}) {
     DCHECK_OK(builder.Append(Kind::Name(kind)));
   }
   auto name_to_kind = builder.Finish();
@@ -102,7 +104,7 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
     Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const LargeBinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const TimestampType&) { return SetKind(Kind::kString); }
-    Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const DecimalType&) { return SetKind(Kind::kNumberOrString); }
     Status Visit(const DictionaryType& dict_type) {
       return Kind::ForType(*dict_type.value_type(), kind_);
     }
@@ -391,6 +393,12 @@ class RawArrayBuilder<Kind::kObject> {
   TypedBufferBuilder<bool> null_bitmap_builder_;
 };
 
+template <>
+class RawArrayBuilder<Kind::kNumberOrString> : public ScalarBuilder {
+ public:
+  using ScalarBuilder::ScalarBuilder;
+};
+
 class RawBuilderSet {
  public:
   explicit RawBuilderSet(MemoryPool* pool) : pool_(pool) {}
@@ -429,6 +437,9 @@ class RawBuilderSet {
 
       case Kind::kString:
         return MakeBuilder<Kind::kString>(leading_nulls, builder);
+
+      case Kind::kNumberOrString:
+        return MakeBuilder<Kind::kNumberOrString>(leading_nulls, builder);
 
       case Kind::kArray: {
         RETURN_NOT_OK(MakeBuilder<Kind::kArray>(leading_nulls, builder));
@@ -491,6 +502,10 @@ class RawBuilderSet {
       case Kind::kString:
         return Cast<Kind::kString>(builder)->AppendNull();
 
+      case Kind::kNumberOrString: {
+        return Cast<Kind::kNumberOrString>(builder)->AppendNull();
+      }
+
       case Kind::kArray:
         return Cast<Kind::kArray>(builder)->AppendNull();
 
@@ -504,6 +519,7 @@ class RawBuilderSet {
         }
         return Status::OK();
       }
+
       default:
         return Status::NotImplemented("invalid builder Kind");
     }
@@ -529,6 +545,9 @@ class RawBuilderSet {
 
       case Kind::kString:
         return FinishScalar(scalar_values, Cast<Kind::kString>(builder), out);
+
+      case Kind::kNumberOrString:
+        return FinishScalar(scalar_values, Cast<Kind::kNumberOrString>(builder), out);
 
       case Kind::kArray:
         return Cast<Kind::kArray>(builder)->Finish(std::move(finish_children), out);
@@ -563,7 +582,8 @@ class RawBuilderSet {
              std::vector<RawArrayBuilder<Kind::kNumber>>,
              std::vector<RawArrayBuilder<Kind::kString>>,
              std::vector<RawArrayBuilder<Kind::kArray>>,
-             std::vector<RawArrayBuilder<Kind::kObject>>>
+             std::vector<RawArrayBuilder<Kind::kObject>>,
+             std::vector<RawArrayBuilder<Kind::kNumberOrString>>>
       arenas_;
 };
 
@@ -610,12 +630,22 @@ class HandlerBase : public BlockParser,
   }
 
   bool RawNumber(const char* data, rj::SizeType size, ...) {
-    status_ = AppendScalar<Kind::kNumber>(builder_, std::string_view(data, size));
+    if (builder_.kind == Kind::kNumberOrString) {
+      status_ =
+          AppendScalar<Kind::kNumberOrString>(builder_, std::string_view(data, size));
+    } else {
+      status_ = AppendScalar<Kind::kNumber>(builder_, std::string_view(data, size));
+    }
     return status_.ok();
   }
 
   bool String(const char* data, rj::SizeType size, ...) {
-    status_ = AppendScalar<Kind::kString>(builder_, std::string_view(data, size));
+    if (builder_.kind == Kind::kNumberOrString) {
+      status_ =
+          AppendScalar<Kind::kNumberOrString>(builder_, std::string_view(data, size));
+    } else {
+      status_ = AppendScalar<Kind::kString>(builder_, std::string_view(data, size));
+    }
     return status_.ok();
   }
 

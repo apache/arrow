@@ -765,7 +765,7 @@ TEST_F(TestExecSpanIterator, ChunkedArrays) {
 }
 
 TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
-  auto carr = std::shared_ptr<ChunkedArray>(new ChunkedArray({}, int32()));
+  auto carr = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
 
   auto CheckArgs = [&](const ExecBatch& batch) {
     ExecSpanIterator iterator;
@@ -896,7 +896,7 @@ struct ExampleState : public KernelState {
 Result<std::unique_ptr<KernelState>> InitStateful(KernelContext*,
                                                   const KernelInitArgs& args) {
   auto func_options = static_cast<const ExampleOptions*>(args.options);
-  return std::unique_ptr<KernelState>(new ExampleState{func_options->value});
+  return std::make_unique<ExampleState>(func_options->value);
 }
 
 Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -1063,8 +1063,8 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
 
     // Input is chunked, output has one big chunk
     {
-      auto carr = std::shared_ptr<ChunkedArray>(
-          new ChunkedArray({arr->Slice(0, 10), arr->Slice(10)}));
+      auto carr =
+          std::make_shared<ChunkedArray>(ArrayVector{arr->Slice(0, 10), arr->Slice(10)});
       std::vector<Datum> args = {Datum(carr)};
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       std::shared_ptr<ChunkedArray> actual = result.chunked_array();

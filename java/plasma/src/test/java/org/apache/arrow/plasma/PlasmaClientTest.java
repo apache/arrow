@@ -29,6 +29,10 @@ import org.apache.arrow.plasma.exceptions.PlasmaClientException;
 import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
 import org.junit.Assert;
 
+/*
+ * @Deprecated Plasma is deprecated since 10.0.0. Plasma will not be released from Apache Arrow 12.0.0 or so.
+ */
+@Deprecated
 public class PlasmaClientTest {
 
   private String storeSuffix = "/tmp/store";

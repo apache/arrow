@@ -204,7 +204,7 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
 
     auto reader = std::make_shared<ConsumerBasedRecordBatchReader>(std::move(plan),
                                                                    std::move(consumer));
-    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    return std::make_unique<RecordBatchStream>(reader);
   }
 
   arrow::Result<int64_t> DoPutCommandSubstraitPlan(
@@ -299,7 +299,7 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
 }  // namespace
 
 arrow::Result<std::unique_ptr<FlightSqlServerBase>> MakeAceroServer() {
-  return std::unique_ptr<AceroFlightSqlServer>(new AceroFlightSqlServer());
+  return std::make_unique<AceroFlightSqlServer>();
 }
 
 }  // namespace acero_example

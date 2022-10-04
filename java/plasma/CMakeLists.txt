@@ -38,4 +38,6 @@ if(APPLE)
                                                          "-undefined dynamic_lookup")
 endif()
 
-install(TARGETS arrow_java_jni_plasma DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS arrow_java_jni_plasma
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

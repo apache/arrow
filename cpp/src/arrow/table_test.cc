@@ -264,8 +264,11 @@ TEST_F(TestTable, CombineChunksZeroRow) {
   ASSERT_EQ(0, table->num_rows());
 
   ASSERT_OK_AND_ASSIGN(auto compacted, table->CombineChunks());
+  ASSERT_TRUE(compacted->Equals(*table));
 
-  EXPECT_TRUE(compacted->Equals(*table));
+  ASSERT_OK_AND_ASSIGN(auto batch, table->CombineChunksToBatch());
+  ASSERT_OK_AND_ASSIGN(auto expected, RecordBatch::MakeEmpty(schema_));
+  ASSERT_NO_FATAL_FAILURE(AssertBatchesEqual(*expected, *batch, /*verbose=*/true));
 }
 
 TEST_F(TestTable, CombineChunks) {
@@ -354,8 +357,8 @@ using TestPromoteTableToSchema = TestTable;
 
 TEST_F(TestPromoteTableToSchema, IdenticalSchema) {
   const int length = 10;
-  auto metadata =
-      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto metadata = std::make_shared<KeyValueMetadata>(std::vector<std::string>{"foo"},
+                                                     std::vector<std::string>{"bar"});
   MakeExample1(length);
   std::shared_ptr<Table> table = Table::Make(schema_, arrays_);
 
@@ -385,8 +388,8 @@ TEST_F(TestPromoteTableToSchema, FieldsReorderedAfterPromotion) {
 
 TEST_F(TestPromoteTableToSchema, PromoteNullTypeField) {
   const int length = 10;
-  auto metadata =
-      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto metadata = std::make_shared<KeyValueMetadata>(std::vector<std::string>{"foo"},
+                                                     std::vector<std::string>{"bar"});
   auto table_with_null_column = MakeTableWithOneNullFilledColumn("field", null(), length)
                                     ->ReplaceSchemaMetadata(metadata);
   auto promoted_schema = schema({field("field", int32())});

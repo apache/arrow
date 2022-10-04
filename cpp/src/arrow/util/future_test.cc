@@ -529,7 +529,7 @@ TEST(FutureStressTest, DeleteAfterWait) {
   constexpr int kNumTasks = 100;
   for (int i = 0; i < kNumTasks; i++) {
     {
-      std::unique_ptr<Future<>> future = std::make_unique<Future<>>(Future<>::Make());
+      auto future = std::make_unique<Future<>>(Future<>::Make());
       std::thread t([&]() {
         SleepABit();
         future->MarkFinished();

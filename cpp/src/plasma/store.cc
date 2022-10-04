@@ -271,7 +271,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, bool evict_if_f
 #endif
   }
 
-  auto ptr = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
+  auto ptr = std::make_unique<ObjectTableEntry>();
   entry = store_info_.objects.emplace(object_id, std::move(ptr)).first->second.get();
   entry->data_size = data_size;
   entry->metadata_size = metadata_size;

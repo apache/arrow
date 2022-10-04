@@ -818,8 +818,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
   } else {
     return Status::NotImplemented("Action not implemented: ", action.type);
   }
-  *result_stream =
-      std::unique_ptr<ResultStream>(new SimpleResultStream(std::move(results)));
+  *result_stream = std::make_unique<SimpleResultStream>(std::move(results));
   return Status::OK();
 }
 
@@ -894,7 +893,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSql
   ARROW_ASSIGN_OR_RAISE(auto result, FlightInfo::Make(*SqlSchema::GetSqlInfoSchema(),
                                                       descriptor, endpoints, -1, -1))
 
-  return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+  return std::make_unique<FlightInfo>(result);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoXdbcTypeInfo(
@@ -948,7 +947,7 @@ arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetSqlIn
       RecordBatch::Make(SqlSchema::GetSqlInfoSchema(), row_count, {name, value});
   ARROW_ASSIGN_OR_RAISE(const auto reader, RecordBatchReader::Make({batch}));
 
-  return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+  return std::make_unique<RecordBatchStream>(reader);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSchemas(
