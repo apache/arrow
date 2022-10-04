@@ -1955,10 +1955,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             const c_string& name) const
         vector[c_string] GetFunctionNames() const
         int num_functions() const
-        
+
         @staticmethod
         unique_ptr[CFunctionRegistry] Make(CFunctionRegistry* parent)
-
 
     CFunctionRegistry* GetFunctionRegistry()
 

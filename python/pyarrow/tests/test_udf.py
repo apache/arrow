@@ -505,29 +505,47 @@ def test_input_lifetime(unary_func_fixture):
     v = None
     assert proxy_pool.bytes_allocated() == 0
 
-def test_function_registry():
+
+def test_nested_function_registry():
     def f1(ctx, x):
         return pc.call_function("add", [x, 1],
                                 memory_pool=ctx.memory_pool)
     func_name = "f1"
     unary_doc = {"summary": "add function",
                  "description": "test add function"}
+
     default_registry = pc.function_registry()
-    registry1 = pc.make_registry(default_registry)
-    
-    print(type(registry1))
-    print(registry1.get_function("add"))
-    # pc.register_scalar_function(f1,
-    #                             func_name,
-    #                             unary_doc,
-    #                             {"array": pa.int64()},
-    #                             pa.int64(),
-    #                             registry1)
-    
-    # assert pc.get_function(func_name).name == func_name
-    
-    # parent_registry = None
-    
-    # print(pc.get_function(func_name))
-    
-    
+
+    registry1 = pc.FunctionRegistry(default_registry)
+
+    registry2 = pc.FunctionRegistry(registry1)
+
+    pc.register_scalar_function(f1,
+                                func_name,
+                                unary_doc,
+                                {"array": pa.int64()},
+                                pa.int64(),
+                                registry2)
+
+    assert registry2.get_function(func_name).name == func_name
+
+    error_msg = "No function registered with name: f1"
+    with pytest.raises(pa.lib.ArrowKeyError, match=error_msg):
+        registry1.get_function(func_name)
+
+    pc.register_scalar_function(f1,
+                                func_name,
+                                unary_doc,
+                                {"array": pa.int64()},
+                                pa.int64(),
+                                registry1)
+    assert registry1.get_function(func_name).name == func_name
+
+    pc.register_scalar_function(f1,
+                                func_name,
+                                unary_doc,
+                                {"array": pa.int64()},
+                                pa.int64(),
+                                default_registry)
+
+    assert default_registry.get_function(func_name).name == func_name

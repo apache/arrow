@@ -478,11 +478,19 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
 
 cdef class FunctionRegistry(_Weakrefable):
 
-    def __init__(self):
-        self.registry = GetFunctionRegistry()
+    def __init__(self, parent=None):
+        cdef:
+            FunctionRegistry new_rg
+            FunctionRegistry parent_rg
+        if parent is None:
+            self.registry = GetFunctionRegistry()
+        else:
+            parent_rg = <FunctionRegistry>(parent)
+            self.registry = CFunctionRegistry.Make(
+                parent_rg.registry).release()
 
-    cdef void init(self, const unique_ptr[CFunctionRegistry]& registry):
-        self.registry = <CFunctionRegistry*>registry.get()
+    def __dealloc__(self):
+        self.clear()
 
     def list_functions(self):
         """
@@ -507,26 +515,28 @@ cdef class FunctionRegistry(_Weakrefable):
             func = GetResultValue(self.registry.GetFunction(c_name))
         return wrap_function(func)
 
+    def clear(self):
+        del self.registry
+
 cdef FunctionRegistry _global_func_registry = FunctionRegistry()
 
-cdef object box_registry(const unique_ptr[CFunctionRegistry]& c_registry):
-    cdef FunctionRegistry registry = FunctionRegistry.__new__(FunctionRegistry)
-    registry.init(c_registry)
-    return registry
+
+def function_registry():
+    return _global_func_registry
+
 
 def make_registry(parent):
     cdef:
-        FunctionRegistry default
-        unique_ptr[CFunctionRegistry] up_registry
+        FunctionRegistry new_rg
+        FunctionRegistry parent_rg
     if parent is None:
-        raise ValueError("Parent registry not provided")
+        return function_registry()
     else:
-        default = <FunctionRegistry>(parent)
-        up_registry = CFunctionRegistry.Make(default.registry)
-    return box_registry(up_registry)
+        parent_rg = <FunctionRegistry>(parent)
+        new_rg = FunctionRegistry.__new__(FunctionRegistry)
+        new_rg.registry = CFunctionRegistry.Make(parent_rg.registry).release()
+        return new_rg
 
-def function_registry():
-    return _global_func_registry    
 
 def get_function(name):
     """
@@ -2654,8 +2664,5 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     c_options.output_type = c_out_type
     c_options.registry = func_registry.registry
 
-    print(">>reg1")
-
     check_status(RegisterScalarFunction(c_function,
                                         <function[CallbackUdf]> &_scalar_udf_callback, c_options))
-
