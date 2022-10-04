@@ -123,7 +123,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// filter expression. Examples:
   ///
   /// - `SELECT a, b WHERE a < 2 && c > 1` => ["a", "b", "a", "c"]
-  /// - `SELECT a + b < 3 WHERE a > 1` => ["a", "b"]
+  /// - `SELECT a + b < 3 WHERE a > 1` => ["a", "b", "a"]
   ///
   /// This is needed for expression where a field may not be directly
   /// used in the final projection but is still required to evaluate the
