@@ -241,11 +241,12 @@ public abstract class BaseTable implements AutoCloseable {
   }
 
   /**
-   * Returns the vector with the given name, or {@code null} if the name is not found. Names are
+   * Returns the vector with the given name, or throws IllegalArgumentException if the name is not found. Names are
    * case-sensitive.
    *
    * @param columnName The name of the vector
    * @return the Vector with the given name, or null
+   * @throws IllegalArgumentException if the name is not the name of a vector in the table.
    */
   FieldVector getVector(String columnName) {
     for (Map.Entry<Field, FieldVector> entry : fieldVectorsMap.entrySet()) {
@@ -253,7 +254,7 @@ public abstract class BaseTable implements AutoCloseable {
         return entry.getValue();
       }
     }
-    return null;
+    throw new IllegalStateException(String.format("No vector named '%s' is present in the table", columnName));
   }
 
   /**

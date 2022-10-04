@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -159,6 +160,28 @@ class RowTest {
       Row c = t.immutableRow();
       c.setPosition(1);
       assertEquals(2, c.getInt(INT_VECTOR_NAME_1));
+    }
+  }
+
+  @Test
+  void testNameNotFound() {
+    List<FieldVector> vectorList = twoIntColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertThrows(IllegalStateException.class,
+          ()-> c.getVarChar("wrong name"));
+    }
+  }
+
+  @Test
+  void testWrongType() {
+    List<FieldVector> vectorList = twoIntColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertThrows(ClassCastException.class,
+          ()-> c.getVarChar(INT_VECTOR_NAME_1));
     }
   }
 
