@@ -178,13 +178,17 @@ else
 
       ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
 
-      LIB_DIR="libarrow/arrow-${VERSION}/lib"
+      LIB_DIR="$(pwd)/libarrow/arrow-${VERSION}/lib"
       if [ -d "$LIB_DIR" ]; then
         # Use pkg-config to do static linking of libarrow's dependencies
         export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-        PKG_CFLAGS="`pkg-config --cflags --static --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
-        PKG_DIRS="`pkg-config --libs-only-L --static --silence-errors ${PKG_CONFIG_NAME}`"
-        PKG_LIBS="`pkg-config --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}`"
+        # --define-prefix is for binary packages. Binary packages uses
+        # "/arrow/r/libarrow/dist" as prefix but it doesn't match this
+        # path. --define-prefix uses a directory that arrow.pc exists
+        # as its prefix instead of "/arrow/r/libarrow/dist".
+        PKG_CFLAGS="`pkg-config --define-prefix --cflags --static --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
+        PKG_DIRS="`pkg-config --define-prefix --libs-only-L --static --silence-errors ${PKG_CONFIG_NAME}`"
+        PKG_LIBS="`pkg-config --define-prefix --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}`"
       fi
     fi
   fi
