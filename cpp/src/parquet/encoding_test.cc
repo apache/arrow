@@ -1327,12 +1327,12 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
 };
 
 // TODO
-// typedef ::testing::Types<Int32Type, Int64Type> TestDeltaBitPackEncodingTypes;
+// typedef ::testing::Types<Int64Type> TestDeltaBitPackEncodingTypes;
 typedef ::testing::Types<Int32Type> TestDeltaBitPackEncodingTypes;
 TYPED_TEST_SUITE(TestDeltaBitPackEncoding, TestDeltaBitPackEncodingTypes);
 
 TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
-  ASSERT_NO_FATAL_FAILURE(this->Execute(2500, 2));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(25000, 200));
 }
 
 }  // namespace test

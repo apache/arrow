@@ -55,6 +55,7 @@ namespace bit_util = arrow::bit_util;
 using arrow::Status;
 using arrow::VisitNullBitmapInline;
 using arrow::internal::AddWithOverflow;
+using arrow::internal::SubtractWithOverflow;
 using arrow::internal::checked_cast;
 using std::string_view;
 
@@ -2080,7 +2081,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         sink_(pool),
         bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
         bit_writer_(bits_buffer_->mutable_data(), static_cast<int>(bits_buffer_->size())),
-        deltas_(std::vector<int64_t>(values_per_block_)) {}
+        deltas_(std::vector<T>(values_per_block_)) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
@@ -2110,7 +2111,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   ::arrow::BufferBuilder sink_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::bit_util::BitWriter bit_writer_;
-  std::vector<int64_t> deltas_;
+  std::vector<T> deltas_;
 
  private:
   void FlushBlock();
@@ -2133,7 +2134,7 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
 
   while (idx < static_cast<uint32_t>(num_values)) {
     T value = src[idx];
-    deltas_[values_current_block_] = value - current_value_;
+    SubtractWithOverflow(value, current_value_, &deltas_[values_current_block_]);
     current_value_ = value;
     idx++;
     values_current_block_++;
@@ -2153,8 +2154,8 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     return;
   }
 
-  const int64_t min_delta = static_cast<int64_t>(
-      *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_));
+  const T min_delta =
+      *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_);
   DCHECK(bit_writer_.PutZigZagVlqInt(min_delta));
 
   uint8_t* bit_width_offsets = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
@@ -2169,15 +2170,19 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     }
 
     const uint32_t start = i * values_per_mini_block_;
-    const int64_t max_delta = static_cast<int64_t>(
-        *std::max_element(deltas_.begin() + start, deltas_.begin() + start + n));
+    const T max_delta =
+        *std::max_element(deltas_.begin() + start, deltas_.begin() + start + n);
 
-    const uint32_t num_bits = bit_util::NumRequiredBits(max_delta - min_delta);
+    T max_delta_diff;
+    SubtractWithOverflow(max_delta, min_delta, &max_delta_diff);
+    const uint32_t num_bits =
+        bit_util::NumRequiredBits(static_cast<uint32_t>(max_delta_diff));
     DCHECK(bit_writer_.PutAlignedOffset<uint32_t>(bit_width_offsets + i, num_bits, 1));
 
     for (uint64_t j = start; j < start + n; j++) {
-      DCHECK(
-          bit_writer_.PutValue(static_cast<uint64_t>(deltas_[j] - min_delta), num_bits));
+      T value;
+      SubtractWithOverflow(deltas_[j], min_delta, &value);
+      DCHECK(bit_writer_.PutValue(static_cast<uint32_t>(value), num_bits));
     }
     for (uint64_t j = n; j < values_per_mini_block_; j++) {
       DCHECK(bit_writer_.PutValue(0, num_bits));
