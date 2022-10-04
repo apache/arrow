@@ -18,6 +18,7 @@
 #include "arrow/dataset/scanner.h"
 
 #include <memory>
+#include <mutex>
 #include <utility>
 
 #include <gmock/gmock.h>
@@ -163,6 +164,21 @@ struct MockScanTask {
       Future<std::shared_ptr<RecordBatch>>::Make();
 };
 
+// Wraps access to std::default_random_engine to ensure only one thread
+// at a time is using it
+class ConcurrentGen {
+ public:
+  explicit ConcurrentGen(std::default_random_engine* gen) : gen_(gen) {}
+  void With(std::function<void(std::default_random_engine*)> task) {
+    std::lock_guard lk(mutex_);
+    task(gen_);
+  }
+
+ private:
+  std::default_random_engine* gen_;
+  std::mutex mutex_;
+};
+
 struct MockFragmentScanner : public FragmentScanner {
   explicit MockFragmentScanner(std::vector<MockScanTask> scan_tasks)
       : scan_tasks_(std::move(scan_tasks)), has_started_(scan_tasks_.size(), false) {}
@@ -191,9 +207,11 @@ struct MockFragmentScanner : public FragmentScanner {
 
   void DeliverBatchesInOrder(bool slow) { DeliverBatches(slow, scan_tasks_); }
 
-  void DeliverBatchesRandomly(bool slow, std::default_random_engine* gen) {
+  void DeliverBatchesRandomly(bool slow, ConcurrentGen* gen) {
     std::vector<MockScanTask> shuffled_tasks(scan_tasks_);
-    std::shuffle(shuffled_tasks.begin(), shuffled_tasks.end(), *gen);
+    gen->With([&](std::default_random_engine* gen_instance) {
+      std::shuffle(shuffled_tasks.begin(), shuffled_tasks.end(), *gen_instance);
+    });
     DeliverBatches(slow, shuffled_tasks);
   }
 
@@ -270,7 +288,7 @@ struct MockFragment : public Fragment {
         [this, slow] { fragment_scanner_->DeliverBatchesInOrder(slow); });
   }
 
-  Future<> DeliverBatchesRandomly(bool slow, std::default_random_engine* gen) {
+  Future<> DeliverBatchesRandomly(bool slow, ConcurrentGen* gen) {
     return DeliverInit(slow).Then(
         [this, slow, gen] { fragment_scanner_->DeliverBatchesRandomly(slow, gen); });
   }
@@ -290,8 +308,8 @@ struct MockFragment : public Fragment {
   std::shared_ptr<InspectedFragment> inspected_;
   Future<std::shared_ptr<InspectedFragment>> inspected_future_ =
       Future<std::shared_ptr<InspectedFragment>>::Make();
-  bool has_inspected_ = false;
-  bool has_started_ = false;
+  std::atomic<bool> has_inspected_{false};
+  std::atomic<bool> has_started_{false};
   FragmentScanRequest seen_request_;
 };
 
@@ -332,12 +350,13 @@ struct MockDataset : public FragmentDataset {
     const auto seed = ::arrow::internal::GetRandomSeed();
     std::default_random_engine gen(
         static_cast<std::default_random_engine::result_type>(seed));
+    ConcurrentGen gen_wrapper(&gen);
 
     std::vector<std::shared_ptr<MockFragment>> fragments_shuffled(fragments_);
     std::shuffle(fragments_shuffled.begin(), fragments_shuffled.end(), gen);
     std::vector<Future<>> deliver_futures;
     for (const auto& fragment : fragments_shuffled) {
-      deliver_futures.push_back(fragment->DeliverBatchesRandomly(slow, &gen));
+      deliver_futures.push_back(fragment->DeliverBatchesRandomly(slow, &gen_wrapper));
     }
     // Need to wait for fragments to finish init so gen stays valid
     AllComplete(deliver_futures).Wait();

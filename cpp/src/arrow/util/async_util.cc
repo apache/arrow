@@ -24,6 +24,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <thread>
 
 namespace arrow {
 
@@ -251,6 +252,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
                 ContinueTasksUnlocked(&lk2);
               };
             })) {
+          std::this_thread::yield();
           lk->lock();
           continue;
         }
@@ -261,6 +263,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
           // We reached a terminal condition and there is no need to further continue
           return;
         }
+        std::this_thread::yield();
         lk->lock();
       }
     }
