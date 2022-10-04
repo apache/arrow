@@ -444,10 +444,10 @@ TEST(AsyncTaskScheduler, ScanningStress) {
   // for each fragment a sub-scheduler is created that scans
   // that fragment.  The sub-schedulers all share a common throttle
   /// If a task fails then unsubmitted tasks should not be executed
-  constexpr int kNumIters = 1;
-  constexpr int kNumFragments = 1;
-  constexpr int kBatchesPerFragment = 2;
-  constexpr int kNumConcurrentTasks = 1;
+  constexpr int kNumIters = 16;
+  constexpr int kNumFragments = 16;
+  constexpr int kBatchesPerFragment = 8;
+  constexpr int kNumConcurrentTasks = 4;
   constexpr int kExpectedBatchesScanned = kNumFragments * kBatchesPerFragment;
 
   for (int i = 0; i < kNumIters; i++) {
