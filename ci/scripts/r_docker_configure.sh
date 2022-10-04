@@ -87,6 +87,21 @@ if [[ -n "$DEVTOOLSET_VERSION" ]]; then
   fi
 fi
 
+case "$PACKAGE_MANAGER" in
+  zypper)
+    # python3 is Python 3.6 on OpenSUSE 15.3.
+    # PyArrow supports Python 3.7 or later.
+    $PACKAGE_MANAGER install -y python3.9-pip
+    ln -s /usr/bin/python3.9 /usr/local/bin/python
+    ln -s /usr/bin/pip3.9 /usr/local/bin/pip
+    ;;
+  *)
+    $PACKAGE_MANAGER install -y python3-pip
+    ln -s /usr/bin/python3 /usr/local/bin/python
+    ln -s /usr/bin/pip3 /usr/local/bin/pip
+    ;;
+esac
+
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   # Install curl and OpenSSL for S3/GCS support
   case "$PACKAGE_MANAGER" in
