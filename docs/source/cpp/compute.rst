@@ -1388,8 +1388,8 @@ null input value is converted into a null output value.
   input value type to the output value type (if a conversion is
   available).
 
-* \(3) Any input type where the type, or storage type if Extension type, can
-  be cast to the resulting extension's storage type.
+* \(3) Any input type that can be cast to the resulting extension's storage type.
+  This excludes extension types, unless being cast to the same extension type.
 
 Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
