@@ -47,7 +47,7 @@ less complex to use. So while in some cases it might be easy to map what's
 in C++ to what's in Python, in many cases the C++ classes and methods are
 used as foundations to build easier to use entities.
 
-.. image:: py_arch_overview.svg
+.. image:: /python/savefig/py_arch_overview.svg
    :alt: Four layers of PyArrow architecture: .py, .pyx, .pxd and low level C++ code.
 
 * The ``*.py`` files in the pyarrow package are usually where the entities
