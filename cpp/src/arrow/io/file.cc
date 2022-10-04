@@ -435,7 +435,7 @@ Status DirectFileOutputStream::Close() {
     ARROW_ASSIGN_OR_RAISE(auto file_pos, impl_->Tell());
     auto new_length = file_pos - sector_size_ + cached_length_;
     if (ftruncate(impl_->fd(), new_length) != 0) {
-      return Status::IOError(strerror(errno));
+      return Status::IOError(errno);
     }
   }
   cached_length_ = 0;
