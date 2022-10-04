@@ -1485,7 +1485,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     std::shared_ptr<ResizableBuffer> scratch = AllocateBuffer(
         this->pool_, batch_size * std::max<int>(sizeof(int16_t), value_size));
     do {
-      batch_size = std::min<int>(batch_size, values_left);
+      batch_size = std::min<int64_t>(batch_size, values_left);
       values_read =
           this->ReadValues(batch_size, reinterpret_cast<T*>(scratch->mutable_data()));
       values_left -= values_read;
