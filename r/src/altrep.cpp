@@ -851,7 +851,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     r_string_viewer.reset_null_was_stripped();
     s = r_string_viewer.Convert(j);
     if (r_string_viewer.nul_was_stripped()) {
-      cpp11::warning("Stripping '\\0' (nul) from character vector");
+      Rf_warning("Stripping '\\0' (nul) from character vector");
     }
 
     return s;
@@ -882,7 +882,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     }
 
     if (r_string_viewer.nul_was_stripped()) {
-      cpp11::warning("Stripping '\\0' (nul) from character vector");
+      Rf_warning("Stripping '\\0' (nul) from character vector");
     }
 
     // only set to data2 if all the values have been converted

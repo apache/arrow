@@ -69,7 +69,7 @@ void arrow::r::validate_slice_length(R_xlen_t length, int64_t available) {
     cpp11::stop("Slice 'length' cannot be negative");
   }
   if (length > available) {
-    cpp11::warning("Slice 'length' greater than available length");
+    Rf_warning("Slice 'length' greater than available length");
   }
 }
 
