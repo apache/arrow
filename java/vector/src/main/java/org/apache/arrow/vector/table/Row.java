@@ -1677,7 +1677,7 @@ public class Row extends BaseRow implements Iterator<Row> {
    *
    * <p>StandardCharsets.UTF_8 is used as the charset
    */
-  public String getVarChar(String columnName) {
+  public String getVarCharObj(String columnName) {
     VarCharVector vector = (VarCharVector) table.getVector(columnName);
     return new String(vector.get(rowNumber), getDefaultCharacterSet());
   }
@@ -1689,9 +1689,33 @@ public class Row extends BaseRow implements Iterator<Row> {
    *
    * @param columnIndex the index of the FieldVector holding the value
    */
-  public String getVarChar(int columnIndex) {
+  public String getVarCharObj(int columnIndex) {
     VarCharVector vector = (VarCharVector) table.getVector(columnIndex);
     return new String(vector.get(rowNumber), getDefaultCharacterSet());
+  }
+
+  /**
+   * Returns a byte[] from the column of the given name at the current row. An IllegalStateException
+   * is thrown if the column is not present in the Row and a ClassCastException is thrown
+   * if it has a different type
+   *
+   * <p>StandardCharsets.UTF_8 is used as the charset
+   */
+  public byte[] getVarChar(String columnName) {
+    VarCharVector vector = (VarCharVector) table.getVector(columnName);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Returns a byte[] from the column with the given index at the current row. An
+   * IllegalStateException is thrown if the column is not present in the Row and an
+   * ClassCastException is thrown if it has a different type
+   *
+   * @param columnIndex the index of the FieldVector holding the value
+   */
+  public byte[] getVarChar(int columnIndex) {
+    VarCharVector vector = (VarCharVector) table.getVector(columnIndex);
+    return vector.get(rowNumber);
   }
 
   /**
@@ -1702,7 +1726,7 @@ public class Row extends BaseRow implements Iterator<Row> {
    * <p>StandardCharsets.UTF_8 is used as the charset, unless this cursor was created with a default
    * Charset
    */
-  public String getLargeVarChar(String columnName) {
+  public String getLargeVarCharObj(String columnName) {
     LargeVarCharVector vector = (LargeVarCharVector) table.getVector(columnName);
     return new String(vector.get(rowNumber), getDefaultCharacterSet());
   }
@@ -1712,9 +1736,32 @@ public class Row extends BaseRow implements Iterator<Row> {
    * IllegalStateException is thrown if the column is not present in the Row and an
    * ClassCastException is thrown if it has a different type
    */
-  public String getLargeVarChar(int columnIndex) {
+  public String getLargeVarCharObj(int columnIndex) {
     LargeVarCharVector vector = (LargeVarCharVector) table.getVector(columnIndex);
     return new String(vector.get(rowNumber), getDefaultCharacterSet());
+  }
+
+  /**
+   * Returns a byte[] from the column of the given name at the current row. An IllegalStateException
+   * is thrown if the column is not present in the Row and a ClassCastException is thrown
+   * if it has a different type
+   *
+   * <p>StandardCharsets.UTF_8 is used as the charset, unless this cursor was created with a default
+   * Charset
+   */
+  public byte[] getLargeVarChar(String columnName) {
+    LargeVarCharVector vector = (LargeVarCharVector) table.getVector(columnName);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Returns a byte[] from the column with the given index at the current row. An
+   * IllegalStateException is thrown if the column is not present in the Row and an
+   * ClassCastException is thrown if it has a different type
+   */
+  public byte[] getLargeVarChar(int columnIndex) {
+    LargeVarCharVector vector = (LargeVarCharVector) table.getVector(columnIndex);
+    return vector.get(rowNumber);
   }
 
   /**

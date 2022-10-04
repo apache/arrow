@@ -170,7 +170,7 @@ class RowTest {
       Row c = t.immutableRow();
       c.setPosition(1);
       assertThrows(IllegalStateException.class,
-          () -> c.getVarChar("wrong name"));
+          () -> c.getVarCharObj("wrong name"));
     }
   }
 
@@ -181,7 +181,7 @@ class RowTest {
       Row c = t.immutableRow();
       c.setPosition(1);
       assertThrows(ClassCastException.class,
-          () -> c.getVarChar(INT_VECTOR_NAME_1));
+          () -> c.getVarCharObj(INT_VECTOR_NAME_1));
     }
   }
 
@@ -648,8 +648,10 @@ class RowTest {
     try (Table t = new Table(vectorList)) {
       Row c = t.immutableRow();
       c.setPosition(1);
-      assertEquals(c.getVarChar(1), "two");
-      assertEquals(c.getVarChar(1), c.getVarChar(VARCHAR_VECTOR_NAME_1));
+      assertEquals(c.getVarCharObj(1), "two");
+      assertEquals(c.getVarCharObj(1), c.getVarCharObj(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals("two".getBytes(), c.getVarChar(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals("two".getBytes(), c.getVarChar(1));
     }
   }
 
@@ -681,8 +683,10 @@ class RowTest {
     try (Table t = new Table(vectorList)) {
       Row c = t.immutableRow();
       c.setPosition(1);
-      assertEquals(c.getLargeVarChar(1), "two");
-      assertEquals(c.getLargeVarChar(1), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
+      assertEquals(c.getLargeVarCharObj(1), "two");
+      assertEquals(c.getLargeVarCharObj(1), c.getLargeVarCharObj(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals("two".getBytes(), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals("two".getBytes(), c.getLargeVarChar(1));
     }
   }
 

@@ -313,10 +313,11 @@ The exception to this naming scheme is for complex vector types (List, Map, Sche
 
 #### Reading VarChars and LargeVarChars
 
-Strings in arrow are represented as byte arrays, encoded with the UTF-8 charset as this is the only character set supported in the Arrow format.
+Strings in arrow are represented as byte arrays, encoded with the UTF-8 charset as this is the only character set supported in the Arrow format. You can get either a String result or the actual byte array.
 
 ```Java
-String v1 = row.getVarChar("first_name");       // uses the default encoding (UTF-8)
+byte[] b = row.getVarChar("first_name");
+String s = row.getVarCharObj("first_name");       // uses the default encoding (UTF-8)
 ```
 
 ## Table API: Converting a Table to a VectorSchemaRoot
