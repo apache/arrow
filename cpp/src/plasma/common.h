@@ -36,7 +36,9 @@
 #include "arrow/gpu/cuda_api.h"
 #endif
 
+#ifndef _PLASMA_NO_DEPRECATE
 #warning "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so."
+#endif
 
 namespace plasma {
 
