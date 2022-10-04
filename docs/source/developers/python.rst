@@ -213,7 +213,7 @@ dependencies for Arrow C++ and PyArrow as pre-built binaries, which can make
 Arrow development easier and faster.
 
 Let's create a conda environment with all the C++ build and Python dependencies
-from conda-forge, targeting development for Python 3.9:
+from conda-forge, targeting development for Python 3.10:
 
 On Linux and macOS:
 
@@ -225,7 +225,7 @@ On Linux and macOS:
           --file arrow/ci/conda_env_python.txt \
           --file arrow/ci/conda_env_gandiva.txt \
           compilers \
-          python=3.9 \
+          python=3.10 \
           pandas
 
 As of January 2019, the ``compilers`` package is needed on many Linux
@@ -509,7 +509,7 @@ First, starting from a fresh clone of Apache Arrow:
          --file arrow\ci\conda_env_cpp.txt ^
          --file arrow\ci\conda_env_python.txt ^
          --file arrow\ci\conda_env_gandiva.txt ^
-         python=3.9
+         python=3.10
    $ conda activate pyarrow-dev
 
 Now, we build and install Arrow C++ libraries.
