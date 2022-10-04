@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -175,7 +176,8 @@ class BaseTableTest {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
       assertNotNull(t.getVector(INT_VECTOR_NAME_1));
-      assertNull(t.getVector("foobar"));
+      assertThrows(IllegalStateException.class,
+          () -> t.getVector("wrong name"));
     }
   }
 
