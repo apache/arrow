@@ -395,15 +395,17 @@ needs_projection <- function(projection, schema) {
 
 #' Create projection needed to coalesce join keys after a full outer join
 #'
-#' @example
+#' @examples
 #' test_join <- list(
 #'   type = JoinType$FULL_OUTER,
 #'   right_data = arrow_table(x = 1, y = 2, z = "x"),
-#'   by = c("x", 'y'),
+#'   by = c("x", "y"),
 #'   suffix = c(".x", ".y"),
 #'   keep = FALSE
 #' )
 #' post_join_projection(c("value", "x", "y", "z"), test_join)
+#'
+#' @noRd
 post_join_projection <- function(left_names, join_config) {
   # Need to coalesce the key columns
   right_names <- names(join_config$right_data)
