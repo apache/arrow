@@ -101,12 +101,11 @@ before_script:
 
 script:
   # Prepare cache
+  - ccache_prefix={{ task_namespace }}-{{ target }}
   - ccache_dir=arrow/dev/tasks/linux-packages/apache-arrow/{{ task_namespace }}/build/{{ target }}
-  - |
-    if [ -d ccache ]; then
-      mkdir -p ${ccache_dir}
-      mv ccache ${ccache_dir}/ccache
-    fi
+  - mkdir -p ${ccache_dir}
+  - mkdir -p ccache/${ccache_prefix}
+  - mv ccache/${ccache_prefix} ${ccache_dir}/ccache
   # Build packages
   - pushd arrow/dev/tasks/linux-packages
   - rake version:update
@@ -142,10 +141,7 @@ script:
       rake docker:push || :
   - popd
   # Postpare cache
-  - |
-    if [ -d ${ccache_dir}/ccache ]; then
-      mv ${ccache_dir}/ccache ccache
-    fi
+  - mv ${ccache_dir}/ccache ccache/${ccache_prefix}
   # Test built packages
   - sudo gem install apt-dists-merge
   - |
