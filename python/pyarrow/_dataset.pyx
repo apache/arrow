@@ -1076,17 +1076,6 @@ cdef class FileFragment(Fragment):
         return out
 
     @property
-    def metadata(self):
-        """
-        Get the FileMetaData of this fragment.
-        """
-        from pyarrow._parquet import ParquetReader
-        reader = ParquetReader()
-        with self.open() as nf:
-            reader.open(nf)
-            return reader.metadata
-
-    @property
     def path(self):
         """
         The path of the data file viewed by this fragment, if it views a
