@@ -111,11 +111,6 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
     fns <- call_args(fns)
   }
 
-  if (!is.list(fns)) {
-    msg <- c("`.fns` must be NULL, a function, a formula, or a list of functions/formulas.")
-    abort(msg)
-  }
-
   # make sure fns has names, use number to replace unnamed
   if (is.null(names(fns))) {
     names_fns <- seq_along(fns)
