@@ -38,6 +38,15 @@ test_that("altrep test functions do not include base altrep", {
   )
 })
 
+test_that(".Internal(inspect()) prints out Arrow altrep info", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  alt <- as.vector(Array$create(1:1000))
+
+  expect_output(.Internal(inspect(alt)), "\\] arrow::array_int_vector")
+  expect_true(test_arrow_altrep_force_materialize(alt))
+  expect_output(.Internal(inspect(alt)), "materialized arrow::array_int_vector")
+})
+
 test_that("altrep vectors from int32 and dbl arrays with no nulls", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   v_int <- Array$create(1:1000)
