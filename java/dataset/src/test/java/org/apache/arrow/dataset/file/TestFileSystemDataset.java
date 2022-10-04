@@ -375,7 +375,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
 
     System.out.println(schema);
-    assertSingleTaskProduced(factory, options);
+    assertScanBatchesProduced(factory, options);
     assertEquals(1, datum.size());
     assertEquals(2, schema.getFields().size());
     assertEquals("Name", schema.getFields().get(0).getName());
