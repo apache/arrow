@@ -549,7 +549,7 @@ Let's configure, build and install the Arrow C++ libraries:
          -DARROW_WITH_ZLIB=ON ^
          -DARROW_WITH_ZSTD=ON ^
          ..
-   $ cmake --build . --target INSTALL --config Release
+   $ cmake --build . --target install --config Release
    $ popd
 
 Now, we can build pyarrow:
