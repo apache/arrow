@@ -171,7 +171,13 @@ Expression$create <- function(function_name,
                               args = list(...),
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
-  assert_that(is_list_of(args, "Expression"), msg = "Expression arguments must be Expression objects")
+  # Make sure all inputs are Expressions
+  args <- lapply(args, function(x) {
+    if (!inherits(x, "Expression")) {
+      x <- Expression$scalar(x)
+    }
+    x
+  })
   expr <- compute___expr__call(function_name, args, options)
   if (length(args)) {
     expr$schema <- unify_schemas(schemas = lapply(args, function(x) x$schema))
