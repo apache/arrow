@@ -849,7 +849,6 @@ test_that("Array$create() should have helpful error", {
   int <- integer(0)
   num <- numeric(0)
   char <- character(0)
-  expect_error(Array$create(list()), "Requires at least one element to infer")
   expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
   expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
 
