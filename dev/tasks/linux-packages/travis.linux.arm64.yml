@@ -118,7 +118,7 @@ script:
         --trace \
         {{ task_namespace }}:build \
         BUILD_DIR=build \
-        DEB_BUILD_OPTIONS=parallel=2 \
+        DEB_BUILD_OPTIONS=parallel=1 \
         RPM_BUILD_NCPUS=2
   - sudo rm -rf */*/build
   - popd
