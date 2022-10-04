@@ -24,6 +24,10 @@ dist: focal
 group: edge
 language: minimal
 
+cache:
+  directories:
+    - arrow/dev/tasks/linux-packages/apache-arrow/{{ task_namespace }}/build/{{ target }}/ccache
+
 addons:
   apt:
     packages:
@@ -118,8 +122,8 @@ script:
         --trace \
         {{ task_namespace }}:build \
         BUILD_DIR=build \
-        DEB_BUILD_OPTIONS=parallel=3 \
-        RPM_BUILD_NCPUS=3
+        DEB_BUILD_OPTIONS=parallel=2 \
+        RPM_BUILD_NCPUS=2
   - sudo rm -rf */*/build
   - popd
   # Push Docker image
