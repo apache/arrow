@@ -738,7 +738,7 @@ class ORCFileWriter::Impl {
       if (!schemas_matching) {
         return Status::Invalid(
             "The schema of the table does not match"
-            " the initial schema. All exported tables must have the same schema."));
+            " the initial schema. All exported tables must have the same schema.");
       }
     }
     auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
