@@ -330,7 +330,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   AddCommonCasts(Type::MAP, kOutputTargetType, cast_map.get());
   AddMapCast<MapType>(cast_map.get());
   AddMapCast<ListType>(cast_list.get());
-  AddMapCast<LargeListType>(cast_list.get());
+  AddMapCast<LargeListType>(cast_large_list.get());
 
   // FSL is a bit incomplete at the moment
   auto cast_fsl =
