@@ -525,19 +525,6 @@ def function_registry():
     return _global_func_registry
 
 
-def make_registry(parent):
-    cdef:
-        FunctionRegistry new_rg
-        FunctionRegistry parent_rg
-    if parent is None:
-        return function_registry()
-    else:
-        parent_rg = <FunctionRegistry>(parent)
-        new_rg = FunctionRegistry.__new__(FunctionRegistry)
-        new_rg.registry = CFunctionRegistry.Make(parent_rg.registry).release()
-        return new_rg
-
-
 def get_function(name):
     """
     Get a function by name.
@@ -2581,6 +2568,12 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         arity.
     out_type : DataType
         Output type of the function.
+    registry: FunctionRegistry
+        FunctionRegistry with which the function will be registered.
+        The default value is set to the global function registry.
+        This is an optional feature to allow grouping functions into
+        different registeries to enable removing functions if they 
+        are not intended to be used further.
 
     Examples
     --------
