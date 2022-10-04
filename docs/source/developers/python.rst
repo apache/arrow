@@ -569,7 +569,7 @@ Now, we can build pyarrow:
 
 .. note::
 
-   In case you are following this steps and are therefore using Python
+   In case you are following the above steps and are therefore using Python
    version < 3.10 together with Conda, then ``CONDA_DLL_SEARCH_MODIFICATION_ENABLE``
    environment variable needs to be set to ``1``.
 
