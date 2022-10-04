@@ -91,7 +91,7 @@ case "$PACKAGE_MANAGER" in
   zypper)
     # python3 is Python 3.6 on OpenSUSE 15.3.
     # PyArrow supports Python 3.7 or later.
-    $PACKAGE_MANAGER install -y python3.9-pip
+    $PACKAGE_MANAGER install -y python39-pip
     ln -s /usr/bin/python3.9 /usr/local/bin/python
     ln -s /usr/bin/pip3.9 /usr/local/bin/pip
     ;;
@@ -181,11 +181,11 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
   esac
 
   # The Dockerfile should have put this file here
-  if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
+  if [ "$ARROW_S3" == "ON" ] && [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
     ${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh latest /usr/local
   fi
 
-  if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_gcs_testbench.sh" ] && [ "`which pip`" ]; then
+  if [ "$ARROW_GCS" == "ON" ] && [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_gcs_testbench.sh" ]; then
     ${ARROW_SOURCE_HOME}/ci/scripts/install_gcs_testbench.sh default
   fi
 fi
