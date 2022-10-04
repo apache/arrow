@@ -27,7 +27,8 @@ namespace internal {
 namespace {
 Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
-  auto out_ty = static_cast<const ExtensionType&>(*options.to_type.type).storage_type();
+  const auto& ext_ty = static_cast<const ExtensionType&>(*options.to_type.type);
+  auto out_ty = ext_ty.storage_type();
 
   DCHECK(batch[0].is_array());
   std::shared_ptr<Array> array = batch[0].array.ToArray();
@@ -37,11 +38,10 @@ Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   std::shared_ptr<Array> result;
   if (array->type()->id() == Type::EXTENSION) {
     if (!array->type()->Equals(out_ty)) {
-      return Status::Invalid("Casting from '" + array->type()->ToString() +
-                             "' to extension with different storage type '" +
-                             out_ty->ToString() +
-                             "' not permitted. One can first cast to the storage "
-                             "type, then to the extension type.");
+      return Status::TypeError("Casting from '" + array->type()->ToString() +
+                               "' to different extension type '" + ext_ty.ToString() +
+                               "' not permitted. One can first cast to the storage "
+                               "type, then to the extension type.");
     }
     result = array;
   } else {

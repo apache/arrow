@@ -66,7 +66,7 @@ class UuidType2(pa.PyExtensionType):
         pa.PyExtensionType.__init__(self, pa.binary(16))
 
     def __reduce__(self):
-        return UuidType, ()
+        return UuidType2, ()
 
 
 class ParamExtType(pa.PyExtensionType):
@@ -549,14 +549,24 @@ def test_cast_between_extension_types():
     assert tiny_int_arr.type == TinyIntType()
 
     # Casting between extension types w/ different storage types not okay.
-    msg = (
-        "Casting from 'extension<arrow.py_extension_type<TinyIntType>>' "
-        "to extension with different storage type 'int64' not permitted. "
-        "One can first cast to the storage type, then to the extension type."
-    )
-    with pytest.raises(pa.ArrowInvalid, match=msg):
+    msg = ("Casting from 'extension<arrow.py_extension_type<TinyIntType>>' "
+           "to different extension type "
+           "'extension<arrow.py_extension_type<IntegerType>>' not permitted. "
+           "One can first cast to the storage type, then to the extension type."
+           )
+    with pytest.raises(TypeError, match=msg):
         tiny_int_arr.cast(IntegerType())
     tiny_int_arr.cast(pa.int64()).cast(IntegerType())
+
+    # Between the same extension types is okay
+    array = pa.array([b'1' * 16, b'2' * 16], pa.binary(16)).cast(UuidType())
+    out = array.cast(UuidType())
+    assert out.type == UuidType()
+
+    # Will still fail casting between extensions who share storage type,
+    # can only cast between exactly the same extension types.
+    with pytest.raises(TypeError, match='Casting from *'):
+        array.cast(UuidType2())
 
 
 @pytest.mark.parametrize("data,type_factory", (
