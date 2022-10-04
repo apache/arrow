@@ -58,3 +58,51 @@ test_that("GcsFileSystem$create() input validation", {
     'Invalid options for GcsFileSystem: "role_arn"'
   )
 })
+
+skip_on_cran()
+skip_if_not(system('python -c "import testbench"') == 0, message = "googleapis-storage-testbench is not installed.")
+library(dplyr)
+
+testbench_port <- Sys.getenv("TESTBENCH_PORT", "9001")
+
+pid_minio <- sys::exec_background("python", c("-m", "testbench", "--port", testbench_port),
+  std_out = FALSE,
+  std_err = FALSE # TODO: is there a good place to send output?
+)
+withr::defer(tools::pskill(pid_minio))
+Sys.sleep(1) # Wait for startup
+
+fs <- GcsFileSystem$create(
+  endpoint_override = sprintf("localhost:%s", testbench_port),
+  retry_limit_seconds = 1,
+  scheme = "http",
+  anonymous = TRUE # Will fail to resolve host name if anonymous isn't TRUE
+)
+
+now <- as.character(as.numeric(Sys.time()))
+tryCatch(fs$CreateDir(now), error = function(cond) {
+  if (grepl("Couldn't connect to server", cond, fixed = TRUE)) {
+    abort(
+      c(sprintf("Unable to connect to testbench on port %s.", testbench_port),
+        i = "You can set a custom port with TESTBENCH_PORT environment variable."
+      ),
+      parent = cond
+    )
+  } else {
+    stop(cond)
+  }
+})
+# Clean up when we're all done
+withr::defer(fs$DeleteDir(now))
+
+gcs_path <- function(...) {
+  paste(now, ..., sep = "/")
+}
+gcs_uri <- function(...) {
+  template <- "gs://anonymous@%s?scheme=http&endpoint_override=localhost%s%s&retry_limit_seconds=1"
+  sprintf(template, gcs_path(...), "%3A", testbench_port)
+}
+
+test_filesystem("gcs", fs, gcs_path, gcs_uri)
+
+withr::deferred_run()
