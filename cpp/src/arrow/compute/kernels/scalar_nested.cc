@@ -18,12 +18,15 @@
 // Vector kernels involving nested types
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/data.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bitmap_generate.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -242,6 +245,20 @@ struct StructFieldFunctor {
                                 union_array.GetFlattenedField(index, ctx->memory_pool()));
           break;
         }
+        case Type::LIST: {
+          const auto& list_array = checked_cast<const ListArray&>(*current);
+          ARROW_LOG(INFO) << list_array.ToString();
+          ARROW_ASSIGN_OR_RAISE(
+              Datum indices,
+              CallFunction("add", {list_array.offsets()->Slice(
+                                       0, list_array.offsets()->length() - 1),
+                                   MakeScalar(index)}));
+          ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("take", {list_array.values(),
+                                                                    std::move(indices)}));
+          current = result.make_array();
+          ARROW_LOG(INFO) << current->ToString();
+          break;
+        }
         default:
           // Should have been checked in ResolveStructFieldType
           return Status::TypeError("struct_field: cannot reference child field of type ",
@@ -265,7 +282,7 @@ struct StructFieldFunctor {
 
   static bool ValidParentType(const DataType& type) {
     return type.id() == Type::STRUCT || type.id() == Type::DENSE_UNION ||
-           type.id() == Type::SPARSE_UNION;
+           type.id() == Type::SPARSE_UNION || type.id() == Type::LIST;
   }
 };
 

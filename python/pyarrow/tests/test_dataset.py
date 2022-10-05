@@ -4790,10 +4790,12 @@ def test_write_dataset_with_scanner_use_projected_schema(tempdir):
         
 def test_read_table_nested_columns(tempdir):
     table = pa.table({"user_id": ["abc123", "qrs456"],
-                      "interaction": [{"type":  "click", "element": "button"},
-                                      {"type": "scroll", "element": "window"}]})
-    pq.write_table(table, tempdir / 'example.parquet')
-    table = pq.read_table(tempdir / "example.parquet",
-                  columns=["user_id", ".interaction.type"])
+                      "interaction": [
+                        {"type":  "click", "element": "button", "values": [1, 2], "structs":[{"foo": "bar"}]},
+                        {"type": "scroll", "element": "window", "values": [3, 4], "structs":[{"fizz": "buzz"}]}
+                      ]})
+    ds.write_dataset(table, tempdir / "table", format="ipc")
+    table = ds.dataset(tempdir / "table", format="ipc")\
+        .to_table(columns=["user_id", ".interaction.type", ".interaction.values[0]", ".interaction.structs[0].foo"])
     breakpoint()
 
