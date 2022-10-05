@@ -329,7 +329,40 @@ cdef class Dataset(_Weakrefable):
         -------
         table : Table
         """
-        return self.scanner(**kwargs).to_table()
+        import pyarrow.compute as pc
+
+        original_columns = kwargs.get('columns')
+        if original_columns is not None:
+            if (isinstance(original_columns, list) 
+                and 
+                any(isinstance(c, dict) for c in original_columns)):
+
+                columns_flat = list()
+                for col in original_columns:
+                    if isinstance(col, dict):
+                        mapping = list(col.values())[0]
+                        for c in mapping.values():
+                            columns_flat.append(c)
+                    else:
+                        columns_flat.append(col)
+                kwargs['columns'] = columns_flat
+        
+        table = self.scanner(**kwargs).to_table()
+
+        if original_columns != kwargs.get("columns"):
+            for col in original_columns:
+                if isinstance(col, dict):
+                    mapping = list(col.values())[0]
+                    current_names = list(mapping.values())
+                    new_names = list(mapping.keys())
+                    columns = table.select(current_names)
+                    table = table.drop(current_names)
+                    table = table.append_column(
+                        list(col.keys())[0], 
+                        pc.make_struct(*columns, field_names=new_names))
+        return table
+
+                    
 
     def take(self, object indices, **kwargs):
         """
