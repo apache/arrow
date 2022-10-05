@@ -130,7 +130,6 @@ script:
         BUILD_DIR=build \
         DEB_BUILD_OPTIONS=parallel=2 \
         RPM_BUILD_NCPUS=2
-  - sudo rm -rf */*/build
   - popd
   # Push Docker image
   - pushd arrow/dev/tasks/linux-packages
@@ -141,7 +140,6 @@ script:
       rake docker:push || :
   - popd
   # Postpare cache
-  - find arrow/dev/tasks/linux-packages/apache-arrow/{{ task_namespace }}/build/
   - sudo chown -R ${USER}: ${ccache_dir}
   - mv ${ccache_dir}/ccache ccache/${ccache_prefix}
   # Test built packages
