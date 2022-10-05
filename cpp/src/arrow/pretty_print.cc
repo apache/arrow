@@ -40,6 +40,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/rle_util.h"
 #include "arrow/util/string.h"
 #include "arrow/util/string_view.h"
 #include "arrow/vendored/datetime.h"
@@ -377,7 +378,19 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   Status Visit(const RunLengthEncodedArray& array) {
-    return Status::NotImplemented("printing run-length encoded array");
+    Newline();
+    Indent();
+    Write("-- run ends array (offset: ");
+    Write(std::to_string(array.offset()));
+    Write(", logical length: ");
+    Write(std::to_string(array.length()));
+    Write(")\n");
+    RETURN_NOT_OK(PrettyPrint(*array.run_ends_array(), ChildOptions(true), sink_));
+
+    Newline();
+    Indent();
+    Write("-- values:\n");
+    return PrettyPrint(*array.values_array(), ChildOptions(true), sink_);
   }
 
   Status Print(const Array& array) {

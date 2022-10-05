@@ -25,6 +25,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/chunked_array.h"
+#include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
@@ -83,6 +84,106 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
   ASSERT_RAISES_WITH_MESSAGE(
       Invalid, "Invalid: Run ends array cannot contain null values",
       RunLengthEncodedArray::Make(int32_only_null, int32_values, 3));
+}
+
+TEST(RunLengthEncodedArray, OffsetLength) {
+  auto run_ends = ArrayFromJSON(int32(), "[100, 200, 300, 400, 500]");
+  auto values = ArrayFromJSON(utf8(), R"(["Hello", "beautiful", "world", "of", "RLE"])");
+  ASSERT_OK_AND_ASSIGN(auto rle_array,
+                       RunLengthEncodedArray::Make(run_ends, values, 500));
+
+  ASSERT_EQ(rle_array->GetPhysicalLength(), 5);
+  ASSERT_EQ(rle_array->GetPhysicalOffset(), 0);
+
+  auto slice = std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(199, 5));
+  ASSERT_EQ(slice->GetPhysicalLength(), 2);
+  ASSERT_EQ(slice->GetPhysicalOffset(), 1);
+
+  auto slice2 =
+      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(199, 101));
+  ASSERT_EQ(slice2->GetPhysicalLength(), 2);
+  ASSERT_EQ(slice2->GetPhysicalOffset(), 1);
+
+  auto slice3 =
+      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(400, 100));
+  ASSERT_EQ(slice3->GetPhysicalLength(), 1);
+  ASSERT_EQ(slice3->GetPhysicalOffset(), 4);
+
+  auto slice4 =
+      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(0, 150));
+  ASSERT_EQ(slice4->GetPhysicalLength(), 2);
+  ASSERT_EQ(slice4->GetPhysicalOffset(), 0);
+}
+
+TEST(RunLengthEncodedArray, Printing) {
+  ASSERT_OK_AND_ASSIGN(auto int_array,
+                       RunLengthEncodedArray::Make(int32_values, int32_values, 30));
+  std::stringstream ss;
+  ASSERT_OK(PrettyPrint(*int_array, {}, &ss));
+  ASSERT_EQ(ss.str(),
+            "\n"
+            "-- run ends array (offset: 0, logical length: 30)\n"
+            "  [\n"
+            "    10,\n"
+            "    20,\n"
+            "    30\n"
+            "  ]\n"
+            "-- values:\n"
+            "  [\n"
+            "    10,\n"
+            "    20,\n"
+            "    30\n"
+            "  ]");
+
+  ASSERT_OK_AND_ASSIGN(auto string_array,
+                       RunLengthEncodedArray::Make(int32_values, string_values, 30));
+  ss = {};
+  ASSERT_OK(PrettyPrint(*string_array, {}, &ss));
+  ASSERT_EQ(ss.str(),
+            "\n"
+            "-- run ends array (offset: 0, logical length: 30)\n"
+            "  [\n"
+            "    10,\n"
+            "    20,\n"
+            "    30\n"
+            "  ]\n"
+            "-- values:\n"
+            "  [\n"
+            "    \"Hello\",\n"
+            "    \"World\",\n"
+            "    null\n"
+            "  ]");
+
+  auto sliced_array = string_array->Slice(15, 6);
+  ss = {};
+  ASSERT_OK(PrettyPrint(*sliced_array, {}, &ss));
+  ASSERT_EQ(ss.str(),
+            "\n"
+            "-- run ends array (offset: 15, logical length: 6)\n"
+            "  [\n"
+            "    10,\n"
+            "    20,\n"
+            "    30\n"
+            "  ]\n"
+            "-- values:\n"
+            "  [\n"
+            "    \"Hello\",\n"
+            "    \"World\",\n"
+            "    null\n"
+            "  ]");
+
+  ASSERT_OK_AND_ASSIGN(auto empty_array,
+                       RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[]"),
+                                                   ArrayFromJSON(binary(), "[]"), 0));
+
+  ss = {};
+  ASSERT_OK(PrettyPrint(*empty_array, {}, &ss));
+  ASSERT_EQ(ss.str(),
+            "\n"
+            "-- run ends array (offset: 0, logical length: 0)\n"
+            "  []\n"
+            "-- values:\n"
+            "  []");
 }
 
 }  // anonymous namespace
