@@ -115,6 +115,35 @@ const FieldVector kAugmentedFields{
     field("__filename", utf8()),
 };
 
+Result<FieldVector> GetProjectedFields(const std::shared_ptr<ScanOptions>& scan_options,
+                                       const std::shared_ptr<Schema>& dataset_schema) {
+  // process resultant dataset_schema after projection
+  FieldVector project_fields;
+  if (auto call = scan_options->projection.call()) {
+    if (call->function_name != "make_struct") {
+      return Status::Invalid("Top level projection expression call must be make_struct");
+    }
+    for (const compute::Expression& arg : call->arguments) {
+      if (auto field_ref = arg.field_ref()) {
+        if (field_ref->IsName()) {
+          auto field = dataset_schema->GetFieldByName(*field_ref->name());
+          if (field) {
+            project_fields.push_back(std::move(field));
+          }
+          // if the field is not present in the schema we ignore it.
+          // the case is if kAugmentedFields are present in the expression
+          // and if they are not present in the provided schema, we ignore them.
+        } else {
+          return Status::Invalid(
+              "No projected schema was supplied and we could not infer the projected "
+              "schema from the projection expression.");
+        }
+      }
+    }
+  }
+  return std::move(project_fields);
+}
+
 // Scan options has a number of options that we can infer from the dataset
 // schema if they are not specified.
 Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
@@ -132,26 +161,10 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     // If the user specifies a projection expression we can maybe infer from
     // that expression
     if (scan_options->projection.IsBound()) {
-      if (auto call = scan_options->projection.call()) {
-        if (call->function_name != "make_struct") {
-          return Status::Invalid(
-              "Top level projection expression call must be make_struct");
-        }
-        FieldVector fields;
-        for (const compute::Expression& arg : call->arguments) {
-          if (auto field_ref = arg.field_ref()) {
-            if (field_ref->IsName()) {
-              fields.push_back(field(*field_ref->name(), arg.type()->GetSharedPtr()));
-              break;
-            }
-          }
-          // Either the expression for this field is not a field_ref or it is not a
-          // simple field_ref.  User must supply projected_schema
-          return Status::Invalid(
-              "No projected schema was supplied and we could not infer the projected "
-              "schema from the projection expression.");
-        }
-        scan_options->projected_schema = schema(fields);
+      ARROW_ASSIGN_OR_RAISE(auto project_fields,
+                            GetProjectedFields(scan_options, dataset_schema));
+      if (project_fields.size() > 0) {
+        scan_options->projected_schema = schema(std::move(project_fields));
       }
       // If the projection isn't a call we assume it's literal(true) or some
       // invalid expression and just ignore it.  It will be replaced below
@@ -166,36 +179,13 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
       // IsName() to be true).
 
       // process resultant dataset_schema after projection
-      std::shared_ptr<Schema> projected_schema;
-      FieldVector project_fields;
-      if (auto call = scan_options->projection.call()) {
-        if (call->function_name != "make_struct") {
-          return Status::Invalid(
-              "Top level projection expression call must be make_struct");
-        }
-        for (const compute::Expression& arg : call->arguments) {
-          if (auto field_ref = arg.field_ref()) {
-            if (field_ref->IsName()) {
-              auto field = dataset_schema->GetFieldByName(*field_ref->name());
-              if (field) {
-                project_fields.push_back(std::move(field));
-              }
-              // if the field is not present in the schema we ignore it.
-              // the case is if kAugmentedFields are present in the expression
-              // and if they are not present in the provided schema, we ignore them.
-            } else {
-              return Status::Invalid(
-                  "No projected schema was supplied and we could not infer the projected "
-                  "schema from the projection expression.");
-            }
-          }
-        }
-      }
+      ARROW_ASSIGN_OR_RAISE(auto project_fields,
+                            GetProjectedFields(scan_options, dataset_schema));
 
       if (project_fields.size() > 0) {
         // create the projected schema only if the provided expressions
         // produces valid set of fields.
-        projected_schema = schema(std::move(project_fields));
+        auto projected_schema = schema(std::move(project_fields));
         ARROW_ASSIGN_OR_RAISE(auto projection_descr,
                               ProjectionDescr::Default(*projected_schema));
         scan_options->projected_schema = std::move(projection_descr.schema);

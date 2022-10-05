@@ -50,7 +50,6 @@
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/ipc/writer.h"
 
-
 using testing::ElementsAre;
 using testing::UnorderedElementsAreArray;
 
@@ -2790,7 +2789,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }
 
-TEST(ScanNode, DiskScanIssue) {
+TEST(ScanNode, OnlyLoadProjectedFields) {
   compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
