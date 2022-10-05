@@ -259,6 +259,7 @@ test_that("purrr-style lambda functions are supported", {
 })
 
 test_that("ARROW-14071 - function(x)-style lambda functions are not supported", {
+
   expect_error(
     expand_across(as_adq(example_data), quos(across(.cols = c(dbl, dbl2), list(function(x) {
       head(x, 1)
