@@ -18,6 +18,8 @@
 package org.apache.arrow.vector.table;
 
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Period;
@@ -105,8 +107,17 @@ import org.apache.arrow.vector.holders.NullableUInt8Holder;
  * <p>
  * This API is EXPERIMENTAL.
  */
-public class Row extends BaseRow implements Iterator<Row> {
+public class Row implements Iterator<Row> {
 
+  /**
+   * Returns the standard character set to use for decoding strings. The Arrow format only supports UTF-8.
+   */
+  private static final Charset DEFAULT_CHARACTER_SET = StandardCharsets.UTF_8;
+
+  /** The table we're enumerating. */
+  protected final BaseTable table;
+  /** the current row number. */
+  protected int rowNumber = -1;
   /** Indicates whether the next non-deleted row has been determined yet. */
   private boolean nextRowSet;
 
@@ -117,20 +128,20 @@ public class Row extends BaseRow implements Iterator<Row> {
   private final Iterator<Integer> iterator = intIterator();
 
   /**
-   * Constructs a new BaseRow backed by the given table.
+   * Constructs a new Row backed by the given table.
    *
    * @param table the table that this Row object represents
    */
   public Row(BaseTable table) {
-    super(table);
+    this.table = table;
   }
 
   /**
    * Resets the current row to -1 and returns this object.
    */
-  @Override
   public Row resetPosition() {
-    return (Row) super.resetPosition();
+    rowNumber = -1;
+    return this;
   }
 
   /**
@@ -1830,5 +1841,12 @@ public class Row extends BaseRow implements Iterator<Row> {
 
   private boolean rowIsDeleted(int rowNumber) {
     return table.isRowDeleted(rowNumber);
+  }
+
+  /**
+   * Returns the default character set for use with character vectors.
+   */
+  public Charset getDefaultCharacterSet() {
+    return DEFAULT_CHARACTER_SET;
   }
 }
