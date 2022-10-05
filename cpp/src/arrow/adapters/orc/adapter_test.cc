@@ -224,7 +224,7 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
 }
 
 // nb_writes parameter is for testing writing several times the input_table.
-void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
+void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_tables,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize,
                                int nb_writes = 1) {
@@ -242,7 +242,7 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
   for (int i_write = 0; i_write < nb_writes; i_write++) {
-    ARROW_EXPECT_OK(writer->Write(*input_table));
+    ARROW_EXPECT_OK(writer->Write(*input_tables[i_Write]));
   }
   ARROW_EXPECT_OK(writer->Close());
   EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
@@ -256,7 +256,13 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
-
+// nb_writes parameter is for testing writing several times the input_table.
+void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
+                               const std::shared_ptr<Table>& expected_output_table,
+                               const int64_t max_size = kDefaultSmallMemStreamSize,
+                               int nb_writes = 1) {
+  AssertTableWriteReadEqual({input_table},expected_output_table,max_size,nb_writes);
+}
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
                                const int64_t max_size = kDefaultSmallMemStreamSize,
@@ -746,18 +752,21 @@ class TestORCWriterMultipleWrite : public ::testing::Test {
 TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
   const int64_t num_rows = 1234;
   const int num_writes = 5;
-  auto array_int = rand.ArrayOf(int32(), num_rows, 0);
+  
   std::shared_ptr<Schema> input_schema = schema({field("col0", array_int->type())});
   ArrayVector vect;
+  std::vector<std::shared_ptr<Table>> input_tables;
   for (int i = 0; i < num_writes; i++) {
+    auto array_int = rand.ArrayOf(int32(), num_rows, 0);
     vect.push_back(array_int);
+    auto input_chunked_array = std::make_shared<ChunkedArray>(array_int);
+    input_tables.emplace_back(Table::Make(input_schema, {input_chunked_array}));
   }
-  auto input_chunked_array = std::make_shared<ChunkedArray>(array_int),
-       expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
-  std::shared_ptr<Table> input_table = Table::Make(input_schema, {input_chunked_array}),
-                         expected_output_table =
+  
+  auto expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
+  std::shared_ptr<Table> expected_output_table =
                              Table::Make(input_schema, {expected_output_chunked_array});
-  AssertTableWriteReadEqual(input_table, expected_output_table,
+  AssertTableWriteReadEqual(input_tables, expected_output_table,
                             kDefaultSmallMemStreamSize * 100, num_writes);
 }
 
