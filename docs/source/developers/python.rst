@@ -82,13 +82,11 @@ and look for the "custom options" section.
 
 .. note::
 
-   There are a few low-level tests written directly in C++ for historical
-   reasons. These tests are also part of the ``pytest``-based test suite and
-   can be run with:
-
-   .. code-block::
-
-      $ python -m pytest pyarrow/tests/test_cpp_internals.py
+   There are a few low-level tests written directly in C++. These tests are
+   implemented in `pyarrow/src/python_test.cc <https://github.com/apache/arrow/blob/master/python/pyarrow/src/python_test.cc>`_,
+   but they are also wrapped in a ``pytest``-based
+   `test module <https://github.com/apache/arrow/blob/master/python/pyarrow/tests/test_cpp_internals.py>`_
+   run automatically as part of the PyArrow test suite.
 
 Test Groups
 -----------
