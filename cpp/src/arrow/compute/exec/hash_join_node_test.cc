@@ -1033,9 +1033,10 @@ TEST(HashJoin, Random) {
     // for EQ only:
     // constexpr int key_cmp_mask = 0x01;
     constexpr int min_num_rows = 1;
-    const int max_num_rows = parallel ? 20000 : 2000;
-    constexpr int min_batch_size = 10;
-    constexpr int max_batch_size = 100;
+    const int scale = 10;
+    const int max_num_rows = parallel ? 20000 * scale : 2000 * scale;
+    constexpr int min_batch_size = 100 * scale;
+    constexpr int max_batch_size = 1000 * scale;
 
     // Generate list of key field data types
     int num_key_fields = rng.from_range(1, max_num_key_fields);
