@@ -141,64 +141,47 @@ test_that("Error handling", {
 # TODO: casting: int and float columns?
 
 test_that("right_join", {
-  compare_dplyr_binding(
-    .input %>%
-      right_join(to_join, by = "some_grouping", keep = FALSE) %>%
-      collect(),
-    left
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      right_join(to_join, by = "some_grouping", keep = TRUE) %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        right_join(to_join, by = "some_grouping", keep = !!keep) %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("inner_join", {
-  compare_dplyr_binding(
-    .input %>%
-      inner_join(to_join, by = "some_grouping", keep = FALSE) %>%
-      collect(),
-    left
-  )
-  compare_dplyr_binding(
-    .input %>%
-      inner_join(to_join, by = "some_grouping", keep = TRUE) %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        inner_join(to_join, by = "some_grouping", keep = !!keep) %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("full_join", {
-  compare_dplyr_binding(
-    .input %>%
-      full_join(to_join, by = "some_grouping", keep = FALSE) %>%
-      collect(),
-    left
-  )
-  compare_dplyr_binding(
-    .input %>%
-      full_join(to_join, by = "some_grouping", keep = TRUE) %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        full_join(to_join, by = "some_grouping", keep = !!keep) %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("semi_join", {
-  compare_dplyr_binding(
-    .input %>%
-      semi_join(to_join, by = "some_grouping", keep = FALSE) %>%
-      collect(),
-    left
-  )
-  compare_dplyr_binding(
-    .input %>%
-      semi_join(to_join, by = "some_grouping", keep = TRUE) %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        semi_join(to_join, by = "some_grouping", keep = !!keep) %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("anti_join", {
@@ -377,19 +360,16 @@ test_that("joins on datasets handles keep", {
     y = 1:5,
     z = 6:10
   )
-  full_data <- InMemoryDataset$create(full_data_df)
-  small_dataset <- InMemoryDataset$create(small_dataset_df)
+  full_data <- Table$create(full_data_df)
+  small_dataset <- Table$create(small_dataset_df)
 
-  assert_full_join_equal <- function(keep) {
-    result <- full_join(small_dataset, full_data, by = c("y", "x"), keep = keep) %>%
+  for (keep in c(TRUE, FALSE)) {
+    result <- full_join(small_dataset, full_data, by = c("y", "x"), keep = !!keep) %>%
       arrange(index) %>%
       collect()
-    expected <- full_join(small_dataset_df, full_data_df, by = c("y", "x"), keep = keep) %>%
+    expected <- full_join(small_dataset_df, full_data_df, by = c("y", "x"), keep = !!keep) %>%
       arrange(index) %>%
       collect()
     expect_equal(result, expected)
   }
-
-  assert_full_join_equal(keep = TRUE)
-  assert_full_join_equal(keep = FALSE)
 })

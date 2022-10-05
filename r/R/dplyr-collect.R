@@ -124,7 +124,10 @@ implicit_schema <- function(.data) {
       right_cols <- .data$join$right_data$selected_columns
       left_cols <- .data$selected_columns
 
+      # If keep = TRUE, we want to keep the key columns in the RHS. Otherwise,
+      # they will be dropped.
       if (.data$join$keep) {
+        # find the common column names in left and right tables
         common_cols <- intersect(names(right_cols), names(left_cols))
         right_fields <- map(right_cols, ~ .$type(.data$join$right_data$.data$schema))
       } else {
