@@ -371,3 +371,5 @@ If the table contains dictionary-encoded vectors, it should have been created wi
 ***Current limitation: Data imported from native code using the C-Data-interface cannot be used in a table, because the current implementation of CDataReferenceManager does not support the transfer operation.***
 
 ## Table API: Working with the C-Stream interface
+
+***Current limitation: Streaming API is not currently supported. Support is planned for a future release.***
