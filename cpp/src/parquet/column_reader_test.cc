@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/util/macros.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"

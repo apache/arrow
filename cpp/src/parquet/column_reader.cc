@@ -1500,9 +1500,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {
       return this->Skip(num_records);
     }
-    // Non-repeated optional field.
     int64_t skipped_records = 0;
     if (this->max_rep_level_ == 0) {
+      // Non-repeated optional field.
       // First consume whatever is in the buffer.
       skipped_records = SkipRecordsInBufferNonRepeated(num_records);
 
