@@ -69,7 +69,7 @@ jobs:
       # archery uses these environment variables
       ARCH: amd64
       PYTHON: "{{ python_version }}"
-    timeout-minutes: 20
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:

@@ -39,7 +39,7 @@ env:
 
 jobs:
   build:
-    name: Build wheel for OS X
+    name: Build wheel for Python {{ python_version }} on macOS
     runs-on: ["self-hosted", "macOS", "arm64"]
     steps:
       - name: Cleanup
@@ -127,6 +127,11 @@ jobs:
           mv $fused_wheel arrow/python/repaired_wheels/${fused_wheel/x86_64/universal2}
       {% endif %}
 
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheel
+          path: arrow/python/repaired_wheels/*.whl
+
       - name: Test Wheel on ARM64
         shell: bash
         env:
@@ -174,3 +179,31 @@ jobs:
           CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
 
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
+
+  test:
+    name: Test wheel for Python {{ python_version }} on macOS
+    needs:
+      - build
+    runs-on: ["self-hosted", "macOS", "arm64"]
+    timeout-minutes: 10
+    steps:
+      {{ macros.github_checkout_arrow(1, false)|indent }}
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheel
+
+      - name: Prepare
+        shell: bash
+        run: |
+          mkdir -p arrow/binaries/wheels/
+          mv *.whl arrow/binaries/wheels/
+      - name: Test wheel
+        shell: bash
+        env:
+          TEST_DEFAULT: "0"
+          TEST_WHEEL: "1"
+          TEST_PYARROW_VERSION: "{{ arrow.no_rc_version }}"
+          TEST_PYTHON_VERSIONS: "{{ python_version }}"
+        run: |
+          arrow/dev/release/verify-release-candidate.sh

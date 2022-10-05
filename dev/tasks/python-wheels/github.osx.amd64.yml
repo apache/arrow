@@ -33,7 +33,7 @@ env:
 
 jobs:
   build:
-    name: Build wheel for macOS
+    name: Build wheel for Python {{ python_version }} on macOS
     runs-on: macos-latest
     env:
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
@@ -103,6 +103,11 @@ jobs:
           pip install --upgrade pip wheel
           PYTHON=python arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
 
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheel
+          path: arrow/python/repaired_wheels/*.whl
+
       - name: Test Wheel
         shell: bash
         run: |
@@ -115,3 +120,52 @@ jobs:
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
+
+  test:
+    {% raw %}
+    name: "Test wheel for macOS on ${{ matrix.runs-on }} (USE_CONDA=${{ matrix.use-conda }})"
+    {% endraw %}
+    needs:
+      - build
+    {% raw %}
+    runs-on: ${{ matrix.runs-on }}
+    {% endraw %}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          - macos-11
+          - macos-12
+        use-conda:
+          - "0"
+          - "1"
+    steps:
+      {{ macros.github_checkout_arrow(1, false)|indent }}
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheel
+
+      - name: Prepare
+        shell: bash
+        run: |
+          mkdir -p arrow/binaries/wheels/
+          mv *.whl arrow/binaries/wheels/
+      - name: Test wheel
+        shell: bash
+        env:
+          TEST_DEFAULT: "0"
+          TEST_PYARROW_VERSION: "{{ arrow.no_rc_version }}"
+          TEST_WHEEL: "1"
+        run: |
+          case "${PYTHON_VERSION}" in
+            3.7)
+              python_version=${PYTHON_VERSION}m
+              ;;
+            *)
+              python_version=${PYTHON_VERSION}
+              ;;
+          esac
+          export TEST_PYTHON_VERSIONS=${python_version}
+          arrow/dev/release/verify-release-candidate.sh
