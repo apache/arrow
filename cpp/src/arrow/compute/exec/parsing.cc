@@ -27,8 +27,8 @@
 
 namespace arrow {
 namespace compute {
-constexpr const char* kWhitespaces = " \f\n\r\t\v";
 static void ConsumeWhitespace(std::string_view& view) {
+  constexpr const char* kWhitespaces = " \f\n\r\t\v";
   size_t first_nonwhitespace = view.find_first_not_of(kWhitespaces);
   view.remove_prefix(first_nonwhitespace);
 }
@@ -211,6 +211,7 @@ static Result<Expression> ParseCall(std::string_view& expr) {
 
   std::vector<Expression> args;
   do {
+    ConsumeWhitespace(expr);
     if (expr.empty()) return Status::Invalid("Found unterminated expression");
     if (expr[0] == ')') break;
     ARROW_ASSIGN_OR_RAISE(Expression arg, ParseExpr(expr));
