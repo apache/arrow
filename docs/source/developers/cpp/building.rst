@@ -365,6 +365,9 @@ build times if they are not required for your application:
 
 * ``-DARROW_IPC=ON``: build the IPC extensions
 
+.. warning::
+   Plasma is deprecated as of Arrow 10.0.0, and will be removed in 12.0.0 or so.
+
 Optional Targets
 ~~~~~~~~~~~~~~~~
 

@@ -83,6 +83,9 @@ add_arrow_lib(plasma
               plasma
               SOURCES
               ${PLASMA_SRCS}
+              DEFINITIONS
+              "ARROW_EXPORTING"
+              "_PLASMA_NO_DEPRECATE"
               OUTPUTS
               PLASMA_LIBRARIES
               SHARED_LINK_FLAGS
@@ -97,10 +100,6 @@ add_arrow_lib(plasma
               ${PLASMA_STATIC_INSTALL_INTERFACE_LIBS})
 
 add_dependencies(plasma ${PLASMA_LIBRARIES})
-
-foreach(LIB_TARGET ${PLASMA_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-endforeach()
 
 # The optimization flag -O3 is suggested by dlmalloc.c, which is #included in
 # malloc.cc; we set it here regardless of whether we do a debug or release build.
@@ -134,6 +133,7 @@ else()
   target_link_libraries(plasma-store-server plasma_shared ${PLASMA_LINK_LIBS})
 endif()
 target_link_libraries(plasma-store-server ${GFLAGS_LIBRARIES})
+target_compile_definitions(plasma-store-server PRIVATE _PLASMA_NO_DEPRECATE)
 add_dependencies(plasma plasma-store-server)
 
 if(ARROW_RPATH_ORIGIN)
@@ -190,6 +190,8 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
                 "plasma"
                 LABELS
                 "plasma-tests"
+                DEFINITIONS
+                _PLASMA_NO_DEPRECATE
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
