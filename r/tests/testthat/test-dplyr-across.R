@@ -258,7 +258,7 @@ test_that("purrr-style lambda functions are supported", {
   )
 })
 
-test_that("ARROW-14071 - user-defined functions are not supported", {
+test_that("ARROW-14071 - function(x)-style lambda functions are not supported", {
   expect_error(
     expand_across(as_adq(example_data), quos(across(.cols = c(dbl, dbl2), list(function(x) {
       head(x, 1)
@@ -270,6 +270,24 @@ test_that("ARROW-14071 - user-defined functions are not supported", {
 
   expect_error(
     expand_across(as_adq(example_data), quos(across(.cols = c(dbl, dbl2), function(x) {
+      head(x, 1)
+    }))),
+    regexp = "Anonymous functions are not yet supported in Arrow"
+  )
+})
+
+test_that("ARROW-14071 - \(x)-style lambda functions are not supported", {
+  expect_error(
+    expand_across(as_adq(example_data), quos(across(.cols = c(dbl, dbl2), list(\(x) {
+      head(x, 1)
+    }, \(x) {
+      head(x, 1)
+    })))),
+    regexp = "Anonymous functions are not yet supported in Arrow"
+  )
+
+  expect_error(
+    expand_across(as_adq(example_data), quos(across(.cols = c(dbl, dbl2), \(x) {
       head(x, 1)
     }))),
     regexp = "Anonymous functions are not yet supported in Arrow"
