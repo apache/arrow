@@ -484,7 +484,7 @@ class TeeNode : public compute::MapNode {
         util::AsyncTaskScheduler::MakeThrottle(1);
     util::AsyncTaskScheduler::Throttle* serial_throttle_view = serial_throttle.get();
     serial_scheduler_ = plan_->async_scheduler()->MakeSubScheduler(
-        [owned_throttle = std::move(serial_throttle)]() { return Status::OK(); },
+        [owned_throttle = std::move(serial_throttle)](Status) { return Status::OK(); },
         serial_throttle_view);
   }
 

@@ -204,7 +204,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
   template <typename T>
   bool AddAsyncGenerator(std::function<Future<T>()> generator,
                          std::function<Status(const T&)> visitor,
-                         FnOnce<Status()> finish_callback) {
+                         FnOnce<Status(Status)> finish_callback) {
     AsyncTaskScheduler* generator_scheduler =
         MakeSubScheduler(std::move(finish_callback));
     struct State {
@@ -277,6 +277,11 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// referenced before all top level tasks have been queued.
   virtual Future<> OnFinished() const = 0;
 
+  /// FIXME - Change finish callback to run even on failure (and pass in status)
+  /// - already failed scheduler should not run finish callback until End
+  /// - abort should not trigger OnFinished until end (for both normal scheduler and
+  ///     already failed scheduler)
+
   /// Create a sub-scheduler for tracking a subset of tasks
   ///
   /// The parent scheduler will manage the lifetime of the sub-scheduler.  It will
@@ -300,7 +305,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// A sub-scheduler can share the same throttle as its parent but it
   /// can also have its own unique throttle.
   virtual AsyncTaskScheduler* MakeSubScheduler(
-      FnOnce<Status()> finish_callback, Throttle* throttle = NULLPTR,
+      FnOnce<Status(Status)> finish_callback, Throttle* throttle = NULLPTR,
       std::unique_ptr<Queue> queue = NULLPTR) = 0;
 
   /// Construct a scheduler
@@ -311,6 +316,8 @@ class ARROW_EXPORT AsyncTaskScheduler {
   ///        The default (nullptr) will use a FIFO queue if there is a throttle.
   static std::unique_ptr<AsyncTaskScheduler> Make(Throttle* throttle = NULLPTR,
                                                   std::unique_ptr<Queue> queue = NULLPTR);
+
+  virtual bool IsEnded() = 0;
 };
 
 }  // namespace util

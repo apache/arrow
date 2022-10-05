@@ -323,7 +323,7 @@ class DatasetWriterDirectoryQueue {
         util::AsyncTaskScheduler::MakeThrottle(1);
     util::AsyncTaskScheduler::Throttle* throttle_view = throttle.get();
     auto file_finish_task = [self = this, file_queue = std::move(file_queue),
-                             throttle = std::move(throttle)]() {
+                             throttle = std::move(throttle)](Status) {
       self->writer_state_->open_files_throttle.Release(1);
       return Status::OK();
     };
