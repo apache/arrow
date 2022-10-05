@@ -591,8 +591,10 @@ tasks:
     {% endif %}
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+    {% if architecture == "amd64" %}
       - gir1.2-arrow-flight-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-flight-sql-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+    {% endif %}
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -603,6 +605,7 @@ tasks:
       - libarrow-dataset1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
+    {% if architecture == "amd64" %}
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -617,6 +620,7 @@ tasks:
       - libarrow-flight-sql1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight1000_{no_rc_version}-1_[a-z0-9]+.deb
+    {% endif %}
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb

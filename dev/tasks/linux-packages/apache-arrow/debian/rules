@@ -21,6 +21,13 @@ override_dh_auto_configure:
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
 	fi;							\
+	if [ $(arch) = "x86_64" ]; then				\
+	  ARROW_FLIGHT=ON;					\
+	  ARROW_FLIGHT_SQL=ON;					\
+	else							\
+	  ARROW_FLIGHT=OFF;					\
+	  ARROW_FLIGHT_SQL=OFF;					\
+	fi;							\
 	dh_auto_configure					\
 	  --sourcedirectory=cpp					\
 	  --builddirectory=cpp_build				\
@@ -32,8 +39,8 @@ override_dh_auto_configure:
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_DATASET=ON					\
 	  -DARROW_FILESYSTEM=ON					\
-	  -DARROW_FLIGHT=ON					\
-	  -DARROW_FLIGHT_SQL=ON					\
+	  -DARROW_FLIGHT=$${ARROW_FLIGHT}			\
+	  -DARROW_FLIGHT_SQL=$${ARROW_FLIGHT_SQL}		\
 	  -DARROW_GANDIVA=ON					\
 	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_GCS=ON					\
