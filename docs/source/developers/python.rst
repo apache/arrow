@@ -80,6 +80,14 @@ run
 
 and look for the "custom options" section.
 
+.. note::
+
+   There are a few low-level tests written directly in C++. These tests are
+   implemented in `pyarrow/src/python_test.cc <https://github.com/apache/arrow/blob/master/python/pyarrow/src/python_test.cc>`_,
+   but they are also wrapped in a ``pytest``-based
+   `test module <https://github.com/apache/arrow/blob/master/python/pyarrow/tests/test_cpp_internals.py>`_
+   run automatically as part of the PyArrow test suite.
+
 Test Groups
 -----------
 
@@ -130,30 +138,6 @@ for ``.py`` files or
 
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
-
-Testing PyArrow C++
--------------------
-
-Most of the tests for PyArrow are part of the ``pytest``-based test suite mentioned above,
-but a few low-level tests are written directly in C++ for historical reasons.
-Those tests can be run using ``ctest``, but you first will need to build Arrow C++
-with ``-DARROW_BUILD_TESTS=ON``.
-
-.. note::
-
-   Currently, building the PyArrow C++ unit tests does not work with the
-   googletest package from conda-forge. If you are in this situation, please
-   add ``-DGTest_SOURCE=BUNDLED`` to the CMake flags
-   when building Arrow C++.
-
-After Arrow C++ and PyArrow are built, you can navigate to the ``python/build/dist``
-folder and run ``ctest``:
-
-.. code-block::
-
-   $ pushd arrow/python/build/dist
-   $ ctest
-   $ popd
 
 Benchmarking
 ------------
