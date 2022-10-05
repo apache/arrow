@@ -140,7 +140,8 @@ script:
       rake docker:push || :
   - popd
   # Postpare cache
-  - sudo chown -R ${USER}: ${ccache_dir}
+  - |
+      sudo chown -R ${USER}: ${ccache_dir}
   - mv ${ccache_dir}/ccache ccache/${ccache_prefix}
   # Test built packages
   - sudo gem install apt-dists-merge
