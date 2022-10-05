@@ -89,8 +89,6 @@ def _table_from_pandas(df):
 def assert_dataset_fragment_convenience_methods(dataset):
     # FileFragment convenience methods
     for fragment in dataset.get_fragments():
-        if pq is not None and isinstance(dataset.format, ds.ParquetFileFormat):
-            assert isinstance(fragment.metadata, pq.FileMetaData)
         with fragment.open() as nf:
             assert isinstance(nf, pa.NativeFile)
             assert not nf.closed
@@ -1236,6 +1234,8 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     # second time -> use cached / no file IO
     with assert_opens([]):
         fragment.ensure_complete_metadata()
+
+    assert isinstance(fragment.metadata, pq.FileMetaData)
 
     # recreate fragment with row group ids
     new_fragment = fragment.format.make_fragment(
