@@ -28,13 +28,13 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
-#include "arrow_to_pandas.h"
-#include "decimal.h"
-#include "helpers.h"
-#include "numpy_convert.h"
-#include "numpy_interop.h"
-#include "python_test.h"
-#include "python_to_arrow.h"
+#include "arrow/python/arrow_to_pandas.h"
+#include "arrow/python/decimal.h"
+#include "arrow/python/helpers.h"
+#include "arrow/python/numpy_convert.h"
+#include "arrow/python/numpy_interop.h"
+#include "arrow/python/python_test.h"
+#include "arrow/python/python_to_arrow.h"
 
 #define ASSERT_EQ(x, y) { \
   auto&& _left = (x); \
