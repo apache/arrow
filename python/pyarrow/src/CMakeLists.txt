@@ -93,6 +93,7 @@ set(ARROW_PYTHON_SRCS
     arrow/python/ipc.cc
     arrow/python/numpy_convert.cc
     arrow/python/numpy_to_arrow.cc
+    arrow/python/python_test.cc
     arrow/python/python_to_arrow.cc
     arrow/python/pyarrow.cc
     arrow/python/serialize.cc
