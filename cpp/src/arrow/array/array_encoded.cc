@@ -17,6 +17,7 @@
 
 #include "arrow/array/array_encoded.h"
 #include "arrow/array/util.h"
+#include "arrow/builder.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_util.h"
 
@@ -62,6 +63,27 @@ std::shared_ptr<Array> RunLengthEncodedArray::values_array() const {
 
 std::shared_ptr<Array> RunLengthEncodedArray::run_ends_array() const {
   return MakeArray(data()->child_data[0]);
+}
+
+std::shared_ptr<Array> RunLengthEncodedArray::logical_values_array() const {
+  int64_t phyiscal_offset = GetPhysicalOffset();
+  int64_t phyiscal_length = GetPhysicalLength();
+  return MakeArray(data()->child_data[1]->Slice(phyiscal_offset, phyiscal_length));
+}
+
+Result<std::shared_ptr<Array>> RunLengthEncodedArray::logical_run_ends_array() const {
+  int64_t phyiscal_offset = GetPhysicalOffset();
+  int64_t phyiscal_length = GetPhysicalLength();
+  assert(data()->child_data[0]->buffers[1]->is_cpu());
+  const int32_t* run_ends = data()->child_data[0]->GetValues<int32_t>(1);
+  Int32Builder builder;
+  RETURN_NOT_OK(builder.Resize(phyiscal_length));
+  for (int64_t index = 0; index < phyiscal_length; index++) {
+    int32_t run_end = run_ends[index + phyiscal_offset] - offset();
+    run_end = std::min(run_end, static_cast<int32_t>(length()));
+    RETURN_NOT_OK(builder.Append(run_end));
+  }
+  return builder.Finish();
 }
 
 int64_t RunLengthEncodedArray::GetPhysicalOffset() const {

@@ -527,9 +527,10 @@ class RecordBatchSerializer {
   }
 
   Status Visit(const RunLengthEncodedArray& array) {
+    ARROW_ASSIGN_OR_RAISE(auto run_ends_array, array.logical_run_ends_array())
     --max_recursion_depth_;
-    RETURN_NOT_OK(VisitArray(*array.run_ends_array()));
-    RETURN_NOT_OK(VisitArray(*array.values_array()));
+    RETURN_NOT_OK(VisitArray(*run_ends_array));
+    RETURN_NOT_OK(VisitArray(*array.logical_values_array()));
     ++max_recursion_depth_;
     return Status::OK();
   }

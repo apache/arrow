@@ -72,6 +72,16 @@ class ARROW_EXPORT RunLengthEncodedArray : public Array {
   /// does apply the physical offset to the array
   std::shared_ptr<Array> run_ends_array() const;
 
+  /// \brief Returns an array holding the values of each run. This function returns on the
+  /// range of run values inside the logical offset/length range of the parent array
+  std::shared_ptr<Array> logical_values_array() const;
+
+  /// \brief Returns an array holding the logical indexes of each run end. This function
+  /// returns on the an array of run end values relative to the logical offset/length
+  /// range of the parent array. For arrays with an offset, this is not a slice of the
+  /// exisiting internal run ends array.
+  Result<std::shared_ptr<Array>> logical_run_ends_array() const;
+
   /// \brief Get the physical offset of the RLE array. Warning: calling this may result in
   /// in an O(log(N)) binary search on the run ends buffer
   int64_t GetPhysicalOffset() const;
