@@ -2647,8 +2647,8 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
     ...     return pc.add(array, 1, memory_pool=ctx.memory_pool)
     >>>
     >>> func_name = "py_add_func"
-    >>> in_types = {"array": pa.int64()}
-    >>> out_type = pa.int64()
+    >>> in_types = [{"array": pa.int64()}]
+    >>> out_type = [pa.int64()]
     >>> pc.register_scalar_function(add_constant, func_name, func_doc,
     ...                   in_types, out_type)
     >>>
