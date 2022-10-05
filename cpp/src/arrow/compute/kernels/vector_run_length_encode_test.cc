@@ -29,12 +29,12 @@ namespace compute {
 struct RLETestData {
   static RLETestData JSON(std::shared_ptr<DataType> data_type, std::string input_json,
                           std::string expected_values_json,
-                          std::vector<int64_t> expected_run_lengths,
+                          std::vector<int32_t> expected_run_ends,
                           int64_t input_offset = 0) {
     auto input_array = ArrayFromJSON(data_type, input_json);
     return {.input = input_array->Slice(input_offset),
             .expected_values = ArrayFromJSON(data_type, expected_values_json),
-            .expected_run_lengths = std::move(expected_run_lengths),
+            .expected_run_ends = std::move(expected_run_ends),
             .string = input_json};
   }
 
@@ -48,14 +48,14 @@ struct RLETestData {
     ARROW_EXPECT_OK(builder.Append(std::numeric_limits<CType>::max()));
     result.input = builder.Finish().ValueOrDie();
     result.expected_values = result.input;
-    result.expected_run_lengths = {1, 2, 3};
+    result.expected_run_ends = {1, 2, 3};
     result.string = "Type min, max, & null values";
     return result;
   }
 
   std::shared_ptr<Array> input;
   std::shared_ptr<Array> expected_values;
-  std::vector<int64_t> expected_run_lengths;
+  std::vector<int32_t> expected_run_ends;
   // only used for gtest output
   std::string string;
 };
@@ -73,23 +73,33 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
   auto encoded = encoded_datum.array();
-  const int64_t* run_lengths_buffer = encoded->GetValues<int64_t>(0);
-  ASSERT_EQ(std::vector<int64_t>(run_lengths_buffer,
-                                 run_lengths_buffer + encoded->child_data[0]->length),
-            data.expected_run_lengths);
-  auto values_array = MakeArray(encoded->child_data[0]);
+  auto run_ends_array = MakeArray(encoded->child_data[0]);
+  auto values_array = MakeArray(encoded->child_data[1]);
+  const int32_t* run_ends_buffer = run_ends_array->data()->GetValues<int32_t>(1);
+  ASSERT_EQ(std::vector<int32_t>(run_ends_buffer,
+                                 run_ends_buffer + encoded->child_data[0]->length),
+            data.expected_run_ends);
   ASSERT_OK(values_array->ValidateFull());
-  ASSERT_TRUE(values_array->Equals(data.expected_values));
-  ASSERT_EQ(encoded->buffers[0]->size(),
-            data.expected_run_lengths.size() * sizeof(uint64_t));
+  ASSERT_OK(run_ends_array->ValidateFull());
+  ASSERT_ARRAYS_EQUAL(*values_array, *data.expected_values);
+  ASSERT_EQ(encoded->buffers.size(), 1);
+  ASSERT_EQ(encoded->buffers[0], NULLPTR);
+  ASSERT_EQ(encoded->child_data.size(), 2);
+  ASSERT_EQ(run_ends_array->data()->buffers[1]->size(),
+            data.expected_run_ends.size() * sizeof(int32_t));
+  ASSERT_EQ(run_ends_array->data()->buffers[0], NULLPTR);
+  ASSERT_EQ(run_ends_array->length(), data.expected_run_ends.size());
+  ASSERT_EQ(run_ends_array->offset(), 0);
+  ASSERT_EQ(run_ends_array->type(), int32());
   ASSERT_EQ(encoded->length, data.input->length());
+  ASSERT_EQ(encoded->offset, 0);
   ASSERT_EQ(*encoded->type, RunLengthEncodedType(data.input->type()));
-  ASSERT_EQ(encoded->null_count, data.input->null_count());
+  ASSERT_EQ(encoded->null_count, 0);
 
   ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded));
   auto decoded = decoded_datum.make_array();
   ASSERT_OK(decoded->ValidateFull());
-  ASSERT_TRUE(decoded->Equals(data.input));
+  ASSERT_ARRAYS_EQUAL(*decoded, *data.input);
 }
 
 // Encoding an input with an offset results in a completely new encoded array without an
@@ -98,15 +108,27 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
 // off the encoded array and decodes that.
 TEST_P(TestRunLengthEncode, DecodeWithOffset) {
   auto data = GetParam();
+  if (data.input->length() == 0) {
+    // this test slices off one run, so it makes no sense on a 0-length input.
+    // make sure to run it on an input with only one run to test the case where a 0-length
+    // slice is created.
+    return;
+  }
 
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
   auto encoded = encoded_datum.array();
-  ASSERT_OK_AND_ASSIGN(Datum decoded_datum,
+  ASSERT_OK_AND_ASSIGN(Datum datum_without_first,
                        RunLengthDecode(encoded->Slice(1, encoded->length - 1)));
-  auto decoded_array = decoded_datum.make_array();
-  ASSERT_OK(decoded_array->ValidateFull());
-  ASSERT_TRUE(decoded_array->Equals(data.input->Slice(1)));
+  ASSERT_OK_AND_ASSIGN(Datum datum_without_last,
+                       RunLengthDecode(encoded->Slice(0, encoded->length - 1)));
+  auto array_without_first = datum_without_first.make_array();
+  auto array_without_last = datum_without_last.make_array();
+  ASSERT_OK(array_without_first->ValidateFull());
+  ASSERT_OK(array_without_last->ValidateFull());
+  ASSERT_ARRAYS_EQUAL(*array_without_first, *data.input->Slice(1));
+  ASSERT_ARRAYS_EQUAL(*array_without_last,
+                      *data.input->Slice(0, data.input->length() - 1));
 }
 
 // This test creates an run-length encoded array with an offset in the child array, which
@@ -114,25 +136,14 @@ TEST_P(TestRunLengthEncode, DecodeWithOffset) {
 TEST_P(TestRunLengthEncode, DecodeWithOffsetInChildArray) {
   auto data = GetParam();
 
-  const int64_t first_run_length = data.expected_run_lengths[0];
-  auto parent = ArrayData::Make(run_length_encoded(data.input->type()),
-                                data.input->length() - first_run_length);
-  parent->child_data.push_back(data.expected_values->Slice(1)->data());
-  ASSERT_OK_AND_ASSIGN(
-      auto run_length_buffer,
-      AllocateBuffer((data.expected_run_lengths.size() - 1) * sizeof(int64_t)));
-  int64_t* run_length_buffer_data =
-      reinterpret_cast<int64_t*>(run_length_buffer->mutable_data());
-  for (size_t index = 0; index < data.expected_run_lengths.size() - 1; index++) {
-    run_length_buffer_data[index] =
-        data.expected_run_lengths[index + 1] - first_run_length;
-  }
-  parent->buffers.push_back(std::move(run_length_buffer));
+  ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
-  ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(parent));
-  auto decoded_array = decoded_datum.make_array();
-  ASSERT_OK(decoded_array->ValidateFull());
-  ASSERT_TRUE(decoded_array->Equals(data.input->Slice(first_run_length)));
+  auto encoded = encoded_datum.array();
+  rle_util::AddArtificialOffsetInChildArray(encoded.get(), 100);
+  ASSERT_OK_AND_ASSIGN(Datum datum_without_first, RunLengthDecode(encoded));
+  auto array_without_first = datum_without_first.make_array();
+  ASSERT_OK(array_without_first->ValidateFull());
+  ASSERT_ARRAYS_EQUAL(*array_without_first, *data.input);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -148,6 +159,7 @@ INSTANTIATE_TEST_SUITE_P(
                           "[true, false, true, false, true, false, true, false, true]",
                           "[true, false, true, false, true, false, true, false, true]",
                           {1, 2, 3, 4, 5, 6, 7, 8, 9}),
+        RLETestData::JSON(uint32(), "[1]", "[1]", {1}),
         RLETestData::JSON(boolean(),
                           "[true, true, true, false, null, null, false, null, null]",
                           "[true, false, null, false, null]", {3, 4, 6, 7, 9}),
@@ -159,7 +171,10 @@ INSTANTIATE_TEST_SUITE_P(
                           {2, 3}, 2),
         RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
                           "[null, false]", {1, 2}, 5),
-        RLETestData::TypeMinMaxNull<Int8Type>(), RLETestData::TypeMinMaxNull<UInt8Type>(),
+        RLETestData::JSON(float64(), "[]", "[]", {}),
+        RLETestData::JSON(boolean(), "[]", "[]", {}),
+
+      RLETestData::TypeMinMaxNull<Int8Type>(), RLETestData::TypeMinMaxNull<UInt8Type>(),
         RLETestData::TypeMinMaxNull<Int16Type>(),
         RLETestData::TypeMinMaxNull<UInt16Type>(),
         RLETestData::TypeMinMaxNull<Int32Type>(),

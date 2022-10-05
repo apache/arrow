@@ -29,7 +29,7 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-9.0.0-SNAPSHOT/apache-arrow-9.0.0-SNAPSHOT.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-10.0.0-SNAPSHOT/apache-arrow-10.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   license "Apache-2.0"
   head "https://github.com/apache/arrow.git"
@@ -45,7 +45,7 @@ class ApacheArrow < Formula
   depends_on "numpy"
   depends_on "openssl@1.1"
   depends_on "protobuf"
-  depends_on "python@3.9"
+  depends_on "python@3.10"
   depends_on "rapidjson"
   depends_on "re2"
   depends_on "snappy"
@@ -60,6 +60,8 @@ class ApacheArrow < Formula
   fails_with gcc: "5"
 
   def install
+    python = "python3.10"
+
     # https://github.com/Homebrew/homebrew-core/issues/76537
     ENV.runtime_cpu_detection if Hardware::CPU.intel?
 
@@ -91,7 +93,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_ZSTD=ON
       -DCMAKE_CXX_STANDARD=17
       -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
-      -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
+      -DPython3_EXECUTABLE=#{which(python)}
     ]
 
     mkdir "build" do

@@ -21,14 +21,14 @@ import (
 	"math"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/internal/hashing"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v9/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v9/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/hashing"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v10/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 )
 
 const (

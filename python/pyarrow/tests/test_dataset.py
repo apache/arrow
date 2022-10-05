@@ -424,6 +424,13 @@ def test_dataset(dataset, dataset_reader):
 
 
 @pytest.mark.parquet
+def test_scanner_options(dataset):
+    scanner = dataset.to_batches(fragment_readahead=16, batch_readahead=8)
+    batch = next(scanner)
+    assert batch.num_columns == 7
+
+
+@pytest.mark.parquet
 def test_scanner(dataset, dataset_reader):
     scanner = dataset_reader.scanner(
         dataset, memory_pool=pa.default_memory_pool())
@@ -1816,7 +1823,7 @@ def test_positional_keywords_raises(tempdir):
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_read_partition_keys_only(tempdir):
-    BATCH_SIZE = 2 ** 17
+    BATCH_SIZE = 2 ** 15
     # This is a regression test for ARROW-15318 which saw issues
     # reading only the partition keys from files with batches larger
     # than the default batch size (e.g. so we need to return two chunks)
@@ -3599,7 +3606,7 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files, sort_col,
                              base_dir_path=None, partitioning=None):
     base_dir_path = base_dir_path or base_dir
 
-    ds.write_dataset(dataset, base_dir, format="feather",
+    ds.write_dataset(dataset, base_dir, format="arrow",
                      partitioning=partitioning, use_threads=False)
 
     # check that all files are present
@@ -3608,7 +3615,7 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files, sort_col,
 
     # check that reading back in as dataset gives the same result
     dataset2 = ds.dataset(
-        base_dir_path, format="feather", partitioning=partitioning)
+        base_dir_path, format="arrow", partitioning=partitioning)
 
     assert _sort_table(dataset2.to_table(), sort_col).equals(
         _sort_table(dataset.to_table(), sort_col))
@@ -3624,12 +3631,12 @@ def test_write_dataset(tempdir):
 
     # full string path
     target = tempdir / 'single-file-target'
-    expected_files = [target / "part-0.feather"]
+    expected_files = [target / "part-0.arrow"]
     _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
     # pathlib path object
     target = tempdir / 'single-file-target2'
-    expected_files = [target / "part-0.feather"]
+    expected_files = [target / "part-0.arrow"]
     _check_dataset_roundtrip(dataset, target, expected_files, 'a', target)
 
     # TODO
@@ -3646,7 +3653,7 @@ def test_write_dataset(tempdir):
     dataset = ds.dataset(directory)
 
     target = tempdir / 'single-directory-target'
-    expected_files = [target / "part-0.feather"]
+    expected_files = [target / "part-0.arrow"]
     _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
 
@@ -3661,8 +3668,8 @@ def test_write_dataset_partitioned(tempdir):
     # hive partitioning
     target = tempdir / 'partitioned-hive-target'
     expected_paths = [
-        target / "part=a", target / "part=a" / "part-0.feather",
-        target / "part=b", target / "part=b" / "part-0.feather"
+        target / "part=a", target / "part=a" / "part-0.arrow",
+        target / "part=b", target / "part=b" / "part-0.arrow"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]), flavor="hive")
@@ -3673,8 +3680,8 @@ def test_write_dataset_partitioned(tempdir):
     # directory partitioning
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
-        target / "a", target / "a" / "part-0.feather",
-        target / "b", target / "b" / "part-0.feather"
+        target / "a", target / "a" / "part-0.arrow",
+        target / "b", target / "b" / "part-0.arrow"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]))
@@ -4081,8 +4088,8 @@ def test_write_dataset_partitioned_dict(tempdir):
         partitioning=ds.HivePartitioning.discover(infer_dictionary=True))
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
-        target / "a", target / "a" / "part-0.feather",
-        target / "b", target / "b" / "part-0.feather"
+        target / "a", target / "a" / "part-0.arrow",
+        target / "b", target / "b" / "part-0.arrow"
     ]
     partitioning = ds.partitioning(pa.schema([
         dataset.schema.field('part')]),
@@ -4706,3 +4713,28 @@ def test_dataset_filter(tempdir):
         "colA": [1, 2],
         "col2": ["a", "b"]
     })
+
+
+def test_write_dataset_with_scanner_use_projected_schema(tempdir):
+    """
+    Ensure the projected schema is used to validate partitions for scanner
+
+    https://issues.apache.org/jira/browse/ARROW-17228
+    """
+    table = pa.table([pa.array(range(20))], names=["original_column"])
+    table_dataset = ds.dataset(table)
+    columns = {
+        "renamed_column": ds.field("original_column"),
+    }
+    scanner = table_dataset.scanner(columns=columns)
+
+    ds.write_dataset(
+        scanner, tempdir, partitioning=["renamed_column"], format="ipc")
+    with (
+        pytest.raises(
+            KeyError, match=r"'Column original_column does not exist in schema"
+        )
+    ):
+        ds.write_dataset(
+            scanner, tempdir, partitioning=["original_column"], format="ipc"
+        )

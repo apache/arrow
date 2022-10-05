@@ -1201,10 +1201,13 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
   std::string name() const override { return "dense_union"; }
 };
 
-/// \brief Type class for run-length encoded data
+/// \brief Type class class that can be subclassed by all encoding types, that allowes
+/// users to check if arrays are compatible besides the encoding independent of which
+/// exact encoding they use
 class ARROW_EXPORT EncodingType {
  public:
-  EncodingType(std::shared_ptr<DataType> encoded_type) : encoded_type_{encoded_type} {}
+  explicit EncodingType(std::shared_ptr<DataType> encoded_type)
+      : encoded_type_{encoded_type} {}
 
   const std::shared_ptr<DataType>& encoded_type() const { return encoded_type_; }
 
@@ -1219,11 +1222,12 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType
 
   static constexpr const char* type_name() { return "run_length_encoded"; }
 
-  RunLengthEncodedType(std::shared_ptr<DataType> encoded_type)
-      : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(std::move(encoded_type)) {}
+  explicit RunLengthEncodedType(std::shared_ptr<DataType> encoded_type);
 
   DataTypeLayout layout() const override {
-    return DataTypeLayout({DataTypeLayout::FixedWidth(sizeof(uint64_t))});
+    // always add one that is NULLPTR to make code, since existing code may assume there
+    // is at least one buffer
+    return DataTypeLayout({DataTypeLayout::AlwaysNull()});
   }
 
   std::string ToString() const override;
@@ -2137,6 +2141,7 @@ static inline bool HasValidityBitmap(Type::type id) {
     case Type::NA:
     case Type::DENSE_UNION:
     case Type::SPARSE_UNION:
+    case Type::RUN_LENGTH_ENCODED:
       return false;
     default:
       return true;
@@ -2156,31 +2161,37 @@ std::string ToString(TimeUnit::type unit);
 
 // Helpers to get instances of data types based on general categories
 
+/// \brief Signed integer types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
+/// \brief Unsigned integer types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
+/// \brief Signed and unsigned integer types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& IntTypes();
+/// \brief Floating point types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
-// Number types without boolean
+/// \brief Number types without boolean - integer and floating point types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& NumericTypes();
-// Binary and string-like types (except fixed-size binary)
+/// \brief Binary and string-like types (except fixed-size binary)
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+/// \brief Binary and large-binary types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& BinaryTypes();
+/// \brief String and large-string types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& StringTypes();
-// Temporal types including time and timestamps for each unit
+/// \brief Temporal types including date, time and timestamps for each unit
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
-// Interval types
+/// \brief Interval types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
-// Integer, floating point, base binary, and temporal
+/// \brief Numeric, base binary, date, boolean and null types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 

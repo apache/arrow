@@ -72,6 +72,8 @@ func (s *{{.Name}}) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
     case *arrow.StringType:
         return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+    case *arrow.LargeStringType:
+        return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type {{.Type}} to type %s", dt)

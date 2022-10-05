@@ -58,6 +58,15 @@ const ApplicationVersion& ApplicationVersion::PARQUET_MR_FIXED_STATS_VERSION() {
   return version;
 }
 
+const ApplicationVersion& ApplicationVersion::PARQUET_CPP_10353_FIXED_VERSION() {
+  // parquet-cpp versions released prior to Arrow 3.0 would write DataPageV2 pages
+  // with is_compressed==0 but still write compressed data. (See: ARROW-10353).
+  // Parquet 1.5.1 had this problem, and after that we switched to the
+  // application name "parquet-cpp-arrow", so this version is fake.
+  static ApplicationVersion version("parquet-cpp", 2, 0, 0);
+  return version;
+}
+
 std::string ParquetVersionToString(ParquetVersion::type ver) {
   switch (ver) {
     case ParquetVersion::PARQUET_1_0:

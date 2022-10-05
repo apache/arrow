@@ -17,6 +17,10 @@
 #
 #  find_package(Brotli)
 
+if(Brotli_FOUND)
+  return()
+endif()
+
 if(ARROW_BROTLI_USE_SHARED)
   set(BROTLI_COMMON_LIB_NAMES
       brotlicommon

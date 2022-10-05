@@ -28,6 +28,7 @@
 #include "arrow/flight/sql/server.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/flight/sql/visibility.h"
+#include "arrow/flight/types.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
@@ -220,6 +221,25 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \return                 The FlightInfo describing where to access the dataset.
   virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoCatalogs(
       const ServerCallContext& context, const FlightDescriptor& descriptor);
+
+  /// \brief Get the schema of the result set of a query.
+  /// \param[in] context      Per-call context.
+  /// \param[in] command      The StatementQuery containing the SQL query.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \return                 The schema of the result set.
+  virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaStatement(
+      const ServerCallContext& context, const StatementQuery& command,
+      const FlightDescriptor& descriptor);
+
+  /// \brief Get the schema of the result set of a prepared statement.
+  /// \param[in] context      Per-call context.
+  /// \param[in] command      The PreparedStatementQuery containing the
+  ///                         prepared statement handle.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \return                 The schema of the result set.
+  virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaPreparedStatement(
+      const ServerCallContext& context, const PreparedStatementQuery& command,
+      const FlightDescriptor& descriptor);
 
   /// \brief Get a FlightDataStream containing the list of catalogs.
   /// \param[in] context  Per-call context.
@@ -461,6 +481,9 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) final;
+
+  Status GetSchema(const ServerCallContext& context, const FlightDescriptor& request,
+                   std::unique_ptr<SchemaResult>* schema) override;
 
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* stream) final;

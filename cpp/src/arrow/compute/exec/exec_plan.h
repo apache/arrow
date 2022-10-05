@@ -38,8 +38,13 @@ namespace arrow {
 
 namespace compute {
 
+/// \addtogroup execnode-components
+/// @{
+
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
+  // This allows operators to rely on signed 16-bit indices
+  static const uint32_t kMaxBatchSize = 1 << 15;
   using NodeVector = std::vector<ExecNode*>;
 
   virtual ~ExecPlan() = default;
@@ -69,17 +74,17 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// e.g. make an array of thread-locals off this.
   size_t max_concurrency() const;
 
-  /// \brief Add a future to the plan's task group.
+  /// \brief Start an external task
   ///
-  /// \param fut The future to add
+  /// This should be avoided if possible.  It is kept in for now for legacy
+  /// purposes.  This should be called before the external task is started.  If
+  /// a valid future is returned then it should be marked complete when the
+  /// external task has finished.
   ///
-  /// Use this when interfacing with anything that returns a future (such as IO), but
-  /// prefer ScheduleTask/StartTaskGroup inside of ExecNodes.
-  /// The below API interfaces with the scheduler to add tasks to the task group. Tasks
-  /// should be added sparingly! Prefer just doing the work immediately rather than adding
-  /// a task for it. Tasks are used in pipeline breakers that may output many more rows
-  /// than they received (such as a full outer join).
-  Status AddFuture(Future<> fut);
+  /// \return an invalid future if the plan has already ended, otherwise this
+  ///         returns a future that must be completed when the external task
+  ///         finishes.
+  Result<Future<>> BeginExternalTask();
 
   /// \brief Add a single function as a task to the plan's task group.
   ///
@@ -144,10 +149,24 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \brief Return the plan's attached metadata
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
+  /// \brief Should the plan use a legacy batching strategy
+  ///
+  /// This is currently in place only to support the Scanner::ToTable
+  /// method.  This method relies on batch indices from the scanner
+  /// remaining consistent.  This is impractical in the ExecPlan which
+  /// might slice batches as needed (e.g. for a join)
+  ///
+  /// However, it still works for simple plans and this is the only way
+  /// we have at the moment for maintaining implicit order.
+  bool UseLegacyBatching() const { return use_legacy_batching_; }
+  // For internal use only, see above comment
+  void SetUseLegacyBatching(bool value) { use_legacy_batching_ = value; }
+
   std::string ToString() const;
 
  protected:
   ExecContext* exec_context_;
+  bool use_legacy_batching_ = false;
   explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
 };
 
@@ -517,6 +536,8 @@ ARROW_EXPORT
 Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
     int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

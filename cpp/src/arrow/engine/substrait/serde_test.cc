@@ -15,12 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/substrait/serde.h"
-#include "arrow/dataset/plan.h"
-#include "arrow/engine/substrait/util.h"
-#include "arrow/filesystem/mockfs.h"
-#include "arrow/filesystem/test_util.h"
-
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/type_resolver_util.h>
@@ -28,8 +22,14 @@
 
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/file_ipc.h"
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/util.h"
+#include "arrow/filesystem/mockfs.h"
+#include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
@@ -701,7 +701,12 @@ TEST(Substrait, ExtensionSetFromPlan) {
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + default_extension_types_uri() +
+                               R"("
+      },
+      {
+        "extension_uri_anchor": 18,
+        "uri": ")" + kSubstraitArithmeticFunctionsUri +
                                R"("
       }
     ],
@@ -712,15 +717,15 @@ TEST(Substrait, ExtensionSetFromPlan) {
         "name": "null"
       }},
       {"extension_function": {
-        "extension_uri_reference": 7,
+        "extension_uri_reference": 18,
         "function_anchor": 42,
         "name": "add"
       }}
     ]
-  })";
+})";
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_OK_AND_ASSIGN(auto sink_decls,
@@ -732,10 +737,9 @@ TEST(Substrait, ExtensionSetFromPlan) {
     EXPECT_EQ(decoded_null_type.id.name, "null");
     EXPECT_EQ(*decoded_null_type.type, NullType());
 
-    EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set.DecodeFunction(42));
-    EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
-    EXPECT_EQ(decoded_add_func.id.name, "add");
-    EXPECT_EQ(decoded_add_func.name, "add");
+    EXPECT_OK_AND_ASSIGN(Id decoded_add_func_id, ext_set.DecodeFunction(42));
+    EXPECT_EQ(decoded_add_func_id.uri, kSubstraitArithmeticFunctionsUri);
+    EXPECT_EQ(decoded_add_func_id.name, "add");
   }
 }
 
@@ -745,7 +749,7 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + default_extension_types_uri() +
                                R"("
       }
     ],
@@ -760,7 +764,7 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(Invalid, DeserializePlans(
@@ -786,7 +790,7 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + default_extension_types_uri() +
                                R"("
       }
     ],
@@ -801,18 +805,18 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(
         Invalid,
         DeserializePlans(
-            *buf, []() -> std::shared_ptr<compute::SinkNodeConsumer> { return NULLPTR; },
+            *buf, []() -> std::shared_ptr<compute::SinkNodeConsumer> { return nullptr; },
             ext_id_reg, &ext_set));
     ASSERT_RAISES(
         Invalid,
         DeserializePlans(
-            *buf, []() -> std::shared_ptr<dataset::WriteNodeOptions> { return NULLPTR; },
+            *buf, []() -> std::shared_ptr<dataset::WriteNodeOptions> { return nullptr; },
             ext_id_reg, &ext_set));
   }
 }
@@ -823,7 +827,7 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + default_extension_types_uri() +
                                R"("
       }
     ],
@@ -837,24 +841,23 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   })";
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
-  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  auto sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   // invalid before registration
   ExtensionSet ext_set_invalid(ext_id_reg);
   ASSERT_RAISES(Invalid,
                 DeserializePlans(
                     *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
-  ASSERT_OK(substrait::RegisterFunction(
-      *ext_id_reg, substrait::default_extension_types_uri(), "new_func", "multiply"));
+  ASSERT_OK(ext_id_reg->AddSubstraitCallToArrow(
+      {default_extension_types_uri(), "new_func"}, "multiply"));
   // valid after registration
   ExtensionSet ext_set_valid(ext_id_reg);
   ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set_valid));
-  EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set_valid.DecodeFunction(42));
-  EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
-  EXPECT_EQ(decoded_add_func.id.name, "new_func");
-  EXPECT_EQ(decoded_add_func.name, "multiply");
+  EXPECT_OK_AND_ASSIGN(Id decoded_add_func_id, ext_set_valid.DecodeFunction(42));
+  EXPECT_EQ(decoded_add_func_id.uri, kArrowExtTypesUri);
+  EXPECT_EQ(decoded_add_func_id.name, "new_func");
 }
 
 Result<std::string> GetSubstraitJSON() {
@@ -900,18 +903,41 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
-  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations,
                        DeserializePlans(*buf, NullSinkNodeConsumer::Make));
   ASSERT_EQ(declarations.size(), 1);
   compute::Declaration* decl = &declarations[0];
-  ASSERT_TRUE(decl->factory_name == std::string("consuming_sink"));
+  ASSERT_EQ(decl->factory_name, "consuming_sink");
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
-  ASSERT_TRUE(sink_node->kind_name() == std::string("ConsumingSinkNode"));
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
   auto& prev_node = sink_node->inputs()[0];
-  ASSERT_TRUE(prev_node->kind_name() == std::string("SourceNode"));
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_OK(plan->finished());
+#endif
+}
+
+TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
+  ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       DeserializePlan(*buf, NullSinkNodeConsumer::Make()));
+  ASSERT_EQ(1, plan->sinks().size());
+  compute::ExecNode* sink_node = plan->sinks()[0];
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
+  ASSERT_EQ(sink_node->num_inputs(), 1);
+  auto& prev_node = sink_node->inputs()[0];
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_OK(plan->finished());
 #endif
 }
 
@@ -925,38 +951,46 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> fs,
                        fs::internal::MockFileSystem::Make(mock_now, {testdir}));
   auto write_options_factory = [&fs] {
+    std::shared_ptr<dataset::IpcFileFormat> format =
+        std::make_shared<dataset::IpcFileFormat>();
     dataset::FileSystemDatasetWriteOptions options;
+    options.file_write_options = format->DefaultWriteOptions();
     options.filesystem = fs;
     options.basename_template = "chunk-{i}.arrow";
     options.base_dir = "testdir";
+    options.partitioning =
+        std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
     return std::make_shared<dataset::WriteNodeOptions>(options);
   };
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
-  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations, DeserializePlans(*buf, write_options_factory));
   ASSERT_EQ(declarations.size(), 1);
   compute::Declaration* decl = &declarations[0];
-  ASSERT_TRUE(decl->factory_name == std::string("write"));
+  ASSERT_EQ(decl->factory_name, "write");
   ASSERT_EQ(decl->inputs.size(), 1);
   decl = util::get_if<compute::Declaration>(&decl->inputs[0]);
-  ASSERT_TRUE(decl != NULLPTR);
-  ASSERT_TRUE(decl->factory_name == std::string("scan"));
+  ASSERT_NE(decl, nullptr);
+  ASSERT_EQ(decl->factory_name, "scan");
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
-  ASSERT_TRUE(sink_node->kind_name() == std::string("ConsumingSinkNode"));
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
   auto& prev_node = sink_node->inputs()[0];
-  ASSERT_TRUE(prev_node->kind_name() == std::string("SourceNode"));
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_OK(plan->finished());
 #endif
 }
 
 static void test_with_registries(
     std::function<void(ExtensionIdRegistry*, compute::FunctionRegistry*)> test) {
   auto default_func_reg = compute::GetFunctionRegistry();
-  auto nested_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  auto nested_ext_id_reg = MakeExtensionIdRegistry();
   auto nested_func_reg = compute::FunctionRegistry::Make(default_func_reg);
-  test(NULLPTR, default_func_reg);
-  test(NULLPTR, nested_func_reg.get());
+  test(nullptr, default_func_reg);
+  test(nullptr, nested_func_reg.get());
   test(nested_ext_id_reg.get(), default_func_reg);
   test(nested_ext_id_reg.get(), nested_func_reg.get());
 }
@@ -968,8 +1002,8 @@ TEST(Substrait, GetRecordBatchReader) {
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
                                          compute::FunctionRegistry* func_registry) {
-    ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
-    ASSERT_OK_AND_ASSIGN(auto reader, substrait::ExecuteSerializedPlan(*buf));
+    ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
+    ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf));
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
     // Note: assuming the binary.parquet file contains fixed amount of records
     // in case of a test failure, re-evalaute the content in the file
@@ -985,8 +1019,8 @@ TEST(Substrait, InvalidPlan) {
   })";
   test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
                                          compute::FunctionRegistry* func_registry) {
-    ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
-    ASSERT_RAISES(Invalid, substrait::ExecuteSerializedPlan(*buf));
+    ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
+    ASSERT_RAISES(Invalid, ExecuteSerializedPlan(*buf));
   });
 }
 
@@ -1070,7 +1104,10 @@ TEST(Substrait, JoinPlanBasic) {
                   }
                 }
               }
-            }]
+            }],
+            "output_type": {
+              "bool": {}
+            }
           }
         },
         "type": "JOIN_TYPE_INNER"
@@ -1080,7 +1117,7 @@ TEST(Substrait, JoinPlanBasic) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
@@ -1094,7 +1131,7 @@ TEST(Substrait, JoinPlanBasic) {
   })";
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_OK_AND_ASSIGN(auto sink_decls,
@@ -1210,7 +1247,10 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
                   }
                 }
               }
-            }]
+            }],
+            "output_type": {
+              "bool": {}
+            }
           }
         },
         "type": "JOIN_TYPE_INNER"
@@ -1220,7 +1260,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
                                R"("
       }
     ],
@@ -1234,7 +1274,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
   })";
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(Invalid, DeserializePlans(
@@ -1302,7 +1342,7 @@ TEST(Substrait, JoinPlanInvalidExpression) {
   }]
   })"));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(Invalid, DeserializePlans(
@@ -1375,12 +1415,403 @@ TEST(Substrait, JoinPlanInvalidKeys) {
   }]
   })"));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(Invalid, DeserializePlans(
                                *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   }
+}
+
+TEST(Substrait, AggregateBasic) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "arguments": [{
+                "value": {
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 1
+                      }
+                    }
+                  }
+                }
+            }],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+  })"));
+
+  auto sp_ext_id_reg = MakeExtensionIdRegistry();
+  ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                       DeserializePlans(*buf, [] { return kNullConsumer; }));
+  auto agg_decl = sink_decls[0].inputs[0];
+
+  const auto& agg_rel = agg_decl.get<compute::Declaration>();
+
+  const auto& agg_options =
+      checked_cast<const compute::AggregateNodeOptions&>(*agg_rel->options);
+
+  EXPECT_EQ(agg_rel->factory_name, "aggregate");
+  EXPECT_EQ(agg_options.aggregates[0].name, "");
+  EXPECT_EQ(agg_options.aggregates[0].function, "hash_sum");
+}
+
+TEST(Substrait, AggregateInvalidRel) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+  })"));
+
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, AggregateInvalidFunction) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+  })"));
+
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, AggregateInvalidAggFuncArgs) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "args": [],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+  })"));
+
+  ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, AggregateWithFilter) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "args": [],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }
+    }],
+  })"));
+
+  ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, AggregateBadPhase) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "args": [],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_DISTINCT",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }
+    }],
+  })"));
+
+  ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 }  // namespace engine

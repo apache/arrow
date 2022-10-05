@@ -150,6 +150,71 @@ test_that("strptime", {
     as.POSIXct(tstamp),
     ignore_attr = "tzone"
   )
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
+  tz <- "Pacific/Marquesas"
+  set.seed(42)
+  times <- seq(as.POSIXct("1999-02-07", tz = tz), as.POSIXct("2000-01-01", tz = tz), by = "sec")
+  times <- sample(times, 100)
+
+  # Op format is currently not supported by strptime
+  formats <- c(
+    "%d", "%H", "%j", "%m", "%T",
+    "%S", "%q", "%M", "%U", "%w", "%W", "%y", "%Y", "%R", "%T"
+  )
+  formats2 <- c(
+    "a", "A", "b", "B", "d", "H", "j", "m", "Om", "T", "OS", "Ip",
+    "S", "q", "M", "U", "w", "W", "y", "Y", "r", "R", "Tz"
+  )
+  base_format <- "%Y-%m-%d"
+  base_format2 <- "ymd"
+
+  # Some formats are not supported on Windows
+  if (!tolower(Sys.info()[["sysname"]]) == "windows") {
+    formats <- c(formats, "%a", "%A", "%b", "%B", "%Om", "%OS", "%I%p", "%r", "%T%z")
+  }
+
+  for (fmt in formats) {
+    fmt <- paste(base_format, fmt)
+    test_df <- tibble::tibble(x = strftime(times, format = fmt))
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+          mutate(x = strptime(x, format = fmt)) %>%
+          collect(),
+      test_df %>%
+        mutate(x = as.POSIXct(strptime(x, format = fmt))) %>%
+        collect()
+    )
+  }
+
+  for (fmt in formats2) {
+    fmt2 <- paste(base_format2, fmt)
+    fmt <- paste(base_format, paste0("%", fmt))
+    test_df <- tibble::tibble(x = strftime(times, format = fmt))
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+          mutate(x = strptime(x, format = fmt2)) %>%
+          collect(),
+      test_df %>%
+        mutate(x = as.POSIXct(strptime(x, format = fmt2))) %>%
+        collect()
+    )
+  }
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time(string_1, orders = "Y-%m-d-%T")
+      ) %>%
+      collect(),
+    tibble::tibble(string_1 = c("2022-02-11-12:23:45", NA))
+  )
+
 })
 
 test_that("strptime returns NA when format doesn't match the data", {
@@ -2045,6 +2110,118 @@ test_that("ym, my & yq parsers", {
   )
 })
 
+test_that("parse_date_time's other formats", {
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
+  # q, OS, Op, z formats are currently not supported by strptime
+  test_df <- tibble(
+    string_a = c("2023-12-30-Sat", NA),
+    string_A = c("2023-12-30-Saturday", NA),
+    string_b = c("2023-12-30-Dec", NA),
+    string_B = c("2023-12-30-December", NA),
+    string_H = c("2023-12-30-01", NA),
+    string_I = c("2023-12-30-01", NA),
+    string_j = c("2023-12-30-364", NA),
+    string_M = c("2023-12-30-00", NA),
+    string_p = c("2023-12-30-AM", NA),
+    string_S = c("2023-12-30-00", NA),
+    string_U = c("2023-12-30-52", NA),
+    string_w = c("2023-12-30-6", NA),
+    string_W = c("2023-12-30-52", NA),
+    string_y = c("23-12-30", NA),
+    string_Y = c("2023-12-30", NA),
+    string_Om = c("2023-01-30", NA),
+    string_r = c("2023-12-30-01", NA),
+    string_R = c("2023-12-30-01:00", NA),
+    string_T = c("2023-12-30-01:00:00", NA)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_H = parse_date_time(string_H, orders = "%Y-%m-%d-%H"),
+        parsed_I = parse_date_time(string_I, orders = "%Y-%m-%d-%I"),
+        parsed_j = parse_date_time(string_j, orders = "%Y-%m-%d-%j"),
+        parsed_M = parse_date_time(string_M, orders = "%Y-%m-%d-%M"),
+        parsed_S = parse_date_time(string_S, orders = "%Y-%m-%d-%S"),
+        parsed_U = parse_date_time(string_U, orders = "%Y-%m-%d-%U"),
+        parsed_w = parse_date_time(string_w, orders = "%Y-%m-%d-%w"),
+        parsed_W = parse_date_time(string_W, orders = "%Y-%m-%d-%W"),
+        parsed_y = parse_date_time(string_y, orders = "%y-%m-%d"),
+        parsed_Y = parse_date_time(string_Y, orders = "%Y-%m-%d"),
+        parsed_R = parse_date_time(string_R, orders = "%Y-%m-%d-%R"),
+        parsed_T = parse_date_time(string_T, orders = "%Y-%m-%d-%T")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_H = parse_date_time(string_H, orders = "ymdH"),
+        parsed_I = parse_date_time(string_I, orders = "ymdI"),
+        parsed_j = parse_date_time(string_j, orders = "ymdj"),
+        parsed_M = parse_date_time(string_M, orders = "ymdM"),
+        parsed_S = parse_date_time(string_S, orders = "ymdS"),
+        parsed_U = parse_date_time(string_U, orders = "ymdU"),
+        parsed_w = parse_date_time(string_w, orders = "ymdw"),
+        parsed_W = parse_date_time(string_W, orders = "ymdW"),
+        parsed_y = parse_date_time(string_y, orders = "ymd"),
+        parsed_Y = parse_date_time(string_Y, orders = "Ymd"),
+        parsed_R = parse_date_time(string_R, orders = "ymdR"),
+        parsed_T = parse_date_time(string_T, orders = "ymdT")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # Some formats are not supported on Windows
+  if (!tolower(Sys.info()[["sysname"]]) == "windows") {
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          parsed_a = parse_date_time(string_a, orders = "%Y-%m-%d-%a"),
+          parsed_A = parse_date_time(string_A, orders = "%Y-%m-%d-%A"),
+          parsed_b = parse_date_time(string_b, orders = "%Y-%m-%d-%b"),
+          parsed_B = parse_date_time(string_B, orders = "%Y-%m-%d-%B"),
+          parsed_Om = parse_date_time(string_Om, orders = "%Y-%Om-%d"),
+          parsed_p = parse_date_time(string_p, orders = "%Y-%m-%d-%p"),
+          parsed_r = parse_date_time(string_r, orders = "%Y-%m-%d-%r")
+        ) %>%
+        collect(),
+      test_df
+    )
+
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          parsed_a = parse_date_time(string_a, orders = "ymda"),
+          parsed_A = parse_date_time(string_A, orders = "ymdA"),
+          parsed_b = parse_date_time(string_b, orders = "ymdb"),
+          parsed_B = parse_date_time(string_B, orders = "ymdB"),
+          parsed_Om = parse_date_time(string_Om, orders = "yOmd"),
+          parsed_p = parse_date_time(string_p, orders = "ymdp"),
+          parsed_r = parse_date_time(string_r, orders = "ymdr")
+        ) %>%
+        collect(),
+      test_df
+    )
+
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          parsed_date_ymd = parse_date_time(string_1, orders = "Y-%b-d-%T")
+        ) %>%
+        collect(),
+      tibble::tibble(string_1 = c("2022-Feb-11-12:23:45", NA))
+    )
+  }
+
+})
+
 test_that("lubridate's fast_strptime", {
   compare_dplyr_binding(
     .input %>%
@@ -2222,6 +2399,26 @@ test_that("parse_date_time with hours, minutes and seconds components", {
     test_dates_times
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms(ymd_hms_string),
+        ymd_hm_dttm = ymd_hm(ymd_hm_string),
+        ymd_h_dttm = ymd_h(ymd_h_string),
+        dmy_hms_dttm = dmy_hms(dmy_hms_string),
+        dmy_hm_dttm = dmy_hm(dmy_hm_string),
+        dmy_h_dttm = dmy_h(dmy_h_string),
+        mdy_hms_dttm = mdy_hms(mdy_hms_string),
+        mdy_hm_dttm = mdy_hm(mdy_hm_string),
+        mdy_h_dttm = mdy_h(mdy_h_string),
+        ydm_hms_dttm = ydm_hms(ydm_hms_string),
+        ydm_hm_dttm = ydm_hm(ydm_hm_string),
+        ydm_h_dttm = ydm_h(ydm_h_string)
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
   # parse_date_time with timezone
   pm_tz <- "Pacific/Marquesas"
   compare_dplyr_binding(
@@ -2239,6 +2436,46 @@ test_that("parse_date_time with hours, minutes and seconds components", {
         ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS", tz = pm_tz),
         ydm_hm_dttm = parse_date_time(ydm_hm_string, orders = "ydm_HM", tz = pm_tz),
         ydm_h_dttm = parse_date_time(ydm_h_string, orders = "ydm_H", tz = pm_tz)
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms(ymd_hms_string, tz = pm_tz),
+        ymd_hm_dttm = ymd_hm(ymd_hm_string, tz = pm_tz),
+        ymd_h_dttm = ymd_h(ymd_h_string, tz = pm_tz),
+        dmy_hms_dttm = dmy_hms(dmy_hms_string, tz = pm_tz),
+        dmy_hm_dttm = dmy_hm(dmy_hm_string, tz = pm_tz),
+        dmy_h_dttm = dmy_h(dmy_h_string, tz = pm_tz),
+        mdy_hms_dttm = mdy_hms(mdy_hms_string, tz = pm_tz),
+        mdy_hm_dttm = mdy_hm(mdy_hm_string, tz = pm_tz),
+        mdy_h_dttm = mdy_h(mdy_h_string, tz = pm_tz),
+        ydm_hms_dttm = ydm_hms(ydm_hms_string, tz = pm_tz),
+        ydm_hm_dttm = ydm_hm(ydm_hm_string, tz = pm_tz),
+        ydm_h_dttm = ydm_h(ydm_h_string, tz = pm_tz),
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms("2022-07-19 20:24:43"),
+        ymd_hm_dttm = ymd_hm("2022-07-19 20:24"),
+        ymd_h_dttm = ymd_h("2022-07-19 20"),
+        dmy_hms_dttm = dmy_hms("19-07-2022 20:24:43"),
+        dmy_hm_dttm = dmy_hm("19-07-2022 20:24"),
+        dmy_h_dttm = dmy_h("19-07-2022 20"),
+        mdy_hms_dttm = mdy_hms("07-19-2022 20:24:43"),
+        mdy_hm_dttm = mdy_hm("07-19-2022 20:24"),
+        mdy_h_dttm = mdy_h("07-19-2022 20"),
+        ydm_hms_dttm = ydm_hms("2022-19-07 20:24:43"),
+        ydm_hm_dttm = ydm_hm("2022-19-07 20:24"),
+        ydm_h_dttm = ydm_h("2022-19-07 20")
       ) %>%
       collect(),
     test_dates_times
@@ -2319,12 +2556,58 @@ test_that("parse_date_time with month names and HMS", {
       collect(),
     test_dates_times2
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms(ymd_hms_string),
+        ymd_hm_dttm  = ymd_hm(ymd_hm_string),
+        ymd_h_dttm   = ymd_h(ymd_h_string),
+        dmy_hms_dttm = dmy_hms(dmy_hms_string),
+        dmy_hm_dttm  = dmy_hm(dmy_hm_string),
+        dmy_h_dttm   = dmy_h(dmy_h_string),
+        mdy_hms_dttm = mdy_hms(mdy_hms_string),
+        mdy_hm_dttm  = mdy_hm(mdy_hm_string),
+        mdy_h_dttm   = mdy_h(mdy_h_string),
+        ydm_hms_dttm = ydm_hms(ydm_hms_string),
+        ydm_hm_dttm  = ydm_hm(ydm_hm_string),
+        ydm_h_dttm   = ydm_h(ydm_h_string)
+      ) %>%
+      collect(),
+    test_dates_times2
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms("2022-June-19 20:24:43"),
+        ymd_hm_dttm = ymd_hm("2022-June-19 20:24"),
+        ymd_h_dttm = ymd_h("2022-June-19 20"),
+        dmy_hms_dttm = dmy_hms("19-June-2022 20:24:43"),
+        dmy_hm_dttm = dmy_hm("19-June-2022 20:24"),
+        dmy_h_dttm = dmy_h("19-June-2022 20"),
+        mdy_hms_dttm = mdy_hms("June-19-2022 20:24:43"),
+        mdy_hm_dttm = mdy_hm("June-19-2022 20:24"),
+        mdy_h_dttm = mdy_h("June-19-2022 20"),
+        ydm_hms_dttm = ydm_hms("2022-19-June 20:24:43"),
+        ydm_hm_dttm = ydm_hm("2022-19-June 20:24"),
+        ydm_h_dttm = ydm_h("2022-19-June 20")
+      ) %>%
+      collect(),
+    test_dates_times2
+  )
 })
 
 test_that("parse_date_time with `quiet = FALSE` not supported", {
   # we need expect_warning twice as both the arrow pipeline (because quiet =
   # FALSE is not supported) and the fallback dplyr/lubridate one throw
   # warnings (the lubridate one because quiet is FALSE)
+  # https://issues.apache.org/jira/browse/ARROW-17146
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  skip_if_not_available("re2")
+
   expect_warning(
     expect_warning(
       tibble(x = c("2022-05-19 13:46:51")) %>%
@@ -2336,6 +2619,16 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
       "`quiet = FALSE` not supported in Arrow"
     ),
     "All formats failed to parse"
+  )
+
+  expect_warning(
+    tibble(x = c("2022-05-19 13:46:51")) %>%
+      arrow_table() %>%
+      mutate(
+        x_dttm = ymd_hms(x, quiet = FALSE)
+      ) %>%
+      collect(),
+    "`quiet = FALSE` not supported in Arrow"
   )
 })
 
@@ -2362,6 +2655,11 @@ test_that("parse_date_time with truncated formats", {
             truncated_ymd_string,
             orders = "ymd_HMS",
             truncated = 3
+          ),
+        dttm2 =
+          ymd_hms(
+            truncated_ymd_string,
+            truncated = 3
           )
       ) %>%
       collect(),
@@ -2382,6 +2680,37 @@ test_that("parse_date_time with truncated formats", {
       collect(),
     test_truncation_df,
     warning = "a value for `truncated` > 4 not supported in Arrow"
+  )
+
+  # values for truncated greater than nchar(orders) - 3 not supported in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dttm =
+          ymd_hms(
+            truncated_ymd_string,
+            truncated = 5
+          )
+      ) %>%
+      collect(),
+    test_truncation_df,
+    warning = "a value for `truncated` > 4 not supported in Arrow"
+  )
+})
+
+test_that("parse_date_time with `locale != NULL` not supported", {
+  # parse_date_time currently doesn't take locale paramete which will be
+  # addressed in https://issues.apache.org/jira/browse/ARROW-17147
+  skip_if_not_available("re2")
+
+  expect_warning(
+    tibble(x = c("2022-05-19 13:46:51")) %>%
+      arrow_table() %>%
+      mutate(
+        x_dttm = ymd_hms(x, locale = "C")
+      ) %>%
+      collect(),
+    "`locale` not supported in Arrow"
   )
 })
 
@@ -2426,6 +2755,19 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
 })
 
 test_that("build_formats() and build_format_from_order()", {
+
+  ymd_formats <- c(
+    "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
+    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
+  )
+
+  ymd_hms_formats <- c(
+    "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
+    "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
+    "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
+    "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+  )
+
   expect_equal(
     build_formats(c("ym", "myd", "%Y-%d-%m")),
     c(
@@ -2443,20 +2785,11 @@ test_that("build_formats() and build_format_from_order()", {
 
   expect_equal(
     build_formats("ymd_HMS"),
-    c(
-      "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
-      "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
-      "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
-      "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
-    )
+    ymd_hms_formats
   )
 
-  # when order is one of "yq", "qy", "ym" or"my" the data is augmented to "ymd"
+  # when order is one of "yq", "qy", "ym" or "my" the data is augmented to "ymd"
   # or "ydm" and the formats are built accordingly
-  ymd_formats <- c(
-    "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
-  )
   expect_equal(
     build_formats("yq"),
     ymd_formats
@@ -2486,32 +2819,662 @@ test_that("build_formats() and build_format_from_order()", {
     )
   )
 
-  # ab not supported yet
-  expect_error(
-    build_formats("abd"),
-    '"abd" `orders` not supported in Arrow'
+  expect_equal(
+    build_format_from_order("abp"),
+    c(
+      "%a-%m-%p", "%A-%m-%p", "%a-%B-%p", "%A-%B-%p", "%a-%b-%p", "%A-%b-%p",
+      "%a%m%p", "%A%m%p", "%a%B%p", "%A%B%p", "%a%b%p", "%A%b%p"
+    )
   )
 
   expect_error(
-    build_formats("vup"),
-    '"vup" `orders` not supported in Arrow'
+    build_formats(c("vu", "ymd")),
+    '"vu" `orders` not supported in Arrow'
+  )
+
+  expect_error(
+    build_formats(c("abc")),
+    '"abc" `orders` not supported in Arrow'
+  )
+
+  expect_equal(
+    build_formats("wIpz"),
+    c("%w-%I-%p-%z", "%w%I%p%z")
+  )
+
+  expect_equal(
+    build_formats("yOmd"),
+    ymd_formats
   )
 
   expect_equal(
     build_format_from_order("ymd"),
-    c(
-      "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-      "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
-    )
+    ymd_formats
   )
 
   expect_equal(
     build_format_from_order("ymdHMS"),
+    ymd_hms_formats
+  )
+
+  expect_equal(
+    build_format_from_order("ymdHM"),
     c(
-      "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
-      "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
-      "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
-      "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+      "%y-%m-%d-%H-%M", "%Y-%m-%d-%H-%M", "%y-%B-%d-%H-%M",
+      "%Y-%B-%d-%H-%M", "%y-%b-%d-%H-%M", "%Y-%b-%d-%H-%M",
+      "%y%m%d%H%M", "%Y%m%d%H%M", "%y%B%d%H%M", "%Y%B%d%H%M",
+      "%y%b%d%H%M", "%Y%b%d%H%M"
     )
   )
+
+  expect_equal(
+    build_format_from_order("ymdH"),
+    c(
+      "%y-%m-%d-%H", "%Y-%m-%d-%H", "%y-%B-%d-%H",
+      "%Y-%B-%d-%H", "%y-%b-%d-%H", "%Y-%b-%d-%H",
+      "%y%m%d%H", "%Y%m%d%H", "%y%B%d%H", "%Y%B%d%H",
+      "%y%b%d%H", "%Y%b%d%H"
+    )
+  )
+
+  expect_equal(
+    build_formats("y-%b-d-%T"),
+    c(
+      "%y-%m-%d-%I-%M-%S-%p", "%Y-%m-%d-%I-%M-%S-%p", "%y-%B-%d-%I-%M-%S-%p", "%Y-%B-%d-%I-%M-%S-%p",
+      "%y-%b-%d-%I-%M-%S-%p", "%Y-%b-%d-%I-%M-%S-%p", "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S",
+      "%y-%B-%d-%H-%M-%S", "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
+      "%y-%m-%d-%H-%M-%OS", "%Y-%m-%d-%H-%M-%OS", "%y-%B-%d-%H-%M-%OS", "%Y-%B-%d-%H-%M-%OS",
+      "%y-%b-%d-%H-%M-%OS", "%Y-%b-%d-%H-%M-%OS", "%y%m%d%I%M%S%p", "%Y%m%d%I%M%S%p",
+      "%y%B%d%I%M%S%p", "%Y%B%d%I%M%S%p", "%y%b%d%I%M%S%p", "%Y%b%d%I%M%S%p", "%y%m%d%H%M%S",
+      "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S", "%y%b%d%H%M%S", "%Y%b%d%H%M%S", "%y%m%d%H%M%OS",
+      "%Y%m%d%H%M%OS", "%y%B%d%H%M%OS", "%Y%B%d%H%M%OS", "%y%b%d%H%M%OS", "%Y%b%d%H%M%OS"
+    )
+  )
+
+  expect_equal(
+    build_formats("%YdmH%p"),
+    c(
+      "%y-%d-%m-%H-%p", "%Y-%d-%m-%H-%p", "%y-%d-%B-%H-%p", "%Y-%d-%B-%H-%p",
+      "%y-%d-%b-%H-%p", "%Y-%d-%b-%H-%p", "%y%d%m%H%p", "%Y%d%m%H%p",
+      "%y%d%B%H%p", "%Y%d%B%H%p", "%y%d%b%H%p", "%Y%d%b%H%p"
+    )
+  )
+})
+
+
+
+# tests for datetime rounding ---------------------------------------------
+
+# an "easy" date to avoid conflating tests of different things (i.e., it's
+# UTC time, and not one of the edge cases on or extremely close to the
+# rounding boundaty)
+easy_date <- as.POSIXct("2022-10-11 12:00:00", tz = "UTC")
+easy_df <- tibble::tibble(datetime = easy_date)
+
+# dates near month boundaries over the course of 1 year
+month_boundaries <- c(
+  "2021-01-01 00:01:00", "2021-02-01 00:01:00", "2021-03-01 00:01:00",
+  "2021-04-01 00:01:00", "2021-05-01 00:01:00", "2021-06-01 00:01:00",
+  "2021-07-01 00:01:00", "2021-08-01 00:01:00", "2021-09-01 00:01:00",
+  "2021-10-01 00:01:00", "2021-11-01 00:01:00", "2021-12-01 00:01:00",
+  "2021-01-31 23:59:00", "2021-02-28 23:59:00", "2021-03-31 23:59:00",
+  "2021-04-30 23:59:00", "2021-05-31 23:59:00", "2021-06-30 23:59:00",
+  "2021-07-31 23:59:00", "2021-08-31 23:59:00", "2021-09-30 23:59:00",
+  "2021-10-31 23:59:00", "2021-11-30 23:59:00", "2021-12-31 23:59:00"
+)
+year_of_dates <- tibble::tibble(
+  datetime = as.POSIXct(month_boundaries, tz = "UTC"),
+  date = as.Date(datetime)
+)
+
+# test case used to check we catch week boundaries for all week_start values
+fortnight <- tibble::tibble(
+  date = seq(
+    from = as.Date("2022-04-04"),
+    to = as.Date("2022-04-17"),
+    by = "day"
+  ),
+  datetime = as.POSIXct(date)
+)
+
+# test case to check we catch interval lower boundaries for ceiling_date
+boundary_times <- tibble::tibble(
+  datetime = as.POSIXct(strptime(c(
+    "2022-05-10 00:00:00", # boundary for week when week_start = 7 (Sunday)
+    "2022-05-11 00:00:00", # boundary for week when week_start = 1 (Monday)
+    "2022-05-12 00:00:00", # boundary for week when week_start = 2 (Tuesday)
+    "2022-03-10 00:00:00", # boundary for day, hour, minute, second, millisecond
+    "2022-03-10 00:00:01", # boundary for second, millisecond
+    "2022-03-10 00:01:00", # boundary for second, millisecond, minute
+    "2022-03-10 01:00:00", # boundary for second, millisecond, minute, hour
+    "2022-01-01 00:00:00"  # boundary for year
+  ), tz = "UTC", format = "%F %T")),
+  date = as.Date(datetime)
+)
+
+# test case to check rounding takes place in local time
+datestrings <- c(
+  "1970-01-01 00:00:59.123456789",
+  "2000-02-29 23:23:23.999999999",
+  "1899-01-01 00:59:20.001001001",
+  "2033-05-18 03:33:20.000000000",
+  "2020-01-01 01:05:05.001",
+  "2019-12-31 02:10:10.002",
+  "2019-12-30 03:15:15.003",
+  "2009-12-31 04:20:20.004132",
+  "2010-01-01 05:25:25.005321",
+  "2010-01-03 06:30:30.006163",
+  "2010-01-04 07:35:35",
+  "2006-01-01 08:40:40",
+  "2005-12-31 09:45:45",
+  "2008-12-28 00:00:00",
+  "2008-12-29 00:00:00",
+  "2012-01-01 01:02:03"
+)
+tz_times <- tibble::tibble(
+  utc_time = as.POSIXct(datestrings, tz = "UTC"),
+  syd_time = as.POSIXct(datestrings, tz = "Australia/Sydney"),   # UTC +10   (UTC +11 with DST)
+  adl_time = as.POSIXct(datestrings, tz = "Australia/Adelaide"), # UTC +9:30 (UTC +10:30 with DST)
+  mar_time = as.POSIXct(datestrings, tz = "Pacific/Marquesas"),  # UTC -9:30 (no DST)
+  kat_time = as.POSIXct(datestrings, tz = "Asia/Kathmandu")      # UTC +5:45 (no DST)
+)
+
+test_that("timestamp round/floor/ceiling works for a minimal test", {
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        round_datetime = round_date(datetime),
+        floor_datetime = floor_date(datetime),
+        ceiling_datetime = ceiling_date(datetime, change_on_boundary = FALSE)
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("timestamp round/floor/ceiling accepts period unit abbreviation", {
+
+  # test helper to ensure standard abbreviations of period names
+  # are understood by arrow and mirror the lubridate behaviour
+  check_period_abbreviation <- function(unit, synonyms) {
+
+    # check arrow against lubridate
+    compare_dplyr_binding(
+      .input %>%
+        mutate(out_1 = round_date(datetime, unit)) %>%
+        collect(),
+      easy_df
+    )
+
+    # check synonyms
+    base <- call_binding("round_date", Expression$scalar(easy_date), unit)
+    for (syn in synonyms) {
+      expect_equal(
+        call_binding("round_date", Expression$scalar(easy_date), syn),
+        base
+      )
+    }
+  }
+
+  check_period_abbreviation("minute", synonyms = c("minutes", "min", "mins"))
+  check_period_abbreviation("second", synonyms = c("seconds", "sec", "secs"))
+  check_period_abbreviation("month", synonyms = c("months", "mon", "mons"))
+})
+
+test_that("temporal round/floor/ceiling accepts periods with multiple units", {
+
+  check_multiple_unit_period <- function(unit, multiplier) {
+    unit_string <- paste(multiplier, unit)
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          round_datetime = round_date(datetime, unit_string),
+          floor_datetime = floor_date(datetime, unit_string),
+          ceiling_datetime = ceiling_date(datetime, unit_string)
+        ) %>%
+        collect(),
+      easy_df
+    )
+  }
+
+  for (multiplier in c(1, 2, 10)) {
+    for (unit in c("second", "minute", "day", "year")) {
+      check_multiple_unit_period(unit, multiplier)
+    }
+  }
+})
+
+# Test helper functions for checking equivalence of outputs regardless of
+# the unit specified. The lubridate_unit argument allows for cases where
+# arrow supports a unit name (e.g., nanosecond) that lubridate doesn't. Also
+# note that in the check_date_rounding helper the lubridate output is coerced
+# to ensure type stable output (arrow output should be type stable without this)
+
+check_date_rounding <- function(data, unit, lubridate_unit = unit, ...) {
+  expect_equal(
+    data %>%
+      arrow_table() %>%
+      mutate(
+        date_rounded = round_date(date, unit),
+        date_floored = floor_date(date, unit),
+        date_ceiling = ceiling_date(date, unit)
+      ) %>%
+      collect(),
+    data %>%
+      mutate(
+        date_rounded = as.Date(round_date(date, lubridate_unit)),
+        date_floored = as.Date(floor_date(date, lubridate_unit)),
+        date_ceiling = as.Date(ceiling_date(date, lubridate_unit))
+      ),
+    ...
+  )
+}
+
+check_timestamp_rounding <- function(data, unit, lubridate_unit = unit, ...) {
+
+  expect_equal(
+    data %>%
+      arrow_table() %>%
+      mutate(
+        datetime_rounded = round_date(datetime, unit),
+        datetime_floored = floor_date(datetime, unit),
+        datetime_ceiling = ceiling_date(datetime, unit)
+      ) %>%
+      collect(),
+    data %>%
+      mutate(
+        datetime_rounded = round_date(datetime, lubridate_unit),
+        datetime_floored = floor_date(datetime, lubridate_unit),
+        datetime_ceiling = ceiling_date(datetime, lubridate_unit)
+      ),
+    ...
+  )
+}
+
+test_that("date round/floor/ceil works for units of 1 day or less", {
+
+  test_df %>% check_date_rounding("1 millisecond", lubridate_unit = ".001 second")
+  test_df %>% check_date_rounding("1 day")
+  test_df %>% check_date_rounding("1 second")
+  test_df %>% check_date_rounding("1 hour")
+
+})
+
+test_that("timestamp round/floor/ceil works for units of 1 day or less", {
+
+  test_df %>% check_timestamp_rounding("second")
+  test_df %>% check_timestamp_rounding("minute")
+  test_df %>% check_timestamp_rounding("hour")
+  test_df %>% check_timestamp_rounding("day")
+
+  test_df %>% check_timestamp_rounding(".01 second")
+  test_df %>% check_timestamp_rounding(".001 second")
+  test_df %>% check_timestamp_rounding(".00001 second")
+
+  test_df %>% check_timestamp_rounding("1 millisecond", lubridate_unit = ".001 second")
+  test_df %>% check_timestamp_rounding("1 microsecond", lubridate_unit = ".000001 second")
+  test_df %>% check_timestamp_rounding("1 nanosecond", lubridate_unit = ".000000001 second")
+
+})
+
+test_that("timestamp round/floor/ceil works for units: month/quarter/year", {
+
+  year_of_dates %>% check_timestamp_rounding("month", ignore_attr = TRUE)
+  year_of_dates %>% check_timestamp_rounding("quarter", ignore_attr = TRUE)
+  year_of_dates %>% check_timestamp_rounding("year", ignore_attr = TRUE)
+
+})
+
+# check helper invoked when we need to avoid the lubridate rounding bug
+check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...) {
+
+  # directly compare arrow to lubridate for floor and ceiling
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_floored = floor_date(date, unit),
+        date_ceiling = ceiling_date(date, unit)
+      ) %>%
+      collect(),
+    data,
+    ignore_attr = ignore_attr,
+    ...
+  )
+
+  # The rounding tests for dates is run against Arrow timestamp behaviour
+  # because of a lubridate bug specific to Date objects with week and
+  # higher-unit rounding (see lubridate issue 1051)
+  # https://github.com/tidyverse/lubridate/issues/1051
+  out <- data %>%
+    arrow_table() %>%
+    mutate(
+      out_date = date %>% round_date(unit), # Date
+      out_time = datetime %>% round_date(unit) # POSIXct
+    ) %>%
+    collect()
+
+  expect_equal(
+    out$out_date,
+    as.Date(out$out_time)
+  )
+}
+
+test_that("date round/floor/ceil works for units: month/quarter/year", {
+
+  # these test cases are affected by lubridate issue 1051 so we bypass
+  # lubridate::round_date() for Date objects with large rounding units
+  # https://github.com/tidyverse/lubridate/issues/1051
+
+  check_date_rounding_1051_bypass(year_of_dates, "month", ignore_attr = TRUE)
+  check_date_rounding_1051_bypass(year_of_dates, "quarter", ignore_attr = TRUE)
+  check_date_rounding_1051_bypass(year_of_dates, "year", ignore_attr = TRUE)
+
+})
+
+check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
+  expect_equal(
+    data %>%
+      arrow_table() %>%
+      mutate(
+        date_rounded = round_date(date, unit),
+        date_floored = floor_date(date, unit),
+        date_ceiling = ceiling_date(date, unit)
+      ) %>%
+      collect(),
+    data %>%
+      mutate(
+        date_rounded = as.Date(round_date(date, lubridate_unit)),
+        date_floored = as.Date(floor_date(date, lubridate_unit)),
+        date_ceiling = as.Date(ceiling_date(date, lubridate_unit))
+      ),
+    ignore_attr = ignore_attr,
+    ...
+  )
+}
+
+check_timestamp_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        datetime_rounded = round_date(datetime, "week", week_start = week_start),
+        datetime_floored = floor_date(datetime, "week", week_start = week_start),
+        datetime_ceiling = ceiling_date(datetime, "week", week_start = week_start)
+      ) %>%
+      collect(),
+    data,
+    ignore_attr = ignore_attr,
+    ...
+  )
+}
+
+test_that("timestamp round/floor/ceil works for week units (standard week_start)", {
+
+  fortnight %>% check_timestamp_week_rounding(week_start = 1) # Monday
+  fortnight %>% check_timestamp_week_rounding(week_start = 7) # Sunday
+
+})
+
+test_that("timestamp round/floor/ceil works for week units (non-standard week_start)", {
+
+  fortnight %>% check_timestamp_week_rounding(week_start = 2) # Tuesday
+  fortnight %>% check_timestamp_week_rounding(week_start = 3) # Wednesday
+  fortnight %>% check_timestamp_week_rounding(week_start = 4) # Thursday
+  fortnight %>% check_timestamp_week_rounding(week_start = 5) # Friday
+  fortnight %>% check_timestamp_week_rounding(week_start = 6) # Saturday
+
+})
+
+check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
+
+  # directly compare arrow to lubridate for floor and ceiling
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_floored = floor_date(date, "week", week_start = week_start),
+        date_ceiling = ceiling_date(date, "week", week_start = week_start)
+      ) %>%
+      collect(),
+    data,
+    ignore_attr = ignore_attr,
+    ...
+  )
+
+  # use the bypass method to avoid the lubridate-1051 bug for week units
+  # https://github.com/tidyverse/lubridate/issues/1051
+  out <- data %>%
+    arrow_table() %>%
+    mutate(
+      out_date = date %>% round_date("week", week_start = week_start), # Date
+      out_time = datetime %>% round_date("week", week_start = week_start) # POSIXct
+    ) %>%
+    collect()
+
+  expect_equal(
+    out$out_date,
+    as.Date(out$out_time)
+  )
+}
+
+test_that("date round/floor/ceil works for week units (standard week_start)", {
+
+  check_date_week_rounding(fortnight, week_start = 1) # Monday
+  check_date_week_rounding(fortnight, week_start = 7) # Sunday
+
+})
+
+test_that("date round/floor/ceil works for week units (non-standard week_start)", {
+
+  check_date_week_rounding(fortnight, week_start = 2) # Tuesday
+  check_date_week_rounding(fortnight, week_start = 3) # Wednesday
+  check_date_week_rounding(fortnight, week_start = 4) # Thursday
+  check_date_week_rounding(fortnight, week_start = 5) # Friday
+  check_date_week_rounding(fortnight, week_start = 6) # Saturday
+
+})
+
+# Test helper used to check that the change_on_boundary argument to
+# ceiling_date behaves identically to the lubridate version. It takes
+# unit as an argument to run tests separately for different rounding units
+check_boundary_with_unit <- function(unit, ...) {
+
+  # timestamps
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        cob_null = ceiling_date(datetime, unit, change_on_boundary = NULL),
+        cob_true = ceiling_date(datetime, unit, change_on_boundary = TRUE),
+        cob_false = ceiling_date(datetime, unit, change_on_boundary = FALSE)
+      ) %>%
+      collect(),
+    boundary_times,
+    ...
+  )
+
+  # dates
+  expect_equal(
+    boundary_times %>%
+      arrow_table() %>%
+      mutate(
+        cob_null = ceiling_date(date, unit, change_on_boundary = NULL),
+        cob_true = ceiling_date(date, unit, change_on_boundary = TRUE),
+        cob_false = ceiling_date(date, unit, change_on_boundary = FALSE)
+      ) %>%
+      collect(),
+    boundary_times %>%
+      mutate(
+        cob_null = as.Date(ceiling_date(date, unit, change_on_boundary = NULL)),
+        cob_true = as.Date(ceiling_date(date, unit, change_on_boundary = TRUE)),
+        cob_false = as.Date(ceiling_date(date, unit, change_on_boundary = FALSE))
+      ),
+    ...
+  )
+
+
+}
+
+test_that("ceiling_date() applies change_on_boundary correctly", {
+  check_boundary_with_unit(".001 second")
+  check_boundary_with_unit("second")
+  check_boundary_with_unit("minute", tolerance = .001) # floating point issue?
+  check_boundary_with_unit("hour")
+  check_boundary_with_unit("day")
+})
+
+# In lubridate, an error is thrown when 60 sec/60 min/24 hour thresholds are
+# exceeded. Checks that arrow mimics this behaviour and throws an identically
+# worded error message
+test_that("temporal round/floor/ceil period unit maxima are enforced", {
+
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "61 seconds"),
+    "Rounding with second > 60 is not supported"
+  )
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "61 minutes"),
+    "Rounding with minute > 60 is not supported"
+  )
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "25 hours"),
+    "Rounding with hour > 24 is not supported"
+  )
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.Date()), "25 hours"),
+    "Rounding with hour > 24 is not supported"
+  )
+
+})
+
+# one method to test that temporal rounding takes place in local time is to
+# use lubridate as a ground truth and compare arrow results to lubridate
+# results. this test helper runs that test, skipping cases where lubridate
+# produces incorrect answers
+check_timezone_rounding_vs_lubridate <- function(data, unit) {
+
+  # esoteric lubridate bug: on windows and macOS (not linux), lubridate returns
+  # incorrect ceiling/floor for timezoned POSIXct times (syd, adl, kat zones,
+  # but not mar) but not utc, and not for round, and only for these two
+  # timestamps where high-precision timing is relevant to the outcome
+  if (unit %in% c(".001 second", "second", "minute")) {
+    if (tolower(Sys.info()[["sysname"]]) %in% c("windows", "darwin")) {
+      data <- data[-c(1, 3), ]
+    }
+  }
+
+  # external validity check: compare lubridate to arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        utc_floored = floor_date(utc_time, unit = unit),
+        utc_rounded = round_date(utc_time, unit = unit),
+        utc_ceiling = ceiling_date(utc_time, unit = unit),
+        syd_floored = floor_date(syd_time, unit = unit),
+        syd_rounded = round_date(syd_time, unit = unit),
+        syd_ceiling = ceiling_date(syd_time, unit = unit),
+        adl_floored = floor_date(adl_time, unit = unit),
+        adl_rounded = round_date(adl_time, unit = unit),
+        adl_ceiling = ceiling_date(adl_time, unit = unit),
+        mar_floored = floor_date(mar_time, unit = unit),
+        mar_rounded = round_date(mar_time, unit = unit),
+        mar_ceiling = ceiling_date(mar_time, unit = unit),
+        kat_floored = floor_date(kat_time, unit = unit),
+        kat_rounded = round_date(kat_time, unit = unit),
+        kat_ceiling = ceiling_date(kat_time, unit = unit)
+      ) %>%
+      collect(),
+    data
+  )
+
+}
+
+# another method to check that temporal rounding takes place in local
+# time is to test the internal consistency of the YMD HMS values returned
+# by temporal rounding functions: these should be the same regardless of
+# timezone and should always be identical to the equivalent result calculated
+# for UTC test. this test isn't useful for subsecond resolution but avoids
+# dependency on lubridate
+check_timezone_rounding_for_consistency <- function(data, unit) {
+
+  shifted_times <- data %>%
+    arrow_table() %>%
+    mutate(
+      utc_floored = floor_date(utc_time, unit = unit),
+      utc_rounded = round_date(utc_time, unit = unit),
+      utc_ceiling = ceiling_date(utc_time, unit = unit),
+      syd_floored = floor_date(syd_time, unit = unit),
+      syd_rounded = round_date(syd_time, unit = unit),
+      syd_ceiling = ceiling_date(syd_time, unit = unit),
+      adl_floored = floor_date(adl_time, unit = unit),
+      adl_rounded = round_date(adl_time, unit = unit),
+      adl_ceiling = ceiling_date(adl_time, unit = unit),
+      mar_floored = floor_date(mar_time, unit = unit),
+      mar_rounded = round_date(mar_time, unit = unit),
+      mar_ceiling = ceiling_date(mar_time, unit = unit),
+      kat_floored = floor_date(kat_time, unit = unit),
+      kat_rounded = round_date(kat_time, unit = unit),
+      kat_ceiling = ceiling_date(kat_time, unit = unit)
+    ) %>%
+    collect()
+
+  compare_local_times <- function(time1, time2) {
+    all(year(time1) == year(time1) &
+          month(time1) == month(time2) &
+          day(time1) == day(time2) &
+          hour(time1) == hour(time2) &
+          minute(time1) == minute(time2) &
+          second(time1) == second(time1))
+  }
+
+  base <- shifted_times$utc_rounded
+  expect_true(compare_local_times(shifted_times$syd_rounded, base))
+  expect_true(compare_local_times(shifted_times$adl_rounded, base))
+  expect_true(compare_local_times(shifted_times$mar_rounded, base))
+  expect_true(compare_local_times(shifted_times$kat_rounded, base))
+
+  base <- shifted_times$utc_floored
+  expect_true(compare_local_times(shifted_times$syd_floored, base))
+  expect_true(compare_local_times(shifted_times$adl_floored, base))
+  expect_true(compare_local_times(shifted_times$mar_floored, base))
+  expect_true(compare_local_times(shifted_times$kat_floored, base))
+
+  base <- shifted_times$utc_ceiling
+  expect_true(compare_local_times(shifted_times$syd_ceiling, base))
+  expect_true(compare_local_times(shifted_times$adl_ceiling, base))
+  expect_true(compare_local_times(shifted_times$mar_ceiling, base))
+  expect_true(compare_local_times(shifted_times$kat_ceiling, base))
+}
+
+test_that("timestamp rounding takes place in local time", {
+
+  tz_times %>% check_timezone_rounding_vs_lubridate(".001 second")
+  tz_times %>% check_timezone_rounding_vs_lubridate("second")
+  tz_times %>% check_timezone_rounding_vs_lubridate("minute")
+  tz_times %>% check_timezone_rounding_vs_lubridate("hour")
+  tz_times %>% check_timezone_rounding_vs_lubridate("day")
+  tz_times %>% check_timezone_rounding_vs_lubridate("week")
+  tz_times %>% check_timezone_rounding_vs_lubridate("month")
+  tz_times %>% check_timezone_rounding_vs_lubridate("quarter")
+  tz_times %>% check_timezone_rounding_vs_lubridate("year")
+
+  tz_times %>% check_timezone_rounding_for_consistency("second")
+  tz_times %>% check_timezone_rounding_for_consistency("minute")
+  tz_times %>% check_timezone_rounding_for_consistency("hour")
+  tz_times %>% check_timezone_rounding_for_consistency("day")
+  tz_times %>% check_timezone_rounding_for_consistency("week")
+  tz_times %>% check_timezone_rounding_for_consistency("month")
+  tz_times %>% check_timezone_rounding_for_consistency("quarter")
+  tz_times %>% check_timezone_rounding_for_consistency("year")
+
+  tz_times %>% check_timezone_rounding_for_consistency("7 seconds")
+  tz_times %>% check_timezone_rounding_for_consistency("7 minutes")
+  tz_times %>% check_timezone_rounding_for_consistency("7 hours")
+  tz_times %>% check_timezone_rounding_for_consistency("7 months")
+  tz_times %>% check_timezone_rounding_for_consistency("7 years")
+
+  tz_times %>% check_timezone_rounding_for_consistency("13 seconds")
+  tz_times %>% check_timezone_rounding_for_consistency("13 minutes")
+  tz_times %>% check_timezone_rounding_for_consistency("13 hours")
+  tz_times %>% check_timezone_rounding_for_consistency("13 months")
+  tz_times %>% check_timezone_rounding_for_consistency("13 years")
+
 })

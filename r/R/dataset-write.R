@@ -34,8 +34,9 @@
 #' use the current `group_by()` columns.
 #' @param basename_template string template for the names of files to be written.
 #' Must contain `"{i}"`, which will be replaced with an autoincremented
-#' integer to generate basenames of datafiles. For example, `"part-{i}.feather"`
-#' will yield `"part-0.feather", ...`.
+#' integer to generate basenames of datafiles. For example, `"part-{i}.arrow"`
+#' will yield `"part-0.arrow", ...`.
+#' If not specified, it defaults to `"part-{i}.<default extension>"`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
 #' @param existing_data_behavior The behavior to use when there is already data
@@ -133,6 +134,9 @@ write_dataset <- function(dataset,
                           max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
   format <- match.arg(format)
+  if (format %in% c("feather", "ipc")) {
+    format <- "arrow"
+  }
   if (inherits(dataset, "arrow_dplyr_query")) {
     # partitioning vars need to be in the `select` schema
     dataset <- ensure_group_vars(dataset)

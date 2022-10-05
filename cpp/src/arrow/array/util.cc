@@ -237,6 +237,7 @@ class ArrayDataEndianSwapper {
   Status Visit(const FixedSizeBinaryType& type) { return Status::OK(); }
   Status Visit(const FixedSizeListType& type) { return Status::OK(); }
   Status Visit(const StructType& type) { return Status::OK(); }
+  Status Visit(const RunLengthEncodedType& type) { return Status::OK(); }
   Status Visit(const UnionType& type) {
     out_->buffers[1] = data_->buffers[1];
     if (type.mode() == UnionMode::DENSE) {
@@ -542,7 +543,7 @@ class RepeatedArrayFactory {
       : pool_(pool), scalar_(scalar), length_(length) {}
 
   Result<std::shared_ptr<Array>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(*scalar_.type, this));
+    RETURN_NOT_OK(VisitScalarTypeInline(*scalar_.type, this));
     return out_;
   }
 

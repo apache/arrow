@@ -23,7 +23,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v10/internal/utils"
 )
 
 var (

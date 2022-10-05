@@ -18,8 +18,9 @@ package arrow
 
 import (
 	"encoding/json"
+	"fmt"
 
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // ArrayData is the underlying memory and metadata of an Arrow array, corresponding
@@ -85,6 +86,8 @@ type ArrayData interface {
 // Array represents an immutable sequence of values using the Arrow in-memory format.
 type Array interface {
 	json.Marshaler
+
+	fmt.Stringer
 
 	// DataType returns the type metadata for this instance.
 	DataType() DataType

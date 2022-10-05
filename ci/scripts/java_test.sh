@@ -18,10 +18,13 @@
 
 set -ex
 
+if [[ "${ARROW_JAVA_TEST:-ON}" != "ON" ]]; then
+  exit
+fi
+
 arrow_dir=${1}
 source_dir=${1}/java
-cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
-cdata_dist_dir=${2}/java/c
+java_jni_dist_dir=${3}
 
 # For JNI and Plasma tests
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
@@ -36,17 +39,17 @@ pushd ${source_dir}
 ${mvn} test
 
 if [ "${ARROW_JNI}" = "ON" ]; then
-  ${mvn} test -Parrow-jni -pl adapter/orc,gandiva,dataset -Darrow.cpp.build.dir=${cpp_build_dir}
+  ${mvn} test -Parrow-jni -pl adapter/orc,gandiva,dataset -Darrow.cpp.build.dir=${java_jni_dist_dir}
 fi
 
 if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
-  ${mvn} test -Parrow-c-data -pl c -Darrow.c.jni.dist.dir=${cdata_dist_dir}
+  ${mvn} test -Parrow-c-data -pl c -Darrow.c.jni.dist.dir=${java_jni_dist_dir}
 fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then
   pushd ${source_dir}/plasma
   java -cp target/test-classes:target/classes \
-       -Djava.library.path=${cpp_build_dir} \
+       -Djava.library.path=${java_jni_dist_dir} \
        org.apache.arrow.plasma.PlasmaClientTest
   popd
 fi

@@ -38,18 +38,19 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
 
   // With any ambiguity, we need to materialize the R6 instance and call its
   // ExtensionEquals method. We can't do this on the non-R thread.
-  // After ARROW-15841, we can use SafeCallIntoR.
-  arrow::Result<bool> result = SafeCallIntoR<bool>([&]() {
-    cpp11::environment instance = r6_instance();
-    cpp11::function instance_ExtensionEquals(instance["ExtensionEquals"]);
+  arrow::Result<bool> result = SafeCallIntoR<bool>(
+      [&]() {
+        cpp11::environment instance = r6_instance();
+        cpp11::function instance_ExtensionEquals(instance["ExtensionEquals"]);
 
-    std::shared_ptr<DataType> other_shared =
-        ValueOrStop(other.Deserialize(other.storage_type(), other.Serialize()));
-    cpp11::sexp other_r6 = cpp11::to_r6<DataType>(other_shared, "ExtensionType");
+        std::shared_ptr<DataType> other_shared =
+            ValueOrStop(other.Deserialize(other.storage_type(), other.Serialize()));
+        cpp11::sexp other_r6 = cpp11::to_r6<DataType>(other_shared, "ExtensionType");
 
-    cpp11::logicals result(instance_ExtensionEquals(other_r6));
-    return cpp11::as_cpp<bool>(result);
-  });
+        cpp11::logicals result(instance_ExtensionEquals(other_r6));
+        return cpp11::as_cpp<bool>(result);
+      },
+      "RExtensionType$ExtensionEquals()");
 
   if (!result.ok()) {
     throw std::runtime_error(result.status().message());

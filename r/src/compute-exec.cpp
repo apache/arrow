@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
+#include "./safe-call-into-r.h"
 
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
@@ -55,11 +56,14 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
       });
 }
 
-// [[arrow::export]]
-std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
+std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
+ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
+                 const std::shared_ptr<compute::ExecNode>& final_node,
+                 cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
+  // a section of this code is copied and used in ExecPlan_BuildAndShow - the 2 need
+  // to be in sync
+  // Start of chunk used in ExecPlan_BuildAndShow
+
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
@@ -88,8 +92,9 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
                        compute::SinkNodeOptions{&sink_gen});
   }
 
+  // End of chunk used in ExecPlan_BuildAndShow
+
   StopIfNotOk(plan->Validate());
-  StopIfNotOk(plan->StartProducing());
 
   // If the generator is destroyed before being completely drained, inform plan
   std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
@@ -109,9 +114,40 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     auto kv = strings_to_kvm(metadata);
     out_schema = out_schema->WithMetadata(kv);
   }
-  return compute::MakeGeneratorReader(
+
+  std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
+      out;
+  out.first = plan;
+  out.second = compute::MakeGeneratorReader(
       out_schema, [stop_producing, plan, sink_gen] { return sink_gen(); },
       gc_memory_pool());
+  return out;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    cpp11::strings metadata, int64_t head = -1) {
+  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
+  StopIfNotOk(prepared_plan.first->StartProducing());
+  return prepared_plan.second;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> ExecPlan_read_table(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    cpp11::strings metadata, int64_t head = -1) {
+  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
+
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() -> arrow::Result<std::shared_ptr<arrow::Table>> {
+        ARROW_RETURN_NOT_OK(prepared_plan.first->StartProducing());
+        return prepared_plan.second->ToTable();
+      });
+
+  return ValueOrStop(result);
 }
 
 // [[arrow::export]]
@@ -123,6 +159,46 @@ void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan) {
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<compute::ExecNode>& node) {
   return node->output_schema();
+}
+
+// [[arrow::export]]
+std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan,
+                                  const std::shared_ptr<compute::ExecNode>& final_node,
+                                  cpp11::list sort_options, int64_t head = -1) {
+  // a section of this code is copied from ExecPlan_prepare - the 2 need to be in sync
+  // Start of chunk copied from ExecPlan_prepare
+
+  // For now, don't require R to construct SinkNodes.
+  // Instead, just pass the node we should collect as an argument.
+  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+
+  // Sorting uses a different sink node; there is no general sort yet
+  if (sort_options.size() > 0) {
+    if (head >= 0) {
+      // Use the SelectK node to take only what we need
+      MakeExecNodeOrStop(
+          "select_k_sink", plan.get(), {final_node.get()},
+          compute::SelectKSinkNodeOptions{
+              arrow::compute::SelectKOptions(
+                  head, std::dynamic_pointer_cast<compute::SortOptions>(
+                            make_compute_options("sort_indices", sort_options))
+                            ->sort_keys),
+              &sink_gen});
+    } else {
+      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
+                         compute::OrderBySinkNodeOptions{
+                             *std::dynamic_pointer_cast<compute::SortOptions>(
+                                 make_compute_options("sort_indices", sort_options)),
+                             &sink_gen});
+    }
+  } else {
+    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
+                       compute::SinkNodeOptions{&sink_gen});
+  }
+
+  // End of chunk copied from ExecPlan_prepare
+
+  return plan->ToString();
 }
 
 #if defined(ARROW_R_WITH_DATASET)
@@ -146,8 +222,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 
   options->dataset_schema = dataset->schema();
 
-  // ScanNode needs the filter to do predicate pushdown and skip partitions
-  options->filter = ValueOrStop(filter->Bind(*dataset->schema()));
+  options->filter = *filter;
 
   // ScanNode needs to know which fields to materialize (and which are unnecessary)
   std::vector<compute::Expression> exprs;
@@ -156,9 +231,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
   }
 
   options->projection =
-      ValueOrStop(call("make_struct", std::move(exprs),
-                       compute::MakeStructOptions{std::move(materialized_field_names)})
-                      .Bind(*dataset->schema()));
+      call("make_struct", std::move(exprs),
+           compute::MakeStructOptions{std::move(materialized_field_names)});
 
   return MakeExecNodeOrStop("scan", plan.get(), {},
                             ds::ScanNodeOptions{dataset, options});
@@ -196,8 +270,14 @@ void ExecPlan_Write(
                      ds::WriteNodeOptions{std::move(opts), std::move(kv)});
 
   StopIfNotOk(plan->Validate());
-  StopIfNotOk(plan->StartProducing());
-  StopIfNotOk(plan->finished().status());
+
+  arrow::Status result = RunWithCapturedRIfPossibleVoid([&]() {
+    RETURN_NOT_OK(plan->StartProducing());
+    RETURN_NOT_OK(plan->finished().status());
+    return arrow::Status::OK();
+  });
+
+  StopIfNotOk(result);
 }
 
 #endif

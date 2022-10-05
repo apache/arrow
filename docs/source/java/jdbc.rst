@@ -84,8 +84,10 @@ inconsistent scale. A RoundingMode can be set to handle these cases:
      }
    }
 
-Currently, it is not possible to define a custom type conversion for a
-supported or unsupported type.
+The mapping from JDBC type to Arrow type can be overridden via the
+``JdbcToArrowConfig``, but it is not possible to customize the
+conversion from JDBC value to Arrow value itself, nor is it possible
+to define a conversion for an unsupported type.
 
 Type Mapping
 ------------
@@ -120,7 +122,7 @@ The JDBC to Arrow type mapping can be obtained at runtime from
 +--------------------+--------------------+-------+
 | DOUBLE             | Double             |       |
 +--------------------+--------------------+-------+
-| FLOAT              | Float              |       |
+| FLOAT              | Float32            |       |
 +--------------------+--------------------+-------+
 | INTEGER            | Int32              |       |
 +--------------------+--------------------+-------+
@@ -138,7 +140,7 @@ The JDBC to Arrow type mapping can be obtained at runtime from
 +--------------------+--------------------+-------+
 | NVARCHAR           | Utf8               |       |
 +--------------------+--------------------+-------+
-| REAL               | Float              |       |
+| REAL               | Float32            |       |
 +--------------------+--------------------+-------+
 | SMALLINT           | Int16              |       |
 +--------------------+--------------------+-------+
@@ -172,3 +174,105 @@ The JDBC to Arrow type mapping can be obtained at runtime from
 .. _setArraySubTypeByColumnIndexMap: https://arrow.apache.org/docs/java/reference/org/apache/arrow/adapter/jdbc/JdbcToArrowConfigBuilder.html#setArraySubTypeByColumnIndexMap-java.util.Map-
 .. _setArraySubTypeByColumnNameMap: https://arrow.apache.org/docs/java/reference/org/apache/arrow/adapter/jdbc/JdbcToArrowConfigBuilder.html#setArraySubTypeByColumnNameMap-java.util.Map-
 .. _ARROW-17006: https://issues.apache.org/jira/browse/ARROW-17006
+
+VectorSchemaRoot to PreparedStatement Parameter Conversion
+==========================================================
+
+The adapter can bind rows of Arrow data from a VectorSchemaRoot to
+parameters of a JDBC PreparedStatement.  This can be accessed via the
+JdbcParameterBinder class.  Each call to next() will bind parameters
+from the next row of data, and then the application can execute the
+statement, call addBatch(), etc. as desired.  Null values will lead to
+a setNull call with an appropriate JDBC type code (listed below).
+
+.. code-block:: java
+
+   final JdbcParameterBinder binder =
+       JdbcParameterBinder.builder(statement, root).bindAll().build();
+   while (binder.next()) {
+       statement.executeUpdate();
+   }
+   // Use a VectorLoader to update the root
+   binder.reset();
+   while (binder.next()) {
+       statement.executeUpdate();
+   }
+
+The mapping of vectors to parameters, the JDBC type code used by the
+converters, and the type conversions themselves can all be customized:
+
+.. code-block:: java
+
+   final JdbcParameterBinder binder =
+       JdbcParameterBinder.builder(statement, root)
+           .bind(/*parameterIndex*/2, /*columnIndex*/0)
+           .bind(/*parameterIndex*/1, customColumnBinderInstance)
+           .build();
+
+Type Mapping
+------------
+
+The Arrow to JDBC type mapping can be obtained at runtime via
+a method on ColumnBinder.
+
++----------------------------+----------------------------+-------+
+| Arrow Type                 | JDBC Type                  | Notes |
++============================+============================+=======+
+| Binary                     | VARBINARY (setBytes)       |       |
++----------------------------+----------------------------+-------+
+| Bool                       | BOOLEAN (setBoolean)       |       |
++----------------------------+----------------------------+-------+
+| Date32                     | DATE (setDate)             |       |
++----------------------------+----------------------------+-------+
+| Date64                     | DATE (setDate)             |       |
++----------------------------+----------------------------+-------+
+| Decimal128                 | DECIMAL (setBigDecimal)    |       |
++----------------------------+----------------------------+-------+
+| Decimal256                 | DECIMAL (setBigDecimal)    |       |
++----------------------------+----------------------------+-------+
+| FixedSizeBinary            | BINARY (setBytes)          |       |
++----------------------------+----------------------------+-------+
+| Float32                    | REAL (setFloat)            |       |
++----------------------------+----------------------------+-------+
+| Int8                       | TINYINT (setByte)          |       |
++----------------------------+----------------------------+-------+
+| Int16                      | SMALLINT (setShort)        |       |
++----------------------------+----------------------------+-------+
+| Int32                      | INTEGER (setInt)           |       |
++----------------------------+----------------------------+-------+
+| Int64                      | BIGINT (setLong)           |       |
++----------------------------+----------------------------+-------+
+| LargeBinary                | LONGVARBINARY (setBytes)   |       |
++----------------------------+----------------------------+-------+
+| LargeUtf8                  | LONGVARCHAR (setString)    | \(1)  |
++----------------------------+----------------------------+-------+
+| Time[s]                    | TIME (setTime)             |       |
++----------------------------+----------------------------+-------+
+| Time[ms]                   | TIME (setTime)             |       |
++----------------------------+----------------------------+-------+
+| Time[us]                   | TIME (setTime)             |       |
++----------------------------+----------------------------+-------+
+| Time[ns]                   | TIME (setTime)             |       |
++----------------------------+----------------------------+-------+
+| Timestamp[s]               | TIMESTAMP (setTimestamp)   | \(2)  |
++----------------------------+----------------------------+-------+
+| Timestamp[ms]              | TIMESTAMP (setTimestamp)   | \(2)  |
++----------------------------+----------------------------+-------+
+| Timestamp[us]              | TIMESTAMP (setTimestamp)   | \(2)  |
++----------------------------+----------------------------+-------+
+| Timestamp[ns]              | TIMESTAMP (setTimestamp)   | \(2)  |
++----------------------------+----------------------------+-------+
+| Utf8                       | VARCHAR (setString)        |       |
++----------------------------+----------------------------+-------+
+
+* \(1) Strings longer than Integer.MAX_VALUE bytes (the maximum length
+  of a Java ``byte[]``) will cause a runtime exception.
+* \(2) If the timestamp has a timezone, the JDBC type defaults to
+  TIMESTAMP_WITH_TIMEZONE.  If the timestamp has no timezone,
+  technically there is not a correct conversion from Arrow value to
+  JDBC value, because a JDBC Timestamp is in UTC, and we have no
+  timezone information.  In this case, the default binder will call
+  `setTimestamp(int, Timestamp)
+  <https://docs.oracle.com/en/java/javase/11/docs/api/java.sql/java/sql/PreparedStatement.html#setTimestamp(int,java.sql.Timestamp)>`_,
+  which will lead to the driver using the "default timezone" (that of
+  the Java VM).

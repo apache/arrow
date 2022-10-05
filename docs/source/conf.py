@@ -503,6 +503,27 @@ except ImportError:
     flight_enabled = False
     pyarrow.flight = sys.modules['pyarrow.flight'] = mock.Mock()
 
+try:
+    import pyarrow.orc
+    orc_enabled = True
+except ImportError:
+    orc_enabled = False
+    pyarrow.orc = sys.modules['pyarrow.orc'] = mock.Mock()
+
+try:
+    import pyarrow.parquet.encryption
+    parquet_encryption_enabled = True
+except ImportError:
+    parquet_encryption_enabled = False
+    pyarrow.parquet.encryption = sys.modules['pyarrow.parquet.encryption'] = mock.Mock()
+
+try:
+    import pyarrow.plasma
+    plasma_enabled = True
+except ImportError:
+    plasma_enabled = False
+    pyarrow.plasma = sys.modules['pyarrow.plasma'] = mock.Mock()
+
 
 def setup(app):
     # Use a config value to indicate whether CUDA API docs can be generated.

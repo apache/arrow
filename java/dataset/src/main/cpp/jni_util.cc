@@ -321,9 +321,9 @@ arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
       std::shared_ptr<arrow::Buffer> buffer,
       arrow::ipc::SerializeSchema(*schema, arrow::default_memory_pool()))
 
-  jbyteArray out = env->NewByteArray(buffer->size());
+  jbyteArray out = env->NewByteArray(static_cast<int>(buffer->size()));
   auto src = reinterpret_cast<const jbyte*>(buffer->data());
-  env->SetByteArrayRegion(out, 0, buffer->size(), src);
+  env->SetByteArrayRegion(out, 0, static_cast<int>(buffer->size()), src);
   return out;
 }
 

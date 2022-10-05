@@ -881,6 +881,18 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
+std::shared_ptr<arrow::Table> ExecPlan_read_table(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options, cpp11::strings metadata, int64_t head);
+extern "C" SEXP _arrow_ExecPlan_read_table(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP metadata_sexp, SEXP head_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type final_node(final_node_sexp);
+	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
+	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
+	arrow::r::Input<int64_t>::type head(head_sexp);
+	return cpp11::as_sexp(ExecPlan_read_table(plan, final_node, sort_options, metadata, head));
+END_CPP11
+}
+// compute-exec.cpp
 void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan);
 extern "C" SEXP _arrow_ExecPlan_StopProducing(SEXP plan_sexp){
 BEGIN_CPP11
@@ -895,6 +907,17 @@ extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type node(node_sexp);
 	return cpp11::as_sexp(ExecNode_output_schema(node));
+END_CPP11
+}
+// compute-exec.cpp
+std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options, int64_t head);
+extern "C" SEXP _arrow_ExecPlan_BuildAndShow(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP head_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type final_node(final_node_sexp);
+	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
+	arrow::r::Input<int64_t>::type head(head_sexp);
+	return cpp11::as_sexp(ExecPlan_BuildAndShow(plan, final_node, sort_options, head));
 END_CPP11
 }
 // compute-exec.cpp
@@ -1097,6 +1120,16 @@ std::vector<std::string> compute__GetFunctionNames();
 extern "C" SEXP _arrow_compute__GetFunctionNames(){
 BEGIN_CPP11
 	return cpp11::as_sexp(compute__GetFunctionNames());
+END_CPP11
+}
+// compute.cpp
+void RegisterScalarUDF(std::string name, cpp11::list func_sexp);
+extern "C" SEXP _arrow_RegisterScalarUDF(SEXP name_sexp, SEXP func_sexp_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type name(name_sexp);
+	arrow::r::Input<cpp11::list>::type func_sexp(func_sexp_sexp);
+	RegisterScalarUDF(name, func_sexp);
+	return R_NilValue;
 END_CPP11
 }
 // config.cpp
@@ -2788,22 +2821,20 @@ BEGIN_CPP11
 END_CPP11
 }
 // feather.cpp
-std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(const std::shared_ptr<arrow::ipc::feather::Reader>& reader, cpp11::sexp columns, bool on_old_windows);
-extern "C" SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP columns_sexp, SEXP on_old_windows_sexp){
+std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(const std::shared_ptr<arrow::ipc::feather::Reader>& reader, cpp11::sexp columns);
+extern "C" SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP columns_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
 	arrow::r::Input<cpp11::sexp>::type columns(columns_sexp);
-	arrow::r::Input<bool>::type on_old_windows(on_old_windows_sexp);
-	return cpp11::as_sexp(ipc___feather___Reader__Read(reader, columns, on_old_windows));
+	return cpp11::as_sexp(ipc___feather___Reader__Read(reader, columns));
 END_CPP11
 }
 // feather.cpp
-std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream, bool on_old_windows);
-extern "C" SEXP _arrow_ipc___feather___Reader__Open(SEXP stream_sexp, SEXP on_old_windows_sexp){
+std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
+extern "C" SEXP _arrow_ipc___feather___Reader__Open(SEXP stream_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type stream(stream_sexp);
-	arrow::r::Input<bool>::type on_old_windows(on_old_windows_sexp);
-	return cpp11::as_sexp(ipc___feather___Reader__Open(stream, on_old_windows));
+	return cpp11::as_sexp(ipc___feather___Reader__Open(stream));
 END_CPP11
 }
 // feather.cpp
@@ -4460,6 +4491,15 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatchreader.cpp
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_function(cpp11::sexp fun_sexp, const std::shared_ptr<arrow::Schema>& schema);
+extern "C" SEXP _arrow_RecordBatchReader__from_function(SEXP fun_sexp_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::sexp>::type fun_sexp(fun_sexp_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return cpp11::as_sexp(RecordBatchReader__from_function(fun_sexp, schema));
+END_CPP11
+}
+// recordbatchreader.cpp
 std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_Table(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_RecordBatchReader__from_Table(SEXP table_sexp){
 BEGIN_CPP11
@@ -4598,6 +4638,13 @@ extern "C" SEXP _arrow_InitializeMainRThread(){
 BEGIN_CPP11
 	InitializeMainRThread();
 	return R_NilValue;
+END_CPP11
+}
+// safe-call-into-r-impl.cpp
+bool CanRunWithCapturedR();
+extern "C" SEXP _arrow_CanRunWithCapturedR(){
+BEGIN_CPP11
+	return cpp11::as_sexp(CanRunWithCapturedR());
 END_CPP11
 }
 // safe-call-into-r-impl.cpp
@@ -5240,8 +5287,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
 		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 1}, 
 		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 5}, 
+		{ "_arrow_ExecPlan_read_table", (DL_FUNC) &_arrow_ExecPlan_read_table, 5}, 
 		{ "_arrow_ExecPlan_StopProducing", (DL_FUNC) &_arrow_ExecPlan_StopProducing, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
+		{ "_arrow_ExecPlan_BuildAndShow", (DL_FUNC) &_arrow_ExecPlan_BuildAndShow, 4}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
 		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 14}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
@@ -5258,6 +5307,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
+		{ "_arrow_RegisterScalarUDF", (DL_FUNC) &_arrow_RegisterScalarUDF, 2}, 
 		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
 		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
 		{ "_arrow_set_timezone_database", (DL_FUNC) &_arrow_set_timezone_database, 1}, 
@@ -5415,8 +5465,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_arrow__UnregisterRExtensionType", (DL_FUNC) &_arrow_arrow__UnregisterRExtensionType, 1}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
 		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
-		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 3}, 
-		{ "_arrow_ipc___feather___Reader__Open", (DL_FUNC) &_arrow_ipc___feather___Reader__Open, 2}, 
+		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 
+		{ "_arrow_ipc___feather___Reader__Open", (DL_FUNC) &_arrow_ipc___feather___Reader__Open, 1}, 
 		{ "_arrow_ipc___feather___Reader__schema", (DL_FUNC) &_arrow_ipc___feather___Reader__schema, 1}, 
 		{ "_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3}, 
 		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1}, 
@@ -5570,6 +5620,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1}, 
 		{ "_arrow_RecordBatchReader__batches", (DL_FUNC) &_arrow_RecordBatchReader__batches, 1}, 
 		{ "_arrow_RecordBatchReader__from_batches", (DL_FUNC) &_arrow_RecordBatchReader__from_batches, 2}, 
+		{ "_arrow_RecordBatchReader__from_function", (DL_FUNC) &_arrow_RecordBatchReader__from_function, 2}, 
 		{ "_arrow_RecordBatchReader__from_Table", (DL_FUNC) &_arrow_RecordBatchReader__from_Table, 1}, 
 		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_RecordBatchReader__Head", (DL_FUNC) &_arrow_RecordBatchReader__Head, 2}, 
@@ -5586,6 +5637,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
 		{ "_arrow_InitializeMainRThread", (DL_FUNC) &_arrow_InitializeMainRThread, 0}, 
+		{ "_arrow_CanRunWithCapturedR", (DL_FUNC) &_arrow_CanRunWithCapturedR, 0}, 
 		{ "_arrow_TestSafeCallIntoR", (DL_FUNC) &_arrow_TestSafeCallIntoR, 2}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 

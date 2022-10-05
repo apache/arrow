@@ -72,7 +72,10 @@ case $# in
      ;;
 esac
 
+# Note that these point to the current verify-release-candidate.sh directories
+# which is different from the ARROW_SOURCE_DIR set in ensure_source_directory()
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
 
 show_header() {
   echo ""
@@ -209,7 +212,7 @@ test_apt() {
         fi
         ;;
     esac
-    if ! docker run --rm -v "${SOURCE_DIR}"/../..:/arrow:delegated \
+    if ! docker run --rm -v "${ARROW_DIR}":/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
@@ -250,7 +253,7 @@ test_yum() {
     if ! docker run \
            --rm \
            --security-opt="seccomp=unconfined" \
-           --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
+           --volume "${ARROW_DIR}":/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
@@ -267,7 +270,7 @@ test_yum() {
              --platform linux/arm64 \
              --rm \
              --security-opt="seccomp=unconfined" \
-             --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
+             --volume "${ARROW_DIR}":/arrow:delegated \
              "${target}" \
              /arrow/dev/release/verify-yum.sh \
              "${VERSION}" \
@@ -579,6 +582,7 @@ test_and_install_cpp() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
@@ -653,6 +657,10 @@ test_python() {
   # Build and test Python
   maybe_setup_virtualenv cython numpy setuptools_scm setuptools || exit 1
   maybe_setup_conda --file ci/conda_env_python.txt || exit 1
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
+  fi
 
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
@@ -893,7 +901,7 @@ ensure_source_directory() {
   if [ "${SOURCE_KIND}" = "local" ]; then
     # Local arrow repository, testing repositories should be already present
     if [ -z "$ARROW_SOURCE_DIR" ]; then
-      export ARROW_SOURCE_DIR="$(cd ${SOURCE_DIR}/../.. && pwd)"
+      export ARROW_SOURCE_DIR="${ARROW_DIR}"
     fi
     echo "Verifying local Arrow checkout at ${ARROW_SOURCE_DIR}"
   elif [ "${SOURCE_KIND}" = "git" ]; then
@@ -932,8 +940,9 @@ ensure_source_directory() {
 
 test_source_distribution() {
   export ARROW_HOME=$ARROW_TMPDIR/install
+  export CMAKE_PREFIX_PATH=$ARROW_HOME${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
   export PARQUET_HOME=$ARROW_TMPDIR/install
-  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
+  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
@@ -995,6 +1004,8 @@ test_binary_distribution() {
 }
 
 test_linux_wheels() {
+  local check_gcs=OFF
+
   if [ "$(uname -m)" = "aarch64" ]; then
     local arch="aarch64"
   else
@@ -1011,13 +1022,13 @@ test_linux_wheels() {
       CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
 
 test_macos_wheels() {
-  local check_gcs=ON
+  local check_gcs=OFF
   local check_s3=ON
   local check_flight=ON
 
@@ -1046,7 +1057,7 @@ test_macos_wheels() {
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
-        ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+        ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 
@@ -1064,7 +1075,7 @@ test_macos_wheels() {
         pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
         # check the imports and execute the unittests
         INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
-          arch -${arch} ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
       done
     done
   fi

@@ -768,7 +768,7 @@ struct MakeNullImpl {
 
   std::shared_ptr<Scalar> Finish() && {
     // Should not fail.
-    DCHECK_OK(VisitTypeInline(*type_, this));
+    DCHECK_OK(VisitScalarTypeInline(*type_, this));
     return std::move(out_);
   }
 
@@ -835,7 +835,7 @@ struct ScalarParseImpl {
   Status FinishWithBuffer() { return Finish(Buffer::FromString(std::string(s_))); }
 
   Result<std::shared_ptr<Scalar>> Finish() && {
-    RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    RETURN_NOT_OK(VisitScalarTypeInline(*type_, this));
     return std::move(out_);
   }
 
@@ -1041,6 +1041,20 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
   return Status::OK();
 }
 
+// list based types (list, large list and map (fixed sized list too)) to string
+Status CastImpl(const BaseListScalar& from, StringScalar* to) {
+  std::stringstream ss;
+  ss << from.type->ToString() << "[";
+  for (int64_t i = 0; i < from.value->length(); i++) {
+    if (i > 0) ss << ", ";
+    ARROW_ASSIGN_OR_RAISE(auto value, from.value->GetScalar(i));
+    ss << value->ToString();
+  }
+  ss << ']';
+  to->value = Buffer::FromString(ss.str());
+  return Status::OK();
+}
+
 Status CastImpl(const UnionScalar& from, StringScalar* to) {
   const auto& union_ty = checked_cast<const UnionType&>(*from.type);
   std::stringstream ss;
@@ -1101,7 +1115,7 @@ struct ToTypeVisitor : CastImplVisitor {
   template <typename ToType>
   Status Visit(const ToType&) {
     FromTypeVisitor<ToType> unpack_from_type{from_, to_type_, out_};
-    return VisitTypeInline(*from_.type, &unpack_from_type);
+    return VisitScalarTypeInline(*from_.type, &unpack_from_type);
   }
 
   Status Visit(const NullType&) {
@@ -1128,7 +1142,7 @@ Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) con
   if (is_valid) {
     out->is_valid = true;
     ToTypeVisitor unpack_to_type{*this, to, out.get()};
-    RETURN_NOT_OK(VisitTypeInline(*to, &unpack_to_type));
+    RETURN_NOT_OK(VisitScalarTypeInline(*to, &unpack_to_type));
   }
   return out;
 }

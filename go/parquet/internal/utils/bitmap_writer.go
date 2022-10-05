@@ -20,7 +20,7 @@ import (
 	"encoding/binary"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
 )
 
 // BitmapWriter is an interface for bitmap writers so that we can use multiple

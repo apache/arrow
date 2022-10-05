@@ -7,6 +7,7 @@
 \alias{as_record_batch_reader.RecordBatch}
 \alias{as_record_batch_reader.data.frame}
 \alias{as_record_batch_reader.Dataset}
+\alias{as_record_batch_reader.function}
 \alias{as_record_batch_reader.arrow_dplyr_query}
 \alias{as_record_batch_reader.Scanner}
 \title{Convert an object to an Arrow RecordBatchReader}
@@ -23,6 +24,8 @@ as_record_batch_reader(x, ...)
 
 \method{as_record_batch_reader}{Dataset}(x, ...)
 
+\method{as_record_batch_reader}{`function`}(x, ..., schema)
+
 \method{as_record_batch_reader}{arrow_dplyr_query}(x, ...)
 
 \method{as_record_batch_reader}{Scanner}(x, ...)
@@ -31,6 +34,9 @@ as_record_batch_reader(x, ...)
 \item{x}{An object to convert to a \link{RecordBatchReader}}
 
 \item{...}{Passed to S3 methods}
+
+\item{schema}{The \code{\link[=schema]{schema()}} that must match the schema returned by each
+call to \code{x} when \code{x} is a function.}
 }
 \value{
 A \link{RecordBatchReader}

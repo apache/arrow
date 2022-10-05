@@ -89,6 +89,25 @@ Status ResolveCurrentExecutable(fs::path* out) {
   }
 }
 
+class ErrorRecordBatchReader : public RecordBatchReader {
+ public:
+  ErrorRecordBatchReader() : schema_(arrow::schema({})) {}
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+    *out = nullptr;
+    return Status::OK();
+  }
+
+  Status Close() override {
+    // This should be propagated over DoGet to the client
+    return Status::IOError("Expected error");
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+};
 }  // namespace
 
 void TestServer::Start(const std::vector<std::string>& extra_args) {
@@ -221,6 +240,12 @@ class FlightTestServer : public FlightServerBase {
       // Make batch > 2GiB in size
       ARROW_ASSIGN_OR_RAISE(auto batch, VeryLargeBatch());
       ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
+      *data_stream =
+          std::unique_ptr<FlightDataStream>(new RecordBatchStream(std::move(reader)));
+      return Status::OK();
+    }
+    if (request.ticket == "ticket-stream-error") {
+      auto reader = std::make_shared<ErrorRecordBatchReader>();
       *data_stream =
           std::unique_ptr<FlightDataStream>(new RecordBatchStream(std::move(reader)));
       return Status::OK();

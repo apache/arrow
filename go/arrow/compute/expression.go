@@ -27,12 +27,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/ipc"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/arrow/scalar"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/scalar"
 )
 
 var hashSeed = maphash.MakeSeed()
@@ -58,9 +60,6 @@ type Expression interface {
 	// FieldRef returns a pointer to the underlying field reference, or nil if
 	// this expression is not a field reference.
 	FieldRef() *FieldRef
-	// Descr returns the shape of this expression will evaluate to including the type
-	// and whether it will be an Array, Scalar, or either.
-	Descr() ValueDescr
 	// Type returns the datatype this expression will evaluate to.
 	Type() arrow.DataType
 
@@ -146,14 +145,6 @@ func (l *Literal) IsSatisfiable() bool {
 	return true
 }
 
-func (l *Literal) Descr() ValueDescr {
-	if ad, ok := l.Literal.(ArrayLikeDatum); ok {
-		return ad.Descr()
-	}
-
-	return ValueDescr{ShapeAny, nil}
-}
-
 func (l *Literal) Hash() uint64 {
 	if l.IsScalarExpr() {
 		return scalar.Hash(hashSeed, l.Literal.(*ScalarDatum).Value)
@@ -183,7 +174,7 @@ type Parameter struct {
 	ref *FieldRef
 
 	// post bind props
-	descr ValueDescr
+	dt    arrow.DataType
 	index int
 
 	bound boundRef
@@ -191,12 +182,11 @@ type Parameter struct {
 
 func (Parameter) IsNullLiteral() bool     { return false }
 func (p *Parameter) boundExpr() boundRef  { return p.bound }
-func (p *Parameter) Type() arrow.DataType { return p.descr.Type }
+func (p *Parameter) Type() arrow.DataType { return p.dt }
 func (p *Parameter) IsBound() bool        { return p.Type() != nil }
 func (p *Parameter) IsScalarExpr() bool   { return p.ref != nil }
 func (p *Parameter) IsSatisfiable() bool  { return p.Type() == nil || p.Type().ID() != arrow.NULL }
 func (p *Parameter) FieldRef() *FieldRef  { return p.ref }
-func (p *Parameter) Descr() ValueDescr    { return p.descr }
 func (p *Parameter) Hash() uint64         { return p.ref.Hash(hashSeed) }
 
 func (p *Parameter) String() string {
@@ -219,7 +209,7 @@ func (p *Parameter) Equals(other Expression) bool {
 }
 
 func (p *Parameter) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Schema) (Expression, error) {
-	bound, descr, index, _, err := bindExprSchema(ctx, mem, p, schema)
+	bound, dt, index, _, err := bindExprSchema(ctx, mem, p, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +217,7 @@ func (p *Parameter) Bind(ctx context.Context, mem memory.Allocator, schema *arro
 	return &Parameter{
 		ref:   p.ref,
 		index: index,
-		descr: descr,
+		dt:    dt,
 		bound: bound,
 	}, nil
 }
@@ -325,7 +315,7 @@ func optionsToString(fn FunctionOptions) string {
 type Call struct {
 	funcName string
 	args     []Expression
-	descr    ValueDescr
+	dt       arrow.DataType
 	options  FunctionOptions
 
 	cachedHash uint64
@@ -335,8 +325,7 @@ type Call struct {
 func (c *Call) boundExpr() boundRef  { return c.bound }
 func (c *Call) IsNullLiteral() bool  { return false }
 func (c *Call) FieldRef() *FieldRef  { return nil }
-func (c *Call) Descr() ValueDescr    { return c.descr }
-func (c *Call) Type() arrow.DataType { return c.descr.Type }
+func (c *Call) Type() arrow.DataType { return c.dt }
 func (c *Call) IsSatisfiable() bool  { return c.Type() == nil || c.Type().ID() != arrow.NULL }
 
 func (c *Call) String() string {
@@ -388,7 +377,7 @@ func (c *Call) Hash() uint64 {
 	h.WriteString(c.funcName)
 	c.cachedHash = h.Sum64()
 	for _, arg := range c.args {
-		c.cachedHash = hashCombine(c.cachedHash, arg.Hash())
+		c.cachedHash = exec.HashCombine(c.cachedHash, arg.Hash())
 	}
 	return c.cachedHash
 }
@@ -463,6 +452,10 @@ type FunctionOptionsEqual interface {
 	Equals(FunctionOptions) bool
 }
 
+type FunctionOptionsCloneable interface {
+	Clone() FunctionOptions
+}
+
 type MakeStructOptions struct {
 	FieldNames       []string          `compute:"field_names"`
 	FieldNullability []bool            `compute:"field_nullability"`
@@ -503,17 +496,7 @@ type ArithmeticOptions struct {
 
 func (ArithmeticOptions) TypeName() string { return "ArithmeticOptions" }
 
-type CastOptions struct {
-	ToType               arrow.DataType `compute:"to_type"`
-	AllowIntOverflow     bool           `compute:"allow_int_overflow"`
-	AllowTimeTruncate    bool           `compute:"allow_time_truncate"`
-	AllowTimeOverflow    bool           `compute:"allow_time_overflow"`
-	AllowDecimalTruncate bool           `compute:"allow_decimal_truncate"`
-	AllowFloatTruncate   bool           `compute:"allow_float_truncate"`
-	AllowInvalidUtf8     bool           `compute:"allow_invalid_utf8"`
-}
-
-func (CastOptions) TypeName() string { return "CastOptions" }
+type CastOptions = kernels.CastOptions
 
 func DefaultCastOptions(safe bool) *CastOptions {
 	if safe {
@@ -527,6 +510,14 @@ func DefaultCastOptions(safe bool) *CastOptions {
 		AllowFloatTruncate:   true,
 		AllowInvalidUtf8:     true,
 	}
+}
+
+func UnsafeCastOptions(dt arrow.DataType) *CastOptions {
+	return NewCastOptions(dt, false)
+}
+
+func SafeCastOptions(dt arrow.DataType) *CastOptions {
+	return NewCastOptions(dt, true)
 }
 
 func NewCastOptions(dt arrow.DataType, safe bool) *CastOptions {

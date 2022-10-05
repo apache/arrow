@@ -436,6 +436,10 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
       write_node_options.custom_metadata;
   const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
 
+  if (!write_options.partitioning) {
+    return Status::Invalid("Must provide partitioning");
+  }
+
   ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
                         internal::DatasetWriter::Make(write_options));
 

@@ -121,6 +121,15 @@ cdef class NativeFile(_Weakrefable):
     def __exit__(self, exc_type, exc_value, tb):
         self.close()
 
+    def __repr__(self):
+        name = f"pyarrow.{self.__class__.__name__}"
+        return (f"<{name} "
+                f"closed={self.closed} "
+                f"own_file={self.own_file} "
+                f"is_seekable={self.is_seekable} "
+                f"is_writable={self.is_writable} "
+                f"is_readable={self.is_readable}>")
+
     @property
     def mode(self):
         """
@@ -398,6 +407,42 @@ cdef class NativeFile(_Weakrefable):
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
         return PyObject_to_object(obj)
+
+    def get_stream(self, file_offset, nbytes):
+        """
+        Return an input stream that reads a file segment independent of the
+        state of the file.
+
+        Allows reading portions of a random access file as an input stream
+        without interfering with each other.
+
+        Parameters
+        ----------
+        file_offset : int
+        nbytes : int
+
+        Returns
+        -------
+        stream : NativeFile
+        """
+        cdef:
+            shared_ptr[CInputStream] data
+            int64_t c_file_offset
+            int64_t c_nbytes
+
+        c_file_offset = file_offset
+        c_nbytes = nbytes
+
+        handle = self.get_random_access_file()
+
+        data = GetResultValue(
+            CRandomAccessFile.GetStream(handle, c_file_offset, c_nbytes))
+
+        stream = NativeFile()
+        stream.set_input_stream(data)
+        stream.is_readable = True
+
+        return stream
 
     def read_at(self, nbytes, offset):
         """
@@ -730,6 +775,13 @@ cdef class PythonFile(NativeFile):
     As a downside, there is a non-zero redirection cost in translating
     Arrow stream calls to Python method calls.  Furthermore, Python's
     Global Interpreter Lock may limit parallelism in some situations.
+
+    Examples
+    --------
+    >>> import io
+    >>> import pyarrow as pa
+    >>> pa.PythonFile(io.BytesIO())
+    <pyarrow.PythonFile closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
     """
     cdef:
         object handle
@@ -885,7 +937,7 @@ def memory_map(path, mode='r'):
     ----------
     path : str
     mode : {'r', 'r+', 'w'}, default 'r'
-        Whether the file is opened for reading ('r+'), writing ('w')
+        Whether the file is opened for reading ('r'), writing ('w')
         or both ('r+').
 
     Returns
@@ -1016,6 +1068,14 @@ cdef class Buffer(_Weakrefable):
 
     def __len__(self):
         return self.size
+
+    def __repr__(self):
+        name = f"pyarrow.{self.__class__.__name__}"
+        return (f"<{name} "
+                f"address={hex(self.address)} "
+                f"size={self.size} "
+                f"is_cpu={self.is_cpu} "
+                f"is_mutable={self.is_mutable}>")
 
     @property
     def size(self):
@@ -1807,6 +1867,17 @@ cdef class Codec(_Weakrefable):
     ------
     ValueError
         If invalid compression value is passed.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.Codec.is_available('gzip')
+    True
+    >>> codec = pa.Codec('gzip')
+    >>> codec.name
+    'gzip'
+    >>> codec.compression_level
+    9
     """
 
     def __init__(self, str compression not None, compression_level=None):
@@ -1928,7 +1999,9 @@ cdef class Codec(_Weakrefable):
     @property
     def compression_level(self):
         """Returns the compression level parameter of the codec"""
-        return frombytes(self.unwrap().compression_level())
+        if self.name == 'snappy':
+            return None
+        return self.unwrap().compression_level()
 
     def compress(self, object buf, asbytes=False, memory_pool=None):
         """
@@ -2043,6 +2116,12 @@ cdef class Codec(_Weakrefable):
             )
 
         return pybuf if asbytes else out_buf
+
+    def __repr__(self):
+        name = f"pyarrow.{self.__class__.__name__}"
+        return (f"<{name} "
+                f"name={self.name} "
+                f"compression_level={self.compression_level}>")
 
 
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):

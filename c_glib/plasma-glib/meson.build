@@ -108,6 +108,7 @@ if have_gi
                        dependencies: gir_dependencies,
                        export_packages: 'plasma-glib',
                        extra_args: gir_extra_args,
+                       fatal_warnings: gi_fatal_warnings,
                        header: 'plasma-glib/plasma-glib.h',
                        identifier_prefix: 'GPlasma',
                        includes: gir_includes,

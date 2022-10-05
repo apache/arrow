@@ -17,12 +17,13 @@
 
 from pathlib import Path
 import time
+import sys
 
 import click
 
 from .core import Config, Repo, Queue, Target, Job, CrossbowError
 from .reports import (ChatReport, Report, ReportUtils, ConsoleReport,
-                      EmailReport)
+                      EmailReport, CommentReport)
 from ..utils.source import ArrowSources
 
 
@@ -273,16 +274,65 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
               help='Fetch references (branches and tags) from the remote')
 @click.option('--task-filter', '-f', 'task_filters', multiple=True,
               help='Glob pattern for filtering relevant tasks')
+@click.option('--validate/--no-validate', default=False,
+              help='Return non-zero exit code '
+                   'if there is any non-success task')
 @click.pass_obj
-def status(obj, job_name, fetch, task_filters):
+def status(obj, job_name, fetch, task_filters, validate):
     output = obj['output']
     queue = obj['queue']
     if fetch:
         queue.fetch()
     job = queue.get(job_name)
 
+    success = True
+
+    def asset_callback(task_name, task, asset):
+        nonlocal success
+        if task.status().combined_state in {'error', 'failure'}:
+            success = False
+        if asset is None:
+            success = False
+
     report = ConsoleReport(job, task_filters=task_filters)
-    report.show(output)
+    report.show(output, asset_callback=asset_callback)
+    if validate and not success:
+        sys.exit(1)
+
+
+@crossbow.command()
+@click.option('--arrow-remote', '-r', default=None,
+              help='Set GitHub remote explicitly, which is going to be cloned '
+                   'on the CI services. Note, that no validation happens '
+                   'locally. Examples: "https://github.com/apache/arrow" or '
+                   '"raulcd/arrow".')
+@click.option('--crossbow', '-c', default='ursacomputing/crossbow',
+              help='Crossbow repository on github to use')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
+@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
+              help='OAuth token to create comments in the arrow repo. '
+                   'Only necessary if --track-on-pr-titled is set.')
+@click.option('--job-name', required=True)
+@click.option('--pr-title', required=True,
+              help='Track the job submitted on PR with given title')
+@click.pass_obj
+def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
+              pr_title):
+    arrow = obj['arrow']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+    job = queue.get(job_name)
+
+    report = CommentReport(job, crossbow_repo=crossbow)
+    target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
+    pull_request = target_arrow.github_pr(title=pr_title,
+                                          github_token=github_token,
+                                          create=False)
+    # render the response comment's content on the PR
+    pull_request.create_comment(report.show())
+    click.echo(f'Job is tracked on PR {pull_request.html_url}')
 
 
 @crossbow.command()

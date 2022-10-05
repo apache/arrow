@@ -436,3 +436,148 @@ test_that("query_can_stream()", {
       query_can_stream()
   )
 })
+
+test_that("show_exec_plan(), show_query() and explain()", {
+  # show_query() and explain() are wrappers around show_exec_plan() and are not
+  # tested separately
+
+  # minimal test - this fails if we don't coerce the input to `show_exec_plan()`
+  # to be an `arrow_dplyr_query`
+  expect_output(
+    mtcars %>%
+      arrow_table() %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with 2 nodes:.*", # boiler plate for ExecPlan
+      "SinkNode.*", # output
+      "TableSourceNode" # entry point
+    )
+  )
+
+  # arrow_table and mutate
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      filter(dbl > 2, chr != "e") %>%
+      select(chr, int, lgl) %>%
+      mutate(int_plus_ten = int + 10) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "chr, int, lgl, \"int_plus_ten\".*", # selected columns
+      "FilterNode.*", # filter node
+      "(dbl > 2).*", # filter expressions
+      "chr != \"e\".*",
+      "TableSourceNode" # entry point
+    )
+  )
+
+  # record_batch and mutate
+  expect_output(
+    tbl %>%
+      record_batch() %>%
+      filter(dbl > 2, chr != "e") %>%
+      select(chr, int, lgl) %>%
+      mutate(int_plus_ten = int + 10) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "chr, int, lgl, \"int_plus_ten\".*", # selected columns
+      "(dbl > 2).*", # the filter expressions
+      "chr != \"e\".*",
+      "TableSourceNode" # the entry point"
+    )
+  )
+
+  # test with group_by and summarise
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      group_by(lgl) %>%
+      summarise(avg = mean(dbl, na.rm = TRUE)) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*", # output columns
+      "GroupByNode.*", # the group_by statement
+      "keys=.*lgl.*", # the key for the aggregations
+      "aggregates=.*hash_mean.*avg.*", # the aggregations
+      "ProjectNode.*", # the input columns
+      "TableSourceNode" # the entry point
+    )
+  )
+
+  # test with join
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      left_join(
+        example_data %>%
+          arrow_table() %>%
+          mutate(doubled_dbl = dbl * 2) %>%
+          select(int, doubled_dbl),
+        by = "int"
+      ) %>%
+      select(int, verses, doubled_dbl) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*", # output columns
+      "HashJoinNode.*", # the join
+      "ProjectNode.*", # input columns for the second table
+      "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # mutate
+      "TableSourceNode.*", # second table
+      "TableSourceNode" # first table
+    )
+  )
+
+  expect_output(
+    mtcars %>%
+      arrow_table() %>%
+      filter(mpg > 20) %>%
+      arrange(desc(wt)) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "OrderBySinkNode.*wt.*DESC.*", # arrange goes via the OrderBy sink node
+      "FilterNode.*", # filter node
+      "TableSourceNode.*" # entry point
+    )
+  )
+
+  # printing the ExecPlan for a nested query would currently force the
+  # evaluation of the inner one(s), which we want to avoid => no output
+  expect_warning(
+    mtcars %>%
+      arrow_table() %>%
+      filter(mpg > 20) %>%
+      arrange(desc(wt)) %>%
+      head(3) %>%
+      show_exec_plan(),
+    "The `ExecPlan` cannot be printed for a nested query."
+  )
+})
+
+test_that("needs_projection unit tests", {
+  tab <- Table$create(tbl)
+  # Wrapper to simplify tests
+  query_needs_projection <- function(query) {
+    needs_projection(query$selected_columns, tab$schema)
+  }
+  expect_false(query_needs_projection(as_adq(tab)))
+  expect_false(query_needs_projection(
+    tab %>% collapse() %>% collapse()
+  ))
+  expect_true(query_needs_projection(
+    tab %>% mutate(int = int + 2)
+  ))
+  expect_true(query_needs_projection(
+    tab %>% select(int, chr)
+  ))
+  expect_true(query_needs_projection(
+    tab %>% rename(int2 = int)
+  ))
+  expect_true(query_needs_projection(
+    tab %>% relocate(lgl)
+  ))
+})

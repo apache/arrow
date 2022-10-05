@@ -64,7 +64,9 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
 /// \brief An extended Source node which accepts a table
 class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
  public:
-  TableSourceNodeOptions(std::shared_ptr<Table> table, int64_t max_batch_size)
+  static constexpr int64_t kDefaultMaxBatchSize = 1 << 20;
+  TableSourceNodeOptions(std::shared_ptr<Table> table,
+                         int64_t max_batch_size = kDefaultMaxBatchSize)
       : table(table), max_batch_size(max_batch_size) {}
 
   // arrow table which acts as the data source

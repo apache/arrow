@@ -143,6 +143,10 @@ struct ScalarFromArraySlotImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunLengthEncodedArray& a) {
+    return Status::NotImplemented("Creating scalar from encoded array");
+  }
+
   Status Visit(const ExtensionArray& a) {
     ARROW_ASSIGN_OR_RAISE(auto storage, a.storage()->GetScalar(index_));
     out_ = std::make_shared<ExtensionScalar>(std::move(storage), a.type());

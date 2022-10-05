@@ -47,8 +47,8 @@ ds <- InMemoryDataset$create(mtcars)
 
 ds \%>\%
   filter(mpg < 30) \%>\%
-  to_duckdb() \%>\%
   group_by(cyl) \%>\%
-  summarize(mean_mpg = mean(mpg, na.rm = TRUE))
+  to_duckdb() \%>\%
+  slice_min(disp)
 \dontshow{\}) # examplesIf}
 }

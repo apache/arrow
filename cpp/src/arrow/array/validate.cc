@@ -30,6 +30,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/rle_util.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
@@ -408,6 +409,94 @@ struct ValidateArrayImpl {
           CheckBounds(*type.index_type(), 0, data.dictionary->length - 1);
       if (!indices_status.ok()) {
         return Status::Invalid("Dictionary indices invalid: ", indices_status.ToString());
+      }
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const RunLengthEncodedType& type) {
+    // overflow was already checked at this point
+    if (data.offset + data.length > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid(
+          "Offset + length of an RLE array must fit in a signed 32-bit integer, but was ",
+          data.offset + data.length, " while the allowed maximum is ",
+          std::numeric_limits<int32_t>::max());
+    }
+    if (!data.child_data[0]) {
+      return Status::Invalid("Run ends array is null pointer");
+    }
+    if (!data.child_data[1]) {
+      return Status::Invalid("Values array is null pointer");
+    }
+    const ArrayData& run_ends_data = *data.child_data[0];
+    const ArrayData& values_data = *data.child_data[1];
+    if (run_ends_data.type != int32()) {
+      return Status::Invalid("Run ends array must be int32 type, but is ",
+                             *run_ends_data.type);
+    }
+    if (values_data.type != type.encoded_type()) {
+      return Status::Invalid("Parent type says this array encodes ", *type.encoded_type(),
+                             " values, but values array has type ", *values_data.type);
+    }
+    const Status run_ends_valid = RecurseInto(run_ends_data);
+    if (!run_ends_valid.ok()) {
+      return Status::Invalid("Run ends array invalid: ", run_ends_valid.ToString());
+    }
+    const Status values_valid = RecurseInto(values_data);
+    if (!values_valid.ok()) {
+      return Status::Invalid("Values array invalid: ", values_valid.ToString());
+    }
+    if (data.null_count != 0) {
+      return Status::Invalid("Null count must be 0 for RLE array, but was ",
+                             data.null_count);
+    }
+    if (run_ends_data.null_count != 0) {
+      return Status::Invalid("Null count must be 0 for run ends array, but was ",
+                             run_ends_data.null_count);
+    }
+    ArraySpan span(data);
+    const int32_t* run_ends = rle_util::RunEnds(span);
+    if (run_ends[run_ends_data.length - 1] < data.offset + data.length) {
+      return Status::Invalid(
+          "Last run in run ends array ends at ", run_ends[run_ends_data.length - 1],
+          " but this array requires at least ", data.offset + data.length, " (offset ",
+          data.offset, ", length ", data.length, ")");
+    }
+    if (full_validation && values_data.length != 0) {
+      const int64_t run_ends_length = rle_util::RunEndsArray(span).length;
+      int32_t last_run_end = 0;
+      int32_t physical_offset = 0;
+      int32_t physical_end = 0;
+      for (int64_t index = 0; index < run_ends_length; index++) {
+        int32_t run_end = run_ends[index];
+        if (run_end < 1) {
+          return Status::Invalid(
+              "Run ends array invalid: All run ends must be a positive integer but run "
+              "end ",
+              index, " is ", run_end);
+        }
+        if (run_end <= last_run_end) {
+          return Status::Invalid(
+              "Run ends array invalid: Each run end must be greater than the prevous "
+              "one, but run end ",
+              index, " is ", run_end, " and run end ", index - 1, " is ", last_run_end);
+        }
+        if (run_end > data.offset && last_run_end <= data.offset) {
+          physical_offset = index;
+        }
+        if (run_end >= data.offset + data.length &&
+            last_run_end < data.offset + data.length) {
+          physical_end = index + 1;
+        }
+        last_run_end = run_end;
+      };
+      ARROW_DCHECK_EQ(physical_offset, rle_util::GetPhysicalOffset(span));
+      ARROW_DCHECK_EQ(physical_end, physical_offset + rle_util::GetPhysicalLength(span));
+      if (values_data.length < physical_end) {
+        return Status::Invalid(
+            "Values array needs at least ", physical_end,
+            " elements to hold the runs described by the run ends array, but only has ",
+            values_data.length);
       }
     }
     return Status::OK();

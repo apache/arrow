@@ -762,6 +762,25 @@ TEST_P(MergedGeneratorTestFixture, MergedRecursion) {
   }
 }
 
+TEST_P(MergedGeneratorTestFixture, DeepOuterGeneratorStackOverflow) {
+  // Simulate a very deep and very quick outer generator that yields simple
+  // inner generators.  Everything completes synchronously.  This is to
+  // try and provoke a stack overflow the simulates ARROW-16692
+  constexpr int kNumItems = 10000;
+  constexpr int kMaxSubscriptions = 8;
+  std::vector<AsyncGenerator<TestInt>> inner_generators;
+  for (int i = 0; i < kNumItems; i++) {
+    inner_generators.push_back(MakeVectorGenerator<TestInt>({}));
+  }
+  AsyncGenerator<AsyncGenerator<TestInt>> outer_generator =
+      MakeVectorGenerator(inner_generators);
+  AsyncGenerator<TestInt> merged =
+      MakeMergedGenerator(outer_generator, kMaxSubscriptions);
+  ASSERT_FINISHES_OK_AND_ASSIGN(std::vector<TestInt> collected,
+                                CollectAsyncGenerator(std::move(merged)));
+  ASSERT_TRUE(collected.empty());
+}
+
 INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, MergedGeneratorTestFixture,
                          ::testing::Values(false, true));
 

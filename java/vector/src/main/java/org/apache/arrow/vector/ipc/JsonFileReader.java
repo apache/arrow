@@ -784,8 +784,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   @Override
   public void close() throws IOException {
     parser.close();
-    for (Dictionary dictionary : dictionaries.values()) {
-      dictionary.getVector().close();
+    if (dictionaries != null) {
+      for (Dictionary dictionary : dictionaries.values()) {
+        dictionary.getVector().close();
+      }
     }
   }
 

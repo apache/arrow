@@ -229,51 +229,30 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #' Handle a range of possible input sources
 #' @param file A character file name, `raw` vector, or an Arrow input stream
 #' @param mmap Logical: whether to memory-map the file (default `TRUE`)
-#' @param compression If the file is compressed, created a [CompressedInputStream]
-#' with this compression codec, either a [Codec] or the string name of one.
-#' If `NULL` (default) and `file` is a string file name, the function will try
-#' to infer compression from the file extension.
-#' @param filesystem If not `NULL`, `file` will be opened via the
-#' `filesystem$OpenInputFile()` filesystem method, rather than the `io` module's
-#' `MemoryMappedFile` or `ReadableFile` constructors.
 #' @return An `InputStream` or a subclass of one.
 #' @keywords internal
-make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem = NULL) {
+make_readable_file <- function(file, mmap = TRUE) {
   if (inherits(file, "SubTreeFileSystem")) {
     filesystem <- file$base_fs
-    # SubTreeFileSystem adds a slash to base_path, but filesystems will reject file names
-    # with trailing slashes, so we need to remove it here.
-    file <- sub("/$", "", file$base_path)
-  }
-  if (is.string(file)) {
+    # SubTreeFileSystem adds a slash to base_path, but filesystems will reject
+    # file names with trailing slashes, so we need to remove it here.
+    path <- sub("/$", "", file$base_path)
+    file <- filesystem$OpenInputFile(path)
+  } else if (is.string(file)) {
     if (is_url(file)) {
       file <- tryCatch(
         {
           fs_and_path <- FileSystem$from_uri(file)
-          filesystem <- fs_and_path$fs
-          fs_and_path$path
+          fs_and_path$fs$OpenInputFile(fs_and_path$path)
         },
         error = function(e) {
           MakeRConnectionInputStream(url(file, open = "rb"))
         }
       )
-    }
-
-    if (is.null(compression)) {
-      # Infer compression from the file path
-      compression <- detect_compression(file)
-    }
-
-    if (!is.null(filesystem)) {
-      file <- filesystem$OpenInputFile(file)
-    } else if (is.string(file) && isTRUE(mmap)) {
+    } else if (isTRUE(mmap)) {
       file <- mmap_open(file)
-    } else if (is.string(file)) {
+    } else {
       file <- ReadableFile$create(file)
-    }
-
-    if (is_compressed(compression)) {
-      file <- CompressedInputStream$create(file, compression)
     }
   } else if (inherits(file, c("raw", "Buffer"))) {
     file <- BufferReader$create(file)
@@ -294,7 +273,7 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   file
 }
 
-make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
+make_output_stream <- function(x) {
   if (inherits(x, "connection")) {
     if (!isOpen(x)) {
       open(x, "wb")
@@ -305,45 +284,36 @@ make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
 
   if (inherits(x, "SubTreeFileSystem")) {
     filesystem <- x$base_fs
-    # SubTreeFileSystem adds a slash to base_path, but filesystems will reject file names
-    # with trailing slashes, so we need to remove it here.
-    x <- sub("/$", "", x$base_path)
+    # SubTreeFileSystem adds a slash to base_path, but filesystems will reject
+    # file names with trailing slashes, so we need to remove it here.
+    path <- sub("/$", "", x$base_path)
+    filesystem$OpenOutputStream(path)
   } else if (is_url(x)) {
     fs_and_path <- FileSystem$from_uri(x)
-    filesystem <- fs_and_path$fs
-    x <- fs_and_path$path
-  }
-
-  if (is.null(compression)) {
-    # Infer compression from sink
-    compression <- detect_compression(x)
-  }
-
-  assert_that(is.string(x))
-  if (is.null(filesystem) && is_compressed(compression)) {
-    CompressedOutputStream$create(x) ## compressed local
-  } else if (is.null(filesystem) && !is_compressed(compression)) {
-    FileOutputStream$create(x) ## uncompressed local
-  } else if (!is.null(filesystem) && is_compressed(compression)) {
-    CompressedOutputStream$create(filesystem$OpenOutputStream(x)) ## compressed remote
+    fs_and_path$fs$OpenOutputStream(fs_and_path$path)
   } else {
-    filesystem$OpenOutputStream(x) ## uncompressed remote
+    assert_that(is.string(x))
+    FileOutputStream$create(x)
   }
 }
 
 detect_compression <- function(path) {
+  if (inherits(path, "SubTreeFileSystem")) {
+    path <- path$base_path
+  }
   if (!is.string(path)) {
     return("uncompressed")
   }
 
-  # Remove any trailing slashes, which FileSystem$from_uri may add
+  # Remove any trailing slashes, which SubTreeFileSystem may add
   path <- sub("/$", "", path)
 
   switch(tools::file_ext(path),
     bz2 = "bz2",
     gz = "gzip",
-    lz4 = "lz4",
+    lz4 = "lz4_frame",
     zst = "zstd",
+    snappy = "snappy",
     "uncompressed"
   )
 }

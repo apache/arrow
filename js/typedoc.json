@@ -9,6 +9,7 @@
     "includeVersion": true,
     "exclude": [
         "src/fb/*.ts",
-        "src/bin/*.ts"
+        "src/bin/*.ts",
+        "src/ipc/metadata/message.ts"
     ]
 }

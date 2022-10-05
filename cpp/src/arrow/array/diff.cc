@@ -118,6 +118,10 @@ struct ValueComparatorVisitor {
     return Status::NotImplemented("dictionary type");
   }
 
+  Status Visit(const RunLengthEncodedType&) {
+    return Status::NotImplemented("run-length encoded type");
+  }
+
   ValueComparator Create(const DataType& type) {
     DCHECK_OK(VisitTypeInline(type, this));
     return out;
@@ -382,6 +386,8 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
     return Diff(*base_storage, *target_storage, pool);
   } else if (base.type()->id() == Type::DICTIONARY) {
     return Status::NotImplemented("diffing arrays of type ", *base.type());
+  } else if (base.type()->id() == Type::RUN_LENGTH_ENCODED) {
+    return Status::NotImplemented("diffing arrays of type ", *base.type());
   } else {
     return QuadraticSpaceMyersDiff(base, target, pool).Diff();
   }
@@ -630,6 +636,10 @@ class MakeFormatterImpl {
   }
 
   Status Visit(const MonthIntervalType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const RunLengthEncodedType& t) {
     return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 
