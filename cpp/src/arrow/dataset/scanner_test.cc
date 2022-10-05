@@ -448,6 +448,12 @@ struct ScannerTestParams {
   }
 };
 
+std::ostream& operator<<(std::ostream& out, const ScannerTestParams& params) {
+  out << (params.slow ? "slow-" : "fast-") << params.num_fragments << "f-"
+      << params.num_batches << "b";
+  return out;
+}
+
 constexpr int kRowsPerTestBatch = 1024;
 
 std::shared_ptr<Schema> ScannerTestSchema() {
