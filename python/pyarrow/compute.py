@@ -75,7 +75,6 @@ from pyarrow._compute import (  # noqa
     # Functions
     call_function,
     function_registry,
-    make_registry,
     get_function,
     list_functions,
     _group_by,
