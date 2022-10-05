@@ -278,6 +278,9 @@ test_that("ARROW-14071 - function(x)-style lambda functions are not supported", 
 })
 
 test_that("ARROW-14071 - \(x)-style lambda functions are not supported", {
+
+  skip_if(getRversion() < "4.1", "\(x) style functions only introduced in R 4.1")
+
   expect_error(
     expand_across(as_adq(example_data), quos(across(.cols = c(dbl, dbl2), list(\(x) {
       head(x, 1)
