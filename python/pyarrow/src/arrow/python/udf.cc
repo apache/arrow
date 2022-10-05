@@ -18,6 +18,7 @@
 #include "arrow/python/udf.h"
 #include "arrow/compute/function.h"
 #include "arrow/python/common.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -99,22 +100,33 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
   auto scalar_func = std::make_shared<compute::ScalarFunction>(
       options.func_name, options.arity, options.func_doc);
   Py_INCREF(user_function);
-  std::vector<compute::InputType> input_types;
-  for (const auto& in_dtype : options.input_types) {
-    input_types.emplace_back(in_dtype);
-  }
-  compute::OutputType output_type(options.output_type);
-  auto udf_data = std::make_shared<PythonUdf>(
-      wrapper, std::make_shared<OwnedRefNoGIL>(user_function), options.output_type);
-  compute::ScalarKernel kernel(
-      compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
-                                     options.arity.is_varargs),
-      PythonUdfExec);
-  kernel.data = std::move(udf_data);
 
-  kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
-  kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
-  RETURN_NOT_OK(scalar_func->AddKernel(std::move(kernel)));
+  const size_t num_kernels = options.input_arg_types.size();
+  // number of input_type variations and output_types must be
+  // equal in size
+  if(num_kernels != options.output_types.size()) {
+    return Status::Invalid("input_arg_types and output_types should be equal in size");
+  }
+  // adding kernels
+  for(size_t idx=0 ; idx < num_kernels; idx++) {
+    const auto& opt_input_types = options.input_arg_types[idx];
+    std::vector<compute::InputType> input_types;
+    for (const auto& in_dtype : opt_input_types) {
+      input_types.emplace_back(in_dtype);
+    }
+    const auto opts_out_type = options.output_types[idx];
+    compute::OutputType output_type(opts_out_type);
+    auto udf_data = std::make_shared<PythonUdf>(
+      wrapper, std::make_shared<OwnedRefNoGIL>(user_function), opts_out_type);
+    compute::ScalarKernel kernel(
+        compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
+                                      options.arity.is_varargs), PythonUdfExec);
+    kernel.data = std::move(udf_data);
+
+    kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
+    kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
+    RETURN_NOT_OK(scalar_func->AddKernel(std::move(kernel)));
+  }
   auto registry = compute::GetFunctionRegistry();
   RETURN_NOT_OK(registry->AddFunction(std::move(scalar_func)));
   return Status::OK();

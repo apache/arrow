@@ -2814,8 +2814,8 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
         c_string func_name
         CArity arity
         CFunctionDoc func_doc
-        vector[shared_ptr[CDataType]] input_types
-        shared_ptr[CDataType] output_type
+        vector[vector[shared_ptr[CDataType]]] input_arg_types
+        vector[shared_ptr[CDataType]] output_types
 
     CStatus RegisterScalarFunction(PyObject* function,
                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options)

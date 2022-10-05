@@ -54,8 +54,8 @@ def unary_func_fixture():
     pc.register_scalar_function(unary_function,
                                 func_name,
                                 unary_doc,
-                                {"array": pa.int64()},
-                                pa.int64())
+                                [{"array": pa.int64()}],
+                                [pa.int64()])
     return unary_function, func_name
 
 
@@ -73,10 +73,12 @@ def binary_func_fixture():
     pc.register_scalar_function(binary_function,
                                 func_name,
                                 binary_doc,
-                                {"m": pa.int64(),
-                                 "x": pa.int64(),
-                                 },
-                                pa.int64())
+                                [
+                                    {"m": pa.int64(),
+                                     "x": pa.int64(),
+                                     }
+                                ],
+                                [pa.int64()])
     return binary_function, func_name
 
 
@@ -96,12 +98,12 @@ def ternary_func_fixture():
     pc.register_scalar_function(ternary_function,
                                 func_name,
                                 ternary_doc,
-                                {
+                                [{
                                     "array1": pa.int64(),
                                     "array2": pa.int64(),
                                     "array3": pa.int64(),
-                                },
-                                pa.int64())
+                                }],
+                                [pa.int64()])
     return ternary_function, func_name
 
 
@@ -123,11 +125,11 @@ def varargs_func_fixture():
     pc.register_scalar_function(varargs_function,
                                 func_name,
                                 varargs_doc,
-                                {
+                                [{
                                     "array1": pa.int64(),
                                     "array2": pa.int64(),
-                                },
-                                pa.int64())
+                                }],
+                                [pa.int64()])
     return varargs_function, func_name
 
 
@@ -148,8 +150,8 @@ def nullary_func_fixture():
     pc.register_scalar_function(nullary_func,
                                 func_name,
                                 func_doc,
-                                {},
-                                pa.int64())
+                                [{}],
+                                [pa.int64()])
 
     return nullary_func, func_name
 
@@ -164,14 +166,14 @@ def wrong_output_type_func_fixture():
         return 42
 
     func_name = "test_wrong_output_type"
-    in_types = {}
-    out_type = pa.int64()
+    in_types = [{}]
+    out_types = [pa.int64()]
     doc = {
         "summary": "return wrong output type",
         "description": ""
     }
     pc.register_scalar_function(wrong_output_type, func_name, doc,
-                                in_types, out_type)
+                                in_types, out_types)
     return wrong_output_type, func_name
 
 
@@ -184,15 +186,15 @@ def wrong_output_datatype_func_fixture():
     def wrong_output_datatype(ctx, array):
         return pc.call_function("add", [array, 1])
     func_name = "test_wrong_output_datatype"
-    in_types = {"array": pa.int64()}
+    in_types = [{"array": pa.int64()}]
     # The actual output DataType will be int64.
-    out_type = pa.int16()
+    out_types = [pa.int16()]
     doc = {
         "summary": "return wrong output datatype",
         "description": ""
     }
     pc.register_scalar_function(wrong_output_datatype, func_name, doc,
-                                in_types, out_type)
+                                in_types, out_types)
     return wrong_output_datatype, func_name
 
 
@@ -206,14 +208,14 @@ def wrong_signature_func_fixture():
         return pa.scalar(1, type=pa.int64())
 
     func_name = "test_wrong_signature"
-    in_types = {}
-    out_type = pa.int64()
+    in_types = [{}]
+    out_types = [pa.int64()]
     doc = {
         "summary": "UDF with wrong signature",
         "description": ""
     }
     pc.register_scalar_function(wrong_signature, func_name, doc,
-                                in_types, out_type)
+                                in_types, out_types)
     return wrong_signature, func_name
 
 
@@ -230,7 +232,7 @@ def raising_func_fixture():
         "description": ""
     }
     pc.register_scalar_function(raising_func, func_name, doc,
-                                {}, pa.int64())
+                                [{}], [pa.int64()])
     return raising_func, func_name
 
 
@@ -311,8 +313,8 @@ def test_registration_errors():
         "summary": "test udf input",
         "description": "parameters are validated"
     }
-    in_types = {"scalar": pa.int64()}
-    out_type = pa.int64()
+    in_types = [{"scalar": pa.int64()}]
+    out_types = [pa.int64()]
 
     def test_reg_function(context):
         return pa.array([10])
@@ -320,39 +322,39 @@ def test_registration_errors():
     with pytest.raises(TypeError):
         pc.register_scalar_function(test_reg_function,
                                     None, doc, in_types,
-                                    out_type)
+                                    out_types)
 
     # validate function
     with pytest.raises(TypeError, match="func must be a callable"):
         pc.register_scalar_function(None, "test_none_function", doc, in_types,
-                                    out_type)
+                                    out_types)
 
     # validate output type
-    expected_expr = "DataType expected, got <class 'NoneType'>"
+    expected_expr = "out_types must be a list of DataTypes"
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(test_reg_function,
                                     "test_output_function", doc, in_types,
                                     None)
 
     # validate input type
-    expected_expr = "in_types must be a dictionary of DataType"
+    expected_expr = "in_arg_types must be a list of dictionaries of DataTypes"
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(test_reg_function,
                                     "test_input_function", doc, None,
-                                    out_type)
+                                    out_types)
 
     # register an already registered function
     # first registration
     pc.register_scalar_function(test_reg_function,
-                                "test_reg_function", doc, {},
-                                out_type)
+                                "test_reg_function", doc, [{}],
+                                out_types)
     # second registration
     expected_expr = "Already have a function registered with name:" \
         + " test_reg_function"
     with pytest.raises(KeyError, match=expected_expr):
         pc.register_scalar_function(test_reg_function,
-                                    "test_reg_function", doc, {},
-                                    out_type)
+                                    "test_reg_function", doc, [{}],
+                                    out_types)
 
 
 def test_varargs_function_validation(varargs_func_fixture):
@@ -366,8 +368,8 @@ def test_varargs_function_validation(varargs_func_fixture):
 
 def test_function_doc_validation():
     # validate arity
-    in_types = {"scalar": pa.int64()}
-    out_type = pa.int64()
+    in_types = [{"scalar": pa.int64()}]
+    out_type = [pa.int64()]
 
     # doc with no summary
     func_doc = {
@@ -396,7 +398,7 @@ def test_function_doc_validation():
 
 
 def test_nullary_function(nullary_func_fixture):
-    # XXX the Python compute layer API doesn't let us override batch_length,
+    # the Python compute layer API doesn't let us override batch_length,
     # so only test with the default value of 1.
     check_scalar_function(nullary_func_fixture, [], run_in_dataset=False,
                           batch_length=1)
@@ -435,8 +437,8 @@ def test_wrong_datatype_declaration():
         return val
 
     func_name = "test_wrong_datatype_declaration"
-    in_types = {"array": pa.int64()}
-    out_type = {}
+    in_types = [{"array": pa.int64()}]
+    out_type = [{}]
     doc = {
         "summary": "test output value",
         "description": "test output"
@@ -452,8 +454,8 @@ def test_wrong_input_type_declaration():
         return val
 
     func_name = "test_wrong_input_type_declaration"
-    in_types = {"array": None}
-    out_type = pa.int64()
+    in_types = [{"array": None}]
+    out_types = [pa.int64()]
     doc = {
         "summary": "test invalid input type",
         "description": "invalid input function"
@@ -461,7 +463,7 @@ def test_wrong_input_type_declaration():
     with pytest.raises(TypeError,
                        match="DataType expected, got <class 'NoneType'>"):
         pc.register_scalar_function(identity, func_name, doc,
-                                    in_types, out_type)
+                                    in_types, out_types)
 
 
 def test_udf_context(unary_func_fixture):
@@ -504,3 +506,75 @@ def test_input_lifetime(unary_func_fixture):
     # Calling a UDF should not have kept `v` alive longer than required
     v = None
     assert proxy_pool.bytes_allocated() == 0
+
+
+def test_multi_kernel_registration():
+    """
+    Register a unary scalar function.
+    """
+    def unary_function(ctx, x):
+        return pc.cast(pc.call_function("multiply", [x, 2],
+                                        memory_pool=ctx.memory_pool), x.type)
+    func_name = "y=x*1"
+    unary_doc = {"summary": "add function",
+                 "description": "test add function"}
+    input_types = [
+        {"array": pa.int8()},
+        {"array": pa.int16()},
+        {"array": pa.int32()},
+        {"array": pa.int64()},
+        {"array": pa.float32()},
+        {"array": pa.float64()}
+    ]
+
+    output_types = [
+        pa.int8(),
+        pa.int16(),
+        pa.int32(),
+        pa.int64(),
+        pa.float32(),
+        pa.float64()
+    ]
+    pc.register_scalar_function(unary_function,
+                                func_name,
+                                unary_doc,
+                                input_types,
+                                output_types)
+
+    for out_type in output_types:
+        assert pc.call_function(func_name,
+                                [pa.array([10, 20], out_type)]) \
+            == pa.array([20, 40], out_type)
+
+
+def test_invalid_multi_kernel_registration():
+    """
+    Register a unary scalar function.
+    """
+    def unary_function(ctx, x):
+        return pc.cast(pc.call_function("multiply", [x, 2],
+                                        memory_pool=ctx.memory_pool), x.type)
+    func_name = "y=x*1"
+    unary_doc = {"summary": "add function",
+                 "description": "test add function"}
+    input_types = [
+        {"array": pa.int8()},
+        {"array": pa.int16()},
+        {"array": pa.float32()},
+        {"array": pa.float64()}
+    ]
+
+    output_types = [
+        pa.int8(),
+        pa.int16(),
+        pa.int64(),
+        pa.float32(),
+        pa.float64()
+    ]
+    error_msg = "input_arg_types and output_types should be equal in size"
+    with pytest.raises(pa.lib.ArrowInvalid, match=error_msg):
+        pc.register_scalar_function(unary_function,
+                                    func_name,
+                                    unary_doc,
+                                    input_types,
+                                    output_types)

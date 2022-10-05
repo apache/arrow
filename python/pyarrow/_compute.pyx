@@ -2591,8 +2591,8 @@ def _get_scalar_udf_context(memory_pool, batch_length):
     return context
 
 
-def register_scalar_function(func, function_name, function_doc, in_types,
-                             out_type):
+def register_scalar_function(func, function_name, function_doc, in_arg_types,
+                             out_types):
     """
     Register a user-defined scalar function.
 
@@ -2624,15 +2624,15 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
-    in_types : Dict[str, DataType]
-        A dictionary mapping function argument names to
+    in_arg_types : List[Dict[str, DataType]]
+        A list of dictionary mapping function argument names to
         their respective DataType.
         The argument names will be used to generate
         documentation for the function. The number of
         arguments specified here determines the function
         arity.
-    out_type : DataType
-        Output type of the function.
+    out_types : List[DataType]
+        Output types of the function.
 
     Examples
     --------
@@ -2666,9 +2666,10 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         c_string c_func_name
         CArity c_arity
         CFunctionDoc c_func_doc
+        vector[vector[shared_ptr[CDataType]]] vec_c_in_types
         vector[shared_ptr[CDataType]] c_in_types
         PyObject* c_function
-        shared_ptr[CDataType] c_out_type
+        vector[shared_ptr[CDataType]] c_out_types
         CScalarUdfOptions c_options
 
     if callable(func):
@@ -2680,15 +2681,29 @@ def register_scalar_function(func, function_name, function_doc, in_types,
 
     func_spec = inspect.getfullargspec(func)
     num_args = -1
-    if isinstance(in_types, dict):
-        for in_type in in_types.values():
-            c_in_types.push_back(
-                pyarrow_unwrap_data_type(ensure_type(in_type)))
-        function_doc["arg_names"] = in_types.keys()
-        num_args = len(in_types)
+    if not isinstance(in_arg_types, list):
+        raise TypeError(
+            "in_arg_types must be a list of dictionaries of DataTypes")
+    if not isinstance(out_types, list):
+        raise TypeError("out_types must be a list of DataTypes")
+    # each input_type dict in input_types list must
+    # have same arg_names
+    if isinstance(in_arg_types[0], dict):
+        function_doc["arg_names"] = in_arg_types[0].keys()
+        num_args = len(in_arg_types[0])
     else:
         raise TypeError(
-            "in_types must be a dictionary of DataType")
+            "Elements in in_arg_types must be a dictionary of DataTypes")
+
+    for in_types in in_arg_types:
+        if isinstance(in_types, dict):
+            for in_type in in_types.values():
+                c_in_types.push_back(
+                    pyarrow_unwrap_data_type(ensure_type(in_type)))
+        else:
+            raise TypeError(
+                "in_types must be a dictionary of DataType")
+        vec_c_in_types.push_back(move(c_in_types))
 
     c_arity = CArity(<int> num_args, func_spec.varargs)
 
@@ -2702,14 +2717,18 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         raise ValueError("Function doc must contain arg_names")
 
     c_func_doc = _make_function_doc(function_doc)
+    for out_type in out_types:
+        c_out_types.push_back(pyarrow_unwrap_data_type(ensure_type(out_type)))
 
-    c_out_type = pyarrow_unwrap_data_type(ensure_type(out_type))
+    print("out types : ", len(out_types))
+    print("in types : ", vec_c_in_types.size())
+    print("in types : ", vec_c_in_types.at(0).size())
 
     c_options.func_name = c_func_name
     c_options.arity = c_arity
     c_options.func_doc = c_func_doc
-    c_options.input_types = c_in_types
-    c_options.output_type = c_out_type
+    c_options.input_arg_types = vec_c_in_types
+    c_options.output_types = c_out_types
 
     check_status(RegisterScalarFunction(c_function,
                                         <function[CallbackUdf]> &_scalar_udf_callback, c_options))
