@@ -164,7 +164,7 @@ class TypedColumnReader : public ColumnReader {
   // may be less than the number of repetition and definition levels. With
   // nested data this is almost certainly true.
   //
-  // Set def_levels or rep_levels to nullptr if you want to reading them.
+  // Set def_levels or rep_levels to nullptr if you want to skip reading them.
   // This is only safe if you know through some other source that there are no
   // undefined values.
   //
@@ -282,7 +282,9 @@ class PARQUET_EXPORT RecordReader {
   /// \return number of records read
   virtual int64_t ReadRecords(int64_t num_records) = 0;
 
-  /// \brief Attempt to skip indicated number of records from column chunk
+  /// \brief Attempt to skip indicated number of records from column chunk.
+  /// Note that for repeated fields, a record may have more than one value
+  /// and all of them are skipped.
   /// \return number of records skipped
   virtual int64_t SkipRecords(int64_t num_records) = 0;
 
@@ -368,7 +370,7 @@ class PARQUET_EXPORT RecordReader {
   int64_t values_capacity_;
   int64_t null_count_;
 
-  /// \brief Each element corresponds to one element in 'values_' and specifies if it
+  /// \brief Each bit corresponds to one element in 'values_' and specifies if it
   /// is null or not null.
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
 

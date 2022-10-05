@@ -61,11 +61,12 @@ namespace bit_util = arrow::bit_util;
 
 namespace parquet {
 
+namespace {
+
 // The minimum number of repetition/definition levels to decode at a time, for
 // better vectorized performance when doing many smaller record reads
 constexpr int64_t kMinLevelBatchSize = 1024;
 
-namespace {
 inline bool HasSpacedValues(const ColumnDescriptor* descr) {
   if (descr->max_repetition_level() > 0) {
     // repeated+flat case
