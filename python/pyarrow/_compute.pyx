@@ -2683,7 +2683,7 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
     num_args = -1
     if not isinstance(in_arg_types, list):
         raise TypeError(
-            "in_arg_types must be a list of dictionaries of DataTypes")
+            "in_arg_types must be a list of dictionaries of DataType")
     if not isinstance(out_types, list):
         raise TypeError("out_types must be a list of DataTypes")
     # each input_type dict in input_types list must
@@ -2693,7 +2693,7 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
         num_args = len(in_arg_types[0])
     else:
         raise TypeError(
-            "Elements in in_arg_types must be a dictionary of DataTypes")
+            "Elements in in_arg_types must be a dictionary of DataType")
 
     for in_types in in_arg_types:
         if isinstance(in_types, dict):
@@ -2702,7 +2702,7 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
                     pyarrow_unwrap_data_type(ensure_type(in_type)))
         else:
             raise TypeError(
-                "in_types must be a dictionary of DataType")
+                "Elements in in_arg_types must be a dictionary of DataType")
         vec_c_in_types.push_back(move(c_in_types))
 
     c_arity = CArity(<int> num_args, func_spec.varargs)
@@ -2719,10 +2719,6 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
     c_func_doc = _make_function_doc(function_doc)
     for out_type in out_types:
         c_out_types.push_back(pyarrow_unwrap_data_type(ensure_type(out_type)))
-
-    print("out types : ", len(out_types))
-    print("in types : ", vec_c_in_types.size())
-    print("in types : ", vec_c_in_types.at(0).size())
 
     c_options.func_name = c_func_name
     c_options.arity = c_arity

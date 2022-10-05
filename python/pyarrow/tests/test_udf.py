@@ -337,7 +337,7 @@ def test_registration_errors():
                                     None)
 
     # validate input type
-    expected_expr = "in_arg_types must be a list of dictionaries of DataTypes"
+    expected_expr = "in_arg_types must be a list of dictionaries of DataType"
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(test_reg_function,
                                     "test_input_function", doc, None,
@@ -509,15 +509,12 @@ def test_input_lifetime(unary_func_fixture):
 
 
 def test_multi_kernel_registration():
-    """
-    Register a unary scalar function.
-    """
     def unary_function(ctx, x):
         return pc.cast(pc.call_function("multiply", [x, 2],
                                         memory_pool=ctx.memory_pool), x.type)
-    func_name = "y=x*1"
-    unary_doc = {"summary": "add function",
-                 "description": "test add function"}
+    func_name = "y=x*2"
+    unary_doc = {"summary": "multiply by two function",
+                 "description": "test multiply function"}
     input_types = [
         {"array": pa.int8()},
         {"array": pa.int16()},
@@ -548,28 +545,20 @@ def test_multi_kernel_registration():
 
 
 def test_invalid_multi_kernel_registration():
-    """
-    Register a unary scalar function.
-    """
     def unary_function(ctx, x):
-        return pc.cast(pc.call_function("multiply", [x, 2],
-                                        memory_pool=ctx.memory_pool), x.type)
-    func_name = "y=x*1"
-    unary_doc = {"summary": "add function",
-                 "description": "test add function"}
+        return x
+    func_name = "y=x"
+    unary_doc = {"summary": "pass value function",
+                 "description": "test function"}
     input_types = [
         {"array": pa.int8()},
-        {"array": pa.int16()},
-        {"array": pa.float32()},
-        {"array": pa.float64()}
+        {"array": pa.int16()}
     ]
 
     output_types = [
         pa.int8(),
         pa.int16(),
-        pa.int64(),
-        pa.float32(),
-        pa.float64()
+        pa.int64()
     ]
     error_msg = "input_arg_types and output_types should be equal in size"
     with pytest.raises(pa.lib.ArrowInvalid, match=error_msg):
