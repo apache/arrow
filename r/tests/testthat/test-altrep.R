@@ -256,6 +256,27 @@ test_that("element access methods for character ALTREP", {
   expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
+test_that("element access methods for character ALTREP from large_utf8()", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  original <- as.character(c(NA, 1:1000))
+  v_chr <- Array$create(original, type = large_utf8())
+  altrep <- as.vector(v_chr)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # altrep-aware iterating should not materialize
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_false(test_arrow_altrep_is_materialized(altrep))
+
+  # DATAPTR() should always materialize for strings
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+
+  # test element access after materialization
+  expect_true(test_arrow_altrep_is_materialized(altrep))
+  expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
+  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+})
+
 test_that("empty vectors are not altrep", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   v_int <- Array$create(integer())
@@ -560,6 +581,9 @@ test_that("element access methods for ALTREP factors", {
     expect_identical(test_arrow_altrep_copy_by_dataptr(f), int_indices)
     expect_true(test_arrow_altrep_is_materialized(f))
 
+    expect_identical(test_arrow_altrep_copy_by_element(f), int_indices)
+    expect_identical(test_arrow_altrep_copy_by_region(f, 3), int_indices)
+
     # with unification
     int_indices <- c(1L, 2L, 3L, 4L, 1L, NA_integer_, 5L)
     x <- ChunkedArray$create(
@@ -577,6 +601,9 @@ test_that("element access methods for ALTREP factors", {
 
     expect_identical(test_arrow_altrep_copy_by_dataptr(f), int_indices)
     expect_true(test_arrow_altrep_is_materialized(f))
+
+    expect_identical(test_arrow_altrep_copy_by_element(f), int_indices)
+    expect_identical(test_arrow_altrep_copy_by_region(f, 3), int_indices)
   }
 })
 
