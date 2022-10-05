@@ -569,11 +569,8 @@ Now, we can build pyarrow:
 
 .. note::
 
-   In case you are following the above steps and are therefore using Python
-   version < 3.10 together with Conda, then ``CONDA_DLL_SEARCH_MODIFICATION_ENABLE``
-   environment variable needs to be set to ``1``.
-
-   If you are using Python 3.10 or newer then this environment variable is not needed.
+   If you are using Conda with Python 3.9 or earlier, you must
+   set ``CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1``.
 
 Then run the unit tests with:
 
