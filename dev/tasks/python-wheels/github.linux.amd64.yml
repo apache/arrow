@@ -21,7 +21,7 @@
 
 jobs:
   build:
-    name: "Build wheel for Manylinux {{ manylinux_version }}"
+    name: "Build wheels for manylinux {{ manylinux_version }}"
     runs-on: ubuntu-latest
     env:
       # archery uses these environment variables
@@ -31,14 +31,18 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
-      {{ macros.github_login_dockerhub()|indent }}
 
-      - name: Build wheel
+      - name: Build wheels
         shell: bash
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
 
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: arrow/python/repaired_wheels/*.whl
+
       # TODO(kszucs): auditwheel show
-      - name: Test wheel
+      - name: Test wheels
         shell: bash
         run: |
           archery docker run python-wheel-manylinux-test-imports
@@ -48,9 +52,81 @@ jobs:
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
+      {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
         shell: bash
         run: |
           archery docker push python-wheel-manylinux-{{ manylinux_version }}
           archery docker push python-wheel-manylinux-test-unittests
+      {% endif %}
+
+  test:
+    name: "Test wheels for manylinux {{ manylinux_version }} on {{ '${{ matrix.distribution }}' }} {{ '${{ matrix.version }}' }}"
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    env:
+      # archery uses these environment variables
+      ARCH: amd64
+      PYTHON: "{{ python_version }}"
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distribution: conda
+            version: latest
+          - distribution: almalinux
+            version: "8"
+          - distribution: ubuntu
+            version: "18.04"
+          - distribution: ubuntu
+            version: "20.04"
+          - distribution: ubuntu
+            version: "22.04"
+
+    steps:
+      {{ macros.github_checkout_arrow(1, false)|indent }}
+      {{ macros.github_install_archery()|indent }}
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+
+      - name: Prepare
+        shell: bash
+        run: |
+          {% raw %}
+          echo '${{ matrix.distribution }}=${{ matrix.version }}' | \
+            tr 'a-z' 'A-Z' >> $GITHUB_ENV
+          mkdir -p arrow/binaries/wheels/
+          mv arrow/python/repaired_wheels/*.whl arrow/binaries/wheels/
+          {% endraw %}
+      - name: Build wheel
+        shell: bash
+        run: |
+          {% raw %}
+          case "${PYTHON}" in
+            3.7)
+              python_version=${PYTHON}m
+              ;;
+            *)
+              python_version=${PYTHON}
+              ;;
+          esac
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYTHON_VERSIONS=${python_version} \
+            -e TEST_WHEELS=1 \
+            ${{ matrix.distribution }}-verify-rc
+          {% endraw %}
+
+      {% if arrow.is_default_branch() %}
+      {{ macros.github_login_dockerhub()|indent }}
+      - name: Push Docker Image
+        shell: bash
+        run: |
+          {% raw %}
+          archery docker push ${{ matrix.distribution }}-verify-rc
+          {% endraw %}
       {% endif %}
