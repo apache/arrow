@@ -41,7 +41,8 @@
   auto&& _right = (y); \
   if (_left != _right) { \
     return Status::Invalid("Expected equality between `", #x, "` and `", #y, \
-                           "`, but ", _left, " != ", _right); \
+                           "`, but ", arrow::py::testing::ToString(_left), \
+                           " != ", arrow::py::testing::ToString(_right)); \
   } \
 }
 
@@ -50,21 +51,24 @@
   auto&& _right = (y); \
   if (_left == _right) { \
     return Status::Invalid("Expected inequality between `", #x, "` and `", #y, \
-                           "`, but ", _left, " == ", _right); \
+                           "`, but ", arrow::py::testing::ToString(_left), \
+                           " == ", arrow::py::testing::ToString(_right)); \
   } \
 }
 
 #define ASSERT_FALSE(v) { \
   auto&& _v = (v); \
   if (!!_v) { \
-    return Status::Invalid("Expected `", #v, "` to evaluate to false, but got ", _v); \
+    return Status::Invalid("Expected `", #v, "` to evaluate to false, but got ", \
+                           arrow::py::testing::ToString(_v)); \
   } \
 }
 
 #define ASSERT_TRUE(v){ \
   auto&& _v = (v); \
   if (!_v) { \
-    return Status::Invalid("Expected `", #v, "` to evaluate to true, but got ", _v); \
+    return Status::Invalid("Expected `", #v, "` to evaluate to true, but got ", \
+                           arrow::py::testing::ToString(_v)); \
   } \
 }
 
@@ -72,7 +76,7 @@
   auto&& _v = (v); \
   if (!!_v) { \
     return Status::Invalid("Expected `", #v, "` to evaluate to false, but got ", \
-                           _v, ": ", msg); \
+                           arrow::py::testing::ToString(_v), ": ", msg); \
   } \
 }
 
@@ -80,7 +84,7 @@
   auto&& _v = (v); \
   if (!_v) { \
     return Status::Invalid("Expected `", #v, "` to evaluate to true, but got ", \
-                           _v, ": ", msg); \
+                           arrow::py::testing::ToString(_v), ": ", msg); \
   } \
 }
 
@@ -102,6 +106,22 @@ using internal::checked_cast;
 
 namespace py {
 namespace testing {
+
+// ARROW-17938: Some standard libraries have ambiguous operator<<(nullptr_t),
+// work around it using a custom printer function.
+
+template <typename T>
+std::string ToString(const T& t) {
+  std::stringstream ss;
+  ss << t;
+  return ss.str();
+}
+
+template <>
+std::string ToString(const std::nullptr_t&) {
+  return "nullptr";
+}
+
 namespace {
 
 Status TestOwnedRefMoves() {
