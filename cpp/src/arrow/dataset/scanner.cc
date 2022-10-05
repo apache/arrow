@@ -751,7 +751,12 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
                                                    const Schema& dataset_schema) {
   std::vector<compute::Expression> exprs(names.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
-    exprs[i] = compute::field_ref(names[i]);
+    if (names[i].rfind(".", 0) == 0) {
+      ARROW_ASSIGN_OR_RAISE(auto field_ref, FieldRef::FromDotPath(names[i]));
+      exprs[i] = compute::field_ref(field_ref);
+    } else {
+      exprs[i] = compute::field_ref(names[i]);
+    }
   }
   auto fields = dataset_schema.fields();
   for (const auto& aug_field : kAugmentedFields) {
