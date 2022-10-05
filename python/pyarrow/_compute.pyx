@@ -2632,7 +2632,9 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
         arguments specified here determines the function
         arity.
     out_types : List[DataType]
-        Output types of the function.
+        A list of output types of the function.
+        Corresponding to the input types, the output type of
+        the function can be varied.
 
     Examples
     --------
