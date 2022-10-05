@@ -25,8 +25,6 @@
 # INCLUDE_DIR and LIB_DIR manually via e.g:
 # R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
 
-set -x
-
 # Library settings
 PKG_CONFIG_NAME="arrow"
 PKG_DEB_NAME="(unsuppored)"
@@ -178,11 +176,12 @@ else
 
       ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
 
-      LIB_DIR="$(pwd)/libarrow/arrow-${VERSION}/lib"
+      LIB_DIR="`pwd`/libarrow/arrow-${VERSION}/lib"
       if [ -d "$LIB_DIR" ]; then
         # Use pkg-config to do static linking of libarrow's dependencies
         export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
         PKG_CONFIG="pkg-config"
+        # pkg-config on CentOS 7 doesn't have --define-prefix option.
         if ${PKG_CONFIG} --help | grep -- --define-prefix >/dev/null 2>&1; then
           # --define-prefix is for binary packages. Binary packages
           # uses "/arrow/r/libarrow/dist" as prefix but it doesn't
@@ -218,7 +217,7 @@ CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
 CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
 CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
 TEST_CMD="${CXX17} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX17FLAGS} ${CXX17STD} -xc++ -"
-echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} # >/dev/null 2>&1
+echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
 if [ $? -eq 0 ]; then
   # Check for features
