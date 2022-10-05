@@ -431,11 +431,11 @@ Status DirectFileOutputStream::Close() {
       std::memset(aligned_cached_data_ + cached_length_, 0,
                   sector_size_ - cached_length_);
       RETURN_NOT_OK(impl_->Write(aligned_cached_data_, sector_size_));
-    }
-    ARROW_ASSIGN_OR_RAISE(auto file_pos, impl_->Tell());
-    auto new_length = file_pos - sector_size_ + cached_length_;
-    if (ftruncate(impl_->fd(), new_length) != 0) {
-      return Status::IOError(new_length);
+      ARROW_ASSIGN_OR_RAISE(auto file_pos, impl_->Tell());
+      auto new_length = file_pos - sector_size_ + cached_length_;
+      if (ftruncate(impl_->fd(), new_length) != 0) {
+        return Status::IOError(new_length);
+      }
     }
   }
   cached_length_ = 0;
