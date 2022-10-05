@@ -55,8 +55,9 @@ namespace bit_util = arrow::bit_util;
 using arrow::Status;
 using arrow::VisitNullBitmapInline;
 using arrow::internal::AddWithOverflow;
-using arrow::internal::SubtractWithOverflow;
 using arrow::internal::checked_cast;
+using arrow::internal::SafeSignedAdd;
+using arrow::internal::SafeSignedSubtract;
 using std::string_view;
 
 template <typename T>
@@ -2134,7 +2135,8 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
 
   while (idx < static_cast<uint32_t>(num_values)) {
     T value = src[idx];
-    SubtractWithOverflow(value, current_value_, &deltas_[values_current_block_]);
+    deltas_[values_current_block_] =
+        static_cast<T>(SafeSignedSubtract(value, current_value_));
     current_value_ = value;
     idx++;
     values_current_block_++;
@@ -2173,15 +2175,13 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     const T max_delta =
         *std::max_element(deltas_.begin() + start, deltas_.begin() + start + n);
 
-    T max_delta_diff;
-    SubtractWithOverflow(max_delta, min_delta, &max_delta_diff);
+    T max_delta_diff = static_cast<T>(SafeSignedSubtract(max_delta, min_delta));
     const uint32_t num_bits =
         bit_util::NumRequiredBits(static_cast<uint32_t>(max_delta_diff));
     DCHECK(bit_writer_.PutAlignedOffset<uint32_t>(bit_width_offsets + i, num_bits, 1));
 
     for (uint64_t j = start; j < start + n; j++) {
-      T value;
-      SubtractWithOverflow(deltas_[j], min_delta, &value);
+      T value = static_cast<T>(SafeSignedSubtract(deltas_[j], min_delta));
       DCHECK(bit_writer_.PutValue(static_cast<uint32_t>(value), num_bits));
     }
     for (uint64_t j = n; j < values_per_mini_block_; j++) {
@@ -2390,9 +2390,8 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       for (int j = 0; j < values_decode; ++j) {
         // Addition between min_delta, packed int and last_value should be treated as
         // unsigned addition. Overflow is as expected.
-        uint64_t delta =
-            static_cast<uint64_t>(min_delta_) + static_cast<uint64_t>(buffer[i + j]);
-        buffer[i + j] = static_cast<T>(delta + static_cast<uint64_t>(last_value_));
+        const T delta = SafeSignedAdd(min_delta_, buffer[i + j]);
+        buffer[i + j] = SafeSignedAdd(delta, last_value_);
         last_value_ = buffer[i + j];
       }
       values_current_mini_block_ -= values_decode;
