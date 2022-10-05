@@ -552,7 +552,8 @@ def test_cast_between_extension_types():
     msg = ("Casting from 'extension<arrow.py_extension_type<TinyIntType>>' "
            "to different extension type "
            "'extension<arrow.py_extension_type<IntegerType>>' not permitted. "
-           "One can first cast to the storage type, then to the extension type."
+           "One can first cast to the storage type, "
+           "then to the extension type."
            )
     with pytest.raises(TypeError, match=msg):
         tiny_int_arr.cast(IntegerType())
