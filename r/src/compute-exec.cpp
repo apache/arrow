@@ -146,6 +146,16 @@ class ExecPlanReader : public arrow::RecordBatchReader {
 
   ~ExecPlanReader() { StopProducing(); }
 
+  static int64_t EmptyTheTrash() {
+    auto& trash_can = TrashCan();
+    for (int64_t i = trash_can.size() - 1; i >= 0; i--) {
+      if (trash_can[i]->finished().is_finished()) {
+        trash_can.erase(trash_can.begin() + i, trash_can.begin() + i + 1);
+      }
+    }
+    return trash_can.size();
+  }
+
  private:
   std::shared_ptr<arrow::Schema> schema_;
   std::shared_ptr<arrow::compute::ExecPlan> plan_;
@@ -154,6 +164,11 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   arrow::StopToken stop_token_;
 
   arrow::Status StartProducing() {
+    std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
+    auto maybe_trash_can_size =
+        SafeCallIntoR<int64_t>([plan]() { return RegisterExecPlan(plan); });
+    ARROW_RETURN_NOT_OK(maybe_trash_can_size);
+
     ARROW_RETURN_NOT_OK(plan_->StartProducing());
     plan_status_ = PLAN_RUNNING;
     return arrow::Status::OK();
@@ -161,15 +176,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
 
   void StopProducing() {
     if (plan_status_ == PLAN_RUNNING) {
-      // We're done with the plan, but it may still need some time
-      // to finish and clean up after itself. To do this, we give a
-      // callable with its own copy of the shared_ptr<ExecPlan> so
-      // that it can delete itself when it is safe to do so.
-      std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
-      bool not_finished_yet = plan_->finished().TryAddCallback(
-          [&plan] { return [plan](const arrow::Status&) {}; });
-
-      if (not_finished_yet) {
+      if (!plan_->finished().is_finished()) {
         plan_->StopProducing();
       }
     }
@@ -177,6 +184,17 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     plan_status_ = PLAN_FINISHED;
     plan_.reset();
     sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
+  }
+
+  static int64_t RegisterExecPlan(std::shared_ptr<compute::ExecPlan> plan) {
+    EmptyTheTrash();
+    TrashCan().push_back(plan);
+    return TrashCan().size();
+  }
+
+  static std::vector<std::shared_ptr<compute::ExecPlan>>& TrashCan() {
+    static std::vector<std::shared_ptr<compute::ExecPlan>> trash_can;
+    return trash_can;
   }
 };
 
@@ -256,6 +274,9 @@ std::shared_ptr<ExecPlanReader> ExecPlan_run(
 
   return std::make_shared<ExecPlanReader>(plan, out_schema, sink_gen);
 }
+
+// [[arrow::export]]
+int ExecPlan_EmptyTrash() { return ExecPlanReader::EmptyTheTrash(); }
 
 // [[arrow::export]]
 std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
