@@ -46,7 +46,7 @@ conda info -a
 @rem
 @rem Install mamba to the base environment
 @rem
-conda install -q -y -c conda-forge mamba python=3.10 || exit /B
+conda install -q -y -c conda-forge mamba python=%PYTHON% || exit /B
 
 @rem Update for newer CA certificates
 mamba update -q -y -c conda-forge --all || exit /B
@@ -72,7 +72,6 @@ mamba create -n arrow -q -y -c conda-forge ^
   "nomkl" ^
   "pandas" ^
   "fsspec" ^
-  "python=%PYTHON%" ^
   || exit /B
 
 @rem

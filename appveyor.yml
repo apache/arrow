@@ -53,7 +53,7 @@ environment:
     ARROW_GCS: "ON"
     ARROW_S3: "ON"
     GENERATOR: Ninja
-    PYTHON: "3.8"
+    PYTHON: "3.10"
 
 before_build:
   - call ci\appveyor-cpp-setup.bat
