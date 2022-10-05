@@ -19,7 +19,11 @@
 set -ex
 
 : ${R_BIN:=R}
+# When revdep runs with > 1 worker the checks for {targets} time out for 
+# some reason. 
 : ${ARROW_REVDEP_WORKERS:=1)}
+# But we do want to use all cores while building arrow to speed up the 
+# installation so this is used to set MAKEFLAGS
 : ${N_JOBS:=$(nproc)}
 source_dir=${1}/r
 
@@ -90,7 +94,7 @@ export CRANCACHE_DIR="${1}/.crancache"
 # Don't use system boost to prevent issues with missing components 
 export EXTRA_CMAKE_FLAGS='-DBoost_SOURCE=BUNDLED'
 
-export MAKEFLAGS=$N_JOBS
+export MAKEFLAGS=-j$N_JOBS
 
 SCRIPT="
     # We can't use RSPM binaries because we need source packages
