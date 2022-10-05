@@ -69,7 +69,7 @@ namespace util {
 /// the final task future.
 ///
 /// It is also possible to limit the number of concurrent tasks the scheduler will
-/// execute. This is done by setting a task limit.  The task limit initially assumes all
+/// execute. This is done by setting a throttle.  The throttle initially assumes all
 /// tasks are equal but a custom cost can be supplied when scheduling a task (e.g. based
 /// on the total I/O cost of the task, or the expected RAM utilization of the task)
 ///
@@ -88,7 +88,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// Destructor for AsyncTaskScheduler
   ///
   /// If a scheduler is not in the ended state when it is destroyed then it
-  /// will enter an aborted state.
+  /// will abort with an error and enter the ended state.
   ///
   /// The destructor will block until all submitted tasks have finished.
   virtual ~AsyncTaskScheduler() = default;
@@ -170,14 +170,14 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// If the scheduler is in an aborted state this call will return false and the task
   /// will never be run.  This is harmless and does not need to be guarded against.
   ///
-  /// If the scheduler is in an ended state then this call will cause an abort.  This
-  /// represents a logic error in the program and should be avoidable.
+  /// If the scheduler is in an ended state then this call will cause an program abort.
+  /// This represents a logic error in the program and should be avoidable.
   ///
   /// If there are no limits on the number of concurrent tasks then the submit function
   /// will be run immediately.
   ///
-  /// Otherwise, if there is a limit to the number of concurrent tasks, then this task
-  /// will be inserted into the scheduler's queue and submitted when there is space.
+  /// Otherwise, if there is a throttle, and it is full, then this task will be inserted
+  /// into the scheduler's queue and submitted when there is space.
   ///
   /// The return value for this call can usually be ignored.  There is little harm in
   /// attempting to add tasks to an aborted scheduler.  It is only included for callers
@@ -259,7 +259,8 @@ class ARROW_EXPORT AsyncTaskScheduler {
   }
   /// Signal that tasks are done being added
   ///
-  /// If the scheduler is in an aborted state then this call will have no effect.
+  /// If the scheduler is in an aborted state then this call will have no effect
+  /// except (if there are no running tasks) potentially finishing the scheduler.
   ///
   /// Otherwise, this will transition the scheduler into the ended state.  Once all
   /// remaining tasks have finished the OnFinished future will be marked completed.
@@ -268,19 +269,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// attempt to do so will cause an abort.
   virtual void End() = 0;
   /// A future that will be finished after End is called and all tasks have completed
-  ///
-  /// This is the same future that is returned by End() but calling this method does
-  /// not indicate that top level tasks are done being added.  End() must still be called
-  /// at some point or the future returned will never finish.
-  ///
-  /// This is a utility method for workflows where the finish future needs to be
-  /// referenced before all top level tasks have been queued.
   virtual Future<> OnFinished() const = 0;
-
-  /// FIXME - Change finish callback to run even on failure (and pass in status)
-  /// - already failed scheduler should not run finish callback until End
-  /// - abort should not trigger OnFinished until end (for both normal scheduler and
-  ///     already failed scheduler)
 
   /// Create a sub-scheduler for tracking a subset of tasks
   ///
@@ -297,7 +286,8 @@ class ARROW_EXPORT AsyncTaskScheduler {
   ///
   /// If either the parent scheduler or the sub-scheduler encounter an error
   /// then they will both enter an aborted state (this is a shared state).
-  /// Finish callbacks will not be run when the scheduler is aborted.
+  /// Finish callbacks will always be run and only when the sub-scheduler
+  /// has been ended and all ongoing tasks completed.
   ///
   /// The parent scheduler will not complete until the sub-scheduler's
   /// tasks (and finish callback) have all executed.
