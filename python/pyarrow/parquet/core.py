@@ -3343,6 +3343,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
             if col in partition_cols:
                 subschema = subschema.remove(subschema.get_field_index(col))
 
+        # ARROW-17829: avoid deprecation warnings for df.groupby
+        # https://github.com/pandas-dev/pandas/issues/42795
+        if len(partition_keys) == 1:
+            partition_keys = partition_keys[0]
+
         for keys, subgroup in data_df.groupby(partition_keys):
             if not isinstance(keys, tuple):
                 keys = (keys,)
