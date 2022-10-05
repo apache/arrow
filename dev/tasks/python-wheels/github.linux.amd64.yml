@@ -102,9 +102,10 @@ jobs:
           mkdir -p arrow/binaries/wheels/
           mv *.whl arrow/binaries/wheels/
           {% endraw %}
-      - name: Build wheel
+      - name: Test wheel
         shell: bash
         run: |
+          pyarrow_version={{ arrow.no_rc_version }}
           {% raw %}
           case "${PYTHON}" in
             3.7)
@@ -116,6 +117,7 @@ jobs:
           esac
           archery docker run \
             -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION=${pyarrow_version} \
             -e TEST_PYTHON_VERSIONS=${python_version} \
             -e TEST_WHEELS=1 \
             ${{ matrix.distribution }}-verify-rc
