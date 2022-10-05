@@ -2685,7 +2685,7 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
         raise TypeError(
             "in_arg_types must be a list of dictionaries of DataType")
     if not isinstance(out_types, list):
-        raise TypeError("out_types must be a list of DataTypes")
+        raise TypeError("out_types must be a list of DataType")
     # each input_type dict in input_types list must
     # have same arg_names
     if isinstance(in_arg_types[0], dict):
