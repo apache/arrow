@@ -330,7 +330,7 @@ def test_registration_errors():
                                     out_types)
 
     # validate output type
-    expected_expr = "out_types must be a list of DataTypes"
+    expected_expr = "out_types must be a list of DataType"
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(test_reg_function,
                                     "test_output_function", doc, in_types,
