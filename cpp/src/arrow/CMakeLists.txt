@@ -148,6 +148,7 @@ set(ARROW_SRCS
     array/builder_binary.cc
     array/builder_decimal.cc
     array/builder_dict.cc
+    array/builder_encoded.cc
     array/builder_nested.cc
     array/builder_primitive.cc
     array/builder_union.cc

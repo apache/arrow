@@ -23,9 +23,11 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_encoded.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/chunked_array.h"
 #include "arrow/pretty_print.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
@@ -380,6 +382,43 @@ TEST(RunLengthEncodedArray, Validate) {
                              "Invalid: Values array needs at least 4 elements to hold "
                              "the runs described by the run ends array, but only has 3",
                              values_too_short_array->ValidateFull());
+}
+
+TEST(RunLengthEncodedArray, Builder) {
+  // test data
+  auto expected_run_ends = ArrayFromJSON(int32(), "[1, 3, 105, 165, 205, 305]");
+  auto expected_values = ArrayFromJSON(
+      utf8(), R"(["unique", null, "common", "common", "appended", "common"])");
+  auto appended_run_ends = ArrayFromJSON(int32(), "[100, 200]");
+  auto appended_values = ArrayFromJSON(utf8(), R"(["common", "appended"])");
+  ASSERT_OK_AND_ASSIGN(auto appended_array, RunLengthEncodedArray::Make(
+                                                appended_run_ends, appended_values, 200));
+  auto appended_span = ArraySpan(*appended_array->data());
+
+  // builder
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder,
+                       MakeBuilder(run_length_encoded(utf8())));
+  auto rle_builder = std::dynamic_pointer_cast<RunLengthEncodedBuilder>(builder);
+  ASSERT_NE(rle_builder, NULLPTR);
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("unique")));
+  ASSERT_OK(builder->AppendNull());
+  ASSERT_OK(builder->AppendScalar(*MakeNullScalar(utf8())));
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("common"), 100));
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("common")));
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("common")));
+  // append span that starts with the same value as the previous run ends. They are
+  // currently not merged for simplicity and performance. This is still a valid rle array
+  ASSERT_OK(builder->AppendArraySlice(appended_span, 40, 100));
+  ASSERT_OK(builder->AppendArraySlice(appended_span, 0, 100));
+  ASSERT_EQ(builder->length(), 305);
+  ASSERT_EQ(*builder->type(), *run_length_encoded(utf8()));
+  ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
+  auto rle_array = std::dynamic_pointer_cast<RunLengthEncodedArray>(array);
+  ASSERT_NE(rle_array, NULLPTR);
+  ASSERT_ARRAYS_EQUAL(*expected_run_ends, *rle_array->run_ends_array());
+  ASSERT_ARRAYS_EQUAL(*expected_values, *rle_array->values_array());
+  ASSERT_EQ(array->length(), 305);
+  ASSERT_EQ(array->offset(), 0);
 }
 
 }  // anonymous namespace

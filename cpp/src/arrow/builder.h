@@ -24,6 +24,7 @@
 #include "arrow/array/builder_binary.h"     // IWYU pragma: keep
 #include "arrow/array/builder_decimal.h"    // IWYU pragma: keep
 #include "arrow/array/builder_dict.h"       // IWYU pragma: keep
+#include "arrow/array/builder_encoded.h"    // IWYU pragma: keep
 #include "arrow/array/builder_nested.h"     // IWYU pragma: keep
 #include "arrow/array/builder_primitive.h"  // IWYU pragma: keep
 #include "arrow/array/builder_time.h"       // IWYU pragma: keep
