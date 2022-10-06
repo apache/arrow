@@ -72,6 +72,7 @@ mamba create -n arrow -q -y -c conda-forge ^
   "nomkl" ^
   "pandas" ^
   "fsspec" ^
+  "python=%PYTHON%" ^
   || exit /B
 
 @rem
@@ -80,17 +81,6 @@ mamba create -n arrow -q -y -c conda-forge ^
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
 set CC=cl.exe
 set CXX=cl.exe
-
-@rem
-@rem Use clcache for faster builds
-@rem
-
-pip install -q git+https://github.com/Nuitka/clcache.git || exit /B
-@rem Limit cache size to 500 MB
-clcache -M 500000000
-clcache -c
-clcache -s
-powershell.exe -Command "Start-Process clcache-server" || exit /B
 
 @rem
 @rem Download Minio somewhere on PATH, for unit tests
