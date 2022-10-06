@@ -1373,21 +1373,20 @@ services:
     # Usage:
     #   docker-compose build r-revdepcheck
     #   docker-compose run r-revdepcheck
-    image: ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+    image: ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+        - ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
       args:
-        base: rstudio/r-base:4.0-focal
+        base: rstudio/r-base:4.2-focal
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
     shm_size: *shm-size
     environment:
-      LIBARROW_DOWNLOAD: "true"
-      LIBARROW_MINIMAL: "false"
-      ARROW_SOURCE_HOME: "/arrow"
+      N_JOBS:
+      ARROW_REVDEP_WORKERS:
       ARROW_R_DEV: "true"
     volumes: *ubuntu-volumes
     command: >

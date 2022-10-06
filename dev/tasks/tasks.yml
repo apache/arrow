@@ -1455,10 +1455,6 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: fedora-r-clang-sanitizer
 
-  revdep-r-check:
-    ci: github
-    template: r/github.linux.revdepcheck.yml
-
   test-debian-11-go-1.17:
     ci: azure
     template: docker-tests/azure.linux.yml
