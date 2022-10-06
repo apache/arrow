@@ -1326,13 +1326,13 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 };
 
-// TODO
-// typedef ::testing::Types<Int64Type> TestDeltaBitPackEncodingTypes;
-typedef ::testing::Types<Int32Type> TestDeltaBitPackEncodingTypes;
+typedef ::testing::Types<Int32Type, Int64Type> TestDeltaBitPackEncodingTypes;
 TYPED_TEST_SUITE(TestDeltaBitPackEncoding, TestDeltaBitPackEncodingTypes);
 
 TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(25000, 200));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_prob*/ 0.1));
 }
 
 }  // namespace test

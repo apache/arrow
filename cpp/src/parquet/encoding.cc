@@ -2080,7 +2080,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         first_value_(0),
         current_value_(0),
         sink_(pool),
-        bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
+        bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity * 2)),
         bit_writer_(bits_buffer_->mutable_data(), static_cast<int>(bits_buffer_->size())),
         deltas_(std::vector<T>(values_per_block_)) {}
 
@@ -2097,9 +2097,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   void Put(const T* buffer, int num_values) override;
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
-                 int64_t valid_bits_offset) override {
-    ParquetException::NYI("put spaced");
-  }
+                 int64_t valid_bits_offset) override;
 
  protected:
   const uint32_t values_per_block_;
@@ -2107,7 +2105,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   const uint32_t values_per_mini_block_;
   uint32_t values_current_block_;
   uint32_t total_value_count_;
-  T first_value_;
+  int64_t first_value_;
   T current_value_;
   ::arrow::BufferBuilder sink_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
@@ -2124,19 +2122,18 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
     return;
   }
 
-  uint32_t idx = 0;
+  int32_t idx = 0;
   if (total_value_count_ == 0) {
     first_value_ = src[0];
-    current_value_ = first_value_;
+    current_value_ = src[0];
     idx = 1;
   }
   total_value_count_ += num_values;
   PARQUET_THROW_NOT_OK(sink_.Resize(total_value_count_ * sizeof(T), false));
 
-  while (idx < static_cast<uint32_t>(num_values)) {
+  while (idx < num_values) {
     T value = src[idx];
-    deltas_[values_current_block_] =
-        static_cast<T>(SafeSignedSubtract(value, current_value_));
+    deltas_[values_current_block_] = SafeSignedSubtract(value, current_value_);
     current_value_ = value;
     idx++;
     values_current_block_++;
@@ -2166,8 +2163,7 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
   for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
     const uint32_t n = std::min(values_per_mini_block_, values_current_block_);
     if (n == 0) {
-      DCHECK(
-          bit_writer_.PutAlignedOffset<uint32_t>(bit_width_offsets + i, uint32_t(1), 1));
+      DCHECK(bit_writer_.PutAlignedOffset<uint8_t>(bit_width_offsets + i, 1, 1));
       continue;
     }
 
@@ -2175,17 +2171,22 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     const T max_delta =
         *std::max_element(deltas_.begin() + start, deltas_.begin() + start + n);
 
-    T max_delta_diff = static_cast<T>(SafeSignedSubtract(max_delta, min_delta));
-    const uint32_t num_bits =
-        bit_util::NumRequiredBits(static_cast<uint32_t>(max_delta_diff));
-    DCHECK(bit_writer_.PutAlignedOffset<uint32_t>(bit_width_offsets + i, num_bits, 1));
-
-    for (uint64_t j = start; j < start + n; j++) {
-      T value = static_cast<T>(SafeSignedSubtract(deltas_[j], min_delta));
-      DCHECK(bit_writer_.PutValue(static_cast<uint32_t>(value), num_bits));
+    const T max_delta_diff = SafeSignedSubtract(max_delta, min_delta);
+    int64_t num_bits;
+    if constexpr (std::is_same<T, int64_t>::value) {
+      num_bits = bit_util::NumRequiredBits(static_cast<uint64_t>(max_delta_diff));
+    } else {
+      num_bits = bit_util::NumRequiredBits(static_cast<uint32_t>(max_delta_diff));
     }
-    for (uint64_t j = n; j < values_per_mini_block_; j++) {
-      DCHECK(bit_writer_.PutValue(0, num_bits));
+    const int32_t num_bytes = static_cast<int32_t>(bit_util::CeilDiv(num_bits, 8));
+    DCHECK(bit_writer_.PutAlignedOffset<uint8_t>(bit_width_offsets + i, num_bits, 1));
+
+    for (uint32_t j = start; j < start + n; j++) {
+      const T value = SafeSignedSubtract(deltas_[j], min_delta);
+      DCHECK(bit_writer_.PutAligned(value, num_bytes));
+    }
+    for (uint32_t j = n; j < values_per_mini_block_; j++) {
+      DCHECK(bit_writer_.PutAligned(0, num_bytes));
     }
     values_current_block_ -= n;
   }
@@ -2237,6 +2238,22 @@ void DeltaBitPackEncoder<Int64Type>::Put(const ::arrow::Array& values) {
 template <typename DType>
 void DeltaBitPackEncoder<DType>::Put(const ::arrow::Array& values) {
   ParquetException::NYI("direct put of " + values.type()->ToString());
+}
+
+template <typename DType>
+void DeltaBitPackEncoder<DType>::PutSpaced(const T* src, int num_values,
+                                           const uint8_t* valid_bits,
+                                           int64_t valid_bits_offset) {
+  if (valid_bits != NULLPTR) {
+    PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
+                                                                 this->memory_pool()));
+    T* data = reinterpret_cast<T*>(buffer->mutable_data());
+    int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
+        src, num_values, valid_bits, valid_bits_offset, data);
+    Put(data, num_valid_values);
+  } else {
+    Put(src, num_values);
+  }
 }
 
 // ----------------------------------------------------------------------
