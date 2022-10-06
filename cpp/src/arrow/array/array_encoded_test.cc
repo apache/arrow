@@ -386,9 +386,10 @@ TEST(RunLengthEncodedArray, Validate) {
 
 TEST(RunLengthEncodedArray, Builder) {
   // test data
-  auto expected_run_ends = ArrayFromJSON(int32(), "[1, 3, 105, 165, 205, 305]");
+  auto expected_run_ends = ArrayFromJSON(int32(), "[1, 3, 105, 165, 205, 305, 405, 505]");
   auto expected_values = ArrayFromJSON(
-      utf8(), R"(["unique", null, "common", "common", "appended", "common"])");
+      utf8(),
+      R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])");
   auto appended_run_ends = ArrayFromJSON(int32(), "[100, 200]");
   auto appended_values = ArrayFromJSON(utf8(), R"(["common", "appended"])");
   ASSERT_OK_AND_ASSIGN(auto appended_array, RunLengthEncodedArray::Make(
@@ -410,14 +411,16 @@ TEST(RunLengthEncodedArray, Builder) {
   // currently not merged for simplicity and performance. This is still a valid rle array
   ASSERT_OK(builder->AppendArraySlice(appended_span, 40, 100));
   ASSERT_OK(builder->AppendArraySlice(appended_span, 0, 100));
-  ASSERT_EQ(builder->length(), 305);
+  // append one whole array
+  ASSERT_OK(builder->AppendArraySlice(appended_span, 0, appended_span.length));
+  ASSERT_EQ(builder->length(), 505);
   ASSERT_EQ(*builder->type(), *run_length_encoded(utf8()));
   ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
   auto rle_array = std::dynamic_pointer_cast<RunLengthEncodedArray>(array);
   ASSERT_NE(rle_array, NULLPTR);
   ASSERT_ARRAYS_EQUAL(*expected_run_ends, *rle_array->run_ends_array());
   ASSERT_ARRAYS_EQUAL(*expected_values, *rle_array->values_array());
-  ASSERT_EQ(array->length(), 305);
+  ASSERT_EQ(array->length(), 505);
   ASSERT_EQ(array->offset(), 0);
 }
 

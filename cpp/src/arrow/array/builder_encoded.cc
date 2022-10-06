@@ -102,7 +102,7 @@ Status RunLengthEncodedBuilder::AppendArraySlice(const ArraySpan& array, int64_t
   // attempt to merge them with the runs from the appended array slice for now
   RETURN_NOT_OK(FinishRun());
 
-  ARROW_DCHECK(offset + length < array.length);
+  ARROW_DCHECK(offset + length <= array.length);
   ARROW_DCHECK(array.type->Equals(type_));
   // Create a slice of the slice for the part we actually want to add
   ArraySpan to_append = array;
