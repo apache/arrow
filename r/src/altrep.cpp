@@ -82,21 +82,25 @@ using Pointer = cpp11::external_pointer<std::shared_ptr<T>, DeletePointer<T>>;
 
 class ArrowAltrepData {
  public:
-  std::shared_ptr<ChunkedArray> chunked_array;
   explicit ArrowAltrepData(const std::shared_ptr<ChunkedArray>& chunked_array)
-      : chunked_array(chunked_array), resolver_(chunked_array->chunks()) {}
+      : chunked_array_(chunked_array), resolver_(chunked_array->chunks()) {}
+
+  const std::shared_ptr<ChunkedArray>& chunked_array() { return chunked_array_; }
 
   arrow::internal::ChunkLocation locate(int64_t index) {
     return resolver_.Resolve(index);
   }
 
  private:
+  std::shared_ptr<ChunkedArray> chunked_array_;
   arrow::internal::ChunkResolver resolver_;
 };
 
 // the ChunkedArray that is being wrapped by the altrep object
 const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
-  return external_pointer<ArrowAltrepData>(R_altrep_data1(alt))->chunked_array;
+  auto array_data =
+      reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
+  return array_data->chunked_array();
 }
 
 // base class for all altrep vectors
@@ -265,9 +269,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       return reinterpret_cast<c_type*>(DATAPTR(Representation(alt)))[i];
     }
 
-    auto altrep_data = external_pointer<ArrowAltrepData>(R_altrep_data1(alt));
+    auto altrep_data =
+        reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    auto array = altrep_data->chunked_array->chunk(resolve.chunk_index);
+    auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
     auto j = resolve.index_in_chunk;
 
     return array->IsNull(j) ? cpp11::na<c_type>()
@@ -557,10 +562,11 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       return INTEGER_ELT(Representation(alt), i);
     }
 
-    auto altrep_data = external_pointer<ArrowAltrepData>(R_altrep_data1(alt));
+    auto altrep_data =
+        reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
 
-    auto array = altrep_data->chunked_array->chunk(resolve.chunk_index);
+    auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
     auto j = resolve.index_in_chunk;
 
     if (!array->IsNull(j)) {
@@ -828,17 +834,15 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   };
 
   // Get a single string as a CHARSXP SEXP
-  // Note that a previous version of this function used BEGIN_CPP11
-  // and END_CPP11, which stack-allocates 8kb for the error message.
-  // This is fine for top-level calls, but here
   static SEXP Elt(SEXP alt, R_xlen_t i) {
     if (Base::IsMaterialized(alt)) {
       return STRING_ELT(Representation(alt), i);
     }
 
-    auto altrep_data = external_pointer<ArrowAltrepData>(R_altrep_data1(alt));
+    auto altrep_data =
+        reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    auto array = altrep_data->chunked_array->chunk(resolve.chunk_index);
+    auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
     auto j = resolve.index_in_chunk;
 
     SEXP s = NA_STRING;
