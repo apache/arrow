@@ -303,9 +303,9 @@
             <version>8.19</version>
           </dependency>
           <dependency>
-              <groupId>org.slf4j</groupId>
-              <artifactId>jcl-over-slf4j</artifactId>
-              <version>1.7.5</version>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl-over-slf4j</artifactId>
+            <version>1.7.5</version>
           </dependency>
         </dependencies>
         <executions>
@@ -749,7 +749,7 @@
       <!-- Use the version of arrow-vector that shades flatbuffers and packages format -->
       <id>shade-flatbuffers</id>
       <properties>
-       <arrow.vector.classifier>shade-format-flatbuffers</arrow.vector.classifier>
+        <arrow.vector.classifier>shade-format-flatbuffers</arrow.vector.classifier>
       </properties>
     </profile>
 
@@ -763,7 +763,7 @@
       <activation>
         <jdk>1.8</jdk>
         <property>
-           <name>!m2e.version</name>
+          <name>!m2e.version</name>
         </property>
       </activation>
       <build>
