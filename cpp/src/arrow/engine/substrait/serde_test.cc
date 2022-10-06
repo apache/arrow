@@ -3346,5 +3346,182 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
                        buf, {}, conversion_options);
 }
 
+TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("A", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10],
+      [20],
+      [30]
+  ])"});
+
+  const std::string substrait_json = R"({
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 2,
+        "name": "add"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "rel": {
+        "project": {
+          "input": {
+            "project": {
+              "common": {"emit": {"outputMapping": [2]}},
+              "input": {
+                "read": {
+                  "baseSchema": {
+                    "names": ["int"],
+                    "struct": {"types": [{"i32": {}}]}
+                  },
+                  "namedTable": {
+                    "names": ["SIMPLEDATA"]
+                  }
+                }
+              },
+              "expressions": [
+                {"selection": {"directReference": {"structField": {"field": 0}}}},
+                {
+                  "scalarFunction": {
+                    "functionReference": 2,
+                    "outputType": {"i32": {}},
+                    "arguments": [
+                      {"enum": {"unspecified": {}}},
+                      {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
+                      {"value": {"literal": {"fp64": 10}}}
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "expressions": [
+            {"selection": {"directReference": {"structField": {"field": 0}}}}
+          ]
+        }
+      }
+    }
+  ]
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  auto output_schema = schema({field("A", float64()), field("B", float64())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [20, 20],
+      [30, 30],
+      [40, 40]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("A", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10],
+      [20],
+      [30]
+  ])"});
+
+  const std::string substrait_json = R"({
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 2,
+        "name": "add"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "rel": {
+        "project": {
+          "common": {"emit": {"outputMapping": [1]}},
+          "input": {
+            "project": {
+              "common": {"emit": {"outputMapping": [1, 2]}},
+              "input": {
+                "read": {
+                  "baseSchema": {
+                    "names": ["int"],
+                    "struct": {"types": [{"i32": {}}]}
+                  },
+                  "namedTable": {
+                    "names": ["SIMPLEDATA"]
+                  }
+                }
+              },
+              "expressions": [
+                {"selection": {"directReference": {"structField": {"field": 0}}}},
+                {
+                  "scalarFunction": {
+                    "functionReference": 2,
+                    "outputType": {"i32": {}},
+                    "arguments": [
+                      {"enum": {"unspecified": {}}},
+                      {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
+                      {"value": {"literal": {"fp64": 10}}}
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "expressions": [
+            {"selection": {"directReference": {"structField": {"field": 0}}}}
+          ]
+        }
+      }
+    }
+  ]
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  auto output_schema = schema({field("A+10", float64())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [20],
+      [30],
+      [40]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
 }  // namespace engine
 }  // namespace arrow
