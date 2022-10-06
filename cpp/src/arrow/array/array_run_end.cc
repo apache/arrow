@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/array/array_run_end.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
@@ -83,6 +84,53 @@ void RunEndEncodedArray::SetData(const std::shared_ptr<ArrayData>& data) {
   Array::SetData(data);
   run_ends_array_ = MakeArray(this->data()->child_data[0]);
   values_array_ = MakeArray(this->data()->child_data[1]);
+}
+
+namespace {
+
+template <typename RunEndType>
+Result<std::shared_ptr<Array>> MakeLogicalRunEnds(const RunEndEncodedArray& self,
+                                                  int64_t physical_offset,
+                                                  int64_t physical_length) {
+  using RunEndCType = typename RunEndType::c_type;
+  const auto* run_ends = self.data()->child_data[0]->GetValues<RunEndCType>(1);
+  NumericBuilder<RunEndType> builder;
+  RETURN_NOT_OK(builder.Resize(physical_length));
+  if (physical_length > 0) {
+    for (int64_t i = 0; i < physical_length - 1; i++) {
+      const auto run_end = run_ends[physical_offset + i] - self.offset();
+      DCHECK_LT(run_end, self.length());
+      RETURN_NOT_OK(builder.Append(static_cast<RunEndCType>(run_end)));
+    }
+    DCHECK_GE(run_ends[physical_offset + physical_length - 1] - self.offset(),
+              self.length());
+    RETURN_NOT_OK(builder.Append(static_cast<RunEndCType>(self.length())));
+  }
+  return builder.Finish();
+}
+
+}  // namespace
+
+Result<std::shared_ptr<Array>> RunEndEncodedArray::LogicalRunEnds() const {
+  int64_t physical_offset = FindPhysicalOffset();
+  int64_t physical_length = FindPhysicalLength();
+  DCHECK(data()->child_data[0]->buffers[1]->is_cpu());
+
+  switch (run_ends_array_->type_id()) {
+    case Type::INT16:
+      return MakeLogicalRunEnds<Int16Type>(*this, physical_offset, physical_length);
+    case Type::INT32:
+      return MakeLogicalRunEnds<Int32Type>(*this, physical_offset, physical_length);
+    default:
+      break;
+  }
+  return MakeLogicalRunEnds<Int64Type>(*this, physical_offset, physical_length);
+}
+
+std::shared_ptr<Array> RunEndEncodedArray::LogicalValues() const {
+  const int64_t physical_offset = FindPhysicalOffset();
+  const int64_t physical_length = FindPhysicalLength();
+  return MakeArray(data()->child_data[1]->Slice(physical_offset, physical_length));
 }
 
 int64_t RunEndEncodedArray::FindPhysicalOffset() const {
