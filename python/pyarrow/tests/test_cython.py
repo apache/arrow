@@ -45,6 +45,7 @@ setup_template = """if 1:
     import pyarrow as pa
 
     ext_modules = cythonize({pyx_file!r})
+    print("Finished cythonize")
     compiler_opts = {compiler_opts!r}
     custom_ld_path = {test_ld_path!r}
 

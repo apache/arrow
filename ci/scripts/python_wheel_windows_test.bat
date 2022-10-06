@@ -35,6 +35,9 @@ set PYARROW_TEST_TENSORFLOW=ON
 set ARROW_TEST_DATA=C:\arrow\testing\data
 set PARQUET_TEST_DATA=C:\arrow\submodules\parquet-testing\data
 
+@REM Upgrade setuptools to fix issue with Microsoft Visual C++ 14.0 not found
+pip install --upgrade setuptools
+
 @REM Install testing dependencies
 pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
