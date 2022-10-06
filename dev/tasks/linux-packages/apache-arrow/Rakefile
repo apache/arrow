@@ -149,7 +149,7 @@ class ApacheArrowPackageTask < PackageTask
     else
       use_system_protobuf = "#"
     end
-    control.gsub(/@USE_SYSTEM_PROTOBUF/, use_system_protobuf)
+    control.gsub(/@USE_SYSTEM_PROTOBUF@/, use_system_protobuf)
   end
 
   def apt_prepare_debian_control_python(control, target)
