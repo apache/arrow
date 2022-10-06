@@ -90,7 +90,7 @@ def test_run_serialized_query(tmpdir):
 def test_run_query_input_types(tmpdir, query):
 
     # Passing unsupported type, like int, will not segfault.
-    if not any(isinstance(query, c) for c in (pa.Buffer, bytes)):
+    if not isinstance(query, (pa.Buffer, bytes)):
         msg = f"Expected 'pyarrow.Buffer' or bytes, got '{type(query)}'"
         with pytest.raises(TypeError, match=msg):
             substrait.run_query(query)
