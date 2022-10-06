@@ -23,32 +23,49 @@ if(LLVMAlt_FOUND)
   return()
 endif()
 
-foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
-  set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
-
-  if(APPLE)
-    find_program(BREW brew)
-    if(BREW)
-      string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_LLVM_VERSION_MAJOR
-                           "${ARROW_LLVM_VERSION}")
-      execute_process(COMMAND ${BREW} --prefix "llvm@${ARROW_LLVM_VERSION_MAJOR}"
-                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-      list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+if(DEFINED LLVM_ROOT)
+  # if llvm source is set to conda then prefer conda llvm over system llvm even
+  # if the system one is newer
+  foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
+    find_package(LLVM
+                 ${ARROW_LLVM_VERSION}
+                 CONFIG
+                 NO_DEFAULT_PATH
+                 HINTS
+                 ${LLVM_ROOT})
+    if(LLVM_FOUND)
+      break()
     endif()
-  endif()
+  endforeach()
+endif()
 
-  find_package(LLVM
-               ${ARROW_LLVM_VERSION}
-               CONFIG
-               NO_DEFAULT_PATH
-               HINTS
-               ${LLVM_HINTS})
+if(NOT LLVM_FOUND)
+  foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
+    set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
 
-  if(LLVM_FOUND)
-    break()
-  endif()
-endforeach()
+    if(APPLE)
+      find_program(BREW brew)
+      if(BREW)
+        string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_LLVM_VERSION_MAJOR
+                             "${ARROW_LLVM_VERSION}")
+        execute_process(COMMAND ${BREW} --prefix "llvm@${ARROW_LLVM_VERSION_MAJOR}"
+                        OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+        list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+      endif()
+    endif()
+
+    find_package(LLVM
+                 ${ARROW_LLVM_VERSION}
+                 CONFIG
+                 HINTS
+                 ${LLVM_HINTS})
+
+    if(LLVM_FOUND)
+      break()
+    endif()
+  endforeach()
+endif()
 
 if(LLVM_FOUND)
   # Find the libraries that correspond to the LLVM components

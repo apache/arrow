@@ -69,9 +69,7 @@ jobs:
         run: |
           arrow/ci/scripts/ccache_setup.sh
       - name: Build C++ libraries
-        # pin LLVM version on MacOS to 14 ARROW-17902
         run: |
-          export LLVM_ROOT=$(brew --prefix llvm@14)
           set -e
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \

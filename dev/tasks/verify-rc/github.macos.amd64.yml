@@ -70,9 +70,5 @@ jobs:
         {% if use_conda %}
           USE_CONDA: 1
         {% endif %}
-        # pin LLVM version on MacOS to 14 ARROW-17902
         run: |
-        {% if not use_conda %}
-          export LLVM_ROOT=$(brew --prefix llvm@14)
-        {% endif %}
           arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}

@@ -167,9 +167,7 @@ jobs:
             -r python/requirements-test.txt
       - name: Build
         shell: bash
-        # pin LLVM version on MacOS to 14 ARROW-17902
         run: |
-          export LLVM_ROOT=$(brew --prefix llvm@14)
           export PYTHON=python3
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
