@@ -378,7 +378,12 @@ class DockerCompose(Command):
             else:
                 cmd = service.get('command', '')
                 if cmd:
-                    args.extend(shlex.split(cmd))
+                    # service command might be already defined as a list
+                    # on the docker-compose yaml file.
+                    if isinstance(cmd, list):
+                        cmd = shlex.join(cmd)
+                    else:
+                        args.extend(shlex.shlex(cmd))
 
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)
