@@ -833,6 +833,12 @@ struct AsyncSleeper {
         lock.lock();
       }
     }
+    // Drain queue when finishing
+    auto events = std::move(state->events);
+    lock.unlock();
+    for (auto&& event : events) {
+      event.future.MarkFinished(Status::Cancelled("Async sleep cancelled at shutdown"));
+    }
   }
 
 #ifdef _WIN32
