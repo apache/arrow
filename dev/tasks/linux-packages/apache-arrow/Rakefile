@@ -107,6 +107,8 @@ class ApacheArrowPackageTask < PackageTask
   end
 
   def apt_prepare_debian_control_flight(control, target)
+    # We disable Flight for arm64 because Travis CI doesn't have
+    # enough resource to build with Flight.
     if target.end_with?("-arm64")
       enable_flight = "#"
     else
@@ -123,6 +125,31 @@ class ApacheArrowPackageTask < PackageTask
       use_system_grpc = ""
     end
     control.gsub(/@USE_SYSTEM_GRPC@/, use_system_grpc)
+  end
+
+  def apt_prepare_debian_control_protobuf(control, target)
+    # Flight requires Protobuf 3.15.0 or later but Debian GNU/Linux
+    # bookwarm and Ubuntu 22.04 don't provide Protobuf 3.15.0 or later
+    # yet.
+    #
+    # See also:
+    #   * cpp/cmake_modules/ThirdpartyToolchain.cmake
+    #   * https://packages.debian.org/search?keywords=libprotobuf-dev
+    #   * https://packages.ubuntu.com/search?keywords=libprotobuf-dev
+    #
+    # We can use system Protobuf without Flight because we can use
+    # Protobuf 3.0.0 or later without Flight.
+    #
+    # We disable Flight for arm64 because Travis CI doesn't have
+    # enough resource to build with Flight.
+    #
+    # So, we can use system Protobuf only for arm64 for now.
+    if target.end_with?("-arm64")
+      use_system_protobuf = ""
+    else
+      use_system_protobuf = "#"
+    end
+    control.gsub(/@USE_SYSTEM_PROTOBUF/, use_system_protobuf)
   end
 
   def apt_prepare_debian_control_python(control, target)
@@ -171,6 +198,7 @@ class ApacheArrowPackageTask < PackageTask
     control = apt_prepare_debian_control_cuda_architecture(control, target)
     control = apt_prepare_debian_control_flight(control, target)
     control = apt_prepare_debian_control_grpc(control, target)
+    control = apt_prepare_debian_control_protobuf(control, target)
     control = apt_prepare_debian_control_python(control, target)
     control = apt_prepare_debian_control_thrift(control, target)
     control = apt_prepare_debian_control_utf8proc(control, target)

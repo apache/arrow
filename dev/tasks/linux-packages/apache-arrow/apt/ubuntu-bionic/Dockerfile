@@ -49,6 +49,7 @@ RUN \
     libgoogle-glog-dev \
     libgtest-dev \
     liblz4-dev \
+    libprotobuf-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
