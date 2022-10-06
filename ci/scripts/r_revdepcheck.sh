@@ -28,9 +28,9 @@ set -ex
 source_dir=${1}/r
 
 # cpp building dependencies
+# TODO(assignUser) consolidate cpp system reqs across docker files
 apt update -y -q && \
 apt install -y \
-  libboost-all-dev \
   cmake \
   libbrotli-dev \
   libbz2-dev \
