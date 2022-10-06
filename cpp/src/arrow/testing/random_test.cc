@@ -443,6 +443,26 @@ TEST(RandomList, Basics) {
   }
 }
 
+TEST(RandomRunLegnthEncoded, Basics) {
+  random::RandomArrayGenerator rng(42);
+  for (const double null_probability : {0.0, 0.1, 1.0}) {
+    SCOPED_TRACE("null_probability = " + std::to_string(null_probability));
+    auto array = rng.ArrayOf(run_length_encoded(int16()), 12345, null_probability);
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 12345);
+    const auto& rle_array = checked_cast<const RunLengthEncodedArray&>(*array);
+    ASSERT_EQ(*rle_array.type(), *run_length_encoded(int16()));
+    const int64_t physical_length = rle_array.run_ends_array()->length();
+    ASSERT_EQ(rle_array.values_array()->length(), physical_length);
+    if (null_probability == 0.0) {
+      ASSERT_EQ(rle_array.values_array()->null_count(), 0);
+    }
+    if (null_probability == 1.0) {
+      ASSERT_EQ(rle_array.values_array()->null_count(), physical_length);
+    }
+  }
+}
+
 template <typename T>
 class UniformRealTest : public ::testing::Test {
  protected:
