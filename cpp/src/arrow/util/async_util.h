@@ -307,6 +307,11 @@ class ARROW_EXPORT AsyncTaskScheduler {
   static std::unique_ptr<AsyncTaskScheduler> Make(Throttle* throttle = NULLPTR,
                                                   std::unique_ptr<Queue> queue = NULLPTR);
 
+  /// Check to see if the scheduler is currently ended
+  ///
+  /// This method is primarily for testing purposes and won't normally need to be
+  /// called to use the scheduler.  Note that a return value of false is not conclusive as
+  /// the scheudler may end immediately after the call.
   virtual bool IsEnded() = 0;
 };
 

@@ -110,9 +110,10 @@ class AlreadyFailedScheduler : public AsyncTaskScheduler {
     self.reset();
   }
   Future<> OnFinished() const override {
-    DCHECK(false) << "You should not rely on sub-scheduler's OnFinished.  Use a "
-                     "finished callback when creating the sub-scheduler instead";
-    return Future<>::MakeFinished(Status::UnknownError("Unreachable code encountered"));
+    Status::UnknownError(
+        "You should not rely on sub-scheduler's OnFinished.  Use a "
+        "finished callback when creating the sub-scheduler instead")
+        .Abort();
   }
   AsyncTaskScheduler* MakeSubScheduler(FnOnce<Status(Status)> finish_callback,
                                        Throttle* throttle,

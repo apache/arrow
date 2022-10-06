@@ -158,6 +158,7 @@ FnOnce<Status(Status)> EmptyFinishCallback() {
   return [](Status) { return Status::OK(); };
 }
 
+#ifndef ARROW_VALGRIND
 TEST(AsyncTaskScheduler, FailingTaskStress) {
   // Test many tasks failling at the same time
   constexpr int kNumTasks = 256;
@@ -201,6 +202,7 @@ TEST(AsyncTaskScheduler, FailingTaskStress) {
     ASSERT_FINISHES_AND_RAISES(Invalid, scheduler->OnFinished());
   }
 }
+#endif
 
 TEST(AsyncTaskScheduler, SubSchedulerFinishCallback) {
   bool finish_callback_ran = false;
@@ -457,6 +459,7 @@ TEST(AsyncTaskScheduler, PurgeUnsubmitted) {
   ASSERT_FALSE(was_submitted);
 }
 
+#ifndef ARROW_VALGRIND
 TEST(AsyncTaskScheduler, FifoStress) {
   // Regresses an issue where adding a task, when the throttle was
   // just cleared, could lead to the added task being run immediately,
@@ -546,6 +549,7 @@ TEST(AsyncTaskScheduler, ScanningStress) {
     ASSERT_EQ(kExpectedBatchesScanned, batches_scanned.load());
   }
 }
+#endif
 
 class TaskWithPriority : public AsyncTaskScheduler::Task {
  public:
