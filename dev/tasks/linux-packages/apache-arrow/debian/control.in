@@ -31,6 +31,7 @@ Build-Depends:
   nlohmann-json-dev | nlohmann-json3-dev,
   nvidia-cuda-toolkit [!arm64],
   pkg-config,
+@USE_SYSTEM_PROTOBUF@  protobuf-compiler,
 @ENABLE_FLIGHT@@USE_SYSTEM_GRPC@  protobuf-compiler-grpc,
   valac,
   tzdata,
