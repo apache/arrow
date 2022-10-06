@@ -343,6 +343,47 @@ TEST(TypeSpecificTests, ListLengths) {
   }
 }
 
+// ARROW-17956: Two cases to cases to make sure the RandomArrayGenerator properly
+// generates lists with nulls:
+// - a ListArray where every member is null (null_probability 1.0). Previously the
+//   OffsetsFromLengthsArray method used internally did not handle arrays where the first
+//   or last element is Null, which defniedly are null for this array
+// - a ListArray where members are either null or have a known length (10). This is to
+// test there is
+//   no off-by-one when setting the null bitmap bits. The elements that should be null
+//   would have a length of 0 instead of 10 so we detect them.
+TEST(TypeSpecificTests, ListNull) {
+  {
+    auto field = arrow::field("list", large_list(int8()),
+                              key_value_metadata({{"null_probability", "1.0"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<LargeListArray>(base_array);
+    ASSERT_EQ(array->length(), kExpectedLength);
+    ASSERT_EQ(array->null_count(), kExpectedLength);
+    ASSERT_OK(array->ValidateFull());
+    for (int i = 0; i < kExpectedLength; i++) {
+      assert(array->IsNull(i));
+    }
+  }
+  {
+    auto field = arrow::field(
+        "list", large_list(int8()),
+        key_value_metadata(
+            {{"min_length", "10"}, {"max_length", "10"}, {"null_probability", "0.5"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<LargeListArray>(base_array);
+    ASSERT_EQ(array->length(), kExpectedLength);
+    ASSERT_OK(array->ValidateFull());
+    for (int i = 0; i < kExpectedLength; i++) {
+      if (!array->IsNull(i)) {
+        ASSERT_EQ(10, array->value_length(i));
+      }
+    }
+  }
+}
+
 TEST(TypeSpecificTests, MapValues) {
   auto field =
       arrow::field("map", map(int8(), int8()), key_value_metadata({{"values", "4"}}));
