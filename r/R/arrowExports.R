@@ -424,8 +424,8 @@ ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
-ExecPlan_EmptyTrash <- function() {
-  .Call(`_arrow_ExecPlan_EmptyTrash`)
+ExecPlan_WaitForAllToFinish <- function(seconds) {
+  .Call(`_arrow_ExecPlan_WaitForAllToFinish`, seconds)
 }
 
 ExecPlan_ToString <- function(plan) {

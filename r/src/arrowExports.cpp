@@ -913,10 +913,11 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-int ExecPlan_EmptyTrash();
-extern "C" SEXP _arrow_ExecPlan_EmptyTrash(){
+int ExecPlan_WaitForAllToFinish(double seconds);
+extern "C" SEXP _arrow_ExecPlan_WaitForAllToFinish(SEXP seconds_sexp){
 BEGIN_CPP11
-	return cpp11::as_sexp(ExecPlan_EmptyTrash());
+	arrow::r::Input<double>::type seconds(seconds_sexp);
+	return cpp11::as_sexp(ExecPlan_WaitForAllToFinish(seconds));
 END_CPP11
 }
 // compute-exec.cpp
@@ -5347,7 +5348,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecPlanReader__Plan", (DL_FUNC) &_arrow_ExecPlanReader__Plan, 1}, 
 		{ "_arrow_ExecPlanReader__PlanStatus", (DL_FUNC) &_arrow_ExecPlanReader__PlanStatus, 1}, 
 		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 5}, 
-		{ "_arrow_ExecPlan_EmptyTrash", (DL_FUNC) &_arrow_ExecPlan_EmptyTrash, 0}, 
+		{ "_arrow_ExecPlan_WaitForAllToFinish", (DL_FUNC) &_arrow_ExecPlan_WaitForAllToFinish, 1}, 
 		{ "_arrow_ExecPlan_ToString", (DL_FUNC) &_arrow_ExecPlan_ToString, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 

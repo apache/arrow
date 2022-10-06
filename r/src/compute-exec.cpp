@@ -156,6 +156,15 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     return trash_can.size();
   }
 
+  static bool WaitForAllExecPlansToFinish(double seconds) {
+    bool all_finished = true;
+    for (const auto& plan : TrashCan()) {
+      all_finished = all_finished && plan->finished().Wait(seconds);
+    }
+    EmptyTheTrash();
+    return all_finished;
+  }
+
  private:
   std::shared_ptr<arrow::Schema> schema_;
   std::shared_ptr<arrow::compute::ExecPlan> plan_;
@@ -276,7 +285,9 @@ std::shared_ptr<ExecPlanReader> ExecPlan_run(
 }
 
 // [[arrow::export]]
-int ExecPlan_EmptyTrash() { return ExecPlanReader::EmptyTheTrash(); }
+int ExecPlan_WaitForAllToFinish(double seconds) {
+  return ExecPlanReader::WaitForAllExecPlansToFinish(seconds);
+}
 
 // [[arrow::export]]
 std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
