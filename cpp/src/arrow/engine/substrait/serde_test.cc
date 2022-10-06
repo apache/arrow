@@ -3465,7 +3465,7 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
     {
       "rel": {
         "project": {
-          "common": {"emit": {"outputMapping": [1]}},
+          "common": {"emit": {"outputMapping": [2]}},
           "input": {
             "project": {
               "common": {"emit": {"outputMapping": [1, 2]}},
@@ -3507,11 +3507,11 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
-  auto output_schema = schema({field("A+10", float64())});
+  auto output_schema = schema({field("A", int32())});
   auto expected_table = TableFromJSON(output_schema, {R"([
+      [10],
       [20],
-      [30],
-      [40]
+      [30]
   ])"});
 
   NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
