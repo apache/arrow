@@ -242,7 +242,7 @@ void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
   for (int i_write = 0; i_write < nb_writes; i_write++) {
-    ARROW_EXPECT_OK(writer->Write(*input_tables[i_Write]));
+    ARROW_EXPECT_OK(writer->Write(*input_tables[i_write]));
   }
   ARROW_EXPECT_OK(writer->Close());
   EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
@@ -753,7 +753,7 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
   const int64_t num_rows = 1234;
   const int num_writes = 5;
   
-  std::shared_ptr<Schema> input_schema = schema({field("col0", array_int->type())});
+  std::shared_ptr<Schema> input_schema = schema({field("col0", int32())});
   ArrayVector vect;
   std::vector<std::shared_ptr<Table>> input_tables;
   for (int i = 0; i < num_writes; i++) {
