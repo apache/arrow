@@ -281,8 +281,6 @@ jobs:
           if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
             # enable the devtoolset version to use it
             source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
-            mkdir -p ~/.R
-            echo "CXX17=g++ -std=gnu++17 -g -O2 -fpic" >> ~/.R/Makevars
           fi
           Rscript -e '
           {{  macros.github_test_r_src_pkg()|indent(8) }}
