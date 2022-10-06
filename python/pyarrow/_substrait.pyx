@@ -130,7 +130,7 @@ def run_query(plan, table_provider=None):
         c_buf_plan = pyarrow_unwrap_buffer(plan)
     else:
         raise TypeError(
-            f"Expected '{Buffer}' or bytes, got '{type(plan)}'")
+            f"Expected 'pyarrow.Buffer' or bytes, got '{type(plan)}'")
 
     if table_provider is not None:
         named_table_args = {
