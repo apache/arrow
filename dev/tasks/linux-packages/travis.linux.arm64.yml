@@ -24,10 +24,6 @@ dist: focal
 group: edge
 language: minimal
 
-cache:
-  directories:
-    - ccache
-
 addons:
   apt:
     packages:
@@ -100,12 +96,6 @@ before_script:
   - rm -rf createrepo_c
 
 script:
-  # Prepare cache
-  - ccache_prefix={{ task_namespace }}-{{ target }}
-  - ccache_dir=arrow/dev/tasks/linux-packages/apache-arrow/{{ task_namespace }}/build/{{ target }}
-  - mkdir -p ${ccache_dir}
-  - mkdir -p ccache/${ccache_prefix}
-  - mv ccache/${ccache_prefix} ${ccache_dir}/ccache
   # Build packages
   - pushd arrow/dev/tasks/linux-packages
   - rake version:update
@@ -139,10 +129,6 @@ script:
   - |
       rake docker:push || :
   - popd
-  # Postpare cache
-  - |
-      sudo chown -R ${USER}: ${ccache_dir}
-  - mv ${ccache_dir}/ccache ccache/${ccache_prefix}
   # Test built packages
   - sudo gem install apt-dists-merge
   - |
