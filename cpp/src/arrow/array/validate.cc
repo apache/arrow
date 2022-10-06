@@ -475,11 +475,11 @@ struct ValidateArrayImpl {
     }
     if (full_validation && run_ends_data.length != 0) {
       const int64_t run_ends_length = rle_util::RunEndsArray(span).length;
-      int32_t last_run_end = 0;
-      int32_t physical_offset = 0;
-      int32_t physical_end = 0;
+      int64_t last_run_end = 0;
+      int64_t physical_offset = 0;
+      int64_t physical_end = 0;
       for (int64_t index = 0; index < run_ends_length; index++) {
-        int32_t run_end = run_ends[index];
+        int64_t run_end = run_ends[index];
         if (run_end < 1) {
           return Status::Invalid(
               "Run ends array invalid: All run ends must be a positive integer but run "
