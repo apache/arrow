@@ -592,3 +592,25 @@ test_that("compute() on a grouped query returns a Table with groups in metadata"
       group_by(int)
   )
 })
+
+test_that("collect() is identical to compute() %>% collect()", {
+  tab1 <- tbl %>%
+    arrow_table()
+  adq1 <- tab1 %>%
+    group_by(int)
+
+  expect_equal(
+    tab1 %>%
+      compute() %>%
+      collect(),
+    tab1 %>%
+      collect()
+  )
+  expect_equal(
+    adq1 %>%
+      compute() %>%
+      collect(),
+    adq1 %>%
+      collect()
+  )
+})
