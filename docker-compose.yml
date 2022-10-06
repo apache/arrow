@@ -991,7 +991,7 @@ services:
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2017.dockerfile
     volumes:
-      - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-test-clcache:C:/clcache"
+      - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
       - type: bind
         source: .
         target: "C:/arrow"
