@@ -23,10 +23,11 @@
 #include <crtdbg.h>
 #include <io.h>
 #else
-#include <fcntl.h>     // IWYU pragma: keep
-#include <sys/stat.h>  // IWYU pragma: keep
-#include <sys/wait.h>  // IWYU pragma: keep
-#include <unistd.h>    // IWYU pragma: keep
+#include <fcntl.h>      // IWYU pragma: keep
+#include <sys/stat.h>   // IWYU pragma: keep
+#include <sys/types.h>  // IWYU pragma: keep
+#include <sys/wait.h>   // IWYU pragma: keep
+#include <unistd.h>     // IWYU pragma: keep
 #endif
 
 #include <algorithm>
@@ -767,23 +768,106 @@ void BusyWait(double seconds, std::function<bool()> predicate) {
   }
 }
 
+namespace {
+
+// A helper class to launch async-sleeping threads, while trying to keep the
+// number of lingering threads (threads that have finished sleeping but have
+// not exited yet) under control, to avoid hitting resource limits (ARROW-17927).
+//
+// XXX we could instead use a single thread + a priority queue.  However
+// we would also need reliable a cross-platform way to get the current
+// high-resolution time, and wait for a high-resolution deadline.
+struct AsyncSleeper {
+  ~AsyncSleeper() {
+    if (!IsForkedChild()) {
+      // Join all threads at shutdown
+      JoinAll();
+    } else {
+      // Mutex and thread destructors can crash in child, just let them leak
+      new (state_.get()) State;
+    }
+  }
+
+  template <typename SleepFunc>
+  Future<> Sleep(SleepFunc sleep_func) {
+    DCHECK(!IsForkedChild()) << "Async sleep forbidden in forked child";
+    // Attempt to join all lingering threads before joining a new one.
+    JoinAll();
+    while (state_->n_sleepers_ >= kMaxSleepers) {
+      SleepABit();
+      JoinAll();
+    }
+
+    ++state_->n_sleepers_;
+    auto out = Future<>::Make();
+    auto thread = std::thread([out, sleep_func = std::move(sleep_func)]() mutable {
+      sleep_func();
+      out.MarkFinished();
+    });
+    // Typically, advanced uses of async-sleeping will launch another async-sleep
+    // after the returned future has finished.  Ensure the thread is pushed
+    // before the future is finished, so that the next Sleep() call first joins
+    // the thread.
+    return out.Then([state = state_, thread = std::move(thread)]() mutable {
+      std::lock_guard<std::mutex> lock(state->mutex_);
+      state->finished_sleepers_.push_back(std::move(thread));
+    });
+  }
+
+  void JoinAll() {
+    std::unique_lock<std::mutex> lock(state_->mutex_);
+    auto sleepers = std::move(state_->finished_sleepers_);
+    const auto this_id = std::this_thread::get_id();
+    std::optional<std::thread> this_sleeper;
+
+    // Need to unlock before joining threads, would deadlock otherwise
+    lock.unlock();
+    for (auto&& thread : sleepers) {
+      // Join the thread if it's not the current one, otherwise push it back
+      if (thread.get_id() != this_id) {
+        thread.join();
+        --state_->n_sleepers_;
+      } else {
+        this_sleeper.emplace(std::move(thread));
+      }
+    }
+
+    if (this_sleeper) {
+      lock.lock();
+      state_->finished_sleepers_.push_back(std::move(this_sleeper).value());
+    }
+  }
+
+#ifdef _WIN32
+  bool IsForkedChild() const { return false; }
+#else
+  bool IsForkedChild() const { return getpid() != pid_; }
+
+  const pid_t pid_{getpid()};
+#endif
+
+  static constexpr int kMaxSleepers = 50;
+
+  struct State {
+    std::mutex mutex_;
+    // Number of threads started and not joined yet.
+    std::atomic<int> n_sleepers_;
+    // Threads that have finished sleeping, but might have not exited yet.
+    std::vector<std::thread> finished_sleepers_;
+  };
+
+  std::shared_ptr<State> state_{std::make_shared<State>()};
+};
+
+AsyncSleeper async_sleeper;
+
+}  // namespace
+
 Future<> SleepAsync(double seconds) {
-  auto out = Future<>::Make();
-  std::thread([out, seconds]() mutable {
-    SleepFor(seconds);
-    out.MarkFinished();
-  }).detach();
-  return out;
+  return async_sleeper.Sleep([seconds]() { SleepFor(seconds); });
 }
 
-Future<> SleepABitAsync() {
-  auto out = Future<>::Make();
-  std::thread([out]() mutable {
-    SleepABit();
-    out.MarkFinished();
-  }).detach();
-  return out;
-}
+Future<> SleepABitAsync() { return async_sleeper.Sleep(SleepABit); }
 
 ///////////////////////////////////////////////////////////////////////////
 // Extension types
