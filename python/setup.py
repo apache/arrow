@@ -232,7 +232,8 @@ class build_ext(_build_ext):
 
     def _run_cmake_pyarrow_cpp(self, pyarrow_cpp_home):
         # check if build_type is correctly passed / set
-        if self.build_type.lower() not in ('release', 'debug', 'relwithdebinfo'):
+        if self.build_type.lower() not in ('release', 'debug',
+                                           'relwithdebinfo'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
                              "be 'release', 'debug' or 'relwithdebinfo'")
 
@@ -300,7 +301,8 @@ class build_ext(_build_ext):
 
     def _run_cmake(self, pyarrow_cpp_home):
         # check if build_type is correctly passed / set
-        if self.build_type.lower() not in ('release', 'debug', 'relwithdebinfo'):
+        if self.build_type.lower() not in ('release', 'debug',
+                                           'relwithdebinfo'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
                              "be 'release', 'debug' or 'relwithdebinfo'")
 
