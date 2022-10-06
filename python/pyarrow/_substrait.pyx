@@ -48,12 +48,7 @@ cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector
                         no_c_inputs, c_input_node_opts)
 
 
-ctypedef fused plan_type:
-    Buffer
-    bytes
-
-
-def run_query(plan_type plan, table_provider=None):
+def run_query(plan, table_provider=None):
     """
     Execute a Substrait plan and read the results as a RecordBatchReader.
 
@@ -131,8 +126,11 @@ def run_query(plan_type plan, table_provider=None):
 
     if isinstance(plan, bytes):
         c_buf_plan = pyarrow_unwrap_buffer(py_buffer(plan))
-    else:
+    elif isinstance(plan, Buffer):
         c_buf_plan = pyarrow_unwrap_buffer(plan)
+    else:
+        raise TypeError(
+            f"Expected '{Buffer}' or bytes, got '{type(plan)}'")
 
     if table_provider is not None:
         named_table_args = {
