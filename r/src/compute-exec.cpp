@@ -153,6 +153,10 @@ class ExecPlanReader : public arrow::RecordBatchReader {
         trash_can.erase(trash_can.begin() + i, trash_can.begin() + i + 1);
       }
     }
+    if (trash_can.size() > 0) {
+      Rprintf("Still %d exec plans remaining after emptying the trash\n",
+              (int)trash_can.size());
+    }
     return trash_can.size();
   }
 

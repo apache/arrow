@@ -191,10 +191,6 @@ configure_tzdb <- function() {
 # more than once.
 .onDetach <- function(...) {
   DeinitializeMainRThread()
-  remaining_exec_plans <- ExecPlan_EmptyTrash()
-  if (remaining_exec_plans > 0) {
-    warning(sprintf("%d ExecPlan(s) remaining in the trash can", remaining_exec_plans))
-  }
 }
 
 # True when the OS is linux + and the R version is development
