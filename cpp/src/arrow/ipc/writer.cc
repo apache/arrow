@@ -527,6 +527,8 @@ class RecordBatchSerializer {
   }
 
   Status Visit(const RunLengthEncodedArray& array) {
+    // TODO: logical_run_ends_array copies the whole run ends array to add an offset and clip the
+    // ends. To improve performance we could do this manually here deep down in VisitArray.
     ARROW_ASSIGN_OR_RAISE(auto run_ends_array, array.logical_run_ends_array())
     --max_recursion_depth_;
     RETURN_NOT_OK(VisitArray(*run_ends_array));
