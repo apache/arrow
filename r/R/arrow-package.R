@@ -102,7 +102,10 @@ supported_dplyr_methods <- list(
     configure_tzdb()
   }
 
-  # register extension types that we use internally
+  # Set interrupt handlers
+  SetEnableSignalStopSource(TRUE)
+
+  # Register extension types that we use internally
   reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
 
   invisible()
@@ -142,6 +145,19 @@ configure_tzdb <- function() {
   })
 }
 
+# Clean up the StopSource that was registered in .onLoad() so that if the
+# package is reloaded we don't get an error from C++ informing us that
+# a StopSource has already been set up.
+.onUnload <- function(...) {
+  DeinitializeMainRThread()
+}
+
+# While .onUnload should be sufficient, devtools::load_all() does not call it
+# (but it does call .onDetach()). It is safe to call DeinitializeMainRThread()
+# more than once.
+.onDetach <- function(...) {
+  DeinitializeMainRThread()
+}
 
 # True when the OS is linux + and the R version is development
 # helpful for skipping on Valgrind, and the sanitizer checks (clang + gcc) on cran

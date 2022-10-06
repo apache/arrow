@@ -15,33 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG repo
-ARG arch=amd64
-ARG python=3.8
-FROM ${repo}:${arch}-conda-python-${python}
+# distutils: language = c++
+# cython: language_level = 3
 
-ARG jdk=8
-ARG maven=3.5
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport CStatus
 
-RUN mamba install -q -y \
-        openjdk=${jdk} \
-        maven=${maven} \
-        pandas && \
-    mamba clean --all
 
-# installing specific version of spark
-ARG spark=master
-COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
+ctypedef CStatus cb_test_func()
 
-# build cpp with tests
-ENV CC=gcc \
-    CXX=g++ \
-    ARROW_BUILD_TESTS=OFF \
-    ARROW_COMPUTE=ON \
-    ARROW_CSV=ON \
-    ARROW_DATASET=ON \
-    ARROW_FILESYSTEM=ON \
-    ARROW_HDFS=ON \
-    ARROW_JSON=ON \
-    SPARK_VERSION=${spark}
+cdef extern from "arrow/python/python_test.h" namespace "arrow::py::testing" nogil:
+
+    cdef cppclass CTestCase "arrow::py::testing::TestCase":
+        c_string name
+        cb_test_func func
+
+    vector[CTestCase] GetCppTestCases()
