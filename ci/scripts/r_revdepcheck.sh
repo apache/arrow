@@ -30,6 +30,7 @@ source_dir=${1}/r
 # cpp building dependencies
 apt update -y -q && \
 apt install -y \
+  libboost-all-dev \
   cmake \
   libbrotli-dev \
   libbz2-dev \
@@ -91,7 +92,8 @@ export AWS_EC2_METADATA_DISABLED=TRUE
 # Set crancache dir so we can cache it
 export CRANCACHE_DIR="${1}/.crancache"
 
-# Don't use system boost to prevent issues with missing components 
+# One of the revdeps/system reqs creates an incomplete boost install 
+# in the cmake search path which breaks our build, so we don't use system boost 
 export EXTRA_CMAKE_FLAGS='-DBoost_SOURCE=BUNDLED'
 
 export MAKEFLAGS=-j$N_JOBS
