@@ -247,16 +247,9 @@ struct StructFieldFunctor {
         }
         case Type::LIST: {
           const auto& list_array = checked_cast<const ListArray&>(*current);
-          ARROW_LOG(INFO) << list_array.ToString();
           ARROW_ASSIGN_OR_RAISE(
-              Datum indices,
-              CallFunction("add", {list_array.offsets()->Slice(
-                                       0, list_array.offsets()->length() - 1),
-                                   MakeScalar(index)}));
-          ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("take", {list_array.values(),
-                                                                    std::move(indices)}));
+              Datum result, CallFunction("list_element", {list_array, {Datum(index)}}));
           current = result.make_array();
-          ARROW_LOG(INFO) << current->ToString();
           break;
         }
         default:
