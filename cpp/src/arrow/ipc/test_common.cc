@@ -45,6 +45,8 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/rle_util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
@@ -541,26 +543,42 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeRunLengthEncoded(std::shared_ptr<RecordBatch>* out) {
   const int64_t logical_length = 10000;
-
+  const int64_t slice_offset = 2000;
   random::RandomArrayGenerator rand(/*seed =*/1);
-  std::shared_ptr<Array> rle_int32 = rand.RunLengthEncoded(int32(), logical_length, 0.5);
-  std::shared_ptr<Array> rle_int32_not_null =
-      rand.RunLengthEncoded(int32(), logical_length, 0);
-  std::shared_ptr<Array> rle_string = rand.RunLengthEncoded(utf8(), logical_length, 0.5);
-  std::shared_ptr<Array> rle_list =
-      rand.RunLengthEncoded(list(int32()), logical_length, 0.5);
-  std::shared_ptr<Array> rle_nested =
-      rand.RunLengthEncoded(run_length_encoded(int32()), logical_length, 0.5);
-  auto schema = ::arrow::schema({field("rle_int32", rle_int32->type()),
-                                 field("rle_int32_not_null", rle_int32_not_null->type()),
-                                 field("rle_string", rle_string->type()),
-                                 field("rle_list", rle_list->type()),
-                                 field("rle_nested", rle_nested->type())});
+  std::vector<std::shared_ptr<Array>> all_arrays;
+  std::vector<std::shared_ptr<Field>> all_fields;
+  for (const bool sliced: {false, true}) {
+    const int64_t generate_length = sliced ? logical_length + 2 * slice_offset : logical_length;
 
-  // construct batch
-  std::vector<std::shared_ptr<Array>> arrays = {rle_int32, rle_int32_not_null, rle_string,
-                                                rle_list, rle_nested};
-  *out = RecordBatch::Make(schema, logical_length, arrays);
+    std::vector<std::shared_ptr<Array>> arrays = {
+      rand.RunLengthEncoded(int32(), generate_length, 0.5),
+      rand.RunLengthEncoded(int32(), generate_length, 0),
+      rand.RunLengthEncoded(utf8(), generate_length, 0.5),
+      rand.RunLengthEncoded(list(int32()), generate_length, 0.5),
+      rand.RunLengthEncoded(run_length_encoded(int32()), generate_length, 0.5)
+    };
+    std::vector<std::shared_ptr<Field>> fields = {
+      field("rle_int32", run_length_encoded(int32())),
+      field("rle_int32_not_null", run_length_encoded(int32()), false),
+      field("rle_string", run_length_encoded(utf8())),
+      field("rle_list", run_length_encoded(list(int32()))),
+      field("rle_nested", run_length_encoded(run_length_encoded(int32())), false, KeyValueMetadata::Make({"this_is_crazy"}, {"yes"}))
+    };
+
+    if (sliced) {
+      for (auto& array: arrays) {
+        rle_util::AddArtificialOffsetInChildArray(array->data().get(), slice_offset);
+        array = array->Slice(slice_offset, logical_length);
+      }
+      for (auto& item: fields) {
+        item = field(item->name() + "_sliced", item->type(), item->nullable(), item->metadata());
+      }
+    }
+
+    all_arrays.insert(all_arrays.end(), arrays.begin(), arrays.end());
+    all_fields.insert(all_fields.end(), fields.begin(), fields.end());
+  }
+  *out = RecordBatch::Make(schema(all_fields), logical_length, all_arrays);
   return Status::OK();
 }
 
