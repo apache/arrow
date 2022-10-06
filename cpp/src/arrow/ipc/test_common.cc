@@ -539,6 +539,31 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeRunLengthEncoded(std::shared_ptr<RecordBatch>* out) {
+  const int64_t logical_length = 10000;
+
+  random::RandomArrayGenerator rand(/*seed =*/1);
+  std::shared_ptr<Array> rle_int32 = rand.RunLengthEncoded(int32(), logical_length, 0.5);
+  std::shared_ptr<Array> rle_int32_not_null =
+      rand.RunLengthEncoded(int32(), logical_length, 0);
+  std::shared_ptr<Array> rle_string = rand.RunLengthEncoded(utf8(), logical_length, 0.5);
+  std::shared_ptr<Array> rle_list =
+      rand.RunLengthEncoded(list(int32()), logical_length, 0.5);
+  std::shared_ptr<Array> rle_nested =
+      rand.RunLengthEncoded(run_length_encoded(int32()), logical_length, 0.5);
+  auto schema = ::arrow::schema({field("rle_int32", rle_int32->type()),
+                                 field("rle_int32_not_null", rle_int32_not_null->type()),
+                                 field("rle_string", rle_string->type()),
+                                 field("rle_list", rle_list->type()),
+                                 field("rle_nested", rle_nested->type())});
+
+  // construct batch
+  std::vector<std::shared_ptr<Array>> arrays = {rle_int32, rle_int32_not_null, rle_string,
+                                                rle_list, rle_nested};
+  *out = RecordBatch::Make(schema, logical_length, arrays);
+  return Status::OK();
+}
+
 Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   // Define schema
   std::vector<std::shared_ptr<Field>> union_fields(

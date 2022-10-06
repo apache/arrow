@@ -601,6 +601,27 @@ std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& k
   return *::arrow::MapArray::FromArrays(offsets, keys, items);
 }
 
+std::shared_ptr<Array> RandomArrayGenerator::RunLengthEncoded(
+    std::shared_ptr<DataType> values_type, int64_t logical_size,
+    double null_probability) {
+  Int32Builder run_ends_builder;
+  pcg32_fast rng(seed());
+
+  std::uniform_int_distribution<int64_t> distribution(1, 100);
+  int64_t current_end = 0;
+  while (current_end < logical_size) {
+    current_end += distribution(rng);
+    current_end = std::min(current_end, logical_size);
+    ARROW_CHECK_OK(run_ends_builder.Append(current_end));
+  }
+
+  std::shared_ptr<Array> run_ends_array = *run_ends_builder.Finish();
+  std::shared_ptr<Array> values_array =
+      ArrayOf(std::move(values_type), run_ends_array->length(), null_probability);
+
+  return *RunLengthEncodedArray::Make(run_ends_array, values_array, logical_size);
+}
+
 std::shared_ptr<Array> RandomArrayGenerator::SparseUnion(const ArrayVector& fields,
                                                          int64_t size) {
   DCHECK_GT(fields.size(), 0);
@@ -852,6 +873,11 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       }
       return *StructArray::Make(child_arrays, field_names,
                                 NullBitmap(length, null_probability));
+    }
+
+    case Type::type::RUN_LENGTH_ENCODED: {
+      auto rle_type = internal::checked_cast<RunLengthEncodedType*>(field.type().get());
+      return RunLengthEncoded(rle_type->encoded_type(), length, null_probability);
     }
 
     case Type::type::SPARSE_UNION:

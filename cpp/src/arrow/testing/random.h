@@ -361,6 +361,18 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
                              const std::shared_ptr<Array>& items, int64_t size,
                              double null_probability = 0, bool force_empty_nulls = false);
 
+  /// \brief Generate a random RunLengthEncodedArray
+  ///
+  /// \param[in] values_type The DataType of the encoded values
+  /// \param[in] items The underlying items array
+  /// \param[in] size The logical length of the generated array
+  /// \param[in] null_probability the probability of a value being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> RunLengthEncoded(std::shared_ptr<DataType> values_type,
+                                          int64_t logical_size,
+                                          double null_probability = 0);
+
   /// \brief Generate a random SparseUnionArray
   ///
   /// The type ids are chosen randomly, according to a uniform distribution,
