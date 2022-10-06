@@ -272,7 +272,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
     auto j = resolve.index_in_chunk;
 
     return array->IsNull(j) ? cpp11::na<c_type>()
@@ -566,7 +566,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
 
-    auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
     auto j = resolve.index_in_chunk;
 
     if (!array->IsNull(j)) {
@@ -842,7 +842,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
     auto j = resolve.index_in_chunk;
 
     SEXP s = NA_STRING;
