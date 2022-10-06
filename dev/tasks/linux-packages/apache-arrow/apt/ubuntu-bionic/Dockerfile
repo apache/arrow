@@ -50,6 +50,7 @@ RUN \
     libgtest-dev \
     liblz4-dev \
     libprotobuf-dev \
+    libprotoc-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
