@@ -383,7 +383,7 @@ class DockerCompose(Command):
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
                     else:
-                        args.extend(shlex.shlex(cmd))
+                        args.extend(shlex.split(cmd))
 
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)
