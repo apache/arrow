@@ -366,9 +366,6 @@ void SleepABit();
 ARROW_TESTING_EXPORT
 void BusyWait(double seconds, std::function<bool()> predicate);
 
-ARROW_TESTING_EXPORT
-Future<> SleepAsync(double seconds);
-
 // \see SleepABit
 ARROW_TESTING_EXPORT
 Future<> SleepABitAsync();
