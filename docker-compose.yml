@@ -983,8 +983,15 @@ services:
 
   # doesn't exit properly on fail
   python-wheel-windows-test:
-    image: python:${PYTHON}-windowsservercore-1809
+    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2017-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    build:
+      args:
+        vcpkg: ${VCPKG}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/python-wheel-windows-vs2017.dockerfile
     volumes:
+      - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-test-clcache:C:/clcache"
       - type: bind
         source: .
         target: "C:/arrow"
