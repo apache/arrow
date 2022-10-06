@@ -513,10 +513,7 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
 }
 
 template <typename OffsetArrayType>
-std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
-                                               bool force_empty_nulls) {
-  DCHECK(lengths->length() == 0 || !lengths->IsNull(0));
-  DCHECK(lengths->length() == 0 || !lengths->IsNull(lengths->length() - 1));
+std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths) {
   // Need N + 1 offsets for N items
   int64_t size = lengths->length() + 1;
   BufferVector buffers{2};
@@ -525,8 +522,8 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
 
   buffers[0] = *AllocateEmptyBitmap(size);
   uint8_t* null_bitmap = buffers[0]->mutable_data();
-  // Make sure the first and last entry are non-null
-  arrow::bit_util::SetBit(null_bitmap, 0);
+  // The last offset is the size of all lists combined, no actual list starts at this
+  // offset. It should never be null.
   arrow::bit_util::SetBit(null_bitmap, size - 1);
 
   buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
@@ -536,7 +533,10 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
   int index = 1;
   for (const auto& length : *lengths) {
     if (length.has_value()) {
-      arrow::bit_util::SetBit(null_bitmap, index);
+      // index - 1 because the index variable represents the index of the next offset,
+      // which is based of the current elements length. But the validity bit should still
+      // be set for the current element
+      arrow::bit_util::SetBit(null_bitmap, index - 1);
       data[index] = data[index - 1] + *length;
       DCHECK_GE(*length, 0);
     } else {
@@ -544,18 +544,6 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
       null_count++;
     }
     index++;
-  }
-
-  if (force_empty_nulls) {
-    arrow::internal::BitmapReader reader(null_bitmap, 0, size);
-    for (int64_t i = 0; i < size; ++i) {
-      if (reader.IsNotSet()) {
-        // Ensure a null entry corresponds to a 0-sized list extent
-        // (note this can be neither the first nor the last list entry, see above)
-        data[i + 1] = data[i];
-      }
-      reader.Next();
-    }
   }
 
   auto array_data = ArrayData::Make(
@@ -721,13 +709,11 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     for (const auto& length : *lengths) {                                            \
       if (length.has_value()) values_length += *length;                              \
     }                                                                                \
-    const auto force_empty_nulls =                                                   \
-        GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);       \
     const auto values =                                                              \
         ArrayOf(*internal::checked_pointer_cast<ARRAY_TYPE::TypeClass>(field.type()) \
                      ->value_field(),                                                \
                 values_length);                                                      \
-    const auto offsets = OffsetsFromLengthsArray(lengths.get(), force_empty_nulls);  \
+    const auto offsets = OffsetsFromLengthsArray(lengths.get());                     \
     return *ARRAY_TYPE::FromArrays(*offsets, *values);                               \
   }
 
