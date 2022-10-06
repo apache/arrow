@@ -23,10 +23,11 @@
 #include <crtdbg.h>
 #include <io.h>
 #else
-#include <fcntl.h>     // IWYU pragma: keep
-#include <sys/stat.h>  // IWYU pragma: keep
-#include <sys/wait.h>  // IWYU pragma: keep
-#include <unistd.h>    // IWYU pragma: keep
+#include <fcntl.h>      // IWYU pragma: keep
+#include <sys/stat.h>   // IWYU pragma: keep
+#include <sys/types.h>  // IWYU pragma: keep
+#include <sys/wait.h>   // IWYU pragma: keep
+#include <unistd.h>     // IWYU pragma: keep
 #endif
 
 #include <algorithm>
@@ -767,23 +768,122 @@ void BusyWait(double seconds, std::function<bool()> predicate) {
   }
 }
 
-Future<> SleepAsync(double seconds) {
-  auto out = Future<>::Make();
-  std::thread([out, seconds]() mutable {
-    SleepFor(seconds);
-    out.MarkFinished();
-  }).detach();
-  return out;
-}
+namespace {
 
-Future<> SleepABitAsync() {
-  auto out = Future<>::Make();
-  std::thread([out]() mutable {
-    SleepABit();
-    out.MarkFinished();
-  }).detach();
-  return out;
-}
+// A helper class to sleep asynchronously.
+// Uses a single worker thread + priority queue to avoid resource consumption
+// issues when many async sleeps are requested (ARROW-17927).
+struct AsyncSleeper {
+  AsyncSleeper() { state_->worker = std::thread(RunLoop, state_); }
+
+  ~AsyncSleeper() {
+    if (!IsForkedChild()) {
+      // Join thread at shutdown
+      Join();
+    } else {
+      // Mutex and thread destructors can crash in child, just let them leak
+      new (state_.get()) State;
+    }
+  }
+
+  Future<> SleepFor(double seconds) {
+    DCHECK(!IsForkedChild()) << "Async sleep forbidden in forked child";
+
+    auto out = Future<>::Make();
+    const auto deadline = Clock::now() + std::chrono::duration_cast<Clock::duration>(
+                                             std::chrono::duration<double>(seconds));
+    std::unique_lock<std::mutex> lock(state_->mutex);
+    state_->Push(Event{deadline, out});
+    state_->cv.notify_all();
+    return out;
+  }
+
+ private:
+  void Join() {
+    std::unique_lock<std::mutex> lock(state_->mutex);
+    if (state_->worker.joinable()) {
+      state_->please_finish = true;
+      state_->cv.notify_all();
+      lock.unlock();
+      state_->worker.join();
+    }
+  }
+
+  struct State;
+
+  static void RunLoop(std::shared_ptr<State> state) {
+    std::unique_lock<std::mutex> lock(state->mutex);
+    while (!state->please_finish) {
+      if (state->events.empty()) {
+        // Wait for wakeup from Sleep or Join
+        state->cv.wait(lock);
+      } else {
+        // Wait for wakeup from Sleep or Join, or first deadline
+        // (beware that wait_until takes a const-ref to the deadline,
+        //  need to make a local copy to avoid concurrent mutations)
+        const auto deadline = state->events[0].deadline;
+        state->cv.wait_until(lock, deadline);
+      }
+      const auto now = Clock::now();
+      while (!state->please_finish && !state->events.empty() &&
+             now >= state->events[0].deadline) {
+        auto event = state->Pop();
+        lock.unlock();
+        event.future.MarkFinished();
+        lock.lock();
+      }
+    }
+  }
+
+#ifdef _WIN32
+  bool IsForkedChild() const { return false; }
+#else
+  bool IsForkedChild() const { return getpid() != pid_; }
+
+  const pid_t pid_{getpid()};
+#endif
+
+  using Clock = std::chrono::high_resolution_clock;
+
+  struct Event {
+    std::chrono::time_point<Clock> deadline;
+    Future<> future;
+
+    friend bool operator>(const Event& left, const Event& right) {
+      return left.deadline > right.deadline;
+    }
+  };
+
+  struct State {
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::thread worker;
+    std::vector<Event> events;  // arranged as a min-heap
+    bool please_finish{false};
+
+    void Push(Event event) {
+      events.push_back(std::move(event));
+      std::push_heap(events.begin(), events.end(), std::greater{});
+    }
+
+    Event Pop() {
+      std::pop_heap(events.begin(), events.end(), std::greater{});
+      Event event = std::move(events.back());
+      events.pop_back();
+      return event;
+    }
+  };
+
+  std::shared_ptr<State> state_{std::make_shared<State>()};
+};
+
+AsyncSleeper async_sleeper;
+
+}  // namespace
+
+Future<> SleepAsync(double seconds) { return async_sleeper.SleepFor(seconds); }
+
+Future<> SleepABitAsync() { return async_sleeper.SleepFor(1e-3); }
 
 ///////////////////////////////////////////////////////////////////////////
 // Extension types
