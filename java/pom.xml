@@ -916,7 +916,7 @@
     <profile>
       <id>generate-cdata-dylib_so</id>
       <properties>
-        <arrow.c.jni.dist.dir>java-dist/lib</arrow.c.jni.dist.dir>
+        <arrow.c.jni.dist.dir>java-dist</arrow.c.jni.dist.dir>
       </properties>
       <build>
         <plugins>
@@ -981,8 +981,18 @@
     <profile>
       <id>generate-jni-dylib_so</id>
       <properties>
-        <arrow.dataset.jni.dist.dir>java-dist/lib</arrow.dataset.jni.dist.dir>
+        <arrow.dataset.jni.dist.dir>java-dist</arrow.dataset.jni.dist.dir>
         <cpp.dependencies.builded>false</cpp.dependencies.builded>
+        <ARROW_CSV>ON</ARROW_CSV>
+        <ARROW_ORC>ON</ARROW_ORC>
+        <ARROW_PARQUET>ON</ARROW_PARQUET>
+        <ARROW_PLASMA>OFF</ARROW_PLASMA>
+        <ARROW_GANDIVA>OFF</ARROW_GANDIVA>
+        <ARROW_JAVA_JNI_ENABLE_C>OFF</ARROW_JAVA_JNI_ENABLE_C>
+        <ARROW_JAVA_JNI_ENABLE_DATASET>ON</ARROW_JAVA_JNI_ENABLE_DATASET>
+        <ARROW_JAVA_JNI_ENABLE_GANDIVA>OFF</ARROW_JAVA_JNI_ENABLE_GANDIVA>
+        <ARROW_JAVA_JNI_ENABLE_ORC>ON</ARROW_JAVA_JNI_ENABLE_ORC>
+        <ARROW_JAVA_JNI_ENABLE_PLASMA>OFF</ARROW_JAVA_JNI_ENABLE_PLASMA>
       </properties>
       <build>
         <plugins>
@@ -1015,16 +1025,16 @@
                     -S cpp
                     -B cpp-jni
                     -DARROW_BUILD_SHARED=OFF
-                    -DARROW_CSV=ON
+                    -DARROW_CSV=${ARROW_CSV}
                     -DARROW_DATASET=ON
                     -DARROW_DEPENDENCY_SOURCE=BUNDLED
                     -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_FILESYSTEM=ON
-                    -DARROW_GANDIVA=ON
+                    -DARROW_GANDIVA=${ARROW_GANDIVA}
                     -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
-                    -DARROW_ORC=ON
-                    -DARROW_PARQUET=ON
-                    -DARROW_PLASMA=ON
+                    -DARROW_ORC=${ARROW_ORC}
+                    -DARROW_PARQUET=${ARROW_PARQUET}
+                    -DARROW_PLASMA=${ARROW_PLASMA}
                     -DARROW_S3=ON
                     -DARROW_USE_CCACHE=ON
                     -DCMAKE_BUILD_TYPE=Release
@@ -1062,12 +1072,16 @@
                   <commandlineArgs>
                     -S java
                     -B java-jni
-                    -DARROW_JAVA_JNI_ENABLE_C=OFF
+                    -DARROW_JAVA_JNI_ENABLE_C=${ARROW_JAVA_JNI_ENABLE_C}
+                    -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_JAVA_JNI_ENABLE_DATASET}
+                    -DARROW_JAVA_JNI_ENABLE_GANDIVA=${ARROW_JAVA_JNI_ENABLE_GANDIVA}
+                    -DARROW_JAVA_JNI_ENABLE_ORC=${ARROW_JAVA_JNI_ENABLE_ORC}
+                    -DARROW_JAVA_JNI_ENABLE_PLASMA=${ARROW_JAVA_JNI_ENABLE_PLASMA}
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib
-                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
+                    -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
                     -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>

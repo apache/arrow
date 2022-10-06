@@ -367,23 +367,23 @@ public class TestFileSystemDataset extends TestNativeDataset {
     CsvWriteSupport writeSupport = CsvWriteSupport.writeTempFile(
             TMP.newFolder(), "Name,Language", "Juno,Java", "Peter,Python", "Celin,C++");
     String expectedJsonUnordered = "[[\"Juno\", \"Java\"], [\"Peter\", \"Python\"], [\"Celin\", \"C++\"]]";
-    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
-            FileFormat.CSV, writeSupport.getOutputURI());
-
     ScanOptions options = new ScanOptions(100);
-    Schema schema = inferResultSchemaFromFactory(factory, options);
-    List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+    try (
+        FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.CSV, writeSupport.getOutputURI())
+    ) {
+      List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+      Schema schema = inferResultSchemaFromFactory(factory, options);
 
-    System.out.println(schema);
-    assertScanBatchesProduced(factory, options);
-    assertEquals(1, datum.size());
-    assertEquals(2, schema.getFields().size());
-    assertEquals("Name", schema.getFields().get(0).getName());
+      assertScanBatchesProduced(factory, options);
+      assertEquals(1, datum.size());
+      assertEquals(2, schema.getFields().size());
+      assertEquals("Name", schema.getFields().get(0).getName());
 
-    checkParquetReadResult(schema, expectedJsonUnordered, datum);
+      checkParquetReadResult(schema, expectedJsonUnordered, datum);
 
-    AutoCloseables.close(datum);
-    AutoCloseables.close(factory);
+      AutoCloseables.close(datum);
+    }
   }
 
   private void checkParquetReadResult(Schema schema, String expectedJson, List<ArrowRecordBatch> actual)
