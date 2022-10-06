@@ -16,11 +16,11 @@ Build-Depends:
   libcurl4-openssl-dev,
   libgirepository1.0-dev,
   libgoogle-glog-dev,
-@USE_SYSTEM_GRPC@  libgrpc++-dev,
+@ENABLE_FLIGHT@@USE_SYSTEM_GRPC@  libgrpc++-dev,
   libgtest-dev,
   liblz4-dev,
-@USE_SYSTEM_GRPC@  libprotoc-dev,
-@USE_SYSTEM_GRPC@  libprotobuf-dev,
+@USE_SYSTEM_PROTOBUF@  libprotobuf-dev,
+@USE_SYSTEM_PROTOBUF@  libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
@@ -31,7 +31,8 @@ Build-Depends:
   nlohmann-json-dev | nlohmann-json3-dev,
   nvidia-cuda-toolkit [!arm64],
   pkg-config,
-@USE_SYSTEM_GRPC@  protobuf-compiler-grpc,
+@USE_SYSTEM_PROTOBUF@  protobuf-compiler,
+@ENABLE_FLIGHT@@USE_SYSTEM_GRPC@  protobuf-compiler-grpc,
   valac,
   tzdata,
   zlib1g-dev
@@ -91,31 +92,31 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Dataset module.
 
-Package: libarrow-flight1000
-Section: libs
-Architecture: any
-Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends:
-  ${misc:Depends},
-  ${shlibs:Depends},
-  libarrow1000 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ library files for Flight RPC system.
+@ENABLE_FLIGHT@Package: libarrow-flight1000
+@ENABLE_FLIGHT@Section: libs
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Pre-Depends: ${misc:Pre-Depends}
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  ${shlibs:Depends},
+@ENABLE_FLIGHT@  libarrow1000 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides C++ library files for Flight RPC system.
 
-Package: libarrow-flight-sql1000
-Section: libs
-Architecture: any
-Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends:
-  ${misc:Depends},
-  ${shlibs:Depends},
-  libarrow-flight1000 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ library files for Flight SQL system.
+@ENABLE_FLIGHT@Package: libarrow-flight-sql1000
+@ENABLE_FLIGHT@Section: libs
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Pre-Depends: ${misc:Pre-Depends}
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  ${shlibs:Depends},
+@ENABLE_FLIGHT@  libarrow-flight1000 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides C++ library files for Flight SQL system.
 
 Package: libarrow-dev
 Section: libdevel
@@ -130,6 +131,8 @@ Depends:
   libcurl4-openssl-dev,
 @USE_SYSTEM_GRPC@  libgrpc++-dev,
   liblz4-dev,
+@USE_SYSTEM_PROTOBUF@  libprotobuf-dev,
+@USE_SYSTEM_PROTOBUF@  libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
@@ -168,29 +171,29 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for dataset module.
 
-Package: libarrow-flight-dev
-Section: libdevel
-Architecture: any
-Multi-Arch: same
-Depends:
-  ${misc:Depends},
-  libarrow-dev (= ${binary:Version}),
-  libarrow-flight1000 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ header files for Flight RPC system.
+@ENABLE_FLIGHT@Package: libarrow-flight-dev
+@ENABLE_FLIGHT@Section: libdevel
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  libarrow-dev (= ${binary:Version}),
+@ENABLE_FLIGHT@  libarrow-flight1000 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides C++ header files for Flight RPC system.
 
-Package: libarrow-flight-sql-dev
-Section: libdevel
-Architecture: any
-Multi-Arch: same
-Depends:
-  ${misc:Depends},
-  libarrow-flight-dev (= ${binary:Version}),
-  libarrow-flight-sql1000 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ header files for Flight SQL system.
+@ENABLE_FLIGHT@Package: libarrow-flight-sql-dev
+@ENABLE_FLIGHT@Section: libdevel
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  libarrow-flight-dev (= ${binary:Version}),
+@ENABLE_FLIGHT@  libarrow-flight-sql1000 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides C++ header files for Flight SQL system.
 
 Package: libgandiva1000
 Section: libs
@@ -434,109 +437,109 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations for dataset module.
 
-Package: libarrow-flight-glib1000
-Section: libs
-Architecture: any
-Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends:
-  ${misc:Depends},
-  ${shlibs:Depends},
-  libarrow-glib1000 (= ${binary:Version}),
-  libarrow-flight1000 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides GLib based library files for Apache Arrow Flight.
+@ENABLE_FLIGHT@Package: libarrow-flight-glib1000
+@ENABLE_FLIGHT@Section: libs
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Pre-Depends: ${misc:Pre-Depends}
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  ${shlibs:Depends},
+@ENABLE_FLIGHT@  libarrow-glib1000 (= ${binary:Version}),
+@ENABLE_FLIGHT@  libarrow-flight1000 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides GLib based library files for Apache Arrow Flight.
 
-Package: gir1.2-arrow-flight-1.0
-Section: introspection
-Architecture: any
-Multi-Arch: same
-Depends:
-  ${gir:Depends},
-  ${misc:Depends},
-  gir1.2-arrow-1.0 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides GObject Introspection typelib files for Apache Arrow
- Flight.
+@ENABLE_FLIGHT@Package: gir1.2-arrow-flight-1.0
+@ENABLE_FLIGHT@Section: introspection
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${gir:Depends},
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  gir1.2-arrow-1.0 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides GObject Introspection typelib files for Apache Arrow
+@ENABLE_FLIGHT@ Flight.
 
-Package: libarrow-flight-glib-dev
-Section: libdevel
-Architecture: any
-Multi-Arch: same
-Depends:
-  ${misc:Depends},
-  libarrow-flight-dev (= ${binary:Version}),
-  libarrow-glib-dev (= ${binary:Version}),
-  libarrow-flight-glib1000 (= ${binary:Version}),
-  gir1.2-arrow-flight-1.0 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides GLib based header files for Apache Arrow Flight.
+@ENABLE_FLIGHT@Package: libarrow-flight-glib-dev
+@ENABLE_FLIGHT@Section: libdevel
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  libarrow-flight-dev (= ${binary:Version}),
+@ENABLE_FLIGHT@  libarrow-glib-dev (= ${binary:Version}),
+@ENABLE_FLIGHT@  libarrow-flight-glib1000 (= ${binary:Version}),
+@ENABLE_FLIGHT@  gir1.2-arrow-flight-1.0 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides GLib based header files for Apache Arrow Flight.
 
-Package: libarrow-flight-glib-doc
-Section: doc
-Architecture: any
-Multi-Arch: foreign
-Depends:
-  ${misc:Depends}
-Recommends: libarrow-glib-doc
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides documentations for Apache Arrow Flight.
+@ENABLE_FLIGHT@Package: libarrow-flight-glib-doc
+@ENABLE_FLIGHT@Section: doc
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: foreign
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends}
+@ENABLE_FLIGHT@Recommends: libarrow-glib-doc
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides documentations for Apache Arrow Flight.
 
-Package: libarrow-flight-sql-glib1000
-Section: libs
-Architecture: any
-Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends:
-  ${misc:Depends},
-  ${shlibs:Depends},
-  libarrow-flight-glib1000 (= ${binary:Version}),
-  libarrow-flight-sql1000 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides GLib based library files for Apache Arrow Flight SQL.
+@ENABLE_FLIGHT@Package: libarrow-flight-sql-glib1000
+@ENABLE_FLIGHT@Section: libs
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Pre-Depends: ${misc:Pre-Depends}
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  ${shlibs:Depends},
+@ENABLE_FLIGHT@  libarrow-flight-glib1000 (= ${binary:Version}),
+@ENABLE_FLIGHT@  libarrow-flight-sql1000 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides GLib based library files for Apache Arrow Flight SQL.
 
-Package: gir1.2-arrow-flight-sql-1.0
-Section: introspection
-Architecture: any
-Multi-Arch: same
-Depends:
-  ${gir:Depends},
-  ${misc:Depends},
-  gir1.2-arrow-flight-1.0 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides GObject Introspection typelib files for Apache Arrow
- Flight SQL.
+@ENABLE_FLIGHT@Package: gir1.2-arrow-flight-sql-1.0
+@ENABLE_FLIGHT@Section: introspection
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${gir:Depends},
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  gir1.2-arrow-flight-1.0 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides GObject Introspection typelib files for Apache Arrow
+@ENABLE_FLIGHT@ Flight SQL.
 
-Package: libarrow-flight-sql-glib-dev
-Section: libdevel
-Architecture: any
-Multi-Arch: same
-Depends:
-  ${misc:Depends},
-  libarrow-flight-sql-dev (= ${binary:Version}),
-  libarrow-flight-glib-dev (= ${binary:Version}),
-  libarrow-flight-sql-glib1000 (= ${binary:Version}),
-  gir1.2-arrow-flight-sql-1.0 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides GLib based header files for Apache Arrow Flight SQL.
+@ENABLE_FLIGHT@Package: libarrow-flight-sql-glib-dev
+@ENABLE_FLIGHT@Section: libdevel
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: same
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends},
+@ENABLE_FLIGHT@  libarrow-flight-sql-dev (= ${binary:Version}),
+@ENABLE_FLIGHT@  libarrow-flight-glib-dev (= ${binary:Version}),
+@ENABLE_FLIGHT@  libarrow-flight-sql-glib1000 (= ${binary:Version}),
+@ENABLE_FLIGHT@  gir1.2-arrow-flight-sql-1.0 (= ${binary:Version})
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides GLib based header files for Apache Arrow Flight SQL.
 
-Package: libarrow-flight-sql-glib-doc
-Section: doc
-Architecture: any
-Multi-Arch: foreign
-Depends:
-  ${misc:Depends}
-Recommends: libarrow-flight-glib-doc
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides documentations for Apache Arrow Flight SQL.
+@ENABLE_FLIGHT@Package: libarrow-flight-sql-glib-doc
+@ENABLE_FLIGHT@Section: doc
+@ENABLE_FLIGHT@Architecture: any
+@ENABLE_FLIGHT@Multi-Arch: foreign
+@ENABLE_FLIGHT@Depends:
+@ENABLE_FLIGHT@  ${misc:Depends}
+@ENABLE_FLIGHT@Recommends: libarrow-flight-glib-doc
+@ENABLE_FLIGHT@Description: Apache Arrow is a data processing library for analysis
+@ENABLE_FLIGHT@ .
+@ENABLE_FLIGHT@ This package provides documentations for Apache Arrow Flight SQL.
 
 Package: libgandiva-glib1000
 Section: libs
