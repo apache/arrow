@@ -44,9 +44,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_util.h"
-#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
@@ -547,31 +547,32 @@ Status MakeRunLengthEncoded(std::shared_ptr<RecordBatch>* out) {
   random::RandomArrayGenerator rand(/*seed =*/1);
   std::vector<std::shared_ptr<Array>> all_arrays;
   std::vector<std::shared_ptr<Field>> all_fields;
-  for (const bool sliced: {false, true}) {
-    const int64_t generate_length = sliced ? logical_length + 2 * slice_offset : logical_length;
+  for (const bool sliced : {false, true}) {
+    const int64_t generate_length =
+        sliced ? logical_length + 2 * slice_offset : logical_length;
 
     std::vector<std::shared_ptr<Array>> arrays = {
-      rand.RunLengthEncoded(int32(), generate_length, 0.5),
-      rand.RunLengthEncoded(int32(), generate_length, 0),
-      rand.RunLengthEncoded(utf8(), generate_length, 0.5),
-      rand.RunLengthEncoded(list(int32()), generate_length, 0.5),
-      rand.RunLengthEncoded(run_length_encoded(int32()), generate_length, 0.5)
-    };
+        rand.RunLengthEncoded(int32(), generate_length, 0.5),
+        rand.RunLengthEncoded(int32(), generate_length, 0),
+        rand.RunLengthEncoded(utf8(), generate_length, 0.5),
+        rand.RunLengthEncoded(list(int32()), generate_length, 0.5),
+        rand.RunLengthEncoded(run_length_encoded(int32()), generate_length, 0.5)};
     std::vector<std::shared_ptr<Field>> fields = {
-      field("rle_int32", run_length_encoded(int32())),
-      field("rle_int32_not_null", run_length_encoded(int32()), false),
-      field("rle_string", run_length_encoded(utf8())),
-      field("rle_list", run_length_encoded(list(int32()))),
-      field("rle_nested", run_length_encoded(run_length_encoded(int32())), false, KeyValueMetadata::Make({"this_is_crazy"}, {"yes"}))
-    };
+        field("rle_int32", run_length_encoded(int32())),
+        field("rle_int32_not_null", run_length_encoded(int32()), false),
+        field("rle_string", run_length_encoded(utf8())),
+        field("rle_list", run_length_encoded(list(int32()))),
+        field("rle_nested", run_length_encoded(run_length_encoded(int32())), false,
+              KeyValueMetadata::Make({"this_is_crazy"}, {"yes"}))};
 
     if (sliced) {
-      for (auto& array: arrays) {
+      for (auto& array : arrays) {
         rle_util::AddArtificialOffsetInChildArray(array->data().get(), slice_offset);
         array = array->Slice(slice_offset, logical_length);
       }
-      for (auto& item: fields) {
-        item = field(item->name() + "_sliced", item->type(), item->nullable(), item->metadata());
+      for (auto& item : fields) {
+        item = field(item->name() + "_sliced", item->type(), item->nullable(),
+                     item->metadata());
       }
     }
 
