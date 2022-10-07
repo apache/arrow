@@ -27,8 +27,10 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
       augment_io_error_msg(e, call, schema = x$.data$schema)
     }
   )
-  # Remove grouping metadata from the Table before converting to a data frame
-  out$metadata$r$attributes$.group_vars <- NULL
+  # Ungroup the Table before converting this to a data frame
+  if (length(group_vars.ArrowTabular(out))) {
+    out <- ungroup.ArrowTabular(out)
+  }
 
   if (as_data_frame) {
     out <- as.data.frame(out)
@@ -64,23 +66,22 @@ restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
   # After calling collect(), make sure these features are carried over
 
-  if (is.data.frame(df)) {
-    # Preserve groupings, if present
-    if (length(query$group_by_vars) > 0) {
-      df <- dplyr::grouped_df(
+  if (length(dplyr::group_vars(df))) {
+    stop("df must be ungrouped", call. = FALSE)
+  }
+
+  if (length(dplyr::group_vars(query))) {
+    if (is.data.frame(df)) {
+      # Preserve groupings, if present
+      df <- dplyr::group_by(
         df,
-        dplyr::group_vars(query),
-        drop = dplyr::group_by_drop_default(query)
+        !!!syms(dplyr::group_vars(query)),
+        .drop = dplyr::group_by_drop_default(query)
       )
-    }
-  } else {
-    # This is a Table, via compute() or collect(as_data_frame = FALSE)
-    if (length(query$group_by_vars) > 0) {
-      gv <- query$group_by_vars
     } else {
-      gv <- NULL
+      # This is a Table, via compute() or collect(as_data_frame = FALSE)
+      df$metadata$r$attributes$.group_vars <- dplyr::group_vars(query)
     }
-    df$metadata$r$attributes$.group_vars <- gv
   }
   df
 }
