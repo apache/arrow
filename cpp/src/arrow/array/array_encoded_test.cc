@@ -140,7 +140,8 @@ TEST_P(TestRunLengthEncodedArray, OffsetLength) {
 
 TEST_P(TestRunLengthEncodedArray, Builder) {
   // test data
-  auto expected_run_ends = ArrayFromJSON(run_ends_type, "[1, 3, 105, 165, 205, 305, 405, 505]");
+  auto expected_run_ends =
+      ArrayFromJSON(run_ends_type, "[1, 3, 105, 165, 205, 305, 405, 505]");
   auto expected_values = ArrayFromJSON(
       utf8(),
       R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])");
