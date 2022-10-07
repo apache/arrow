@@ -43,6 +43,15 @@ class IntegerType(pa.PyExtensionType):
         return IntegerType, ()
 
 
+class IntegerEmbeddedType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, IntegerType())
+
+    def __reduce__(self):
+        return IntegerEmbeddedType, ()
+
+
 class UuidScalarType(pa.ExtensionScalar):
     def as_py(self):
         return None if self.value is None else UUID(bytes=self.value.as_py())
@@ -568,6 +577,13 @@ def test_cast_between_extension_types():
     # can only cast between exactly the same extension types.
     with pytest.raises(TypeError, match='Casting from *'):
         array.cast(UuidType2())
+
+
+def test_cast_to_extension_with_extension_storage():
+    # Test casting directly, and IntegerType -> IntegerEmbeddedType
+    array = pa.array([1, 2, 3], pa.int64())
+    array.cast(IntegerEmbeddedType())
+    array.cast(IntegerType()).cast(IntegerEmbeddedType())
 
 
 @pytest.mark.parametrize("data,type_factory", (
