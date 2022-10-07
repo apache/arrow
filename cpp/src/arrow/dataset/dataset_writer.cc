@@ -131,7 +131,8 @@ class DatasetWriterFileQueue {
                                   DatasetWriterState* writer_state)
       : options_(options), schema_(schema), writer_state_(writer_state) {}
 
-  void Start(util::AsyncTaskScheduler* scheduler, const std::string& filename) {
+  void Start(std::shared_ptr<util::AsyncTaskScheduler> scheduler,
+             const std::string& filename) {
     scheduler_ = scheduler;
     // Because the scheduler runs one task at a time we know the writer will
     // be opened before any attempt to write
@@ -212,7 +213,7 @@ class DatasetWriterFileQueue {
     // is a 1-task FIFO we know this task will run at the very end and can
     // add it now.
     scheduler_->AddSimpleTask([this] { return DoFinish(); });
-    scheduler_->End();
+    scheduler_.reset();
     return Status::OK();
   }
 
@@ -247,7 +248,7 @@ class DatasetWriterFileQueue {
   // point they are merged together and added to write_queue_
   std::deque<std::shared_ptr<RecordBatch>> staged_batches_;
   uint64_t rows_currently_staged_ = 0;
-  util::AsyncTaskScheduler* scheduler_ = nullptr;
+  std::shared_ptr<util::AsyncTaskScheduler> scheduler_ = nullptr;
 };
 
 struct WriteTask {
@@ -327,13 +328,13 @@ class DatasetWriterDirectoryQueue {
       self->writer_state_->open_files_throttle.Release(1);
       return Status::OK();
     };
-    util::AsyncTaskScheduler* file_scheduler =
+    std::shared_ptr<util::AsyncTaskScheduler> file_scheduler =
         scheduler_->MakeSubScheduler(std::move(file_finish_task), throttle_view);
     if (init_future_.is_valid()) {
       file_scheduler->AddSimpleTask(
           [init_future = init_future_]() { return init_future; });
     }
-    file_queue_view->Start(file_scheduler, filename);
+    file_queue_view->Start(std::move(file_scheduler), filename);
     return file_queue_view;
   }
 

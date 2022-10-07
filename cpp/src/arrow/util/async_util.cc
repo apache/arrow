@@ -104,10 +104,12 @@ class AlreadyFailedScheduler : public AsyncTaskScheduler {
                                   FnOnce<Status(Status)> finish_callback)
       : failure_reason_(std::move(failure_reason)),
         finish_callback_(std::move(finish_callback)) {}
+  ~AlreadyFailedScheduler() override {
+    std::ignore = std::move(finish_callback_)(failure_reason_);
+  }
   bool AddTask(std::unique_ptr<Task> task) override { return false; }
   void End() override {
-    std::ignore = std::move(finish_callback_)(failure_reason_);
-    self.reset();
+    Status::UnknownError("Do not call End on a sub-scheduler.").Abort();
   }
   Future<> OnFinished() const override {
     Status::UnknownError(
@@ -115,20 +117,16 @@ class AlreadyFailedScheduler : public AsyncTaskScheduler {
         "finished callback when creating the sub-scheduler instead")
         .Abort();
   }
-  AsyncTaskScheduler* MakeSubScheduler(FnOnce<Status(Status)> finish_callback,
-                                       Throttle* throttle,
-                                       std::unique_ptr<Queue> queue) override {
+  std::shared_ptr<AsyncTaskScheduler> MakeSubScheduler(
+      FnOnce<Status(Status)> finish_callback, Throttle* throttle,
+      std::unique_ptr<Queue> queue) override {
     return AlreadyFailedScheduler::Make(failure_reason_, std::move(finish_callback));
   }
-  static AsyncTaskScheduler* Make(Status failure,
-                                  FnOnce<Status(Status)> finish_callback) {
+  static std::unique_ptr<AsyncTaskScheduler> Make(
+      Status failure, FnOnce<Status(Status)> finish_callback) {
     DCHECK(!failure.ok());
-    std::unique_ptr<AlreadyFailedScheduler> instance =
-        std::make_unique<AlreadyFailedScheduler>(std::move(failure),
-                                                 std::move(finish_callback));
-    AsyncTaskScheduler* view = instance.get();
-    instance->self = std::move(instance);
-    return view;
+    return std::make_unique<AlreadyFailedScheduler>(std::move(failure),
+                                                    std::move(finish_callback));
   }
   // This is deleted when ended so there is no possible way for this to return true
   bool IsEnded() override { return false; }
@@ -136,7 +134,6 @@ class AlreadyFailedScheduler : public AsyncTaskScheduler {
  private:
   Status failure_reason_;
   FnOnce<Status(Status)> finish_callback_;
-  std::unique_ptr<AlreadyFailedScheduler> self;
 };
 
 class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
@@ -170,7 +167,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
             std::move(lk));
       }
       if (state_ != State::kEnded) {
-        End();
+        End(/*from_destructor=*/true);
       }
     }
     finished_.Wait();
@@ -221,10 +218,10 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     return state_ == State::kEnded;
   }
 
-  AsyncTaskScheduler* MakeSubScheduler(FnOnce<Status(Status)> finish_callback,
-                                       Throttle* throttle,
-                                       std::unique_ptr<Queue> queue) override {
-    AsyncTaskScheduler* child;
+  std::shared_ptr<AsyncTaskScheduler> MakeSubScheduler(
+      FnOnce<Status(Status)> finish_callback, Throttle* throttle,
+      std::unique_ptr<Queue> queue) override {
+    AsyncTaskSchedulerImpl* child;
     std::list<std::unique_ptr<AsyncTaskSchedulerImpl>>::iterator child_itr;
     {
       std::lock_guard<std::mutex> lk(mutex_);
@@ -271,10 +268,15 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     };
 
     child->OnFinished().AddCallback(Finalizer{this, child_itr});
-    return child;
+    return CreateEndingHolder(child);
   }
 
-  void End() override {
+  void End() override { End(/*from_destrutor=*/false); }
+
+  void End(bool from_destructor) {
+    if (!from_destructor && finish_callback_) {
+      Status::UnknownError("Do not call End on a sub-scheduler.").Abort();
+    }
     std::unique_lock<std::mutex> lk(mutex_);
     state_ = State::kEnded;
     if (running_tasks_ == 0 && (!queue_ || queue_->Empty())) {
@@ -286,6 +288,16 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   Future<> OnFinished() const override { return finished_; }
 
  private:
+  std::shared_ptr<AsyncTaskSchedulerImpl> CreateEndingHolder(
+      AsyncTaskSchedulerImpl* target) {
+    struct SchedulerEnder {
+      void operator()(AsyncTaskSchedulerImpl* scheduler) {
+        scheduler->End(/*from_destructor=*/true);
+      }
+    };
+    return std::shared_ptr<AsyncTaskSchedulerImpl>(target, SchedulerEnder());
+  }
+
   void ContinueTasksUnlocked(std::unique_lock<std::mutex>* lk) {
     while (!queue_->Empty()) {
       int next_cost = std::min(queue_->Peek().cost(), throttle_->Capacity());

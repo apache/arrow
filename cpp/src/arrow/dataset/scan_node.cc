@@ -267,18 +267,18 @@ class ScanNode : public cp::ExecNode {
         Status operator()(Status) { return Status::OK(); }
         std::unique_ptr<ScanState> scan_state;
       };
-      util::AsyncTaskScheduler* frag_scheduler = scan_scheduler->MakeSubScheduler(
-          StateHolder{std::move(scan_state)}, node->batches_throttle_.get());
+      std::shared_ptr<util::AsyncTaskScheduler> frag_scheduler =
+          scan_scheduler->MakeSubScheduler(StateHolder{std::move(scan_state)},
+                                           node->batches_throttle_.get());
       for (int i = 0; i < fragment_scanner->NumBatches(); i++) {
         node->num_batches_.fetch_add(1);
         frag_scheduler->AddTask(std::make_unique<ScanBatchTask>(node, state_view, i));
       }
       Future<> list_and_scan_node = frag_scheduler->OnFinished();
-      frag_scheduler->End();
       // The "list fragments" task doesn't actually end until the fragments are
       // all scanned.  This allows us to enforce fragment readahead.
       if (--node->list_tasks_ == 0) {
-        node->scan_scheduler_->End();
+        node->scan_scheduler_.reset();
       }
       return list_and_scan_node;
     }
@@ -332,7 +332,7 @@ class ScanNode : public cp::ExecNode {
         },
         [this](Status) {
           if (--list_tasks_ == 0) {
-            scan_scheduler_->End();
+            scan_scheduler_.reset();
           }
           return Status::OK();
         });
@@ -361,7 +361,7 @@ class ScanNode : public cp::ExecNode {
   // needed to figure out when to end scan_scheduler_.  In the future, we should not need
   // to call end and these variables can go away.
   std::atomic<int> list_tasks_{1};
-  util::AsyncTaskScheduler* scan_scheduler_;
+  std::shared_ptr<util::AsyncTaskScheduler> scan_scheduler_;
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> fragments_throttle_;
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> batches_throttle_;
 };

@@ -205,38 +205,40 @@ class ARROW_EXPORT AsyncTaskScheduler {
   bool AddAsyncGenerator(std::function<Future<T>()> generator,
                          std::function<Status(const T&)> visitor,
                          FnOnce<Status(Status)> finish_callback) {
-    AsyncTaskScheduler* generator_scheduler =
+    std::shared_ptr<AsyncTaskScheduler> generator_scheduler =
         MakeSubScheduler(std::move(finish_callback));
     struct State {
-      State(std::function<Future<T>()> generator, std::function<Status(const T&)> visitor)
-          : generator(std::move(generator)), visitor(std::move(visitor)) {}
+      State(std::function<Future<T>()> generator, std::function<Status(const T&)> visitor,
+            std::shared_ptr<AsyncTaskScheduler> scheduler)
+          : generator(std::move(generator)),
+            visitor(std::move(visitor)),
+            scheduler(std::move(scheduler)) {}
       std::function<Future<T>()> generator;
       std::function<Status(const T&)> visitor;
+      std::shared_ptr<AsyncTaskScheduler> scheduler;
     };
-    std::unique_ptr<State> state_holder =
-        std::make_unique<State>(std::move(generator), std::move(visitor));
+    std::unique_ptr<State> state_holder = std::make_unique<State>(
+        std::move(generator), std::move(visitor), generator_scheduler);
     struct SubmitTask : public Task {
       explicit SubmitTask(std::unique_ptr<State> state_holder)
           : state_holder(std::move(state_holder)) {}
       struct SubmitTaskCallback {
-        SubmitTaskCallback(AsyncTaskScheduler* scheduler,
-                           std::unique_ptr<State> state_holder)
-            : scheduler(scheduler), state_holder(std::move(state_holder)) {}
+        SubmitTaskCallback(std::unique_ptr<State> state_holder)
+            : state_holder(std::move(state_holder)) {}
         Status operator()(const T& item) {
           if (IsIterationEnd(item)) {
-            scheduler->End();
             return Status::OK();
           }
           ARROW_RETURN_NOT_OK(state_holder->visitor(item));
-          scheduler->AddTask(std::make_unique<SubmitTask>(std::move(state_holder)));
+          state_holder->scheduler->AddTask(
+              std::make_unique<SubmitTask>(std::move(state_holder)));
           return Status::OK();
         }
-        AsyncTaskScheduler* scheduler;
         std::unique_ptr<State> state_holder;
       };
       Result<Future<>> operator()(AsyncTaskScheduler* scheduler) {
         Future<T> next = state_holder->generator();
-        return next.Then(SubmitTaskCallback(scheduler, std::move(state_holder)));
+        return next.Then(SubmitTaskCallback(std::move(state_holder)));
       }
       std::unique_ptr<State> state_holder;
     };
@@ -294,7 +296,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
   ///
   /// A sub-scheduler can share the same throttle as its parent but it
   /// can also have its own unique throttle.
-  virtual AsyncTaskScheduler* MakeSubScheduler(
+  virtual std::shared_ptr<AsyncTaskScheduler> MakeSubScheduler(
       FnOnce<Status(Status)> finish_callback, Throttle* throttle = NULLPTR,
       std::unique_ptr<Queue> queue = NULLPTR) = 0;
 

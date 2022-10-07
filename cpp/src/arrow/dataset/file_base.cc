@@ -519,7 +519,7 @@ class TeeNode : public compute::MapNode {
       MapNode::Finish(std::move(writer_finish_st));
       return;
     }
-    serial_scheduler_->End();
+    serial_scheduler_.reset();
     MapNode::Finish(Status::OK());
   }
 
@@ -581,7 +581,7 @@ class TeeNode : public compute::MapNode {
   // We use a serial scheduler to submit tasks to the dataset writer.  The dataset writer
   // only returns an unfinished future when it needs backpressure.  Using a serial
   // scheduler here ensures we pause while we wait for backpressure to clear
-  util::AsyncTaskScheduler* serial_scheduler_;
+  std::shared_ptr<util::AsyncTaskScheduler> serial_scheduler_;
   int32_t backpressure_counter_ = 0;
 };
 
