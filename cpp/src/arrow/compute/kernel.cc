@@ -277,13 +277,16 @@ std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
 
 class RunLengthEncodedMatcher : public TypeMatcher {
  public:
-  RunLengthEncodedMatcher(std::shared_ptr<TypeMatcher> encoded_type_matcher)
-      : encoded_type_matcher{std::move(encoded_type_matcher)} {}
+  RunLengthEncodedMatcher(std::shared_ptr<TypeMatcher> run_ends_type_matcher,
+                          std::shared_ptr<TypeMatcher> encoded_type_matcher)
+      : run_ends_type_matcher{std::move(run_ends_type_matcher)},
+        encoded_type_matcher{std::move(encoded_type_matcher)} {}
 
   bool Matches(const DataType& type) const override {
     if (type.id() == Type::RUN_LENGTH_ENCODED) {
-      auto& encoding_type = dynamic_cast<const EncodingType&>(type);
-      return encoded_type_matcher->Matches(*encoding_type.encoded_type());
+      auto& encoding_type = dynamic_cast<const RunLengthEncodedType&>(type);
+      return encoded_type_matcher->Matches(*encoding_type.encoded_type()) &&
+             run_ends_type_matcher->Matches(*encoding_type.run_ends_type());
     } else {
       return false;
     }
@@ -294,7 +297,9 @@ class RunLengthEncodedMatcher : public TypeMatcher {
       return true;
     }
     auto casted = dynamic_cast<const RunLengthEncodedMatcher*>(&other);
-    return casted != nullptr && encoded_type_matcher->Equals(*casted->encoded_type_matcher);
+    return casted != nullptr &&
+           encoded_type_matcher->Equals(*casted->encoded_type_matcher) &&
+           run_ends_type_matcher->Equals(*casted->run_ends_type_matcher);
   }
 
   std::string ToString() const override {
@@ -302,12 +307,15 @@ class RunLengthEncodedMatcher : public TypeMatcher {
   };
 
  private:
+  std::shared_ptr<TypeMatcher> run_ends_type_matcher;
   std::shared_ptr<TypeMatcher> encoded_type_matcher;
 };
 
 std::shared_ptr<TypeMatcher> RunLengthEncoded(
+    std::shared_ptr<TypeMatcher> run_ends_type_matcher,
     std::shared_ptr<TypeMatcher> encoded_type_matcher) {
-  return std::make_shared<RunLengthEncodedMatcher>(std::move(encoded_type_matcher));
+  return std::make_shared<RunLengthEncodedMatcher>(std::move(run_ends_type_matcher),
+                                                   std::move(encoded_type_matcher));
 }
 
 }  // namespace match
