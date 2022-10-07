@@ -67,7 +67,11 @@ class ARROW_EXPORT RunLengthEncodedBuilder : public ArrayBuilder {
  private:
   Status FinishRun();
   Status AddLength(int64_t added_length);
-  Int32Builder& run_end_builder();
+  template <typename RunEndsType>
+  Status DoAppendArray(const ArraySpan& to_append);
+  template <typename RunEndsType>
+  Status DoAppendRunEnd();
+  ArrayBuilder& run_end_builder();
   ArrayBuilder& value_builder();
 
   std::shared_ptr<RunLengthEncodedType> type_;

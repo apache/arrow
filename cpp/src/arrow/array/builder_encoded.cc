@@ -96,6 +96,20 @@ Status RunLengthEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
   return Status::OK();
 }
 
+template <typename RunEndsType>
+Status RunLengthEncodedBuilder::DoAppendArray(const ArraySpan& to_append) {
+  const int64_t physical_offset = rle_util::GetPhysicalOffset(to_append);
+  int64_t physical_length = 0;
+  for (auto it = rle_util::MergedRunsIterator<RunEndsType>(to_append);
+       it != rle_util::MergedRunsIterator(); ++it) {
+    physical_length++;
+    length_ += it.run_length();
+    RETURN_NOT_OK(DoAppendRunEnd<RunEndsType>());
+  }
+  return value_builder().AppendArraySlice(rle_util::ValuesArray(to_append),
+                                          physical_offset, physical_length);
+}
+
 Status RunLengthEncodedBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
                                                  int64_t length) {
   // Finish eventual runs started using AppendScalars() and others before. We don't
@@ -107,17 +121,21 @@ Status RunLengthEncodedBuilder::AppendArraySlice(const ArraySpan& array, int64_t
   // Create a slice of the slice for the part we actually want to add
   ArraySpan to_append = array;
   to_append.SetSlice(array.offset + offset, length);
-  const int64_t physical_offset = rle_util::GetPhysicalOffset(to_append);
-  int64_t physical_length = 0;
 
-  for (auto it = rle_util::MergedRunsIterator<1>(to_append);
-       it != rle_util::MergedRunsIterator<1>(); ++it) {
-    physical_length++;
-    length_ += it.run_length();
-    RETURN_NOT_OK(run_end_builder().Append(length_));
+  switch (type_->run_ends_type()->id()) {
+    case Type::INT16:
+      RETURN_NOT_OK(DoAppendArray<int16_t>(to_append));
+      break;
+    case Type::INT32:
+      RETURN_NOT_OK(DoAppendArray<int32_t>(to_append));
+      break;
+    case Type::INT64:
+      RETURN_NOT_OK(DoAppendArray<int64_t>(to_append));
+      break;
+    default:
+      return Status::Invalid("Invalid type for run ends array: ", type_->run_ends_type());
   }
-  RETURN_NOT_OK(value_builder().AppendArraySlice(rle_util::ValuesArray(to_append),
-                                                 physical_offset, physical_length));
+
   // next run is not merged either
   run_start_ = length_;
   return Status::OK();
@@ -134,6 +152,13 @@ Status RunLengthEncodedBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) 
   return Status::OK();
 }
 
+template <typename RunEndsType>
+Status RunLengthEncodedBuilder::DoAppendRunEnd() {
+  return internal::checked_cast<typename CTypeTraits<RunEndsType>::BuilderType*>(
+             children_[0].get())
+      ->Append(length_);
+}
+
 Status RunLengthEncodedBuilder::FinishRun() {
   if (length_ - run_start_ == 0) {
     return Status::OK();
@@ -143,7 +168,19 @@ Status RunLengthEncodedBuilder::FinishRun() {
   } else {
     RETURN_NOT_OK(value_builder().AppendNull());
   }
-  RETURN_NOT_OK(run_end_builder().Append(length_));
+  switch (type_->run_ends_type()->id()) {
+    case Type::INT16:
+      RETURN_NOT_OK(DoAppendRunEnd<int16_t>());
+      break;
+    case Type::INT32:
+      RETURN_NOT_OK(DoAppendRunEnd<int32_t>());
+      break;
+    case Type::INT64:
+      RETURN_NOT_OK(DoAppendRunEnd<int64_t>());
+      break;
+    default:
+      return Status::Invalid("Invalid type for run ends array: ", type_->run_ends_type());
+  }
   current_value_.reset();
   run_start_ = 0;
   return Status::OK();
@@ -170,9 +207,7 @@ Status RunLengthEncodedBuilder::AddLength(int64_t added_length) {
   return Status::OK();
 }
 
-Int32Builder& RunLengthEncodedBuilder::run_end_builder() {
-  return internal::checked_cast<Int32Builder&>(*children_[0]);
-}
+ArrayBuilder& RunLengthEncodedBuilder::run_end_builder() { return *children_[0]; }
 
 ArrayBuilder& RunLengthEncodedBuilder::value_builder() { return *children_[1]; };
 
