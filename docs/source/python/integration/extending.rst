@@ -31,7 +31,7 @@ C++ API
 
 .. default-domain:: cpp
 
-The Arrow C++ and Pyarrow C++ header files are bundled with a pyarrow installation.
+The Arrow C++ and PyArrow C++ header files are bundled with a pyarrow installation.
 To get the absolute path to this directory (like ``numpy.get_include()``), use:
 
 .. code-block:: python
@@ -59,7 +59,7 @@ setuptools (see below).
 .. note::
 
    The PyArrow-specific C++ code is now a part of the PyArrow source tree
-   and not Arrow C++. That means the header files and arrow_python library
+   and not Arrow C++. That means the header files and ``arrow_python`` library
    are not necessarily installed in the same location as that of Arrow.
    To get the new location use the functions mentioned in this section:
 
