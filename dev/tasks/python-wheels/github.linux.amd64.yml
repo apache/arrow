@@ -31,6 +31,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
+      {{ macros.github_login_dockerhub()|indent }}
 
       - name: Build wheel
         shell: bash
@@ -48,87 +49,83 @@ jobs:
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
 
+      - name: Test wheel on AlmaLinux 8
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.8'
+        env:
+          ALMALINUX: "8"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            almalinux-verify-rc
+
+      - name: Test wheel on Ubuntu 18.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.8'
+        env:
+          UBUNTU: "18.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
+      - name: Test wheel on Ubuntu 18.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.8'
+        env:
+          UBUNTU: "18.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
+      - name: Test wheel on Ubuntu 20.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.8'
+        env:
+          UBUNTU: "20.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
+      - name: Test wheel on Ubuntu 22.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.10'
+        env:
+          UBUNTU: "22.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
-      {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
         shell: bash
         run: |
           archery docker push python-wheel-manylinux-{{ manylinux_version }}
           archery docker push python-wheel-manylinux-test-unittests
-      {% endif %}
-
-  test:
-    name: "Test wheel for manylinux {{ manylinux_version }} on {{ '${{ matrix.distribution }}' }} {{ '${{ matrix.version }}' }}"
-    needs:
-      - build
-    runs-on: ubuntu-latest
-    env:
-      # archery uses these environment variables
-      ARCH: amd64
-      PYTHON: "{{ python_version }}"
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - distribution: conda
-            version: latest
-          - distribution: almalinux
-            version: "8"
-          - distribution: ubuntu
-            version: "18.04"
-          - distribution: ubuntu
-            version: "20.04"
-          - distribution: ubuntu
-            version: "22.04"
-
-    steps:
-      {{ macros.github_checkout_arrow(1, false)|indent }}
-      {{ macros.github_install_archery()|indent }}
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: wheel
-
-      - name: Prepare
-        shell: bash
-        run: |
-          {% raw %}
-          echo '${{ matrix.distribution }}=${{ matrix.version }}' | \
-            tr 'a-z' 'A-Z' >> $GITHUB_ENV
-          mkdir -p arrow/binaries/wheels/
-          mv *.whl arrow/binaries/wheels/
-          {% endraw %}
-      - name: Test wheel
-        shell: bash
-        run: |
-          pyarrow_version={{ arrow.no_rc_version }}
-          {% raw %}
-          case "${PYTHON}" in
-            3.7)
-              python_version=${PYTHON}m
-              ;;
-            *)
-              python_version=${PYTHON}
-              ;;
-          esac
-          archery docker run \
-            -e TEST_DEFAULT=0 \
-            -e TEST_PYARROW_VERSION=${pyarrow_version} \
-            -e TEST_PYTHON_VERSIONS=${python_version} \
-            -e TEST_WHEELS=1 \
-            ${{ matrix.distribution }}-verify-rc
-          {% endraw %}
-
-      {% if arrow.is_default_branch() %}
-      {{ macros.github_login_dockerhub()|indent }}
-      - name: Push Docker Image
-        shell: bash
-        run: |
-          {% raw %}
-          archery docker push ${{ matrix.distribution }}-verify-rc
-          {% endraw %}
       {% endif %}

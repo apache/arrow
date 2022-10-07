@@ -1089,7 +1089,7 @@ test_wheels() {
 
   local wheels_dir=
   if [ "${SOURCE_KIND}" = "local" ]; then
-    wheels_dir="${ARROW_SOURCE_DIR}/binaries/wheels"
+    wheels_dir="${ARROW_SOURCE_DIR}/python/repaired_wheels"
   else
     local download_dir=${ARROW_TMPDIR}/binaries
     mkdir -p ${download_dir}
