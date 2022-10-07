@@ -24,14 +24,15 @@ void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
 
 int64_t GetPhysicalOffset(const ArraySpan& span) {
   // TODO: caching
-  if (span.type->id() == Type::INT16) {
+  auto type_id = RunEndsArray(span).type->id();
+  if (type_id == Type::INT16) {
     return FindPhysicalOffset(RunEnds<int16_t>(span), RunEndsArray(span).length,
                               span.offset);
-  } else if (span.type->id() == Type::INT32) {
+  } else if (type_id == Type::INT32) {
     return FindPhysicalOffset(RunEnds<int32_t>(span), RunEndsArray(span).length,
                               span.offset);
   } else {
-    ARROW_CHECK(span.type->id() == Type::INT64);
+    ARROW_CHECK(type_id == Type::INT64);
     return FindPhysicalOffset(RunEnds<int64_t>(span), RunEndsArray(span).length,
                               span.offset);
   }
@@ -52,12 +53,13 @@ int64_t GetPhysicalLength(const ArraySpan& span) {
   if (span.length == 0) {
     return 0;
   } else {
-    if (span.type->id() == Type::INT16) {
+    auto type_id = RunEndsArray(span).type->id();
+    if (type_id == Type::INT16) {
       return GetPhysicalLengthInternal<int16_t>(span);
-    } else if (span.type->id() == Type::INT32) {
+    } else if (type_id == Type::INT32) {
       return GetPhysicalLengthInternal<int32_t>(span);
     } else {
-      ARROW_CHECK(span.type->id() == Type::INT64);
+      ARROW_CHECK_EQ(type_id, Type::INT64);
       return GetPhysicalLengthInternal<int64_t>(span);
     }
   }
