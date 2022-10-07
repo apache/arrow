@@ -294,7 +294,7 @@ class RunLengthEncodedMatcher : public TypeMatcher {
       return true;
     }
     auto casted = dynamic_cast<const RunLengthEncodedMatcher*>(&other);
-    return casted != nullptr;
+    return casted != nullptr && encoded_type_matcher->Equals(*casted->encoded_type_matcher);
   }
 
   std::string ToString() const override {
