@@ -22,6 +22,9 @@
 # contains choco and vs2017 preinstalled
 FROM abrarov/msvc-2017:2.11.0
 
+# Add unix tools to path
+RUN setx path "%path%;C:\Program Files\Git\usr\bin"
+
 # Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7
 # and the msi installers are failing to remove pip and tcl/tk "products" making
