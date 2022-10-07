@@ -290,19 +290,38 @@ def docker_compose_images(obj):
     for image in compose.images():
         click.echo(f' - {image}')
 
+
 @docker.command('info')
-@click.option('--service', '-s', 'service_name', required=True,
-              help='Service name to show info')
+@click.argument('service_name')
+@click.option('--only', '-o', required=False,
+              help="Show only specific docker-compose key. Examples of keys:"
+                   " command, environment, build, dockerfile")
 @click.pass_obj
-def docker_compose_info(obj, service_name):
-    """List the available docker-compose images."""
+def docker_compose_info(obj, service_name, only):
+    """Show docker-compose definition info for service_name.
+
+    SERVICE_NAME is the name of the docker service defined on
+    the docker-compose. Look at `archery docker images` output for names.
+    """
     compose = obj['compose']
-    click.echo(f'Service {service_name} docker compose config:')
-    def expand(k, prefix=' '):
-        if hasattr(k, 'items'):
-            for key, value in k.items():
-                click.echo(f'{prefix}- {key}')
-                expand(value, prefix + " ")
-        else:
-            click.echo(f'{prefix}- {k}')
-    expand(compose.config.raw_config["services"][service_name])
+
+    def expand(k, filters=None, prefix=' '):
+        for key, value in k.items():
+            if hasattr(value, 'items'):
+                keep_filters = filters
+                if key == filters or filters is None:
+                    click.echo(f'{prefix}- {key}')
+                    # Keep showing this specific key as parent matched filter
+                    keep_filters = None
+                expand(value, keep_filters, prefix + " ")
+            else:
+                if key == filters or filters is None:
+                    click.echo(f'{prefix}- {key}: {value}')
+
+    try:
+        service = compose.config.raw_config["services"][service_name]
+    except KeyError:
+        click.echo(f'Service name {service_name} could not be found')
+    else:
+        click.echo(f'Service {service_name} docker compose config:')
+        expand(service, only)
