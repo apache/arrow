@@ -311,7 +311,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
   ///
   /// This method is primarily for testing purposes and won't normally need to be
   /// called to use the scheduler.  Note that a return value of false is not conclusive as
-  /// the scheudler may end immediately after the call.
+  /// the scheduler may end immediately after the call.
   virtual bool IsEnded() = 0;
 };
 
