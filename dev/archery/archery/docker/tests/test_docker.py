@@ -529,3 +529,28 @@ def test_listing_images(arrow_compose_path):
         'ubuntu-cuda',
         'ubuntu-ruby',
     ]
+
+
+def test_service_info(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+    service = compose.config.raw_config["services"]["conda-cpp"]
+    assert compose.info(service) == [
+        " - image: org/conda-cpp",
+        " - build",
+        "  - context: .",
+        "  - dockerfile: ci/docker/conda-cpp.dockerfile"
+    ]
+
+
+def test_service_info_filters(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+    service = compose.config.raw_config["services"]["conda-cpp"]
+    assert compose.info(service, filters="dockerfile") == [
+        "  - dockerfile: ci/docker/conda-cpp.dockerfile"
+    ]
+
+
+def test_service_info_non_existing_filters(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+    service = compose.config.raw_config["services"]["conda-cpp"]
+    assert compose.info(service, filters="non-existing") == []

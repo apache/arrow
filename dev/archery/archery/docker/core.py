@@ -417,3 +417,19 @@ class DockerCompose(Command):
 
     def images(self):
         return sorted(self.config.hierarchy.keys())
+
+    def info(self, key_name, filters=None, prefix=' '):
+        output = []
+        for key, value in key_name.items():
+            if hasattr(value, 'items'):
+                temp_filters = filters
+                if key == filters or filters is None:
+                    output.append(f'{prefix}- {key}')
+                    # Keep showing this specific key
+                    # as parent matched filter
+                    temp_filters = None
+                output.extend(self.info(value, temp_filters, prefix + " "))
+            else:
+                if key == filters or filters is None:
+                    output.append(f'{prefix}- {key}: {value}')
+        return output

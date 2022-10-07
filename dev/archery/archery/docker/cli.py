@@ -304,24 +304,11 @@ def docker_compose_info(obj, service_name, only):
     the docker-compose. Look at `archery docker images` output for names.
     """
     compose = obj['compose']
-
-    def expand(k, filters=None, prefix=' '):
-        for key, value in k.items():
-            if hasattr(value, 'items'):
-                keep_filters = filters
-                if key == filters or filters is None:
-                    click.echo(f'{prefix}- {key}')
-                    # Keep showing this specific key as parent matched filter
-                    keep_filters = None
-                expand(value, keep_filters, prefix + " ")
-            else:
-                if key == filters or filters is None:
-                    click.echo(f'{prefix}- {key}: {value}')
-
     try:
         service = compose.config.raw_config["services"][service_name]
     except KeyError:
         click.echo(f'Service name {service_name} could not be found')
     else:
         click.echo(f'Service {service_name} docker compose config:')
-        expand(service, only)
+        output = "\n".join(compose.info(service, only))
+        click.echo(output)
