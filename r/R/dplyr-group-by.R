@@ -54,7 +54,7 @@ group_by.Dataset <- group_by.ArrowTabular <- group_by.RecordBatchReader <- group
 groups.arrow_dplyr_query <- function(x) syms(dplyr::group_vars(x))
 groups.Dataset <- groups.ArrowTabular <- groups.RecordBatchReader <- groups.arrow_dplyr_query
 
-group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
+group_vars.arrow_dplyr_query <- function(x) x$group_by_vars %||% character()
 group_vars.Dataset <- function(x) character()
 group_vars.RecordBatchReader <- function(x) character()
 group_vars.ArrowTabular <- function(x) {

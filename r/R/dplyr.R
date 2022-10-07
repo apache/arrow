@@ -43,12 +43,16 @@ arrow_dplyr_query <- function(.data) {
     # If dplyr is not available, or if the input doesn't have a group_vars
     # method, assume no group vars
     dplyr::group_vars(.data),
-    error = function(e) character()
+    error = function(e) NULL
   )
 
   if (inherits(.data, "data.frame")) {
     .data <- Table$create(.data)
   }
+
+  # Remove group vars metadata from the Table
+  .data$metadata$r$attributes$.group_vars <- NULL
+
   # Evaluating expressions on a dataset with duplicated fieldnames will error
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
