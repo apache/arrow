@@ -24,7 +24,9 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .before = NULL,
                                      .after = NULL) {
   call <- match.call()
-  exprs <- ensure_named_exprs(quos(...))
+
+  expression_list <- expand_across(.data, quos(...))
+  exprs <- ensure_named_exprs(expression_list)
 
   .keep <- match.arg(.keep)
   .before <- enquo(.before)

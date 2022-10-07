@@ -36,7 +36,7 @@ TEST(SmallString, Basics) {
   {
     SS s;
     ASSERT_EQ(s.length(), 0);
-    ASSERT_EQ(util::string_view(s), util::string_view(""));
+    ASSERT_EQ(std::string_view(s), std::string_view(""));
     ASSERT_EQ(s, "");
     ASSERT_NE(s, "x");
     ASSERT_EQ(sizeof(s), 6);
@@ -44,7 +44,7 @@ TEST(SmallString, Basics) {
   {
     SS s("abc");
     ASSERT_EQ(s.length(), 3);
-    ASSERT_EQ(util::string_view(s), util::string_view("abc"));
+    ASSERT_EQ(std::string_view(s), std::string_view("abc"));
     ASSERT_EQ(std::memcmp(s.data(), "abc", 3), 0);
     ASSERT_EQ(s, "abc");
     ASSERT_NE(s, "ab");
@@ -55,23 +55,23 @@ TEST(SmallString, Assign) {
   using SS = SmallString<5>;
   auto s = SS();
 
-  s = util::string_view("abc");
+  s = std::string_view("abc");
   ASSERT_EQ(s.length(), 3);
-  ASSERT_EQ(util::string_view(s), util::string_view("abc"));
+  ASSERT_EQ(std::string_view(s), std::string_view("abc"));
   ASSERT_EQ(std::memcmp(s.data(), "abc", 3), 0);
   ASSERT_EQ(s, "abc");
   ASSERT_NE(s, "ab");
 
   s = std::string("ghijk");
   ASSERT_EQ(s.length(), 5);
-  ASSERT_EQ(util::string_view(s), util::string_view("ghijk"));
+  ASSERT_EQ(std::string_view(s), std::string_view("ghijk"));
   ASSERT_EQ(std::memcmp(s.data(), "ghijk", 5), 0);
   ASSERT_EQ(s, "ghijk");
   ASSERT_NE(s, "");
 
   s = SS("xy");
   ASSERT_EQ(s.length(), 2);
-  ASSERT_EQ(util::string_view(s), util::string_view("xy"));
+  ASSERT_EQ(std::string_view(s), std::string_view("xy"));
   ASSERT_EQ(std::memcmp(s.data(), "xy", 2), 0);
   ASSERT_EQ(s, "xy");
   ASSERT_NE(s, "xyz");

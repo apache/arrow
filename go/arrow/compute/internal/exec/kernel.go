@@ -598,3 +598,60 @@ func (s *ScalarKernel) Exec(ctx *KernelCtx, sp *ExecSpan, out *ExecResult) error
 func (s ScalarKernel) GetNullHandling() NullHandling { return s.NullHandling }
 func (s ScalarKernel) GetMemAlloc() MemAlloc         { return s.MemAlloc }
 func (s ScalarKernel) CanFillSlices() bool           { return s.CanWriteIntoSlices }
+
+// ChunkedExec is the signature for executing a stateful vector kernel
+// against a ChunkedArray input. It is optional
+type ChunkedExec func(*KernelCtx, []*arrow.Chunked, *ExecResult) ([]*ExecResult, error)
+
+// FinalizeFunc is an optional finalizer function for any postprocessing
+// that may need to be done on data before returning it
+type FinalizeFunc func(*KernelCtx, []*ArraySpan) ([]*ArraySpan, error)
+
+// VectorKernel is a structure for implementations of vector functions.
+// It can optionally contain a finalizer function, the null handling
+// and memory pre-allocation preferences (different defaults from
+// scalar kernels when using NewVectorKernel), and other execution related
+// options.
+type VectorKernel struct {
+	kernel
+
+	ExecFn              ArrayKernelExec
+	ExecChunked         ChunkedExec
+	Finalize            FinalizeFunc
+	NullHandling        NullHandling
+	MemAlloc            MemAlloc
+	CanWriteIntoSlices  bool
+	CanExecuteChunkWise bool
+	OutputChunked       bool
+}
+
+// NewVectorKernel constructs a new kernel for execution of vector functions,
+// which take into account more than just the individual scalar values
+// of its input. Output of a vector kernel may be a different length
+// than its inputs.
+func NewVectorKernel(inTypes []InputType, outType OutputType, exec ArrayKernelExec, init KernelInitFn) VectorKernel {
+	return NewVectorKernelWithSig(&KernelSignature{
+		InputTypes: inTypes, OutType: outType}, exec, init)
+}
+
+// NewVectorKernelWithSig is a convenience function for creating a kernel
+// when you already have a signature constructed.
+func NewVectorKernelWithSig(sig *KernelSignature, exec ArrayKernelExec, init KernelInitFn) VectorKernel {
+	return VectorKernel{
+		kernel:              kernel{Signature: sig, Init: init, Parallelizable: true},
+		ExecFn:              exec,
+		CanWriteIntoSlices:  true,
+		CanExecuteChunkWise: true,
+		OutputChunked:       true,
+		NullHandling:        NullComputedNoPrealloc,
+		MemAlloc:            MemNoPrealloc,
+	}
+}
+
+func (s *VectorKernel) Exec(ctx *KernelCtx, sp *ExecSpan, out *ExecResult) error {
+	return s.ExecFn(ctx, sp, out)
+}
+
+func (s VectorKernel) GetNullHandling() NullHandling { return s.NullHandling }
+func (s VectorKernel) GetMemAlloc() MemAlloc         { return s.MemAlloc }
+func (s VectorKernel) CanFillSlices() bool           { return s.CanWriteIntoSlices }

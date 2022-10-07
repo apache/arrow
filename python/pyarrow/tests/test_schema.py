@@ -663,7 +663,7 @@ def test_schema_from_pandas():
     if Version(pd.__version__) >= Version('1.0.0'):
         inputs.append(pd.array([1, 2, None], dtype=pd.Int32Dtype()))
     for data in inputs:
-        df = pd.DataFrame({'a': data})
+        df = pd.DataFrame({'a': data}, index=data)
         schema = pa.Schema.from_pandas(df)
         expected = pa.Table.from_pandas(df).schema
         assert schema == expected

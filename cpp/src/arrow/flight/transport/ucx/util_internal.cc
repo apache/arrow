@@ -22,6 +22,7 @@
 #include <sys/types.h>
 
 #include <cerrno>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
@@ -31,7 +32,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {

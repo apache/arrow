@@ -779,7 +779,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     std::string stripped_string_;
     const bool strip_out_nuls_;
     bool nul_was_stripped_;
-    util::string_view view_;
+    std::string_view view_;
   };
 
   // Get a single string, as a CHARSXP SEXP from data2.

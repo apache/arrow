@@ -122,22 +122,22 @@ class ARROW_FLIGHT_SQL_EXPORT ColumnMetadata {
     /// \brief Set the catalog name in the KeyValueMetadata object.
     /// \param[in] catalog_name The catalog name.
     /// \return                 A ColumnMetadataBuilder.
-    ColumnMetadataBuilder& CatalogName(std::string& catalog_name);
+    ColumnMetadataBuilder& CatalogName(const std::string& catalog_name);
 
     /// \brief Set the schema_name in the KeyValueMetadata object.
     /// \param[in] schema_name  The schema_name.
     /// \return                 A ColumnMetadataBuilder.
-    ColumnMetadataBuilder& SchemaName(std::string& schema_name);
+    ColumnMetadataBuilder& SchemaName(const std::string& schema_name);
 
     /// \brief Set the table name in the KeyValueMetadata object.
     /// \param[in] table_name   The table name.
     /// \return                 A ColumnMetadataBuilder.
-    ColumnMetadataBuilder& TableName(std::string& table_name);
+    ColumnMetadataBuilder& TableName(const std::string& table_name);
 
     /// \brief Set the type name in the KeyValueMetadata object.
     /// \param[in] type_name    The type name.
     /// \return                 A ColumnMetadataBuilder.
-    ColumnMetadataBuilder& TypeName(std::string& type_name);
+    ColumnMetadataBuilder& TypeName(const std::string& type_name);
 
     /// \brief Set the precision in the KeyValueMetadata object.
     /// \param[in] precision    The precision.

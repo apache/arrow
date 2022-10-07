@@ -21,6 +21,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -32,7 +33,6 @@
 #include "arrow/util/config.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/tracing.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
@@ -315,7 +315,7 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
 /// The consumer API allows querying a Future's current state, wait for it
 /// to complete, and composing futures with callbacks.
 template <typename T>
-class ARROW_MUST_USE_TYPE Future {
+class [[nodiscard]] Future {
  public:
   using ValueType = T;
   using SyncType = typename detail::SyncType<T>::type;
@@ -781,18 +781,18 @@ Future<> AllFinished(const std::vector<Future<>>& futures);
 
 struct Continue {
   template <typename T>
-  operator util::optional<T>() && {  // NOLINT explicit
+  operator std::optional<T>() && {  // NOLINT explicit
     return {};
   }
 };
 
 template <typename T = internal::Empty>
-util::optional<T> Break(T break_value = {}) {
-  return util::optional<T>{std::move(break_value)};
+std::optional<T> Break(T break_value = {}) {
+  return std::optional<T>{std::move(break_value)};
 }
 
 template <typename T = internal::Empty>
-using ControlFlow = util::optional<T>;
+using ControlFlow = std::optional<T>;
 
 /// \brief Loop through an asynchronous sequence
 ///

@@ -18,6 +18,8 @@ package kernels
 
 import (
 	"fmt"
+	"strconv"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
@@ -661,6 +663,70 @@ func checkIntToFloatTrunc(in *exec.ArraySpan, outType arrow.Type) error {
 	return nil
 }
 
+func parseStringToNumberImpl[T exec.IntTypes | exec.UintTypes | exec.FloatTypes, OffsetT int32 | int64](parseFn func(string) (T, error)) exec.ArrayKernelExec {
+	return ScalarUnaryNotNullBinaryArg[T, OffsetT](func(_ *exec.KernelCtx, in []byte, err *error) T {
+		st := *(*string)(unsafe.Pointer(&in))
+		v, e := parseFn(st)
+		if e != nil {
+			*err = fmt.Errorf("%w: %s", arrow.ErrInvalid, e)
+		}
+		return v
+	})
+}
+
+func getParseStringExec[OffsetT int32 | int64](out arrow.Type) exec.ArrayKernelExec {
+	switch out {
+	case arrow.INT8:
+		return parseStringToNumberImpl[int8, OffsetT](func(s string) (int8, error) {
+			v, err := strconv.ParseInt(s, 0, 8)
+			return int8(v), err
+		})
+	case arrow.UINT8:
+		return parseStringToNumberImpl[uint8, OffsetT](func(s string) (uint8, error) {
+			v, err := strconv.ParseUint(s, 0, 8)
+			return uint8(v), err
+		})
+	case arrow.INT16:
+		return parseStringToNumberImpl[int16, OffsetT](func(s string) (int16, error) {
+			v, err := strconv.ParseInt(s, 0, 16)
+			return int16(v), err
+		})
+	case arrow.UINT16:
+		return parseStringToNumberImpl[uint16, OffsetT](func(s string) (uint16, error) {
+			v, err := strconv.ParseUint(s, 0, 16)
+			return uint16(v), err
+		})
+	case arrow.INT32:
+		return parseStringToNumberImpl[int32, OffsetT](func(s string) (int32, error) {
+			v, err := strconv.ParseInt(s, 0, 32)
+			return int32(v), err
+		})
+	case arrow.UINT32:
+		return parseStringToNumberImpl[uint32, OffsetT](func(s string) (uint32, error) {
+			v, err := strconv.ParseUint(s, 0, 32)
+			return uint32(v), err
+		})
+	case arrow.INT64:
+		return parseStringToNumberImpl[int64, OffsetT](func(s string) (int64, error) {
+			return strconv.ParseInt(s, 0, 64)
+		})
+	case arrow.UINT64:
+		return parseStringToNumberImpl[uint64, OffsetT](func(s string) (uint64, error) {
+			return strconv.ParseUint(s, 0, 64)
+		})
+	case arrow.FLOAT32:
+		return parseStringToNumberImpl[float32, OffsetT](func(s string) (float32, error) {
+			v, err := strconv.ParseFloat(s, 32)
+			return float32(v), err
+		})
+	case arrow.FLOAT64:
+		return parseStringToNumberImpl[float64, OffsetT](func(s string) (float64, error) {
+			return strconv.ParseFloat(s, 64)
+		})
+	}
+	panic("invalid type for getParseStringExec")
+}
+
 func addCommonNumberCasts[T numeric](outTy arrow.DataType, kernels []exec.ScalarKernel) []exec.ScalarKernel {
 	kernels = append(kernels, GetCommonCastKernels(outTy.ID(), exec.NewOutputType(outTy))...)
 
@@ -668,7 +734,16 @@ func addCommonNumberCasts[T numeric](outTy arrow.DataType, kernels []exec.Scalar
 		[]exec.InputType{exec.NewExactInput(arrow.FixedWidthTypes.Boolean)},
 		exec.NewOutputType(outTy), ScalarUnaryBoolArg(boolToNum[T]), nil))
 
-	// generatevarbinarybase
+	for _, inTy := range []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.String} {
+		kernels = append(kernels, exec.NewScalarKernel(
+			[]exec.InputType{exec.NewExactInput(inTy)}, exec.NewOutputType(outTy),
+			getParseStringExec[int32](outTy.ID()), nil))
+	}
+	for _, inTy := range []arrow.DataType{arrow.BinaryTypes.LargeBinary, arrow.BinaryTypes.LargeString} {
+		kernels = append(kernels, exec.NewScalarKernel(
+			[]exec.InputType{exec.NewExactInput(inTy)}, exec.NewOutputType(outTy),
+			getParseStringExec[int64](outTy.ID()), nil))
+	}
 	return kernels
 }
 

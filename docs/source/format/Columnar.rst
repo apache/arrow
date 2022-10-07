@@ -1167,6 +1167,11 @@ structure. These extension keys are:
 * ``'ARROW:extension:metadata'`` for a serialized representation
   of the ``ExtensionType`` necessary to reconstruct the custom type
 
+.. note::
+   Extension names beginning with ``arrow.`` are reserved for
+   :ref:`canonical extension types <format_canonical_extensions>`,
+   they should not be used for third-party extension types.
+
 This extension metadata can annotate any of the built-in Arrow logical
 types. The intent is that an implementation that does not support an
 extension type can still handle the underlying data. For example a
@@ -1189,6 +1194,10 @@ extension types:
 * ``trading-time`` represented as ``Timestamp`` with serialized
   metadata indicating the market trading calendar the data corresponds
   to
+
+.. seealso::
+   :ref:`format_canonical_extensions`
+
 
 Implementation guidelines
 =========================

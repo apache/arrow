@@ -31,6 +31,7 @@ func (t *BooleanType) ID() Type            { return BOOL }
 func (t *BooleanType) Name() string        { return "bool" }
 func (t *BooleanType) String() string      { return "bool" }
 func (t *BooleanType) Fingerprint() string { return typeFingerprint(t) }
+func (BooleanType) Bytes() int             { return 1 }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *BooleanType) BitWidth() int { return 1 }
@@ -46,6 +47,7 @@ type FixedSizeBinaryType struct {
 func (*FixedSizeBinaryType) ID() Type              { return FIXED_SIZE_BINARY }
 func (*FixedSizeBinaryType) Name() string          { return "fixed_size_binary" }
 func (t *FixedSizeBinaryType) BitWidth() int       { return 8 * t.ByteWidth }
+func (t *FixedSizeBinaryType) Bytes() int          { return t.ByteWidth }
 func (t *FixedSizeBinaryType) Fingerprint() string { return typeFingerprint(t) }
 func (t *FixedSizeBinaryType) String() string {
 	return "fixed_size_binary[" + strconv.Itoa(t.ByteWidth) + "]"
@@ -105,9 +107,9 @@ func (d Date64) FormattedString() string {
 
 // TimestampFromStringInLocation is like TimestampFromString, but treats the time instant
 // as if it were in the passed timezone before converting to UTC for internal representation.
-func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location) (Timestamp, error) {
+func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location) (Timestamp, bool, error) {
 	if len(val) < 10 {
-		return 0, fmt.Errorf("invalid timestamp string")
+		return 0, false, fmt.Errorf("%w: invalid timestamp string", ErrInvalid)
 	}
 
 	var (
@@ -147,17 +149,17 @@ func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location
 	// more than nanosecond precision is provided
 	switch {
 	case unit == Second && lenWithoutZone > 19:
-		return 0, xerrors.New("provided more than second precision for timestamp[s]")
+		return 0, zoneFmt != "", xerrors.New("provided more than second precision for timestamp[s]")
 	case unit == Millisecond && lenWithoutZone > 23:
-		return 0, xerrors.New("provided more than millisecond precision for timestamp[ms]")
+		return 0, zoneFmt != "", xerrors.New("provided more than millisecond precision for timestamp[ms]")
 	case unit == Microsecond && lenWithoutZone > 26:
-		return 0, xerrors.New("provided more than microsecond precision for timestamp[us]")
+		return 0, zoneFmt != "", xerrors.New("provided more than microsecond precision for timestamp[us]")
 	}
 
 	format += zoneFmt
 	out, err := time.Parse(format, val)
 	if err != nil {
-		return 0, err
+		return 0, zoneFmt != "", fmt.Errorf("%w: %s", ErrInvalid, err)
 	}
 	if loc != time.UTC {
 		// convert to UTC by putting the same time instant in the desired location
@@ -167,15 +169,15 @@ func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location
 
 	switch unit {
 	case Second:
-		return Timestamp(out.Unix()), nil
+		return Timestamp(out.Unix()), zoneFmt != "", nil
 	case Millisecond:
-		return Timestamp(out.Unix()*1e3 + int64(out.Nanosecond())/1e6), nil
+		return Timestamp(out.Unix()*1e3 + int64(out.Nanosecond())/1e6), zoneFmt != "", nil
 	case Microsecond:
-		return Timestamp(out.Unix()*1e6 + int64(out.Nanosecond())/1e3), nil
+		return Timestamp(out.Unix()*1e6 + int64(out.Nanosecond())/1e3), zoneFmt != "", nil
 	case Nanosecond:
-		return Timestamp(out.UnixNano()), nil
+		return Timestamp(out.UnixNano()), zoneFmt != "", nil
 	}
-	return 0, fmt.Errorf("unexpected timestamp unit: %s", unit)
+	return 0, zoneFmt != "", fmt.Errorf("%w: unexpected timestamp unit: %s", ErrInvalid, unit)
 }
 
 // TimestampFromString parses a string and returns a timestamp for the given unit
@@ -193,7 +195,8 @@ func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location
 // You can also optionally have an ending Z to indicate UTC or indicate a specific
 // timezone using ±HH, ±HHMM or ±HH:MM at the end of the string.
 func TimestampFromString(val string, unit TimeUnit) (Timestamp, error) {
-	return TimestampFromStringInLocation(val, unit, time.UTC)
+	tm, _, err := TimestampFromStringInLocation(val, unit, time.UTC)
+	return tm, err
 }
 
 func (t Timestamp) ToTime(unit TimeUnit) time.Time {
@@ -353,6 +356,8 @@ func (t *TimestampType) Fingerprint() string {
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
+func (TimestampType) Bytes() int { return Int64SizeBytes }
+
 func (TimestampType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(TimestampSizeBytes)}}
 }
@@ -444,6 +449,7 @@ type Time32Type struct {
 func (*Time32Type) ID() Type         { return TIME32 }
 func (*Time32Type) Name() string     { return "time32" }
 func (*Time32Type) BitWidth() int    { return 32 }
+func (*Time32Type) Bytes() int       { return Int32SizeBytes }
 func (t *Time32Type) String() string { return "time32[" + t.Unit.String() + "]" }
 func (t *Time32Type) Fingerprint() string {
 	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
@@ -463,6 +469,7 @@ type Time64Type struct {
 func (*Time64Type) ID() Type         { return TIME64 }
 func (*Time64Type) Name() string     { return "time64" }
 func (*Time64Type) BitWidth() int    { return 64 }
+func (*Time64Type) Bytes() int       { return Int64SizeBytes }
 func (t *Time64Type) String() string { return "time64[" + t.Unit.String() + "]" }
 func (t *Time64Type) Fingerprint() string {
 	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
@@ -483,6 +490,7 @@ type DurationType struct {
 func (*DurationType) ID() Type         { return DURATION }
 func (*DurationType) Name() string     { return "duration" }
 func (*DurationType) BitWidth() int    { return 64 }
+func (*DurationType) Bytes() int       { return Int64SizeBytes }
 func (t *DurationType) String() string { return "duration[" + t.Unit.String() + "]" }
 func (t *DurationType) Fingerprint() string {
 	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
@@ -505,6 +513,8 @@ func (t *Float16Type) Fingerprint() string { return typeFingerprint(t) }
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *Float16Type) BitWidth() int { return 16 }
 
+func (Float16Type) Bytes() int { return Float16SizeBytes }
+
 func (Float16Type) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Float16SizeBytes)}}
 }
@@ -518,6 +528,7 @@ type Decimal128Type struct {
 func (*Decimal128Type) ID() Type      { return DECIMAL128 }
 func (*Decimal128Type) Name() string  { return "decimal" }
 func (*Decimal128Type) BitWidth() int { return 128 }
+func (*Decimal128Type) Bytes() int    { return Decimal128SizeBytes }
 func (t *Decimal128Type) String() string {
 	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
 }
@@ -538,6 +549,7 @@ type Decimal256Type struct {
 func (*Decimal256Type) ID() Type      { return DECIMAL256 }
 func (*Decimal256Type) Name() string  { return "decimal256" }
 func (*Decimal256Type) BitWidth() int { return 256 }
+func (*Decimal256Type) Bytes() int    { return Decimal256SizeBytes }
 func (t *Decimal256Type) String() string {
 	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
 }
@@ -582,6 +594,7 @@ func (*MonthIntervalType) Fingerprint() string { return typeIDFingerprint(INTERV
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *MonthIntervalType) BitWidth() int { return 32 }
 
+func (MonthIntervalType) Bytes() int { return Int32SizeBytes }
 func (MonthIntervalType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(MonthIntervalSizeBytes)}}
 }
@@ -604,6 +617,7 @@ func (*DayTimeIntervalType) Fingerprint() string { return typeIDFingerprint(INTE
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *DayTimeIntervalType) BitWidth() int { return 64 }
 
+func (DayTimeIntervalType) Bytes() int { return DayTimeIntervalSizeBytes }
 func (DayTimeIntervalType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(DayTimeIntervalSizeBytes)}}
 }
@@ -629,54 +643,59 @@ func (*MonthDayNanoIntervalType) Fingerprint() string {
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*MonthDayNanoIntervalType) BitWidth() int { return 128 }
-
+func (*MonthDayNanoIntervalType) Bytes() int    { return MonthDayNanoIntervalSizeBytes }
 func (MonthDayNanoIntervalType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(MonthDayNanoIntervalSizeBytes)}}
 }
 
-type op int8
+type TimestampConvertOp int8
 
 const (
-	convDIVIDE = iota
-	convMULTIPLY
+	ConvDIVIDE = iota
+	ConvMULTIPLY
 )
 
 var timestampConversion = [...][4]struct {
-	op     op
+	op     TimestampConvertOp
 	factor int64
 }{
 	Nanosecond: {
-		Nanosecond:  {convMULTIPLY, int64(time.Nanosecond)},
-		Microsecond: {convDIVIDE, int64(time.Microsecond)},
-		Millisecond: {convDIVIDE, int64(time.Millisecond)},
-		Second:      {convDIVIDE, int64(time.Second)},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Nanosecond)},
+		Microsecond: {ConvDIVIDE, int64(time.Microsecond)},
+		Millisecond: {ConvDIVIDE, int64(time.Millisecond)},
+		Second:      {ConvDIVIDE, int64(time.Second)},
 	},
 	Microsecond: {
-		Nanosecond:  {convMULTIPLY, int64(time.Microsecond)},
-		Microsecond: {convMULTIPLY, 1},
-		Millisecond: {convDIVIDE, int64(time.Millisecond / time.Microsecond)},
-		Second:      {convDIVIDE, int64(time.Second / time.Microsecond)},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Microsecond)},
+		Microsecond: {ConvMULTIPLY, 1},
+		Millisecond: {ConvDIVIDE, int64(time.Millisecond / time.Microsecond)},
+		Second:      {ConvDIVIDE, int64(time.Second / time.Microsecond)},
 	},
 	Millisecond: {
-		Nanosecond:  {convMULTIPLY, int64(time.Millisecond)},
-		Microsecond: {convMULTIPLY, int64(time.Millisecond / time.Microsecond)},
-		Millisecond: {convMULTIPLY, 1},
-		Second:      {convDIVIDE, int64(time.Second / time.Millisecond)},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Millisecond)},
+		Microsecond: {ConvMULTIPLY, int64(time.Millisecond / time.Microsecond)},
+		Millisecond: {ConvMULTIPLY, 1},
+		Second:      {ConvDIVIDE, int64(time.Second / time.Millisecond)},
 	},
 	Second: {
-		Nanosecond:  {convMULTIPLY, int64(time.Second)},
-		Microsecond: {convMULTIPLY, int64(time.Second / time.Microsecond)},
-		Millisecond: {convMULTIPLY, int64(time.Second / time.Millisecond)},
-		Second:      {convMULTIPLY, 1},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Second)},
+		Microsecond: {ConvMULTIPLY, int64(time.Second / time.Microsecond)},
+		Millisecond: {ConvMULTIPLY, int64(time.Second / time.Millisecond)},
+		Second:      {ConvMULTIPLY, 1},
 	},
+}
+
+func GetTimestampConvert(in, out TimeUnit) (op TimestampConvertOp, factor int64) {
+	conv := timestampConversion[int(in)][int(out)]
+	return conv.op, conv.factor
 }
 
 func ConvertTimestampValue(in, out TimeUnit, value int64) int64 {
 	conv := timestampConversion[int(in)][int(out)]
 	switch conv.op {
-	case convMULTIPLY:
+	case ConvMULTIPLY:
 		return value * conv.factor
-	case convDIVIDE:
+	case ConvDIVIDE:
 		return value / conv.factor
 	}
 
@@ -695,6 +714,7 @@ type DictionaryType struct {
 func (*DictionaryType) ID() Type        { return DICTIONARY }
 func (*DictionaryType) Name() string    { return "dictionary" }
 func (d *DictionaryType) BitWidth() int { return d.IndexType.(FixedWidthDataType).BitWidth() }
+func (d *DictionaryType) Bytes() int    { return d.IndexType.(FixedWidthDataType).Bytes() }
 func (d *DictionaryType) String() string {
 	return fmt.Sprintf("%s<values=%s, indices=%s, ordered=%t>",
 		d.Name(), d.ValueType, d.IndexType, d.Ordered)

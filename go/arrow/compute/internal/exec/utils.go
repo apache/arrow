@@ -18,12 +18,16 @@ package exec
 
 import (
 	"fmt"
+	"math"
+	"reflect"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/exp/constraints"
 )
 
@@ -56,6 +60,12 @@ type FloatTypes interface {
 	float16.Num | constraints.Float
 }
 
+// NumericTypes is a type constraint for just signed/unsigned integers
+// and float32/float64.
+type NumericTypes interface {
+	IntTypes | UintTypes | constraints.Float
+}
+
 // DecimalTypes is a type constraint for raw values representing larger
 // decimal type values in Arrow, specifically decimal128 and decimal256.
 type DecimalTypes interface {
@@ -73,10 +83,19 @@ type FixedWidthTypes interface {
 		arrow.DayTimeInterval | arrow.MonthDayNanoInterval
 }
 
+type TemporalTypes interface {
+	arrow.Date32 | arrow.Date64 | arrow.Time32 | arrow.Time64 |
+		arrow.Timestamp | arrow.Duration | arrow.DayTimeInterval |
+		arrow.MonthInterval | arrow.MonthDayNanoInterval
+}
+
 // GetSpanValues returns a properly typed slice bye reinterpreting
 // the buffer at index i using unsafe.Slice. This will take into account
 // the offset of the given ArraySpan.
 func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
+	if len(span.Buffers[i].Buf) == 0 {
+		return nil
+	}
 	ret := unsafe.Slice((*T)(unsafe.Pointer(&span.Buffers[i].Buf[0])), span.Offset+span.Len)
 	return ret[span.Offset:]
 }
@@ -87,6 +106,16 @@ func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
 func GetSpanOffsets[T int32 | int64](span *ArraySpan, i int) []T {
 	ret := unsafe.Slice((*T)(unsafe.Pointer(&span.Buffers[i].Buf[0])), span.Offset+span.Len+1)
 	return ret[span.Offset:]
+}
+
+func GetBytes[T FixedWidthTypes](in []T) []byte {
+	var z T
+	return unsafe.Slice((*byte)(unsafe.Pointer(&in[0])), len(in)*int(unsafe.Sizeof(z)))
+}
+
+func GetData[T FixedWidthTypes](in []byte) []T {
+	var z T
+	return unsafe.Slice((*T)(unsafe.Pointer(&in[0])), len(in)/int(unsafe.Sizeof(z)))
 }
 
 func Min[T constraints.Ordered](a, b T) T {
@@ -109,4 +138,94 @@ func OptionsInit[T any](_ *KernelCtx, args KernelInitArgs) (KernelState, error) 
 
 	return nil, fmt.Errorf("%w: attempted to initialize kernel state from invalid function options",
 		arrow.ErrInvalid)
+}
+
+var typMap = map[reflect.Type]arrow.DataType{
+	reflect.TypeOf(int8(0)):         arrow.PrimitiveTypes.Int8,
+	reflect.TypeOf(int16(0)):        arrow.PrimitiveTypes.Int16,
+	reflect.TypeOf(int32(0)):        arrow.PrimitiveTypes.Int32,
+	reflect.TypeOf(int64(0)):        arrow.PrimitiveTypes.Int64,
+	reflect.TypeOf(uint8(0)):        arrow.PrimitiveTypes.Uint8,
+	reflect.TypeOf(uint16(0)):       arrow.PrimitiveTypes.Uint16,
+	reflect.TypeOf(uint32(0)):       arrow.PrimitiveTypes.Uint32,
+	reflect.TypeOf(uint64(0)):       arrow.PrimitiveTypes.Uint64,
+	reflect.TypeOf(float32(0)):      arrow.PrimitiveTypes.Float32,
+	reflect.TypeOf(float64(0)):      arrow.PrimitiveTypes.Float64,
+	reflect.TypeOf(string("")):      arrow.BinaryTypes.String,
+	reflect.TypeOf(arrow.Date32(0)): arrow.FixedWidthTypes.Date32,
+	reflect.TypeOf(arrow.Date64(0)): arrow.FixedWidthTypes.Date64,
+	reflect.TypeOf(true):            arrow.FixedWidthTypes.Boolean,
+}
+
+func GetDataType[T NumericTypes | bool | string]() arrow.DataType {
+	var z T
+	return typMap[reflect.TypeOf(z)]
+}
+
+type arrayBuilder[T NumericTypes] interface {
+	array.Builder
+	Append(T)
+	AppendValues([]T, []bool)
+}
+
+func ArrayFromSlice[T NumericTypes](mem memory.Allocator, data []T) arrow.Array {
+	bldr := array.NewBuilder(mem, typMap[reflect.TypeOf(data).Elem()]).(arrayBuilder[T])
+	defer bldr.Release()
+
+	bldr.AppendValues(data, nil)
+	return bldr.NewArray()
+}
+
+func RechunkArraysConsistently(groups [][]arrow.Array) [][]arrow.Array {
+	if len(groups) <= 1 {
+		return groups
+	}
+
+	var totalLen int
+	for _, a := range groups[0] {
+		totalLen += a.Len()
+	}
+
+	if totalLen == 0 {
+		return groups
+	}
+
+	rechunked := make([][]arrow.Array, len(groups))
+	offsets := make([]int, len(groups))
+	// scan all array vectors at once, rechunking along the way
+	var start int64
+	for start < int64(totalLen) {
+		// first compute max possible length for next chunk
+		chunkLength := math.MaxInt64
+		for i, g := range groups {
+			offset := offsets[i]
+			// skip any done arrays including 0-length
+			for offset == g[0].Len() {
+				g = g[1:]
+				offset = 0
+			}
+			arr := g[0]
+			chunkLength = Min(chunkLength, arr.Len()-offset)
+
+			offsets[i] = offset
+			groups[i] = g
+		}
+
+		// now slice all the arrays along this chunk size
+		for i, g := range groups {
+			offset := offsets[i]
+			arr := g[0]
+			if offset == 0 && arr.Len() == chunkLength {
+				// slice spans entire array
+				arr.Retain()
+				rechunked[i] = append(rechunked[i], arr)
+			} else {
+				rechunked[i] = append(rechunked[i], array.NewSlice(arr, int64(offset), int64(offset+chunkLength)))
+			}
+			offsets[i] += chunkLength
+		}
+
+		start += int64(chunkLength)
+	}
+	return rechunked
 }

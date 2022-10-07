@@ -711,7 +711,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, ArrayInit) {
   // Build the dictionary Array
   auto value_type = fixed_size_binary(4);
   auto dict_array = ArrayFromJSON(value_type, R"(["abcd", "wxyz"])");
-  util::string_view test = "abcd", test2 = "wxyz";
+  std::string_view test = "abcd", test2 = "wxyz";
   DictionaryBuilder<FixedSizeBinaryType> builder(dict_array);
   ASSERT_OK(builder.Append(test));
   ASSERT_OK(builder.Append(test2));
@@ -735,7 +735,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, MakeBuilder) {
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
   auto& builder = checked_cast<DictionaryBuilder<FixedSizeBinaryType>&>(*boxed_builder);
-  util::string_view test = "abcd", test2 = "wxyz";
+  std::string_view test = "abcd", test2 = "wxyz";
   ASSERT_OK(builder.Append(test));
   ASSERT_OK(builder.Append(test2));
   ASSERT_OK(builder.Append(test));
@@ -1317,12 +1317,12 @@ TEST(TestDictionary, ListOfDictionary) {
 
   ASSERT_OK(list_builder->Append());
   std::vector<std::string> expected;
-  for (char a : util::string_view("abc")) {
-    for (char d : util::string_view("def")) {
-      for (char g : util::string_view("ghi")) {
-        for (char j : util::string_view("jkl")) {
-          for (char m : util::string_view("mno")) {
-            for (char p : util::string_view("pqr")) {
+  for (char a : std::string_view("abc")) {
+    for (char d : std::string_view("def")) {
+      for (char g : std::string_view("ghi")) {
+        for (char j : std::string_view("jkl")) {
+          for (char m : std::string_view("mno")) {
+            for (char p : std::string_view("pqr")) {
               if ((static_cast<int>(a) + d + g + j + m + p) % 16 == 0) {
                 ASSERT_OK(list_builder->Append());
               }

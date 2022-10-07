@@ -21,7 +21,9 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -34,8 +36,6 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
-#include "arrow/util/variant.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
@@ -44,7 +44,7 @@ namespace internal {
 
 namespace {
 
-Status ValidatePath(util::string_view s) {
+Status ValidatePath(std::string_view s) {
   if (internal::IsLikelyUri(s)) {
     return Status::Invalid("Expected a filesystem path, got a URI: '", s, "'");
   }
@@ -66,9 +66,9 @@ struct File {
 
   int64_t size() const { return data ? data->size() : 0; }
 
-  explicit operator util::string_view() const {
+  explicit operator std::string_view() const {
     if (data) {
-      return util::string_view(*data);
+      return std::string_view(*data);
     } else {
       return "";
     }
@@ -120,7 +120,7 @@ struct Directory {
 };
 
 // A filesystem entry
-using EntryBase = util::Variant<std::nullptr_t, File, Directory>;
+using EntryBase = std::variant<std::nullptr_t, File, Directory>;
 
 class Entry : public EntryBase {
  public:
@@ -129,13 +129,13 @@ class Entry : public EntryBase {
   explicit Entry(Directory&& v) : EntryBase(std::move(v)) {}
   explicit Entry(File&& v) : EntryBase(std::move(v)) {}
 
-  bool is_dir() const { return util::holds_alternative<Directory>(*this); }
+  bool is_dir() const { return std::holds_alternative<Directory>(*this); }
 
-  bool is_file() const { return util::holds_alternative<File>(*this); }
+  bool is_file() const { return std::holds_alternative<File>(*this); }
 
-  Directory& as_dir() { return util::get<Directory>(*this); }
+  Directory& as_dir() { return std::get<Directory>(*this); }
 
-  File& as_file() { return util::get<File>(*this); }
+  File& as_file() { return std::get<File>(*this); }
 
   // Get info for this entry.  Note the path() property isn't set.
   FileInfo GetInfo() {
@@ -372,7 +372,7 @@ class MockFileSystem::Impl {
       Entry* child = pair.second.get();
       if (child->is_file()) {
         auto& file = child->as_file();
-        out->push_back({path + file.name, file.mtime, util::string_view(file)});
+        out->push_back({path + file.name, file.mtime, std::string_view(file)});
       } else if (child->is_dir()) {
         DumpFiles(path, child->as_dir(), out);
       }
@@ -431,7 +431,7 @@ class MockFileSystem::Impl {
 MockFileSystem::~MockFileSystem() = default;
 
 MockFileSystem::MockFileSystem(TimePoint current_time, const io::IOContext& io_context) {
-  impl_ = std::unique_ptr<Impl>(new Impl(current_time, io_context.pool()));
+  impl_ = std::make_unique<Impl>(current_time, io_context.pool());
 }
 
 bool MockFileSystem::Equals(const FileSystem& other) const { return this == &other; }
@@ -752,7 +752,7 @@ std::vector<MockFileInfo> MockFileSystem::AllFiles() {
   return result;
 }
 
-Status MockFileSystem::CreateFile(const std::string& path, util::string_view contents,
+Status MockFileSystem::CreateFile(const std::string& path, std::string_view contents,
                                   bool recursive) {
   RETURN_NOT_OK(ValidatePath(path));
   auto parent = fs::internal::GetAbstractPathParent(path).first;

@@ -31,6 +31,18 @@ import com.google.protobuf.Message;
  * Utilities to work with Flight SQL semantics.
  */
 public final class FlightSqlUtils {
+
+  public static final ActionType FLIGHT_SQL_BEGIN_SAVEPOINT =
+      new ActionType("BeginSavepoint",
+          "Create a new savepoint.\n" +
+              "Request Message: ActionBeginSavepointRequest\n" +
+              "Response Message: ActionBeginSavepointResult");
+
+  public static final ActionType FLIGHT_SQL_BEGIN_TRANSACTION =
+      new ActionType("BeginTransaction",
+          "Start a new transaction.\n" +
+              "Request Message: ActionBeginTransactionRequest\n" +
+              "Response Message: ActionBeginTransactionResult");
   public static final ActionType FLIGHT_SQL_CREATE_PREPARED_STATEMENT = new ActionType("CreatePreparedStatement",
       "Creates a reusable prepared statement resource on the server. \n" +
           "Request Message: ActionCreatePreparedStatementRequest\n" +
@@ -40,6 +52,29 @@ public final class FlightSqlUtils {
       "Closes a reusable prepared statement resource on the server. \n" +
           "Request Message: ActionClosePreparedStatementRequest\n" +
           "Response Message: N/A");
+
+  public static final ActionType FLIGHT_SQL_CREATE_PREPARED_SUBSTRAIT_PLAN =
+      new ActionType("CreatePreparedSubstraitPlan",
+          "Creates a reusable prepared statement resource on the server.\n" +
+              "Request Message: ActionCreatePreparedSubstraitPlanRequest\n" +
+              "Response Message: ActionCreatePreparedStatementResult");
+
+  public static final ActionType FLIGHT_SQL_CANCEL_QUERY =
+      new ActionType("CancelQuery",
+          "Explicitly cancel a running query.\n" +
+              "Request Message: ActionCancelQueryRequest\n" +
+              "Response Message: ActionCancelQueryResult");
+
+  public static final ActionType FLIGHT_SQL_END_SAVEPOINT =
+      new ActionType("EndSavepoint",
+          "End a savepoint.\n" +
+              "Request Message: ActionEndSavepointRequest\n" +
+              "Response Message: N/A");
+  public static final ActionType FLIGHT_SQL_END_TRANSACTION =
+      new ActionType("EndTransaction",
+          "End a transaction.\n" +
+              "Request Message: ActionEndTransactionRequest\n" +
+              "Response Message: N/A");
 
   public static final List<ActionType> FLIGHT_SQL_ACTIONS = ImmutableList.of(
       FLIGHT_SQL_CREATE_PREPARED_STATEMENT,

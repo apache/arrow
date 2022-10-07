@@ -21,6 +21,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,11 +29,16 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/mutex.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
+
+namespace internal {
+class Executor;
+}  // namespace internal
+
 namespace dataset {
 
 using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
@@ -64,7 +70,7 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   ///
   /// If this is not possible, resolve with an empty optional. The fragment can perform
   /// I/O (e.g. to read metadata) before it deciding whether it can satisfy the request.
-  virtual Future<util::optional<int64_t>> CountRows(
+  virtual Future<std::optional<int64_t>> CountRows(
       compute::Expression predicate, const std::shared_ptr<ScanOptions>& options);
 
   virtual std::string type_name() const = 0;
@@ -120,7 +126,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
-  Future<util::optional<int64_t>> CountRows(
+  Future<std::optional<int64_t>> CountRows(
       compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 
@@ -133,6 +139,8 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
 };
 
 /// @}
+
+using FragmentGenerator = AsyncGenerator<std::shared_ptr<Fragment>>;
 
 /// \brief A container of zero or more Fragments.
 ///
@@ -147,6 +155,10 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   /// \brief GetFragments returns an iterator of Fragments given a predicate.
   Result<FragmentIterator> GetFragments(compute::Expression predicate);
   Result<FragmentIterator> GetFragments();
+
+  /// \brief Async versions of `GetFragments`.
+  Result<FragmentGenerator> GetFragmentsAsync(compute::Expression predicate);
+  Result<FragmentGenerator> GetFragmentsAsync();
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
@@ -174,6 +186,18 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression);
 
   virtual Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) = 0;
+  /// \brief Default non-virtual implementation method for the base
+  /// `GetFragmentsAsyncImpl` method, which creates a fragment generator for
+  /// the dataset, possibly filtering results with a predicate (forwarding to
+  /// the synchronous `GetFragmentsImpl` method and moving the computations
+  /// to the background, using the IO thread pool).
+  ///
+  /// Currently, `executor` is always the same as `internal::GetCPUThreadPool()`,
+  /// which means the results from the underlying fragment generator will be
+  /// transfered to the default CPU thread pool. The generator itself is
+  /// offloaded to run on the default IO thread pool.
+  virtual Result<FragmentGenerator> GetFragmentsAsyncImpl(
+      compute::Expression predicate, arrow::internal::Executor* executor);
 
   std::shared_ptr<Schema> schema_;
   compute::Expression partition_expression_ = compute::literal(true);
