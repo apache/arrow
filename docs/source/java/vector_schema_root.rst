@@ -130,10 +130,34 @@ data:
     // 0 indicates start index (inclusive) and 5 indicated length (exclusive).
     VectorSchemaRoot newRoot = vectorSchemaRoot.slice(0, 5);
 
+Table
+=====
+
+A `Table`_ is an immutable tabular data structure, very similar to VectorSchemaRoot, in that it is also built on ValueVectors and schemas. Unlike VectorSchemaRoot, Table is not designed for batch processing. Here is a version of the example above, showing how to create a Table, rather than a VectorSchemaRoot:
+
+.. code-block:: Java
+
+    BitVector bitVector = new BitVector("boolean", allocator);
+    VarCharVector varCharVector = new VarCharVector("varchar", allocator);
+    bitVector.allocateNew();
+    varCharVector.allocateNew();
+    for (int i = 0; i < 10; i++) {
+      bitVector.setSafe(i, i % 2 == 0 ? 0 : 1);
+      varCharVector.setSafe(i, ("test" + i).getBytes(StandardCharsets.UTF_8));
+    }
+    bitVector.setValueCount(10);
+    varCharVector.setValueCount(10);
+
+    List<FieldVector> vectors = Arrays.asList(bitVector, varCharVector);
+    Table table = new Table(vectors);
+
+See the :doc:`table` documentation for more information.
+
 .. _`ArrowRecordBatch`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/ipc/message/ArrowRecordBatch.html
 .. _`Field`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/types/pojo/Field.html
 .. _`Flight`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/package-summary.html
 .. _`Schema`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/types/pojo/Schema.html
+.. _`Table`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/table/Table.html
 .. _`VectorLoader`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/VectorLoader.html
 .. _`VectorSchemaRoot`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/VectorSchemaRoot.html
 .. _`VectorUnloader`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/VectorUnloader.html

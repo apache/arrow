@@ -30,6 +30,7 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
    memory
    vector
    vector_schema_root
+   table
    ipc
    algorithm
    flight
