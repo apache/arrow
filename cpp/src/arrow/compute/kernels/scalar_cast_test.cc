@@ -2209,6 +2209,72 @@ TEST(Cast, ListToListOptionsPassthru) {
   }
 }
 
+static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_types,
+                          const std::string& json_data,
+                          const std::string& tweaked_val_bit_string,
+                          bool children_nulls = true) {
+  for (const auto& src_value_type : value_types) {
+    for (const auto& dest_value_type : value_types) {
+      const auto src_type = fixed_size_list(src_value_type, 2);
+      const auto dest_type = fixed_size_list(dest_value_type, 2);
+      ARROW_SCOPED_TRACE("src_type = ", src_type->ToString(),
+                         ", dest_type = ", dest_type->ToString());
+      auto src_array = ArrayFromJSON(src_type, json_data);
+      CheckCast(src_array, ArrayFromJSON(dest_type, json_data));
+      {
+        auto tweaked_array = TweakValidityBit(src_array, 1, false);
+        CheckCast(tweaked_array, ArrayFromJSON(dest_type, tweaked_val_bit_string));
+      }
+
+      // Sliced Children
+      const auto child_data =
+          children_nulls ? "[1, 2, null, 4, 5, null]" : "[1, 2, 3, 4, 5, 6]";
+      auto children_src = ArrayFromJSON(src_value_type, child_data);
+      children_src = children_src->Slice(2);
+      auto fsl = std::make_shared<FixedSizeListArray>(src_type, 2, children_src);
+      {
+        const auto expected_data = children_nulls ? "[null, 4, 5, null]" : "[3, 4, 5, 6]";
+        auto children_dst = ArrayFromJSON(dest_value_type, expected_data);
+        auto expected = std::make_shared<FixedSizeListArray>(dest_type, 2, children_dst);
+        CheckCast(fsl, expected);
+      }
+      {
+        const auto expected_data =
+            children_nulls ? "[[null, 4], null]" : "[[3, 4], null]";
+        auto tweaked_array = TweakValidityBit(fsl, 1, false);
+        auto expected = ArrayFromJSON(dest_type, expected_data);
+        CheckCast(tweaked_array, expected);
+      }
+
+      // Invalid fixed_size_list cast.
+      const auto incorrect_dest_type = fixed_size_list(dest_value_type, 3);
+      ASSERT_RAISES(TypeError, Cast(src_array, CastOptions::Safe(incorrect_dest_type)))
+          << "Size of FixedList is not the same.";
+    }
+  }
+}
+
+TEST(Cast, FSLToFSL) {
+  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [null, 5], null]",
+                /*tweaked_val_bit_string=*/"[[0, 1], null, [null, 5], null]");
+}
+
+TEST(Cast, FSLToFSLNoNulls) {
+  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [4, 5]]",
+                /*tweaked_val_bit_string=*/"[[0, 1], null, [4, 5]]",
+                /*children_null=*/false);
+}
+
+TEST(Cast, FSLToFSLOptionsPassThru) {
+  auto fsl_int32 = ArrayFromJSON(fixed_size_list(int32(), 1), "[[87654321]]");
+
+  auto options = CastOptions::Safe(fixed_size_list(int16(), 1));
+  CheckCastFails(fsl_int32, options);
+
+  options.allow_int_overflow = true;
+  CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
+}
+
 static void CheckStructToStruct(
     const std::vector<std::shared_ptr<DataType>>& value_types) {
   for (const auto& src_value_type : value_types) {

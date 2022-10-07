@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -436,18 +435,15 @@ Status TupleRangeFromTable(const Table& table, const compute::CastOptions& cast_
   constexpr std::size_t n_columns = std::tuple_size<row_type>::value;
 
   if (table.schema()->num_fields() != n_columns) {
-    std::stringstream ss;
-    ss << "Number of columns in the table does not match the width of the target: ";
-    ss << table.schema()->num_fields() << " != " << n_columns;
-    return Status::Invalid(ss.str());
+    return Status::Invalid(
+        "Number of columns in the table does not match the width of the target: ",
+        table.schema()->num_fields(), " != ", n_columns);
   }
 
-  // TODO: Use std::size with C++17
-  if (rows->size() != static_cast<size_t>(table.num_rows())) {
-    std::stringstream ss;
-    ss << "Number of rows in the table does not match the size of the target: ";
-    ss << table.num_rows() << " != " << rows->size();
-    return Status::Invalid(ss.str());
+  if (std::size(*rows) != static_cast<size_t>(table.num_rows())) {
+    return Status::Invalid(
+        "Number of rows in the table does not match the size of the target: ",
+        table.num_rows(), " != ", std::size(*rows));
   }
 
   // Check that all columns have the correct type, otherwise cast them.

@@ -107,9 +107,19 @@ if(TARGET Arrow::arrow_static AND NOT TARGET Arrow::arrow_bundled_dependencies)
   # https://cmake.org/cmake/help/latest/policy/CMP0057.html
   cmake_policy(PUSH)
   cmake_policy(SET CMP0057 NEW)
-  if(APPLE AND "AWS::aws-c-common" IN_LIST ARROW_BUNDLED_STATIC_LIBS)
-    find_library(CORE_FOUNDATION CoreFoundation)
-    target_link_libraries(Arrow::arrow_bundled_dependencies INTERFACE ${CORE_FOUNDATION})
+  if("AWS::aws-c-common" IN_LIST ARROW_BUNDLED_STATIC_LIBS)
+    if(APPLE)
+      find_library(CORE_FOUNDATION CoreFoundation)
+      target_link_libraries(Arrow::arrow_bundled_dependencies
+                            INTERFACE ${CORE_FOUNDATION})
+    elseif(WIN32)
+      target_link_libraries(Arrow::arrow_bundled_dependencies
+                            INTERFACE "winhttp.lib"
+                                      "bcrypt.lib"
+                                      "wininet.lib"
+                                      "userenv.lib"
+                                      "version.lib")
+    endif()
   endif()
   cmake_policy(POP)
 endif()

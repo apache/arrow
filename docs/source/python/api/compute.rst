@@ -555,3 +555,12 @@ Compute Options
    TrimOptions
    VarianceOptions
    WeekOptions
+
+User-Defined Functions
+----------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   register_scalar_function
+   ScalarUdfContext

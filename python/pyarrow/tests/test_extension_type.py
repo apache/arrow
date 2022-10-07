@@ -60,6 +60,19 @@ class UuidType2(pa.PyExtensionType):
         return UuidType, ()
 
 
+class LabelType(pa.ExtensionType):
+
+    def __init__(self):
+        super(LabelType, self).__init__(pa.string(), "label")
+
+    def __reduce__(self):
+        return LabelType, ()
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        return LabelType()
+
+
 class ParamExtType(pa.PyExtensionType):
 
     def __init__(self, width):
@@ -927,19 +940,6 @@ def test_empty_take():
     assert result.equals(empty_arr)
 
 
-class LabelType(pa.ExtensionType):
-
-    def __init__(self):
-        super(LabelType, self).__init__(pa.string(), "label")
-
-    def __arrow_ext_serialize__(self):
-        return b""
-
-    @classmethod
-    def __arrow_ext_deserialize__(cls, storage_type, serialized):
-        return LabelType()
-
-
 @pytest.mark.parametrize("data,ty", (
     ([1, 2, 3], IntegerType),
     (["cat", "dog", "horse"], LabelType)
@@ -958,3 +958,35 @@ def test_extension_array_to_numpy_pandas(data, ty, into):
         assert result.equals(expected)
     else:
         assert np.array_equal(result, expected)
+
+
+def test_array_constructor():
+    ext_type = IntegerType()
+    storage = pa.array([1, 2, 3], type=pa.int64())
+    expected = pa.ExtensionArray.from_storage(ext_type, storage)
+
+    result = pa.array([1, 2, 3], type=IntegerType())
+    assert result.equals(expected)
+
+    result = pa.array(np.array([1, 2, 3]), type=IntegerType())
+    assert result.equals(expected)
+
+    result = pa.array(np.array([1.0, 2.0, 3.0]), type=IntegerType())
+    assert result.equals(expected)
+
+
+@pytest.mark.pandas
+def test_array_constructor_from_pandas():
+    import pandas as pd
+
+    ext_type = IntegerType()
+    storage = pa.array([1, 2, 3], type=pa.int64())
+    expected = pa.ExtensionArray.from_storage(ext_type, storage)
+
+    result = pa.array(pd.Series([1, 2, 3]), type=IntegerType())
+    assert result.equals(expected)
+
+    result = pa.array(
+        pd.Series([1, 2, 3], dtype="category"), type=IntegerType()
+    )
+    assert result.equals(expected)

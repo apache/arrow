@@ -89,33 +89,14 @@
 // This macro takes an optional deprecation message
 #ifdef __COVERITY__
 #  define ARROW_DEPRECATED(...)
-#  define ARROW_DEPRECATED_USING(...)
-#elif __cplusplus > 201103L
-#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
-#  define ARROW_DEPRECATED_USING(...) ARROW_DEPRECATED(__VA_ARGS__)
 #else
-# ifdef __GNUC__
-#  define ARROW_DEPRECATED(...) __attribute__((deprecated(__VA_ARGS__)))
-#  define ARROW_DEPRECATED_USING(...) ARROW_DEPRECATED(__VA_ARGS__)
-# elif defined(_MSC_VER)
-#  define ARROW_DEPRECATED(...) __declspec(deprecated(__VA_ARGS__))
-#  define ARROW_DEPRECATED_USING(...)
-# else
-#  define ARROW_DEPRECATED(...)
-#  define ARROW_DEPRECATED_USING(...)
-# endif
+#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
 #endif
 
 #ifdef __COVERITY__
 #  define ARROW_DEPRECATED_ENUM_VALUE(...)
-#elif __cplusplus > 201103L
-#  define ARROW_DEPRECATED_ENUM_VALUE(...) [[deprecated(__VA_ARGS__)]]
 #else
-# if defined(__GNUC__) && __GNUC__ >= 6
-#  define ARROW_DEPRECATED_ENUM_VALUE(...) __attribute__((deprecated(__VA_ARGS__)))
-# else
-#  define ARROW_DEPRECATED_ENUM_VALUE(...)
-# endif
+#  define ARROW_DEPRECATED_ENUM_VALUE(...) [[deprecated(__VA_ARGS__)]]
 #endif
 
 // clang-format on

@@ -15,27 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "../platform.h"
+// Middleware implementation for propagating OpenTelemetry spans.
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include "../datetime.h"
-#include "../init.h"
-#include "../pyarrow.h"
+#include <memory>
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
+#include "arrow/flight/client_middleware.h"
 
-  Py_Initialize();
-  int ret = arrow_init_numpy();
-  if (ret != 0) {
-    return ret;
-  }
-  ::arrow::py::internal::InitDatetime();
+namespace arrow {
+namespace flight {
 
-  ret = RUN_ALL_TESTS();
+/// \brief Returns a ClientMiddlewareFactory that handles sending OpenTelemetry spans.
+ARROW_FLIGHT_EXPORT std::shared_ptr<ClientMiddlewareFactory>
+MakeTracingClientMiddlewareFactory();
 
-  Py_Finalize();
-
-  return ret;
-}
+}  // namespace flight
+}  // namespace arrow
