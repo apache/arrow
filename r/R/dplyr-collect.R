@@ -68,9 +68,7 @@ restore_dplyr_features <- function(df, query) {
       )
     } else {
       # This is a Table, via compute() or collect(as_data_frame = FALSE)
-      df <- as_adq(df)
-      df$group_by_vars <- query$group_by_vars
-      df$drop_empty_groups <- query$drop_empty_groups
+      df$metadata$r$attributes$.group_vars <- query$group_by_vars
     }
   }
   df
@@ -80,7 +78,10 @@ collapse.arrow_dplyr_query <- function(x, ...) {
   # Figure out what schema will result from the query
   x$schema <- implicit_schema(x)
   # Nest inside a new arrow_dplyr_query (and keep groups)
-  restore_dplyr_features(arrow_dplyr_query(x), x)
+  out <- arrow_dplyr_query(x)
+  out$group_by_vars <- x$group_by_vars
+  out$drop_empty_groups <- x$drop_empty_groups
+  out
 }
 collapse.Dataset <- collapse.ArrowTabular <- collapse.RecordBatchReader <- function(x, ...) {
   arrow_dplyr_query(x)
