@@ -90,7 +90,7 @@ struct TestUnionNode : public ::testing::Test {
           "source", SourceNodeOptions{batch.schema, batch.gen(parallel,
                                                               /*slow=*/false)}});
     }
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     // Test UnionNode::Make with zero inputs
     if (batches.size() == 0) {

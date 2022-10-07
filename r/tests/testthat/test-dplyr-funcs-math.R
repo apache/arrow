@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 
 
@@ -27,7 +25,8 @@ test_that("abs()", {
     .input %>%
       transmute(
         abs = abs(x),
-        abs2 = base::abs(x)) %>%
+        abs2 = base::abs(x)
+      ) %>%
       collect(),
     df
   )

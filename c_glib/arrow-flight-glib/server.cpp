@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include <arrow/util/make_unique.h>
+#include <memory>
 
 #include <arrow-glib/arrow-glib.hpp>
 
@@ -239,7 +239,7 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
   } else {
     arrow_options = &arrow_options_default;
   }
-  auto stream = arrow::internal::make_unique<
+  auto stream = std::make_unique<
     arrow::flight::RecordBatchStream>(arrow_reader, *arrow_options);
   return static_cast<GAFlightRecordBatchStream *>(
     g_object_new(GAFLIGHT_TYPE_RECORD_BATCH_STREAM,
@@ -484,7 +484,7 @@ namespace gaflight {
         g_object_unref(gaflight);
       }
       g_list_free(gaflights);
-      *listing = arrow::internal::make_unique<
+      *listing = std::make_unique<
         arrow::flight::SimpleFlightListing>(flights);
       return arrow::Status::OK();
     }
@@ -507,7 +507,7 @@ namespace gaflight {
                                       arrow::StatusCode::UnknownError,
                                       "[flight-server][get-flight-info]");
       }
-      *info = arrow::internal::make_unique<arrow::flight::FlightInfo>(
+      *info = std::make_unique<arrow::flight::FlightInfo>(
         *gaflight_info_get_raw(gainfo));
       g_object_unref(gainfo);
       return arrow::Status::OK();
@@ -531,7 +531,7 @@ namespace gaflight {
                                       arrow::StatusCode::UnknownError,
                                       "[flight-server][do-get]");
       }
-      *stream = arrow::internal::make_unique<DataStream>(gastream);
+      *stream = std::make_unique<DataStream>(gastream);
       return arrow::Status::OK();
     }
 

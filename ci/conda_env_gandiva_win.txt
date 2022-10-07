@@ -15,5 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-clangdev
-llvmdev
+# ARROW-17830 Temporarily pin LLVM version on Appveyor due to a bug in Conda's packaging of LLVM 15.
+clangdev<15
+llvmdev<15

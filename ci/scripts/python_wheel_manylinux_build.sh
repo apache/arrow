@@ -85,6 +85,9 @@ fi
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
 
+# ARROW-17501: We can remove -DAWSSDK_SOURCE=BUNDLED once
+# https://github.com/aws/aws-sdk-cpp/issues/1809 is fixed and vcpkg
+# ships the fix.
 cmake \
     -DARROW_BROTLI_USE_SHARED=OFF \
     -DARROW_BUILD_SHARED=ON \
@@ -117,6 +120,7 @@ cmake \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
+    -DAWSSDK_SOURCE=BUNDLED \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=/tmp/arrow-dist \

@@ -26,21 +26,9 @@ add_custom_target(gandiva-benchmarks)
 add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
 find_package(LLVMAlt REQUIRED)
-
-if(LLVM_VERSION_MAJOR LESS "10")
-  set(GANDIVA_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-else()
-  # LLVM 10 or later requires C++ 14
-  if(CMAKE_CXX_STANDARD LESS 14)
-    set(GANDIVA_CXX_STANDARD 14)
-  else()
-    set(GANDIVA_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-  endif()
-endif()
+provide_find_module(LLVMAlt "Gandiva")
 
 add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
-
-find_package(OpenSSLAlt REQUIRED)
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
@@ -168,11 +156,11 @@ add_arrow_lib(gandiva
               ${GANDIVA_STATIC_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
               Arrow::arrow_static
-              LLVM::LLVM_HEADERS)
+              LLVM::LLVM_HEADERS
+              LLVM::LLVM_LIBS)
 
 foreach(LIB_TARGET ${GANDIVA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_EXPORTING)
-  set_target_properties(${LIB_TARGET} PROPERTIES CXX_STANDARD ${GANDIVA_CXX_STANDARD})
 endforeach()
 
 if(ARROW_BUILD_STATIC AND WIN32)
@@ -234,7 +222,6 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
 
   set(TEST_NAME gandiva-${REL_TEST_NAME})
   string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
-  set_target_properties(${TEST_NAME} PROPERTIES CXX_STANDARD ${GANDIVA_CXX_STANDARD})
 endfunction()
 
 add_gandiva_test(internals-test
@@ -260,10 +247,6 @@ add_gandiva_test(internals-test
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
                  interval_holder_test.cc)
-
-if(ARROW_GANDIVA_JAVA)
-  add_subdirectory(jni)
-endif()
 
 add_subdirectory(precompiled)
 add_subdirectory(tests)

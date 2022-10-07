@@ -21,12 +21,12 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -149,9 +149,9 @@ class ARROW_EXPORT BufferReader
   explicit BufferReader(const Buffer& buffer);
   BufferReader(const uint8_t* data, int64_t size);
 
-  /// \brief Instantiate from std::string or arrow::util::string_view. Does not
+  /// \brief Instantiate from std::string or std::string_view. Does not
   /// own data
-  explicit BufferReader(const util::string_view& data);
+  explicit BufferReader(const std::string_view& data);
 
   bool closed() const override;
 
@@ -173,7 +173,7 @@ class ARROW_EXPORT BufferReader
   Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
   Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
   Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
-  Result<util::string_view> DoPeek(int64_t nbytes) override;
+  Result<std::string_view> DoPeek(int64_t nbytes) override;
 
   Result<int64_t> DoTell() const;
   Status DoSeek(int64_t position);

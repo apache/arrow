@@ -68,6 +68,7 @@ RUN apt-get update -y -q && \
         ca-certificates \
         ccache \
         cmake \
+        curl \
         gdb \
         git \
         libbenchmark-dev \
@@ -112,7 +113,7 @@ RUN if [ "${gcc_version}" = "" ]; then \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "11" ]; then \
+      if [ "${gcc_version}" -gt "12" ]; then \
           apt-get update -y -q && \
           apt-get install -y -q --no-install-recommends software-properties-common && \
           add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
@@ -142,6 +143,9 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages

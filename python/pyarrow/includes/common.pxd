@@ -35,6 +35,15 @@ cimport cpython
 cdef extern from * namespace "std" nogil:
     cdef shared_ptr[T] static_pointer_cast[T, U](shared_ptr[U])
 
+
+cdef extern from "<optional>" namespace "std" nogil:
+    cdef cppclass optional[T]:
+        c_bool has_value()
+        T value()
+        optional(T&)
+        optional& operator=[U](U&)
+
+
 # vendored from the cymove project https://github.com/ozars/cymove
 cdef extern from * namespace "cymove" nogil:
     """
@@ -111,6 +120,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsIndexError()
         c_bool IsSerializationError()
         c_bool IsCancelled()
+
+        void Warn()
 
     cdef cppclass CStatusDetail "arrow::StatusDetail":
         c_string ToString()

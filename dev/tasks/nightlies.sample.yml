@@ -16,7 +16,7 @@
 # under the License.
 
 # this travis configuration can be used to submit cron scheduled tasks
-# 1. copy this file to one of crossbow's branch (master for example) with
+# 1. copy this file to one of crossbow's branches with
 #    filename .travis.yml
 # 2. setup daily cron jobs for that particular branch, see travis'
 #    documentation https://docs.travis-ci.com/user/cron-jobs/

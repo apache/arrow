@@ -655,7 +655,7 @@ struct RoundOptionsWrapper<RoundOptions> : public OptionsWrapper<RoundOptions> {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<RoundOptionsWrapper>(*options);
+      return std::make_unique<RoundOptionsWrapper>(*options);
     }
     return Status::Invalid(
         "Attempted to initialize KernelState from null FunctionOptions");
@@ -700,10 +700,10 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
 
       // Create a new option object if the rounding multiple was casted.
       auto new_options = OptionsType(casted_multiple.scalar(), options->round_mode);
-      return ::arrow::internal::make_unique<RoundOptionsWrapper>(new_options);
+      return std::make_unique<RoundOptionsWrapper>(new_options);
     }
 
-    return ::arrow::internal::make_unique<RoundOptionsWrapper>(*options);
+    return std::make_unique<RoundOptionsWrapper>(*options);
   }
 };
 
