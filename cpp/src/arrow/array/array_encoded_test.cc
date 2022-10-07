@@ -43,6 +43,7 @@ namespace {
 class TestRunLengthEncodedArray
     : public ::testing::TestWithParam<std::shared_ptr<DataType>> {
  protected:
+  std::shared_ptr<DataType> run_ends_type;
   std::shared_ptr<Array> string_values;
   std::shared_ptr<Array> int32_values;
   std::shared_ptr<Array> int16_values;
@@ -50,8 +51,7 @@ class TestRunLengthEncodedArray
   std::shared_ptr<Array> size_only_null;
 
   virtual void SetUp() override {
-    std::shared_ptr<DataType> run_ends_type = GetParam();
-
+    run_ends_type = GetParam();
     string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
     int32_values = ArrayFromJSON(int32(), "[10, 20, 30]");
     int16_values = ArrayFromJSON(int16(), "[10, 20, 30]");
@@ -102,8 +102,8 @@ TEST_P(TestRunLengthEncodedArray, FromRunEndsAndValues) {
       RunLengthEncodedArray::Make(size_only_null, int32_values, 3));
 }
 
-TEST(RunLengthEncodedArray, OffsetLength) {
-  auto run_ends = ArrayFromJSON(int32(), "[100, 200, 300, 400, 500]");
+TEST_P(TestRunLengthEncodedArray, OffsetLength) {
+  auto run_ends = ArrayFromJSON(run_ends_type, "[100, 200, 300, 400, 500]");
   auto values = ArrayFromJSON(utf8(), R"(["Hello", "beautiful", "world", "of", "RLE"])");
   ASSERT_OK_AND_ASSIGN(auto rle_array,
                        RunLengthEncodedArray::Make(run_ends, values, 500));
