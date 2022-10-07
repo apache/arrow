@@ -5,7 +5,8 @@
 namespace arrow {
 namespace rle_util {
 
-int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
+template <typename RunEndsType>
+int64_t FindPhysicalOffset(const RunEndsType* run_ends, int64_t num_run_ends,
                            int64_t logical_offset) {
   auto it = std::upper_bound(run_ends, run_ends + num_run_ends, logical_offset);
   int64_t result = std::distance(run_ends, it);
@@ -23,7 +24,27 @@ void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
 
 int64_t GetPhysicalOffset(const ArraySpan& span) {
   // TODO: caching
-  return FindPhysicalOffset(RunEnds(span), RunEndsArray(span).length, span.offset);
+  if (span.type->id() == Type::INT16) {
+    return FindPhysicalOffset(RunEnds<int16_t>(span), RunEndsArray(span).length,
+                              span.offset);
+  } else if (span.type->id() == Type::INT32) {
+    return FindPhysicalOffset(RunEnds<int32_t>(span), RunEndsArray(span).length,
+                              span.offset);
+  } else {
+    ARROW_CHECK(span.type->id() == Type::INT64);
+    return FindPhysicalOffset(RunEnds<int64_t>(span), RunEndsArray(span).length,
+                              span.offset);
+  }
+}
+
+template <typename RunEndsType>
+static int64_t GetPhysicalLengthInternal(const ArraySpan& span) {
+  // find the offset of the last element and add 1
+  int64_t physical_offset = GetPhysicalOffset(span);
+  return FindPhysicalOffset(RunEnds<RunEndsType>(span) + physical_offset,
+                            RunEndsArray(span).length - physical_offset,
+                            span.offset + span.length - 1) +
+         1;
 }
 
 int64_t GetPhysicalLength(const ArraySpan& span) {
@@ -31,12 +52,14 @@ int64_t GetPhysicalLength(const ArraySpan& span) {
   if (span.length == 0) {
     return 0;
   } else {
-    // find the offset of the last element and add 1
-    int64_t physical_offset = GetPhysicalOffset(span);
-    return FindPhysicalOffset(RunEnds(span) + physical_offset,
-                              RunEndsArray(span).length - physical_offset,
-                              span.offset + span.length - 1) +
-           1;
+    if (span.type->id() == Type::INT16) {
+      return GetPhysicalLengthInternal<int16_t>(span);
+    } else if (span.type->id() == Type::INT32) {
+      return GetPhysicalLengthInternal<int32_t>(span);
+    } else {
+      ARROW_CHECK(span.type->id() == Type::INT64);
+      return GetPhysicalLengthInternal<int64_t>(span);
+    }
   }
 }
 
