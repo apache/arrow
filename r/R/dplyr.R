@@ -43,7 +43,7 @@ arrow_dplyr_query <- function(.data) {
     # If dplyr is not available, or if the input doesn't have a group_vars
     # method, assume no group vars
     dplyr::group_vars(.data),
-    error = function(e) NULL
+    error = function(e) character()
   )
 
   if (inherits(.data, "data.frame")) {

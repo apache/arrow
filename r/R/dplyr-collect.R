@@ -73,7 +73,12 @@ restore_dplyr_features <- function(df, query) {
     }
   } else {
     # This is a Table, via compute() or collect(as_data_frame = FALSE)
-    df$metadata$r$attributes$.group_vars <- query$group_by_vars
+    if (length(query$group_by_vars) > 0) {
+      gv <- query$group_by_vars
+    } else {
+      gv <- NULL
+    }
+    df$metadata$r$attributes$.group_vars <- gv
   }
   df
 }
