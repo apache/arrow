@@ -4789,32 +4789,27 @@ def test_write_dataset_with_scanner_use_projected_schema(tempdir):
         )
 
 
-def test_read_table_nested_columns(tempdir):
+@pytest.mark.parametrize("format", ("ipc", "parquet"))
+def test_read_table_nested_columns(tempdir, format):
+    if format == "parquet":
+        pytest.importorskip("pyarrow.parquet")
+
     table = pa.table({"user_id": ["abc123", "qrs456"],
                       "interaction": [
-                        {"type": "click", "element": "button", "values": [
-                            1, 2], "structs":[{"foo": "bar"}]},
-                        {"type": "scroll", "element": "window", "values": [
-                            3, 4], "structs":[{"fizz": "buzz"}]}
-                      ]})
-    ds.write_dataset(table, tempdir / "table", format="ipc")
-    ds1 = ds.dataset(tempdir / "table", format="ipc")
-    
+        {"type": "click", "element": "button", "values": [
+            1, 2], "structs":[{"foo": "bar"}]},
+        {"type": "scroll", "element": "window", "values": [
+            3, 4], "structs":[{"fizz": "buzz"}]}
+    ]})
+    ds.write_dataset(table, tempdir / "table", format=format)
+    ds1 = ds.dataset(tempdir / "table", format=format)
+
     # Dot path to read subsets of nested data
-    table = ds1.to_table(columns=["user_id", ".interaction.type",
-                         ".interaction.values[0]", ".interaction.structs[0].foo"])
+    table = ds1.to_table(
+        columns=["user_id", ".interaction.type", ".interaction.values",
+                 ".interaction.structs"])
     assert table.to_pylist() == [
-        {'user_id': 'abc123', '.interaction.type': 'click', '.interaction.values[0]': 1, '.interaction.structs[0].foo': 'bar'}, 
-        {'user_id': 'qrs456', '.interaction.type': 'scroll', '.interaction.values[0]': 3, '.interaction.structs[0].foo': None}
-    ]
-    # Dot path with directive for constructing a struct from the subset data
-    table = ds1.to_table(columns=[
-        "user_id",
-        {"interaction": {"type": ".interaction.type",
-                         "value": ".interaction.values[0]",
-                         "foo": ".interaction.structs[0].foo"}
-        }])
-    assert table.to_pylist() == [
-        {'user_id': 'abc123', 'interaction': {'type': 'click', 'value': 1, 'foo': 'bar'}}, 
-        {'user_id': 'qrs456', 'interaction': {'type': 'scroll', 'value': 3, 'foo': None}}
-    ]
+        {'user_id': 'abc123', '.interaction.type': 'click', '.interaction.values': [1, 2],
+         '.interaction.structs': [{'fizz': None, 'foo': 'bar'}]},
+        {'user_id': 'qrs456', '.interaction.type': 'scroll', '.interaction.values': [3, 4],
+         '.interaction.structs': [{'fizz': 'buzz', 'foo': None}]}]
