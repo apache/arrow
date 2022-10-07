@@ -27,6 +27,8 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
       augment_io_error_msg(e, call, schema = x$.data$schema)
     }
   )
+  # Remove grouping metadata from the Table before converting to a data frame
+  out$metadata$r$attributes$.group_vars <- NULL
 
   if (as_data_frame) {
     out <- as.data.frame(out)
