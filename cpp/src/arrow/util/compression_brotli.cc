@@ -237,7 +237,7 @@ class BrotliCodec : public Codec {
 }  // namespace
 
 std::unique_ptr<Codec> MakeBrotliCodec(int compression_level) {
-  return std::unique_ptr<Codec>(new BrotliCodec(compression_level));
+  return std::make_unique<BrotliCodec>(compression_level);
 }
 
 }  // namespace internal

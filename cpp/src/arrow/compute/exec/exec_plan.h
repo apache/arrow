@@ -17,26 +17,29 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "arrow/compute/exec.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_util.h"
-#include "arrow/util/cancel.h"
-#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/future.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/tracing.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 namespace compute {
+
+/// \addtogroup execnode-components
+/// @{
 
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
@@ -116,6 +119,8 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \param task_group_id The ID  of the task group to run
   /// \param num_tasks The number of times to run the task
   Status StartTaskGroup(int task_group_id, int64_t num_tasks);
+
+  util::AsyncTaskScheduler* async_scheduler();
 
   /// The initial inputs
   const NodeVector& sources() const;
@@ -364,48 +369,6 @@ class ARROW_EXPORT ExecNode {
   util::tracing::Span span_;
 };
 
-/// \brief MapNode is an ExecNode type class which process a task like filter/project
-/// (See SubmitTask method) to each given ExecBatch object, which have one input, one
-/// output, and are pure functions on the input
-///
-/// A simple parallel runner is created with a "map_fn" which is just a function that
-/// takes a batch in and returns a batch.  This simple parallel runner also needs an
-/// executor (use simple synchronous runner if there is no executor)
-
-class ARROW_EXPORT MapNode : public ExecNode {
- public:
-  MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-          std::shared_ptr<Schema> output_schema, bool async_mode);
-
-  void ErrorReceived(ExecNode* input, Status error) override;
-
-  void InputFinished(ExecNode* input, int total_batches) override;
-
-  Status StartProducing() override;
-
-  void PauseProducing(ExecNode* output, int32_t counter) override;
-
-  void ResumeProducing(ExecNode* output, int32_t counter) override;
-
-  void StopProducing(ExecNode* output) override;
-
-  void StopProducing() override;
-
- protected:
-  void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);
-
-  virtual void Finish(Status finish_st = Status::OK());
-
- protected:
-  // Counter for the number of batches received
-  AtomicCounter input_counter_;
-
-  ::arrow::internal::Executor* executor_;
-
-  // Variable used to cancel remaining tasks in the executor
-  StopSource stop_source_;
-};
-
 /// \brief An extensible registry for factories of ExecNodes
 class ARROW_EXPORT ExecFactoryRegistry {
  public:
@@ -444,7 +407,9 @@ inline Result<ExecNode*> MakeExecNode(
 /// inputs may also be Declarations). The node can be constructed and added to a plan
 /// with Declaration::AddToPlan, which will recursively construct any inputs as necessary.
 struct ARROW_EXPORT Declaration {
-  using Input = util::Variant<ExecNode*, Declaration>;
+  using Input = std::variant<ExecNode*, Declaration>;
+
+  Declaration() {}
 
   Declaration(std::string factory_name, std::vector<Input> inputs,
               std::shared_ptr<ExecNodeOptions> options, std::string label)
@@ -509,6 +474,9 @@ struct ARROW_EXPORT Declaration {
   Result<ExecNode*> AddToPlan(ExecPlan* plan, ExecFactoryRegistry* registry =
                                                   default_exec_factory_registry()) const;
 
+  // Validate a declaration
+  bool IsValid(ExecFactoryRegistry* registry = default_exec_factory_registry()) const;
+
   std::string factory_name;
   std::vector<Input> inputs;
   std::shared_ptr<ExecNodeOptions> options;
@@ -520,7 +488,7 @@ struct ARROW_EXPORT Declaration {
 /// The RecordBatchReader does not impose any ordering on emitted batches.
 ARROW_EXPORT
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
-    std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
+    std::shared_ptr<Schema>, std::function<Future<std::optional<ExecBatch>>()>,
     MemoryPool*);
 
 constexpr int kDefaultBackgroundMaxQ = 32;
@@ -530,9 +498,11 @@ constexpr int kDefaultBackgroundQRestart = 16;
 ///
 /// Useful as a source node for an Exec plan
 ARROW_EXPORT
-Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
     int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

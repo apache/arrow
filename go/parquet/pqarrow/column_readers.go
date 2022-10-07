@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -50,13 +51,13 @@ type leafReader struct {
 	refCount int64
 }
 
-func newLeafReader(rctx *readerCtx, field *arrow.Field, input *columnIterator, leafInfo file.LevelInfo, props ArrowReadProperties) (*ColumnReader, error) {
+func newLeafReader(rctx *readerCtx, field *arrow.Field, input *columnIterator, leafInfo file.LevelInfo, props ArrowReadProperties, bufferPool *sync.Pool) (*ColumnReader, error) {
 	ret := &leafReader{
 		rctx:      rctx,
 		field:     field,
 		input:     input,
 		descr:     input.Descr(),
-		recordRdr: file.NewRecordReader(input.Descr(), leafInfo, field.Type.ID() == arrow.DICTIONARY, rctx.mem),
+		recordRdr: file.NewRecordReader(input.Descr(), leafInfo, field.Type.ID() == arrow.DICTIONARY, rctx.mem, bufferPool),
 		props:     props,
 		refCount:  1,
 	}
@@ -387,7 +388,12 @@ func (lr *listReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 		return nil, err
 	}
 
-	arr, err := lr.itemRdr.BuildArray(int64(offsetData[int(validityIO.Read)]))
+	// if the parent (itemRdr) has nulls and is a nested type like list
+	// then we need BuildArray to account for that with the number of
+	// definition levels when building out the bitmap. So the upper bound
+	// to make sure we have the space for is the worst case scenario,
+	// the upper bound is the value of the last offset + the nullcount
+	arr, err := lr.itemRdr.BuildArray(int64(offsetData[int(validityIO.Read)]) + validityIO.NullCount)
 	if err != nil {
 		return nil, err
 	}

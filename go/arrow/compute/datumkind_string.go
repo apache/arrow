@@ -14,12 +14,11 @@ func _() {
 	_ = x[KindChunked-3]
 	_ = x[KindRecord-4]
 	_ = x[KindTable-5]
-	_ = x[KindCollection-6]
 }
 
-const _DatumKind_name = "nonescalararraychunked_arrayrecord_batchtablecollection"
+const _DatumKind_name = "nonescalararraychunked_arrayrecord_batchtable"
 
-var _DatumKind_index = [...]uint8{0, 4, 10, 15, 28, 40, 45, 55}
+var _DatumKind_index = [...]uint8{0, 4, 10, 15, 28, 40, 45}
 
 func (i DatumKind) String() string {
 	if i < 0 || i >= DatumKind(len(_DatumKind_index)-1) {

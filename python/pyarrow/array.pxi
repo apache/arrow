@@ -1890,7 +1890,7 @@ cdef class ListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None):
+    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
         """
         Construct ListArray from arrays of int32 offsets and values.
 
@@ -1901,7 +1901,9 @@ cdef class ListArray(BaseListArray):
         type : DataType, optional
             If not specified, a default ListType with the values' type is
             used.
-        pool : MemoryPool
+        pool : MemoryPool, optional
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
 
         Returns
         -------
@@ -1943,21 +1945,24 @@ cdef class ListArray(BaseListArray):
         cdef:
             Array _offsets, _values
             shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
         cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
 
         _offsets = asarray(offsets, type='int32')
         _values = asarray(values)
 
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
         if type is not None:
             with nogil:
                 out = GetResultValue(
                     CListArray.FromArraysAndType(
-                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool))
+                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool, c_mask))
         else:
             with nogil:
                 out = GetResultValue(
                     CListArray.FromArrays(
-                        _offsets.ap[0], _values.ap[0], cpool))
+                        _offsets.ap[0], _values.ap[0], cpool, c_mask))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -2004,7 +2009,7 @@ cdef class LargeListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None):
+    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
         """
         Construct LargeListArray from arrays of int64 offsets and values.
 
@@ -2015,7 +2020,9 @@ cdef class LargeListArray(BaseListArray):
         type : DataType, optional
             If not specified, a default ListType with the values' type is
             used.
-        pool : MemoryPool
+        pool : MemoryPool, optional
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
 
         Returns
         -------
@@ -2024,21 +2031,25 @@ cdef class LargeListArray(BaseListArray):
         cdef:
             Array _offsets, _values
             shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
+
         cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
 
         _offsets = asarray(offsets, type='int64')
         _values = asarray(values)
 
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
         if type is not None:
             with nogil:
                 out = GetResultValue(
                     CLargeListArray.FromArraysAndType(
-                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool))
+                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool, c_mask))
         else:
             with nogil:
                 out = GetResultValue(
                     CLargeListArray.FromArrays(
-                        _offsets.ap[0], _values.ap[0], cpool))
+                        _offsets.ap[0], _values.ap[0], cpool, c_mask))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -2114,7 +2125,7 @@ cdef class MapArray(ListArray):
         return pyarrow_wrap_array((<CMapArray*> self.ap).items())
 
 
-cdef class FixedSizeListArray(Array):
+cdef class FixedSizeListArray(BaseListArray):
     """
     Concrete class for Arrow arrays of a fixed size list data type.
     """
@@ -2201,16 +2212,6 @@ cdef class FixedSizeListArray(Array):
 
     @property
     def values(self):
-        return self.flatten()
-
-    def flatten(self):
-        """
-        Unnest this FixedSizeListArray by one level.
-
-        Returns
-        -------
-        result : Array
-        """
         cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2479,6 +2480,53 @@ cdef class DictionaryArray(Array):
         return self._indices
 
     @staticmethod
+    def from_buffers(DataType type, int64_t length, buffers, Array dictionary,
+                     int64_t null_count=-1, int64_t offset=0):
+        """
+        Construct a DictionaryArray from buffers.
+
+        Parameters
+        ----------
+        type : pyarrow.DataType
+        length : int
+            The number of values in the array.
+        buffers : List[Buffer]
+            The buffers backing the indices array.
+        dictionary : pyarrow.Array, ndarray or pandas.Series
+            The array of values referenced by the indices.
+        null_count : int, default -1
+            The number of null entries in the indices array. Negative value means that
+            the null count is not known.
+        offset : int, default 0
+            The array's logical offset (in values, not in bytes) from the
+            start of each buffer.
+
+        Returns
+        -------
+        dict_array : DictionaryArray
+        """
+        cdef:
+            vector[shared_ptr[CBuffer]] c_buffers
+            shared_ptr[CDataType] c_type
+            shared_ptr[CArrayData] c_data
+            shared_ptr[CArray] c_result
+
+        for buf in buffers:
+            c_buffers.push_back(pyarrow_unwrap_buffer(buf))
+
+        c_type = pyarrow_unwrap_data_type(type)
+
+        with nogil:
+            c_data = CArrayData.Make(
+                c_type, length, c_buffers, null_count, offset)
+            c_data.get().dictionary = dictionary.sp_array.get().data()
+            c_result.reset(new CDictionaryArray(c_data))
+
+        cdef Array result = pyarrow_wrap_array(c_result)
+        result.validate()
+        return result
+
+    @staticmethod
     def from_arrays(indices, dictionary, mask=None, bint ordered=False,
                     bint from_pandas=False, bint safe=True,
                     MemoryPool memory_pool=None):
@@ -2652,17 +2700,7 @@ cdef class StructArray(Array):
         if names is not None and fields is not None:
             raise ValueError('Must pass either names or fields, not both')
 
-        if mask is None:
-            c_mask = shared_ptr[CBuffer]()
-        elif isinstance(mask, Array):
-            if mask.type.id != Type_BOOL:
-                raise ValueError('Mask must be a pyarrow.Array of type bool')
-            if mask.null_count != 0:
-                raise ValueError('Mask must not contain nulls')
-            inverted_mask = _pc().invert(mask, memory_pool=memory_pool)
-            c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
-        else:
-            raise ValueError('Mask must be a pyarrow.Array of type bool')
+        c_mask = c_mask_inverted_from_obj(mask, memory_pool)
 
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
@@ -2810,6 +2848,25 @@ cdef dict _array_classes = {
     _Type_STRUCT: StructArray,
     _Type_EXTENSION: ExtensionArray,
 }
+
+
+cdef inline shared_ptr[CBuffer] c_mask_inverted_from_obj(object mask, MemoryPool pool) except *:
+    """
+    Convert mask array obj to c_mask while also inverting to signify 1 for valid and 0 for null
+    """
+    cdef shared_ptr[CBuffer] c_mask
+    if mask is None:
+        c_mask = shared_ptr[CBuffer]()
+    elif isinstance(mask, Array):
+        if mask.type.id != Type_BOOL:
+            raise TypeError('Mask must be a pyarrow.Array of type boolean')
+        if mask.null_count != 0:
+            raise ValueError('Mask must not contain nulls')
+        inverted_mask = _pc().invert(mask, memory_pool=pool)
+        c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
+    else:
+        raise TypeError('Mask must be a pyarrow.Array of type boolean')
+    return c_mask
 
 
 cdef object get_array_class_from_type(

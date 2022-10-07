@@ -29,8 +29,8 @@
 
   <properties>
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
-    <dep.junit.platform.version>1.4.0</dep.junit.platform.version>
-    <dep.junit.jupiter.version>5.4.0</dep.junit.jupiter.version>
+    <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
+    <dep.junit.jupiter.version>5.9.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>30.1.1-jre</dep.guava.version>
     <dep.netty-bom.version>4.1.78.Final</dep.netty-bom.version>
@@ -150,6 +150,7 @@
             <exclude>**/client/build/**</exclude>
             <exclude>**/*.tbl</exclude>
             <exclude>**/*.iml</exclude>
+            <exclude>**/flight.properties</exclude>
           </excludes>
         </configuration>
       </plugin>
@@ -251,7 +252,7 @@
       <plugin>
         <groupId>pl.project13.maven</groupId>
         <artifactId>git-commit-id-plugin</artifactId>
-        <version>2.2.2</version>
+        <version>4.0.5</version>
         <executions>
           <execution>
             <id>for-jars</id>
@@ -353,6 +354,7 @@
               <ignoredDependencies>
                 <!-- source annotations (not kept in compiled code) -->
                 <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
+                <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
               </ignoredDependencies>
             </configuration>
           </execution>
@@ -397,7 +399,19 @@
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.0.0-M3</version>
+          <version>3.0.0-M7</version>
+          <dependencies>
+            <dependency>
+              <groupId>org.junit.jupiter</groupId>
+              <artifactId>junit-jupiter-engine</artifactId>
+              <version>${dep.junit.jupiter.version}</version>
+            </dependency>
+            <dependency>
+              <groupId>org.apache.maven.surefire</groupId>
+              <artifactId>surefire-junit-platform</artifactId>
+              <version>3.0.0-M7</version>
+            </dependency>
+          </dependencies>
           <configuration>
             <enableAssertions>true</enableAssertions>
             <childDelegation>true</childDelegation>
@@ -415,7 +429,7 @@
         </plugin>
         <plugin>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>3.0.0-M3</version>
+          <version>3.0.0-M7</version>
           <configuration>
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
@@ -612,13 +626,6 @@
       <scope>test</scope>
     </dependency>
 
-
-    <dependency>
-      <groupId>org.junit.platform</groupId>
-      <artifactId>junit-platform-runner</artifactId>
-      <version>${dep.junit.platform.version}</version>
-      <scope>test</scope>
-    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
@@ -634,6 +641,12 @@
     <dependency>
       <groupId>org.junit.vintage</groupId>
       <artifactId>junit-vintage-engine</artifactId>
+      <version>${dep.junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
       <version>${dep.junit.jupiter.version}</version>
       <scope>test</scope>
     </dependency>
@@ -675,7 +688,6 @@
           <reportSet><!-- by default, id = "default" -->
             <reports><!-- select non-aggregate reports -->
               <report>javadoc</report>
-              <report>test-javadoc</report>
             </reports>
           </reportSet>
           <reportSet><!-- aggregate reportSet, to define in poms having modules -->
@@ -785,7 +797,7 @@
     <profile>
       <id>error-prone-jdk11+</id>
       <activation>
-        <jdk>[11,)</jdk>
+        <jdk>[11,]</jdk>
         <property>
           <name>!m2e.version</name>
         </property>
@@ -801,10 +813,7 @@
               <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
                 <arg>-XDcompilePolicy=simple</arg>
-                <arg>
-                  -Xplugin:ErrorProne \
-                  -XepExcludedPaths:.*/(target/generated-sources)/.*
-                </arg>
+                <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/(target/generated-sources)/.*</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
@@ -885,6 +894,206 @@
           </plugin>
         </plugins>
       </reporting>
+    </profile>
+
+    <profile>
+      <id>windows</id>
+      <activation>
+        <jdk>[17,]</jdk>
+        <os>
+          <family>windows</family>
+        </os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <reuseForks>false</reuseForks>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>generate-cdata-dylib_so</id>
+      <properties>
+        <arrow.c.jni.dist.dir>java-dist/lib</arrow.c.jni.dist.dir>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>cdata-dir</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>mkdir</executable>
+                  <commandlineArgs>-p java-dist java-jni</commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>cdata-cmake</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -S java
+                    -B java-jni
+                    -DARROW_JAVA_JNI_ENABLE_C=ON
+                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
+                    -DBUILD_TESTING=OFF
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_LIBDIR=lib
+                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>cdata-build</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build java-jni --target install --config Release
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>generate-jni-dylib_so</id>
+      <properties>
+        <arrow.dataset.jni.dist.dir>java-dist/lib</arrow.dataset.jni.dist.dir>
+        <cpp.dependencies.builded>false</cpp.dependencies.builded>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>jni-dir</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>mkdir</executable>
+                  <commandlineArgs>-p cpp-jni java-dist java-jni</commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jni-cpp-cmake</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -S cpp
+                    -B cpp-jni
+                    -DARROW_BUILD_SHARED=OFF
+                    -DARROW_CSV=ON
+                    -DARROW_DATASET=ON
+                    -DARROW_DEPENDENCY_SOURCE=BUNDLED
+                    -DARROW_DEPENDENCY_USE_SHARED=OFF
+                    -DARROW_FILESYSTEM=ON
+                    -DARROW_GANDIVA=ON
+                    -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
+                    -DARROW_ORC=ON
+                    -DARROW_PARQUET=ON
+                    -DARROW_PLASMA=ON
+                    -DARROW_S3=ON
+                    -DARROW_USE_CCACHE=ON
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_LIBDIR=lib
+                    -DCMAKE_INSTALL_PREFIX=java-dist
+                    -DCMAKE_UNITY_BUILD=ON
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                  <skip>${cpp.dependencies.builded}</skip>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jni-cpp-build</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build cpp-jni --target install --config Release
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                  <skip>${cpp.dependencies.builded}</skip>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jni-cmake</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -S java
+                    -B java-jni
+                    -DARROW_JAVA_JNI_ENABLE_C=OFF
+                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON
+                    -DBUILD_TESTING=OFF
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_LIBDIR=lib
+                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
+                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jni-build</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build java-jni --target install --config Release
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
 
   </profiles>

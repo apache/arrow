@@ -18,6 +18,7 @@ package file
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/internal/utils"
@@ -125,6 +126,7 @@ type columnChunkReader struct {
 	// the number of values we've decoded so far
 	numDecoded int64
 	mem        memory.Allocator
+	bufferPool *sync.Pool
 
 	decoders      map[format.Encoding]encoding.TypedDecoder
 	decoderTraits encoding.DecoderTraits
@@ -136,8 +138,12 @@ type columnChunkReader struct {
 
 // NewColumnReader returns a column reader for the provided column initialized with the given pagereader that will
 // provide the pages of data for this column. The type is determined from the column passed in.
-func NewColumnReader(descr *schema.Column, pageReader PageReader, mem memory.Allocator) ColumnChunkReader {
-	base := columnChunkReader{descr: descr, rdr: pageReader, mem: mem, decoders: make(map[format.Encoding]encoding.TypedDecoder)}
+//
+// In addition to the page reader and allocator, a pointer to a shared sync.Pool is expected to provide buffers for temporary
+// usage to minimize allocations. The bufferPool should provide *memory.Buffer objects that can be resized as necessary, buffers
+// should have `ResizeNoShrink(0)` called on them before being put back into the pool.
+func NewColumnReader(descr *schema.Column, pageReader PageReader, mem memory.Allocator, bufferPool *sync.Pool) ColumnChunkReader {
+	base := columnChunkReader{descr: descr, rdr: pageReader, mem: mem, decoders: make(map[format.Encoding]encoding.TypedDecoder), bufferPool: bufferPool}
 	switch descr.PhysicalType() {
 	case parquet.Types.FixedLenByteArray:
 		base.decoderTraits = &encoding.FixedLenByteArrayDecoderTraits
@@ -273,8 +279,12 @@ func (c *columnChunkReader) initLevelDecodersV2(page *DataPageV2) (int64, error)
 
 	if c.descr.MaxRepetitionLevel() > 0 {
 		c.repetitionDecoder.SetDataV2(page.repLvlByteLen, c.descr.MaxRepetitionLevel(), int(c.numBuffered), buf)
-		buf = buf[page.repLvlByteLen:]
 	}
+	// ARROW-17453: Some writers will write repetition levels even when
+	// the max repetition level is 0, so we should respect the value
+	// in the page header regardless of whether MaxRepetitionLevel is 0
+	// or not.
+	buf = buf[page.repLvlByteLen:]
 
 	if c.descr.MaxDefinitionLevel() > 0 {
 		c.definitionDecoder.SetDataV2(page.defLvlByteLen, c.descr.MaxDefinitionLevel(), int(c.numBuffered), buf)
@@ -435,15 +445,17 @@ func (c *columnChunkReader) skipValues(nvalues int64, readFn func(batch int64, b
 				valsRead  int64 = 0
 			)
 
-			// TODO(ARROW-16790): ideally we should re-use a shared pool of buffers to avoid unnecessary memory allocation for skips
-			scratch := memory.NewResizableBuffer(c.mem)
+			scratch := c.bufferPool.Get().(*memory.Buffer)
+			defer func() {
+				scratch.ResizeNoShrink(0)
+				c.bufferPool.Put(scratch)
+			}()
 			bufMult := 1
 			if c.descr.PhysicalType() == parquet.Types.Boolean {
 				// for bools, BytesRequired returns 1 byte per 8 bool, but casting []byte to []bool requires 1 byte per 1 bool
 				bufMult = 8
 			}
 			scratch.Reserve(c.decoderTraits.BytesRequired(int(batchSize) * bufMult))
-			defer scratch.Release()
 
 			for {
 				batchSize = utils.Min(batchSize, toskip)

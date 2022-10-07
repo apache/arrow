@@ -21,6 +21,10 @@
 #  ORC_STATIC_LIB, path to liborc.a
 #  ORC_FOUND, whether orc has been found
 
+if(ORC_FOUND)
+  return()
+endif()
+
 if(ORC_ROOT)
   find_library(ORC_STATIC_LIB
                NAMES orc

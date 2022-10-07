@@ -20,13 +20,8 @@
 # This allows us to set a custom version via param:
 # crossbow submit --param custom_version=8.5.3 r-binary-packages
 # if the param is unset defaults to the usual Ymd naming scheme
-{% set package_version = custom_version|default("\\2.\'\"$(date +%Y%m%d)\"\'") %}
-# We need this as boolean and string
-{% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
-# use filter to cast to string and convert to lowercase to match yaml boolean
-{% set is_fork = (not is_upstream_b)|lower %}
-{% set is_upstream = is_upstream_b|lower %}
-
+{% set package_version = custom_version|replace("Unset", "\\2.\'\"$(date +%Y%m%d)\"\'") %}
+{% set is_fork = macros.is_fork %}
 
 {{ macros.github_header() }}
 
@@ -75,17 +70,20 @@ jobs:
         config:
           - { os: ubuntu, version: "18.04" }
           - { os: ubuntu, version: "22.04" }
-          - { os: centos, version: "7" }
+          # TODO(ARROW-17594): re-enable this with the devtoolset for C++17
+          #- { os: centos, version: "7" }
     env:
       UBUNTU: {{ '${{ matrix.config.version }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       {{ macros.github_install_archery()|indent }}
+
       - name: Build libarrow
         shell: bash
         env:
-          UBUNTU: {{ '${{ matrix.config.version}}' }}
+          UBUNTU: {{ '"${{ matrix.config.version }}"' }}
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -114,19 +112,20 @@ jobs:
       - run: git config --global core.autocrlf false
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
-
       - uses: r-lib/actions/setup-r@v2
         with:
           rtools-version: 40
           r-version: "4.0"
           Ncpus: 2
-
+      - name: Install sccache
+        shell: bash
+        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
       - name: Build Arrow C++ with rtools40
         shell: bash
         env:
           ARROW_HOME: "arrow"
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/r_windows_build.sh
-
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
@@ -135,42 +134,62 @@ jobs:
 
   r-packages:
     needs: [source, windows-cpp]
-    name: {{ '${{ matrix.platform }} ${{ matrix.r_version.r }}' }}
-    runs-on: {{ '${{ matrix.platform }}' }}
+    name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version.r }}' }}
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     strategy:
       fail-fast: false
       matrix:
         platform:
-          - windows-latest
-          # This is newer than what CRAN builds on, but Travis is no longer an option for us, so...
-          - macos-10.15
-          # - devops-managed # No M1 until the runner application runs native
+          - { runs_on: 'windows-latest', name: "Windows"}
+          - { runs_on: ["self-hosted", "macos-10.13"], name: "macOS High Sierra"}
+          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur" }
         r_version:
-          - { rtools: 40, r: "4.1" }
-          - { rtools: 42, r: "4.2" }
+          - { rtools: "{{ macros.r_release.rt }}", r: "{{ macros.r_release.ver }}" }
+          - { rtools: "{{ macros.r_oldrel.rt }}", r: "{{ macros.r_oldrel.ver }}" }
     steps:
       - uses: r-lib/actions/setup-r@v2
+        # expression marker prevents the ! being parsed as yaml tag
+        if: {{ "${{ !contains(matrix.platform.runs_on, 'self-hosted') }}" }}
         with:
           r-version: {{ '${{ matrix.r_version.r }}' }}
           rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
           Ncpus: 2
+      - name: Setup R Self-Hosted
+        if: contains(matrix.platform.runs_on, 'self-hosted')
+        run: |
+          if [ "{{ "${{ contains(matrix.platform.runs_on, 'arm64') }}" }}" == "true" ]; then
+            rig_arch="-arm64"
+          fi
+          # rig is a system utility that allows for switching
+          # between pre-installed R version on the self-hosted runners
+          rig default {{ '${{ matrix.r_version.r }}' }}$rig_arch
+
+          rig system setup-user-lib
+          rig system add-pak 
       {{ macros.github_setup_local_r_repo(false, true)|indent }}
+      - name: Prepare Dependency Installation
+
+        shell: bash
+        run: |
+          tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
+      - name: Install dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+           working-directory: 'arrow'
+           extra-packages: cpp11
+      - name: Install sccache
+        if: startsWith(matrix.platform, 'macos')
+        run: brew install sccache
       - name: Build Binary
         id: build
         shell: Rscript {0}
         env:
+          NOT_CRAN: "true" # actions/setup-r sets this implicitly
           ARROW_R_DEV: TRUE
+          # sccache for macos
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-
-          # Install dependencies by installing (yesterday's) binary, then removing it
-          install.packages(c("arrow", "cpp11"),
-            type = "binary",
-            repos = c("https://nightlies.apache.org/arrow/r", "https://cloud.r-project.org")
-          )
-
-          cat("Remove old arrow version.\n")
-          remove.packages("arrow")
 
           # Build
           Sys.setenv(MAKEFLAGS = paste0("-j", parallel::detectCores()))
@@ -179,6 +198,9 @@ jobs:
             # Windows doesn't support the --strip arg
             INSTALL_opts <- c(INSTALL_opts, "--strip")
           }
+
+          # always remove arrow (mainly for self-hosted runners)
+          try(remove.packages("arrow"), silent = TRUE)
 
           cat("Install arrow from dev repo.\n")
           install.packages(
@@ -233,7 +255,8 @@ jobs:
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
           - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
           - {image: "rstudio/r-base:4.1-bionic"} # ubuntu-18.04
-          - {image: "rstudio/r-base:4.2-centos7"}
+          # TODO(ARROW-17594): re-enable this with the devtoolset for C++17
+          #- {image: "rstudio/r-base:4.2-centos7"}
           # Even with devtoolset-8, binaries fail because glibc is older than
           # what we build with on ubuntu-18.04 (uncomment to see the error)
           # TODO(ARROW-16976): build binaries with older glibc
@@ -280,10 +303,18 @@ jobs:
         with:
           install-r: false
       {{ macros.github_setup_local_r_repo(false, false)|indent }}
+      - name: Install sccache
+        shell: bash
+        run: |
+          curl -s \
+            https://raw.githubusercontent.com/{{ arrow.github_repo }}/{{ arrow.head }}/ci/scripts/install_sccache.sh | \
+            bash -s unknown-linux-musl /usr/local/bin
+      - run: sudo apt update && sudo apt install libcurl4-openssl-dev
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary
           LIBARROW_BINARY: "FALSE"
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
           {{ macros.github_test_r_src_pkg()|indent(8) }}
@@ -293,6 +324,8 @@ jobs:
         env:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        shell: Rscript {0}
         run: |
           {{ macros.github_test_r_src_pkg()|indent(8) }}
 

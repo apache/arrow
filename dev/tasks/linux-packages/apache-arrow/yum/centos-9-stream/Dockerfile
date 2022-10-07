@@ -18,12 +18,15 @@
 ARG FROM=quay.io/centos/centos:stream9
 FROM ${FROM}
 
+ENV SCL=gcc-toolset-12
+
 ARG DEBUG
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
   dnf install -y ${quiet} epel-release && \
   dnf install --enablerepo=crb -y ${quiet} \
+    ${SCL} \
     bison \
     boost-devel \
     brotli-devel \
@@ -51,8 +54,6 @@ RUN \
     openssl-devel \
     pkg-config \
     python3 \
-    python3-devel \
-    python3-numpy \
     python3-pip \
     re2-devel \
     rapidjson-devel \

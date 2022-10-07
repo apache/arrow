@@ -18,10 +18,13 @@
 
 set -ex
 
+if [[ "${ARROW_JAVA_BUILD:-ON}" != "ON" ]]; then
+  exit
+fi
+
 arrow_dir=${1}
 source_dir=${1}/java
 build_dir=${2}
-cpp_build_dir=${build_dir}/cpp/${ARROW_BUILD_TYPE:-debug}
 java_jni_dist_dir=${3}
 
 : ${BUILD_DOCS_JAVA:=OFF}
@@ -64,6 +67,11 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
 fi
 
 mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+
+if [ $ARROW_JAVA_SKIP_GIT_PLUGIN ]; then
+  mvn="${mvn} -Dmaven.gitcommitid.skip=true"
+fi
+
 # Use `2 * ncores` threads
 mvn="${mvn} -T 2C"
 
@@ -79,8 +87,8 @@ if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
   ${mvn} -Darrow.c.jni.dist.dir=${java_jni_dist_dir} -Parrow-c-data install
 fi
 
-if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then
-  ${mvn} -Darrow.cpp.build.dir=${cpp_build_dir} -Parrow-jni install
+if [ "${ARROW_JNI}" = "ON" ]; then
+  ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni install
 fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then

@@ -51,7 +51,6 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -92,7 +91,7 @@ void AssertDatasetHasSchema(std::shared_ptr<Dataset> ds, std::shared_ptr<Schema>
 class FileSourceFixtureMixin : public ::testing::Test {
  public:
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {
-    return ::arrow::internal::make_unique<FileSource>(std::move(buffer));
+    return std::make_unique<FileSource>(std::move(buffer));
   }
 };
 
@@ -114,8 +113,7 @@ class GeneratedRecordBatch : public RecordBatchReader {
 template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
-  return ::arrow::internal::make_unique<GeneratedRecordBatch<Gen>>(
-      schema, std::forward<Gen>(gen));
+  return std::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
 }
 
 std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
@@ -167,7 +165,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(options_));
-    AssertScanTaskEquals(expected, batch_gen);
+    AssertScanTaskEquals(expected, batch_gen, ensure_drained);
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -185,6 +183,22 @@ class DatasetFixtureMixin : public ::testing::Test {
       AssertFragmentEquals(expected, fragment.get(), false);
       return Status::OK();
     }));
+
+    if (ensure_drained) {
+      EnsureRecordBatchReaderDrained(expected);
+    }
+  }
+
+  void AssertDatasetAsyncFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
+                                        bool ensure_drained = true) {
+    ASSERT_OK_AND_ASSIGN(auto predicate, options_->filter.Bind(*dataset->schema()));
+    ASSERT_OK_AND_ASSIGN(auto gen, dataset->GetFragmentsAsync(predicate))
+
+    ASSERT_FINISHES_OK(VisitAsyncGenerator(
+        std::move(gen), [this, expected](const std::shared_ptr<Fragment>& f) {
+          AssertFragmentEquals(expected, f.get(), false /*ensure_drained*/);
+          return Status::OK();
+        }));
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -492,11 +506,11 @@ class FileFormatFixtureMixin : public ::testing::Test {
 
     bool supported = false;
 
-    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(std::string_view(""));
     ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
     ASSERT_EQ(supported, false);
 
-    buf = std::make_shared<Buffer>(util::string_view("corrupted"));
+    buf = std::make_shared<Buffer>(std::string_view("corrupted"));
     ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
     ASSERT_EQ(supported, false);
 
@@ -534,26 +548,26 @@ class FileFormatFixtureMixin : public ::testing::Test {
     auto source = this->GetFileSource(reader.get());
 
     auto fragment = this->MakeFragment(*source);
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected_rows()),
                               fragment->CountRows(literal(true), options));
 
     fragment = this->MakeFragment(*source, equal(field_ref("part"), literal(2)));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected_rows()),
                               fragment->CountRows(literal(true), options));
 
     auto predicate = equal(field_ref("part"), literal(1));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(0),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(0),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(field_ref("part"), literal(2));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected_rows()),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(call("add", {field_ref("f64"), literal(3)}), literal(2));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::nullopt, fragment->CountRows(predicate, options));
+    ASSERT_FINISHES_OK_AND_EQ(std::nullopt, fragment->CountRows(predicate, options));
   }
   void TestFragmentEquals() {
     auto options = std::make_shared<ScanOptions>();
@@ -969,7 +983,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
 
-    RecordBatchVector batches{RecordBatchFromJSON(schema, util::string_view{*buffer})};
+    RecordBatchVector batches{RecordBatchFromJSON(schema, std::string_view{*buffer})};
     return MakeVectorGenerator(std::move(batches));
   }
 
@@ -1463,7 +1477,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       }
 
       auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),
-                                           {file_contents->second});
+                                           file_contents->second);
 
       AssertArraysEqual(*expected_struct, *actual_struct, /*verbose=*/true);
     }

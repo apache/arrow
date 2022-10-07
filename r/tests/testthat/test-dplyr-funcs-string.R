@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
 skip_if_not_available("utf8proc")
 
 library(dplyr, warn.conflicts = FALSE)
@@ -62,7 +61,8 @@ test_that("paste, paste0, and str_c", {
     .input %>%
       transmute(
         a = paste0(v, w),
-        a2 = base::paste0(v, w)) %>%
+        a2 = base::paste0(v, w)
+      ) %>%
       collect(),
     df
   )
@@ -904,8 +904,8 @@ test_that("str_like", {
     tibble(x = c(FALSE, TRUE))
   )
 
-  # This will give an error until a new version of stringr with str_like has been released
-  skip_if_not(packageVersion("stringr") > "1.4.0")
+  # TODO: remove this skip once a new version of stringr is released (maybe 1.5.0?)
+  skip_if_not("str_like" %in% getNamespaceExports("stringr"))
   compare_dplyr_binding(
     .input %>%
       mutate(x = str_like(x, "%baz%")) %>%

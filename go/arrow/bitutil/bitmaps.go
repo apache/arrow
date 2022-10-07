@@ -17,6 +17,7 @@
 package bitutil
 
 import (
+	"bytes"
 	"math/bits"
 	"unsafe"
 
@@ -449,17 +450,24 @@ func alignedBitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out [
 	left = left[lOffset/8:]
 	right = right[rOffset/8:]
 	out = out[outOffset/8:]
+	endMask := (lOffset + length%8)
 	switch nbytes {
 	case 0:
 		return
 	case 1: // everything within a single byte
 		// (length+lOffset%8) <= 8
-		mask := PrecedingBitmask[lOffset%8] | TrailingBitmask[(lOffset+length)%8]
+		mask := PrecedingBitmask[lOffset%8]
+		if endMask != 0 {
+			mask |= TrailingBitmask[(lOffset+length)%8]
+		}
 		out[0] = (out[0] & mask) | (op.opByte(left[0], right[0]) &^ mask)
 	case 2: // don't send zero length to opAligned
 		firstByteMask := PrecedingBitmask[lOffset%8]
 		out[0] = (out[0] & firstByteMask) | (op.opByte(left[0], right[0]) &^ firstByteMask)
-		lastByteMask := TrailingBitmask[(lOffset+length)%8]
+		lastByteMask := byte(0)
+		if endMask != 0 {
+			lastByteMask = TrailingBitmask[(lOffset+length)%8]
+		}
 		out[1] = (out[1] & lastByteMask) | (op.opByte(left[1], right[1]) &^ lastByteMask)
 	default:
 		firstByteMask := PrecedingBitmask[lOffset%8]
@@ -467,7 +475,10 @@ func alignedBitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out [
 
 		op.opAligned(left[1:nbytes-1], right[1:nbytes-1], out[1:nbytes-1])
 
-		lastByteMask := TrailingBitmask[(lOffset+length)%8]
+		lastByteMask := byte(0)
+		if endMask != 0 {
+			lastByteMask = TrailingBitmask[(lOffset+length)%8]
+		}
 		out[nbytes-1] = (out[nbytes-1] & lastByteMask) | (op.opByte(left[nbytes-1], right[nbytes-1]) &^ lastByteMask)
 	}
 }
@@ -519,4 +530,57 @@ func BitmapAndAlloc(mem memory.Allocator, left, right []byte, lOffset, rOffset i
 
 func BitmapOrAlloc(mem memory.Allocator, left, right []byte, lOffset, rOffset int64, length, outOffset int64) *memory.Buffer {
 	return BitmapOpAlloc(mem, bitOrOp, left, right, lOffset, rOffset, length, outOffset)
+}
+
+func BitmapEquals(left, right []byte, lOffset, rOffset int64, length int64) bool {
+	if lOffset%8 == 0 && rOffset%8 == 0 {
+		// byte aligned, fast path, can use bytes.Equal (memcmp)
+		byteLen := length / 8
+		lStart := lOffset / 8
+		rStart := rOffset / 8
+		if !bytes.Equal(left[lStart:lStart+byteLen], right[rStart:rStart+byteLen]) {
+			return false
+		}
+
+		// check trailing bits
+		for i := (length / 8) * 8; i < length; i++ {
+			if BitIsSet(left, int(lOffset+i)) != BitIsSet(right, int(rOffset+i)) {
+				return false
+			}
+		}
+		return true
+	}
+
+	lrdr := NewBitmapWordReader(left, int(lOffset), int(length))
+	rrdr := NewBitmapWordReader(right, int(rOffset), int(length))
+
+	nwords := lrdr.Words()
+	for nwords > 0 {
+		nwords--
+		if lrdr.NextWord() != rrdr.NextWord() {
+			return false
+		}
+	}
+
+	nbytes := lrdr.TrailingBytes()
+	for nbytes > 0 {
+		nbytes--
+		lbt, _ := lrdr.NextTrailingByte()
+		rbt, _ := rrdr.NextTrailingByte()
+		if lbt != rbt {
+			return false
+		}
+	}
+	return true
+}
+
+// OptionalBitIndexer is a convenience wrapper for getting bits from
+// a bitmap which may or may not be nil.
+type OptionalBitIndexer struct {
+	Bitmap []byte
+	Offset int
+}
+
+func (b *OptionalBitIndexer) GetBit(i int) bool {
+	return b.Bitmap == nil || BitIsSet(b.Bitmap, b.Offset+i)
 }

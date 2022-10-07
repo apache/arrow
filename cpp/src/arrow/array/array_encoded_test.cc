@@ -42,11 +42,27 @@ using internal::checked_cast;
 
 namespace {
 
-auto string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
-auto int32_values = ArrayFromJSON(int32(), "[10, 20, 30]");
-auto int32_only_null = ArrayFromJSON(int32(), "[null, null, null]");
+class TestRunLengthEncodedArray
+    : public ::testing::TestWithParam<std::shared_ptr<DataType>> {
+ protected:
+  std::shared_ptr<DataType> run_ends_type;
+  std::shared_ptr<Array> string_values;
+  std::shared_ptr<Array> int32_values;
+  std::shared_ptr<Array> int16_values;
+  std::shared_ptr<Array> size_values;
+  std::shared_ptr<Array> size_only_null;
 
-TEST(RunLengthEncodedArray, MakeArray) {
+  virtual void SetUp() override {
+    run_ends_type = GetParam();
+    string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
+    int32_values = ArrayFromJSON(int32(), "[10, 20, 30]");
+    int16_values = ArrayFromJSON(int16(), "[10, 20, 30]");
+    size_values = ArrayFromJSON(run_ends_type, "[10, 20, 30]");
+    size_only_null = ArrayFromJSON(run_ends_type, "[null, null, null]");
+  }
+};
+
+TEST_P(TestRunLengthEncodedArray, MakeArray) {
   ASSERT_OK_AND_ASSIGN(auto rle_array,
                        RunLengthEncodedArray::Make(int32_values, string_values, 3));
   auto array_data = rle_array->data();
@@ -57,14 +73,14 @@ TEST(RunLengthEncodedArray, MakeArray) {
   ASSERT_NE(std::dynamic_pointer_cast<RunLengthEncodedArray>(new_array), NULLPTR);
 }
 
-TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
+TEST_P(TestRunLengthEncodedArray, FromRunEndsAndValues) {
   std::shared_ptr<RunLengthEncodedArray> rle_array;
 
   ASSERT_OK_AND_ASSIGN(rle_array,
-                       RunLengthEncodedArray::Make(int32_values, int32_values, 3));
+                       RunLengthEncodedArray::Make(size_values, int32_values, 3));
   ASSERT_EQ(rle_array->length(), 3);
   ASSERT_ARRAYS_EQUAL(*rle_array->values_array(), *int32_values);
-  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *int32_values);
+  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *size_values);
   ASSERT_EQ(rle_array->offset(), 0);
   ASSERT_EQ(rle_array->data()->null_count, 0);
   // one dummy buffer, since code may assume there is exactly one buffer
@@ -72,23 +88,24 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
 
   // explicitly passing offset
   ASSERT_OK_AND_ASSIGN(rle_array,
-                       RunLengthEncodedArray::Make(int32_values, string_values, 2, 1));
+                       RunLengthEncodedArray::Make(size_values, string_values, 2, 1));
   ASSERT_EQ(rle_array->length(), 2);
   ASSERT_ARRAYS_EQUAL(*rle_array->values_array(), *string_values);
-  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *int32_values);
+  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *size_values);
   ASSERT_EQ(rle_array->offset(), 1);
   // explicitly access null count variable so it is not calculated automatically
   ASSERT_EQ(rle_array->data()->null_count, 0);
 
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Run ends array must be int32 type",
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Run ends array must be int16, int32 or int64 type",
                              RunLengthEncodedArray::Make(string_values, int32_values, 3));
   ASSERT_RAISES_WITH_MESSAGE(
       Invalid, "Invalid: Run ends array cannot contain null values",
-      RunLengthEncodedArray::Make(int32_only_null, int32_values, 3));
+      RunLengthEncodedArray::Make(size_only_null, int32_values, 3));
 }
 
-TEST(RunLengthEncodedArray, OffsetLength) {
-  auto run_ends = ArrayFromJSON(int32(), "[100, 200, 300, 400, 500]");
+TEST_P(TestRunLengthEncodedArray, OffsetLength) {
+  auto run_ends = ArrayFromJSON(run_ends_type, "[100, 200, 300, 400, 500]");
   auto values = ArrayFromJSON(utf8(), R"(["Hello", "beautiful", "world", "of", "RLE"])");
   ASSERT_OK_AND_ASSIGN(auto rle_array,
                        RunLengthEncodedArray::Make(run_ends, values, 500));
@@ -114,14 +131,21 @@ TEST(RunLengthEncodedArray, OffsetLength) {
       std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(0, 150));
   ASSERT_EQ(slice4->GetPhysicalLength(), 2);
   ASSERT_EQ(slice4->GetPhysicalOffset(), 0);
+
+  auto zero_length_at_end =
+      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(500, 0));
+  ASSERT_EQ(zero_length_at_end->GetPhysicalLength(), 0);
+  ASSERT_EQ(zero_length_at_end->GetPhysicalOffset(), 5);
 }
 
-TEST(RunLengthEncodedArray, Builder) {
+TEST_P(TestRunLengthEncodedArray, Builder) {
   // test data
-  auto expected_run_ends = ArrayFromJSON(int32(), "[1, 3, 105, 165, 205, 305]");
+  auto expected_run_ends =
+      ArrayFromJSON(run_ends_type, "[1, 3, 105, 165, 205, 305, 405, 505]");
   auto expected_values = ArrayFromJSON(
-      utf8(), R"(["unique", null, "common", "common", "appended", "common"])");
-  auto appended_run_ends = ArrayFromJSON(int32(), "[100, 200]");
+      utf8(),
+      R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])");
+  auto appended_run_ends = ArrayFromJSON(run_ends_type, "[100, 200]");
   auto appended_values = ArrayFromJSON(utf8(), R"(["common", "appended"])");
   ASSERT_OK_AND_ASSIGN(auto appended_array, RunLengthEncodedArray::Make(
                                                 appended_run_ends, appended_values, 200));
@@ -129,7 +153,7 @@ TEST(RunLengthEncodedArray, Builder) {
 
   // builder
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder,
-                       MakeBuilder(run_length_encoded(utf8())));
+                       MakeBuilder(run_length_encoded(run_ends_type, utf8())));
   auto rle_builder = std::dynamic_pointer_cast<RunLengthEncodedBuilder>(builder);
   ASSERT_NE(rle_builder, NULLPTR);
   ASSERT_OK(builder->AppendScalar(*MakeScalar("unique")));
@@ -142,17 +166,21 @@ TEST(RunLengthEncodedArray, Builder) {
   // currently not merged for simplicity and performance. This is still a valid rle array
   ASSERT_OK(builder->AppendArraySlice(appended_span, 40, 100));
   ASSERT_OK(builder->AppendArraySlice(appended_span, 0, 100));
-  ASSERT_EQ(builder->length(), 305);
-  ASSERT_EQ(*builder->type(), *run_length_encoded(utf8()));
+  // append one whole array
+  ASSERT_OK(builder->AppendArraySlice(appended_span, 0, appended_span.length));
+  ASSERT_EQ(builder->length(), 505);
+  ASSERT_EQ(*builder->type(), *run_length_encoded(run_ends_type, utf8()));
   ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
   auto rle_array = std::dynamic_pointer_cast<RunLengthEncodedArray>(array);
   ASSERT_NE(rle_array, NULLPTR);
   ASSERT_ARRAYS_EQUAL(*expected_run_ends, *rle_array->run_ends_array());
   ASSERT_ARRAYS_EQUAL(*expected_values, *rle_array->values_array());
-  ASSERT_EQ(array->length(), 305);
+  ASSERT_EQ(array->length(), 505);
   ASSERT_EQ(array->offset(), 0);
 }
 
+INSTANTIATE_TEST_SUITE_P(EncodedArrayTests, TestRunLengthEncodedArray,
+                         ::testing::Values(int16(), int32(), int64()));
 }  // anonymous namespace
 
 }  // namespace arrow

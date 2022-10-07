@@ -36,7 +36,8 @@ add_arrow_test(memory_test PREFIX "arrow-io")
 
 add_arrow_benchmark(file_benchmark PREFIX "arrow-io")
 
-if(NOT (${ARROW_SIMD_LEVEL} STREQUAL "NONE"))
+if(NOT (${ARROW_SIMD_LEVEL} STREQUAL "NONE") AND NOT (${ARROW_SIMD_LEVEL} STREQUAL "NEON"
+                                                     ))
   # This benchmark either requires SSE4.2 or ARMV8 SIMD to be enabled
   add_arrow_benchmark(memory_benchmark PREFIX "arrow-io")
 endif()

@@ -237,6 +237,19 @@ func RecordToJSON(rec arrow.Record, w io.Writer) error {
 	return nil
 }
 
+func TableFromJSON(mem memory.Allocator, sc *arrow.Schema, recJSON []string, opt ...FromJSONOption) (arrow.Table, error) {
+	batches := make([]arrow.Record, len(recJSON))
+	for i, batchJSON := range recJSON {
+		batch, _, err := RecordFromJSON(mem, sc, strings.NewReader(batchJSON), opt...)
+		if err != nil {
+			return nil, err
+		}
+		defer batch.Release()
+		batches[i] = batch
+	}
+	return NewTableFromRecords(sc, batches), nil
+}
+
 func getDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
 	dictLen := memoTable.Size() - startOffset
 	buffers := []*memory.Buffer{nil, nil}
@@ -298,4 +311,182 @@ func DictArrayFromJSON(mem memory.Allocator, dt *arrow.DictionaryType, indicesJS
 	defer dict.Release()
 
 	return NewDictionaryArray(dt, indices, dict), nil
+}
+
+func ChunkedFromJSON(mem memory.Allocator, dt arrow.DataType, chunkStrs []string, opts ...FromJSONOption) (*arrow.Chunked, error) {
+	chunks := make([]arrow.Array, len(chunkStrs))
+	defer func() {
+		for _, c := range chunks {
+			if c != nil {
+				c.Release()
+			}
+		}
+	}()
+
+	var err error
+	for i, c := range chunkStrs {
+		chunks[i], _, err = FromJSON(mem, dt, strings.NewReader(c), opts...)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return arrow.NewChunked(dt, chunks), nil
+}
+
+func getMaxBufferLen(dt arrow.DataType, length int) int {
+	bufferLen := int(bitutil.BytesForBits(int64(length)))
+
+	maxOf := func(bl int) int {
+		if bl > bufferLen {
+			return bl
+		}
+		return bufferLen
+	}
+
+	switch dt := dt.(type) {
+	case *arrow.DictionaryType:
+		bufferLen = maxOf(getMaxBufferLen(dt.ValueType, length))
+		return maxOf(getMaxBufferLen(dt.IndexType, length))
+	case *arrow.FixedSizeBinaryType:
+		return maxOf(dt.ByteWidth * length)
+	case arrow.FixedWidthDataType:
+		return maxOf(int(bitutil.BytesForBits(int64(dt.BitWidth()))) * length)
+	case *arrow.StructType:
+		for _, f := range dt.Fields() {
+			bufferLen = maxOf(getMaxBufferLen(f.Type, length))
+		}
+		return bufferLen
+	case *arrow.SparseUnionType:
+		// type codes
+		bufferLen = maxOf(length)
+		// creates children of the same length of the union
+		for _, f := range dt.Fields() {
+			bufferLen = maxOf(getMaxBufferLen(f.Type, length))
+		}
+		return bufferLen
+	case *arrow.DenseUnionType:
+		// type codes
+		bufferLen = maxOf(length)
+		// offsets
+		bufferLen = maxOf(arrow.Int32SizeBytes * length)
+		// create children of length 1
+		for _, f := range dt.Fields() {
+			bufferLen = maxOf(getMaxBufferLen(f.Type, 1))
+		}
+		return bufferLen
+	case arrow.OffsetsDataType:
+		return maxOf(dt.OffsetTypeTraits().BytesRequired(length + 1))
+	case *arrow.FixedSizeListType:
+		return maxOf(getMaxBufferLen(dt.Elem(), int(dt.Len())*length))
+	case arrow.ExtensionType:
+		return maxOf(getMaxBufferLen(dt.StorageType(), length))
+	default:
+		panic(fmt.Errorf("arrow/array: arrayofnull not implemented for type %s", dt))
+	}
+}
+
+type nullArrayFactory struct {
+	mem memory.Allocator
+	dt  arrow.DataType
+	len int
+	buf *memory.Buffer
+}
+
+func (n *nullArrayFactory) create() *Data {
+	if n.buf == nil {
+		bufLen := getMaxBufferLen(n.dt, n.len)
+		n.buf = memory.NewResizableBuffer(n.mem)
+		n.buf.Resize(bufLen)
+		defer n.buf.Release()
+	}
+
+	var (
+		dt        = n.dt
+		bufs      = []*memory.Buffer{memory.SliceBuffer(n.buf, 0, int(bitutil.BytesForBits(int64(n.len))))}
+		childData []arrow.ArrayData
+		dictData  arrow.ArrayData
+	)
+	defer bufs[0].Release()
+
+	if ex, ok := dt.(arrow.ExtensionType); ok {
+		dt = ex.StorageType()
+	}
+
+	if nf, ok := dt.(arrow.NestedType); ok {
+		childData = make([]arrow.ArrayData, len(nf.Fields()))
+	}
+
+	switch dt := dt.(type) {
+	case *arrow.NullType:
+	case *arrow.DictionaryType:
+		bufs = append(bufs, n.buf)
+		arr := MakeArrayOfNull(n.mem, dt.ValueType, 0)
+		defer arr.Release()
+		dictData = arr.Data()
+	case arrow.FixedWidthDataType:
+		bufs = append(bufs, n.buf)
+	case arrow.BinaryDataType:
+		bufs = append(bufs, n.buf, n.buf)
+	case arrow.OffsetsDataType:
+		bufs = append(bufs, n.buf)
+		childData[0] = n.createChild(dt, 0, 0)
+		defer childData[0].Release()
+	case *arrow.FixedSizeListType:
+		childData[0] = n.createChild(dt, 0, n.len*int(dt.Len()))
+		defer childData[0].Release()
+	case *arrow.StructType:
+		for i := range dt.Fields() {
+			childData[i] = n.createChild(dt, i, n.len)
+			defer childData[i].Release()
+		}
+	case arrow.UnionType:
+		bufs[0].Release()
+		bufs[0] = nil
+		bufs = append(bufs, n.buf)
+		// buffer is zeroed, but 0 may not be a valid type code
+		if dt.TypeCodes()[0] != 0 {
+			bufs[1] = memory.NewResizableBuffer(n.mem)
+			bufs[1].Resize(n.len)
+			defer bufs[1].Release()
+			memory.Set(bufs[1].Bytes(), byte(dt.TypeCodes()[0]))
+		}
+
+		// for sparse unions we create children with the same length
+		childLen := n.len
+		if dt.Mode() == arrow.DenseMode {
+			// for dense unions, offsets are all 0 and make children
+			// with length 1
+			bufs = append(bufs, n.buf)
+			childLen = 1
+		}
+		for i := range dt.Fields() {
+			childData[i] = n.createChild(dt, i, childLen)
+			defer childData[i].Release()
+		}
+	}
+
+	out := NewData(n.dt, n.len, bufs, childData, n.len, 0)
+	if dictData != nil {
+		out.SetDictionary(dictData)
+	}
+	return out
+}
+
+func (n *nullArrayFactory) createChild(dt arrow.DataType, i, length int) *Data {
+	childFactory := &nullArrayFactory{
+		mem: n.mem, dt: n.dt.(arrow.NestedType).Fields()[i].Type,
+		len: length, buf: n.buf}
+	return childFactory.create()
+}
+
+// MakeArrayOfNull creates an array of size length which is all null of the given data type.
+func MakeArrayOfNull(mem memory.Allocator, dt arrow.DataType, length int) arrow.Array {
+	if dt.ID() == arrow.NULL {
+		return NewNull(length)
+	}
+
+	data := (&nullArrayFactory{mem: mem, dt: dt, len: length}).create()
+	defer data.Release()
+	return MakeFromData(data)
 }

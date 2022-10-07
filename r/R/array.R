@@ -176,6 +176,9 @@ Array$create <- function(x, type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
+  if (is.null(x) && is.null(type)) {
+    type <- null()
+  }
   if (inherits(x, "Scalar")) {
     out <- x$as_array()
     if (!is.null(type)) {
@@ -300,7 +303,7 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
     fields <- type$fields()
     names <- map_chr(fields, "name")
     types <- map(fields, "type")
-    arrays <- Map(as_arrow_array, x, types)
+    arrays <- Map(as_arrow_array, x, type = types)
     names(arrays) <- names
 
     # TODO(ARROW-16266): a hack because there is no StructArray$create() yet

@@ -85,6 +85,9 @@ fi
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
 
+# ARROW-17501: We can remove -DAWSSDK_SOURCE=BUNDLED once
+# https://github.com/aws/aws-sdk-cpp/issues/1809 is fixed and vcpkg
+# ships the fix.
 cmake \
     -DARROW_BROTLI_USE_SHARED=OFF \
     -DARROW_BUILD_SHARED=ON \
@@ -117,6 +120,7 @@ cmake \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
+    -DAWSSDK_SOURCE=BUNDLED \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=/tmp/arrow-dist \
@@ -151,8 +155,9 @@ export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION}
 export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
 export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT}
 export PYARROW_WITH_S3=${ARROW_S3}
+export ARROW_HOME=/tmp/arrow-dist
 # PyArrow build configuration
-export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/tmp/arrow-dist/lib/pkgconfig
+export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
 python setup.py bdist_wheel

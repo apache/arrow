@@ -216,6 +216,7 @@ reference:
       - codec_is_available
   - title: Computation
     contents:
+      - acero
       - call_function
       - match_arrow
       - value_counts

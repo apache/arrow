@@ -44,7 +44,6 @@
 #include "arrow/util/vector.h"
 
 using testing::ElementsAre;
-using testing::IsEmpty;
 using testing::UnorderedElementsAreArray;
 
 namespace arrow {
@@ -481,16 +480,16 @@ class CountRowsOnlyFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
 
-  Future<util::optional<int64_t>> CountRows(
-      compute::Expression predicate, const std::shared_ptr<ScanOptions>&) override {
+  Future<std::optional<int64_t>> CountRows(compute::Expression predicate,
+                                           const std::shared_ptr<ScanOptions>&) override {
     if (compute::FieldsInExpression(predicate).size() > 0) {
-      return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+      return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
     }
     int64_t sum = 0;
     for (const auto& batch : record_batches_) {
       sum += batch->num_rows();
     }
-    return Future<util::optional<int64_t>>::MakeFinished(sum);
+    return Future<std::optional<int64_t>>::MakeFinished(sum);
   }
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>&) override {
@@ -502,9 +501,9 @@ class ScanOnlyFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
 
-  Future<util::optional<int64_t>> CountRows(
-      compute::Expression predicate, const std::shared_ptr<ScanOptions>&) override {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  Future<std::optional<int64_t>> CountRows(compute::Expression predicate,
+                                           const std::shared_ptr<ScanOptions>&) override {
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>&) override {
@@ -532,14 +531,14 @@ class CountFailFragment : public InMemoryFragment {
  public:
   explicit CountFailFragment(RecordBatchVector record_batches)
       : InMemoryFragment(std::move(record_batches)),
-        count(Future<util::optional<int64_t>>::Make()) {}
+        count(Future<std::optional<int64_t>>::Make()) {}
 
-  Future<util::optional<int64_t>> CountRows(
-      compute::Expression, const std::shared_ptr<ScanOptions>&) override {
+  Future<std::optional<int64_t>> CountRows(compute::Expression,
+                                           const std::shared_ptr<ScanOptions>&) override {
     return count;
   }
 
-  Future<util::optional<int64_t>> count;
+  Future<std::optional<int64_t>> count;
 };
 TEST_P(TestScanner, CountRowsFailure) {
   SetSchema({field("i32", int32()), field("f64", float64())});
@@ -557,7 +556,7 @@ TEST_P(TestScanner, CountRowsFailure) {
   ASSERT_RAISES(Invalid, scanner->CountRows());
   // Fragment 2 doesn't complete until after the count stops - should not break anything
   // under ASan, etc.
-  fragment2->count.MarkFinished(util::nullopt);
+  fragment2->count.MarkFinished(std::nullopt);
 }
 
 TEST_P(TestScanner, CountRowsWithMetadata) {
@@ -1265,11 +1264,11 @@ TEST(ScanOptions, TestMaterializedFields) {
   // empty dataset, project nothing = nothing materialized
   opts->dataset_schema = schema({});
   set_projection_from_names({});
-  EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
+  ASSERT_EQ(opts->MaterializedFields().size(), 0);
 
   // non-empty dataset, project nothing = nothing materialized
   opts->dataset_schema = schema({i32, i64});
-  EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
+  ASSERT_EQ(opts->MaterializedFields().size(), 0);
 
   // project nothing, filter on i32 = materialize i32
   opts->filter = equal(field_ref("i32"), literal(10));
@@ -1358,7 +1357,7 @@ struct TestPlan {
         .Then([collected_fut]() -> Result<std::vector<compute::ExecBatch>> {
           ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
           return ::arrow::internal::MapVector(
-              [](util::optional<compute::ExecBatch> batch) { return std::move(*batch); },
+              [](std::optional<compute::ExecBatch> batch) { return std::move(*batch); },
               std::move(collected));
         });
   }
@@ -1366,7 +1365,7 @@ struct TestPlan {
   compute::ExecPlan* get() { return plan.get(); }
 
   std::shared_ptr<compute::ExecPlan> plan;
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 };
 
 struct DatasetAndBatches {
@@ -1763,7 +1762,7 @@ TEST(ScanNode, MinimalEndToEnd) {
                                              compute::ProjectNodeOptions{{a_times_2}}));
 
   // finally, pipe the project node into a sink node
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
                        compute::MakeExecNode("ordered_sink", plan.get(), {project},
                                              compute::SinkNodeOptions{&sink_gen}));
@@ -1863,7 +1862,7 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
                                 "sum", nullptr, "a * 2", "sum(a * 2)"}}}));
 
   // finally, pipe the aggregate node into a sink node
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
                        compute::MakeExecNode("sink", plan.get(), {aggregate},
                                              compute::SinkNodeOptions{&sink_gen}));
@@ -1953,7 +1952,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
               /*keys=*/{"b"}}));
 
   // finally, pipe the aggregate node into a sink node
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
                        compute::MakeExecNode("sink", plan.get(), {aggregate},
                                              compute::SinkNodeOptions{&sink_gen}));

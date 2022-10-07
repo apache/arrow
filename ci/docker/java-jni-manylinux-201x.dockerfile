@@ -24,6 +24,7 @@ RUN vcpkg install \
         --clean-after-build \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
+        --x-feature=dev \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
@@ -33,5 +34,12 @@ RUN vcpkg install \
 
 # Install Java
 ARG java=1.8.0
-RUN yum install -y java-$java-openjdk-devel && yum clean all
+RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
 ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
+
+# For ci/scripts/{cpp,java}_*.sh
+ENV ARROW_HOME=/tmp/local \
+    ARROW_JAVA_CDATA=ON \
+    ARROW_JAVA_JNI=ON \
+    ARROW_PLASMA=ON \
+    ARROW_USE_CCACHE=ON

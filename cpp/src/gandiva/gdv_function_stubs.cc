@@ -120,7 +120,7 @@ bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
   }
   gandiva::InHolder<std::string>* holder =
       reinterpret_cast<gandiva::InHolder<std::string>*>(ptr);
-  return holder->HasValue(arrow::util::string_view(data, data_len));
+  return holder->HasValue(std::string_view(data, data_len));
 }
 
 int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
@@ -129,8 +129,21 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   auto buffer = reinterpret_cast<arrow::ResizableBuffer*>(data_ptr);
   int32_t offset = static_cast<int32_t>(buffer->size());
 
-  // This also sets the size in the buffer.
-  auto status = buffer->Resize(offset + entry_len, false /*shrink*/);
+  auto new_size = offset + entry_len;
+  // preallocation, double the size to amortize costs
+  if (buffer->capacity() < new_size) {
+    auto status =
+        buffer->Reserve(std::max(buffer->capacity() * 2, static_cast<int64_t>(new_size)));
+    if (!status.ok()) {
+      auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+
+      context->set_error_msg(status.message().c_str());
+      return -1;
+    }
+  }
+
+  // This only sets the size in the buffer due to preallocation.
+  auto status = buffer->Resize(new_size, false /*shrink*/);
   if (!status.ok()) {
     gandiva::ExecutionContext* context =
         reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
@@ -205,8 +218,7 @@ const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t
     return "";
   }
   // use arrow method to encode base64 string
-  std::string encoded_str =
-      arrow::util::base64_encode(arrow::util::string_view(in, in_len));
+  std::string encoded_str = arrow::util::base64_encode(std::string_view(in, in_len));
   *out_len = static_cast<int32_t>(encoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(
@@ -233,8 +245,7 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     return "";
   }
   // use arrow method to decode base64 string
-  std::string decoded_str =
-      arrow::util::base64_decode(arrow::util::string_view(in, in_len));
+  std::string decoded_str = arrow::util::base64_decode(std::string_view(in, in_len));
   *out_len = static_cast<int32_t>(decoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(
@@ -754,14 +765,13 @@ GANDIVA_EXPORT
 gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
                                           gdv_timestamp time_miliseconds,
                                           const char* timezone, gdv_int32 length) {
-  using arrow_vendored::date::make_zoned;
   using arrow_vendored::date::sys_time;
+  using arrow_vendored::date::zoned_time;
   using std::chrono::milliseconds;
 
-  sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
-  const auto utc_tz = make_zoned(std::string("Etc/UTC"), tp);
+  const sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
   try {
-    const auto local_tz = make_zoned(std::string(timezone, length), utc_tz);
+    const zoned_time<milliseconds> local_tz{std::string(timezone, length), tp};
     gdv_timestamp offset = local_tz.get_time_zone()->get_info(tp).offset.count() * 1000;
     return time_miliseconds + static_cast<gdv_timestamp>(offset);
   } catch (...) {

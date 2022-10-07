@@ -26,6 +26,8 @@ import (
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/float16"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 )
@@ -432,6 +434,19 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 			}
 			return NewMapScalar(v), nil
 		}
+	case decimal128.Num:
+		if _, ok := dt.(*arrow.Decimal128Type); !ok {
+			return nil, fmt.Errorf("mismatch cannot create decimal128 scalar with incorrect data type")
+		}
+
+		return NewDecimal128Scalar(v, dt), nil
+	case decimal256.Num:
+		if _, ok := dt.(*arrow.Decimal256Type); !ok {
+			return nil, fmt.Errorf("mismatch cannot create decimal256 scalar with incorrect data type")
+		}
+
+		return NewDecimal256Scalar(v, dt), nil
+
 	}
 
 	if arrow.IsInteger(dt.ID()) {

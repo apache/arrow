@@ -1288,6 +1288,42 @@ func (ps *ParquetIOTestSuite) TestNull() {
 	ps.roundTripTable(expected, true)
 }
 
+// ARROW-17169
+func (ps *ParquetIOTestSuite) TestNullableListOfStruct() {
+	bldr := array.NewListBuilder(memory.DefaultAllocator, arrow.StructOf(
+		arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int32},
+		arrow.Field{Name: "b", Type: arrow.BinaryTypes.String},
+	))
+	defer bldr.Release()
+
+	stBldr := bldr.ValueBuilder().(*array.StructBuilder)
+	aBldr := stBldr.FieldBuilder(0).(*array.Int32Builder)
+	bBldr := stBldr.FieldBuilder(1).(*array.StringBuilder)
+
+	for i := 0; i < 320; i++ {
+		if i%5 == 0 {
+			bldr.AppendNull()
+			continue
+		}
+		bldr.Append(true)
+		for j := 0; j < 4; j++ {
+			stBldr.Append(true)
+			aBldr.Append(int32(i + j))
+			bBldr.Append(strconv.Itoa(i + j))
+		}
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	field := arrow.Field{Name: "x", Type: arr.DataType(), Nullable: true}
+	expected := array.NewTable(arrow.NewSchema([]arrow.Field{field}, nil),
+		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(field.Type, []arrow.Array{arr}))}, -1)
+	defer expected.Release()
+
+	ps.roundTripTable(expected, false)
+}
+
 func TestParquetArrowIO(t *testing.T) {
 	suite.Run(t, new(ParquetIOTestSuite))
 }

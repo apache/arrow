@@ -29,19 +29,24 @@ echo "=== Clear output directories and leftovers ==="
 rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
-: ${ARROW_BUILD_TESTS:=OFF}
+install_dir=${build_dir}/cpp-install
+: ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FILESYSTEM:=ON}
-: ${ARROW_GANDIVA_JAVA:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_ORC:=ON}
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_PLASMA_JAVA_CLIENT:=ON}
 : ${ARROW_PLASMA:=ON}
-: ${ARROW_PYTHON:=OFF}
 : ${ARROW_S3:=ON}
+: ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
 : ${CMAKE_UNITY_BUILD:=ON}
+
+if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+  echo "=== ccache statistics before build ==="
+  ccache -s
+fi
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
 export PARQUET_TEST_DATA="${arrow_dir}/cpp/submodules/parquet-testing/data"
@@ -51,37 +56,25 @@ mkdir -p "${build_dir}/cpp"
 pushd "${build_dir}/cpp"
 
 cmake \
-  -DARROW_BOOST_USE_SHARED=OFF \
-  -DARROW_BROTLI_USE_SHARED=OFF \
+  -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
-  -DARROW_BUILD_UTILITIES=OFF \
-  -DARROW_BZ2_USE_SHARED=OFF \
+  -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
+  -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
-  -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA} \
   -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
-  -DARROW_GFLAGS_USE_SHARED=OFF \
-  -DARROW_GRPC_USE_SHARED=OFF \
-  -DARROW_JNI=ON \
-  -DARROW_LZ4_USE_SHARED=OFF \
-  -DARROW_OPENSSL_USE_SHARED=OFF \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
   -DARROW_PLASMA=${ARROW_PLASMA} \
-  -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT} \
-  -DARROW_PROTOBUF_USE_SHARED=OFF \
-  -DARROW_PYTHON=${ARROW_PYTHON} \
   -DARROW_S3=${ARROW_S3} \
-  -DARROW_SNAPPY_USE_SHARED=OFF \
-  -DARROW_THRIFT_USE_SHARED=OFF \
-  -DARROW_UTF8PROC_USE_SHARED=OFF \
-  -DARROW_ZSTD_USE_SHARED=OFF \
+  -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
   -DAWSSDK_SOURCE=BUNDLED \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_INSTALL_LIBDIR=lib \
-  -DCMAKE_INSTALL_PREFIX=${build_dir}/cpp \
+  -DCMAKE_INSTALL_PREFIX=${install_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
+  -DGTest_SOURCE=BUNDLED \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=OFF \
@@ -91,7 +84,16 @@ cmake \
 cmake --build . --target install
 
 if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
-  ctest
+  # MinIO is required
+  exclude_tests="arrow-s3fs-test"
+  # unstable
+  exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
+  ctest \
+    --exclude-regex "${exclude_tests}" \
+    --label-regex unittest \
+    --output-on-failure \
+    --parallel $(sysctl -n hw.ncpu) \
+    --timeout 300
 fi
 
 popd
@@ -99,18 +101,17 @@ popd
 
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
+  ${install_dir} \
   ${build_dir} \
   ${dist_dir}
 
+if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+  echo "=== ccache statistics after build ==="
+  ccache -s
+fi
 
-echo "=== Copying libraries to the distribution folder ==="
-mkdir -p "${dist_dir}"
-cp -L ${build_dir}/cpp/lib/libgandiva_jni.dylib ${dist_dir}
-cp -L ${build_dir}/cpp/lib/libarrow_dataset_jni.dylib ${dist_dir}
-cp -L ${build_dir}/cpp/lib/libarrow_orc_jni.dylib ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="
-
 pushd ${dist_dir}
 archery linking check-dependencies \
   --allow CoreFoundation \
@@ -122,9 +123,11 @@ archery linking check-dependencies \
   --allow libcurl \
   --allow libgandiva_jni \
   --allow libncurses \
+  --allow libplasma_java \
   --allow libz \
   libarrow_cdata_jni.dylib \
   libarrow_dataset_jni.dylib \
   libarrow_orc_jni.dylib \
-  libgandiva_jni.dylib
+  libgandiva_jni.dylib \
+  libplasma_java.dylib
 popd

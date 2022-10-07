@@ -26,7 +26,11 @@ package cdata
 //
 // void setup_array_stream_test(const int n_batches, struct ArrowArrayStream* out);
 // struct ArrowArray* get_test_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
-// struct ArrowArrayStream* get_test_stream() { return (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream)); }
+// struct ArrowArrayStream* get_test_stream() {
+//	struct ArrowArrayStream* out = (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream));
+//	memset(out, 0, sizeof(struct ArrowArrayStream));
+//	return out;
+// }
 //
 // void release_test_arr(struct ArrowArray* arr) {
 //  for (int i = 0; i < arr->n_buffers; ++i) {
@@ -249,6 +253,10 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	carr.release = (*[0]byte)(C.release_test_arr)
 
 	return carr
+}
+
+func createTestStreamObj() *CArrowArrayStream {
+	return C.get_test_stream()
 }
 
 func arrayStreamTest() *CArrowArrayStream {

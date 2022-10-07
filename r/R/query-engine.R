@@ -142,12 +142,14 @@ ExecPlan <- R6Class("ExecPlan",
         }
       } else {
         # If any columns are derived, reordered, or renamed we need to Project
-        # If there are aggregations, the projection was already handled above
+        # If there are aggregations, the projection was already handled above.
         # We have to project at least once to eliminate some junk columns
         # that the ExecPlan adds:
         # __fragment_index, __batch_index, __last_in_fragment
-        # Presumably extraneous repeated projection of the same thing
-        # (as when we've done collapse() and not projected after) is cheap/no-op
+        #
+        # $Project() will check whether we actually need to project, so that
+        # repeated projection of the same thing
+        # (as when we've done collapse() and not projected after) is avoided
         projection <- c(.data$selected_columns, .data$temp_columns)
         node <- node$Project(projection)
         if (!is.null(.data$join)) {
@@ -192,13 +194,11 @@ ExecPlan <- R6Class("ExecPlan",
       }
       node
     },
-    Run = function(node, as_table = FALSE) {
-      # a section of this code is used by `BuildAndShow()` too - the 2 need to be in sync
-      # Start of chunk used in `BuildAndShow()`
+    Run = function(node) {
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
-      # created in ExecPlan_run
+      # created in ExecPlan_build
       sorting <- node$extras$sort %||% list()
       select_k <- node$extras$head %||% -1L
       has_sorting <- length(sorting) > 0
@@ -212,16 +212,7 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
-      # End of chunk used in `BuildAndShow()`
-
-      # If we are going to return a Table anyway, we do this in one step and
-      # entirely in one C++ call to ensure that we can execute user-defined
-      # functions from the worker threads spawned by the ExecPlan. If not, we
-      # use ExecPlan_run which returns a RecordBatchReader that can be
-      # manipulated in R code (but that right now won't work with
-      # user-defined functions).
-      exec_fun <- if (as_table) ExecPlan_read_table else ExecPlan_run
-      out <- exec_fun(
+      out <- ExecPlan_run(
         self,
         node,
         sorting,
@@ -238,18 +229,13 @@ ExecPlan <- R6Class("ExecPlan",
         slice_size <- node$extras$head %||% node$extras$tail
         if (!is.null(slice_size)) {
           out <- head(out, slice_size)
-          # We already have everything we need for the head, so StopProducing
-          self$Stop()
         }
       } else if (!is.null(node$extras$tail)) {
         # TODO(ARROW-16630): proper BottomK support
         # Reverse the row order to get back what we expect
         out <- as_arrow_table(out)
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
-        # Put back into RBR
-        if (!as_table) {
-          out <- as_record_batch_reader(out)
-        }
+        out <- as_record_batch_reader(out)
       }
 
       # If arrange() created $temp_columns, make sure to omit them from the result
@@ -259,11 +245,7 @@ ExecPlan <- R6Class("ExecPlan",
       if (length(node$extras$sort$temp_columns) > 0) {
         tab <- as_arrow_table(out)
         tab <- tab[, setdiff(names(tab), node$extras$sort$temp_columns), drop = FALSE]
-        if (!as_table) {
-          out <- as_record_batch_reader(tab)
-        } else {
-          out <- tab
-        }
+        out <- as_record_batch_reader(tab)
       }
 
       out
@@ -277,40 +259,9 @@ ExecPlan <- R6Class("ExecPlan",
         ...
       )
     },
-    # SinkNodes (involved in arrange and/or head/tail operations) are created in
-    # ExecPlan_run and are not captured by the regulat print method. We take a
-    # similar approach to expose them before calling the print method.
-    BuildAndShow = function(node) {
-      # a section of this code is copied from `Run()` - the 2 need to be in sync
-      # Start of chunk copied from `Run()`
-
-      assert_is(node, "ExecNode")
-
-      # Sorting and head/tail (if sorted) are handled in the SinkNode,
-      # created in ExecPlan_run
-      sorting <- node$extras$sort %||% list()
-      select_k <- node$extras$head %||% -1L
-      has_sorting <- length(sorting) > 0
-      if (has_sorting) {
-        if (!is.null(node$extras$tail)) {
-          # Reverse the sort order and take the top K, then after we'll reverse
-          # the resulting rows so that it is ordered as expected
-          sorting$orders <- !sorting$orders
-          select_k <- node$extras$tail
-        }
-        sorting$orders <- as.integer(sorting$orders)
-      }
-
-      # End of chunk copied from `Run()`
-
-      ExecPlan_BuildAndShow(
-        self,
-        node,
-        sorting,
-        select_k
-      )
-    },
-    Stop = function() ExecPlan_StopProducing(self)
+    ToString = function() {
+      ExecPlan_ToString(self)
+    }
   )
 )
 # nolint end.
@@ -349,7 +300,11 @@ ExecNode <- R6Class("ExecNode",
     Project = function(cols) {
       if (length(cols)) {
         assert_is_list_of(cols, "Expression")
-        self$preserve_extras(ExecNode_Project(self, cols, names(cols)))
+        if (needs_projection(cols, self$schema)) {
+          self$preserve_extras(ExecNode_Project(self, cols, names(cols)))
+        } else {
+          self
+        }
       } else {
         self$preserve_extras(ExecNode_Project(self, character(0), character(0)))
       }
@@ -390,6 +345,23 @@ ExecNode <- R6Class("ExecNode",
   )
 )
 
+ExecPlanReader <- R6Class("ExecPlanReader",
+  inherit = RecordBatchReader,
+  public = list(
+    batches = function() ExecPlanReader__batches(self),
+    read_table = function() Table__from_ExecPlanReader(self),
+    Plan = function() ExecPlanReader__Plan(self),
+    PlanStatus = function() ExecPlanReader__PlanStatus(self),
+    ToString = function() {
+      sprintf(
+        "<Status: %s>\n\n%s\n\nSee $Plan() for details.",
+        self$PlanStatus(),
+        super$ToString()
+      )
+    }
+  )
+)
+
 do_exec_plan_substrait <- function(substrait_plan) {
   if (is.string(substrait_plan)) {
     substrait_plan <- substrait__internal__SubstraitFromJSON(substrait_plan)
@@ -401,4 +373,14 @@ do_exec_plan_substrait <- function(substrait_plan) {
 
   plan <- ExecPlan$create()
   ExecPlan_run_substrait(plan, substrait_plan)
+}
+
+needs_projection <- function(projection, schema) {
+  # Check whether `projection` would do anything to data with the given `schema`
+  field_names <- set_names(map_chr(projection, ~ .$field_name), NULL)
+
+  # We need to apply `projection` if:
+  !all(nzchar(field_names)) || # Any of the Expressions are not FieldRefs
+    !identical(field_names, names(projection)) || # Any fields are renamed
+    !identical(field_names, names(schema)) # The fields are reordered
 }
