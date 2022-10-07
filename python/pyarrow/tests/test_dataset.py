@@ -4795,21 +4795,22 @@ def test_read_table_nested_columns(tempdir, format):
         pytest.importorskip("pyarrow.parquet")
 
     table = pa.table({"user_id": ["abc123", "qrs456"],
+                      "a.dotted.field": [1, 2],
                       "interaction": [
-        {"type": "click", "element": "button", "values": [
-            1, 2], "structs":[{"foo": "bar"}]},
-        {"type": "scroll", "element": "window", "values": [
-            3, 4], "structs":[{"fizz": "buzz"}]}
+        {"type": "click", "element": "button",
+         "values": [1, 2], "structs":[{"foo": "bar"}]},
+        {"type": "scroll", "element": "window",
+         "values": [3, 4], "structs":[{"fizz": "buzz"}]}
     ]})
     ds.write_dataset(table, tempdir / "table", format=format)
     ds1 = ds.dataset(tempdir / "table", format=format)
 
     # Dot path to read subsets of nested data
     table = ds1.to_table(
-        columns=["user_id", ".interaction.type", ".interaction.values",
-                 ".interaction.structs"])
+        columns=["user_id", "interaction.type", "interaction.values",
+                 "interaction.structs", "a.dotted.field"])
     assert table.to_pylist() == [
-        {'user_id': 'abc123', '.interaction.type': 'click', '.interaction.values': [1, 2],
-         '.interaction.structs': [{'fizz': None, 'foo': 'bar'}]},
-        {'user_id': 'qrs456', '.interaction.type': 'scroll', '.interaction.values': [3, 4],
-         '.interaction.structs': [{'fizz': 'buzz', 'foo': None}]}]
+        {'user_id': 'abc123', 'interaction.type': 'click', 'interaction.values': [1, 2],
+         'interaction.structs': [{'fizz': None, 'foo': 'bar'}], 'a.dotted.field': 1},
+        {'user_id': 'qrs456', 'interaction.type': 'scroll', 'interaction.values': [3, 4],
+         'interaction.structs': [{'fizz': 'buzz', 'foo': None}], 'a.dotted.field': 2}]
