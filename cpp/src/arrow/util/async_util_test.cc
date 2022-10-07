@@ -160,7 +160,7 @@ FnOnce<Status(Status)> EmptyFinishCallback() {
 
 #ifndef ARROW_VALGRIND
 TEST(AsyncTaskScheduler, FailingTaskStress) {
-  // Test many tasks failling at the same time
+  // Test many tasks failing at the same time
   constexpr int kNumTasks = 256;
   for (int i = 0; i < kNumTasks; i++) {
     std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
