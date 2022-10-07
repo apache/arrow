@@ -183,7 +183,7 @@ dim.arrow_dplyr_query <- function(x) {
     # Query on in-memory Table, so evaluate the filter
     # Don't need any columns
     x <- select.arrow_dplyr_query(x, NULL)
-    rows <- nrow(compute.arrow_dplyr_query(x))
+    rows <- nrow(as_arrow_table(x))
   }
   c(rows, cols)
 }
