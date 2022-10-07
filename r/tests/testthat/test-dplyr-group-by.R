@@ -62,6 +62,24 @@ test_that("ungroup", {
       collect(),
     tbl
   )
+
+  # to confirm that the above expectation is actually testing what we think it's
+  # testing, verify that compare_dplyr_binding() distinguishes between grouped and
+  # ungrouped tibbles
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        group_by(chr) %>%
+        select(int, chr) %>%
+        (function(x) if (inherits(x, "tbl_df")) ungroup(x) else x) %>%
+        filter(int > 5) %>%
+        collect(),
+      tbl
+    )
+  )
+})
+
+test_that("Groups before conversion to a Table must not be restored after collect() (ARROW-17737)", {
   compare_dplyr_binding(
     .input %>%
       group_by(chr, .add = FALSE) %>%
@@ -77,21 +95,6 @@ test_that("ungroup", {
       collect(),
     tbl %>%
       group_by(int)
-  )
-
-  # to confirm that the above expectation is actually testing what we think it's
-  # testing, verify that compare_dplyr_binding() distinguishes between grouped and
-  # ungrouped tibbles
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        group_by(chr) %>%
-        select(int, chr) %>%
-        (function(x) if (inherits(x, "tbl_df")) ungroup(x) else x) %>%
-        filter(int > 5) %>%
-        collect(),
-      tbl
-    )
   )
 })
 
