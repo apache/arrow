@@ -50,9 +50,6 @@ arrow_dplyr_query <- function(.data) {
     .data <- Table$create(.data)
   }
 
-  # Remove group vars metadata from the Table
-  .data$metadata$r$attributes$.group_vars <- NULL
-
   # Evaluating expressions on a dataset with duplicated fieldnames will error
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
