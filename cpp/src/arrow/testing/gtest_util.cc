@@ -57,12 +57,14 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/windows_compatibility.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::ThreadPool;
 
 std::vector<Type::type> AllTypeIds() {
   return {Type::NA,
@@ -767,22 +769,27 @@ void BusyWait(double seconds, std::function<bool()> predicate) {
   }
 }
 
-Future<> SleepAsync(double seconds) {
-  auto out = Future<>::Make();
-  std::thread([out, seconds]() mutable {
-    SleepFor(seconds);
-    out.MarkFinished();
-  }).detach();
-  return out;
+namespace {
+
+// These threads will spend most of their time sleeping so there
+// is no need to base this on the # of cores.  Instead it should be
+// high enough to ensure good concurrency when there is concurrent hardware.
+//
+// Note using a thread pool prevents potentially hitting thread count limits
+// in stress tests (ARROW-17927).
+constexpr int kNumSleepThreads = 32;
+
+std::shared_ptr<ThreadPool> CreateSleepThreadPool() {
+  Result<std::shared_ptr<ThreadPool>> thread_pool =
+      ThreadPool::MakeEternal(kNumSleepThreads);
+  return thread_pool.ValueOrDie();
 }
 
+}  // namespace
+
 Future<> SleepABitAsync() {
-  auto out = Future<>::Make();
-  std::thread([out]() mutable {
-    SleepABit();
-    out.MarkFinished();
-  }).detach();
-  return out;
+  static std::shared_ptr<ThreadPool> sleep_tp = CreateSleepThreadPool();
+  return DeferNotOk(sleep_tp->Submit([] { SleepABit(); }));
 }
 
 ///////////////////////////////////////////////////////////////////////////
