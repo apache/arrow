@@ -109,7 +109,8 @@ The test groups currently include:
 * ``large_memory``: Test requiring a large amount of system RAM
 * ``orc``: Apache ORC tests
 * ``parquet``: Apache Parquet tests
-* ``plasma``: Plasma Object Store tests
+* ``plasma``: Plasma Object Store tests (deprecated since Arrow 10.0.0,
+  will be removed in 12.0.0 or so)
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
 
@@ -330,7 +331,8 @@ adding flags with ``ON``:
 * ``ARROW_ORC``: Support for Apache ORC file format
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
 * ``PARQUET_REQUIRE_ENCRYPTION``: Support for Parquet Modular Encryption
-* ``ARROW_PLASMA``: Shared memory object store
+* ``ARROW_PLASMA``: Shared memory object store (deprecated since Arrow 10.0.0,
+  will be removed in 12.0.0 or so)
 
 Anything set to ``ON`` above can also be turned off. Note that some compression
 libraries are recommended for full Parquet support.
