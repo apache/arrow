@@ -149,16 +149,6 @@ test_that("expand_across correctly expands quosures", {
     example_data
   )
 
-  # ARROW-17366: purrr-style lambda functions not yet supported
-  expect_error(
-    expand_across(
-      example_data,
-      quos(across(1:dbl2, ~ round(.x, digits = -1)))
-    ),
-    regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
-    fixed = TRUE
-  )
-
   # .names argument
   expect_across_equal(
     quos(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")),
@@ -221,5 +211,70 @@ test_that("expand_across correctly expands quosures", {
     ),
     regexp = "`.names` specification must produce (number of columns * number of functions) names.",
     fixed = TRUE
+  )
+})
+
+test_that("purrr-style lambda functions are supported", {
+
+  # using `.x` inside lambda functions
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), ~ round(.x, digits = 0))),
+    quos(
+      dbl = round(dbl, digits = 0),
+      dbl2 = round(dbl2, digits = 0)
+    ),
+    example_data
+  )
+
+  # using `.` inside lambda functions
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), ~ round(., digits = 0))),
+    quos(
+      dbl = round(dbl, digits = 0),
+      dbl2 = round(dbl2, digits = 0)
+    ),
+    example_data
+  )
+
+  # testing both `.` and `.x` in lambda functions
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), c(~ round(.x, digits = 0), ~ . * 2))),
+    quos(
+      dbl_1 = round(dbl, digits = 0),
+      dbl_2 = dbl * 2,
+      dbl2_1 = round(dbl2, digits = 0),
+      dbl2_2 = dbl2 * 2
+    ),
+    example_data
+  )
+
+  # internal function for lambda functions
+  expect_identical(
+    arrow:::expr_substitute(
+      quote(~ round(.x * 2, digits = 0)),
+      sym(".x"), sym("dbl2")
+    ),
+    quote(~ round(dbl2 * 2, digits = 0))
+  )
+})
+
+test_that("ARROW-14071 - function(x)-style lambda functions are not supported", {
+  expect_error(
+    expand_across(as_adq(example_data), quos(across(.cols = c(dbl, dbl2), list(function(x) {
+      head(x, 1)
+    }, function(x) {
+      head(x, 1)
+    })))),
+    regexp = "Anonymous functions are not yet supported in Arrow"
+  )
+
+  expect_error(
+    expand_across(
+      as_adq(example_data),
+      quos(across(.cols = c(dbl, dbl2), function(x) {
+        head(x, 1)
+      }))
+    ),
+    regexp = "Anonymous functions are not yet supported in Arrow"
   )
 })
