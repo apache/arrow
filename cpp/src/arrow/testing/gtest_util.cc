@@ -769,16 +769,23 @@ void BusyWait(double seconds, std::function<bool()> predicate) {
   }
 }
 
+namespace {
+
 // These threads will spend most of their time sleeping so there
 // is no need to base this on the # of cores.  Instead it should be
-// high enough to ensure good concurrency when there is concurrent hardware
-static constexpr int kNumSleepThreads = 32;
+// high enough to ensure good concurrency when there is concurrent hardware.
+//
+// Note using a thread pool prevents potentially hitting thread count limits
+// in stress tests (ARROW-17927).
+constexpr int kNumSleepThreads = 32;
 
 std::shared_ptr<ThreadPool> CreateSleepThreadPool() {
   Result<std::shared_ptr<ThreadPool>> thread_pool =
       ThreadPool::MakeEternal(kNumSleepThreads);
   return thread_pool.ValueOrDie();
 }
+
+}  // namespace
 
 Future<> SleepABitAsync() {
   static std::shared_ptr<ThreadPool> sleep_tp = CreateSleepThreadPool();
