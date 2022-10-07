@@ -138,13 +138,13 @@ TEST_P(TestRunLengthEncodedArray, OffsetLength) {
   ASSERT_EQ(zero_length_at_end->GetPhysicalOffset(), 5);
 }
 
-TEST(RunLengthEncodedArray, Builder) {
+TEST_P(TestRunLengthEncodedArray, Builder) {
   // test data
-  auto expected_run_ends = ArrayFromJSON(int32(), "[1, 3, 105, 165, 205, 305, 405, 505]");
+  auto expected_run_ends = ArrayFromJSON(run_ends_type, "[1, 3, 105, 165, 205, 305, 405, 505]");
   auto expected_values = ArrayFromJSON(
       utf8(),
       R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])");
-  auto appended_run_ends = ArrayFromJSON(int32(), "[100, 200]");
+  auto appended_run_ends = ArrayFromJSON(run_ends_type, "[100, 200]");
   auto appended_values = ArrayFromJSON(utf8(), R"(["common", "appended"])");
   ASSERT_OK_AND_ASSIGN(auto appended_array, RunLengthEncodedArray::Make(
                                                 appended_run_ends, appended_values, 200));
@@ -152,7 +152,7 @@ TEST(RunLengthEncodedArray, Builder) {
 
   // builder
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder,
-                       MakeBuilder(run_length_encoded(utf8())));
+                       MakeBuilder(run_length_encoded(run_ends_type, utf8())));
   auto rle_builder = std::dynamic_pointer_cast<RunLengthEncodedBuilder>(builder);
   ASSERT_NE(rle_builder, NULLPTR);
   ASSERT_OK(builder->AppendScalar(*MakeScalar("unique")));
@@ -168,7 +168,7 @@ TEST(RunLengthEncodedArray, Builder) {
   // append one whole array
   ASSERT_OK(builder->AppendArraySlice(appended_span, 0, appended_span.length));
   ASSERT_EQ(builder->length(), 505);
-  ASSERT_EQ(*builder->type(), *run_length_encoded(utf8()));
+  ASSERT_EQ(*builder->type(), *run_length_encoded(run_ends_type, utf8()));
   ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
   auto rle_array = std::dynamic_pointer_cast<RunLengthEncodedArray>(array);
   ASSERT_NE(rle_array, NULLPTR);
