@@ -114,9 +114,12 @@ def test_cython_api(tmpdir):
         # Check basic functionality
         orig_path = sys.path[:]
         sys.path.insert(0, str(tmpdir))
+        #TODO: Remove DEBUGs
         try:
+            print(f"DEBUG - Current sys.path: {sys.path}")
             mod = __import__('pyarrow_cython_example')
             check_cython_example_module(mod)
+            print("DEBUG - After checking pyarrow_cython_example")
         finally:
             sys.path = orig_path
 
@@ -135,13 +138,14 @@ def test_cython_api(tmpdir):
             delim, var = ';', 'PATH'
         else:
             delim, var = ':', 'LD_LIBRARY_PATH'
-
+        print(f"DEBUG - Current sys.path: {sys.path}")
         subprocess_env[var] = delim.join(
             pa.get_library_dirs() + [subprocess_env.get(var, '')]
         )
         subprocess.check_call([sys.executable, '-c', code],
                               stdout=subprocess.PIPE,
                               env=subprocess_env)
+        print(f"DEBUG - Last check call")
 
 
 @pytest.mark.cython
