@@ -49,7 +49,6 @@ arrow_dplyr_query <- function(.data) {
   if (inherits(.data, "data.frame")) {
     .data <- Table$create(.data)
   }
-
   # Evaluating expressions on a dataset with duplicated fieldnames will error
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
