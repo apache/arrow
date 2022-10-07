@@ -289,3 +289,20 @@ def docker_compose_images(obj):
     click.echo('Available images:')
     for image in compose.images():
         click.echo(f' - {image}')
+
+@docker.command('info')
+@click.option('--service', '-s', 'service_name', required=True,
+              help='Service name to show info')
+@click.pass_obj
+def docker_compose_info(obj, service_name):
+    """List the available docker-compose images."""
+    compose = obj['compose']
+    click.echo(f'Service {service_name} docker compose config:')
+    def expand(k, prefix=' '):
+        if hasattr(k, 'items'):
+            for key, value in k.items():
+                click.echo(f'{prefix}- {key}')
+                expand(value, prefix + " ")
+        else:
+            click.echo(f'{prefix}- {k}')
+    expand(compose.config.raw_config["services"][service_name])

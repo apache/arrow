@@ -95,12 +95,12 @@ class ComposeConfig:
         """
         yaml = YAML()
         with config_path.open() as fp:
-            config = yaml.load(fp)
+            self.raw_config = yaml.load(fp)
 
-        services = config['services'].keys()
-        self.hierarchy = dict(flatten(config.get('x-hierarchy', {})))
-        self.limit_presets = config.get('x-limit-presets', {})
-        self.with_gpus = config.get('x-with-gpus', [])
+        services = self.raw_config['services'].keys()
+        self.hierarchy = dict(flatten(self.raw_config.get('x-hierarchy', {})))
+        self.limit_presets = self.raw_config.get('x-limit-presets', {})
+        self.with_gpus = self.raw_config.get('x-with-gpus', [])
         nodes = self.hierarchy.keys()
         errors = []
 
