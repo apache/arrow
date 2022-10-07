@@ -17,8 +17,8 @@
 
 package org.apache.arrow.flight;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.File;
 import java.util.HashMap;
@@ -35,17 +35,14 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import io.grpc.MethodDescriptor;
 import io.grpc.ServerServiceDefinition;
 import io.grpc.netty.NettyServerBuilder;
 
-@RunWith(JUnit4.class)
 public class TestServerOptions {
 
   @Test
@@ -61,7 +58,7 @@ public class TestServerOptions {
                 (location) -> FlightServer.builder(a, location, producer)
                     .transportHint("grpc.builderConsumer", consumer).build()
             )) {
-      Assert.assertTrue(consumerCalled.get());
+      Assertions.assertTrue(consumerCalled.get());
     }
   }
 
@@ -81,7 +78,7 @@ public class TestServerOptions {
       assertNotNull(server.grpcExecutor);
       executor = server.grpcExecutor;
     }
-    Assert.assertTrue(executor.isShutdown());
+    Assertions.assertTrue(executor.isShutdown());
   }
 
   /**
@@ -99,9 +96,9 @@ public class TestServerOptions {
                       .executor(executor)
                       .build()
               )) {
-        Assert.assertNull(server.grpcExecutor);
+        Assertions.assertNull(server.grpcExecutor);
       }
-      Assert.assertFalse(executor.isShutdown());
+      Assertions.assertFalse(executor.isShutdown());
     } finally {
       executor.shutdown();
     }
@@ -109,12 +106,12 @@ public class TestServerOptions {
 
   @Test
   public void domainSocket() throws Exception {
-    Assume.assumeTrue("We have a native transport available", FlightTestUtil.isNativeTransportAvailable());
+    Assumptions.assumeTrue(FlightTestUtil.isNativeTransportAvailable(), "We have a native transport available");
     final File domainSocket = File.createTempFile("flight-unit-test-", ".sock");
-    Assert.assertTrue(domainSocket.delete());
+    Assertions.assertTrue(domainSocket.delete());
     // Domain socket paths have a platform-dependent limit. Set a conservative limit and skip the test if the temporary
     // file name is too long. (We do not assume a particular platform-dependent temporary directory path.)
-    Assume.assumeTrue("The domain socket path is not too long", domainSocket.getAbsolutePath().length() < 100);
+    Assumptions.assumeTrue(domainSocket.getAbsolutePath().length() < 100, "The domain socket path is not too long");
     final Location location = Location.forGrpcDomainSocket(domainSocket.getAbsolutePath());
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
@@ -130,7 +127,7 @@ public class TestServerOptions {
           int value = 0;
           while (stream.next()) {
             for (int i = 0; i < root.getRowCount(); i++) {
-              Assert.assertEquals(value, iv.get(i));
+              Assertions.assertEquals(value, iv.get(i));
               value++;
             }
           }
@@ -161,10 +158,10 @@ public class TestServerOptions {
 
       for (final MethodDescriptor<?, ?> descriptor : FlightServiceGrpc.getServiceDescriptor().getMethods()) {
         final String methodName = descriptor.getFullMethodName();
-        Assert.assertTrue("Method is missing from ServerServiceDefinition: " + methodName,
-            definedMethods.containsKey(methodName));
-        Assert.assertTrue("Method is missing from ServiceDescriptor: " + methodName,
-            definedMethods.containsKey(methodName));
+        Assertions.assertTrue(definedMethods.containsKey(methodName),
+            "Method is missing from ServerServiceDefinition: " + methodName);
+        Assertions.assertTrue(definedMethods.containsKey(methodName),
+            "Method is missing from ServiceDescriptor: " + methodName);
 
         assertEquals(descriptor.getSchemaDescriptor(), definedMethods.get(methodName).getSchemaDescriptor());
         assertEquals(descriptor.getSchemaDescriptor(), serviceMethods.get(methodName).getSchemaDescriptor());

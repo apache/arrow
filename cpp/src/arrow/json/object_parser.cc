@@ -28,7 +28,7 @@ namespace rj = arrow::rapidjson;
 
 class ObjectParser::Impl {
  public:
-  Status Parse(arrow::util::string_view json) {
+  Status Parse(std::string_view json) {
     document_.Parse(reinterpret_cast<const rj::Document::Ch*>(json.data()),
                     static_cast<size_t>(json.size()));
 
@@ -70,7 +70,7 @@ ObjectParser::ObjectParser() : impl_(new ObjectParser::Impl()) {}
 
 ObjectParser::~ObjectParser() = default;
 
-Status ObjectParser::Parse(arrow::util::string_view json) { return impl_->Parse(json); }
+Status ObjectParser::Parse(std::string_view json) { return impl_->Parse(json); }
 
 Result<std::string> ObjectParser::GetString(const char* key) const {
   return impl_->GetString(key);

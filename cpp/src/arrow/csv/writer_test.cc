@@ -18,6 +18,7 @@
 #include "gtest/gtest.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -31,14 +32,13 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace csv {
 
 struct WriterTestParams {
   WriterTestParams(std::shared_ptr<Schema> schema, std::string batch_data,
-                   WriteOptions options, util::optional<std::string> expected_output,
+                   WriteOptions options, std::optional<std::string> expected_output,
                    Status expected_status = Status::OK())
       : schema(std::move(schema)),
         batch_data(std::move(batch_data)),
@@ -48,7 +48,7 @@ struct WriterTestParams {
   std::shared_ptr<Schema> schema;
   std::string batch_data;
   WriteOptions options;
-  util::optional<std::string> expected_output;
+  std::optional<std::string> expected_output;
   Status expected_status;
 };
 

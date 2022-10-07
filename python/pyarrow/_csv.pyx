@@ -550,12 +550,12 @@ cdef class ParseOptions(_Weakrefable):
     def __getstate__(self):
         return (self.delimiter, self.quote_char, self.double_quote,
                 self.escape_char, self.newlines_in_values,
-                self.ignore_empty_lines, self._invalid_row_handler)
+                self.ignore_empty_lines, self.invalid_row_handler)
 
     def __setstate__(self, state):
         (self.delimiter, self.quote_char, self.double_quote,
          self.escape_char, self.newlines_in_values,
-         self.ignore_empty_lines, self._invalid_row_handler) = state
+         self.ignore_empty_lines, self.invalid_row_handler) = state
 
     def __eq__(self, other):
         try:

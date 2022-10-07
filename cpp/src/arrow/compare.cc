@@ -389,21 +389,16 @@ class RangeDataEqualsImpl {
   }
 
   Status Visit(const RunLengthEncodedType& type) {
-    auto left_span = ArraySpan(left_);
-    auto right_span = ArraySpan(right_);
-    left_span.SetSlice(left_.offset + left_start_idx_, range_length_);
-    right_span.SetSlice(right_.offset + right_start_idx_, range_length_);
-    for (auto it = rle_util::MergedRunsIterator<2>(left_span, right_span);
-         it != rle_util::MergedRunsIterator<2>(); ++it) {
-      RangeDataEqualsImpl impl(options_, floating_approximate_, *left_.child_data[1],
-                               *right_.child_data[1], it.index_into_array(0),
-                               it.index_into_array(1), 1);
-      if (!impl.Compare()) {
-        result_ = false;
-        return Status::OK();
-      }
+    switch (type.run_ends_type()->id()) {
+      case Type::INT16:
+        return CompareRunLengthEncoded<int16_t>();
+      case Type::INT32:
+        return CompareRunLengthEncoded<int32_t>();
+      case Type::INT64:
+        return CompareRunLengthEncoded<int64_t>();
+      default:
+        return Status::Invalid("invalid run ends type: ", *type.run_ends_type());
     }
-    return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
@@ -488,6 +483,26 @@ class RangeDataEqualsImpl {
     };
 
     CompareWithOffsets<typename TypeClass::offset_type>(1, compare_ranges);
+    return Status::OK();
+  }
+
+  template <typename RunEndsType>
+  Status CompareRunLengthEncoded() {
+    auto left_span = ArraySpan(left_);
+    auto right_span = ArraySpan(right_);
+    left_span.SetSlice(left_.offset + left_start_idx_, range_length_);
+    right_span.SetSlice(right_.offset + right_start_idx_, range_length_);
+    for (auto it = rle_util::MergedRunsIterator<RunEndsType, RunEndsType>(left_span,
+                                                                          right_span);
+         it != rle_util::MergedRunsIterator(); ++it) {
+      RangeDataEqualsImpl impl(options_, floating_approximate_, *left_.child_data[1],
+                               *right_.child_data[1], it.template index_into_array<0>(),
+                               it.template index_into_array<1>(), 1);
+      if (!impl.Compare()) {
+        result_ = false;
+        return Status::OK();
+      }
+    }
     return Status::OK();
   }
 

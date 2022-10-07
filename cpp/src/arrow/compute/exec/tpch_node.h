@@ -18,13 +18,13 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace compute {
@@ -44,7 +44,7 @@ class ARROW_EXPORT TpchGen {
    */
   static Result<std::unique_ptr<TpchGen>> Make(
       ExecPlan* plan, double scale_factor = 1.0, int64_t batch_size = 4096,
-      util::optional<int64_t> seed = util::nullopt);
+      std::optional<int64_t> seed = std::nullopt);
 
   // The below methods will create and add an ExecNode to the plan that generates
   // data for the desired table. If columns is empty, all columns will be generated.

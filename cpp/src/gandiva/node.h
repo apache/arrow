@@ -66,6 +66,11 @@ class GANDIVA_EXPORT LiteralNode : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
+    if (return_type_ == NULLPTR) {
+      ss << "(const untyped) " << gandiva::ToString(holder_);
+      return ss.str();
+    }
+
     ss << "(const " << return_type()->ToString() << ") ";
     if (is_null()) {
       ss << std::string("null");
@@ -81,12 +86,12 @@ class GANDIVA_EXPORT LiteralNode : public Node {
     // The default formatter prints in decimal can cause a loss in precision. so,
     // print in hex. Can't use hexfloat since gcc 4.9 doesn't support it.
     if (return_type()->id() == arrow::Type::DOUBLE) {
-      double dvalue = arrow::util::get<double>(holder_);
+      double dvalue = std::get<double>(holder_);
       uint64_t bits;
       memcpy(&bits, &dvalue, sizeof(bits));
       ss << " raw(" << std::hex << bits << ")";
     } else if (return_type()->id() == arrow::Type::FLOAT) {
-      float fvalue = arrow::util::get<float>(holder_);
+      float fvalue = std::get<float>(holder_);
       uint32_t bits;
       memcpy(&bits, &fvalue, sizeof(bits));
       ss << " raw(" << std::hex << bits << ")";
@@ -128,7 +133,9 @@ class GANDIVA_EXPORT FunctionNode : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << descriptor()->return_type()->ToString() << " " << descriptor()->name() << "(";
+    ss << ((return_type() == NULLPTR) ? "untyped"
+                                      : descriptor()->return_type()->ToString())
+       << " " << descriptor()->name() << "(";
     bool skip_comma = true;
     for (auto& child : children()) {
       if (skip_comma) {

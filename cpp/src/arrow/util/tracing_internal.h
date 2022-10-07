@@ -36,7 +36,6 @@
 
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/tracing.h"
 #include "arrow/util/visibility.h"
 

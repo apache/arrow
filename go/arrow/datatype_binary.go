@@ -39,6 +39,7 @@ func (t *BinaryType) Layout() DataTypeLayout {
 		SpecFixedWidth(Int32SizeBytes), SpecVariableWidth()}}
 }
 func (t *BinaryType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+func (BinaryType) IsUtf8() bool                      { return false }
 
 type StringType struct{}
 
@@ -52,6 +53,7 @@ func (t *StringType) Layout() DataTypeLayout {
 		SpecFixedWidth(Int32SizeBytes), SpecVariableWidth()}}
 }
 func (t *StringType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+func (StringType) IsUtf8() bool                      { return true }
 
 type LargeBinaryType struct{}
 
@@ -65,6 +67,7 @@ func (t *LargeBinaryType) Layout() DataTypeLayout {
 		SpecFixedWidth(Int64SizeBytes), SpecVariableWidth()}}
 }
 func (t *LargeBinaryType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
+func (LargeBinaryType) IsUtf8() bool                      { return false }
 
 type LargeStringType struct{}
 
@@ -78,6 +81,7 @@ func (t *LargeStringType) Layout() DataTypeLayout {
 		SpecFixedWidth(Int64SizeBytes), SpecVariableWidth()}}
 }
 func (t *LargeStringType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
+func (LargeStringType) IsUtf8() bool                      { return true }
 
 var (
 	BinaryTypes = struct {

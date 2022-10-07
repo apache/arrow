@@ -15,8 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' Add the data filename as a column
+#'
+#' This function only exists inside `arrow` `dplyr` queries, and it only is
+#' valid when quering on a `FileSystemDataset`.
+#'
+#' @return A `FieldRef` `Expression` that refers to the filename augmented
+#' column.
+#' @examples
+#' \dontrun{
+#' open_dataset("nyc-taxi") %>%
+#'   mutate(file = add_filename())
+#' }
+#' @keywords internal
+add_filename <- function() Expression$field_ref("__filename")
+
 register_bindings_augmented <- function() {
-  register_binding("add_filename", function() {
-    Expression$field_ref("__filename")
-  })
+  register_binding("arrow::add_filename", add_filename)
 }

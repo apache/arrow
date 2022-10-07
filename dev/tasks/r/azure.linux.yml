@@ -42,7 +42,7 @@ jobs:
           export R_ORG={{ r_org }}
           export R_IMAGE={{ r_image }}
           export R_TAG={{ r_tag }}
-          export DEVTOOLSET_VERSION={{ devtoolset_version|default("-1") }}
+          export DEVTOOLSET_VERSION={{ devtoolset_version|default("") }}
           export R_CUSTOM_CCACHE={{ r_custom_ccache|default("false") }}
           docker-compose pull --ignore-pull-failures r
           docker-compose build r

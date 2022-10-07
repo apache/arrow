@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
 skip_if_not_available("utf8proc")
 
 library(dplyr, warn.conflicts = FALSE)
@@ -62,7 +61,8 @@ test_that("paste, paste0, and str_c", {
     .input %>%
       transmute(
         a = paste0(v, w),
-        a2 = base::paste0(v, w)) %>%
+        a2 = base::paste0(v, w)
+      ) %>%
       collect(),
     df
   )

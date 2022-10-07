@@ -436,8 +436,8 @@ void TransposeInts(const InputInt* src, OutputInt* dest, int64_t length,
   }
 }
 
-#define INSTANTIATE(SRC, DEST)              \
-  template ARROW_EXPORT void TransposeInts( \
+#define INSTANTIATE(SRC, DEST)                       \
+  template ARROW_TEMPLATE_EXPORT void TransposeInts( \
       const SRC* source, DEST* dest, int64_t length, const int32_t* transpose_map);
 
 #define INSTANTIATE_ALL_DEST(DEST) \

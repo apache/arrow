@@ -19,7 +19,8 @@
 
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 
@@ -145,7 +146,7 @@ Status FixedWidthKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
     viewed.type = view_ty.get();
     VisitArraySpanInline<FixedSizeBinaryType>(
         viewed,
-        [&](util::string_view bytes) {
+        [&](std::string_view bytes) {
           auto& encoded_ptr = *encoded_bytes++;
           *encoded_ptr++ = kValidByte;
           memcpy(encoded_ptr, bytes.data(), byte_width_);
@@ -160,7 +161,7 @@ Status FixedWidthKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
   } else {
     const auto& scalar = data.scalar_as<arrow::internal::PrimitiveScalarBase>();
     if (scalar.is_valid) {
-      const util::string_view data = scalar.view();
+      const std::string_view data = scalar.view();
       DCHECK_EQ(data.size(), static_cast<size_t>(byte_width_));
       for (int64_t i = 0; i < batch_length; i++) {
         auto& encoded_ptr = *encoded_bytes++;
@@ -257,9 +258,20 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
 void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx) {
   ctx_ = ctx;
   encoders_.resize(column_types.size());
+  extension_types_.resize(column_types.size());
 
   for (size_t i = 0; i < column_types.size(); ++i) {
-    const TypeHolder& type = column_types[i];
+    const bool is_extension = column_types[i].id() == Type::EXTENSION;
+    const TypeHolder& type = is_extension
+                                 ? arrow::internal::checked_pointer_cast<ExtensionType>(
+                                       column_types[i].GetSharedPtr())
+                                       ->storage_type()
+                                 : column_types[i];
+
+    if (is_extension) {
+      extension_types_[i] = arrow::internal::checked_pointer_cast<ExtensionType>(
+          column_types[i].GetSharedPtr());
+    }
     if (type.id() == Type::BOOL) {
       encoders_[i] = std::make_shared<BooleanKeyEncoder>();
       continue;
@@ -354,9 +366,16 @@ Result<ExecBatch> RowEncoder::Decode(int64_t num_rows, const int32_t* row_ids) {
   out.values.resize(encoders_.size());
   for (size_t i = 0; i < encoders_.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(
-        out.values[i],
+        auto column_array_data,
         encoders_[i]->Decode(buf_ptrs.data(), static_cast<int32_t>(num_rows),
                              ctx_->memory_pool()));
+
+    if (extension_types_[i] != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(out.values[i], ::arrow::internal::GetArrayView(
+                                               column_array_data, extension_types_[i]))
+    } else {
+      out.values[i] = column_array_data;
+    }
   }
 
   return out;

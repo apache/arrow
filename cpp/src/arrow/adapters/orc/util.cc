@@ -19,6 +19,7 @@
 
 #include <cmath>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/array/builder_base.h"
@@ -30,7 +31,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/range.h"
-#include "arrow/util/string_view.h"
 #include "arrow/visit_data_inline.h"
 
 #include "orc/Exceptions.hh"
@@ -462,7 +462,7 @@ struct Appender<DataType, liborc::StringVectorBatch> {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     COffsetType data_length = 0;
     batch->data[running_orc_offset] = reinterpret_cast<char*>(
@@ -486,7 +486,7 @@ struct Appender<Decimal128Type, liborc::Decimal64VectorBatch> {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     const Decimal128 dec_value(array.GetValue(running_arrow_offset));
     batch->values[running_orc_offset] = static_cast<int64_t>(dec_value.low_bits());
@@ -507,7 +507,7 @@ struct Appender<Decimal128Type, liborc::Decimal128VectorBatch> {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     const Decimal128 dec_value(array.GetValue(running_arrow_offset));
     batch->values[running_orc_offset] =
@@ -557,7 +557,7 @@ struct FixedSizeBinaryAppender {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     batch->data[running_orc_offset] = reinterpret_cast<char*>(
         const_cast<uint8_t*>(array.GetValue(running_arrow_offset)));
