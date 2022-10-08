@@ -183,7 +183,7 @@ configure_tzdb <- function() {
 # a StopSource has already been set up.
 .onUnload <- function(...) {
   DeinitializeMainRThread()
-  ExecPlan_WaitForAllToFinish(seconds = 60 * 60)
+  ExecPlan_WaitForAllToFinish(seconds = 60)
 }
 
 # While .onUnload should be sufficient, devtools::load_all() does not call it

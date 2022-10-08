@@ -153,10 +153,6 @@ class ExecPlanReader : public arrow::RecordBatchReader {
         trash_can.erase(trash_can.begin() + i, trash_can.begin() + i + 1);
       }
     }
-    if (trash_can.size() > 0) {
-      Rprintf("Still %d exec plans remaining after emptying the trash\n",
-              (int)trash_can.size());
-    }
     return trash_can.size();
   }
 
@@ -166,6 +162,16 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       all_finished = all_finished && plan->finished().Wait(seconds);
     }
     EmptyTheTrash();
+
+    if (TrashCan().size() > 0) {
+      Rprintf("Waited %g seconds for ExecPlans to finish but %d plans remain:\n", seconds,
+              (int)TrashCan().size());
+    }
+
+    for (const auto& plan : TrashCan()) {
+      Rprintf("\n%s\n", plan->ToString().c_str());
+    }
+
     return all_finished;
   }
 
