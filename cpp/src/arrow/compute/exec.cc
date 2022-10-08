@@ -89,7 +89,6 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
 
     if (value.is_scalar()) {
       *os << "Scalar[" << value.scalar()->ToString() << "]\n";
-      continue;
     } else if (value.is_array() || value.is_chunked_array()) {
       PrettyPrintOptions options;
       options.skip_new_lines = true;
@@ -102,13 +101,6 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
         *os << "Chunked Array";
         ARROW_CHECK_OK(PrettyPrint(*array, options, os));
       }
-      *os << "\n";
-    } else if (value.is_chunked_array()) {
-      auto array = value.chunked_array();
-      PrettyPrintOptions options;
-      options.skip_new_lines = true;
-      *os << "Chunked Array";
-      ARROW_CHECK_OK(PrettyPrint(*array, options, os));
       *os << "\n";
     } else {
       ARROW_DCHECK(false);
@@ -134,7 +126,7 @@ ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
   ExecBatch out = *this;
   for (auto& value : out.values) {
     if (value.is_scalar()) {
-      continue;
+      // keep value as is
     } else if (value.is_array()) {
       value = value.array()->Slice(offset, length);
     } else if (value.is_chunked_array()) {
