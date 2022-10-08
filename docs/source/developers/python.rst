@@ -518,13 +518,11 @@ We set a number of environment variables:
 
 - the path of the installation directory of the Arrow C++ libraries as
   ``ARROW_HOME``
-- add the path of installed DLL libraries to ``PATH``
 - and the CMake generator to be used as ``PYARROW_CMAKE_GENERATOR``
 
 .. code-block::
 
    $ set ARROW_HOME=%cd%\arrow-dist
-   $ set PATH=%ARROW_HOME%\bin;%PATH%
    $ set PYARROW_CMAKE_GENERATOR=Visual Studio 15 2017 Win64
 
 Let's configure, build and install the Arrow C++ libraries:
