@@ -397,9 +397,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
 
-    // counting crc
-    // TODO(mapleFU): add verify crc reader flag
-    if (page_type == PageType::DATA_PAGE && current_page_header_.__isset.crc) {
+    if (properties_.use_page_checksum_verification() &&
+        page_type == PageType::DATA_PAGE && current_page_header_.__isset.crc) {
       // verify crc
       boost::crc_32_type checksum;
       checksum.process_bytes(page_buffer->data(), compressed_len);

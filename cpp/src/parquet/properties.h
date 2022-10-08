@@ -95,12 +95,20 @@ class PARQUET_EXPORT ReaderProperties {
     return file_decryption_properties_;
   }
 
+  bool use_page_checksum_verification() const {
+    return use_page_checksum_verification_;
+  }
+  void set_use_page_checksum_verification(bool check_crc) {
+    use_page_checksum_verification_ = check_crc;
+  }
+
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;
+  bool use_page_checksum_verification_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
@@ -184,7 +192,8 @@ class PARQUET_EXPORT WriterProperties {
           pagesize_(kDefaultDataPageSize),
           version_(ParquetVersion::PARQUET_2_4),
           data_page_version_(ParquetDataPageVersion::V1),
-          created_by_(DEFAULT_CREATED_BY) {}
+          created_by_(DEFAULT_CREATED_BY),
+          page_write_checksum_enabled_(false) {}
     virtual ~Builder() {}
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
@@ -270,6 +279,11 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* created_by(const std::string& created_by) {
       created_by_ = created_by;
+      return this;
+    }
+
+    Builder* page_write_checksum_enabled(bool enable_checksum) {
+      page_write_checksum_enabled_ = enable_checksum;
       return this;
     }
 
@@ -458,7 +472,7 @@ class PARQUET_EXPORT WriterProperties {
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
-          pagesize_, version_, created_by_, std::move(file_encryption_properties_),
+          pagesize_, version_, created_by_, page_write_checksum_enabled_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_));
     }
 
@@ -471,6 +485,7 @@ class PARQUET_EXPORT WriterProperties {
     ParquetVersion::type version_;
     ParquetDataPageVersion data_page_version_;
     std::string created_by_;
+    bool page_write_checksum_enabled_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -500,6 +515,8 @@ class PARQUET_EXPORT WriterProperties {
   inline ParquetVersion::type version() const { return parquet_version_; }
 
   inline std::string created_by() const { return parquet_created_by_; }
+
+  inline bool page_write_checksum_enabled() const { return page_write_checksum_enabled_; }
 
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
@@ -566,6 +583,7 @@ class PARQUET_EXPORT WriterProperties {
       MemoryPool* pool, int64_t dictionary_pagesize_limit, int64_t write_batch_size,
       int64_t max_row_group_length, int64_t pagesize, ParquetVersion::type version,
       const std::string& created_by,
+      bool page_write_checksum_enabled,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
@@ -578,6 +596,7 @@ class PARQUET_EXPORT WriterProperties {
         parquet_data_page_version_(data_page_version),
         parquet_version_(version),
         parquet_created_by_(created_by),
+        page_write_checksum_enabled_(page_write_checksum_enabled),
         file_encryption_properties_(file_encryption_properties),
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
@@ -590,6 +609,7 @@ class PARQUET_EXPORT WriterProperties {
   ParquetDataPageVersion parquet_data_page_version_;
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
+  bool page_write_checksum_enabled_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
