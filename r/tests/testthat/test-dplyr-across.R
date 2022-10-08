@@ -233,7 +233,6 @@ test_that("expand_across correctly expands quosures", {
     ),
     example_data
   )
-
 })
 
 test_that("purrr-style lambda functions are supported", {
@@ -289,6 +288,7 @@ test_that("ARROW-14071 - function(x)-style lambda functions are not supported", 
     })))),
     regexp = "Anonymous functions are not yet supported in Arrow"
   )
+
 
   expect_error(
     expand_across(
