@@ -574,14 +574,6 @@ Then run the unit tests with:
 
 .. note::
 
-   With the above instructions the Arrow C++ libraries are not bundled with
-   the Python extension. This is recommended for development as it allows the
-   C++ libraries to be re-built separately.
-
-   As a consequence however, ``python setup.py install`` will also not install
-   the Arrow C++ libraries. Therefore, to use ``pyarrow`` in python, ``PATH``
-   must contain the directory with the Arrow .dll-files.
-
    If you want to bundle the Arrow C++ libraries with ``pyarrow``, add
    the ``--bundle-arrow-cpp`` option when building:
 
@@ -592,7 +584,7 @@ Then run the unit tests with:
    Important: If you combine ``--bundle-arrow-cpp`` with ``--inplace`` the
    Arrow C++ libraries get copied to the source tree and are not cleared
    by ``python setup.py clean``. They remain in place and will take precedence
-   over any later Arrow C++ libraries contained in ``PATH``. This can lead to
+   over any later Arrow C++ libraries contained in ``CONDA_PREFIX``. This can lead to
    incompatibilities when ``pyarrow`` is later built without
    ``--bundle-arrow-cpp``.
 
