@@ -249,6 +249,7 @@ class SerializedPageWriter : public PageWriter {
   SerializedPageWriter(std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
                        int compression_level, ColumnChunkMetaDataBuilder* metadata,
                        int16_t row_group_ordinal, int16_t column_chunk_ordinal,
+                       bool use_page_checksum_verification,
                        MemoryPool* pool = ::arrow::default_memory_pool(),
                        std::shared_ptr<Encryptor> meta_encryptor = nullptr,
                        std::shared_ptr<Encryptor> data_encryptor = nullptr)
@@ -263,6 +264,7 @@ class SerializedPageWriter : public PageWriter {
         page_ordinal_(0),
         row_group_ordinal_(row_group_ordinal),
         column_ordinal_(column_chunk_ordinal),
+        use_page_checksum_verification_(use_page_checksum_verification),
         meta_encryptor_(std::move(meta_encryptor)),
         data_encryptor_(std::move(data_encryptor)),
         encryption_buffer_(AllocateBuffer(pool, 0)) {
@@ -381,8 +383,7 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
-    // TODO(mapleFU): add config for write crc.
-    if (page.type() == PageType::DATA_PAGE) {
+    if (use_page_checksum_verification_ && page.type() == PageType::DATA_PAGE) {
       boost::crc_32_type checksum;
       checksum.process_bytes(output_data_buffer, output_data_len);
       page_header.__set_crc(static_cast<int32_t>(checksum.checksum()));
@@ -463,6 +464,8 @@ class SerializedPageWriter : public PageWriter {
 
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
+  bool use_page_checksum_verification() { return use_page_checksum_verification_; }
+
  private:
   // To allow UpdateEncryption on Close
   friend class BufferedPageWriter;
@@ -529,6 +532,7 @@ class SerializedPageWriter : public PageWriter {
   int16_t page_ordinal_;
   int16_t row_group_ordinal_;
   int16_t column_ordinal_;
+  bool use_page_checksum_verification_;
 
   std::unique_ptr<ThriftSerializer> thrift_serializer_;
 
@@ -553,15 +557,16 @@ class BufferedPageWriter : public PageWriter {
   BufferedPageWriter(std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
                      int compression_level, ColumnChunkMetaDataBuilder* metadata,
                      int16_t row_group_ordinal, int16_t current_column_ordinal,
+                     bool use_page_checksum_verification,
                      MemoryPool* pool = ::arrow::default_memory_pool(),
                      std::shared_ptr<Encryptor> meta_encryptor = nullptr,
                      std::shared_ptr<Encryptor> data_encryptor = nullptr)
       : final_sink_(std::move(sink)), metadata_(metadata), has_dictionary_pages_(false) {
     in_memory_sink_ = CreateOutputStream(pool);
-    pager_ = std::unique_ptr<SerializedPageWriter>(
-        new SerializedPageWriter(in_memory_sink_, codec, compression_level, metadata,
-                                 row_group_ordinal, current_column_ordinal, pool,
-                                 std::move(meta_encryptor), std::move(data_encryptor)));
+    pager_ = std::make_unique<SerializedPageWriter>(
+        in_memory_sink_, codec, compression_level, metadata,
+                                 row_group_ordinal, current_column_ordinal, use_page_checksum_verification, pool,
+                                 std::move(meta_encryptor), std::move(data_encryptor));
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -614,17 +619,17 @@ std::unique_ptr<PageWriter> PageWriter::Open(
     std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
     int compression_level, ColumnChunkMetaDataBuilder* metadata,
     int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
-    bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
+    bool buffered_row_group, bool page_write_checksum_enabled, std::shared_ptr<Encryptor> meta_encryptor,
     std::shared_ptr<Encryptor> data_encryptor) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(
         new BufferedPageWriter(std::move(sink), codec, compression_level, metadata,
-                               row_group_ordinal, column_chunk_ordinal, pool,
+                               row_group_ordinal, column_chunk_ordinal, page_write_checksum_enabled, pool,
                                std::move(meta_encryptor), std::move(data_encryptor)));
   } else {
     return std::unique_ptr<PageWriter>(
         new SerializedPageWriter(std::move(sink), codec, compression_level, metadata,
-                                 row_group_ordinal, column_chunk_ordinal, pool,
+                                 row_group_ordinal, column_chunk_ordinal, page_write_checksum_enabled, pool,
                                  std::move(meta_encryptor), std::move(data_encryptor)));
   }
 }
