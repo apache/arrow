@@ -522,7 +522,7 @@ We set a number of environment variables:
 
 .. code-block::
 
-   $ set ARROW_HOME=%cd%\arrow-dist
+   $ set ARROW_HOME=%CONDA_PREFIX%
    $ set PYARROW_CMAKE_GENERATOR=Visual Studio 15 2017 Win64
 
 Let's configure, build and install the Arrow C++ libraries:
