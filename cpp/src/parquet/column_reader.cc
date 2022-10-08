@@ -28,6 +28,8 @@
 #include <utility>
 #include <vector>
 
+#include <boost/crc.hpp>
+
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
@@ -393,6 +395,20 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       ParquetException::EofException(ss.str());
     }
 
+    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
+
+    // counting crc
+    // TODO(mapleFU): add verify crc reader flag
+    if (page_type == PageType::DATA_PAGE && current_page_header_.__isset.crc) {
+      // verify crc
+      boost::crc_32_type checksum;
+      checksum.process_bytes(page_buffer->data(), compressed_len);
+      auto count_crc = static_cast<int32_t>(checksum.checksum());
+      if (count_crc != current_page_header_.crc) {
+        throw ParquetException("could not verify page integrity, CRC checksum verification failed");
+      }
+    }
+
     // Decrypt it if we need to
     if (crypto_ctx_.data_decryptor != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
@@ -402,8 +418,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       page_buffer = decryption_buffer_;
     }
-
-    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
 
     if (page_type == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
