@@ -673,9 +673,10 @@ public class RoundtripTest {
           Table table = new Table(vsr);
       ) {
         // Producer creates structures from existing memory pointers
-        try (ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
+        try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
+            ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
           // Producer exports vector into the C Data Interface structures
-          Data.exportTable(allocator, table, arrowArray);
+          Data.exportTable(allocator, table, null, arrowArray, arrowSchema);
         }
       }
       // Consumer imports vector
