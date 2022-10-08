@@ -114,13 +114,18 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
   explicit AggregateNodeOptions(std::vector<Aggregate> aggregates,
-                                std::vector<FieldRef> keys = {})
-      : aggregates(std::move(aggregates)), keys(std::move(keys)) {}
+                                std::vector<FieldRef> keys = {},
+                                std::vector<FieldRef> segment_keys = {})
+      : aggregates(std::move(aggregates)),
+        keys(std::move(keys)),
+        segment_keys(std::move(segment_keys)) {}
 
   // aggregations which will be applied to the targetted fields
   std::vector<Aggregate> aggregates;
   // keys by which aggregations will be grouped
   std::vector<FieldRef> keys;
+  // keys by which aggregations will be segmented
+  std::vector<FieldRef> segment_keys;
 };
 
 constexpr int32_t kDefaultBackpressureHighBytes = 1 << 30;  // 1GiB

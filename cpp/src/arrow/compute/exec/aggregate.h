@@ -37,6 +37,7 @@ namespace internal {
 /// and use an aggregate node.
 ARROW_EXPORT
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
+                      const std::vector<Datum>& segment_keys,
                       const std::vector<Aggregate>& aggregates, bool use_threads = false,
                       ExecContext* ctx = default_exec_context());
 

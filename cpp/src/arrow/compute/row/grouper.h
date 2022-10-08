@@ -30,6 +30,37 @@
 namespace arrow {
 namespace compute {
 
+struct ARROW_EXPORT GroupingSegment {
+  int64_t offset;
+  int64_t length;
+  bool is_open;
+};
+
+inline bool operator==(const GroupingSegment& segment1, const GroupingSegment& segment2) {
+  return segment1.offset == segment2.offset && segment1.length == segment2.length &&
+         segment1.is_open == segment2.is_open;
+}
+inline bool operator!=(const GroupingSegment& segment1, const GroupingSegment& segment2) {
+  return !(segment1 == segment2);
+}
+
+class ARROW_EXPORT GroupingSegmenter {
+ public:
+  virtual ~GroupingSegmenter() = default;
+
+  /// Construct a GroupingSegmenter which receives the specified key types
+  static Result<std::unique_ptr<GroupingSegmenter>> Make(
+      std::vector<TypeHolder> key_types, ExecContext* ctx = default_exec_context());
+
+  virtual Status Reset() = 0;
+
+  virtual Result<GroupingSegment> GetNextSegment(const ExecSpan& batch,
+                                                 int64_t offset) = 0;
+
+  virtual Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
+                                                 int64_t offset) = 0;
+};
+
 /// Consumes batches of keys and yields batches of the group ids.
 class ARROW_EXPORT Grouper {
  public:
@@ -39,10 +70,19 @@ class ARROW_EXPORT Grouper {
   static Result<std::unique_ptr<Grouper>> Make(const std::vector<TypeHolder>& key_types,
                                                ExecContext* ctx = default_exec_context());
 
-  /// Consume a batch of keys, producing the corresponding group ids as an integer array.
+  /// Consume a batch of keys, producing the corresponding group ids as an integer array,
+  /// over a slice defined by an offset and length, which defaults to the batch length.
   /// Currently only uint32 indices will be produced, eventually the bit width will only
   /// be as wide as necessary.
-  virtual Result<Datum> Consume(const ExecSpan& batch) = 0;
+  virtual Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset = 0,
+                                int64_t consume_length = -1) = 0;
+
+  /// Consume a batch of keys, producing the corresponding group ids as an integer array,
+  /// over a slice defined by an offset and length, which defaults to the batch length.
+  /// Currently only uint32 indices will be produced, eventually the bit width will only
+  /// be as wide as necessary.
+  virtual Result<Datum> Consume(const ExecBatch& batch, int64_t consume_offset = 0,
+                                int64_t consume_length = -1) = 0;
 
   /// Get current unique keys. May be called multiple times.
   virtual Result<ExecBatch> GetUniques() = 0;

@@ -20,6 +20,7 @@
 #include <memory>
 #include <mutex>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/key_map.h"
 #include "arrow/compute/exec/options.h"
@@ -44,7 +45,400 @@ namespace compute {
 
 namespace {
 
-struct GrouperImpl : Grouper {
+inline const uint8_t* GetValuesAsBytes(const ArrayData& data, int64_t offset = 0) {
+  int64_t absolute_byte_offset = (data.offset + offset) * data.type->byte_width();
+  return data.GetValues<uint8_t>(1, absolute_byte_offset);
+}
+
+inline const uint8_t* GetValuesAsBytes(const Array& array, int64_t offset = 0) {
+  return GetValuesAsBytes(*array.data(), offset);
+}
+
+inline const uint8_t* GetValuesAsBytes(const ArraySpan& data, int64_t offset = 0) {
+  int64_t absolute_byte_offset = (data.offset + offset) * data.type->byte_width();
+  return data.GetValues<uint8_t>(1, absolute_byte_offset);
+}
+
+template <typename Value>
+Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
+                              int64_t offset, const std::vector<TypeHolder>& key_types) {
+  if (offset < 0 || offset > length) {
+    return Status::Invalid("invalid grouping segmenter offset: ", offset);
+  }
+  if (values.size() != key_types.size()) {
+    return Status::Invalid("expected batch size ", key_types.size(), " but got ",
+                           values.size());
+  }
+  for (size_t i = 0; i < key_types.size(); i++) {
+    const auto& value = values[i];
+    const auto& key_type = key_types[i];
+    if (*value.type() != *key_type.type) {
+      return Status::Invalid("expected batch value ", i, " of type ", *key_type.type,
+                             " but got ", *value.type());
+    }
+  }
+  return Status::OK();
+}
+
+Status CheckForGetNextSegment(const ExecSpan& batch, int64_t offset,
+                              const std::vector<TypeHolder>& key_types) {
+  return CheckForGetNextSegment(batch.values, batch.length, offset, key_types);
+}
+
+Status CheckForGetNextSegment(const ExecBatch& batch, int64_t offset,
+                              const std::vector<TypeHolder>& key_types) {
+  return CheckForGetNextSegment(batch.values, batch.length, offset, key_types);
+}
+
+struct StatelessGroupingSegmenter : public GroupingSegmenter {
+  Status Reset() override { return Status::OK(); }
+};
+
+GroupingSegment MakeSegment(int64_t batch_length, int64_t offset, int64_t length) {
+  return GroupingSegment{offset, length, offset + length >= batch_length};
+}
+
+int64_t GetMatchLength(const uint8_t* match_bytes, int match_width,
+                       const uint8_t* array_bytes, int64_t offset, int64_t length) {
+  int64_t cursor, byte_cursor;
+  for (cursor = offset, byte_cursor = match_width * cursor; cursor < length;
+       cursor++, byte_cursor += match_width) {
+    if (memcmp(match_bytes, array_bytes + byte_cursor, match_width) != 0) break;
+  }
+  return std::min(cursor, length - offset);
+}
+
+Result<GroupingSegment> GetNextSegmentChunked(
+    const std::shared_ptr<ChunkedArray>& chunked_array, int64_t offset) {
+  if (offset >= chunked_array->length()) {
+    return MakeSegment(chunked_array->length(), chunked_array->length(), 0);
+  }
+  int64_t past_length = 0, remaining_offset = offset;
+  const auto& arrays = chunked_array->chunks();
+  for (size_t i = 0; remaining_offset >= 0 && i < arrays.size(); i++) {
+    // look up chunk containing offset
+    int64_t array_length = arrays[i]->length();
+    if (remaining_offset < array_length) {
+      // found - switch to matching
+      int64_t match_width = arrays[i]->type()->byte_width();
+      const uint8_t* match_bytes = GetValuesAsBytes(*arrays[i]->data(), remaining_offset);
+      int64_t total_match_length = 0;
+      for (; i < arrays.size(); i++) {
+        int64_t array_length = arrays[i]->length();
+        if (array_length <= 0) continue;
+        const uint8_t* array_bytes = GetValuesAsBytes(*arrays[i]->data());
+        int64_t match_length = GetMatchLength(match_bytes, match_width, array_bytes,
+                                              remaining_offset, array_length);
+        total_match_length += match_length;
+        remaining_offset = 0;
+        if (match_length < array_length - remaining_offset) break;
+      }
+      return MakeSegment(chunked_array->length(), offset, total_match_length);
+    }
+    past_length += array_length;
+    remaining_offset -= array_length;
+  }
+  return Status::Invalid("segmenting invalid chunked array value");
+}
+
+struct NoKeysGroupingSegmenter : public StatelessGroupingSegmenter {
+  static Result<std::unique_ptr<GroupingSegmenter>> Make() {
+    return std::make_unique<NoKeysGroupingSegmenter>();
+  }
+
+  template <typename Batch>
+  Result<GroupingSegment> GetNextSegmentImpl(const Batch& batch, int64_t offset) {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {}));
+    return MakeSegment(batch.length, offset, batch.length - offset);
+  }
+
+  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    return GetNextSegmentImpl(batch, offset);
+  }
+
+  Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
+                                         int64_t offset) override {
+    return GetNextSegmentImpl(batch, offset);
+  }
+};
+
+struct SimpleKeyGroupingSegmenter : public StatelessGroupingSegmenter {
+  static Result<std::unique_ptr<GroupingSegmenter>> Make(
+      std::vector<TypeHolder> key_types) {
+    return std::make_unique<SimpleKeyGroupingSegmenter>(key_types);
+  }
+
+  explicit SimpleKeyGroupingSegmenter(std::vector<TypeHolder> key_types)
+      : key_types_(std::move(key_types)) {}
+
+  Status CheckType(const DataType& type) {
+    if (!is_fixed_width(type)) {
+      return Status::Invalid("SimpleKeyGroupingSegmenter does not support type ", type);
+    }
+    return Status::OK();
+  }
+
+  Result<GroupingSegment> GetNextSegment(const Scalar& scalar, int64_t offset,
+                                         int64_t length) {
+    ARROW_RETURN_NOT_OK(CheckType(*scalar.type));
+    if (!scalar.is_valid) {
+      return Status::Invalid("segmenting an invalid scalar");
+    }
+    return MakeSegment(length, 0, length);
+  }
+
+  Result<GroupingSegment> GetNextSegment(const DataType& array_type,
+                                         const uint8_t* array_bytes, int64_t offset,
+                                         int64_t length) {
+    RETURN_NOT_OK(CheckType(array_type));
+    int64_t byte_width = array_type.byte_width();
+    int64_t match_length = GetMatchLength(array_bytes + offset * byte_width, byte_width,
+                                          array_bytes, offset, length);
+    return MakeSegment(length, offset, match_length);
+  }
+
+  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
+    const auto& value = batch.values[0];
+    if (value.is_scalar()) {
+      return GetNextSegment(*value.scalar, offset, batch.length);
+    }
+    ARROW_DCHECK(value.is_array());
+    const auto& array = value.array;
+    if (array.GetNullCount() > 0) {
+      return Status::NotImplemented("segmenting a nullable array");
+    }
+    return GetNextSegment(*array.type, GetValuesAsBytes(array), offset, batch.length);
+  }
+
+  Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
+                                         int64_t offset) override {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
+    const auto& value = batch.values[0];
+    if (value.is_scalar()) {
+      return GetNextSegment(*value.scalar(), offset, batch.length);
+    }
+    if (value.is_array()) {
+      auto array = value.array();
+      if (array->GetNullCount() > 0) {
+        return Status::NotImplemented("segmenting a nullable array");
+      }
+      return GetNextSegment(*array->type, GetValuesAsBytes(*array), offset, batch.length);
+    }
+    if (value.is_chunked_array()) {
+      return GetNextSegmentChunked(value.chunked_array(), offset);
+    }
+    return Status::Invalid("segmenting unsupported value kind ", value.kind());
+  }
+
+ private:
+  const std::vector<TypeHolder> key_types_;
+};
+
+struct AnyKeysGroupingSegmenter : public StatelessGroupingSegmenter {
+  static Result<std::unique_ptr<GroupingSegmenter>> Make(
+      std::vector<TypeHolder> key_types, ExecContext* ctx) {
+    ARROW_RETURN_NOT_OK(Grouper::Make(key_types, ctx));  // check types
+    return std::make_unique<AnyKeysGroupingSegmenter>(key_types, ctx);
+  }
+
+  AnyKeysGroupingSegmenter(std::vector<TypeHolder> key_types, ExecContext* ctx)
+      : key_types_(std::move(key_types)), ctx_(ctx) {}
+
+  template <typename Batch>
+  Result<GroupingSegment> GetNextSegmentImpl(const Batch& batch, int64_t offset) {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
+    // TODO: make Grouper support Reset(), so it can be cached instead of recreated here
+    ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_types_, ctx_));
+    ARROW_ASSIGN_OR_RAISE(auto datum, grouper->Consume(batch, offset));
+    if (datum.is_array()) {
+      const std::shared_ptr<ArrayData>& data = datum.array();
+      ARROW_DCHECK(data->GetNullCount() == 0);
+      ARROW_DCHECK(*data->type == *uint32());  // as long as Grouper::Consume gives uint32
+      const uint32_t* values = data->GetValues<uint32_t>(1);
+      int64_t cursor;
+      for (cursor = 1; cursor < data->length; cursor++) {
+        if (values[0] != values[cursor]) break;
+      }
+      return MakeSegment(batch.length, offset, std::min(cursor, batch.length - offset));
+    }
+    if (datum.is_chunked_array()) {
+      return GetNextSegmentChunked(datum.chunked_array(), offset);
+    }
+    return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
+  }
+
+  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    return GetNextSegmentImpl(batch, offset);
+  }
+
+  Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
+                                         int64_t offset) override {
+    return GetNextSegmentImpl(batch, offset);
+  }
+
+ private:
+  const std::vector<TypeHolder> key_types_;
+  ExecContext* const ctx_;
+};
+
+Status CheckForConsume(const ExecSpan& batch, int64_t& consume_offset,
+                       int64_t& consume_length) {
+  if (consume_length < 0) {
+    consume_length = batch.length - consume_offset;
+  }
+  if (consume_offset < 0) {
+    return Status::Invalid("invalid grouper consume offset: ", consume_offset);
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
+Result<std::unique_ptr<GroupingSegmenter>> GroupingSegmenter::Make(
+    std::vector<TypeHolder> key_types, ExecContext* ctx) {
+  if (key_types.size() == 0) {
+    return NoKeysGroupingSegmenter::Make();
+  } else if (key_types.size() == 1) {
+    const DataType* type = key_types[0].type;
+    if (type != NULLPTR && is_fixed_width(*type)) {
+      return SimpleKeyGroupingSegmenter::Make(std::move(key_types));
+    }
+  }
+  return AnyKeysGroupingSegmenter::Make(std::move(key_types), ctx);
+}
+
+namespace {
+
+struct BaseGrouper : public Grouper {
+  int IndexOfChunk(const ExecBatch& batch) {
+    int i = 0;
+    for (const auto& value : batch.values) {
+      if (value.is_chunked_array()) {
+        return i;
+      }
+      ++i;
+    }
+    return -1;
+  }
+
+  bool HasConsistentChunks(const ExecBatch& batch, int index_of_chunk) {
+    auto first_chunked_array = batch.values[index_of_chunk].chunked_array();
+    int num_chunks = first_chunked_array->num_chunks();
+    int64_t length = first_chunked_array->length();
+    for (const auto& value : batch.values) {
+      if (!value.is_chunked_array()) {
+        continue;
+      }
+      auto curr_chunk = value.chunked_array();
+      if (num_chunks != curr_chunk->num_chunks() || length != curr_chunk->length()) {
+        return false;
+      }
+    }
+    if (num_chunks > 0) {
+      for (int i = 0; i < num_chunks; i++) {
+        int64_t chunk_length = first_chunked_array->chunk(i)->length();
+        for (const auto& value : batch.values) {
+          if (!value.is_chunked_array()) {
+            continue;
+          }
+          auto curr_chunk = value.chunked_array();
+          if (chunk_length != curr_chunk->chunk(i)->length()) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  using Grouper::Consume;
+
+  Result<Datum> Consume(const ExecBatch& batch, int64_t consume_offset,
+                        int64_t consume_length) override {
+    int index_of_chunk = IndexOfChunk(batch);
+    if (index_of_chunk < 0) {
+      return Consume(ExecSpan(batch), consume_offset, consume_length);
+    }
+    if (!HasConsistentChunks(batch, index_of_chunk)) {
+      return Status::Invalid("consuming inconsistent chunks");
+    }
+    auto first_chunked_array = batch.values[index_of_chunk].chunked_array();
+    int num_chunks = first_chunked_array->num_chunks();
+    std::vector<Datum> consumed(num_chunks);
+    int64_t offset = 0;
+    int chunk_idx = 0;
+    while (offset < batch.length) {
+      int64_t chunk_length = first_chunked_array->chunk(chunk_idx)->length();
+      std::vector<ExecValue> values;
+      size_t i = 0;
+      for (const auto& batch_value : batch.values) {
+        if (batch_value.is_scalar()) {
+          values.emplace_back(batch_value.scalar().get());
+        } else if (batch_value.is_array()) {
+          ArraySpan array_span(*batch_value.array());
+          array_span.offset = offset;
+          array_span.length = chunk_length;
+          values.emplace_back(array_span);
+        } else if (batch_value.is_chunked_array()) {
+          values.emplace_back(*batch_value.chunked_array()->chunk(chunk_idx)->data());
+        } else {
+          return Status::Invalid("consuming batch value ", i, " of unsupported kind ",
+                                 batch_value.kind());
+        }
+        ++i;
+      }
+      ARROW_ASSIGN_OR_RAISE(consumed[chunk_idx],
+                            Consume(ExecSpan(values, chunk_length), 0, chunk_length));
+      offset += chunk_length;
+      ++chunk_idx;
+    }
+    ArrayVector chunks(num_chunks);
+    while (--chunk_idx >= 0) {
+      DCHECK(consumed[chunk_idx].is_array());
+      chunks[chunk_idx] = consumed[chunk_idx].make_array();
+    }
+    ARROW_ASSIGN_OR_RAISE(auto chunked_array, ChunkedArray::Make(std::move(chunks)));
+    return Datum(chunked_array);
+  }
+};
+
+struct GrouperNoKeysImpl : Grouper {
+  Result<std::shared_ptr<Array>> MakeConstantUInt32Array(int64_t length, uint32_t value) {
+    std::unique_ptr<ArrayBuilder> a_builder;
+    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), uint32(), &a_builder));
+    auto builder = checked_cast<UInt32Builder*>(a_builder.get());
+    if (length != 0) {
+      RETURN_NOT_OK(builder->Resize(length));
+    }
+    for (int64_t i = 0; i < length; i++) {
+      builder->UnsafeAppend(value);
+    }
+    std::shared_ptr<Array> array;
+    RETURN_NOT_OK(builder->Finish(&array));
+    return std::move(array);
+  }
+  Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset,
+                        int64_t consume_length) override {
+    ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantUInt32Array(consume_length, 0));
+    return Datum(array);
+  }
+  Result<Datum> Consume(const ExecBatch& batch, int64_t consume_offset,
+                        int64_t consume_length) override {
+    ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantUInt32Array(consume_length, 0));
+    return Datum(array);
+  }
+  Result<ExecBatch> GetUniques() override {
+    auto data = ArrayData::Make(uint32(), 1, 0);
+    auto values = data->GetMutableValues<uint32_t>(0);
+    values[0] = 0;
+    ExecBatch out({Datum(data)}, 1);
+    return std::move(out);
+  }
+  uint32_t num_groups() const override { return 1; }
+};
+
+struct GrouperImpl : public BaseGrouper {
   static Result<std::unique_ptr<GrouperImpl>> Make(
       const std::vector<TypeHolder>& key_types, ExecContext* ctx) {
     auto impl = std::make_unique<GrouperImpl>();
@@ -95,7 +489,13 @@ struct GrouperImpl : Grouper {
     return std::move(impl);
   }
 
-  Result<Datum> Consume(const ExecSpan& batch) override {
+  Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset,
+                        int64_t consume_length) override {
+    ARROW_RETURN_NOT_OK(CheckForConsume(batch, consume_offset, consume_length));
+    if (consume_offset != 0 || consume_length != batch.length) {
+      auto batch_slice = batch.ToExecBatch().Slice(consume_offset, consume_length);
+      return Consume(ExecSpan(batch_slice), 0, -1);
+    }
     std::vector<int32_t> offsets_batch(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
       encoders_[i]->AddLength(batch[i], batch.length, offsets_batch.data());
@@ -179,7 +579,7 @@ struct GrouperImpl : Grouper {
   std::vector<std::unique_ptr<internal::KeyEncoder>> encoders_;
 };
 
-struct GrouperFastImpl : Grouper {
+struct GrouperFastImpl : public BaseGrouper {
   static constexpr int kBitmapPaddingForSIMD = 64;  // bits
   static constexpr int kPaddingForSIMD = 32;        // bytes
 
@@ -265,7 +665,13 @@ struct GrouperFastImpl : Grouper {
 
   ~GrouperFastImpl() { map_.cleanup(); }
 
-  Result<Datum> Consume(const ExecSpan& batch) override {
+  Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset,
+                        int64_t consume_length) override {
+    ARROW_RETURN_NOT_OK(CheckForConsume(batch, consume_offset, consume_length));
+    if (consume_offset != 0 || consume_length != batch.length) {
+      auto batch_slice = batch.ToExecBatch().Slice(consume_offset, consume_length);
+      return Consume(ExecSpan(batch_slice), 0, -1);
+    }
     // ARROW-14027: broadcast scalar arguments for now
     for (int i = 0; i < batch.num_values(); i++) {
       if (batch[i].is_scalar()) {
