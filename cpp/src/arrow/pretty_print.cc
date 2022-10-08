@@ -378,7 +378,15 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   Status Visit(const RunEndEncodedArray& array) {
-    return Status::NotImplemented("printing run-end encoded array");
+    Newline();
+    Indent();
+    Write("-- run_ends:\n");
+    RETURN_NOT_OK(PrettyPrint(*array.run_ends(), ChildOptions(true), sink_));
+
+    Newline();
+    Indent();
+    Write("-- values:\n");
+    return PrettyPrint(*array.values(), ChildOptions(true), sink_);
   }
 
   Status Print(const Array& array) {
