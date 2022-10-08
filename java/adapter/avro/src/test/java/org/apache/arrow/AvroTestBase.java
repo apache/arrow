@@ -21,11 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -46,28 +44,15 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 public class AvroTestBase {
-
-  public Path tmp;
   protected AvroToArrowConfig config;
-
-  @BeforeEach
-  void createTempDirectory() throws Exception {
-    this.tmp = Files.createTempDirectory("avro" );
-  }
 
   @BeforeEach
   void setUp() {
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     config = new AvroToArrowConfigBuilder(allocator).build();
-  }
-
-  @AfterEach
-  void deleteTempDirectory() {
-    this.tmp.toFile().deleteOnExit();
   }
 
   protected Schema getSchema(String schemaName) throws Exception {
@@ -77,20 +62,26 @@ public class AvroTestBase {
     return new Schema.Parser().parse(schemaPath.toFile());
   }
 
-  protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
-    File dataFile = tmp.resolve("data").toFile();
-
-    BinaryEncoder
-        encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
-    DatumWriter writer = new GenericDatumWriter(schema);
-    BinaryDecoder
-        decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
-
-    for (Object value : data) {
-      writer.write(value, encoder);
+  protected BinaryDecoder writeAndCreateDecoder(Schema schema, List data) throws Exception {
+    try (final ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+      BinaryEncoder
+          encoder = new EncoderFactory().directBinaryEncoder(output, null);
+      DatumWriter writer = new GenericDatumWriter(schema);
+      for (Object value : data) {
+        writer.write(value, encoder);
+      }
+      try (final ByteArrayInputStream input = new ByteArrayInputStream(output.toByteArray())) {
+        return new DecoderFactory().directBinaryDecoder(input, null);
+      }
     }
+  }
 
-    return AvroToArrow.avroToArrow(schema, decoder, config);
+  protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
+    return AvroToArrow.avroToArrow(
+        schema,
+        this.writeAndCreateDecoder(schema, data),
+        config
+    );
   }
 
   protected void checkArrayResult(List<List<?>> expected, ListVector vector) {

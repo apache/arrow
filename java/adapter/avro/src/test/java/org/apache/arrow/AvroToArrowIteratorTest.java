@@ -18,9 +18,6 @@
 package org.apache.arrow;
 
 import java.io.EOFException;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -35,14 +32,8 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.BinaryDecoder;
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
-import org.apache.avro.io.DecoderFactory;
-import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.util.Utf8;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,20 +47,12 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     this.config = new AvroToArrowConfigBuilder(allocator).setTargetBatchSize(3).build();
   }
 
-  private AvroToArrowVectorIterator convert(Schema schema, List data) throws Exception {
-    File dataFile = tmp.resolve("data").toFile();
-
-    BinaryEncoder
-        encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
-    DatumWriter writer = new GenericDatumWriter(schema);
-    BinaryDecoder
-        decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
-
-    for (Object value : data) {
-      writer.write(value, encoder);
-    }
-
-    return AvroToArrow.avroToArrowIterator(schema, decoder, config);
+  protected AvroToArrowVectorIterator convert(Schema schema, List data) throws Exception {
+    return AvroToArrow.avroToArrowIterator(
+        schema,
+        this.writeAndCreateDecoder(schema, data),
+        config
+    );
   }
 
   @Test
