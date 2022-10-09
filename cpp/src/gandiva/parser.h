@@ -23,7 +23,7 @@
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
 
-#include "grammar.hh"
+#include "gandiva/grammar.hh"
 // Give Flex the prototype of yylex we want ...
 #define YY_DECL gandiva::grammar::symbol_type yylex(gandiva::Parser& parser)
 // ... and declare it for the parser's sake.

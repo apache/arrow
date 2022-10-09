@@ -21,8 +21,8 @@
 
 #include "gandiva/gandiva_aliases.h"
 
+#include "gandiva/grammar.hh"
 #include "gandiva/type_inference.h"
-#include "grammar.hh"
 
 namespace gandiva {
 
