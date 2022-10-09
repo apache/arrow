@@ -138,7 +138,7 @@ TEST_F(TestParser, TestInfixFunction) {
             "available signatures:\nfloat negative(float)\ndouble "
             "negative(double)\nint32 negative(int32)\nint64 "
             "negative(int64)\n\n/home/jinshang/arrow/cpp/src/gandiva/"
-            "type_inference.cc:589  input->Accept(bottom_up_visitor)");
+            "type_inference.cc:591  input->Accept(bottom_up_visitor)");
 
   status_ = parser_.Parse("-0.123", &expr_);
   EXPECT_TRUE(status_.ok());
