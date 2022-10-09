@@ -1146,15 +1146,11 @@ int PlainDecoder<DType>::Decode(T* buffer, int max_values) {
   return max_values;
 }
 
-class PlainBooleanDecoder : public DecoderImpl,
-                            virtual public TypedDecoder<BooleanType>,
-                            virtual public BooleanDecoder {
+class PlainBooleanDecoder : public DecoderImpl, virtual public TypedDecoder<BooleanType> {
  public:
   explicit PlainBooleanDecoder(const ColumnDescriptor* descr);
   void SetData(int num_values, const uint8_t* data, int len) override;
 
-  // Two flavors of bool decoding
-  int Decode(uint8_t* buffer, int max_values) override;
   int Decode(bool* buffer, int max_values) override;
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
@@ -1203,24 +1199,6 @@ inline int PlainBooleanDecoder::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<BooleanType>::DictAccumulator* builder) {
   ParquetException::NYI("dictionaries of BooleanType");
-}
-
-int PlainBooleanDecoder::Decode(uint8_t* buffer, int max_values) {
-  max_values = std::min(max_values, num_values_);
-  bool val;
-  ::arrow::internal::BitmapWriter bit_writer(buffer, 0, max_values);
-  for (int i = 0; i < max_values; ++i) {
-    if (!bit_reader_->GetValue(1, &val)) {
-      ParquetException::EofException();
-    }
-    if (val) {
-      bit_writer.Set();
-    }
-    bit_writer.Next();
-  }
-  bit_writer.Finish();
-  num_values_ -= max_values;
-  return max_values;
 }
 
 int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
@@ -2356,6 +2334,62 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 };
 
 // ----------------------------------------------------------------------
+// RLE_BOOLEAN_DECODER
+
+class RleBooleanDecoder : public DecoderImpl, virtual public TypedDecoder<BooleanType> {
+ public:
+  explicit RleBooleanDecoder(const ColumnDescriptor* descr)
+      : DecoderImpl(descr, Encoding::RLE) {}
+
+  void SetData(int num_values, const uint8_t* data, int len) override {
+    num_values_ = num_values;
+    uint32_t num_bytes = 0;
+
+    if (len < 4) {
+      throw ParquetException("Received invalid length : " + std::to_string(len) +
+                             " (corrupt data page?)");
+    }
+    // Load the first 4 bytes in little-endian, which indicates the length
+    num_bytes =
+        ::arrow::bit_util::ToLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(data));
+    if (num_bytes < 0 || num_bytes > static_cast<uint32_t>(len - 4)) {
+      throw ParquetException("Received invalid number of bytes : " +
+                             std::to_string(num_bytes) + " (corrupt data page?)");
+    }
+
+    auto decoder_data = data + 4;
+    decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes,
+                                                           /*bit_width=*/1);
+  }
+
+  int Decode(bool* buffer, int max_values) override {
+    max_values = std::min(max_values, num_values_);
+
+    if (decoder_->GetBatch(buffer, max_values) != max_values) {
+      ParquetException::EofException();
+    }
+    num_values_ -= max_values;
+    return max_values;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<BooleanType>::Accumulator* out) override {
+    ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
+  }
+
+  int DecodeArrow(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset,
+      typename EncodingTraits<BooleanType>::DictAccumulator* builder) override {
+    ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
+  }
+
+ private:
+  std::shared_ptr<::arrow::util::RleDecoder> decoder_;
+};
+
+// ----------------------------------------------------------------------
 // DELTA_BYTE_ARRAY
 
 class DeltaByteArrayDecoder : public DecoderImpl,
@@ -2762,6 +2796,11 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
     }
     throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
+  } else if (encoding == Encoding::RLE) {
+    if (type_num == Type::BOOLEAN) {
+      return std::unique_ptr<Decoder>(new RleBooleanDecoder(descr));
+    }
+    throw ParquetException("RLE encoding only supports BOOLEAN");
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }

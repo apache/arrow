@@ -303,7 +303,12 @@ macro(resolve_dependency DEPENDENCY_NAME)
                         NO_CMAKE_ENVIRONMENT_PATH
                         QUIET)
       if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
+        message(STATUS "Using pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link"
+        )
         string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
+      else()
+        message(STATUS "pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link isn't found"
+        )
       endif()
     endforeach()
   endif()
@@ -2450,14 +2455,14 @@ if(ARROW_WITH_ZSTD)
     set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
   else()
     if(ARROW_ZSTD_USE_SHARED)
-      if(TARGET zstd::libzstd_shared)
-        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
-      endif()
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
     else()
-      if(TARGET zstd::libzstd_static)
-        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
-      endif()
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
     endif()
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
+      message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
+    endif()
+    message(STATUS "Found Zstandard: ${ARROW_ZSTD_LIBZSTD}")
   endif()
 endif()
 
@@ -4353,6 +4358,8 @@ macro(build_orc)
   set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
+  get_target_property(ORC_PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC} IMPORTED_LOCATION)
+
   get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
@@ -4381,6 +4388,7 @@ macro(build_orc)
       -DINSTALL_VENDORED_LIBS=OFF
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
+      "-DPROTOBUF_EXECUTABLE=${ORC_PROTOBUF_EXECUTABLE}"
       "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
       "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"

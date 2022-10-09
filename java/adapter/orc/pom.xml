@@ -32,7 +32,7 @@
             <scope>compile</scope>
             <classifier>${arrow.vector.classifier}</classifier>
         </dependency>
-	<dependency>
+        <dependency>
             <groupId>org.apache.orc</groupId>
             <artifactId>orc-core</artifactId>
             <version>1.7.6</version>
@@ -122,7 +122,7 @@
             <resource>
                 <directory>${arrow.cpp.build.dir}</directory>
                 <includes>
-                    <include>**/libarrow_orc_jni.*</include>
+                    <include>**/*arrow_orc_jni.*</include>
                 </includes>
             </resource>
         </resources>

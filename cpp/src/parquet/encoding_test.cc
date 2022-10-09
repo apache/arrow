@@ -54,7 +54,9 @@ namespace test {
 
 TEST(VectorBooleanTest, TestEncodeDecode) {
   // PARQUET-454
-  int nvalues = 10000;
+  const int nvalues = 10000;
+  bool decode_buffer[nvalues] = {false};
+
   int nbytes = static_cast<int>(bit_util::BytesForBits(nvalues));
 
   std::vector<bool> draws;
@@ -70,16 +72,13 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   std::shared_ptr<Buffer> encode_buffer = encoder->FlushValues();
   ASSERT_EQ(nbytes, encode_buffer->size());
 
-  std::vector<uint8_t> decode_buffer(nbytes);
-  const uint8_t* decode_data = &decode_buffer[0];
-
   decoder->SetData(nvalues, encode_buffer->data(),
                    static_cast<int>(encode_buffer->size()));
   int values_decoded = decoder->Decode(&decode_buffer[0], nvalues);
   ASSERT_EQ(nvalues, values_decoded);
 
   for (int i = 0; i < nvalues; ++i) {
-    ASSERT_EQ(draws[i], ::arrow::bit_util::GetBit(decode_data, i)) << i;
+    ASSERT_EQ(draws[i], decode_buffer[i]);
   }
 }
 

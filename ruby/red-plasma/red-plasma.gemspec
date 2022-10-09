@@ -33,7 +33,12 @@ Gem::Specification.new do |spec|
   spec.email = ["dev@arrow.apache.org"]
 
   spec.summary = "Red Plasma is the Ruby bindings of Plasma"
-  spec.description = "Plasma is an in-memory object store and cache for big data."
+  deprecated_message =
+    "red-plasma is deprecated since 10.0.0. " +
+    "red-plasma will not be released from Apache Arrow 12.0.0 or so."
+  spec.description =
+    "Plasma is an in-memory object store and cache for big data. " +
+    deprecated_message
   spec.license = "Apache-2.0"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
@@ -46,4 +51,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency("bundler")
   spec.add_development_dependency("rake")
   spec.add_development_dependency("test-unit")
+
+  spec.post_install_message = deprecated_message
 end

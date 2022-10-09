@@ -273,7 +273,7 @@ endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
   # ARROW-4848: Static Parquet lib needs to import static symbols on Windows
-  target_compile_definitions(parquet_static PUBLIC ARROW_STATIC)
+  target_compile_definitions(parquet_static PUBLIC PARQUET_STATIC)
 endif()
 
 add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${Thrift_VERSION_MAJOR})

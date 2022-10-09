@@ -476,8 +476,8 @@ class TeeNode : public compute::MapNode {
   TeeNode(compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
           std::unique_ptr<internal::DatasetWriter> dataset_writer,
-          FileSystemDatasetWriteOptions write_options, bool async_mode)
-      : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
+          FileSystemDatasetWriteOptions write_options)
+      : MapNode(plan, std::move(inputs), std::move(output_schema)),
         dataset_writer_(std::move(dataset_writer)),
         write_options_(std::move(write_options)) {
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> serial_throttle =
@@ -503,8 +503,8 @@ class TeeNode : public compute::MapNode {
         internal::DatasetWriter::Make(write_options, plan->async_scheduler()));
 
     return plan->EmplaceNode<TeeNode>(plan, std::move(inputs), std::move(schema),
-                                      std::move(dataset_writer), std::move(write_options),
-                                      /*async_mode=*/true);
+                                      std::move(dataset_writer),
+                                      std::move(write_options));
   }
 
   const char* kind_name() const override { return "TeeNode"; }

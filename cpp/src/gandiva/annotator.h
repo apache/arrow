@@ -54,13 +54,13 @@ class GANDIVA_EXPORT Annotator {
   /// Return a pointer to the underlying array containing the holder pointers
   /// This should only be called after expr decomposition when all the holder
   /// pointers are added
-  void** GetHolderPointersArray() { return holder_pointers_.data(); }
+  const void* const* GetHolderPointersArray() const { return holder_pointers_.data(); }
 
   /// Prepare an eval batch for the incoming record batch.
   EvalBatchPtr PrepareEvalBatch(const arrow::RecordBatch& record_batch,
-                                const ArrayDataVector& out_vector);
+                                const ArrayDataVector& out_vector) const;
 
-  int buffer_count() { return buffer_count_; }
+  int buffer_count() const { return buffer_count_; }
 
  private:
   /// Annotate a field and return the descriptor.
@@ -70,7 +70,7 @@ class GANDIVA_EXPORT Annotator {
   /// contents are represent by the annotated descriptor 'desc'.
   void PrepareBuffersForField(const FieldDescriptor& desc,
                               const arrow::ArrayData& array_data, EvalBatch* eval_batch,
-                              bool is_output);
+                              bool is_output) const;
 
   /// The list of input/output buffers (includes bitmap buffers, value buffers and
   /// offset buffers).

@@ -15,33 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG repo
-ARG arch=amd64
-ARG python=3.8
-FROM ${repo}:${arch}-conda-python-${python}
+# distutils: language = c++
+# cython: language_level = 3
 
-# install kartothek dependencies from conda-forge
-RUN mamba install -c conda-forge -q -y \
-        attrs \
-        click \
-        cloudpickle \
-        dask \
-        decorator \
-        deprecation \
-        freezegun \
-        msgpack-python \
-        prompt-toolkit \
-        pytest-mock \
-        pytest-xdist \
-        pyyaml \
-        simplejson \
-        simplekv \
-        storefact \
-        toolz \
-        urlquote \
-        zstandard && \
-    mamba clean --all
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport CStatus
 
-ARG kartothek=latest
-COPY ci/scripts/install_kartothek.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_kartothek.sh ${kartothek} /kartothek
+
+ctypedef CStatus cb_test_func()
+
+cdef extern from "arrow/python/python_test.h" namespace "arrow::py::testing" nogil:
+
+    cdef cppclass CTestCase "arrow::py::testing::TestCase":
+        c_string name
+        cb_test_func func
+
+    vector[CTestCase] GetCppTestCases()

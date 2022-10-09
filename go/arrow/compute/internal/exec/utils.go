@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
@@ -29,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/float16"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/exp/constraints"
+	"golang.org/x/exp/slices"
 )
 
 // IntTypes is a type constraint for raw values represented as signed
@@ -87,6 +89,14 @@ type TemporalTypes interface {
 	arrow.Date32 | arrow.Date64 | arrow.Time32 | arrow.Time64 |
 		arrow.Timestamp | arrow.Duration | arrow.DayTimeInterval |
 		arrow.MonthInterval | arrow.MonthDayNanoInterval
+}
+
+func GetValues[T FixedWidthTypes](data arrow.ArrayData, i int) []T {
+	if data.Buffers()[i] == nil || data.Buffers()[i].Len() == 0 {
+		return nil
+	}
+	ret := unsafe.Slice((*T)(unsafe.Pointer(&data.Buffers()[i].Bytes()[0])), data.Offset()+data.Len())
+	return ret[data.Offset():]
 }
 
 // GetSpanValues returns a properly typed slice bye reinterpreting
@@ -228,4 +238,48 @@ func RechunkArraysConsistently(groups [][]arrow.Array) [][]arrow.Array {
 		start += int64(chunkLength)
 	}
 	return rechunked
+}
+
+type ChunkResolver struct {
+	offsets []int64
+	cached  int64
+}
+
+func NewChunkResolver(chunks []arrow.Array) *ChunkResolver {
+	offsets := make([]int64, len(chunks)+1)
+	var offset int64
+	for i, c := range chunks {
+		curOffset := offset
+		offset += int64(c.Len())
+		offsets[i] = curOffset
+	}
+	offsets[len(chunks)] = offset
+	return &ChunkResolver{offsets: offsets}
+}
+
+func (c *ChunkResolver) Resolve(idx int64) (chunk, index int64) {
+	// some algorithms consecutively access indexes that are a
+	// relatively small distance from each other, falling into
+	// the same chunk.
+	// This is trivial when merging (assuming each side of the
+	// merge uses its own resolver), but also in the inner
+	// recursive invocations of partitioning.
+	if len(c.offsets) <= 1 {
+		return 0, idx
+	}
+
+	cached := atomic.LoadInt64(&c.cached)
+	cacheHit := idx >= c.offsets[cached] && idx < c.offsets[cached+1]
+	if cacheHit {
+		return cached, idx - c.offsets[cached]
+	}
+
+	chkIdx, found := slices.BinarySearch(c.offsets, idx)
+	if !found {
+		chkIdx--
+	}
+
+	chunk, index = int64(chkIdx), idx-c.offsets[chkIdx]
+	atomic.StoreInt64(&c.cached, chunk)
+	return
 }

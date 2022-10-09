@@ -322,6 +322,6 @@ split_vector_as_list <- function(vec) {
   list(vec1, vec2)
 }
 
-expect_across_equal <- function(actual, expected, tbl) {
-  expect_identical(expand_across(tbl, actual), as.list(expected))
+expect_across_equal <- function(across_expr, expected, tbl) {
+  expect_identical(expand_across(as_adq(tbl), across_expr), as.list(expected))
 }

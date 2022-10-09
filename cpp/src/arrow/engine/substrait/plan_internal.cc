@@ -88,6 +88,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 }
 
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
+                                             const ConversionOptions& conversion_options,
                                              const ExtensionIdRegistry* registry) {
   if (registry == NULLPTR) {
     registry = default_extension_id_registry();
@@ -128,7 +129,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
   }
 
   return ExtensionSet::Make(std::move(uris), std::move(type_ids), std::move(function_ids),
-                            registry);
+                            conversion_options, registry);
 }
 
 Result<std::unique_ptr<substrait::Plan>> PlanToProto(

@@ -129,8 +129,21 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   auto buffer = reinterpret_cast<arrow::ResizableBuffer*>(data_ptr);
   int32_t offset = static_cast<int32_t>(buffer->size());
 
-  // This also sets the size in the buffer.
-  auto status = buffer->Resize(offset + entry_len, false /*shrink*/);
+  auto new_size = offset + entry_len;
+  // preallocation, double the size to amortize costs
+  if (buffer->capacity() < new_size) {
+    auto status =
+        buffer->Reserve(std::max(buffer->capacity() * 2, static_cast<int64_t>(new_size)));
+    if (!status.ok()) {
+      auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+
+      context->set_error_msg(status.message().c_str());
+      return -1;
+    }
+  }
+
+  // This only sets the size in the buffer due to preallocation.
+  auto status = buffer->Resize(new_size, false /*shrink*/);
   if (!status.ok()) {
     gandiva::ExecutionContext* context =
         reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
