@@ -357,6 +357,17 @@ std::shared_ptr<Array> TransferZeroCopy(RecordReader* reader,
   return ::arrow::MakeArray(data);
 }
 
+std::shared_ptr<Array> TransferBinaryZeroCopy(RecordReader* reader,
+                                        const std::shared_ptr<DataType>& type) {
+  std::vector<std::shared_ptr<Buffer>> buffers = {reader->ReleaseIsValid(),
+                                                  reader->ReleaseOffsets(),
+                                                  reader->ReleaseValues()};
+  auto data = std::make_shared<::arrow::ArrayData>(type, reader->values_written(),
+                                                   buffers, reader->null_count());
+  // std::cout << "::arrow::MakeArray(data)->ToString():" << ::arrow::MakeArray(data)->ToString() << std::endl;
+  return ::arrow::MakeArray(data);
+}
+
 Status TransferBool(RecordReader* reader, bool nullable, MemoryPool* pool, Datum* out) {
   int64_t length = reader->values_written();
 
@@ -765,13 +776,17 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
     case ::arrow::Type::DATE64:
       RETURN_NOT_OK(TransferDate64(reader, pool, value_field, &result));
       break;
-    case ::arrow::Type::FIXED_SIZE_BINARY:
+    case ::arrow::Type::FIXED_SIZE_BINARY: {
+      RETURN_NOT_OK(TransferBinary(reader, pool, value_field, &chunked_result));
+      result = chunked_result;
+    } break;
     case ::arrow::Type::BINARY:
     case ::arrow::Type::STRING:
     case ::arrow::Type::LARGE_BINARY:
     case ::arrow::Type::LARGE_STRING: {
-      RETURN_NOT_OK(TransferBinary(reader, pool, value_field, &chunked_result));
-      result = chunked_result;
+      result = TransferBinaryZeroCopy(reader, value_field->type());
+      // RETURN_NOT_OK(TransferBinary(reader, pool, value_field, &chunked_result));
+      // result = chunked_result;
     } break;
     case ::arrow::Type::DECIMAL128: {
       switch (descr->physical_type()) {

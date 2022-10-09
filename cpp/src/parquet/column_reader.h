@@ -55,6 +55,8 @@ static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
 // 16 KB is the default expected page header size
 static constexpr uint32_t kDefaultPageHeaderSize = 16 * 1024;
 
+static constexpr int32_t kDefaultBinaryPerRowSzie = 20;
+
 class PARQUET_EXPORT LevelDecoder {
  public:
   LevelDecoder();
@@ -283,6 +285,8 @@ class RecordReader {
   /// \brief Pre-allocate space for data. Results in better flat read performance
   virtual void Reserve(int64_t num_values) = 0;
 
+  virtual void ReserveValues(int64_t capacity) {}
+
   /// \brief Clear consumed values and repetition/definition levels as the
   /// result of calling ReadRecords
   virtual void Reset() = 0;
@@ -290,6 +294,10 @@ class RecordReader {
   /// \brief Transfer filled values buffer to caller. A new one will be
   /// allocated in subsequent ReadRecords calls
   virtual std::shared_ptr<ResizableBuffer> ReleaseValues() = 0;
+
+  virtual std::shared_ptr<ResizableBuffer> ReleaseOffsets() {
+    return nullptr;
+  }
 
   /// \brief Transfer filled validity bitmap buffer to caller. A new one will
   /// be allocated in subsequent ReadRecords calls
@@ -351,6 +359,9 @@ class RecordReader {
   int64_t levels_written_;
   int64_t levels_position_;
   int64_t levels_capacity_;
+
+  bool hasCal_average_len_ = false;
+  int64_t binary_per_row_length_ = kDefaultBinaryPerRowSzie;
 
   std::shared_ptr<::arrow::ResizableBuffer> values_;
   // In the case of false, don't allocate the values buffer (when we directly read into
