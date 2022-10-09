@@ -670,8 +670,7 @@ public class RoundtripTest {
         ArrowArray consumerArrowArray = ArrowArray.allocateNew(allocator)) {
       try (
           VectorSchemaRoot vsr = createTestVSR();
-          Table table = new Table(vsr);
-      ) {
+          Table table = new Table(vsr)) {
         // Producer creates structures from existing memory pointers
         try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
             ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {

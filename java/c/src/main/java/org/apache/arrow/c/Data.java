@@ -167,7 +167,7 @@ public final class Data {
   public static void exportTable(BufferAllocator allocator, Table table,
                                  DictionaryProvider provider, ArrowArray out, ArrowSchema outSchema) {
     try (VectorSchemaRoot root = table.toVectorSchemaRoot()) {
-    exportVectorSchemaRoot(allocator, root, provider, out, outSchema);
+      exportVectorSchemaRoot(allocator, root, provider, out, outSchema);
     }
   }
 
