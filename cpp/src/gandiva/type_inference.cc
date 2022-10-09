@@ -175,6 +175,8 @@ Status MakeLiteralNode(const DataTypePtr& type, T value, NodePtr* node) {
   return Status::OK();
 }
 
+#undef MAKE_LITERAL
+
 /// Bottom up propagation of types. Visit children first then infer type of self
 class BottomUpTypeInferenceVisitor : public NodeVisitor {
  public:
