@@ -133,11 +133,12 @@ TEST_F(TestParser, TestInfixFunction) {
 
   status_ = parser_.Parse("-2147483648u64", &expr_);
   EXPECT_FALSE(status_.ok());
-  EXPECT_EQ(
-      status_.message(),
-      "No valid signature compatible with pattern untyped negative(uint64)\nAll "
-      "available signatures:\nfloat negative(float)\ndouble negative(double)\nint32 "
-      "negative(int32)\nint64 negative(int64)\n");
+  EXPECT_EQ(status_.message(),
+            "No valid signature compatible with pattern untyped negative(uint64)\nAll "
+            "available signatures:\nfloat negative(float)\ndouble "
+            "negative(double)\nint32 negative(int32)\nint64 "
+            "negative(int64)\n\n/home/jinshang/arrow/cpp/src/gandiva/"
+            "type_inference.cc:589  input->Accept(bottom_up_visitor)");
 
   status_ = parser_.Parse("-0.123", &expr_);
   EXPECT_TRUE(status_.ok());

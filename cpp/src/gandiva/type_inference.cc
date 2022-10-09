@@ -175,6 +175,7 @@ Status MakeLiteralNode(const DataTypePtr& type, T value, NodePtr* node) {
   return Status::OK();
 }
 
+/// Bottom up propagation of types. Visit children first then infer type of self
 class BottomUpTypeInferenceVisitor : public NodeVisitor {
  public:
   Status Visit(const FieldNode& node) override;
@@ -218,18 +219,11 @@ Status BottomUpTypeInferenceVisitor::Visit(const FieldNode& node) {
   return Status::OK();
 }
 
-/// \brief Try to infer the type
 Status BottomUpTypeInferenceVisitor::Visit(const FunctionNode& node) {
-  // std::cout << "func visit " << node.ToString() << std::endl;
-
-  Status status;
   std::vector<NodePtr> children;
   std::vector<DataTypePtr> param_types;
   for (const auto& child : node.children()) {
-    status = child->Accept(*this);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(child->Accept(*this));
     children.emplace_back(result_);
     param_types.emplace_back(result_->return_type());
   }
@@ -262,11 +256,9 @@ Status BottomUpTypeInferenceVisitor::Visit(const FunctionNode& node) {
 
   if (compatible_signatures.size() == 1) {
     current_pattern = FunctionSignaturePattern(*compatible_signatures[0]);
-    // std::cout << "matched: " << current_pattern.ToString() << std::endl;
   } else {
     all_typed_ = false;
     current_pattern = ExtractPattern(compatible_signatures);
-    // std::cout << "extracted: " << current_pattern.ToString() << std::endl;
   }
 
   for (size_t i = 0; i < current_pattern.param_types().size(); ++i) {
@@ -275,19 +267,14 @@ Status BottomUpTypeInferenceVisitor::Visit(const FunctionNode& node) {
   result_ = std::make_shared<FunctionNode>(current_pattern.base_name(), children,
                                            current_pattern.ret_type());
 
-  // std::cout << "func result " << result_->ToString() << std::endl;
   return Status::OK();
 }
 
 Status BottomUpTypeInferenceVisitor::Visit(const IfNode& node) {
-  Status status;
   std::array<NodePtr, 3> children{node.condition(), node.then_node(), node.else_node()};
   children[0]->set_return_type(arrow::boolean());
   for (auto& child : children) {
-    status = child->Accept(*this);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(child->Accept(*this));
     child = result_;
   }
 
@@ -347,17 +334,12 @@ Status BottomUpTypeInferenceVisitor::Visit(const LiteralNode& node) {
     }
   }
 
-  Status status;
   if (node.holder().index() == 2) {  // double
-    status = MakeLiteralNode(return_type, std::get<double>(node.holder()), &result_);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(
+        MakeLiteralNode(return_type, std::get<double>(node.holder()), &result_));
   } else if (node.holder().index() == 10) {  // uint64
-    status = MakeLiteralNode(return_type, std::get<uint64_t>(node.holder()), &result_);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(
+        MakeLiteralNode(return_type, std::get<uint64_t>(node.holder()), &result_));
   } else {
     // Should be impossible to reach here
     return Status::TypeError("Impossible untyped literal holder type" +
@@ -368,15 +350,10 @@ Status BottomUpTypeInferenceVisitor::Visit(const LiteralNode& node) {
 }
 
 Status BottomUpTypeInferenceVisitor::Visit(const BooleanNode& node) {
-  // std::cout << "bool visit " << node.ToString() << std::endl;
-  Status status;
   std::vector<NodePtr> children = node.children();
   for (auto& child : children) {
     child->set_return_type(arrow::boolean());
-    status = child->Accept(*this);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(child->Accept(*this));
     child = result_;
   }
 
@@ -388,31 +365,30 @@ Status BottomUpTypeInferenceVisitor::Visit(const BooleanNode& node) {
     all_typed_ = false;
   }
 
-  // std::cout << "bool result " << result_->ToString() << std::endl;
-
   return Status::OK();
 }
 
 Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<int32_t>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<int64_t>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<float>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<double>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status BottomUpTypeInferenceVisitor::Visit(
     const InExpressionNode<gandiva::DecimalScalar128>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<std::string>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 
+/// Top down propagation of types. Infer type of self first then pass info to children
 class TopDownTypeInferenceVisitor : public NodeVisitor {
  public:
   Status Visit(const FieldNode& node) override;
@@ -448,11 +424,7 @@ Status TopDownTypeInferenceVisitor::Visit(const FieldNode& node) {
   return Status::OK();
 }
 
-/// \brief Try to infer the type
 Status TopDownTypeInferenceVisitor::Visit(const FunctionNode& node) {
-  // std::cout << "func visit " << node.ToString() << std::endl;
-
-  Status status;
   FunctionSignaturePattern current_pattern(
       node.descriptor()->name(), node.descriptor()->params(), node.return_type());
 
@@ -493,21 +465,16 @@ Status TopDownTypeInferenceVisitor::Visit(const FunctionNode& node) {
   }
 
   for (const auto& child : node.children()) {
-    status = child->Accept(*this);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(child->Accept(*this));
   }
 
   result_ = std::make_shared<FunctionNode>(current_pattern.base_name(), children,
                                            current_pattern.ret_type());
 
-  // std::cout << "func result " << result_->ToString() << std::endl;
   return Status::OK();
 }
 
 Status TopDownTypeInferenceVisitor::Visit(const IfNode& node) {
-  Status status;
   std::array<NodePtr, 3> children{node.condition(), node.then_node(), node.else_node()};
   children[0]->set_return_type(arrow::boolean());
 
@@ -537,10 +504,7 @@ Status TopDownTypeInferenceVisitor::Visit(const IfNode& node) {
   }
 
   for (auto& child : children) {
-    status = child->Accept(*this);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(child->Accept(*this));
     child = result_;
   }
 
@@ -562,17 +526,12 @@ Status TopDownTypeInferenceVisitor::Visit(const LiteralNode& node) {
     return Status::OK();
   }
 
-  Status status;
   if (node.holder().index() == 2) {  // double
-    status = MakeLiteralNode(return_type, std::get<double>(node.holder()), &result_);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(
+        MakeLiteralNode(return_type, std::get<double>(node.holder()), &result_));
   } else if (node.holder().index() == 10) {  // uint64
-    status = MakeLiteralNode(return_type, std::get<uint64_t>(node.holder()), &result_);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(
+        MakeLiteralNode(return_type, std::get<uint64_t>(node.holder()), &result_));
   } else {
     // Should be impossible to reach here
     return Status::TypeError("Impossible untyped literal holder type" +
@@ -583,15 +542,10 @@ Status TopDownTypeInferenceVisitor::Visit(const LiteralNode& node) {
 }
 
 Status TopDownTypeInferenceVisitor::Visit(const BooleanNode& node) {
-  // std::cout << "bool visit " << node.ToString() << std::endl;
-  Status status;
   std::vector<NodePtr> children = node.children();
   for (auto& child : children) {
     child->set_return_type(arrow::boolean());
-    status = child->Accept(*this);
-    if (!status.ok()) {
-      return status;
-    }
+    RETURN_NOT_OK(child->Accept(*this));
     child = result_;
   }
 
@@ -603,43 +557,37 @@ Status TopDownTypeInferenceVisitor::Visit(const BooleanNode& node) {
   }
 
   result_ = std::make_shared<BooleanNode>(node.expr_type(), children);
-  // std::cout << "bool result " << result_->ToString() << std::endl;
 
   return Status::OK();
 }
 
 Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<int32_t>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<int64_t>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<float>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<double>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status TopDownTypeInferenceVisitor::Visit(
     const InExpressionNode<gandiva::DecimalScalar128>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<std::string>& node) {
-  return Status::OK();
+  return Status::NotImplemented("InExpression in type inference is not implemented");
 }
 
 Status InferTypes(NodePtr input, SchemaPtr schema, NodePtr* result) {
-  Status status;
   BottomUpTypeInferenceVisitor bottom_up_visitor;
   TopDownTypeInferenceVisitor top_down_visitor;
   /// First pass, bottom up propagation of types
   bottom_up_visitor.set_all_typed(true);
-  status = input->Accept(bottom_up_visitor);
-  if (!status.ok()) {
-    return status;
-  }
+  RETURN_NOT_OK(input->Accept(bottom_up_visitor));
   *result = bottom_up_visitor.get_result();
-  // std::cout << "first pass: " << (*result)->ToString() << std::endl;
 
   if (bottom_up_visitor.get_all_typed()) {
     return Status::OK();
@@ -647,12 +595,8 @@ Status InferTypes(NodePtr input, SchemaPtr schema, NodePtr* result) {
 
   /// Second pass, top down propagation of types
   top_down_visitor.set_all_typed(true);
-  status = (*result)->Accept(top_down_visitor);
-  if (!status.ok()) {
-    return status;
-  }
+  RETURN_NOT_OK((*result)->Accept(top_down_visitor));
   *result = top_down_visitor.get_result();
-  // std::cout << "second pass: " << (*result)->ToString() << std::endl;
 
   if (top_down_visitor.get_all_typed()) {
     return Status::OK();
@@ -661,12 +605,8 @@ Status InferTypes(NodePtr input, SchemaPtr schema, NodePtr* result) {
   /// Third pass, bottom up propation with default literal types
   bottom_up_visitor.set_tag_default_type(true);
   bottom_up_visitor.set_all_typed(true);
-  status = (*result)->Accept(bottom_up_visitor);
-  if (!status.ok()) {
-    return status;
-  }
+  RETURN_NOT_OK((*result)->Accept(bottom_up_visitor));
   *result = bottom_up_visitor.get_result();
-  // std::cout << "third pass: " << (*result)->ToString() << std::endl;
 
   if (bottom_up_visitor.get_all_typed()) {
     return Status::OK();
@@ -674,12 +614,7 @@ Status InferTypes(NodePtr input, SchemaPtr schema, NodePtr* result) {
 
   /// Last pass, top down propagation of default literal types
   top_down_visitor.set_all_typed(true);
-  status = (*result)->Accept(top_down_visitor);
-  if (!status.ok()) {
-    return status;
-  }
-  // std::cout << "fourth pass: " << top_down_visitor.get_result()->ToString() <<
-  // std::endl;
+  RETURN_NOT_OK((*result)->Accept(top_down_visitor));
 
   *result = top_down_visitor.get_result();
   return Status::OK();
