@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/status.h>
 #include <google/protobuf/io/coded_stream.h>
 
 #include <map>
@@ -28,6 +27,7 @@
 
 #include <arrow/builder.h>
 #include <arrow/record_batch.h>
+#include <arrow/status.h>
 #include <arrow/type.h>
 #include <gandiva/configuration.h>
 #include <gandiva/decimal_scalar.h>
@@ -744,7 +744,7 @@ Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
     return Status::NotImplemented("shrink not implemented");
   }
 
-  if (ARROW_PREDICT_TRUE(new_size < capacity())) {
+  if (ARROW_PREDICT_TRUE(new_size <= capacity())) {
     // no need to expand.
     size_ = new_size;
     return Status::OK();
