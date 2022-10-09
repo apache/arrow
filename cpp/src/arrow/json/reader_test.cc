@@ -320,5 +320,193 @@ TEST(ReaderTest, FailOnInvalidEOF) {
   }
 }
 
+class StreamingReaderTest : public ::testing::TestWithParam<bool> {
+ public:
+  ParseOptions parse_options_ = ParseOptions::Defaults();
+  ReadOptions read_options_ = DefaultReadOptions();
+  io::IOContext io_context_ = io::default_io_context();
+  std::shared_ptr<io::InputStream> input_;
+  std::shared_ptr<StreamingReader> reader_;
+
+ private:
+  [[nodiscard]] ReadOptions DefaultReadOptions() const {
+    auto read_options = ReadOptions::Defaults();
+    read_options.use_threads = GetParam();
+    return read_options;
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(StreamingReaderTest, StreamingReaderTest,
+                         ::testing::Values(false, true));
+
+TEST_P(StreamingReaderTest, FailOnEmptyInput) {
+  ASSERT_OK(MakeStream("", &input_));
+  ASSERT_RAISES(
+      Invalid, StreamingReader::Make(io_context_, input_, read_options_, parse_options_));
+}
+
+TEST_P(StreamingReaderTest, FailOnParseError) {
+  std::string json = R"(
+{"n": 10000}
+{"n": "foo"})";
+
+  read_options_.block_size = 16;
+  ASSERT_OK(MakeStream(json, &input_));
+  ASSERT_OK_AND_ASSIGN(
+      reader_, StreamingReader::Make(io_context_, input_, read_options_, parse_options_));
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(reader_->ReadNext(&batch));
+  ASSERT_EQ(14, reader_->bytes_read());
+  ASSERT_RAISES(Invalid, reader_->ReadNext(&batch));
+}
+
+TEST_P(StreamingReaderTest, IgnoreLeadingEmptyBlocks) {
+  std::string json;
+  json.insert(json.end(), 32, '\n');
+  json += R"({"b": true, "s": "foo"})";
+  auto json_len = static_cast<int64_t>(json.length());
+
+  parse_options_.explicit_schema = schema({field("b", boolean()), field("s", utf8())});
+  read_options_.block_size = 24;
+  ASSERT_OK(MakeStream(json, &input_));
+  ASSERT_OK_AND_ASSIGN(
+      reader_, StreamingReader::Make(io_context_, input_, read_options_, parse_options_));
+
+  auto expected_schema = parse_options_.explicit_schema;
+  auto expected_batch =
+      RecordBatchFromJSON(expected_schema, R"([{"b": true, "s": "foo"}])");
+  std::shared_ptr<RecordBatch> actual_batch;
+
+  ASSERT_EQ(*reader_->schema(), *expected_schema);
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_TRUE(actual_batch);
+  ASSERT_EQ(json_len, reader_->bytes_read());
+  ASSERT_BATCHES_EQUAL(*actual_batch, *expected_batch);
+
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_FALSE(actual_batch);
+}
+
+TEST_P(StreamingReaderTest, ExplicitSchema) {
+  std::string json = R"({"s": "foo", "t": "2022-01-01", "b": true})";
+  auto json_len = static_cast<int64_t>(json.length());
+
+  parse_options_.explicit_schema = schema({field("s", utf8()), field("t", utf8())});
+  parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
+
+  ASSERT_OK(MakeStream(json, &input_));
+  ASSERT_OK_AND_ASSIGN(
+      reader_, StreamingReader::Make(io_context_, input_, read_options_, parse_options_));
+
+  auto expected_schema = parse_options_.explicit_schema;
+  auto expected_batch =
+      RecordBatchFromJSON(expected_schema, R"([{"s": "foo", "t": "2022-01-01"}])");
+  std::shared_ptr<RecordBatch> actual_batch;
+
+  ASSERT_EQ(*reader_->schema(), *expected_schema);
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_TRUE(actual_batch);
+  ASSERT_EQ(json_len, reader_->bytes_read());
+  ASSERT_BATCHES_EQUAL(*actual_batch, *expected_batch);
+
+  parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
+  ASSERT_OK(MakeStream(json, &input_));
+  ASSERT_RAISES(
+      Invalid, StreamingReader::Make(io_context_, input_, read_options_, parse_options_));
+}
+
+TEST_P(StreamingReaderTest, InferredSchema) {
+  std::string json = R"(
+{"a": 0, "b": "foo"       }
+{"a": 1, "c": true        }
+{"a": 2, "d": "2022-01-01"}
+)";
+
+  std::shared_ptr<Schema> expected_schema;
+  std::shared_ptr<RecordBatch> expected_batch;
+  std::shared_ptr<RecordBatch> actual_batch;
+
+  FieldVector fields = {field("a", int64()), field("b", utf8())};
+
+  parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+
+  // Schema derived from the first line
+  read_options_.block_size = 32;
+  ASSERT_OK(MakeStream(json, &input_));
+  ASSERT_OK_AND_ASSIGN(
+      reader_, StreamingReader::Make(io_context_, input_, read_options_, parse_options_));
+
+  expected_schema = schema(fields);
+  ASSERT_EQ(*reader_->schema(), *expected_schema);
+
+  expected_batch = RecordBatchFromJSON(expected_schema, R"([{"a": 0, "b": "foo"}])");
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_TRUE(actual_batch);
+  ASSERT_EQ(29, reader_->bytes_read());
+  ASSERT_BATCHES_EQUAL(*actual_batch, *expected_batch);
+
+  expected_batch = RecordBatchFromJSON(expected_schema, R"([{"a": 1, "b": null}])");
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_TRUE(actual_batch);
+  ASSERT_EQ(57, reader_->bytes_read());
+  ASSERT_BATCHES_EQUAL(*actual_batch, *expected_batch);
+
+  expected_batch = RecordBatchFromJSON(expected_schema, R"([{"a": 2, "b": null}])");
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_TRUE(actual_batch);
+  ASSERT_EQ(85, reader_->bytes_read());
+  ASSERT_BATCHES_EQUAL(*actual_batch, *expected_batch);
+
+  // Schema derived from the first 2 lines
+  read_options_.block_size = 64;
+  ASSERT_OK(MakeStream(json, &input_));
+  ASSERT_OK_AND_ASSIGN(
+      reader_, StreamingReader::Make(io_context_, input_, read_options_, parse_options_));
+
+  fields.push_back(field("c", boolean()));
+  expected_schema = schema(fields);
+  ASSERT_EQ(*reader_->schema(), *expected_schema);
+
+  expected_batch = RecordBatchFromJSON(expected_schema, R"([
+    {"a": 0, "b": "foo", "c": null},
+    {"a": 1, "b":  null, "c": true}
+  ])");
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_TRUE(actual_batch);
+  ASSERT_EQ(57, reader_->bytes_read());
+  ASSERT_BATCHES_EQUAL(*actual_batch, *expected_batch);
+
+  expected_batch = RecordBatchFromJSON(expected_schema, R"([
+    {"a": 2, "b": null, "c": null}
+  ])");
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_TRUE(actual_batch);
+  ASSERT_EQ(85, reader_->bytes_read());
+  ASSERT_BATCHES_EQUAL(*actual_batch, *expected_batch);
+
+  // Schema derived from all 3 lines
+  read_options_.block_size = 96;
+  ASSERT_OK(MakeStream(json, &input_));
+  ASSERT_OK_AND_ASSIGN(
+      reader_, StreamingReader::Make(io_context_, input_, read_options_, parse_options_));
+
+  fields.push_back(field("d", timestamp(TimeUnit::SECOND)));
+  expected_schema = schema(fields);
+  ASSERT_EQ(*reader_->schema(), *expected_schema);
+
+  expected_batch = RecordBatchFromJSON(expected_schema, R"([
+    {"a": 0, "b": "foo", "c": null, "d":  null},
+    {"a": 1, "b":  null, "c": true, "d":  null},
+    {"a": 2, "b":  null, "c": null, "d":  "2022-01-01"}
+  ])");
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_TRUE(actual_batch);
+  ASSERT_EQ(85, reader_->bytes_read());
+  ASSERT_BATCHES_EQUAL(*actual_batch, *expected_batch);
+
+  ASSERT_OK(reader_->ReadNext(&actual_batch));
+  ASSERT_FALSE(actual_batch);
+}
+
 }  // namespace json
 }  // namespace arrow

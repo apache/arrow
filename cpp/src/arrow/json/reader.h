@@ -19,25 +19,15 @@
 
 #include <memory>
 
+#include "arrow/io/interfaces.h"
 #include "arrow/json/options.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Buffer;
-class MemoryPool;
-class Table;
-class RecordBatch;
-class Array;
-class DataType;
-
-namespace io {
-class InputStream;
-}  // namespace io
-
 namespace json {
 
 /// A class that reads an entire JSON file into a Arrow Table
@@ -59,6 +49,42 @@ class ARROW_EXPORT TableReader {
 
 ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
                                                            std::shared_ptr<Buffer> json);
+
+/// \brief A class that reads a JSON file incrementally
+///
+/// JSON data is read from a stream in fixed-size blocks (configurable with
+/// `ReadOptions::block_size`). Each block is converted to a `RecordBatch`. Yielded
+/// batches have a consistent schema but may differ in row count.
+///
+/// The supplied `ParseOptions` are used to determine a schema on the first non-empty
+/// block. Afterwards, the schema is frozen and unexpected fields will be ignored on
+/// subsequent reads (unless `UnexpectedFieldBehavior::Error` was specified).
+class ARROW_EXPORT StreamingReader : public RecordBatchReader {
+ public:
+  virtual ~StreamingReader() = default;
+
+  virtual Future<std::shared_ptr<RecordBatch>> ReadNextAsync() = 0;
+
+  /// \brief Return the number of bytes which have been read and processed
+  ///
+  /// The returned number includes JSON bytes which the StreamingReader has finished
+  /// processing, but not bytes for which some processing (e.g. JSON parsing or conversion
+  /// to Arrow layout) is still ongoing.
+  [[nodiscard]] virtual int64_t bytes_read() const = 0;
+
+  /// Create a StreamingReader instance
+  ///
+  /// This involves some I/O as the first batch must be loaded during the creation process
+  /// so it is returned as a future
+  static Future<std::shared_ptr<StreamingReader>> MakeAsync(
+      io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+      ::arrow::internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&);
+
+  /// Create a StreamingReader instance
+  static Result<std::shared_ptr<StreamingReader>> Make(
+      io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+      const ReadOptions&, const ParseOptions&);
+};
 
 }  // namespace json
 }  // namespace arrow
