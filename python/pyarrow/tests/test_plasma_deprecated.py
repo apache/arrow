@@ -18,10 +18,11 @@
 import os
 import pytest
 
-import pyarrow.plasma as plasma
 
-
+@pytest.mark.plasma
 def test_plasma_deprecated():
+    import pyarrow.plasma as plasma
+
     with pytest.warns(DeprecationWarning):
         plasma_store_ctx = plasma.start_plasma_store(
             plasma_store_memory=10 ** 8,
