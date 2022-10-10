@@ -1656,8 +1656,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_nested_dictionary_case()
         .skip_category('C#')
-        .skip_category('Java')  # TODO(ARROW-7779)
-        .skip_category('JS'),
+        .skip_category('Java'),  # TODO(ARROW-7779),
 
         generate_extension_case()
         .skip_category('C#')
