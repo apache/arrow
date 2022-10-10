@@ -142,9 +142,10 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
 
 /// \brief Match run-length encoded types that encode specific plain data types
-/// @param[in] encoded_type_matcher a matcher that is applied to the encoded_type field of
-/// encoding types
+/// @param[in] run_ends_type_matcher a matcher that is applied to the run_ends field
+/// @param[in] encoded_type_matcher a matcher that is applied to the values field
 ARROW_EXPORT std::shared_ptr<TypeMatcher> RunLengthEncoded(
+    std::shared_ptr<TypeMatcher> run_ends_type_matcher,
     std::shared_ptr<TypeMatcher> encoded_type_matcher);
 
 }  // namespace match
