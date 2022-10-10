@@ -482,9 +482,17 @@ func (b *LargeStringBuilder) UnmarshalJSON(data []byte) error {
 	return b.unmarshal(dec)
 }
 
+type StringLikeBuilder interface {
+	Builder
+	Append(string)
+	ReserveData(int)
+}
+
 var (
-	_ arrow.Array = (*String)(nil)
-	_ arrow.Array = (*LargeString)(nil)
-	_ Builder     = (*StringBuilder)(nil)
-	_ Builder     = (*LargeStringBuilder)(nil)
+	_ arrow.Array       = (*String)(nil)
+	_ arrow.Array       = (*LargeString)(nil)
+	_ Builder           = (*StringBuilder)(nil)
+	_ Builder           = (*LargeStringBuilder)(nil)
+	_ StringLikeBuilder = (*StringBuilder)(nil)
+	_ StringLikeBuilder = (*LargeStringBuilder)(nil)
 )

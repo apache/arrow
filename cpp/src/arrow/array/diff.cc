@@ -23,6 +23,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -43,7 +44,6 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 #include "arrow/util/string.h"
-#include "arrow/util/string_view.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visit_type_inline.h"
 
@@ -119,7 +119,7 @@ struct ValueComparatorVisitor {
   }
 
   Status Visit(const RunLengthEncodedType&) {
-    return Status::NotImplemented("dictionary type");
+    return Status::NotImplemented("run-length encoded type");
   }
 
   ValueComparator Create(const DataType& type) {
@@ -385,6 +385,8 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
     auto target_storage = checked_cast<const ExtensionArray&>(target).storage();
     return Diff(*base_storage, *target_storage, pool);
   } else if (base.type()->id() == Type::DICTIONARY) {
+    return Status::NotImplemented("diffing arrays of type ", *base.type());
+  } else if (base.type()->id() == Type::RUN_LENGTH_ENCODED) {
     return Status::NotImplemented("diffing arrays of type ", *base.type());
   } else {
     return QuadraticSpaceMyersDiff(base, target, pool).Diff();

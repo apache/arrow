@@ -23,23 +23,34 @@ register_bindings_type <- function() {
   register_bindings_type_format()
 }
 
-register_bindings_type_cast <- function() {
-  register_binding("cast", function(x, target_type, safe = TRUE, ...) {
-    opts <- cast_options(safe, ...)
-    opts$to_type <- as_type(target_type)
-    Expression$create("cast", x, options = opts)
-  })
+#' Change the type of an array or column
+#'
+#' This is a wrapper around the `$cast()` method that many Arrow objects have.
+#' It is more convenient to call inside `dplyr` pipelines than the method.
+#'
+#' @param x an `Array`, `Table`, `Expression`, or similar Arrow data object.
+#' @param to [DataType] to cast to; for [Table] and [RecordBatch],
+#' it should be a [Schema].
+#' @param safe logical: only allow the type conversion if no data is lost
+#' (truncation, overflow, etc.). Default is `TRUE`
+#' @param ... specific `CastOptions` to set
+#' @return an `Expression`
+#'
+#' @examples
+#' \dontrun{
+#' mtcars %>%
+#'   arrow_table() %>%
+#'   mutate(cyl = cast(cyl, string()))
+#' }
+#' @keywords internal
+#' @seealso https://arrow.apache.org/docs/cpp/api/compute.html for the list of
+#' supported CastOptions.
+cast <- function(x, to, safe = TRUE, ...) {
+  x$cast(to, safe = safe, ...)
+}
 
-  register_binding("dictionary_encode", function(x,
-                                                 null_encoding_behavior = c("mask", "encode")) {
-    behavior <- toupper(match.arg(null_encoding_behavior))
-    null_encoding_behavior <- NullEncodingBehavior[[behavior]]
-    Expression$create(
-      "dictionary_encode",
-      x,
-      options = list(null_encoding_behavior = null_encoding_behavior)
-    )
-  })
+register_bindings_type_cast <- function() {
+  register_binding("arrow::cast", cast)
 
   # as.* type casting functions
   # as.factor() is mapped in expression.R

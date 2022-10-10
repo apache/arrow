@@ -303,7 +303,7 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
     fields <- type$fields()
     names <- map_chr(fields, "name")
     types <- map(fields, "type")
-    arrays <- Map(as_arrow_array, x, types)
+    arrays <- Map(as_arrow_array, x, type = types)
     names(arrays) <- names
 
     # TODO(ARROW-16266): a hack because there is no StructArray$create() yet

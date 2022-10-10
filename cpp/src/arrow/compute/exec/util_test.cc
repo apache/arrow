@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/hash_join_node.h"
 #include "arrow/compute/exec/schema_util.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 
@@ -126,6 +127,61 @@ TEST(FieldMap, TwoKeyFields) {
                            field("f32", float32()),
                            field("f64", float64()),
                        })));
+}
+
+TEST(FieldMap, ExtensionTypeSwissJoin) {
+  // For simpler types swiss join will be used.
+  HashJoinSchema schema_mgr;
+
+  auto left = schema({field("i32", int32()), field("ext", uuid())});
+  auto right = schema({field("i32", int32())});
+
+  ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"},
+                            literal(true), kLeftSuffix, kRightSuffix));
+
+  EXPECT_EQ(schema_mgr.proj_maps[0].num_cols(HashJoinProjection::INPUT), 2);
+  EXPECT_EQ(schema_mgr.proj_maps[0].num_cols(HashJoinProjection::KEY), 1);
+  EXPECT_EQ(schema_mgr.proj_maps[1].num_cols(HashJoinProjection::KEY), 1);
+  EXPECT_EQ(schema_mgr.proj_maps[0].num_cols(HashJoinProjection::OUTPUT), 2);
+
+  auto output = schema_mgr.MakeOutputSchema(kLeftSuffix, kRightSuffix);
+  EXPECT_THAT(*output, Eq(Schema({field("i32.left", int32()), field("ext", uuid()),
+                                  field("i32.right", int32())})));
+
+  auto i =
+      schema_mgr.proj_maps[0].map(HashJoinProjection::INPUT, HashJoinProjection::OUTPUT);
+  EXPECT_EQ(i.get(0), 0);
+}
+
+TEST(FieldMap, ExtensionTypeHashJoin) {
+  // Swiss join doesn't support dictionaries so HashJoin will be used.
+  HashJoinSchema schema_mgr;
+
+  auto dict_type = dictionary(int64(), int8());
+  auto left = schema({field("i32", int32()), field("ext", uuid())});
+  auto right = schema({field("i32", int32()), field("dict_type", dict_type)});
+
+  ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"},
+                            literal(true), kLeftSuffix, kRightSuffix));
+
+  EXPECT_EQ(schema_mgr.proj_maps[0].num_cols(HashJoinProjection::INPUT), 2);
+  EXPECT_EQ(schema_mgr.proj_maps[1].num_cols(HashJoinProjection::INPUT), 2);
+  EXPECT_EQ(schema_mgr.proj_maps[0].num_cols(HashJoinProjection::KEY), 1);
+  EXPECT_EQ(schema_mgr.proj_maps[1].num_cols(HashJoinProjection::KEY), 1);
+  EXPECT_EQ(schema_mgr.proj_maps[0].num_cols(HashJoinProjection::OUTPUT), 2);
+  EXPECT_EQ(schema_mgr.proj_maps[1].num_cols(HashJoinProjection::OUTPUT), 2);
+
+  auto output = schema_mgr.MakeOutputSchema(kLeftSuffix, kRightSuffix);
+  EXPECT_THAT(*output, Eq(Schema({
+                           field("i32.left", int32()),
+                           field("ext", uuid()),
+                           field("i32.right", int32()),
+                           field("dict_type", dict_type),
+                       })));
+
+  auto i =
+      schema_mgr.proj_maps[0].map(HashJoinProjection::INPUT, HashJoinProjection::OUTPUT);
+  EXPECT_EQ(i.get(0), 0);
 }
 
 }  // namespace compute

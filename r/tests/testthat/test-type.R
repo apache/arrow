@@ -293,3 +293,19 @@ test_that("type() is deprecated", {
   )
   expect_equal(a_type, a$type)
 })
+
+test_that("infer_type() infers type for lists starting with NULL - ARROW-17639", {
+  null_start_list <- list(NULL, c(2, 3), c(4, 5))
+
+  expect_equal(
+    infer_type(null_start_list),
+    list_of(float64())
+  )
+
+  totally_null_list <- list(NULL, NULL, NULL)
+
+  expect_equal(
+    infer_type(totally_null_list),
+    list_of(null())
+  )
+})

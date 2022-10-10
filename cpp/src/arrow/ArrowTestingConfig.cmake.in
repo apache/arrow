@@ -34,3 +34,5 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowTestingTargets.cmake")
 arrow_keep_backward_compatibility(ArrowTesting arrow_testing)
 
 check_required_components(ArrowTesting)
+
+arrow_show_details(ArrowTesting ARROW_TESTING)

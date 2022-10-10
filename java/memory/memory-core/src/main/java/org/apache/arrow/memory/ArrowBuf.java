@@ -74,23 +74,23 @@ public final class ArrowBuf implements AutoCloseable {
   private long writerIndex;
   private final HistoricalLog historicalLog = BaseAllocator.DEBUG ?
           new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
-  private volatile long length;
+  private volatile long capacity;
 
   /**
    * Constructs a new ArrowBuf.
    *
    * @param referenceManager The memory manager to track memory usage and reference count of this buffer
-   * @param length The  byte length of this buffer
+   * @param capacity The capacity in bytes of this buffer
    */
   public ArrowBuf(
       final ReferenceManager referenceManager,
       final BufferManager bufferManager,
-      final long length,
+      final long capacity,
       final long memoryAddress) {
     this.referenceManager = referenceManager;
     this.bufferManager = bufferManager;
     this.addr = memoryAddress;
-    this.length = length;
+    this.capacity = capacity;
     this.readerIndex = 0;
     this.writerIndex = 0;
     if (BaseAllocator.DEBUG) {
@@ -136,7 +136,7 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   public long capacity() {
-    return length;
+    return capacity;
   }
 
   /**
@@ -146,14 +146,14 @@ public final class ArrowBuf implements AutoCloseable {
    */
   public synchronized ArrowBuf capacity(long newCapacity) {
 
-    if (newCapacity == length) {
+    if (newCapacity == capacity) {
       return this;
     }
 
     Preconditions.checkArgument(newCapacity >= 0);
 
-    if (newCapacity < length) {
-      length = newCapacity;
+    if (newCapacity < capacity) {
+      capacity = newCapacity;
       return this;
     }
 
@@ -195,8 +195,8 @@ public final class ArrowBuf implements AutoCloseable {
    */
   public ArrowBuf slice(long index, long length) {
 
-    Preconditions.checkPositionIndex(index, this.length);
-    Preconditions.checkPositionIndex(index + length, this.length);
+    Preconditions.checkPositionIndex(index, this.capacity);
+    Preconditions.checkPositionIndex(index + length, this.capacity);
 
     /*
      * Re the behavior of reference counting, see http://netty.io/wiki/reference-counted-objects
@@ -235,7 +235,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   @Override
   public String toString() {
-    return String.format("ArrowBuf[%d], address:%d, length:%d", id, memoryAddress(), length);
+    return String.format("ArrowBuf[%d], address:%d, capacity:%d", id, memoryAddress(), capacity);
   }
 
   @Override

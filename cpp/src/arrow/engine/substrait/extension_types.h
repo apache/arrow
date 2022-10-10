@@ -19,14 +19,11 @@
 
 #pragma once
 
-#include <vector>
+#include <optional>
 
-#include "arrow/buffer.h"
 #include "arrow/compute/function.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/optional.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace engine {
@@ -64,11 +61,11 @@ bool UnwrapUuid(const DataType&);
 
 /// Return FixedChar length if t is FixedChar, otherwise nullopt
 ARROW_ENGINE_EXPORT
-util::optional<int32_t> UnwrapFixedChar(const DataType&);
+std::optional<int32_t> UnwrapFixedChar(const DataType&);
 
 /// Return Varchar (max) length if t is VarChar, otherwise nullopt
 ARROW_ENGINE_EXPORT
-util::optional<int32_t> UnwrapVarChar(const DataType& t);
+std::optional<int32_t> UnwrapVarChar(const DataType& t);
 
 /// Return true if t is IntervalYear, otherwise false
 ARROW_ENGINE_EXPORT

@@ -25,7 +25,7 @@ library(dplyr)
 mtcars \%>\%
   arrow_table() \%>\%
   filter(mpg > 20) \%>\%
-  mutate(x = gear/carb) \%>\%
+  mutate(x = gear / carb) \%>\%
   show_exec_plan()
 \dontshow{\}) # examplesIf}
 }

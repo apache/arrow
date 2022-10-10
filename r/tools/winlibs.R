@@ -48,7 +48,7 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
     rwinlib <- "https://github.com/rwinlib/arrow/archive/v%s.zip"
 
     dev_version <- package_version(VERSION)[1, 4]
-    
+
     # Small dev versions are added for R-only changes during CRAN submission.
     if (is.na(dev_version) || dev_version < 100) {
       VERSION <- package_version(VERSION)[1, 1:3]

@@ -18,8 +18,8 @@
 #pragma once
 
 #include <memory>
+#include <string_view>
 
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -33,8 +33,8 @@ class ARROW_EXPORT ObjectWriter {
   ObjectWriter();
   ~ObjectWriter();
 
-  void SetString(arrow::util::string_view key, arrow::util::string_view value);
-  void SetBool(arrow::util::string_view key, bool value);
+  void SetString(std::string_view key, std::string_view value);
+  void SetBool(std::string_view key, bool value);
 
   std::string Serialize();
 

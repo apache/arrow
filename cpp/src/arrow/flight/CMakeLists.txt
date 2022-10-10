@@ -184,10 +184,13 @@ set(ARROW_FLIGHT_SRCS
     "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
     client.cc
     client_cookie_middleware.cc
+    client_tracing_middleware.cc
     cookie_internal.cc
+    middleware.cc
     serialization_internal.cc
     server.cc
     server_auth.cc
+    server_tracing_middleware.cc
     transport.cc
     transport_server.cc
     # Bundle the gRPC impl with libarrow_flight

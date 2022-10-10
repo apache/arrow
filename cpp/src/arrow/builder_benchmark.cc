@@ -21,6 +21,7 @@
 #include <numeric>
 #include <random>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "benchmark/benchmark.h"
@@ -30,7 +31,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -55,7 +55,7 @@ constexpr int64_t kBytesProcessPerRound = kNumberOfElements * sizeof(ValueType);
 constexpr int64_t kBytesProcessed = kRounds * kBytesProcessPerRound;
 
 static const char* kBinaryString = "12345678";
-static arrow::util::string_view kBinaryView(kBinaryString);
+static std::string_view kBinaryView(kBinaryString);
 
 static void BuildIntArrayNoNulls(benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {

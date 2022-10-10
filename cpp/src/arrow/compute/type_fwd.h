@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 struct Datum;
@@ -40,11 +42,16 @@ struct VectorKernel;
 
 struct KernelState;
 
+struct Declaration;
 class Expression;
 class ExecNode;
 class ExecPlan;
 class ExecNodeOptions;
 class ExecFactoryRegistry;
+
+class SinkNodeConsumer;
+
+ARROW_EXPORT ExecContext* default_exec_context();
 
 }  // namespace compute
 }  // namespace arrow

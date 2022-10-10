@@ -37,6 +37,7 @@ RUN apt-get update -y -q && \
         ccache \
         clang-${llvm} \
         cmake \
+        curl \
         g++ \
         gcc \
         gdb \
@@ -78,6 +79,9 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 ENV absl_SOURCE=BUNDLED \
     ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
@@ -102,6 +106,7 @@ ENV absl_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
+    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED \

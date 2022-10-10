@@ -114,6 +114,9 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
 
+  define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available),;\
+takes precedence over ccache if a storage backend is configured" ON)
+
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
 
   define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
@@ -236,8 +239,6 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
 
-  define_option(ARROW_SUBSTRAIT "Build the Arrow Substrait Consumer Module" OFF)
-
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
   define_option(ARROW_FLIGHT
@@ -266,8 +267,6 @@ if(ARROW_DEFINE_OPTIONS)
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
   endif()
 
-  define_option(ARROW_JNI "Build the Arrow JNI lib" OFF)
-
   define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" OFF)
 
   define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
@@ -278,13 +277,13 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
 
-  define_option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
-
   define_option(ARROW_PYTHON "Build the Arrow CPython extensions" OFF)
 
   define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
 
   define_option(ARROW_SKYHOOK "Build the Skyhook libraries" OFF)
+
+  define_option(ARROW_SUBSTRAIT "Build the Arrow Substrait Consumer Module" OFF)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
@@ -466,8 +465,6 @@ Always OFF if building binaries" OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")
-
-  define_option(ARROW_GANDIVA_JAVA "Build the Gandiva JNI wrappers" OFF)
 
   # ARROW-3860: Temporary workaround
   define_option(ARROW_GANDIVA_STATIC_LIBSTDCPP
