@@ -214,7 +214,7 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
   }
   for (size_t i = 0; i < segment_keys.size(); ++i) {
     auto name = std::string("key_") + std::to_string(i);
-    scan_fields[arguments.size() + i] = field(name, segment_keys[i].type());
+    scan_fields[arguments.size() + keys.size() + i] = field(name, segment_keys[i].type());
     segment_key_names[i] = std::move(name);
   }
 

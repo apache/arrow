@@ -226,7 +226,11 @@ struct SimpleKeyGroupingSegmenter : public StatelessGroupingSegmenter {
       return GetNextSegment(*array->type, GetValuesAsBytes(*array), offset, batch.length);
     }
     if (value.is_chunked_array()) {
-      return GetNextSegmentChunked(value.chunked_array(), offset);
+      auto array = value.chunked_array();
+      if (array->null_count() > 0) {
+        return Status::NotImplemented("segmenting a nullable array");
+      }
+      return GetNextSegmentChunked(array, offset);
     }
     return Status::Invalid("segmenting unsupported value kind ", value.kind());
   }
@@ -261,11 +265,11 @@ struct AnyKeysGroupingSegmenter : public StatelessGroupingSegmenter {
         if (values[0] != values[cursor]) break;
       }
       return MakeSegment(batch.length, offset, std::min(cursor, batch.length - offset));
-    }
-    if (datum.is_chunked_array()) {
+    } else if (datum.is_chunked_array()) {
       return GetNextSegmentChunked(datum.chunked_array(), offset);
+    } else {
+      return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
     }
-    return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
   }
 
   Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
@@ -284,11 +288,11 @@ struct AnyKeysGroupingSegmenter : public StatelessGroupingSegmenter {
 
 Status CheckForConsume(const ExecSpan& batch, int64_t& consume_offset,
                        int64_t& consume_length) {
-  if (consume_length < 0) {
-    consume_length = batch.length - consume_offset;
-  }
   if (consume_offset < 0) {
     return Status::Invalid("invalid grouper consume offset: ", consume_offset);
+  }
+  if (consume_length < 0) {
+    consume_length = batch.length - consume_offset;
   }
   return Status::OK();
 }
@@ -324,6 +328,10 @@ struct BaseGrouper : public Grouper {
 
   bool HasConsistentChunks(const ExecBatch& batch, int index_of_chunk) {
     auto first_chunked_array = batch.values[index_of_chunk].chunked_array();
+    if (first_chunked_array < 0) {
+      // having no chunks is considered consistent
+      return true;
+    }
     int num_chunks = first_chunked_array->num_chunks();
     int64_t length = first_chunked_array->length();
     for (const auto& value : batch.values) {

@@ -48,15 +48,18 @@ class ARROW_EXPORT GroupingSegmenter {
  public:
   virtual ~GroupingSegmenter() = default;
 
-  /// Construct a GroupingSegmenter which receives the specified key types
+  /// \brief Construct a GroupingSegmenter which receives the specified key types
   static Result<std::unique_ptr<GroupingSegmenter>> Make(
       std::vector<TypeHolder> key_types, ExecContext* ctx = default_exec_context());
 
+  /// \brief Reset this grouping segmenter
   virtual Status Reset() = 0;
 
+  /// \brief Get the next segment for the given batch starting from the given offset
   virtual Result<GroupingSegment> GetNextSegment(const ExecSpan& batch,
                                                  int64_t offset) = 0;
 
+  /// \brief Get the next segment for the given batch starting from the given offset
   virtual Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
                                                  int64_t offset) = 0;
 };
