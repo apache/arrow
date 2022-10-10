@@ -44,6 +44,7 @@ namespace {
 class TestRunLengthEncodedArray
     : public ::testing::TestWithParam<std::shared_ptr<DataType>> {
  protected:
+  std::shared_ptr<DataType> run_ends_type;
   std::shared_ptr<Array> string_values;
   std::shared_ptr<Array> int32_values;
   std::shared_ptr<Array> int16_values;
@@ -51,8 +52,7 @@ class TestRunLengthEncodedArray
   std::shared_ptr<Array> size_only_null;
 
   virtual void SetUp() override {
-    std::shared_ptr<DataType> run_ends_type = GetParam();
-
+    run_ends_type = GetParam();
     string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
     int32_values = ArrayFromJSON(int32(), "[10, 20, 30]");
     int16_values = ArrayFromJSON(int16(), "[10, 20, 30]");
@@ -132,9 +132,9 @@ TEST(RunLengthEncodedArray, OffsetLength) {
   ASSERT_EQ(slice4->GetPhysicalOffset(), 0);
 }
 
-TEST(RunLengthEncodedArray, Printing) {
+TEST_P(TestRunLengthEncodedArray, Printing) {
   ASSERT_OK_AND_ASSIGN(auto int_array,
-                       RunLengthEncodedArray::Make(int32_values, int32_values, 30));
+                       RunLengthEncodedArray::Make(size_values, int32_values, 30));
   std::stringstream ss;
   ASSERT_OK(PrettyPrint(*int_array, {}, &ss));
   ASSERT_EQ(ss.str(),
@@ -153,7 +153,7 @@ TEST(RunLengthEncodedArray, Printing) {
             "  ]");
 
   ASSERT_OK_AND_ASSIGN(auto string_array,
-                       RunLengthEncodedArray::Make(int32_values, string_values, 30));
+                       RunLengthEncodedArray::Make(size_values, string_values, 30));
   ss = {};
   ASSERT_OK(PrettyPrint(*string_array, {}, &ss));
   ASSERT_EQ(ss.str(),
@@ -190,7 +190,7 @@ TEST(RunLengthEncodedArray, Printing) {
             "  ]");
 
   ASSERT_OK_AND_ASSIGN(auto empty_array,
-                       RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[]"),
+                       RunLengthEncodedArray::Make(ArrayFromJSON(run_ends_type, "[]"),
                                                    ArrayFromJSON(binary(), "[]"), 0));
 
   ss = {};
