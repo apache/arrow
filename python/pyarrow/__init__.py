@@ -353,8 +353,8 @@ def _plasma_store_entry_point():
        Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.
     """
     warnings.warn(
-            "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
-            DeprecationWarning)
+        "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
+        DeprecationWarning)
 
     import pyarrow
     plasma_store_executable = _os.path.join(pyarrow.__path__[0],

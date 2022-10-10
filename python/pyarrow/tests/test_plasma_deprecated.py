@@ -16,11 +16,10 @@
 # under the License.
 
 import os
-import numpy as np
 import pytest
 
-import pyarrow as pa
 import pyarrow.plasma as plasma
+
 
 def test_plasma_deprecated():
     with pytest.warns(DeprecationWarning):
