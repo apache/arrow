@@ -395,9 +395,9 @@ class DictDecoder : virtual public TypedDecoder<DType> {
 // TypedEncoder specializations, traits, and factory functions
 
 class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
-public:
-    using TypedDecoder<BooleanType>::Decode;
-    virtual int Decode(uint8_t* buffer, int max_values) = 0;
+ public:
+  using TypedDecoder<BooleanType>::Decode;
+  virtual int Decode(uint8_t* buffer, int max_values) = 0;
 };
 
 class FLBADecoder : virtual public TypedDecoder<FLBAType> {

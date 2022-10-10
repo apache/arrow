@@ -1208,13 +1208,13 @@ int PlainBooleanDecoder::Decode(uint8_t* buffer, int max_values) {
   bool val;
   ::arrow::internal::BitmapWriter bit_writer(buffer, 0, max_values);
   for (int i = 0; i < max_values; ++i) {
-      if (!bit_reader_->GetValue(1, &val)) {
-          ParquetException::EofException();
-      }
-      if (val) {
-          bit_writer.Set();
-      }
-      bit_writer.Next();
+    if (!bit_reader_->GetValue(1, &val)) {
+      ParquetException::EofException();
+    }
+    if (val) {
+      bit_writer.Set();
+    }
+    bit_writer.Next();
   }
   bit_writer.Finish();
   num_values_ -= max_values;

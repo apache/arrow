@@ -92,11 +92,11 @@ TEST(VectorBooleanTest, TestEncodeIntDecode) {
   ::arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
 
   std::unique_ptr<BooleanEncoder> encoder =
-          MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
+      MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
   encoder->Put(draws, nvalues);
 
   std::unique_ptr<BooleanDecoder> decoder =
-          MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+      MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
 
   std::shared_ptr<Buffer> encode_buffer = encoder->FlushValues();
   ASSERT_EQ(nbytes, encode_buffer->size());
@@ -105,7 +105,7 @@ TEST(VectorBooleanTest, TestEncodeIntDecode) {
   const uint8_t* decode_data = &decode_buffer[0];
 
   decoder->SetData(nvalues, encode_buffer->data(),
-  static_cast<int>(encode_buffer->size()));
+                   static_cast<int>(encode_buffer->size()));
   int values_decoded = decoder->Decode(&decode_buffer[0], nvalues);
   ASSERT_EQ(nvalues, values_decoded);
 
