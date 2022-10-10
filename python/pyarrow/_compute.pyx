@@ -2236,9 +2236,8 @@ cdef class Expression(_Weakrefable):
             if not isinstance(argument, Expression):
                 # Attempt to help convert this to an expression
                 try:
-                    import pyarrow.compute as pc
-                    argument = pc.scalar(argument)
-                except (ImportError, ArrowInvalid):
+                    argument = Expression._scalar(argument)
+                except ArrowInvalid:
                     raise TypeError(
                         "only other expressions allowed as arguments")
             c_arguments.push_back((<Expression> argument).expr)
