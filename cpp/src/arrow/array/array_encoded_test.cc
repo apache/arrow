@@ -383,9 +383,9 @@ TEST_P(TestRunLengthEncodedArray, Compare) {
   ASSERT_ARRAYS_EQUAL(*different_offsets_b->Slice(83, 7), *different_offsets_c);
 }
 
-TEST(RunLengthEncodedArray, Printing) {
+TEST_P(TestRunLengthEncodedArray, Printing) {
   ASSERT_OK_AND_ASSIGN(auto int_array,
-                       RunLengthEncodedArray::Make(int32_values, int32_values, 30));
+                       RunLengthEncodedArray::Make(size_values, int32_values, 30));
   std::stringstream ss;
   ASSERT_OK(PrettyPrint(*int_array, {}, &ss));
   ASSERT_EQ(ss.str(),
@@ -404,7 +404,7 @@ TEST(RunLengthEncodedArray, Printing) {
             "  ]");
 
   ASSERT_OK_AND_ASSIGN(auto string_array,
-                       RunLengthEncodedArray::Make(int32_values, string_values, 30));
+                       RunLengthEncodedArray::Make(size_values, string_values, 30));
   ss = {};
   ASSERT_OK(PrettyPrint(*string_array, {}, &ss));
   ASSERT_EQ(ss.str(),
@@ -441,7 +441,7 @@ TEST(RunLengthEncodedArray, Printing) {
             "  ]");
 
   ASSERT_OK_AND_ASSIGN(auto empty_array,
-                       RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[]"),
+                       RunLengthEncodedArray::Make(ArrayFromJSON(run_ends_type, "[]"),
                                                    ArrayFromJSON(binary(), "[]"), 0));
 
   ss = {};
