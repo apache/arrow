@@ -95,12 +95,20 @@ void EncodeDecodeCommonExec<BooleanType, false>::WriteValue(Element element) {
                      element.value);
 }
 
-template <typename ArrowType, bool has_validity_buffer>
+struct RunLengthEncodeState : public KernelState {
+  RunLengthEncodeState(std::shared_ptr<DataType> run_ends_type)
+      : run_ends_type{run_ends_type} {}
+
+  std::shared_ptr<DataType> run_ends_type;
+};
+
+template <typename ArrowType, typename RunEndsType, bool has_validity_buffer>
 struct RunLengthEncodeExec
     : public EncodeDecodeCommonExec<ArrowType, has_validity_buffer> {
   using EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::EncodeDecodeCommonExec;
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::CType;
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
+  using RunEndsCType = typename RunEndsType::c_type;
 
   Status Exec() {
     ArrayData* output_array_data = this->exec_result->array_data().get();
@@ -113,15 +121,17 @@ struct RunLengthEncodeExec
       output_array_data->buffers = {NULLPTR};
       output_array_data->child_data.resize(2);
       output_array_data->child_data[0] =
-          ArrayData::Make(int32(),
+          ArrayData::Make(std::make_shared<RunEndsType>(),
                           /*length =*/0,
                           /*buffers =*/{NULLPTR, run_ends_buffer},
                           /*null_count =*/0);
       output_array_data->child_data[1] = this->input_array.ToArrayData();
       return Status::OK();
     }
-    if (this->input_array.length > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("Cannot run-length encode Arrays larger than 2^31 elements");
+    if (this->input_array.length > std::numeric_limits<RunEndsCType>::max()) {
+      return Status::Invalid(
+          "Cannot run-length encode Arrays with more elements than the run ends type can "
+          "hold");
     }
     this->input_validity = this->input_array.buffers[0].data;
     this->input_values = this->input_array.buffers[1].data;
@@ -165,28 +175,26 @@ struct RunLengthEncodeExec
                           AllocateBuffer(bit_util::BytesForBits(num_values_output *
                                                                 ArrowType().bit_width()),
                                          this->kernel_context->memory_pool()));
-    ARROW_ASSIGN_OR_RAISE(auto run_lengths_buffer,
-                          AllocateBuffer(num_values_output * sizeof(int32_t),
+    ARROW_ASSIGN_OR_RAISE(auto run_ends_buffer,
+                          AllocateBuffer(num_values_output * sizeof(RunEndsCType),
                                          this->kernel_context->memory_pool()));
 
     output_array_data->length = this->input_array.length;
     output_array_data->offset = 0;
     output_array_data->buffers = {NULLPTR};
-    auto values_array_data =
-        ArrayData::Make(this->input_array.type->GetSharedPtr(), num_values_output);
-    auto run_ends_array_data = ArrayData::Make(int32(), num_values_output);
-    values_array_data->buffers.push_back(std::move(validity_buffer));
-    values_array_data->buffers.push_back(std::move(values_buffer));
-    run_ends_array_data->buffers.push_back(NULLPTR);
-    run_ends_array_data->buffers.push_back(std::move(run_lengths_buffer));
-
     output_array_data->null_count.store(0);
-    values_array_data->null_count = output_null_count;
+    auto values_array_data = ArrayData::Make(
+        this->input_array.type->GetSharedPtr(), num_values_output,
+        {std::move(validity_buffer), std::move(values_buffer)}, output_null_count);
+    auto run_ends_array_data =
+        ArrayData::Make(std::make_shared<RunEndsType>(), num_values_output,
+                        {NULLPTR, std::move(run_ends_buffer)}, 0);
 
     // set mutable pointers for output; `WriteValue` uses member `output_` variables
     this->output_validity = values_array_data->template GetMutableValues<uint8_t>(0);
     this->output_values = values_array_data->template GetMutableValues<uint8_t>(1);
-    auto output_run_ends = run_ends_array_data->template GetMutableValues<int32_t>(1);
+    auto output_run_ends =
+        run_ends_array_data->template GetMutableValues<RunEndsCType>(1);
 
     output_array_data->child_data.resize(2);
     output_array_data->child_data[1] = std::move(values_array_data);
@@ -221,14 +229,30 @@ struct RunLengthEncodeExec
   }
 };
 
-template <typename Type>
+template <typename ValuesType, typename RunEndsType>
+static Status RunLengthEncodeValidiyGenerate(KernelContext* ctx, const ExecSpan& span,
+                                             ExecResult* result) {
+  bool has_validity_buffer = span.values[0].array.MayHaveNulls();
+  if (has_validity_buffer) {
+    return RunLengthEncodeExec<ValuesType, RunEndsType, true>(ctx, span, result).Exec();
+  } else {
+    return RunLengthEncodeExec<ValuesType, RunEndsType, false>(ctx, span, result).Exec();
+  }
+}
+
+template <typename ValuesType>
 struct RunLengthEncodeGenerator {
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    bool has_validity_buffer = span.values[0].array.MayHaveNulls();
-    if (has_validity_buffer) {
-      return RunLengthEncodeExec<Type, true>(ctx, span, result).Exec();
-    } else {
-      return RunLengthEncodeExec<Type, false>(ctx, span, result).Exec();
+    auto state = checked_cast<const RunLengthEncodeState*>(ctx->state());
+    switch (state->run_ends_type->id()) {
+      case Type::INT16:
+        return RunLengthEncodeValidiyGenerate<ValuesType, Int16Type>(ctx, span, result);
+      case Type::INT32:
+        return RunLengthEncodeValidiyGenerate<ValuesType, Int32Type>(ctx, span, result);
+      case Type::INT64:
+        return RunLengthEncodeValidiyGenerate<ValuesType, Int64Type>(ctx, span, result);
+      default:
+        return Status::Invalid("Invalid run ends type: ", *state->run_ends_type);
     }
   }
 };
@@ -241,12 +265,19 @@ struct RunLengthEncodeGenerator<NullType> {
   }
 };
 
-template <typename ArrowType, bool has_validity_buffer>
+Result<std::unique_ptr<KernelState>> RunLengthEncodeInit(KernelContext*,
+                                                         const KernelInitArgs& args) {
+  auto options = checked_cast<const RunLengthEncodeOptions*>(args.options);
+  return std::make_unique<RunLengthEncodeState>(options->run_ends_type);
+}
+
+template <typename ArrowType, typename RunEndsType, bool has_validity_buffer>
 struct RunLengthDecodeExec
     : public EncodeDecodeCommonExec<ArrowType, has_validity_buffer> {
   using EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::EncodeDecodeCommonExec;
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::CType;
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
+  using RunEndsCType = typename RunEndsType::c_type;
 
   Status Exec() {
     ArrayData* output_array_data = this->exec_result->array_data().get();
@@ -287,12 +318,12 @@ struct RunLengthDecodeExec
 
     this->write_offset = 0;
     int64_t output_null_count = 0;
-    for (auto it = rle_util::MergedRunsIterator<1>(this->input_array);
-         it != rle_util::MergedRunsIterator<1>(); it++) {
-      this->read_offset = it.index_into_buffer(0);
+    for (auto it = rle_util::MergedRunsIterator<RunEndsCType>(this->input_array);
+         it != rle_util::MergedRunsIterator(); it++) {
+      this->read_offset = it.template index_into_buffer<0>();
       Element element = this->ReadValue();
       if (element.valid) {
-        for (int32_t run_element = 0; run_element < it.run_length(); run_element++) {
+        for (int64_t run_element = 0; run_element < it.run_length(); run_element++) {
           this->WriteValue(element);
           this->write_offset++;
         }
@@ -308,17 +339,34 @@ struct RunLengthDecodeExec
     return Status::OK();
   }
 
-  const int32_t* input_accumulated_run_length;
+  const RunEndsCType* input_accumulated_run_length;
 };
 
-template <typename Type>
+template <typename ValuesType, typename RunEndsType>
+static Status RunLengthDecodeValidiyGenerate(KernelContext* ctx, const ExecSpan& span,
+                                             ExecResult* result) {
+  bool has_validity_buffer = rle_util::ValuesArray(span.values[0].array).MayHaveNulls();
+  if (has_validity_buffer) {
+    return RunLengthDecodeExec<ValuesType, RunEndsType, true>(ctx, span, result).Exec();
+  } else {
+    return RunLengthDecodeExec<ValuesType, RunEndsType, false>(ctx, span, result).Exec();
+  }
+}
+
+template <typename ValuesType>
 struct RunLengthDecodeGenerator {
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    bool has_validity_buffer = rle_util::ValuesArray(span.values[0].array).MayHaveNulls();
-    if (has_validity_buffer) {
-      return RunLengthDecodeExec<Type, true>(ctx, span, result).Exec();
-    } else {
-      return RunLengthDecodeExec<Type, false>(ctx, span, result).Exec();
+    auto& run_ends_type =
+        checked_cast<const RunLengthEncodedType&>(*span.GetTypes()[0]).run_ends_type();
+    switch (run_ends_type->id()) {
+      case Type::INT16:
+        return RunLengthDecodeValidiyGenerate<ValuesType, Int16Type>(ctx, span, result);
+      case Type::INT32:
+        return RunLengthDecodeValidiyGenerate<ValuesType, Int32Type>(ctx, span, result);
+      case Type::INT64:
+        return RunLengthDecodeValidiyGenerate<ValuesType, Int64Type>(ctx, span, result);
+      default:
+        return Status::Invalid("Invalid run ends type: ", *run_ends_type);
     }
   }
 };
@@ -334,11 +382,17 @@ struct RunLengthDecodeGenerator<NullType> {
 static const FunctionDoc run_length_encode_doc(
     "Run-length encode array",
     ("Return a run-length-encoded version of the input array."), {"array"},
-    "RunLengthEncodeOptions");
+    "RunLengthEncodeOptions", true);
 static const FunctionDoc run_length_decode_doc(
     "Decode run-length encoded array",
-    ("Return a decoded version of a run-length-encoded input array."), {"array"},
-    "RunLengthDecodeOptions");
+    ("Return a decoded version of a run-length-encoded input array."), {"array"});
+
+static Result<TypeHolder> VectorRunLengthEncodeResolver(
+    KernelContext* ctx, const std::vector<TypeHolder>& inputTypes) {
+  auto state = checked_cast<const RunLengthEncodeState*>(ctx->state());
+  return TypeHolder(std::make_shared<RunLengthEncodedType>(state->run_ends_type,
+                                                           inputTypes[0].GetSharedPtr()));
+}
 
 void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_length_encode", Arity::Unary(),
@@ -346,17 +400,17 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
 
   for (const auto& ty : NumericTypes()) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
-    auto sig = KernelSignature::Make(
-        {InputType(ty)}, OutputType(std::make_shared<RunLengthEncodedType>(ty)));
-    VectorKernel kernel(sig, exec);
+    auto sig =
+        KernelSignature::Make({InputType(ty)}, OutputType(VectorRunLengthEncodeResolver));
+    VectorKernel kernel(sig, exec, RunLengthEncodeInit);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
   {
     const auto ty = boolean();
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
-    auto sig = KernelSignature::Make(
-        {InputType(ty)}, OutputType(std::make_shared<RunLengthEncodedType>(ty)));
-    VectorKernel kernel(sig, exec);
+    auto sig =
+        KernelSignature::Make({InputType(ty)}, OutputType(VectorRunLengthEncodeResolver));
+    VectorKernel kernel(sig, exec, RunLengthEncodeInit);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
 
@@ -367,20 +421,22 @@ void RegisterVectorRunLengthDecode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_length_decode", Arity::Unary(),
                                                    run_length_decode_doc);
 
-  for (const auto& ty : NumericTypes()) {
-    auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
-    auto input_type = std::make_shared<RunLengthEncodedType>(ty);
-    auto sig = KernelSignature::Make({InputType(input_type)}, OutputType({ty}));
-    VectorKernel kernel(sig, exec);
-    DCHECK_OK(function->AddKernel(std::move(kernel)));
-  }
-  {
-    const auto ty = boolean();
-    auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
-    auto input_type = std::make_shared<RunLengthEncodedType>(ty);
-    auto sig = KernelSignature::Make({InputType(input_type)}, OutputType(ty));
-    VectorKernel kernel(sig, exec);
-    DCHECK_OK(function->AddKernel(std::move(kernel)));
+  for (const auto& run_ends_type : {int16(), int32(), int64()}) {
+    for (const auto& ty : NumericTypes()) {
+      auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
+      auto input_type = std::make_shared<RunLengthEncodedType>(run_ends_type, ty);
+      auto sig = KernelSignature::Make({InputType(input_type)}, OutputType({ty}));
+      VectorKernel kernel(sig, exec);
+      DCHECK_OK(function->AddKernel(std::move(kernel)));
+    }
+    {
+      const auto ty = boolean();
+      auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
+      auto input_type = std::make_shared<RunLengthEncodedType>(run_ends_type, ty);
+      auto sig = KernelSignature::Make({InputType(input_type)}, OutputType(ty));
+      VectorKernel kernel(sig, exec);
+      DCHECK_OK(function->AddKernel(std::move(kernel)));
+    }
   }
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
