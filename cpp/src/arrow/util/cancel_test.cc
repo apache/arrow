@@ -29,6 +29,8 @@
 #include <signal.h>
 #ifndef _WIN32
 #include <sys/time.h>  // for setitimer()
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 
 #include "arrow/testing/gtest_util.h"
@@ -237,6 +239,28 @@ TEST_F(SignalCancelTest, RegisterUnregister) {
   TriggerSignal();
   AssertStopRequested();
 }
+
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
+TEST_F(SignalCancelTest, ForkSafety) {
+  RegisterHandler();
+
+  auto child_pid = fork();
+  if (child_pid == 0) {
+    // Child: trigger signal
+    TriggerSignal();
+    // Stop source destruction should neither crash not affect parent
+    std::exit(0);
+  } else {
+    // Parent: shouldn't notice signal raised in child
+    AssertChildExit(child_pid);
+    AssertStopNotRequested();
+
+    // Stop source still usable in parent
+    TriggerSignal();
+    AssertStopRequested();
+  }
+}
+#endif
 
 TEST_F(CancelTest, ThreadedPollSuccess) {
   constexpr int kNumThreads = 10;

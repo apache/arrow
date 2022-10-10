@@ -192,11 +192,15 @@ struct SignalStopState {
     stop_source_ = NullSource();
   }
 
-  static const std::shared_ptr<SignalStopState>& instance() {
+  static SignalStopState* instance(bool signal_safe = false) {
     static auto instance = std::make_shared<SignalStopState>();
 #ifndef _WIN32
     if (instance->InForkedChild()) {
       // In child process
+      if (signal_safe) {
+        return nullptr;
+      }
+      // Not called from a signal => can reinitialize
       auto lock = arrow::util::GlobalForkSafeMutex()->Lock();
       if (instance->pid_.load() != getpid()) {
         bool thread_was_launched{instance->signal_receiving_thread_};
@@ -208,7 +212,7 @@ struct SignalStopState {
       }
     }
 #endif
-    return instance;
+    return instance.get();
   }
 
  private:
@@ -219,7 +223,12 @@ struct SignalStopState {
     signal_receiving_thread_ = std::make_unique<std::thread>(ReceiveSignals, self_pipe_);
   }
 
-  static void HandleSignal(int signum) { instance()->DoHandleSignal(signum); }
+  static void HandleSignal(int signum) {
+    auto self = instance(/*signal_safe=*/true);
+    if (self) {
+      self->DoHandleSignal(signum);
+    }
+  }
 
   void DoHandleSignal(int signum) {
     // async-signal-safe code only

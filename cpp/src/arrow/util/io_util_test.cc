@@ -30,6 +30,7 @@
 
 #ifndef _WIN32
 #include <pthread.h>
+#include <sys/types.h>
 #include <unistd.h>
 #endif
 
@@ -445,6 +446,33 @@ TEST_F(TestSelfPipe, SendFromSignalAndWait) {
   ASSERT_THAT(ReadPayloads(), testing::UnorderedElementsAre(123, 456, 789));
   ASSERT_OK(ReadStatus());
 }
+
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
+TEST_F(TestSelfPipe, ForkSafety) {
+  // Self-pipe isn't usable from child, but should neither crash at exit
+  // nor disrupt parent
+  self_pipe_->Send(123456789123456789ULL);
+
+  auto child_pid = fork();
+  if (child_pid == 0) {
+    // Child: pipe is unusable
+    self_pipe_->Send(41ULL);
+    self_pipe_->Send(42ULL);
+    ASSERT_RAISES(Invalid, self_pipe_->Wait());
+    self_pipe_.reset();
+    std::exit(0);
+  } else {
+    // Parent: pipe is still usable, data is read correctly
+    AssertChildExit(child_pid);
+    StartReading();
+    SleepABit();
+    self_pipe_->Send(987654321987654321ULL);
+
+    AssertPayloadsEventually({123456789123456789ULL, 987654321987654321ULL});
+    ASSERT_OK(ReadStatus());
+  }
+}
+#endif
 
 TEST(PlatformFilename, RoundtripAscii) {
   PlatformFilename fn;
