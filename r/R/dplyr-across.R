@@ -84,14 +84,6 @@ combine_if <- function(lhs, rhs, op, envir) {
   new_quosure(expr, envir)
 }
 
-if_any <- function(.cols = everything(), .fns = NULL, ..., .names = NULL) {
-
-}
-
-if_all <- function(.cols = everything(), .fns = NULL, ..., .names = NULL) {
-
-}
-
 # given a named list of functions and column names, create a list of new quosures
 quosures_from_setup <- function(setup, quo_env) {
   if (!is.null(setup$fns)) {
