@@ -67,6 +67,7 @@ set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
 mamba create -n arrow -q -y -c conda-forge ^
   --file=ci\conda_env_python.txt ^
   %CONDA_PACKAGES%  ^
+  "ccache" ^
   "cmake" ^
   "ninja" ^
   "nomkl" ^
