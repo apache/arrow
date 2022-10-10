@@ -18,6 +18,7 @@
 FROM centos:centos7
 
 RUN yum install -y \
+        curl \
         diffutils \
         gcc-c++ \
         libcurl-devel \
@@ -31,8 +32,12 @@ ARG cmake=3.23.1
 RUN mkdir /opt/cmake-${cmake}
 RUN wget -nv -O - https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz | \
     tar -xzf -  --strip-components=1 -C /opt/cmake-${cmake}
-ENV PATH=/opt/cmake-${cmake}/bin:$PATH
-ENV CC=/usr/bin/gcc
-ENV CXX=/usr/bin/g++
-ENV EXTRA_CMAKE_FLAGS="-DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX"
-ENV ARROW_R_DEV=TRUE
+    
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN bash /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
+ENV PATH=/opt/cmake-${cmake}/bin:$PATH \
+    CC=/usr/bin/gcc \
+    CXX=/usr/bin/g++ \
+    EXTRA_CMAKE_FLAGS="-DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX" \
+    ARROW_R_DEV=TRUE \

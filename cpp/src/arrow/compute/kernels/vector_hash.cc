@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstring>
+#include <memory>
 #include <mutex>
 
 #include "arrow/array/array_base.h"
@@ -29,7 +30,6 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -517,15 +517,15 @@ struct HashKernelTraits<Type, Action, enable_if_has_c_type<Type>> {
 
 template <typename Type, typename Action>
 struct HashKernelTraits<Type, Action, enable_if_has_string_view<Type>> {
-  using HashKernel = RegularHashKernel<Type, util::string_view, Action>;
+  using HashKernel = RegularHashKernel<Type, std::string_view, Action>;
 };
 
 template <typename Type, typename Action>
 Result<std::unique_ptr<HashKernel>> HashInitImpl(KernelContext* ctx,
                                                  const KernelInitArgs& args) {
   using HashKernelType = typename HashKernelTraits<Type, Action>::HashKernel;
-  auto result = ::arrow::internal::make_unique<HashKernelType>(
-      args.inputs[0].GetSharedPtr(), args.options, ctx->memory_pool());
+  auto result = std::make_unique<HashKernelType>(args.inputs[0].GetSharedPtr(),
+                                                 args.options, ctx->memory_pool());
   RETURN_NOT_OK(result->Reset());
   return std::move(result);
 }
@@ -614,8 +614,8 @@ Result<std::unique_ptr<KernelState>> DictionaryHashInit(KernelContext* ctx,
       break;
   }
   RETURN_NOT_OK(indices_hasher);
-  return ::arrow::internal::make_unique<DictionaryHashKernel>(
-      std::move(indices_hasher.ValueOrDie()), dict_type.value_type());
+  return std::make_unique<DictionaryHashKernel>(std::move(indices_hasher.ValueOrDie()),
+                                                dict_type.value_type());
 }
 
 Status HashExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {

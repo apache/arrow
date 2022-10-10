@@ -58,7 +58,7 @@ struct CopyDataUtils<FixedSizeBinaryType> {
     if (!scalar.is_valid) {
       std::memset(begin, 0x00, width * length);
     } else {
-      const util::string_view buffer = scalar.view();
+      const std::string_view buffer = scalar.view();
       DCHECK_GE(buffer.size(), static_cast<size_t>(width));
       for (int i = 0; i < length; i++) {
         std::memcpy(begin, buffer.data(), width);

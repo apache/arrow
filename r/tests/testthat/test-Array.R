@@ -531,7 +531,6 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   type <- struct(x = float64(), y = int16())
   a <- Array$create(df, type = type)
   expect_type_equal(a$type, type)
-
   type <- struct(x = float64(), y = int16(), z = int32())
   expect_error(
     Array$create(df, type = type),
@@ -1030,6 +1029,14 @@ test_that("as_arrow_array() default method calls Array$create()", {
   )
 })
 
+test_that("as_arrow_array respects `type` argument (ARROW-17620)", {
+  df <- tibble::tibble(x = 1:10, y = 1:10)
+  type <- struct(x = float64(), y = int16())
+  a <- Array$create(df, type = type)
+
+  expect_type_equal(a, as_arrow_array(df, type = type))
+})
+
 test_that("as_arrow_array() works for Array", {
   array <- Array$create(logical(), type = null())
   expect_identical(as_arrow_array(array), array)
@@ -1115,7 +1122,7 @@ test_that("as_arrow_array() works for nested extension types", {
   nested_plain <- tibble::tibble(x = 1:5)
   extension_array <- vctrs_extension_array(nested_plain)
   expect_equal(
-    as_arrow_array(nested, type = extension_array$type),
+    as_arrow_array(nested_plain, type = extension_array$type),
     extension_array
   )
 })
@@ -1144,7 +1151,7 @@ test_that("Array$create() calls as_arrow_array() for nested extension types", {
   nested_plain <- tibble::tibble(x = 1:5)
   extension_array <- vctrs_extension_array(nested_plain)
   expect_equal(
-    Array$create(nested, type = extension_array$type),
+    Array$create(nested_plain, type = extension_array$type),
     extension_array
   )
 })

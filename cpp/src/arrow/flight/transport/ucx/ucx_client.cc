@@ -33,6 +33,7 @@
 
 #include <condition_variable>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -46,7 +47,6 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -581,7 +581,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
       ARROW_ASSIGN_OR_RAISE(auto incoming_message, driver->ReadNextFrame());
       if (incoming_message->type == FrameType::kBuffer) {
         ARROW_ASSIGN_OR_RAISE(
-            *info, FlightInfo::Deserialize(util::string_view(*incoming_message->buffer)));
+            *info, FlightInfo::Deserialize(std::string_view(*incoming_message->buffer)));
         ARROW_ASSIGN_OR_RAISE(incoming_message, driver->ReadNextFrame());
       }
       RETURN_NOT_OK(driver->ExpectFrameType(*incoming_message, FrameType::kHeaders));
@@ -602,8 +602,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
 
     auto status = driver->StartCall(kMethodDoExchange);
     if (ARROW_PREDICT_TRUE(status.ok())) {
-      *out =
-          arrow::internal::make_unique<ExchangeClientStream>(this, std::move(connection));
+      *out = std::make_unique<ExchangeClientStream>(this, std::move(connection));
       return Status::OK();
     }
     return MergeStatuses(std::move(status), ReturnConnection(std::move(connection)));
@@ -620,8 +619,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
       RETURN_NOT_OK(driver->SendFrame(FrameType::kBuffer,
                                       reinterpret_cast<const uint8_t*>(payload.data()),
                                       static_cast<int64_t>(payload.size())));
-      *stream =
-          arrow::internal::make_unique<GetClientStream>(this, std::move(connection));
+      *stream = std::make_unique<GetClientStream>(this, std::move(connection));
       return Status::OK();
     };
 
@@ -637,7 +635,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
 
     auto status = driver->StartCall(kMethodDoPut);
     if (ARROW_PREDICT_TRUE(status.ok())) {
-      *out = arrow::internal::make_unique<PutClientStream>(this, std::move(connection));
+      *out = std::make_unique<PutClientStream>(this, std::move(connection));
       return Status::OK();
     }
     return MergeStatuses(std::move(status), ReturnConnection(std::move(connection)));
@@ -720,7 +718,7 @@ Status UcxClientStream::DoFinish() {
 }  // namespace
 
 std::unique_ptr<arrow::flight::internal::ClientTransport> MakeUcxClientImpl() {
-  return arrow::internal::make_unique<UcxClientImpl>();
+  return std::make_unique<UcxClientImpl>();
 }
 
 }  // namespace ucx

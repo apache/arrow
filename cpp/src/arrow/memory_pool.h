@@ -19,9 +19,11 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
@@ -174,6 +176,37 @@ ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
 /// performance.
 ARROW_EXPORT
 Status jemalloc_set_decay_ms(int ms);
+
+/// \brief Get basic statistics from jemalloc's mallctl.
+/// See the MALLCTL NAMESPACE section in jemalloc project documentation for
+/// available stats.
+ARROW_EXPORT
+Result<int64_t> jemalloc_get_stat(const char* name);
+
+/// \brief Reset the counter for peak bytes allocated in the calling thread to zero.
+/// This affects subsequent calls to thread.peak.read, but not the values returned by
+/// thread.allocated or thread.deallocated.
+ARROW_EXPORT
+Status jemalloc_peak_reset();
+
+/// \brief Print summary statistics in human-readable form to stderr.
+/// See malloc_stats_print documentation in jemalloc project documentation for
+/// available opt flags.
+ARROW_EXPORT
+Status jemalloc_stats_print(const char* opts = "");
+
+/// \brief Print summary statistics in human-readable form using a callback
+/// See malloc_stats_print documentation in jemalloc project documentation for
+/// available opt flags.
+ARROW_EXPORT
+Status jemalloc_stats_print(std::function<void(const char*)> write_cb,
+                            const char* opts = "");
+
+/// \brief Get summary statistics in human-readable form.
+/// See malloc_stats_print documentation in jemalloc project documentation for
+/// available opt flags.
+ARROW_EXPORT
+Result<std::string> jemalloc_stats_string(const char* opts = "");
 
 /// \brief Return a process-wide memory pool based on mimalloc.
 ///

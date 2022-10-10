@@ -38,20 +38,36 @@ pushd ${source_dir}
 
 ${mvn} test
 
-if [ "${ARROW_JNI}" = "ON" ]; then
-  ${mvn} test -Parrow-jni -pl adapter/orc,gandiva,dataset -Darrow.cpp.build.dir=${java_jni_dist_dir}
+projects=()
+if [ "${ARROW_DATASET}" = "ON" ]; then
+  projects+=(gandiva)
+fi
+if [ "${ARROW_GANDIVA}" = "ON" ]; then
+  projects+=(gandiva)
+fi
+if [ "${ARROW_ORC}" = "ON" ]; then
+  projects+=(adapter/orc)
+fi
+if [ "${ARROW_PLASMA}" = "ON" ]; then
+  projects+=(plasma)
+fi
+if [ "${#projects[@]}" -gt 0 ]; then
+  ${mvn} test \
+         -Parrow-jni \
+         -pl $(IFS=,; echo "${projects[*]}") \
+         -Darrow.cpp.build.dir=${java_jni_dist_dir}
+
+  if [ "${ARROW_PLASMA}" = "ON" ]; then
+    pushd ${source_dir}/plasma
+    java -cp target/test-classes:target/classes \
+         -Djava.library.path=${java_jni_dist_dir} \
+         org.apache.arrow.plasma.PlasmaClientTest
+    popd
+  fi
 fi
 
 if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
   ${mvn} test -Parrow-c-data -pl c -Darrow.c.jni.dist.dir=${java_jni_dist_dir}
-fi
-
-if [ "${ARROW_PLASMA}" = "ON" ]; then
-  pushd ${source_dir}/plasma
-  java -cp target/test-classes:target/classes \
-       -Djava.library.path=${java_jni_dist_dir} \
-       org.apache.arrow.plasma.PlasmaClientTest
-  popd
 fi
 
 popd

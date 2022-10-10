@@ -98,6 +98,7 @@ RecordBatchReader <- R6Class("RecordBatchReader",
     read_next_batch = function() RecordBatchReader__ReadNext(self),
     batches = function() RecordBatchReader__batches(self),
     read_table = function() Table__from_RecordBatchReader(self),
+    Close = function() RecordBatchReader__Close(self),
     export_to_c = function(stream_ptr) ExportRecordBatchReader(self, stream_ptr),
     ToString = function() self$schema$ToString()
   ),

@@ -46,3 +46,5 @@ include("${CMAKE_CURRENT_LIST_DIR}/PlasmaTargets.cmake")
 arrow_keep_backward_compatibility(Plasma plasma)
 
 check_required_components(Plasma)
+
+arrow_show_details(Plasma PLASMA)

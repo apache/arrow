@@ -38,6 +38,9 @@ RUN mamba install -q -y \
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=CONDA \

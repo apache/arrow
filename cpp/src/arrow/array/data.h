@@ -167,6 +167,11 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
+  bool IsNull(int64_t i) const {
+    return ((buffers[0] != NULLPTR) ? !bit_util::GetBit(buffers[0]->data(), i + offset)
+                                    : null_count.load() == length);
+  }
+
   // Access a buffer's data as a typed C pointer
   template <typename T>
   inline const T* GetValues(int i, int64_t absolute_offset) const {
@@ -324,17 +329,13 @@ struct ARROW_EXPORT ArraySpan {
     return GetValues<T>(i, this->offset);
   }
 
-  bool IsNull(int64_t i) const {
-    return ((this->buffers[0].data != NULLPTR)
-                ? !bit_util::GetBit(this->buffers[0].data, i + this->offset)
-                : this->null_count == this->length);
-  }
-
-  bool IsValid(int64_t i) const {
+  inline bool IsValid(int64_t i) const {
     return ((this->buffers[0].data != NULLPTR)
                 ? bit_util::GetBit(this->buffers[0].data, i + this->offset)
                 : this->null_count != this->length);
   }
+
+  inline bool IsNull(int64_t i) const { return !IsValid(i); }
 
   std::shared_ptr<ArrayData> ToArrayData() const;
 

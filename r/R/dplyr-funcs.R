@@ -59,13 +59,17 @@ NULL
 #'   summarise) because the data mask has to be a list.
 #' @param registry An environment in which the functions should be
 #'   assigned.
-#'
+#' @param notes string for the docs: note any limitations or differences in
+#'   behavior between the Arrow version and the R function.
 #' @return The previously registered binding or `NULL` if no previously
 #'   registered function existed.
 #' @keywords internal
 #'
-register_binding <- function(fun_name, fun, registry = nse_funcs,
-                             update_cache = FALSE) {
+register_binding <- function(fun_name,
+                             fun,
+                             registry = nse_funcs,
+                             update_cache = FALSE,
+                             notes = character(0)) {
   unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
   previous_fun <- registry[[unqualified_name]]
@@ -76,7 +80,8 @@ register_binding <- function(fun_name, fun, registry = nse_funcs,
       paste0(
         "A \"",
         unqualified_name,
-        "\" binding already exists in the registry and will be overwritten.")
+        "\" binding already exists in the registry and will be overwritten."
+      )
     )
   }
 
@@ -84,6 +89,8 @@ register_binding <- function(fun_name, fun, registry = nse_funcs,
   # unqualified_name and fun_name will be the same if not prefixed
   registry[[unqualified_name]] <- fun
   registry[[fun_name]] <- fun
+
+  .cache$docs[[fun_name]] <- notes
 
   if (update_cache) {
     fun_cache <- .cache$functions
@@ -131,7 +138,7 @@ call_binding_agg <- function(fun_name, ...) {
 
 # Called in .onLoad()
 create_binding_cache <- function() {
-  arrow_funcs <- list()
+  .cache$docs <- list()
 
   # Register all available Arrow Compute functions, namespaced as arrow_fun.
   all_arrow_funs <- list_compute_functions()

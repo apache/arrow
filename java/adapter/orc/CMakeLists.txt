@@ -15,22 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#
-# arrow_orc_java
-#
+find_package(Arrow REQUIRED)
 
-# Headers: top level
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${JNI_INCLUDE_DIRS} ${JNI_HEADERS_DIR})
 
-project(arrow_orc_java)
-
-# Find java/jni
-include(FindJava)
-include(UseJava)
-include(FindJNI)
-
-message("generating headers to ${JNI_HEADERS_DIR}")
-
-add_jar(arrow_orc_java
+add_jar(arrow_java_jni_orc_jar
         src/main/java/org/apache/arrow/adapter/orc/OrcReaderJniWrapper.java
         src/main/java/org/apache/arrow/adapter/orc/OrcStripeReaderJniWrapper.java
         src/main/java/org/apache/arrow/adapter/orc/OrcMemoryJniWrapper.java
@@ -38,6 +28,13 @@ add_jar(arrow_orc_java
         src/main/java/org/apache/arrow/adapter/orc/OrcRecordBatch.java
         src/main/java/org/apache/arrow/adapter/orc/OrcFieldNode.java
         GENERATE_NATIVE_HEADERS
-        arrow_orc_java-native
+        arrow_java_jni_orc_headers
         DESTINATION
         ${JNI_HEADERS_DIR})
+
+add_library(arrow_java_jni_orc SHARED src/main/cpp/jni_wrapper.cpp)
+set_property(TARGET arrow_java_jni_orc PROPERTY OUTPUT_NAME "arrow_orc_jni")
+target_link_libraries(arrow_java_jni_orc arrow_java_jni_orc_headers jni
+                      Arrow::arrow_static)
+
+install(TARGETS arrow_java_jni_orc DESTINATION ${CMAKE_INSTALL_LIBDIR})

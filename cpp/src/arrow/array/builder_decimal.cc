@@ -52,7 +52,7 @@ void Decimal128Builder::UnsafeAppend(Decimal128 value) {
   UnsafeAppendToBitmap(true);
 }
 
-void Decimal128Builder::UnsafeAppend(util::string_view value) {
+void Decimal128Builder::UnsafeAppend(std::string_view value) {
   FixedSizeBinaryBuilder::UnsafeAppend(value);
 }
 
@@ -87,7 +87,7 @@ void Decimal256Builder::UnsafeAppend(const Decimal256& value) {
   UnsafeAppendToBitmap(true);
 }
 
-void Decimal256Builder::UnsafeAppend(util::string_view value) {
+void Decimal256Builder::UnsafeAppend(std::string_view value) {
   FixedSizeBinaryBuilder::UnsafeAppend(value);
 }
 
