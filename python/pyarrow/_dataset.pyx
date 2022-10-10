@@ -504,8 +504,8 @@ cdef class FilteredDataset(Dataset):
         if requested_filter is not None and current_filter is not None:
             new_options["filter"] = current_filter & requested_filter
         elif current_filter is not None:
-            new_options["filter"] = current_filter 
-        
+            new_options["filter"] = current_filter
+
         return new_options
 
 cdef class InMemoryDataset(Dataset):
@@ -2456,12 +2456,15 @@ cdef class Scanner(_Weakrefable):
 
         # Need to explicitly expand the arguments as Cython doesn't support
         # keyword expansion in cdef functions.
-        _populate_builder(builder, 
-                          columns=py_scanoptions.get("columns"), 
+        _populate_builder(builder,
+                          columns=py_scanoptions.get("columns"),
                           filter=py_scanoptions.get("filter"),
-                          batch_size=py_scanoptions.get("batch_size", _DEFAULT_BATCH_SIZE),
-                          batch_readahead=py_scanoptions.get("batch_readahead", _DEFAULT_BATCH_READAHEAD),
-                          fragment_readahead=py_scanoptions.get("fragment_readahead", _DEFAULT_FRAGMENT_READAHEAD),
+                          batch_size=py_scanoptions.get(
+                              "batch_size", _DEFAULT_BATCH_SIZE),
+                          batch_readahead=py_scanoptions.get(
+                              "batch_readahead", _DEFAULT_BATCH_READAHEAD),
+                          fragment_readahead=py_scanoptions.get(
+                              "fragment_readahead", _DEFAULT_FRAGMENT_READAHEAD),
                           use_threads=py_scanoptions.get("use_threads", True),
                           memory_pool=py_scanoptions.get("memory_pool"),
                           fragment_scan_options=py_scanoptions.get("fragment_scan_options"))
@@ -2538,10 +2541,10 @@ cdef class Scanner(_Weakrefable):
         """
         cdef:
             shared_ptr[CScanOptions] options = Scanner._make_scan_options(dataset, dict(columns=columns, filter=filter,
-                          batch_size=batch_size, batch_readahead=batch_readahead,
-                          fragment_readahead=fragment_readahead, use_threads=use_threads,
-                          memory_pool=memory_pool,
-                          fragment_scan_options=fragment_scan_options))
+                                                                                        batch_size=batch_size, batch_readahead=batch_readahead,
+                                                                                        fragment_readahead=fragment_readahead, use_threads=use_threads,
+                                                                                        memory_pool=memory_pool,
+                                                                                        fragment_scan_options=fragment_scan_options))
             shared_ptr[CScannerBuilder] builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
             shared_ptr[CScanner] scanner
 
