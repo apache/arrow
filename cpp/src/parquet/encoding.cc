@@ -2080,15 +2080,13 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         first_value_(0),
         current_value_(0),
         sink_(pool),
-        bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity * 2)),
+        bits_buffer_(AllocateBuffer(pool, (4 + values_per_block_) * sizeof(T))),
         bit_writer_(bits_buffer_->mutable_data(), static_cast<int>(bits_buffer_->size())),
         deltas_(std::vector<T>(values_per_block_)) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
-  int64_t EstimatedDataEncodedSize() override {
-    return 4 * sizeof(uint64_t) + sink_.length();
-  }
+  int64_t EstimatedDataEncodedSize() override { return 4 * sizeof(T) + sink_.length(); }
 
   using TypedEncoder<DType>::Put;
 
@@ -2105,7 +2103,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   const uint32_t values_per_mini_block_;
   uint32_t values_current_block_;
   uint32_t total_value_count_;
-  int64_t first_value_;
+  T first_value_;
   T current_value_;
   ::arrow::BufferBuilder sink_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
@@ -2122,14 +2120,13 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
     return;
   }
 
-  int32_t idx = 0;
+  int idx = 0;
   if (total_value_count_ == 0) {
-    first_value_ = src[0];
     current_value_ = src[0];
+    first_value_ = current_value_;
     idx = 1;
   }
   total_value_count_ += num_values;
-  PARQUET_THROW_NOT_OK(sink_.Resize(total_value_count_ * sizeof(T), false));
 
   while (idx < num_values) {
     T value = src[idx];
@@ -2154,12 +2151,15 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
   DCHECK(bit_writer_.PutZigZagVlqInt(min_delta));
 
   uint8_t* bit_width_offsets = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
-  DCHECK(bit_width_offsets != NULL);
+  DCHECK(bit_width_offsets != nullptr);
 
   for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
     const uint32_t n = std::min(values_per_mini_block_, values_current_block_);
     if (n == 0) {
-      DCHECK(bit_writer_.PutAlignedOffset<uint8_t>(bit_width_offsets + i, 1, 1));
+      DCHECK(bit_writer_.PutAlignedOffset<int8_t>(bit_width_offsets++, int8_t(32), 1));
+      for (uint32_t j = 0; j < values_per_mini_block_; j++) {
+        DCHECK(bit_writer_.PutAligned<T>(0, 4));
+      }
       continue;
     }
 
@@ -2168,26 +2168,28 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
         *std::max_element(deltas_.begin() + start, deltas_.begin() + start + n);
 
     const T max_delta_diff = SafeSignedSubtract(max_delta, min_delta);
-    int64_t num_bits;
+    int8_t num_bits;
     if constexpr (std::is_same<T, int64_t>::value) {
-      num_bits = bit_util::NumRequiredBits(static_cast<uint64_t>(max_delta_diff));
+      num_bits = bit_util::NumRequiredBits(max_delta_diff);
     } else {
       num_bits = bit_util::NumRequiredBits(static_cast<uint32_t>(max_delta_diff));
     }
-    const int32_t num_bytes = static_cast<int32_t>(bit_util::CeilDiv(num_bits, 8));
-    DCHECK(bit_writer_.PutAlignedOffset<uint8_t>(bit_width_offsets + i, num_bits, 1));
+    const int32_t num_bytes =
+        static_cast<const int32_t>(bit_util::BytesForBits(num_bits));
+    DCHECK(bit_writer_.PutAlignedOffset<int8_t>(bit_width_offsets++, num_bits, 1));
 
     for (uint32_t j = start; j < start + n; j++) {
       const T value = SafeSignedSubtract(deltas_[j], min_delta);
-      DCHECK(bit_writer_.PutAligned(value, num_bytes));
+      DCHECK(bit_writer_.PutAligned<T>(value, num_bytes));
     }
     for (uint32_t j = n; j < values_per_mini_block_; j++) {
-      DCHECK(bit_writer_.PutAligned(0, num_bytes));
+      DCHECK(bit_writer_.PutAligned<T>(0, num_bytes));
     }
     values_current_block_ -= n;
   }
   DCHECK_EQ(values_current_block_, 0);
 
+  bit_writer_.Flush();
   PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
   bit_writer_.Clear();
 }

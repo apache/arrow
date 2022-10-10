@@ -69,7 +69,7 @@ class BitWriter {
   template <typename T>
   bool PutAligned(T v, int num_bytes);
 
-  /// Writes v to givent pointer using num_bytes. If T is larger than
+  /// Writes v to given pointer using num_bytes. If T is larger than
   /// num_bytes, the extra high-order bytes will be ignored. Returns false if
   /// there was not enough space.
   /// Assume the v is stored in buffer_ as a litte-endian format
