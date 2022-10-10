@@ -148,7 +148,7 @@ FunctionSignaturePattern ExtractPattern(
   return {base_name, params, return_type};
 }
 
-#define MAKE_LITERAL(atype, ctype)                              \
+#define CASE_LITERAL(atype, ctype)                              \
   case arrow::Type::atype:                                      \
     *node = std::make_shared<LiteralNode>(                      \
         type, LiteralHolder(static_cast<ctype>(value)), false); \
@@ -157,17 +157,17 @@ FunctionSignaturePattern ExtractPattern(
 template <typename T>
 Status MakeLiteralNode(const DataTypePtr& type, T value, NodePtr* node) {
   switch (type->id()) {
-    MAKE_LITERAL(BOOL, bool);
-    MAKE_LITERAL(INT8, int8_t);
-    MAKE_LITERAL(INT16, int16_t);
-    MAKE_LITERAL(INT32, int32_t);
-    MAKE_LITERAL(INT64, int64_t);
-    MAKE_LITERAL(UINT8, uint8_t);
-    MAKE_LITERAL(UINT16, uint16_t);
-    MAKE_LITERAL(UINT32, uint32_t);
-    MAKE_LITERAL(UINT64, uint64_t);
-    MAKE_LITERAL(FLOAT, float);
-    MAKE_LITERAL(DOUBLE, double);
+    CASE_LITERAL(BOOL, bool);
+    CASE_LITERAL(INT8, int8_t);
+    CASE_LITERAL(INT16, int16_t);
+    CASE_LITERAL(INT32, int32_t);
+    CASE_LITERAL(INT64, int64_t);
+    CASE_LITERAL(UINT8, uint8_t);
+    CASE_LITERAL(UINT16, uint16_t);
+    CASE_LITERAL(UINT32, uint32_t);
+    CASE_LITERAL(UINT64, uint64_t);
+    CASE_LITERAL(FLOAT, float);
+    CASE_LITERAL(DOUBLE, double);
     default:
       // should be impossible to reach here
       return Status::TypeError("Impossible mismatched literal type " + type->ToString());
