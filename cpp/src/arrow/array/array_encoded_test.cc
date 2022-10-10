@@ -342,9 +342,9 @@ TEST_P(TestRunLengthEncodedArray, Validate) {
                              values_too_short_array->ValidateFull());
 }
 
-TEST(RunLengthEncodedArray, Compare) {
+TEST_P(TestRunLengthEncodedArray, Compare) {
   ASSERT_OK_AND_ASSIGN(auto rle_array,
-                       RunLengthEncodedArray::Make(int32_values, string_values, 30));
+                       RunLengthEncodedArray::Make(size_values, string_values, 30));
 
   // second array object that is exactly the same as rle_array
   auto standard_equals = MakeArray(rle_array->data()->Copy());
@@ -354,28 +354,28 @@ TEST(RunLengthEncodedArray, Compare) {
 
   // array that is logically the same as our rle_array, but has 2 small runs for the first
   // value instead of one large
-  auto duplicate_run_ends = ArrayFromJSON(int32(), "[5, 10, 20, 30]");
+  auto duplicate_run_ends = ArrayFromJSON(run_ends_type, "[5, 10, 20, 30]");
   auto string_values = ArrayFromJSON(utf8(), R"(["Hello", "Hello", "World", null])");
   ASSERT_OK_AND_ASSIGN(auto duplicate_array, RunLengthEncodedArray::Make(
                                                  duplicate_run_ends, string_values, 30));
   ASSERT_ARRAYS_EQUAL(*rle_array, *duplicate_array);
 
   ASSERT_OK_AND_ASSIGN(auto empty_array,
-                       RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[]"),
+                       RunLengthEncodedArray::Make(ArrayFromJSON(run_ends_type, "[]"),
                                                    ArrayFromJSON(binary(), "[]"), 0));
   ASSERT_ARRAYS_EQUAL(*empty_array, *MakeArray(empty_array->data()->Copy()));
 
   // threee different slices that have the value [3, 3, 3, 4, 4, 4, 4]
   ASSERT_OK_AND_ASSIGN(
       auto different_offsets_a,
-      RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[2, 5, 12, 58, 60]"),
+      RunLengthEncodedArray::Make(ArrayFromJSON(run_ends_type, "[2, 5, 12, 58, 60]"),
                                   ArrayFromJSON(int64(), "[1, 2, 3, 4, 5]"), 60));
   ASSERT_OK_AND_ASSIGN(
       auto different_offsets_b,
-      RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[81, 86, 99, 100]"),
+      RunLengthEncodedArray::Make(ArrayFromJSON(run_ends_type, "[81, 86, 99, 100]"),
                                   ArrayFromJSON(int64(), "[2, 3, 4, 5]"), 100));
   ASSERT_OK_AND_ASSIGN(auto different_offsets_c,
-                       RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[3, 7]"),
+                       RunLengthEncodedArray::Make(ArrayFromJSON(run_ends_type, "[3, 7]"),
                                                    ArrayFromJSON(int64(), "[3, 4]"), 7));
   ASSERT_ARRAYS_EQUAL(*different_offsets_a->Slice(9, 7),
                       *different_offsets_b->Slice(83, 7));
