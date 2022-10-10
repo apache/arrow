@@ -71,8 +71,4 @@ jobs:
           USE_CONDA: 1
         {% endif %}
         run: |
-        {% if not use_conda %}
-          export CC=$(brew --prefix llvm)/bin/clang
-          export CXX=$(brew --prefix llvm)/bin/clang++
-        {% endif %}
           arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}
