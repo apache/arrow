@@ -1,7 +1,7 @@
 ## Description:
 
 The mission of Apache Arrow is the creation and maintenance of
-software related to columnar in-memory processing and data interchange
+software related to columnar in-memory processing and data interchange.
 
 ## Issues:
 
