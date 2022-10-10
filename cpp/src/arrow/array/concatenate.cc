@@ -440,13 +440,15 @@ class ConcatenateImpl {
 
   Status Visit(const RunLengthEncodedType&) {
     int64_t physical_length = 0;
-    for (auto input: in_) {
-      physical_length = SafeSignedAdd(physical_length, rle_util::GetPhysicalOffset(ArraySpan(*input)));
+    for (auto input : in_) {
+      physical_length =
+          SafeSignedAdd(physical_length, rle_util::GetPhysicalOffset(ArraySpan(*input)));
     }
     ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(in_[0]->type, pool_));
-    RETURN_NOT_OK(internal::checked_cast<RunLengthEncodedBuilder>(*builder).ResizePhyiscal(physical_length));
-    return Status::OK();
-    for (auto input: in_) {
+    RETURN_NOT_OK(
+        internal::checked_cast<RunLengthEncodedBuilder&>(*builder).ResizePhyiscal(
+            physical_length));
+    for (auto input : in_) {
       RETURN_NOT_OK(builder->AppendArraySlice(ArraySpan(*input), 0, input->length));
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> out_array, builder->Finish());

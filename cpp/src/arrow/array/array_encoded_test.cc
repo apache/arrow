@@ -25,6 +25,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_encoded.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -218,6 +219,46 @@ TEST_P(TestRunLengthEncodedArray, Compare) {
                       *different_offsets_b->Slice(83, 7));
   ASSERT_ARRAYS_EQUAL(*different_offsets_a->Slice(9, 7), *different_offsets_c);
   ASSERT_ARRAYS_EQUAL(*different_offsets_b->Slice(83, 7), *different_offsets_c);
+}
+
+TEST_P(TestRunLengthEncodedArray, Concatenate) {
+  ASSERT_OK_AND_ASSIGN(auto int32_array,
+                       RunLengthEncodedArray::Make(size_values, int32_values, 30));
+  ASSERT_OK_AND_ASSIGN(auto string_array,
+                       RunLengthEncodedArray::Make(size_values, string_values, 30));
+  ASSERT_OK_AND_ASSIGN(auto empty_array,
+                       RunLengthEncodedArray::Make(ArrayFromJSON(run_ends_type, "[]"),
+                                                   ArrayFromJSON(int32(), "[]"), 0));
+
+  ASSERT_OK_AND_ASSIGN(auto expected_102030_twice,
+                       RunLengthEncodedArray::Make(
+                           ArrayFromJSON(run_ends_type, "[10, 20, 30, 40, 50, 60]"),
+                           ArrayFromJSON(int32(), "[10, 20, 30, 10, 20, 30]"), 60));
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       Concatenate({int32_array, int32_array}, default_memory_pool()));
+  ASSERT_ARRAYS_EQUAL(*expected_102030_twice, *result);
+
+  ArrayVector sliced_back_together = {
+      int32_array->Slice(0, 1),  int32_array->Slice(5, 5),
+      int32_array->Slice(0, 4),  int32_array->Slice(10, 7),
+      int32_array->Slice(3, 0),  int32_array->Slice(10, 1),
+      int32_array->Slice(18, 7), empty_array,
+      int32_array->Slice(25, 5)};
+  ASSERT_OK_AND_ASSIGN(result, Concatenate(sliced_back_together, default_memory_pool()));
+  ASSERT_ARRAYS_EQUAL(*int32_array, *result);
+
+  ASSERT_OK_AND_ASSIGN(result, Concatenate({empty_array, empty_array, empty_array},
+                                           default_memory_pool()));
+  ASSERT_ARRAYS_EQUAL(*empty_array, *result);
+
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid,
+      std::string("Invalid: arrays to be concatenated must be identically typed, but "
+                  "run_length_encoded<run_ends: ") +
+          run_ends_type->ToString() +
+          ", values: int32> and run_length_encoded<run_ends: " +
+          run_ends_type->ToString() + ", values: string> were encountered.",
+      Concatenate({int32_array, string_array}, default_memory_pool()));
 }
 
 INSTANTIATE_TEST_SUITE_P(EncodedArrayTests, TestRunLengthEncodedArray,
