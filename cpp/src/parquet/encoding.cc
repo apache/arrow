@@ -2141,10 +2141,6 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
       FlushBlock();
     }
   }
-
-  if (values_current_block_ != 0) {
-    FlushBlock();
-  }
 }
 
 template <typename DType>
@@ -2198,6 +2194,10 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
 template <typename DType>
 std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
+  if (values_current_block_ != 0) {
+    FlushBlock();
+  }
+
   std::shared_ptr<ResizableBuffer> header_buffer = AllocateBuffer(pool_, 32);
   ::arrow::bit_util::BitWriter header_writer(header_buffer->mutable_data(),
                                              static_cast<int>(header_buffer->size()));
