@@ -45,6 +45,7 @@ RoxygenNote: 7.2.1
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
+    blob,
     cli,
     DBI,
     dbplyr,
