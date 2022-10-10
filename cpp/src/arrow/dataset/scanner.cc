@@ -758,6 +758,8 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
         name = "." + name;
       }
       ARROW_ASSIGN_OR_RAISE(auto field_ref, FieldRef::FromDotPath(name));
+      // safe as we know there is at least 1 dot.
+      names[i] = name.substr(name.rfind(".") + 1);
       exprs[i] = compute::field_ref(field_ref);
     } else {
       exprs[i] = compute::field_ref(names[i]);

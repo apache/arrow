@@ -4810,7 +4810,8 @@ def test_read_table_nested_columns(tempdir, format):
         columns=["user_id", "interaction.type", "interaction.values",
                  "interaction.structs", "a.dotted.field"])
     assert table.to_pylist() == [
-        {'user_id': 'abc123', 'interaction.type': 'click', 'interaction.values': [1, 2],
-         'interaction.structs': [{'fizz': None, 'foo': 'bar'}], 'a.dotted.field': 1},
-        {'user_id': 'qrs456', 'interaction.type': 'scroll', 'interaction.values': [3, 4],
-         'interaction.structs': [{'fizz': 'buzz', 'foo': None}], 'a.dotted.field': 2}]
+        {'user_id': 'abc123', 'type': 'click', 'values': [1, 2],
+         'structs': [{'fizz': None, 'foo': 'bar'}], 'a.dotted.field': 1},
+        {'user_id': 'qrs456', 'type': 'scroll', 'values': [3, 4],
+         'structs': [{'fizz': 'buzz', 'foo': None}], 'a.dotted.field': 2}
+    ]
