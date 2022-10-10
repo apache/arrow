@@ -209,12 +209,16 @@ def _git_ssh_to_https(url):
 
 
 def _parse_github_user_repo(remote_url):
-    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', remote_url)
+    # TODO: use a proper URL parser instead?
+    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git|/)?$', remote_url)
     if m is None:
-        raise CrossbowError(
-            "Unable to parse the github owner and repository from the "
-            "repository's remote url '{}'".format(remote_url)
-        )
+        # Perhaps it's simply "username/reponame"?
+        m = re.match(r'^(\w+)/(\w+)$', remote_url)
+        if m is None:
+            raise CrossbowError(
+                f"Unable to parse the github owner and repository from the "
+                f"repository's remote url {remote_url!r}"
+            )
     user, repo = m.group(1), m.group(2)
     return user, repo
 
@@ -557,7 +561,8 @@ class Repo:
                 if title in pull.title:
                     return pull
             raise CrossbowError(
-                f"Pull request with Title: {title} not found"
+                f"Pull request with Title: {title!r} not found "
+                f"in repository {repo.full_name!r}"
             )
 
 
@@ -675,6 +680,7 @@ class Queue(Repo):
             params = {
                 **job.params,
                 "arrow": job.target,
+                "job": job,
                 "queue_remote_url": self.remote_url
             }
             files = task.render_files(job.template_searchpath, params=params)
@@ -695,7 +701,7 @@ def get_version(root, **kwargs):
 
     # query the calculated version based on the git tags
     kwargs['describe_command'] = (
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
     )
     version = parse_git_version(root, **kwargs)
     tag = str(version.tag)
@@ -740,6 +746,9 @@ class Target(Serializable):
         self.github_repo = "/".join(_parse_github_user_repo(remote))
         self.version = version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
+        # TODO(ARROW-17552): Remove "master" from default_branch after
+        #                    migration to "main".
+        self.default_branch = ['main', 'master']
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
         #
         # > A pre-release version number MAY be denoted by appending an
@@ -753,6 +762,14 @@ class Target(Serializable):
         #   '0.16.1-dev10'
         self.no_rc_semver_version = \
             re.sub(r'\.(dev\d+)\Z', r'-\1', self.no_rc_version)
+        # Substitute dev version for SNAPSHOT
+        #
+        # Example:
+        #
+        # '10.0.0.dev235' ->
+        # '10.0.0-SNAPSHOT'
+        self.no_rc_snapshot_version = re.sub(
+            r'\.(dev\d+)$', '-SNAPSHOT', self.no_rc_version)
 
     @classmethod
     def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
@@ -777,6 +794,11 @@ class Target(Serializable):
         return cls(head=head, email=email, branch=branch, remote=remote,
                    version=version)
 
+    def is_default_branch(self):
+        # TODO(ARROW-17552): Switch the condition to "is" instead of "in"
+        #                    once "master" is removed from "default_branch".
+        return self.branch in self.default_branch
+
 
 class Task(Serializable):
     """
@@ -790,7 +812,7 @@ class Task(Serializable):
     submitting the job to a queue.
     """
 
-    def __init__(self, ci, template, artifacts=None, params=None):
+    def __init__(self, name, ci, template, artifacts=None, params=None):
         assert ci in {
             'circle',
             'travis',
@@ -799,6 +821,7 @@ class Task(Serializable):
             'github',
             'drone',
         }
+        self.name = name
         self.ci = ci
         self.template = template
         self.artifacts = artifacts or []
@@ -1011,6 +1034,7 @@ class Job(Serializable):
         params = {
             **self.params,
             "arrow": self.target,
+            "job": self,
             **(params or {})
         }
         for task_name, task in self.tasks.items():
@@ -1077,14 +1101,16 @@ class Job(Serializable):
 
         # instantiate the tasks
         tasks = {}
-        versions = {'version': target.version,
-                    'no_rc_version': target.no_rc_version,
-                    'no_rc_semver_version': target.no_rc_semver_version}
+        versions = {
+            'version': target.version,
+            'no_rc_version': target.no_rc_version,
+            'no_rc_semver_version': target.no_rc_semver_version,
+            'no_rc_snapshot_version': target.no_rc_snapshot_version}
         for task_name, task in task_definitions.items():
+            task = task.copy()
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
-            tasks[task_name] = Task(artifacts=artifacts, **task)
-
+            tasks[task_name] = Task(task_name, artifacts=artifacts, **task)
         return cls(target=target, tasks=tasks, params=params,
                    template_searchpath=config.template_searchpath)
 
@@ -1219,7 +1245,7 @@ class Config(dict):
         # validate that the tasks are constructible
         for task_name, task in self['tasks'].items():
             try:
-                Task(**task)
+                Task(task_name, **task)
             except Exception as e:
                 raise CrossbowError(
                     'Unable to construct a task object from the '
@@ -1236,13 +1262,19 @@ class Config(dict):
             version='1.0.0dev123',
             email='dummy@example.ltd'
         )
+        job = Job.from_config(config=self,
+                              target=target,
+                              tasks=self['tasks'],
+                              groups=self['groups'],
+                              params={})
 
         for task_name, task in self['tasks'].items():
-            task = Task(**task)
+            task = Task(task_name, **task)
             files = task.render_files(
                 self.template_searchpath,
                 params=dict(
                     arrow=target,
+                    job=job,
                     queue_remote_url='https://github.com/org/crossbow'
                 )
             )

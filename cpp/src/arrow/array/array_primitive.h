@@ -54,7 +54,7 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
 
   bool GetView(int64_t i) const { return Value(i); }
 
-  util::optional<bool> operator[](int64_t i) const { return *IteratorType(*this, i); }
+  std::optional<bool> operator[](int64_t i) const { return *IteratorType(*this, i); }
 
   /// \brief Return the number of false (0) values among the valid
   /// values. Result is not cached.
@@ -111,7 +111,7 @@ class NumericArray : public PrimitiveArray {
   // For API compatibility with BinaryArray etc.
   value_type GetView(int64_t i) const { return Value(i); }
 
-  util::optional<value_type> operator[](int64_t i) const {
+  std::optional<value_type> operator[](int64_t i) const {
     return *IteratorType(*this, i);
   }
 
@@ -152,7 +152,7 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
 
   IteratorType end() const { return IteratorType(*this, length()); }
 
-  util::optional<TypeClass::DayMilliseconds> operator[](int64_t i) const {
+  std::optional<TypeClass::DayMilliseconds> operator[](int64_t i) const {
     return *IteratorType(*this, i);
   }
 
@@ -188,7 +188,7 @@ class ARROW_EXPORT MonthDayNanoIntervalArray : public PrimitiveArray {
 
   IteratorType end() const { return IteratorType(*this, length()); }
 
-  util::optional<TypeClass::MonthDayNanos> operator[](int64_t i) const {
+  std::optional<TypeClass::MonthDayNanos> operator[](int64_t i) const {
     return *IteratorType(*this, i);
   }
 

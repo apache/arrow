@@ -18,6 +18,7 @@
 
 from collections import defaultdict
 from concurrent import futures
+from contextlib import nullcontext
 from functools import partial, reduce
 
 import sys
@@ -293,8 +294,15 @@ class ParquetFile:
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
         )
+        self._close_source = getattr(source, 'closed', True)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
 
     def _build_nested_paths(self):
         paths = self.reader.column_paths
@@ -374,6 +382,14 @@ class ParquetFile:
         1
         """
         return self.reader.num_row_groups
+
+    def close(self, force: bool = False):
+        if self._close_source or force:
+            self.reader.close()
+
+    @property
+    def closed(self) -> bool:
+        return self.reader.closed
 
     def read_row_group(self, i, columns=None, use_threads=True,
                        use_pandas_metadata=False):
@@ -1128,8 +1144,8 @@ class ParquetDatasetPiece:
         -------
         metadata : FileMetaData
         """
-        f = self.open()
-        return f.metadata
+        with self.open() as parquet:
+            return parquet.metadata
 
     def open(self):
         """
@@ -1203,6 +1219,9 @@ class ParquetDatasetPiece:
                 arr = pa.DictionaryArray.from_arrays(indices, dictionary)
                 table = table.append_column(name, arr)
 
+        # To ParquetFile the source looked like it was already open, so won't
+        # actually close it without overriding.
+        reader.close(force=True)
         return table
 
 
@@ -1784,6 +1803,9 @@ Examples
             raise NotImplementedError("split_row_groups not yet implemented")
 
         if filters is not None:
+            if hasattr(filters, "cast"):
+                raise TypeError(
+                    "Expressions as filter not supported for legacy dataset")
             filters = _check_filters(filters)
             self._filter(filters)
 
@@ -1889,7 +1911,8 @@ Examples
         """
         tables = []
         for piece in self._pieces:
-            table = piece.read(columns=columns, use_threads=use_threads,
+            table = piece.read(columns=columns,
+                               use_threads=use_threads,
                                partitions=self._partitions,
                                use_pandas_metadata=use_pandas_metadata)
             tables.append(table)
@@ -2318,9 +2341,9 @@ class _ParquetDatasetV2:
         if decryption_properties is not None:
             read_options.update(decryption_properties=decryption_properties)
 
-        # map filters to Expressions
-        self._filters = filters
-        self._filter_expression = filters and _filters_to_expression(filters)
+        self._filter_expression = None
+        if filters is not None:
+            self._filter_expression = _filters_to_expression(filters)
 
         # map old filesystems to new one
         if filesystem is not None:
@@ -3389,7 +3412,8 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
         metadata.write_metadata_file(where)
 
 
-def read_metadata(where, memory_map=False, decryption_properties=None):
+def read_metadata(where, memory_map=False, decryption_properties=None,
+                  filesystem=None):
     """
     Read FileMetaData from footer of a single Parquet file.
 
@@ -3400,6 +3424,10 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
         Create memory map when the source is a file path.
     decryption_properties : FileDecryptionProperties, default None
         Decryption properties for reading encrypted Parquet files.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
 
     Returns
     -------
@@ -3422,11 +3450,19 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
       format_version: 2.6
       serialized_size: ...
     """
-    return ParquetFile(where, memory_map=memory_map,
-                       decryption_properties=decryption_properties).metadata
+    filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+    file_ctx = nullcontext()
+    if filesystem is not None:
+        file_ctx = where = filesystem.open_input_file(where)
+
+    with file_ctx:
+        file = ParquetFile(where, memory_map=memory_map,
+                           decryption_properties=decryption_properties)
+        return file.metadata
 
 
-def read_schema(where, memory_map=False, decryption_properties=None):
+def read_schema(where, memory_map=False, decryption_properties=None,
+                filesystem=None):
     """
     Read effective Arrow schema from Parquet file metadata.
 
@@ -3437,6 +3473,10 @@ def read_schema(where, memory_map=False, decryption_properties=None):
         Create memory map when the source is a file path.
     decryption_properties : FileDecryptionProperties, default None
         Decryption properties for reading encrypted Parquet files.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
 
     Returns
     -------
@@ -3454,9 +3494,16 @@ def read_schema(where, memory_map=False, decryption_properties=None):
     n_legs: int64
     animal: string
     """
-    return ParquetFile(
-        where, memory_map=memory_map,
-        decryption_properties=decryption_properties).schema.to_arrow_schema()
+    filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+    file_ctx = nullcontext()
+    if filesystem is not None:
+        file_ctx = where = filesystem.open_input_file(where)
+
+    with file_ctx:
+        file = ParquetFile(
+            where, memory_map=memory_map,
+            decryption_properties=decryption_properties)
+        return file.schema.to_arrow_schema()
 
 
 # re-export everything

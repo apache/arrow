@@ -452,7 +452,7 @@ template <typename... Elements>
 std::string MakeArray(Elements... elements) {
   std::vector<std::string> elements_as_strings = {std::to_string(elements)...};
 
-  std::vector<util::string_view> elements_as_views(sizeof...(Elements));
+  std::vector<std::string_view> elements_as_views(sizeof...(Elements));
   std::copy(elements_as_strings.begin(), elements_as_strings.end(),
             elements_as_views.begin());
 

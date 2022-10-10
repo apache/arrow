@@ -18,14 +18,20 @@ package csv_test
 
 import (
 	"bytes"
+	stdcsv "encoding/csv"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/csv"
 	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Example() {
@@ -257,19 +263,19 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
-			arrow.Field{Name: "i8", Type: arrow.PrimitiveTypes.Int8},
-			arrow.Field{Name: "i16", Type: arrow.PrimitiveTypes.Int16},
-			arrow.Field{Name: "i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
-			arrow.Field{Name: "u8", Type: arrow.PrimitiveTypes.Uint8},
-			arrow.Field{Name: "u16", Type: arrow.PrimitiveTypes.Uint16},
-			arrow.Field{Name: "u32", Type: arrow.PrimitiveTypes.Uint32},
-			arrow.Field{Name: "u64", Type: arrow.PrimitiveTypes.Uint64},
-			arrow.Field{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
-			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
-			arrow.Field{Name: "str", Type: arrow.BinaryTypes.String},
-			arrow.Field{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
+			{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
+			{Name: "i8", Type: arrow.PrimitiveTypes.Int8},
+			{Name: "i16", Type: arrow.PrimitiveTypes.Int16},
+			{Name: "i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "u8", Type: arrow.PrimitiveTypes.Uint8},
+			{Name: "u16", Type: arrow.PrimitiveTypes.Uint16},
+			{Name: "u32", Type: arrow.PrimitiveTypes.Uint32},
+			{Name: "u64", Type: arrow.PrimitiveTypes.Uint64},
+			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
+			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
 		},
 		nil,
 	)
@@ -379,9 +385,9 @@ func TestCSVReaderWithChunk(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
-			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
-			arrow.Field{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "str", Type: arrow.BinaryTypes.String},
 		},
 		nil,
 	)
@@ -651,9 +657,9 @@ func benchRead(b *testing.B, raw []byte, rows, cols, chunks int) {
 	var fields []arrow.Field
 	for i := 0; i < cols; i++ {
 		fields = append(fields, []arrow.Field{
-			arrow.Field{Name: fmt.Sprintf("i64-%d", i), Type: arrow.PrimitiveTypes.Int64},
-			arrow.Field{Name: fmt.Sprintf("f64-%d", i), Type: arrow.PrimitiveTypes.Float64},
-			arrow.Field{Name: fmt.Sprintf("str-%d", i), Type: arrow.BinaryTypes.String},
+			{Name: fmt.Sprintf("i64-%d", i), Type: arrow.PrimitiveTypes.Int64},
+			{Name: fmt.Sprintf("f64-%d", i), Type: arrow.PrimitiveTypes.Float64},
+			{Name: fmt.Sprintf("str-%d", i), Type: arrow.BinaryTypes.String},
 		}...)
 	}
 
@@ -681,4 +687,106 @@ func benchRead(b *testing.B, raw []byte, rows, cols, chunks int) {
 			b.Fatalf("invalid number of rows. want=%d, got=%d", n, rows)
 		}
 	}
+}
+
+func TestInferringSchema(t *testing.T) {
+	var b bytes.Buffer
+	wr := stdcsv.NewWriter(&b)
+	wr.WriteAll([][]string{
+		{"i64", "f64", "str", "ts", "bool"},
+		{"123", "1.23", "foobar", "2022-05-09T00:01:01", "false"},
+		{"456", "45.6", "baz", "2022-05-09T23:59:59", "true"},
+		{"null", "NULL", "null", "N/A", "null"},
+		{"-78", "-1.25", "", "2021-01-01T10:11:12", "TRUE"},
+	})
+	wr.Flush()
+
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	r := csv.NewInferringReader(&b, csv.WithAllocator(mem), csv.WithHeader(true), csv.WithNullReader(true, defaultNullValues...))
+	defer r.Release()
+
+	assert.Nil(t, r.Schema())
+	assert.True(t, r.Next())
+	assert.NoError(t, r.Err())
+
+	expSchema := arrow.NewSchema([]arrow.Field{
+		{Name: "i64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		{Name: "f64", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		{Name: "str", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "ts", Type: &arrow.TimestampType{Unit: arrow.Second}, Nullable: true},
+		{Name: "bool", Type: arrow.FixedWidthTypes.Boolean, Nullable: true},
+	}, nil)
+
+	exp, _, _ := array.RecordFromJSON(mem, expSchema, strings.NewReader(`[
+		{"i64": 123, "f64": 1.23, "str": "foobar", "ts": "2022-05-09T00:01:01", "bool": false},
+		{"i64": 456, "f64": 45.6, "str": "baz", "ts": "2022-05-09T23:59:59", "bool": true},
+		{"i64": null, "f64": null, "str": null, "ts": null, "bool": null},
+		{"i64": -78, "f64": -1.25, "str": null, "ts": "2021-01-01T10:11:12", "bool": true}
+	]`))
+	defer exp.Release()
+
+	assertRowEqual := func(expected, actual arrow.Record, row int) {
+		ex := expected.NewSlice(int64(row), int64(row+1))
+		defer ex.Release()
+		assert.Truef(t, array.RecordEqual(ex, actual), "expected: %s\ngot: %s", ex, actual)
+	}
+
+	assert.True(t, expSchema.Equal(r.Schema()), expSchema.String(), r.Schema().String())
+	// verify first row:
+	assertRowEqual(exp, r.Record(), 0)
+	assert.True(t, r.Next())
+	assertRowEqual(exp, r.Record(), 1)
+	assert.True(t, r.Next())
+	assertRowEqual(exp, r.Record(), 2)
+	assert.True(t, r.Next())
+	assertRowEqual(exp, r.Record(), 3)
+	assert.False(t, r.Next())
+}
+
+func TestInferCSVOptions(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	f, err := os.Open("testdata/header.csv")
+	require.NoError(t, err)
+	defer f.Close()
+
+	r := csv.NewInferringReader(f, csv.WithAllocator(mem),
+		csv.WithComma(';'), csv.WithComment('#'), csv.WithHeader(true),
+		csv.WithNullReader(true, defaultNullValues...),
+		csv.WithIncludeColumns([]string{"f64", "i32", "bool", "str", "i64", "u64", "i8"}),
+		csv.WithColumnTypes(map[string]arrow.DataType{
+			"i32": arrow.PrimitiveTypes.Int32,
+			"i8":  arrow.PrimitiveTypes.Int8,
+			"i16": arrow.PrimitiveTypes.Int16,
+			"u64": arrow.PrimitiveTypes.Uint64,
+		}), csv.WithChunk(-1))
+	defer r.Release()
+
+	assert.True(t, r.Next())
+	rec := r.Record()
+	rec.Retain()
+	defer rec.Release()
+	assert.False(t, r.Next())
+
+	expSchema := arrow.NewSchema([]arrow.Field{
+		{Name: "f64", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		{Name: "i32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "bool", Type: arrow.FixedWidthTypes.Boolean, Nullable: true},
+		{Name: "str", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "i64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		{Name: "u64", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+		{Name: "i8", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+	}, nil)
+	expRec, _, _ := array.RecordFromJSON(mem, expSchema, strings.NewReader(`[
+		{"f64": 1.1, "i32": -1, "bool": true, "str": "str-1", "i64": -1, "u64": 1, "i8": -1},
+		{"f64": 2.2, "i32": -2, "bool": false, "str": "str-2", "i64": -2, "u64": 2, "i8": -2},
+		{"f64": null, "i32": null, "bool": null, "str": null, "i64": null, "u64": null, "i8": null}
+	]`))
+	defer expRec.Release()
+
+	assert.True(t, expSchema.Equal(r.Schema()), expSchema.String(), r.Schema().String())
+	assert.Truef(t, array.RecordEqual(expRec, rec), "expected: %s\ngot: %s", expRec, rec)
 }

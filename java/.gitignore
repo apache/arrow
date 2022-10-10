@@ -23,3 +23,6 @@ install_manifest.txt
 target/
 ?/
 !/c/
+
+# Generated properties file
+flight/flight-sql-jdbc-driver/src/main/resources/properties/flight.properties

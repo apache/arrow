@@ -274,7 +274,7 @@ BufferReader::BufferReader(const uint8_t* data, int64_t size)
 BufferReader::BufferReader(const Buffer& buffer)
     : BufferReader(buffer.data(), buffer.size()) {}
 
-BufferReader::BufferReader(const util::string_view& data)
+BufferReader::BufferReader(const std::string_view& data)
     : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
                    static_cast<int64_t>(data.size())) {}
 
@@ -290,12 +290,12 @@ Result<int64_t> BufferReader::DoTell() const {
   return position_;
 }
 
-Result<util::string_view> BufferReader::DoPeek(int64_t nbytes) {
+Result<std::string_view> BufferReader::DoPeek(int64_t nbytes) {
   RETURN_NOT_OK(CheckClosed());
 
   const int64_t bytes_available = std::min(nbytes, size_ - position_);
-  return util::string_view(reinterpret_cast<const char*>(data_) + position_,
-                           static_cast<size_t>(bytes_available));
+  return std::string_view(reinterpret_cast<const char*>(data_) + position_,
+                          static_cast<size_t>(bytes_available));
 }
 
 bool BufferReader::supports_zero_copy() const { return true; }

@@ -818,7 +818,7 @@ TEST_F(TestIndexInKernel, BinaryResizeTable) {
     char buf[kBufSize] = "test";
     ASSERT_GE(snprintf(buf + 4, sizeof(buf) - 4, "%d", index), 0);
 
-    input_builder.UnsafeAppend(util::string_view(buf));
+    input_builder.UnsafeAppend(std::string_view(buf));
     expected_builder.UnsafeAppend(index);
   }
 

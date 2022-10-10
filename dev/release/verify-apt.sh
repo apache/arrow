@@ -151,7 +151,7 @@ pushd build/minimal_build
 cmake .
 make -j$(nproc)
 ./arrow-example
-c++ -std=c++11 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+c++ -std=c++17 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
 ./arrow-example
 popd
 echo "::endgroup::"
@@ -196,13 +196,6 @@ ${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-flight-sql-glib-doc=${package_version}
 ruby -r gi -e "p GI.load('ArrowFlightSQL')"
 echo "::endgroup::"
-
-
-if [ "${have_python}" = "yes" ]; then
-  echo "::group::Test libarrow-python"
-  ${APT_INSTALL} libarrow-python-dev=${package_version}
-  echo "::endgroup::"
-fi
 
 
 if [ "${have_plasma}" = "yes" ]; then

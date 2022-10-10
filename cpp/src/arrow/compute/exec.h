@@ -30,8 +30,8 @@
 
 #include "arrow/array/data.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
-#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
@@ -127,8 +127,6 @@ class ARROW_EXPORT ExecContext {
   bool use_threads_ = true;
 };
 
-ARROW_EXPORT ExecContext* default_exec_context();
-
 // TODO: Consider standardizing on uint16 selection vectors and only use them
 // when we can ensure that each value is 64K length or smaller
 
@@ -174,6 +172,10 @@ class ARROW_EXPORT SelectionVector {
 /// TODO: Datum uses arrow/util/variant.h which may be a bit heavier-weight
 /// than is desirable for this class. Microbenchmarks would help determine for
 /// sure. See ARROW-8928.
+
+/// \addtogroup execnode-components
+/// @{
+
 struct ARROW_EXPORT ExecBatch {
   ExecBatch() = default;
   ExecBatch(std::vector<Datum> values, int64_t length)
@@ -244,12 +246,12 @@ struct ARROW_EXPORT ExecBatch {
   }
 
   std::string ToString() const;
-
-  ARROW_EXPORT friend void PrintTo(const ExecBatch&, std::ostream*);
 };
 
 inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals(r); }
 inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
+
+ARROW_EXPORT void PrintTo(const ExecBatch&, std::ostream*);
 
 struct ExecValue {
   ArraySpan array = {};
@@ -309,7 +311,7 @@ struct ExecValue {
 
 struct ARROW_EXPORT ExecResult {
   // The default value of the variant is ArraySpan
-  util::Variant<ArraySpan, std::shared_ptr<ArrayData>> value;
+  std::variant<ArraySpan, std::shared_ptr<ArrayData>> value;
 
   int64_t length() const {
     if (this->is_array_span()) {
@@ -328,12 +330,12 @@ struct ARROW_EXPORT ExecResult {
   }
 
   ArraySpan* array_span() const {
-    return const_cast<ArraySpan*>(&util::get<ArraySpan>(this->value));
+    return const_cast<ArraySpan*>(&std::get<ArraySpan>(this->value));
   }
   bool is_array_span() const { return this->value.index() == 0; }
 
   const std::shared_ptr<ArrayData>& array_data() const {
-    return util::get<std::shared_ptr<ArrayData>>(this->value);
+    return std::get<std::shared_ptr<ArrayData>>(this->value);
   }
 
   bool is_array_data() const { return this->value.index() == 1; }
@@ -399,6 +401,8 @@ struct ARROW_EXPORT ExecSpan {
   int64_t length = 0;
   std::vector<ExecValue> values;
 };
+
+/// @}
 
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///

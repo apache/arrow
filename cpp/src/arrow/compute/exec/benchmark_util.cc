@@ -24,6 +24,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/task_util.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -42,7 +43,7 @@ Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
                                      arrow::compute::ExecNodeOptions& options) {
   for (auto _ : state) {
     state.PauseTiming();
-    AsyncGenerator<util::optional<arrow::compute::ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<arrow::compute::ExecBatch>> sink_gen;
 
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::compute::ExecPlan> plan,
                           arrow::compute::ExecPlan::Make(&ctx));
@@ -119,7 +120,7 @@ Status BenchmarkNodeOverhead(
     state.PauseTiming();
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::compute::ExecPlan> plan,
                           arrow::compute::ExecPlan::Make(&ctx));
-    AsyncGenerator<util::optional<arrow::compute::ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<arrow::compute::ExecBatch>> sink_gen;
     arrow::compute::Declaration source = arrow::compute::Declaration(
         {"source",
          arrow::compute::SourceNodeOptions{data.schema,

@@ -573,30 +573,27 @@ func (p *serializedPageReader) Next() bool {
 				return false
 			}
 
-			var pagebuf *memory.Buffer
 			if compressed {
 				if levelsBytelen > 0 {
 					io.ReadFull(p.r, buf.Bytes()[:levelsBytelen])
 				}
-				var data []byte
-				if data, p.err = p.decompress(lenCompressed-levelsBytelen, buf.Bytes()[levelsBytelen:]); p.err != nil {
+				if _, p.err = p.decompress(lenCompressed-levelsBytelen, buf.Bytes()[levelsBytelen:]); p.err != nil {
 					return false
 				}
-				pagebuf = memory.NewBufferBytes(data)
 			} else {
 				io.ReadFull(p.r, buf.Bytes())
-				pagebuf = buf
-				pagebuf.Retain()
 			}
-			if pagebuf.Len() != lenUncompressed {
-				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, pagebuf.Len())
+			buf.Retain()
+
+			if buf.Len() != lenUncompressed {
+				p.err = fmt.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, buf.Len())
 				return false
 			}
 
 			// make datapage v2
 			p.curPage = &DataPageV2{
 				page: page{
-					buf:      pagebuf,
+					buf:      buf,
 					typ:      p.curPageHdr.Type,
 					nvals:    dataHeader.GetNumValues(),
 					encoding: dataHeader.GetEncoding(),

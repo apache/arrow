@@ -20,7 +20,9 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -45,9 +47,6 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/optional.h"
-#include "arrow/util/string_view.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
@@ -75,7 +74,7 @@ struct OptionsWrapper : public KernelState {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<OptionsWrapper>(*options);
+      return std::make_unique<OptionsWrapper>(*options);
     }
 
     return Status::Invalid(
@@ -101,8 +100,7 @@ struct KernelStateFromFunctionOptions : public KernelState {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<KernelStateFromFunctionOptions>(ctx,
-                                                                            *options);
+      return std::make_unique<KernelStateFromFunctionOptions>(ctx, *options);
     }
 
     return Status::Invalid(
@@ -136,7 +134,7 @@ struct GetViewType<Type, enable_if_has_c_type<Type>> {
 template <typename Type>
 struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
                                      is_fixed_size_binary_type<Type>::value>> {
-  using T = util::string_view;
+  using T = std::string_view;
   using PhysicalType = T;
 
   static T LogicalValue(PhysicalType value) { return value; }
@@ -145,7 +143,7 @@ struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
 template <>
 struct GetViewType<Decimal128Type> {
   using T = Decimal128;
-  using PhysicalType = util::string_view;
+  using PhysicalType = std::string_view;
 
   static T LogicalValue(PhysicalType value) {
     return Decimal128(reinterpret_cast<const uint8_t*>(value.data()));
@@ -157,7 +155,7 @@ struct GetViewType<Decimal128Type> {
 template <>
 struct GetViewType<Decimal256Type> {
   using T = Decimal256;
-  using PhysicalType = util::string_view;
+  using PhysicalType = std::string_view;
 
   static T LogicalValue(PhysicalType value) {
     return Decimal256(reinterpret_cast<const uint8_t*>(value.data()));
@@ -271,9 +269,9 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
         data(reinterpret_cast<const char*>(arr.buffers[2].data)),
         position(0) {}
 
-  util::string_view operator()() {
+  std::string_view operator()() {
     offset_type next_offset = offsets[++position];
-    auto result = util::string_view(data + cur_offset, next_offset - cur_offset);
+    auto result = std::string_view(data + cur_offset, next_offset - cur_offset);
     cur_offset = next_offset;
     return result;
   }
@@ -292,8 +290,8 @@ struct ArrayIterator<FixedSizeBinaryType> {
         width(arr.type->byte_width()),
         position(arr.offset) {}
 
-  util::string_view operator()() {
-    auto result = util::string_view(data + position * width, width);
+  std::string_view operator()() {
+    auto result = std::string_view(data + position * width, width);
     position++;
     return result;
   }
@@ -331,7 +329,7 @@ template <typename Type>
 struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
   using T = typename Type::c_type;
   static T Unbox(const Scalar& val) {
-    util::string_view view =
+    std::string_view view =
         checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
     DCHECK_EQ(view.size(), sizeof(T));
     return *reinterpret_cast<const T*>(view.data());
@@ -340,9 +338,9 @@ struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
 
 template <typename Type>
 struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
-  using T = util::string_view;
+  using T = std::string_view;
   static T Unbox(const Scalar& val) {
-    if (!val.is_valid) return util::string_view();
+    if (!val.is_valid) return std::string_view();
     return checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
   }
 };
@@ -401,7 +399,7 @@ struct BoxScalar<Decimal256Type> {
 };
 
 // A VisitArraySpanInline variant that calls its visitor function with logical
-// values, such as Decimal128 rather than util::string_view.
+// values, such as Decimal128 rather than std::string_view.
 
 template <typename T, typename VisitFunc, typename NullFunc>
 static typename ::arrow::internal::call_traits::enable_if_return<VisitFunc, void>::type

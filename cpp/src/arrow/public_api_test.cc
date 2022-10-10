@@ -46,49 +46,69 @@
 #include "arrow/flight/api.h"  // IWYU pragma: keep
 #endif
 
+#ifdef ARROW_FLIGHT_SQL
+#include "arrow/flight/sql/api.h"  // IWYU pragma: keep
+#endif
+
 #ifdef ARROW_JSON
 #include "arrow/json/api.h"  // IWYU pragma: keep
 #endif
 
-#ifdef ARROW_PYTHON
-#include "arrow/python/api.h"  // IWYU pragma: keep
-#endif
-
-#ifdef DCHECK
-#error "DCHECK should not be visible from Arrow public headers."
-#endif
-
-#ifdef ASSIGN_OR_RAISE
-#error "ASSIGN_OR_RAISE should not be visible from Arrow public headers."
-#endif
-
-#ifdef OPENTELEMETRY_VERSION
-#error "OpenTelemetry should not be visible from Arrow public headers."
-#endif
-
-#ifdef XSIMD_VERSION_MAJOR
-#error "xsimd should not be visible from Arrow public headers."
-#endif
-
-#ifdef HAS_CHRONO_ROUNDING
-#error "arrow::vendored::date should not be visible from Arrow public headers."
-#endif
-
-#ifdef PROTOBUF_EXPORT
-#error "Protocol Buffers should not be visible from Arrow public headers."
-#endif
-
-#if defined(SendMessage) || defined(GetObject) || defined(ERROR_INVALID_HANDLE) || \
-    defined(FILE_SHARE_READ) || defined(WAIT_TIMEOUT)
-#error "Windows.h should not be included by Arrow public headers"
+#ifdef ARROW_SUBSTRAIT
+#include "arrow/engine/api.h"            // IWYU pragma: keep
+#include "arrow/engine/substrait/api.h"  // IWYU pragma: keep
 #endif
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
+
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
 namespace arrow {
+
+TEST(InternalHeaders, DCheckExposed) {
+#ifdef DCHECK
+  FAIL() << "DCHECK should not be visible from Arrow public headers.";
+#endif
+}
+
+TEST(InternalHeaders, AssignOrRaiseExposed) {
+#ifdef ASSIGN_OR_RAISE
+  FAIL() << "ASSIGN_OR_RAISE should not be visible from Arrow public headers.";
+#endif
+}
+
+TEST(InternalDependencies, OpenTelemetryExposed) {
+#ifdef OPENTELEMETRY_VERSION
+  FAIL() << "OpenTelemetry should not be visible from Arrow public headers.";
+#endif
+}
+
+TEST(InternalDependencies, XSimdExposed) {
+#ifdef XSIMD_VERSION_MAJOR
+  FAIL() << "xsimd should not be visible from Arrow public headers.";
+#endif
+}
+
+TEST(InternalDependencies, DateLibraryExposed) {
+#ifdef HAS_CHRONO_ROUNDING
+  FAIL() << "arrow::vendored::date should not be visible from Arrow public headers.";
+#endif
+}
+
+TEST(InternalDependencies, ProtobufExposed) {
+#ifdef PROTOBUF_EXPORT
+  FAIL() << "Protocol Buffers should not be visible from Arrow public headers.";
+#endif
+}
+
+TEST(TransitiveDependencies, WindowsHeadersExposed) {
+#if defined(SendMessage) || defined(GetObject) || defined(ERROR_INVALID_HANDLE) || \
+    defined(FILE_SHARE_READ) || defined(WAIT_TIMEOUT)
+  FAIL() << "Windows.h should not be included by Arrow public headers";
+#endif
+}
 
 TEST(Misc, BuildInfo) {
   const auto& info = GetBuildInfo();
@@ -113,7 +133,7 @@ TEST(Misc, SetTimezoneConfig) {
 #else
   auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
 
-  util::optional<std::string> tzdata_result = GetTestTimezoneDatabaseRoot();
+  std::optional<std::string> tzdata_result = GetTestTimezoneDatabaseRoot();
   std::string tzdata_dir;
   if (tzdata_result.has_value()) {
     tzdata_dir = tzdata_result.value();
@@ -133,7 +153,7 @@ TEST(Misc, SetTimezoneConfig) {
   ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make("tzdata"));
 
   // Validate that setting tzdb to that dir fails
-  arrow::GlobalOptions options = {util::make_optional(tempdir->path().ToString())};
+  arrow::GlobalOptions options = {std::make_optional(tempdir->path().ToString())};
   ASSERT_NOT_OK(arrow::Initialize(options));
 
   // Copy tzdb data from ~/Downloads

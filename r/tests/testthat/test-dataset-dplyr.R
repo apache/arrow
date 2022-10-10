@@ -356,9 +356,9 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
     ds %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
-      "ProjectNode.*",              # output columns
-      "SourceNode"                  # entry point
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*", # output columns
+      "SourceNode" # entry point
     )
   )
 
@@ -369,11 +369,11 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       filter(integer > 6L & part == 1) %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
-      "ProjectNode.*",              # output columns
-      "FilterNode.*",               # filter node
-      "int > 6.*cast.*",            # filtering expressions + auto-casting of part
-      "SourceNode"                  # entry point
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*", # output columns
+      "FilterNode.*", # filter node
+      "int > 6.*cast.*", # filtering expressions + auto-casting of part
+      "SourceNode" # entry point
     )
   )
 
@@ -384,13 +384,13 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       summarise(avg = mean(int)) %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
-      "ProjectNode.*",              # output columns
-      "GroupByNode.*",              # group by node
-      "keys=.*part.*",              # key for aggregations
-      "aggregates=.*hash_mean.*",   # aggregations
-      "ProjectNode.*",              # input columns
-      "SourceNode"                  # entry point
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*", # output columns
+      "GroupByNode.*", # group by node
+      "keys=.*part.*", # key for aggregations
+      "aggregates=.*hash_mean.*", # aggregations
+      "ProjectNode.*", # input columns
+      "SourceNode" # entry point
     )
   )
 
@@ -401,12 +401,12 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       arrange(chr) %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
       "OrderBySinkNode.*chr.*ASC.*", # arrange goes via the OrderBy sink node
-      "ProjectNode.*",               # output columns
-      "FilterNode.*",                # filter node
-      "filter=lgl.*",                # filtering expression
-      "SourceNode"                   # entry point
+      "ProjectNode.*", # output columns
+      "FilterNode.*", # filter node
+      "filter=lgl.*", # filtering expression
+      "SourceNode" # entry point
     )
   )
 

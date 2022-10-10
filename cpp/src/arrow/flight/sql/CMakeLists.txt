@@ -89,7 +89,11 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
       example/sqlite_statement_batch_reader.cc
       example/sqlite_server.cc
       example/sqlite_tables_schema_batch_reader.cc)
+
   set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc)
+  set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
+  set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
+
   if(NOT MSVC AND NOT MINGW)
     # ARROW-16902: getting Protobuf generated code to have all the
     # proper dllexport/dllimport declarations is difficult, since
@@ -98,13 +102,34 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     list(APPEND ARROW_FLIGHT_SQL_TEST_SRCS client_test.cc)
   endif()
 
+  if(ARROW_COMPUTE
+     AND ARROW_PARQUET
+     AND ARROW_SUBSTRAIT)
+    list(APPEND ARROW_FLIGHT_SQL_TEST_SRCS ${ARROW_FLIGHT_SQL_ACERO_SRCS} acero_test.cc)
+    if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+      list(APPEND ARROW_FLIGHT_SQL_TEST_LIBS arrow_substrait_static)
+    else()
+      list(APPEND ARROW_FLIGHT_SQL_TEST_LIBS arrow_substrait_shared)
+    endif()
+
+    if(ARROW_BUILD_EXAMPLES)
+      add_executable(acero-flight-sql-server ${ARROW_FLIGHT_SQL_ACERO_SRCS}
+                                             example/acero_main.cc)
+      target_link_libraries(acero-flight-sql-server
+                            PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+                                    ${ARROW_FLIGHT_SQL_TEST_LIBS} ${GFLAGS_LIBRARIES})
+    endif()
+  endif()
+
   add_arrow_test(flight_sql_test
                  SOURCES
                  ${ARROW_FLIGHT_SQL_TEST_SRCS}
                  ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS}
                  STATIC_LINK_LIBS
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-                 ${SQLite3_LIBRARIES}
+                 ${ARROW_FLIGHT_SQL_TEST_LIBS}
+                 EXTRA_INCLUDES
+                 "${CMAKE_CURRENT_BINARY_DIR}/../"
                  LABELS
                  "arrow_flight_sql")
 

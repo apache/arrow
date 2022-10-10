@@ -43,7 +43,7 @@ jobs:
             -e TEST_{{ target|upper }}=1 \
             {{ distro }}-verify-rc
 
-    {% if arrow.branch == 'master' %}
+    {% if arrow.is_default_branch() %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
         shell: bash

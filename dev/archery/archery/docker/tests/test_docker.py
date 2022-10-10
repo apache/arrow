@@ -509,7 +509,7 @@ def test_image_with_gpu(arrow_compose_path):
             "-e", "OTHER_ENV=2",
             "-v", "/host:/container:rw",
             "org/ubuntu-cuda",
-            '/bin/bash -c "echo 1 > /tmp/dummy && cat /tmp/dummy"'
+            "/bin/bash", "-c", "echo 1 > /tmp/dummy && cat /tmp/dummy",
         ]
     ]
     with assert_docker_calls(compose, expected_calls):

@@ -24,31 +24,17 @@ import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_A;
 import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_B;
 import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_C;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.doesBitmaskTranslateToEnum;
-import static org.hamcrest.CoreMatchers.is;
 
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public final class SqlInfoOptionsUtilsBitmaskParsingTest {
 
-  @Parameter
-  public long bitmask;
-  @Parameter(value = 1)
-  public Set<AdhocTestOption> expectedOptions;
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
-
-  @Parameters
   public static List<Object[]> provideParameters() {
     return asList(
         new Object[][]{
@@ -63,12 +49,13 @@ public final class SqlInfoOptionsUtilsBitmaskParsingTest {
         });
   }
 
-  @Test
-  public void testShouldFilterOutEnumsBasedOnBitmask() {
+  @ParameterizedTest
+  @MethodSource("provideParameters")
+  public void testShouldFilterOutEnumsBasedOnBitmask(long bitmask, Set<AdhocTestOption> expectedOptions) {
     final Set<AdhocTestOption> actualOptions =
         stream(AdhocTestOption.values())
             .filter(enumInstance -> doesBitmaskTranslateToEnum(enumInstance, bitmask))
             .collect(toCollection(() -> EnumSet.noneOf(AdhocTestOption.class)));
-    collector.checkThat(actualOptions, is(expectedOptions));
+    Assertions.assertEquals(actualOptions, expectedOptions);
   }
 }

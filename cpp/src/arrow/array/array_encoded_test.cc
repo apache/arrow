@@ -41,11 +41,27 @@ using internal::checked_cast;
 
 namespace {
 
-auto string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
-auto int32_values = ArrayFromJSON(int32(), "[10, 20, 30]");
-auto int32_only_null = ArrayFromJSON(int32(), "[null, null, null]");
+class TestRunLengthEncodedArray
+    : public ::testing::TestWithParam<std::shared_ptr<DataType>> {
+ protected:
+  std::shared_ptr<Array> string_values;
+  std::shared_ptr<Array> int32_values;
+  std::shared_ptr<Array> int16_values;
+  std::shared_ptr<Array> size_values;
+  std::shared_ptr<Array> size_only_null;
 
-TEST(RunLengthEncodedArray, MakeArray) {
+  virtual void SetUp() override {
+    std::shared_ptr<DataType> run_ends_type = GetParam();
+
+    string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
+    int32_values = ArrayFromJSON(int32(), "[10, 20, 30]");
+    int16_values = ArrayFromJSON(int16(), "[10, 20, 30]");
+    size_values = ArrayFromJSON(run_ends_type, "[10, 20, 30]");
+    size_only_null = ArrayFromJSON(run_ends_type, "[null, null, null]");
+  }
+};
+
+TEST_P(TestRunLengthEncodedArray, MakeArray) {
   ASSERT_OK_AND_ASSIGN(auto rle_array,
                        RunLengthEncodedArray::Make(int32_values, string_values, 3));
   auto array_data = rle_array->data();
@@ -56,14 +72,14 @@ TEST(RunLengthEncodedArray, MakeArray) {
   ASSERT_NE(std::dynamic_pointer_cast<RunLengthEncodedArray>(new_array), NULLPTR);
 }
 
-TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
+TEST_P(TestRunLengthEncodedArray, FromRunEndsAndValues) {
   std::shared_ptr<RunLengthEncodedArray> rle_array;
 
   ASSERT_OK_AND_ASSIGN(rle_array,
-                       RunLengthEncodedArray::Make(int32_values, int32_values, 3));
+                       RunLengthEncodedArray::Make(size_values, int32_values, 3));
   ASSERT_EQ(rle_array->length(), 3);
   ASSERT_ARRAYS_EQUAL(*rle_array->values_array(), *int32_values);
-  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *int32_values);
+  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *size_values);
   ASSERT_EQ(rle_array->offset(), 0);
   ASSERT_EQ(rle_array->data()->null_count, 0);
   // one dummy buffer, since code may assume there is exactly one buffer
@@ -71,19 +87,20 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
 
   // explicitly passing offset
   ASSERT_OK_AND_ASSIGN(rle_array,
-                       RunLengthEncodedArray::Make(int32_values, string_values, 2, 1));
+                       RunLengthEncodedArray::Make(size_values, string_values, 2, 1));
   ASSERT_EQ(rle_array->length(), 2);
   ASSERT_ARRAYS_EQUAL(*rle_array->values_array(), *string_values);
-  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *int32_values);
+  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *size_values);
   ASSERT_EQ(rle_array->offset(), 1);
   // explicitly access null count variable so it is not calculated automatically
   ASSERT_EQ(rle_array->data()->null_count, 0);
 
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Run ends array must be int32 type",
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Run ends array must be int16, int32 or int64 type",
                              RunLengthEncodedArray::Make(string_values, int32_values, 3));
   ASSERT_RAISES_WITH_MESSAGE(
       Invalid, "Invalid: Run ends array cannot contain null values",
-      RunLengthEncodedArray::Make(int32_only_null, int32_values, 3));
+      RunLengthEncodedArray::Make(size_only_null, int32_values, 3));
 }
 
 TEST(RunLengthEncodedArray, OffsetLength) {
@@ -186,6 +203,8 @@ TEST(RunLengthEncodedArray, Printing) {
             "  []");
 }
 
+INSTANTIATE_TEST_SUITE_P(EncodedArrayTests, TestRunLengthEncodedArray,
+                         ::testing::Values(int16(), int32(), int64()));
 }  // anonymous namespace
 
 }  // namespace arrow

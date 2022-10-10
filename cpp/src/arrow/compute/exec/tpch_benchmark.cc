@@ -22,13 +22,14 @@
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/tpch_node.h"
 #include "arrow/testing/future_util.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 namespace compute {
 namespace internal {
 
-std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sink_gen,
+std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<std::optional<ExecBatch>>* sink_gen,
                                   int scale_factor) {
   ExecContext* ctx = default_exec_context();
   *ctx = ExecContext(default_memory_pool(), arrow::internal::GetCpuThreadPool());
@@ -109,7 +110,7 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
 static void BM_Tpch_Q1(benchmark::State& st) {
   for (auto _ : st) {
     st.PauseTiming();
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     std::shared_ptr<ExecPlan> plan = Plan_Q1(&sink_gen, static_cast<int>(st.range(0)));
     st.ResumeTiming();
     auto fut = StartAndCollect(plan.get(), sink_gen);

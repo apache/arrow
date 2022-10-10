@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
@@ -377,7 +375,9 @@ test_that("filter() with .data pronoun", {
   compare_dplyr_binding(
     .input %>%
       filter(.data$dbl > 4) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      # use "quoted" strings instead of .data pronoun where tidyselect is used
+      # .data pronoun deprecated in select in tidyselect 1.2
+      select("chr", "int", "lgl") %>%
       collect(),
     tbl
   )
@@ -385,7 +385,7 @@ test_that("filter() with .data pronoun", {
   compare_dplyr_binding(
     .input %>%
       filter(is.na(.data$lgl)) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      select("chr", "int", "lgl") %>%
       collect(),
     tbl
   )
@@ -395,7 +395,7 @@ test_that("filter() with .data pronoun", {
   compare_dplyr_binding(
     .input %>%
       filter(.data$dbl > .env$chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      select("chr", "int", "lgl") %>%
       collect(),
     tbl
   )

@@ -360,7 +360,7 @@ TEST(TypeSpecificTests, RepeatedStrings) {
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<StringArray>(base_array);
   ASSERT_OK(array->ValidateFull());
-  util::string_view singular_value = array->GetView(0);
+  std::string_view singular_value = array->GetView(0);
   for (auto slot : *array) {
     if (!slot.has_value()) continue;
     ASSERT_EQ(slot, singular_value);

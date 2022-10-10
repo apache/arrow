@@ -33,6 +33,10 @@ if(EXISTS "${CPP_CMAKE_MODULES}")
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
 endif()
 
+if(PYARROW_CPP_HOME)
+  list(INSERT CMAKE_PREFIX_PATH 0 "${PYARROW_CPP_HOME}")
+endif()
+
 include(CMakeParseArguments)
 
 # Only interpret if() arguments as variables or keywords when unquoted.
@@ -55,7 +59,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
@@ -166,8 +170,11 @@ endif()
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# Add C++-only flags, like -std=c++11
+# Add C++-only flags, like -std=c++17
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
+
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 if(MSVC)
   # MSVC makes its own output directories based on the build configuration
@@ -208,11 +215,6 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
-if(PYARROW_USE_TENSORFLOW)
-  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-endif()
 
 # Python and Numpy libraries
 find_package(Python3Alt REQUIRED)
@@ -263,7 +265,7 @@ function(bundle_arrow_lib library_path)
                    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
                    COPYONLY)
   else()
-    configure_file(${${library_path}}.${ARG_SO_VERSION}
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
                    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
                    COPYONLY)
   endif()
@@ -410,7 +412,7 @@ set(CYTHON_EXTENSIONS
     _hdfsio
     _json)
 
-set(LINK_LIBS arrow_shared arrow_python_shared)
+set(LINK_LIBS ArrowPython::arrow_python_shared)
 
 if(PYARROW_BUILD_GCS)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _gcsfs)
@@ -434,7 +436,7 @@ if(PYARROW_BUILD_CUDA)
       bundle_arrow_import_lib(ARROW_CUDA_IMPORT_LIB)
     endif()
   endif()
-  set(CUDA_LINK_LIBS arrow_cuda_shared)
+  set(CUDA_LINK_LIBS ArrowCUDA::arrow_cuda_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
 endif()
 
@@ -450,7 +452,7 @@ if(PYARROW_BUILD_DATASET)
     endif()
   endif()
 
-  set(DATASET_LINK_LIBS arrow_dataset_shared)
+  set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset)
 endif()
 
@@ -472,7 +474,7 @@ if(PYARROW_BUILD_PARQUET)
         bundle_arrow_import_lib(PARQUET_IMPORT_LIB)
       endif()
     endif()
-    set(PARQUET_LINK_LIBS parquet_shared)
+    set(PARQUET_LINK_LIBS Parquet::parquet_shared)
   else()
     find_package(Thrift)
     if(PYARROW_BOOST_USE_SHARED)
@@ -508,7 +510,7 @@ if(PYARROW_BUILD_PLASMA)
   if(PYARROW_BUNDLE_ARROW_CPP)
     bundle_arrow_lib(PLASMA_SHARED_LIB SO_VERSION ${PLASMA_SO_VERSION})
   endif()
-  set(PLASMA_LINK_LIBS plasma_shared)
+  set(PLASMA_LINK_LIBS Plasma::plasma_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _plasma)
   file(COPY ${PLASMA_STORE_SERVER} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
 endif()
@@ -540,7 +542,7 @@ if(PYARROW_BUILD_FLIGHT)
     endif()
   endif()
 
-  set(FLIGHT_LINK_LIBS arrow_flight_shared arrow_python_flight_shared)
+  set(FLIGHT_LINK_LIBS ArrowPythonFlight::arrow_python_flight_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
 endif()
 
@@ -554,7 +556,7 @@ if(PYARROW_BUILD_SUBSTRAIT)
     endif()
   endif()
 
-  set(SUBSTRAIT_LINK_LIBS arrow_substrait_shared)
+  set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _substrait)
 endif()
 
@@ -575,7 +577,7 @@ if(PYARROW_BUILD_GANDIVA)
     endif()
   endif()
 
-  set(GANDIVA_LINK_LIBS gandiva_shared)
+  set(GANDIVA_LINK_LIBS Gandiva::gandiva_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
 endif()
 
@@ -604,29 +606,27 @@ foreach(module ${CYTHON_EXTENSIONS})
                                                     ${module_output_directory})
   endif()
 
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    # In the event that we are bundling the shared libraries (e.g. in a
-    # manylinux1 wheel), we need to set the RPATH of the extensions to the
-    # root of the pyarrow/ package so that libarrow/libarrow_python are able
-    # to be loaded properly
-    if(APPLE)
-      set(module_install_rpath "@loader_path/")
-    else()
-      set(module_install_rpath "\$ORIGIN")
-    endif()
-
-    # XXX(wesm): ARROW-2326 this logic is only needed when we have Cython
-    # modules in interior directories. Since all of our C extensions and
-    # bundled libraries are in the same place, we can skip this part
-
-    # list(LENGTH directories i)
-    # while(${i} GREATER 0)
-    #   set(module_install_rpath "${module_install_rpath}/..")
-    #   math(EXPR i "${i} - 1" )
-    # endwhile(${i} GREATER 0)
-
-    set_target_properties(${module_name} PROPERTIES INSTALL_RPATH ${module_install_rpath})
+  # In the event that we are bundling the shared libraries (e.g. in a
+  # manylinux1 wheel), we need to set the RPATH of the extensions to the
+  # root of the pyarrow/ package so that libarrow is able to be
+  # loaded properly
+  if(APPLE)
+    set(module_install_rpath "@loader_path/")
+  else()
+    set(module_install_rpath "\$ORIGIN")
   endif()
+
+  # XXX(wesm): ARROW-2326 this logic is only needed when we have Cython
+  # modules in interior directories. Since all of our C extensions and
+  # bundled libraries are in the same place, we can skip this part
+
+  # list(LENGTH directories i)
+  # while(${i} GREATER 0)
+  #   set(module_install_rpath "${module_install_rpath}/..")
+  #   math(EXPR i "${i} - 1" )
+  # endwhile(${i} GREATER 0)
+
+  set_target_properties(${module_name} PROPERTIES INSTALL_RPATH ${module_install_rpath})
 
   if(PYARROW_GENERATE_COVERAGE)
     set_target_properties(${module_name} PROPERTIES COMPILE_DEFINITIONS

@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -29,7 +30,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -37,7 +37,7 @@ using internal::checked_cast;
 
 namespace json {
 
-using util::string_view;
+using std::string_view;
 
 void AssertUnconvertedStructArraysEqual(const StructArray& expected,
                                         const StructArray& actual);

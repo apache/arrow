@@ -157,11 +157,11 @@ struct BatchesWithSchema {
   std::shared_ptr<arrow::Schema> schema;
   // This method uses internal arrow utilities to
   // convert a vector of record batches to an AsyncGenerator of optional batches
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> gen() const {
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> gen() const {
     auto opt_batches = ::arrow::internal::MapVector(
-        [](cp::ExecBatch batch) { return arrow::util::make_optional(std::move(batch)); },
+        [](cp::ExecBatch batch) { return std::make_optional(std::move(batch)); },
         batches);
-    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> gen;
+    arrow::AsyncGenerator<std::optional<cp::ExecBatch>> gen;
     gen = arrow::MakeVectorGenerator(std::move(opt_batches));
     return gen;
   }
@@ -259,7 +259,7 @@ arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
 arrow::Status ExecutePlanAndCollectAsTable(
     cp::ExecContext& exec_context, std::shared_ptr<cp::ExecPlan> plan,
     std::shared_ptr<arrow::Schema> schema,
-    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen) {
+    arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen) {
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader =
       cp::MakeGeneratorReader(schema, std::move(sink_gen), exec_context.memory_pool());
@@ -312,7 +312,7 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(scan,
                         cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("sink", plan.get(), {scan}, cp::SinkNodeOptions{&sink_gen}));
@@ -337,7 +337,7 @@ arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
 
@@ -367,7 +367,7 @@ arrow::Status TableSourceSinkExample(cp::ExecContext& exec_context) {
 
   ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
   int max_batch_size = 2;
   auto table_source_options = cp::TableSourceNodeOptions{table, max_batch_size};
 
@@ -427,7 +427,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
                                                  cp::FilterNodeOptions{filter_opt}));
 
   // finally, pipe the filter node into a sink node
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
   ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("sink", plan.get(), {filter}, cp::SinkNodeOptions{&sink_gen}));
 
@@ -470,7 +470,7 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
   std::cout << "Schema after projection : \n"
             << project->output_schema()->ToString() << std::endl;
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
   ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("sink", plan.get(), {project}, cp::SinkNodeOptions{&sink_gen}));
   auto schema = arrow::schema({arrow::field("a * 2", arrow::int32())});
@@ -496,7 +496,7 @@ arrow::Status SourceScalarAggregateSinkExample(cp::ExecContext& exec_context) {
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
 
@@ -532,7 +532,7 @@ arrow::Status SourceGroupAggregateSinkExample(cp::ExecContext& exec_context) {
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
 
@@ -640,7 +640,7 @@ arrow::Status SourceOrderBySinkExample(cp::ExecContext& exec_context) {
 
   std::cout << "basic data created" << std::endl;
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
@@ -670,7 +670,7 @@ arrow::Status SourceHashJoinSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   cp::ExecNode* left_source;
   cp::ExecNode* right_source;
@@ -714,7 +714,7 @@ arrow::Status SourceKSelectExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   ARROW_ASSIGN_OR_RAISE(
       cp::ExecNode * source,
@@ -761,7 +761,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   ARROW_ASSIGN_OR_RAISE(scan,
                         cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   std::string root_path = "";
   std::string uri = "file://" + file_path;
@@ -820,7 +820,7 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   cp::Declaration union_node{"union", cp::ExecNodeOptions{}};
   cp::Declaration lhs{"source",

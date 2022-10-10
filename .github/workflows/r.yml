@@ -43,10 +43,11 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
   ubuntu:
@@ -69,7 +70,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .docker
           # As this key is identical on both matrix builds only one will be able to successfully cache,
@@ -87,6 +88,9 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -101,12 +105,15 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: test-output
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push ubuntu-r
 
@@ -119,12 +126,13 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rstudio", image: "r-base", tag: "4.0-centos7" }
-          - { org: "rhub", image: "debian-gcc-devel", tag: "latest" }
+          - { org: "rstudio", image: "r-base", tag: "4.0-centos7", devtoolset: "8" }
+          - { org: "rhub", image: "debian-gcc-devel", tag: "latest", devtoolset: "" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}
       R_TAG: ${{ matrix.config.tag }}
+      DEVTOOLSET_VERSION: ${{ matrix.config.devtoolset }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -137,6 +145,9 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -152,12 +163,15 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: test-output
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push r
 
@@ -170,8 +184,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 35, arch: 'mingw32' }
-        - { rtools: 35, arch: 'mingw64' }
         - { rtools: 40, arch: 'mingw32' }
         - { rtools: 40, arch: 'mingw64' }
         - { rtools: 40, arch: 'ucrt64' }
@@ -186,31 +198,18 @@ jobs:
         run: |
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
-      # We must enable actions/cache before r-lib/actions/setup-r to ensure
-      # using system tar instead of tar provided by Rtools.
-      # We can use tar provided by Rtools when we drop support for Rtools 3.5.
-      # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
-      # when tar is GNU tar.
       - name: Cache ccache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ccache
           key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
           restore-keys: |
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
-      # We use the makepkg-mingw setup that is included in rtools40 even when
-      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: "4.1"
           rtools-version: 40
-          Ncpus: 2
-      - uses: r-lib/actions/setup-r@v2
-        if: ${{ matrix.config.rtools == 35 }}
-        with:
-          rtools-version: 35
-          r-version: "3.6"
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
@@ -222,15 +221,10 @@ jobs:
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
         run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v3
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      # We can remove this when we drop support for Rtools 3.5.
-      - name: Ensure using system tar in actions/cache
-        run: |
-          Write-Output "${Env:windir}\System32" | `
-            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
   windows-r:
     needs: [windows-cpp]
@@ -242,7 +236,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 35, rversion: "3.6" }
         - { rtools: 40, rversion: "4.1" }
         - { rtools: 42, rversion: "4.2" }
         - { rtools: 42, rversion: "devel" }
@@ -258,19 +251,19 @@ jobs:
       - run: mkdir r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools != 42 }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-mingw32.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools !=42 }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-mingw64.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools == 42 }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows
@@ -284,8 +277,6 @@ jobs:
         with:
           r-version: ${{ matrix.config.rversion }}
           rtools-version: ${{ matrix.config.rtools }}
-          # RSPM keeps install times short for 3.6
-          use-public-rspm: true
           Ncpus: 2
       - uses: r-lib/actions/setup-r-dependencies@v2
         env:
