@@ -1312,6 +1312,13 @@ tasks:
     ci: github
     template: r/github.macos-linux.local.yml
 
+  test-r-install-local-minsizerel:
+    ci: github
+    template: r/github.macos-linux.local.yml
+    params:
+      env:
+        CMAKE_BUILD_TYPE: MinSizeRel
+
   test-r-devdocs:
     ci: github
     template: r/github.devdocs.yml
@@ -1352,7 +1359,6 @@ tasks:
   test-r-offline-maximal:
     ci: github
     template: r/github.linux.offline.build.yml
-
 
   test-r-rhub-debian-gcc-release-custom-ccache:
     ci: azure
