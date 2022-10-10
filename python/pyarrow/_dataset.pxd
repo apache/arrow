@@ -59,9 +59,7 @@ cdef class Dataset(_Weakrefable):
 cdef class FilteredDataset(Dataset):
 
     cdef:
-        public object _filter
-
-    cdef Scanner _make_scanner(self, options)
+        public dict _scan_options
 
 
 cdef class Scanner(_Weakrefable):
@@ -75,6 +73,9 @@ cdef class Scanner(_Weakrefable):
     cdef wrap(const shared_ptr[CScanner]& sp)
 
     cdef shared_ptr[CScanner] unwrap(self)
+
+    @staticmethod
+    cdef shared_ptr[CScanOptions] _make_scan_options(Dataset dataset, dict py_scanoptions) except *
 
 
 cdef class FragmentScanOptions(_Weakrefable):

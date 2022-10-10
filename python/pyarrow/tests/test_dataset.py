@@ -4886,7 +4886,7 @@ def test_dataset_filter(tempdir, dstype):
         "colB": [10, 20],
         "col2": ["a", "b"]
     })), keys="col2", join_type="right outer")
-    assert joined.to_table().combine_chunks() == pa.table({
+    assert joined.to_table().sort_by("colB") == pa.table({
         "colA": [1, None],
         "colB": [10, 20],
         "col2": ["a", "b"]

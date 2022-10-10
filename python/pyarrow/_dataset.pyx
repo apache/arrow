@@ -231,6 +231,9 @@ cdef class Dataset(_Weakrefable):
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
 
+    def scanner_options(self, options):
+        return options
+
     def scanner(self, **kwargs):
         """
         Build a scan operation against the dataset.
@@ -462,11 +465,11 @@ cdef class FilteredDataset(Dataset):
 
     def __init__(self, dataset, expression):
         self.init(<shared_ptr[CDataset]>(<Dataset>dataset).wrapped)
-        self._filter = expression
+        self._scan_options = dict(filter=expression)
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
-        self._filter = None
+        self._scan_options = dict()
 
     def filter(self, expression):
         """Apply an additional row filter to the filtered dataset.
@@ -483,38 +486,27 @@ cdef class FilteredDataset(Dataset):
         cdef:
             FilteredDataset filtered_dataset
 
-        if self._filter is not None:
-            new_filter = self._filter & expression
-        else:
+        try:
+            new_filter = self._scan_options["filter"] & expression
+        except KeyError:
             new_filter = expression
         filtered_dataset = self.__class__.__new__(self.__class__)
         filtered_dataset.init(self.wrapped)
         filtered_dataset._scan_options = dict(filter=new_filter)
         return filtered_dataset
 
-    cdef Scanner _make_scanner(self, options):
-        if "filter" in options:
-            raise ValueError(
-                "Passing filter in scanner option is not valid for FilteredDataset."
-            )
-        return Scanner.from_dataset(self, filter=self._filter, **options)
+    def scanner_options(self, options):
+        new_options = options.copy()
 
-    def scanner(self, **kwargs):
-        """Build a scan operation against the dataset.
-
-        See :meth:`.Dataset.scanner` for additional information
-
-        Parameters
-        ----------
-        **kwargs : dict, optional
-            Arguments for :meth:`Scanner.from_dataset`.
-
-        Returns
-        -------
-        scanner : Scanner
-        """
-        return self._make_scanner(kwargs)
-
+        # at the moment only support filter
+        requested_filter = options.get("filter")
+        current_filter = self._scan_options.get("filter")
+        if requested_filter is not None and current_filter is not None:
+            new_options["filter"] = current_filter & requested_filter
+        elif current_filter is not None:
+            new_options["filter"] = current_filter 
+        
+        return new_options
 
 cdef class InMemoryDataset(Dataset):
     """
@@ -2456,8 +2448,32 @@ cdef class Scanner(_Weakrefable):
         return self.wrapped
 
     @staticmethod
-    def from_dataset(Dataset dataset not None, *, object columns=None,
-                     Expression filter=None, int batch_size=_DEFAULT_BATCH_SIZE,
+    cdef shared_ptr[CScanOptions] _make_scan_options(Dataset dataset, dict py_scanoptions) except *:
+        cdef:
+            shared_ptr[CScannerBuilder] builder = make_shared[CScannerBuilder](dataset.unwrap())
+
+        py_scanoptions = dataset.scanner_options(py_scanoptions)
+
+        # Need to explicitly expand the arguments as Cython doesn't support
+        # keyword expansion in cdef functions.
+        _populate_builder(builder, 
+                          columns=py_scanoptions.get("columns"), 
+                          filter=py_scanoptions.get("filter"),
+                          batch_size=py_scanoptions.get("batch_size", _DEFAULT_BATCH_SIZE),
+                          batch_readahead=py_scanoptions.get("batch_readahead", _DEFAULT_BATCH_READAHEAD),
+                          fragment_readahead=py_scanoptions.get("fragment_readahead", _DEFAULT_FRAGMENT_READAHEAD),
+                          use_threads=py_scanoptions.get("use_threads", True),
+                          memory_pool=py_scanoptions.get("memory_pool"),
+                          fragment_scan_options=py_scanoptions.get("fragment_scan_options"))
+
+        return GetResultValue(deref(builder).GetScanOptions())
+
+    @staticmethod
+    def from_dataset(Dataset dataset not None,
+                     bint use_threads=True, object use_async=None,
+                     MemoryPool memory_pool=None,
+                     object columns=None, Expression filter=None,
+                     int batch_size=_DEFAULT_BATCH_SIZE,
                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                      int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                      FragmentScanOptions fragment_scan_options=None,
@@ -2521,21 +2537,18 @@ cdef class Scanner(_Weakrefable):
             default pool.
         """
         cdef:
-            shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
-            shared_ptr[CScannerBuilder] builder
+            shared_ptr[CScanOptions] options = Scanner._make_scan_options(dataset, dict(columns=columns, filter=filter,
+                          batch_size=batch_size, batch_readahead=batch_readahead,
+                          fragment_readahead=fragment_readahead, use_threads=use_threads,
+                          memory_pool=memory_pool,
+                          fragment_scan_options=fragment_scan_options))
+            shared_ptr[CScannerBuilder] builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
             shared_ptr[CScanner] scanner
 
         if use_async is not None:
             warnings.warn('The use_async flag is deprecated and has no '
                           'effect.  It will be removed in the next release.',
                           FutureWarning)
-
-        builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
-        _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size, batch_readahead=batch_readahead,
-                          fragment_readahead=fragment_readahead, use_threads=use_threads,
-                          memory_pool=memory_pool,
-                          fragment_scan_options=fragment_scan_options)
 
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
