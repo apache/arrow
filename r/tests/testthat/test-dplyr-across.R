@@ -293,10 +293,4 @@ test_that("if_all() and if_any() are supported", {
     example_data
   )
 
-  expect_across_equal(
-    quos(if_all(everything(), ~is.na(.x))),
-    quos(is.na(int) & is.na(dbl) & is.na(dbl2) & is.na(lgl) & is.na(false) & is.na(chr) & is.na(fct)),
-    example_data
-  )
-
 })
