@@ -44,7 +44,7 @@ Community changes, past quarter:
 
 - We're voting a new Apache Arrow Database Connectivity (ADBC)
   interface developing at https://github.com/apache/arrow-adbc .
-- We'll deprecate unmaitained Apache Arrow Plasma object store.
+- We'll deprecate unmaintained Apache Arrow Plasma object store.
 - We've accepted Apache Arrow Flight SQL JDBC driver donation.
 - We've switched required C++ specification to C++17 from C++11.
 - We've changed issue assign policy on Jira: All users can assign
