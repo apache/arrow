@@ -1402,6 +1402,22 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
+    def sort(self, order="ascending"):
+        """
+        Sort the Array
+
+        Parameters
+        ----------
+        order : "ascending" or "descending"
+            The order of the sorting.
+
+        Returns
+        -------
+        result : Array
+        """
+        indices = _pc().sort_indices(self, sort_keys=[("", order)])
+        return self.take(indices)
+
     def _to_pandas(self, options, types_mapper=None, **kwargs):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
@@ -2745,6 +2761,29 @@ cdef class StructArray(Array):
         cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
         result.validate()
         return result
+
+    def sort(self, order="ascending", fieldname=None):
+        """
+        Sort the StructArray
+
+        Parameters
+        ----------
+        order : "ascending" or "descending"
+            The order of the sorting.
+        fieldname : str or None, default None
+            If to sort the array by one of its fields
+            or by the whole array.
+
+        Returns
+        -------
+        result : StructArray
+        """
+        if fieldname is not None:
+            tosort = self.field(fieldname)
+        else:
+            tosort = self
+        indices = _pc().sort_indices(tosort, sort_keys=[("", order)])
+        return self.take(indices)
 
 
 cdef class ExtensionArray(Array):

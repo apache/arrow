@@ -174,6 +174,49 @@ class ArrayCompareSorter {
 };
 
 template <typename ArrowType>
+class StructArrayCompareSorter {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+
+ public:
+  // `offset` is used when this is called on a chunk of a chunked array
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& array, int64_t offset,
+                                 const ArraySortOptions& options) {
+    const auto& values = checked_cast<const ArrayType&>(array);
+    nested_value_comparator_ = std::make_shared<NestedValuesComparator>();
+
+    if (nested_value_comparator_->Prepare(values) != Status::OK()) {
+      // TODO: Improve error handling
+      return NullPartitionResult();
+    }
+
+    const auto p = PartitionNulls<ArrayType, StablePartitioner>(
+        indices_begin, indices_end, values, offset, options.null_placement);
+
+    bool asc_order = options.order == SortOrder::Ascending;
+    std::stable_sort(p.non_nulls_begin, p.non_nulls_end,
+                     [&offset, &values, asc_order, this](uint64_t left, uint64_t right) {
+                       // is better to do values.fields.size() or
+                       // values.schema().num_fields() ?
+                       for (ArrayVector::size_type fieldidx = 0;
+                            fieldidx < values.fields().size(); ++fieldidx) {
+                         int result = nested_value_comparator_->Compare(
+                             values, fieldidx, offset, asc_order ? left : right,
+                             asc_order ? right : left);
+                         if (result == -1)
+                           return true;
+                         else if (result == 1)
+                           return false;
+                       }
+                       return false;
+                     });
+    return p;
+  }
+
+  std::shared_ptr<NestedValuesComparator> nested_value_comparator_;
+};
+
+template <typename ArrowType>
 class ArrayCountSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using c_type = typename ArrowType::c_type;
@@ -409,6 +452,11 @@ struct ArraySorter<
   ArrayCompareSorter<Type> impl;
 };
 
+template <typename Type>
+struct ArraySorter<Type, enable_if_t<is_struct_type<Type>::value>> {
+  StructArrayCompareSorter<Type> impl;
+};
+
 struct ArraySorterFactory {
   ArraySortFunc sorter;
 
@@ -507,6 +555,13 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
   DCHECK_OK(func->AddKernel(base));
 }
 
+template <template <typename...> class ExecTemplate>
+void AddArraySortingNestedKernels(VectorKernel base, VectorFunction* func) {
+  base.signature = KernelSignature::Make({Type::STRUCT}, uint64());
+  base.exec = ExecTemplate<UInt64Type, StructType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+}
+
 const ArraySortOptions* GetDefaultArraySortOptions() {
   static const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
   return &kDefaultArraySortOptions;
@@ -561,6 +616,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
   base.init = ArraySortIndicesState::Init;
   base.exec_chunked = ArraySortIndicesChunked;
   AddArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
+  AddArraySortingNestedKernels<ArraySortIndices>(base, array_sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));
 
   // partition_nth_indices has a parameter so needs its init function

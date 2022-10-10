@@ -456,6 +456,93 @@ Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* ind
                         const ChunkedArray& values, SortOrder sort_order,
                         NullPlacement null_placement);
 
+class NestedValuesComparator {
+  public:
+    // StructArray Compare overload
+    int Compare(StructArray const& array, uint64_t field_index, uint64_t offset,
+                uint64_t leftrowidx, uint64_t rightrowidx) {
+      std::shared_ptr<Array> field = array.field(static_cast<int>(field_index));
+      return comparators_[field_index]->Compare(*field, offset, leftrowidx, rightrowidx);
+    }
+
+    // StructArray Prepare overload
+    Status Prepare(StructArray const& array) {
+      auto fields = array.fields();
+      for (auto field = fields.begin(); field != fields.end(); field++) {
+        std::shared_ptr<DataType> physical_type = GetPhysicalType((*field)->type());
+        NestedComparatorFactory comparator_factory = NestedComparatorFactory();
+        std::shared_ptr<NestedValueComparator> current_field_comparator;
+        ARROW_ASSIGN_OR_RAISE(
+            current_field_comparator,
+            NestedComparatorFactory().MakeFieldComparator(*physical_type));
+        comparators_.push_back(current_field_comparator);
+      }
+      return Status::OK();
+    }
+
+  private:
+    struct NestedValueComparator {
+      virtual int Compare(Array const &array, uint64_t offset, 
+                          uint64_t leftidx, uint64_t rightidx) = 0;
+      virtual ~NestedValueComparator() = default;
+    };
+
+    template <typename Type>
+    struct ConcreteNestedValueComparator : NestedValueComparator {
+      using FieldArrayType = typename TypeTraits<Type>::ArrayType;
+      using GetView = GetViewType<Type>;
+
+      virtual int Compare(Array const &array, uint64_t offset, 
+                          uint64_t leftidx, uint64_t rightidx) {
+        const FieldArrayType& values = checked_cast<const FieldArrayType&>(array);
+        auto left_value = GetView::LogicalValue(values.GetView(leftidx - offset));
+        auto right_value = GetView::LogicalValue(values.GetView(rightidx - offset));
+        if (left_value == right_value)
+          return 0;
+        else if (left_value < right_value)
+          return -1;
+        else
+          return 1;
+      }
+    };
+
+    /** 
+     * Internal use factory whose purpose is to detect the right type
+     * of comparator that should be built to be able to compare two
+     * nested values in the same field or column
+     */
+    struct NestedComparatorFactory {
+      Result<std::shared_ptr<NestedValueComparator>> MakeFieldComparator(DataType const &physical_type) {
+          RETURN_NOT_OK(VisitTypeInline(physical_type, this));
+          DCHECK_NE(current_field_comparator_, nullptr);
+          return std::move(current_field_comparator_);
+      }
+
+    #define VISIT(TYPE) \
+      Status Visit(const TYPE& type) { return VisitGeneric(type); }
+
+        VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+    #undef VISIT
+
+      Status Visit(const DataType& type) {
+        return Status::TypeError("Unsupported type for NestedComparatorFactory: ",
+                                type.ToString());
+      }
+
+      template <typename Type>
+      Status VisitGeneric(const Type&) {
+        current_field_comparator_ = std::shared_ptr<NestedValueComparator>(
+          new ConcreteNestedValueComparator<Type>()
+        );
+        return Status::OK();
+      }
+
+      std::shared_ptr<NestedValueComparator> current_field_comparator_;
+    };
+
+  std::vector<std::shared_ptr<NestedValueComparator>> comparators_;
+};
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

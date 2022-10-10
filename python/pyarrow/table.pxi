@@ -433,6 +433,20 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return result
 
+    def sort(self, order="ascending"):
+        """
+        Sort the ChunkedArray
+        Parameters
+        ----------
+        order : "ascending" or "descending"
+            The order of the sorting.
+        Returns
+        -------
+        result : ChunkedArray
+        """
+        indices = _pc().sort_indices(self, sort_keys=[("", order)])
+        return self.take(indices)
+
     def _to_pandas(self, options, types_mapper=None, **kwargs):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
