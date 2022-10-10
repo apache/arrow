@@ -321,6 +321,10 @@ cdef class PlasmaClient(_Weakrefable):
         self.notification_fd = -1
         self.store_socket_name = b""
 
+        warnings.warn(
+            "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
+            DeprecationWarning)
+
     cdef _get_object_buffers(self, object_ids, int64_t timeout_ms,
                              c_vector[CObjectBuffer]* result):
         cdef:
