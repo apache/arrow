@@ -1450,7 +1450,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     }
   }
 
-  void ReserveValues(int64_t extra_values) {
+  void ReserveValues(int64_t extra_values) override {
     const int64_t new_values_capacity =
         UpdateCapacity(values_capacity_, values_written_, extra_values);
     if (new_values_capacity > values_capacity_) {
@@ -1728,7 +1728,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
     DCHECK_EQ(num_decoded, values_to_read - null_count);
   }
 
-  void ReserveValues(int64_t extra_values) {
+  void ReserveValues(int64_t extra_values) override {
     const int64_t new_values_capacity =
         UpdateCapacity(values_capacity_, values_written_, extra_values);
     if (new_values_capacity > values_capacity_) {
@@ -1762,7 +1762,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
       return result;
   }
 
-  std::shared_ptr<ResizableBuffer> ReleaseOffsets() {
+  std::shared_ptr<ResizableBuffer> ReleaseOffsets() override {
       auto result = offset_;      
 
       if (ARROW_PREDICT_FALSE(!hasCal_average_len_)) {
