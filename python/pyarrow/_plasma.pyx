@@ -172,6 +172,10 @@ cdef class ObjectID(_Weakrefable):
                              " is " + str(object_id))
         self.data = CUniqueID.from_binary(object_id)
 
+        warnings.warn(
+            "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
+            DeprecationWarning)
+
     def __eq__(self, other):
         try:
             return self.data == (<ObjectID?>other).data
