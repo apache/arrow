@@ -88,7 +88,8 @@ def start_plasma_store(plasma_store_memory,
     DEPRECATED: Start a plasma store process.
 
     .. deprecated:: 10.0.0
-       Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.
+       Plasma is deprecated since Arrow 10.0.0. It will be removed
+       in 12.0.0 or so.
 
     Parameters
     ----------
@@ -114,8 +115,9 @@ def start_plasma_store(plasma_store_memory,
         the plasma store process.
     """
     warnings.warn(
-            "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
-            DeprecationWarning)
+        "Plasma is deprecated since Arrow 10.0.0. It will be removed in "
+        "12.0.0 or so.",
+        DeprecationWarning)
 
     if use_valgrind and use_profiler:
         raise Exception("Cannot use valgrind and profiler at the same time.")
