@@ -27,10 +27,6 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
       augment_io_error_msg(e, call, schema = x$.data$schema)
     }
   )
-  # Ungroup the Table before converting this to a data frame
-  if (length(group_vars.ArrowTabular(out))) {
-    out <- ungroup.ArrowTabular(out)
-  }
 
   if (as_data_frame) {
     out <- as.data.frame(out)

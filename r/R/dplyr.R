@@ -49,6 +49,11 @@ arrow_dplyr_query <- function(.data) {
   if (inherits(.data, "data.frame")) {
     .data <- Table$create(.data)
   }
+  # If .data is a Table, it must be ungrouped (ARROW-17737)
+  if (length(group_vars.ArrowTabular(.data))) {
+    .data <- ungroup.ArrowTabular(.data)
+  }
+
   # Evaluating expressions on a dataset with duplicated fieldnames will error
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
