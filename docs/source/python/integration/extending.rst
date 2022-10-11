@@ -60,7 +60,7 @@ setuptools (see below).
 
    The PyArrow-specific C++ code is now a part of the PyArrow source tree
    and not Arrow C++. That means the header files and ``arrow_python`` library
-   are not necessarily installed in the same location as that of Arrow.
+   are not necessarily installed in the same location as that of Arrow C++.
    To get the new location use the functions mentioned in this section:
 
    * ``pa.get_include()``
