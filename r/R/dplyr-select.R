@@ -31,7 +31,6 @@ rename.arrow_dplyr_query <- function(.data, ...) {
 rename.Dataset <- rename.ArrowTabular <- rename.RecordBatchReader <- rename.arrow_dplyr_query
 
 column_select <- function(.data, select_expression, op = c("select", "rename")) {
-
   op <- match.arg(op)
 
   .data <- as_adq(.data)
@@ -57,12 +56,15 @@ column_select <- function(.data, select_expression, op = c("select", "rename")) 
   names_compared <- set_names(old_names, new_names)
   renamed <- names_compared[names(names_compared) != names_compared]
 
+  # Update names in group_by if changed in select() or rename()
   if (length(renamed)) {
-    .data <- update_group_names(.data, renamed)
+    gbv <- .data$group_by_vars
+    renamed_groups <- gbv %in% renamed
+    gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
+    .data$group_by_vars <- gbv
   }
+
   .data
-
-
 }
 
 rename_with.arrow_dplyr_query <- function(.data, .fn, .cols = everything(), ...) {
@@ -124,12 +126,3 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   .data
 }
 relocate.Dataset <- relocate.ArrowTabular <- relocate.RecordBatchReader <- relocate.arrow_dplyr_query
-
-# Update names in group_by if changed in select() or rename()
-update_group_names <- function(.data, renamed){
-  gbv <- .data$group_by_vars
-  renamed_groups <- gbv %in% renamed
-  gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
-  .data$group_by_vars <- gbv
-  .data
-}
