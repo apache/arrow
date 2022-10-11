@@ -94,6 +94,7 @@ jobs:
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_FLIGHT=ON
+          -e ARROW_GANDIVA=OFF
           -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
@@ -145,6 +146,7 @@ jobs:
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_FLIGHT=ON
+          -e ARROW_GANDIVA=OFF
           -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
@@ -184,7 +186,6 @@ install:
   - sudo -H pip3 install -e dev/archery[docker]
 
 script:
-  - travis_wait 20 sleep infinity &
   - |
     archery docker run \
       ${DOCKER_RUN_ARGS} \
