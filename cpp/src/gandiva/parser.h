@@ -51,7 +51,7 @@ class Parser {
   gandiva::location location_;
 
   /// The result node pointer.
-  NodePtr* node_ptr_;
+  NodePtr* node_ptr_{nullptr};
 
   /// error message
   std::string error_message_;
