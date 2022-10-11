@@ -21,7 +21,7 @@
 tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 select.arrow_dplyr_query <- function(.data, ...) {
-  check_select_helpers(enexprs(...))
+
   .data <- as_adq(.data)
 
   sim_df <- simulate_data_frame(.data$.data$schema)
@@ -42,7 +42,6 @@ select.arrow_dplyr_query <- function(.data, ...) {
 select.Dataset <- select.ArrowTabular <- select.RecordBatchReader <- select.arrow_dplyr_query
 
 rename.arrow_dplyr_query <- function(.data, ...) {
-  check_select_helpers(enexprs(...))
   .data <- as_adq(.data)
   out <- vars_rename(names(.data), !!!enquos(...))
   .data$selected_columns <- set_names(.data$selected_columns[out], names(out))
@@ -117,19 +116,3 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   .data
 }
 relocate.Dataset <- relocate.ArrowTabular <- relocate.RecordBatchReader <- relocate.arrow_dplyr_query
-
-check_select_helpers <- function(exprs) {
-  # Throw an error if unsupported tidyselect selection helpers in `exprs`
-  exprs <- lapply(exprs, function(x) if (is_quosure(x)) quo_get_expr(x) else x)
-  unsup_select_helpers <- "where"
-  funs_in_exprs <- unlist(lapply(exprs, all_funs))
-  unsup_funs <- funs_in_exprs[funs_in_exprs %in% unsup_select_helpers]
-  if (length(unsup_funs)) {
-    stop(
-      "Unsupported selection ",
-      ngettext(length(unsup_funs), "helper: ", "helpers: "),
-      oxford_paste(paste0(unsup_funs, "()"), quote = FALSE),
-      call. = FALSE
-    )
-  }
-}
