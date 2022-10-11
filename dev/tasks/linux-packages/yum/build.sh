@@ -63,7 +63,7 @@ if which ccache > /dev/null 2>&1; then
   export CCACHE_COMPRESSLEVEL=6
   export CCACHE_MAXSIZE=500M
   export CCACHE_DIR="${PWD}/ccache"
-  ccache --show-stats
+  ccache --show-stats --verbose || :
   if [ -d "${lib_directory}/ccache" ]; then
     PATH="${lib_directory}/ccache:$PATH"
   fi
@@ -156,7 +156,7 @@ else
 fi
 
 if which ccache > /dev/null 2>&1; then
-  ccache --show-stats
+  ccache --show-stats --verbose || :
 fi
 
 run mv rpmbuild/RPMS/*/* "${rpm_dir}/"

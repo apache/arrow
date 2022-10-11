@@ -225,7 +225,8 @@ TEST(Cast, CanCast) {
   ExpectCanCast(smallint(), {int16()});  // cast storage
   ExpectCanCast(smallint(),
                 kNumericTypes);  // any cast which is valid for storage is supported
-  ExpectCannotCast(null(), {smallint()});  // FIXME missing common cast from null
+  ExpectCanCast(null(), {smallint()});
+  ExpectCanCast(tinyint(), {smallint()});  // cast between compatible storage types
 
   ExpectCanCast(date32(), {utf8(), large_utf8()});
   ExpectCanCast(date64(), {utf8(), large_utf8()});
@@ -2794,6 +2795,13 @@ std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {
   return MakeArray(ext_data);
 }
 
+std::shared_ptr<Array> TinyintArrayFromJSON(const std::string& json_data) {
+  auto arr = ArrayFromJSON(int8(), json_data);
+  auto ext_data = arr->data()->Copy();
+  ext_data->type = tinyint();
+  return MakeArray(ext_data);
+}
+
 TEST(Cast, ExtensionTypeToIntDowncast) {
   auto smallint = std::make_shared<SmallintType>();
   ExtensionTypeGuard smallint_guard(smallint);
@@ -2828,6 +2836,68 @@ TEST(Cast, ExtensionTypeToIntDowncast) {
     options.allow_int_overflow = true;
     CheckCast(SmallintArrayFromJSON("[0, null, -1, 1, 3]"),
               ArrayFromJSON(uint8(), "[0, null, 255, 1, 3]"), options);
+  }
+}
+
+TEST(Cast, PrimitiveToExtension) {
+  {
+    auto primitive_array = ArrayFromJSON(uint8(), "[0, 1, 3]");
+    auto extension_array = SmallintArrayFromJSON("[0, 1, 3]");
+    CastOptions options;
+    options.to_type = smallint();
+    CheckCast(primitive_array, extension_array, options);
+  }
+  {
+    CastOptions options;
+    options.to_type = smallint();
+    CheckCastFails(ArrayFromJSON(utf8(), "[\"hello\"]"), options);
+  }
+}
+
+TEST(Cast, ExtensionDictToExtension) {
+  auto extension_array = SmallintArrayFromJSON("[1, 2, 1]");
+  auto indices_array = ArrayFromJSON(int32(), "[0, 1, 0]");
+
+  ASSERT_OK_AND_ASSIGN(auto dict_array,
+                       DictionaryArray::FromArrays(indices_array, extension_array));
+
+  CastOptions options;
+  options.to_type = smallint();
+  CheckCast(dict_array, extension_array, options);
+}
+
+TEST(Cast, IntToExtensionTypeDowncast) {
+  CheckCast(ArrayFromJSON(uint8(), "[0, 100, 200, 1, 2]"),
+            SmallintArrayFromJSON("[0, 100, 200, 1, 2]"));
+
+  // int32 to Smallint(int16), with overflow
+  {
+    CastOptions options;
+    options.to_type = smallint();
+    CheckCastFails(ArrayFromJSON(int32(), "[0, null, 32768, 1, 3]"), options);
+
+    options.allow_int_overflow = true;
+    CheckCast(ArrayFromJSON(int32(), "[0, null, 32768, 1, 3]"),
+              SmallintArrayFromJSON("[0, null, -32768, 1, 3]"), options);
+  }
+
+  // int32 to Smallint(int16), with underflow
+  {
+    CastOptions options;
+    options.to_type = smallint();
+    CheckCastFails(ArrayFromJSON(int32(), "[0, null, -32769, 1, 3]"), options);
+
+    options.allow_int_overflow = true;
+    CheckCast(ArrayFromJSON(int32(), "[0, null, -32769, 1, 3]"),
+              SmallintArrayFromJSON("[0, null, 32767, 1, 3]"), options);
+  }
+
+  // Cannot cast between extension types when storage types differ
+  {
+    CastOptions options;
+    options.to_type = smallint();
+    auto tiny_array = TinyintArrayFromJSON("[0, 1, 3]");
+    ASSERT_NOT_OK(Cast(tiny_array, smallint(), options));
   }
 }
 

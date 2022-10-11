@@ -849,7 +849,6 @@ test_that("Array$create() should have helpful error", {
   int <- integer(0)
   num <- numeric(0)
   char <- character(0)
-  expect_error(Array$create(list()), "Requires at least one element to infer")
   expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
   expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
 
@@ -1169,6 +1168,69 @@ test_that("as_arrow_array() default method errors", {
   expect_snapshot_error(Array$create(vec, type = float64()))
   expect_snapshot_error(
     RecordBatch$create(col = vec, schema = schema(col = float64()))
+  )
+})
+
+test_that("as_arrow_array() works for blob::blob()", {
+  skip_if_not_installed("blob")
+
+  # empty
+  expect_r6_class(as_arrow_array(blob::blob()), "Array")
+  expect_equal(
+    as_arrow_array(blob::blob()),
+    as_arrow_array(list(), type = binary())
+  )
+
+  # all null
+  expect_equal(
+    as_arrow_array(blob::blob(NULL, NULL)),
+    as_arrow_array(list(NULL, NULL), type = binary())
+  )
+
+  expect_equal(
+    as_arrow_array(blob::blob(as.raw(1:5), NULL)),
+    as_arrow_array(list(as.raw(1:5), NULL), type = binary())
+  )
+
+  expect_equal(
+    as_arrow_array(blob::blob(as.raw(1:5)), type = large_binary()),
+    as_arrow_array(list(as.raw(1:5)), type = large_binary())
+  )
+
+  expect_snapshot_error(
+    as_arrow_array(blob::blob(as.raw(1:5)), type = int32())
+  )
+})
+
+test_that("as_arrow_array() works for vctrs::list_of()", {
+  # empty
+  expect_r6_class(as_arrow_array(vctrs::list_of(.ptype = integer())), "Array")
+  expect_equal(
+    as_arrow_array(vctrs::list_of(.ptype = integer())),
+    as_arrow_array(list(), type = list_of(int32()))
+  )
+
+  # all NULL
+  expect_equal(
+    as_arrow_array(vctrs::list_of(NULL, NULL, .ptype = integer())),
+    as_arrow_array(list(NULL, NULL), type = list_of(int32()))
+  )
+
+  expect_equal(
+    as_arrow_array(vctrs::list_of(1:5, NULL, .ptype = integer())),
+    as_arrow_array(list(1:5, NULL), type = list_of(int32()))
+  )
+
+  expect_equal(
+    as_arrow_array(
+      vctrs::list_of(1:5, .ptype = integer()),
+      type = large_list_of(int32())
+    ),
+    as_arrow_array(list(1:5), type = large_list_of(int32()))
+  )
+
+  expect_snapshot_error(
+    as_arrow_array(vctrs::list_of(1:5, .ptype = integer()), type = int32())
   )
 })
 

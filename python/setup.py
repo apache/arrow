@@ -232,9 +232,10 @@ class build_ext(_build_ext):
 
     def _run_cmake_pyarrow_cpp(self, pyarrow_cpp_home):
         # check if build_type is correctly passed / set
-        if self.build_type.lower() not in ('release', 'debug'):
+        if self.build_type.lower() not in ('release', 'debug',
+                                           'relwithdebinfo'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
-                             "be 'release' or 'debug'")
+                             "be 'release', 'debug' or 'relwithdebinfo'")
 
         # The directory containing this setup.py
         source = os.path.dirname(os.path.abspath(__file__))
@@ -300,9 +301,10 @@ class build_ext(_build_ext):
 
     def _run_cmake(self, pyarrow_cpp_home):
         # check if build_type is correctly passed / set
-        if self.build_type.lower() not in ('release', 'debug'):
+        if self.build_type.lower() not in ('release', 'debug',
+                                           'relwithdebinfo'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
-                             "be 'release' or 'debug'")
+                             "be 'release', 'debug' or 'relwithdebinfo'")
 
         # The directory containing this setup.py
         source = os.path.dirname(os.path.abspath(__file__))

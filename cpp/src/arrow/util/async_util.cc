@@ -21,7 +21,6 @@
 #include "arrow/util/logging.h"
 
 #include <deque>
-#include <iostream>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -162,13 +161,13 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
         lk.unlock();
         maybe_backoff->AddCallback([this](const Status&) {
           std::unique_lock<std::mutex> lk2(mutex_);
-          ContinueTasksUnlocked(std::move(lk2));
+          ContinueTasksUnlocked(&lk2);
         });
       } else {
-        SubmitTaskUnlocked(std::move(task), std::move(lk));
+        SubmitTaskUnlocked(std::move(task), &lk);
       }
     } else {
-      SubmitTaskUnlocked(std::move(task), std::move(lk));
+      SubmitTaskUnlocked(std::move(task), &lk);
     }
     return true;
   }
@@ -240,26 +239,29 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   Future<> OnFinished() const override { return finished_; }
 
  private:
-  void ContinueTasksUnlocked(std::unique_lock<std::mutex>&& lk) {
+  void ContinueTasksUnlocked(std::unique_lock<std::mutex>* lk) {
     while (!queue_->Empty()) {
       int next_cost = std::min(queue_->Peek().cost(), throttle_->Capacity());
       std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(next_cost);
       if (maybe_backoff) {
-        lk.unlock();
+        lk->unlock();
         if (!maybe_backoff->TryAddCallback([this] {
               return [this](const Status&) {
                 std::unique_lock<std::mutex> lk2(mutex_);
-                ContinueTasksUnlocked(std::move(lk2));
+                ContinueTasksUnlocked(&lk2);
               };
             })) {
-          lk.lock();
+          lk->lock();
           continue;
         }
         return;
       } else {
         std::unique_ptr<Task> next_task = queue_->Pop();
-        SubmitTaskUnlocked(std::move(next_task), std::move(lk));
-        lk.lock();
+        if (!SubmitTaskUnlocked(std::move(next_task), lk)) {
+          // We reached a terminal condition and there is no need to further continue
+          return;
+        }
+        lk->lock();
       }
     }
   }
@@ -269,7 +271,36 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
            running_tasks_ == 0;
   }
 
-  void DoSubmitTask(std::unique_ptr<Task> task) {
+  bool OnTaskFinished(const Status& st, int task_cost) {
+    std::unique_lock<std::mutex> lk(mutex_);
+    if (!st.ok()) {
+      running_tasks_--;
+      AbortUnlocked(st, std::move(lk));
+      return false;
+    }
+    if (global_abort_->load()) {
+      running_tasks_--;
+      AbortUnlocked(Status::Cancelled("Another scheduler aborted"), std::move(lk));
+      return false;
+    }
+    // It's perhaps a little odd to release the throttle here instead of at the end of
+    // this method.  However, once we decrement running_tasks_ and release the lock we
+    // are eligible for deletion and throttle_ would become invalid.
+    lk.unlock();
+    if (throttle_) {
+      throttle_->Release(task_cost);
+    }
+    lk.lock();
+    running_tasks_--;
+    if (IsFullyFinished()) {
+      lk.unlock();
+      finished_.MarkFinished(maybe_error_);
+      return false;
+    }
+    return true;
+  }
+
+  bool DoSubmitTask(std::unique_ptr<Task> task) {
     int cost = task->cost();
     if (throttle_) {
       cost = std::min(cost, throttle_->Capacity());
@@ -280,35 +311,18 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       std::unique_lock<std::mutex> lk(mutex_);
       running_tasks_--;
       AbortUnlocked(submit_result.status(), std::move(lk));
-      return;
+      return false;
     }
     // Capture `task` to keep it alive until finished
-    submit_result->AddCallback([this, cost, task = std::move(task)](const Status& st) {
-      std::unique_lock<std::mutex> lk(mutex_);
-      if (!st.ok()) {
-        running_tasks_--;
-        AbortUnlocked(st, std::move(lk));
-        return;
-      }
-      if (global_abort_->load()) {
-        running_tasks_--;
-        AbortUnlocked(Status::Cancelled("Another scheduler aborted"), std::move(lk));
-        return;
-      }
-      // It's perhaps a little odd to release the throttle here instead of at the end of
-      // this method.  However, once we decrement running_tasks_ and release the lock we
-      // are eligible for deletion and throttle_ would become invalid.
-      lk.unlock();
-      if (throttle_) {
-        throttle_->Release(cost);
-      }
-      lk.lock();
-      running_tasks_--;
-      if (IsFullyFinished()) {
-        lk.unlock();
-        finished_.MarkFinished(maybe_error_);
-      }
-    });
+    if (!submit_result->TryAddCallback(
+            [this, cost, task_inner = std::move(task)]() mutable {
+              return [this, cost, task_inner2 = std::move(task_inner)](const Status& st) {
+                OnTaskFinished(st, cost);
+              };
+            })) {
+      return OnTaskFinished(submit_result->status(), cost);
+    }
+    return true;
   }
 
   void AbortUnlocked(const Status& st, std::unique_lock<std::mutex>&& lk) {
@@ -329,10 +343,10 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     }
   }
 
-  void SubmitTaskUnlocked(std::unique_ptr<Task> task, std::unique_lock<std::mutex>&& lk) {
+  bool SubmitTaskUnlocked(std::unique_ptr<Task> task, std::unique_lock<std::mutex>* lk) {
     running_tasks_++;
-    lk.unlock();
-    DoSubmitTask(std::move(task));
+    lk->unlock();
+    return DoSubmitTask(std::move(task));
   }
 
   enum State { kRunning, kAborted, kEnded };

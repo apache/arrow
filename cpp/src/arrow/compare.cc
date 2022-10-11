@@ -394,26 +394,6 @@ class RangeDataEqualsImpl {
   }
 
  protected:
-  // For CompareFloating (templated local classes or lambdas not supported in C++11)
-  template <typename CType>
-  struct ComparatorVisitor {
-    RangeDataEqualsImpl* impl;
-    const CType* left_values;
-    const CType* right_values;
-
-    template <typename CompareFunction>
-    void operator()(CompareFunction&& compare) {
-      impl->VisitValues([&](int64_t i) {
-        const CType x = left_values[i + impl->left_start_idx_];
-        const CType y = right_values[i + impl->right_start_idx_];
-        return compare(x, y);
-      });
-    }
-  };
-
-  template <typename CType>
-  friend struct ComparatorVisitor;
-
   template <typename TypeClass, typename CType = typename TypeClass::c_type>
   Status ComparePrimitive(const TypeClass&) {
     const CType* left_values = left_.GetValues<CType>(1);
@@ -431,8 +411,14 @@ class RangeDataEqualsImpl {
     const CType* left_values = left_.GetValues<CType>(1);
     const CType* right_values = right_.GetValues<CType>(1);
 
-    ComparatorVisitor<CType> visitor{this, left_values, right_values};
-    VisitFloatingEquality<CType>(options_, floating_approximate_, visitor);
+    auto visitor = [&](auto&& compare_func) {
+      VisitValues([&](int64_t i) {
+        const CType x = left_values[i + left_start_idx_];
+        const CType y = right_values[i + right_start_idx_];
+        return compare_func(x, y);
+      });
+    };
+    VisitFloatingEquality<CType>(options_, floating_approximate_, std::move(visitor));
     return Status::OK();
   }
 
@@ -827,26 +813,15 @@ class ScalarEqualsVisitor {
   bool result() const { return result_; }
 
  protected:
-  // For CompareFloating (templated local classes or lambdas not supported in C++11)
-  template <typename ScalarType>
-  struct ComparatorVisitor {
-    const ScalarType& left;
-    const ScalarType& right;
-    bool* result;
-
-    template <typename CompareFunction>
-    void operator()(CompareFunction&& compare) {
-      *result = compare(left.value, right.value);
-    }
-  };
-
   template <typename ScalarType>
   Status CompareFloating(const ScalarType& left) {
     using CType = decltype(left.value);
+    const auto& right = checked_cast<const ScalarType&>(right_);
 
-    ComparatorVisitor<ScalarType> visitor{left, checked_cast<const ScalarType&>(right_),
-                                          &result_};
-    VisitFloatingEquality<CType>(options_, floating_approximate_, visitor);
+    auto visitor = [&](auto&& compare_func) {
+      result_ = compare_func(left.value, right.value);
+    };
+    VisitFloatingEquality<CType>(options_, floating_approximate_, std::move(visitor));
     return Status::OK();
   }
 
@@ -1045,33 +1020,6 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
   return are_equal;
 }
 
-template <typename T>
-struct StridedFloatTensorLastDimEquality {
-  int64_t n_values;
-  const uint8_t* left_data;
-  const uint8_t* right_data;
-  int64_t left_offset;
-  int64_t right_offset;
-  int64_t left_stride;
-  int64_t right_stride;
-  bool result;
-
-  template <typename EqualityFunc>
-  void operator()(EqualityFunc&& eq) {
-    for (int64_t i = 0; i < n_values; ++i) {
-      T left_value =
-          *reinterpret_cast<const T*>(left_data + left_offset + i * left_stride);
-      T right_value =
-          *reinterpret_cast<const T*>(right_data + right_offset + i * right_stride);
-      if (!eq(left_value, right_value)) {
-        result = false;
-        return;
-      }
-    }
-    result = true;
-  }
-};
-
 template <typename DataType>
 bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
                                      int64_t right_offset, const Tensor& left,
@@ -1085,11 +1033,26 @@ bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
   const auto right_stride = right.strides()[dim_index];
   if (dim_index == left.ndim() - 1) {
     // Leaf dimension, compare values
-    StridedFloatTensorLastDimEquality<c_type> visitor{
-        n,           left.raw_data(), right.raw_data(), left_offset, right_offset,
-        left_stride, right_stride,    /*result=*/false};
-    VisitFloatingEquality<c_type>(opts, /*floating_approximate=*/false, visitor);
-    return visitor.result;
+    auto left_data = left.raw_data();
+    auto right_data = right.raw_data();
+    bool result = true;
+
+    auto visitor = [&](auto&& compare_func) {
+      for (int64_t i = 0; i < n; ++i) {
+        c_type left_value =
+            *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
+        c_type right_value = *reinterpret_cast<const c_type*>(right_data + right_offset +
+                                                              i * right_stride);
+        if (!compare_func(left_value, right_value)) {
+          result = false;
+          return;
+        }
+      }
+    };
+
+    VisitFloatingEquality<c_type>(opts, /*floating_approximate=*/false,
+                                  std::move(visitor));
+    return result;
   }
 
   // Outer dimension, recurse into inner
