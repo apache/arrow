@@ -143,6 +143,9 @@ docs[["dplyr::desc"]] <- character(0)
 # add tidyselect helpers by parsing the reexports file
 tidyselect <- grep("^tidyselect::", readLines("R/reexports-tidyselect.R"), value = TRUE)
 
+# HACK: remove the _random_along UDF we're using (fix in ARROW-17974)
+docs[["_random_along"]] <- NULL
+
 docs <- c(docs, setNames(rep(list(NULL), length(tidyselect)), tidyselect))
 
 fun_df <- tibble::tibble(
