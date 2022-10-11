@@ -768,13 +768,13 @@ def test_struct_array_sort():
 
 def test_struct_chunked_array_sort():
     arr1 = pa.StructArray.from_arrays([
-        pa.array([5, 7], type=pa.int64()),
-        pa.array(["foo", "car"])
+        pa.array([5, 7, 8], type=pa.int64()),
+        pa.array(["foo", "car", "far"])
     ], names=["a", "b"])
 
     arr2 = pa.StructArray.from_arrays([
-        pa.array([7, 35], type=pa.int64()),
-        pa.array(["bar", "foobar"])
+        pa.array([7, 35, 9], type=pa.int64()),
+        pa.array(["bar", "foobar", "tar"])
     ], names=["a", "b"])
 
     chunked_arr = pa.chunked_array([arr1, arr2])
@@ -782,6 +782,8 @@ def test_struct_chunked_array_sort():
     sorted_arr = chunked_arr.sort("descending")
     assert sorted_arr.to_pylist() == [
         {"a": 35, "b": "foobar"},
+        {"a": 9, "b": "tar"},
+        {"a": 8, "b": "far"},
         {"a": 7, "b": "car"},
         {"a": 7, "b": "bar"},
         {"a": 5, "b": "foo"},
@@ -792,9 +794,88 @@ def test_struct_chunked_array_sort():
         {"a": 5, "b": "foo"},
         {"a": 7, "b": "bar"},
         {"a": 7, "b": "car"},
+        {"a": 8, "b": "far"},
+        {"a": 9, "b": "tar"},
         {"a": 35, "b": "foobar"},
     ]
 
+    arr1 = pa.StructArray.from_arrays([
+        pa.array(["foo", "car", "tar"]),
+        pa.array([5, 7, 8], type=pa.int64())
+    ], names=["a", "b"])
+
+    arr2 = pa.StructArray.from_arrays([
+        pa.array(["bar", "foobar", "far"]),
+        pa.array([7, 35, 9], type=pa.int64())
+    ], names=["a", "b"])
+
+    chunked_arr = pa.chunked_array([arr1, arr2])
+
+    sorted_arr = chunked_arr.sort("ascending")
+    assert sorted_arr.to_pylist() == [
+        {"a": "bar", "b": 7},
+        {"a": "car", "b": 7},
+        {"a": "far", "b": 9},
+        {"a": "foo", "b": 5},
+        {"a": "foobar", "b": 35},
+        {"a": "tar", "b": 8},
+    ]
+
+    sorted_arr = chunked_arr.sort("descending")
+    assert sorted_arr.to_pylist() == [
+        {"a": "tar", "b": 8},
+        {"a": "foobar", "b": 35},
+        {"a": "foo", "b": 5},
+        {"a": "far", "b": 9},
+        {"a": "car", "b": 7},
+        {"a": "bar", "b": 7},
+    ]
+
+    arr1 = pa.StructArray.from_arrays([
+        pa.array([5, 5, 5], type=pa.int64()),
+        pa.array([3, 2, 2], type=pa.int64()),
+        pa.array(["foo", "car", "tar"])
+    ], names=["a", "b", "c"])
+
+    arr2 = pa.StructArray.from_arrays([
+        pa.array([5, 5, 2], type=pa.int64()),
+        pa.array([2, 8, 3], type=pa.int64()),
+        pa.array(["bar", "foobar", "far"])
+    ], names=["a", "b", "c"])
+
+    arr3 = pa.StructArray.from_arrays([
+        pa.array([5, 5, 2], type=pa.int64()),
+        pa.array([2, 8, 1], type=pa.int64()),
+        pa.array(["cat", "dog", "mouse"])
+    ], names=["a", "b", "c"])
+
+    chunked_arr = pa.chunked_array([arr1, arr2, arr3])
+
+    sorted_arr = chunked_arr.sort("ascending")
+    assert sorted_arr.to_pylist() == [
+        {"a": 2, "b": 1, "c": "mouse"},
+        {"a": 2, "b": 3, "c": "far"},
+        {"a": 5, "b": 2, "c": "bar"},
+        {"a": 5, "b": 2, "c": "car"},
+        {"a": 5, "b": 2, "c": "cat"},
+        {"a": 5, "b": 2, "c": "tar"},
+        {"a": 5, "b": 3, "c": "foo"},
+        {"a": 5, "b": 8, "c": "dog"},
+        {"a": 5, "b": 8, "c": "foobar"}
+    ]
+
+    sorted_arr = chunked_arr.sort("descending")
+    assert sorted_arr.to_pylist() == [
+        {"a": 5, "b": 8, "c": "foobar"},
+        {"a": 5, "b": 8, "c": "dog"},
+        {"a": 5, "b": 3, "c": "foo"},
+        {"a": 5, "b": 2, "c": "tar"},
+        {"a": 5, "b": 2, "c": "cat"},
+        {"a": 5, "b": 2, "c": "car"},
+        {"a": 5, "b": 2, "c": "bar"},
+        {"a": 2, "b": 3, "c": "far"},
+        {"a": 2, "b": 1, "c": "mouse"}
+    ]
 
 @pytest.mark.parametrize("offset", (0, 1))
 def test_dictionary_from_buffers(offset):
