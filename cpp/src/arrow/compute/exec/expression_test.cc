@@ -314,6 +314,8 @@ TEST(Expression, ToString) {
 
   EXPECT_EQ(call("round", {literal(3.14)}, compute::RoundOptions()).ToString(),
             "round(3.14, {ndigits=0, round_mode=HALF_TO_EVEN})");
+  EXPECT_EQ(call("random", {}, compute::RandomOptions()).ToString(),
+            "random({initializer=SystemRandom, seed=0})");
 }
 
 TEST(Expression, Equality) {
