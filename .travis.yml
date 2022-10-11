@@ -93,6 +93,7 @@ jobs:
         # aws-sdk-cpp.
         DOCKER_RUN_ARGS: >-
           "
+          -e ARROW_COMPUTE=OFF
           -e ARROW_FLIGHT=ON
           -e ARROW_GANDIVA=OFF
           -e ARROW_GCS=OFF
@@ -145,6 +146,7 @@ jobs:
         # aws-sdk-cpp.
         DOCKER_RUN_ARGS: >-
           "
+          -e ARROW_COMPUTE=OFF
           -e ARROW_FLIGHT=ON
           -e ARROW_GANDIVA=OFF
           -e ARROW_GCS=OFF
