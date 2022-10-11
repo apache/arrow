@@ -98,9 +98,6 @@ endmacro()
 # adds a custom command and sets
 #   BISON_TARGET_cmdopt, BISON_TARGET_extraoutputs
 macro(BISON_TARGET_option_verbose Name BisonOutput filename)
-  cmake_policy(GET CMP0088 _BISON_CMP0088
-               PARENT_SCOPE # undocumented, do not use outside of CMake
-  )
   set(_BISON_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
   if("x${_BISON_CMP0088}x" STREQUAL "xNEWx")
     set(_BISON_WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
@@ -171,9 +168,7 @@ macro(BISON_TARGET Name BisonInput BisonOutput)
 
     list(APPEND BISON_TARGET_outputs "${BISON_TARGET_output_header}")
 
-    cmake_policy(GET CMP0088 _BISON_CMP0088
-                 PARENT_SCOPE # undocumented, do not use outside of CMake
-    )
+    cmake_policy(GET CMP0088 _BISON_CMP0088)
     set(_BISON_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     set(_BisonInput "${BisonInput}")
     if("x${_BISON_CMP0088}x" STREQUAL "xNEWx")

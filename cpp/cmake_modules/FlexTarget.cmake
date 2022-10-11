@@ -58,10 +58,7 @@ macro(FLEX_TARGET Name Input Output)
   if(NOT "${FLEX_TARGET_ARG_UNPARSED_ARGUMENTS}" STREQUAL "")
     message(SEND_ERROR ${FLEX_TARGET_usage})
   else()
-
-    cmake_policy(GET CMP0098 _flex_CMP0098
-                 PARENT_SCOPE # undocumented, do not use outside of CMake
-    )
+    cmake_policy(GET CMP0098 _flex_CMP0098)
     set(_flex_INPUT "${Input}")
     if("x${_flex_CMP0098}x" STREQUAL "xNEWx")
       set(_flex_WORKING_DIR "${CMAKE_CURRENT_BINARY_DIR}")
