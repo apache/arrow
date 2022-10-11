@@ -466,8 +466,9 @@ Status TopDownTypeInferenceVisitor::Visit(const FunctionNode& node) {
     children[i]->set_return_type(current_pattern.param_types()[i]);
   }
 
-  for (const auto& child : node.children()) {
+  for (auto& child : children) {
     RETURN_NOT_OK(child->Accept(*this));
+    child = result_;
   }
 
   result_ = std::make_shared<FunctionNode>(current_pattern.base_name(), children,

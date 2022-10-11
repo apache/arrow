@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/logging.h"
 #include "gandiva/expr_validator.h"
 
 namespace gandiva {
@@ -90,8 +91,10 @@ Status ExprValidator::Visit(const FieldNode& node) {
 }
 
 Status ExprValidator::Visit(const FunctionNode& node) {
+  ARROW_LOG(INFO) << node.ToString();
   const auto& desc = node.descriptor();
   FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
+  ARROW_LOG(INFO) << signature.ToString();
 
   const NativeFunction* native_function = registry_.LookupSignature(signature);
   ARROW_RETURN_IF(native_function == nullptr,
