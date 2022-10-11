@@ -1076,15 +1076,6 @@ tasks:
     params:
       github_runner: "macos-{{ macos_version }}"
       target: "wheels"
-
-  verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64-conda:
-    ci: github
-    template: verify-rc/github.macos.amd64.yml
-    params:
-      env:
-        USE_CONDA: 1
-      github_runner: "macos-{{ macos_version }}"
-      target: "wheels"
   {% endfor %}
 
   verify-rc-binaries-wheels-macos-11-arm64:
