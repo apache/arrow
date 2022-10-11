@@ -49,7 +49,8 @@ environment:
     ARCH: "64"
     ARROW_BUILD_FLIGHT: "ON"
     ARROW_BUILD_FLIGHT_SQL: "ON"
-    ARROW_BUILD_GANDIVA: "ON"
+    # Disable Gandiva because parser requires winflexbison 2.5.25 but conda only provides 2.5.22 for now
+    ARROW_BUILD_GANDIVA: "OFF" 
     ARROW_GCS: "ON"
     ARROW_S3: "ON"
     GENERATOR: Ninja
