@@ -60,6 +60,10 @@ R package Architectural Overview
   ``make sync-cpp`` command then it will be included in the
   ``r/tools/cpp`` folder.
 
-* The ``r/man`` directory includes generated R documentation and
-  the files included shouldn't be updated directly but in the
-  corresponding `.R` file.
+**Additionally**
+
+* The ``r/man`` directory includes generated R documentation that
+  shouldn't be updated directly but in the corresponding ``.R`` file.
+* The vignettes are
+  `"a long-form guide to the package" <https://r-pkgs.org/vignettes.html#introduction>`_
+  and can be found in ``r/vignettes``.
