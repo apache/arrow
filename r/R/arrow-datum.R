@@ -302,13 +302,14 @@ head.ArrowDatum <- function(x, n = 6L, ...) {
   if (n == len) {
     return(x)
   }
-  x$Slice(0, n)
+  x$Slice(0, floor(n))
 }
 
 #' @importFrom utils tail
 #' @export
 tail.ArrowDatum <- function(x, n = 6L, ...) {
   assert_is(n, c("numeric", "integer"))
+  n <- floor(n)
   assert_that(length(n) == 1)
   len <- NROW(x)
   if (n < 0) {

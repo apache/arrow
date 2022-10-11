@@ -38,13 +38,13 @@ test_that("slice_head/tail, ungrouped", {
 
   expect_equal(
     tab %>%
-      slice_head(prop = .2) %>%
+      slice_head(prop = .25) %>%
       nrow(),
     2
   )
   expect_equal(
     tab %>%
-      slice_tail(prop = .2) %>%
+      slice_tail(prop = .25) %>%
       nrow(),
     2
   )
@@ -76,13 +76,13 @@ test_that("slice_min/max, ungrouped", {
 
   compare_dplyr_binding(
     .input %>%
-      slice_max(int, prop = .2, with_ties = FALSE) %>%
+      slice_max(int, prop = .25, with_ties = FALSE) %>%
       collect(),
     tbl
   )
   compare_dplyr_binding(
     .input %>%
-      slice_min(int, prop = .2, with_ties = FALSE) %>%
+      slice_min(int, prop = .25, with_ties = FALSE) %>%
       collect(),
     tbl
   )
@@ -114,27 +114,27 @@ test_that("slice_* not supported with groups", {
     group_by(lgl)
   expect_error(
     slice_head(grouped, n = 5),
-    "Slicing Arrow data with groups"
+    "Slicing grouped data not supported in Arrow"
   )
   expect_error(
     slice_tail(grouped, n = 5),
-    "Slicing Arrow data with groups"
+    "Slicing grouped data not supported in Arrow"
   )
   expect_error(
     slice_min(grouped, n = 5),
-    "Slicing Arrow data with groups"
+    "Slicing grouped data not supported in Arrow"
   )
   expect_error(
     slice_max(grouped, n = 5),
-    "Slicing Arrow data with groups"
+    "Slicing grouped data not supported in Arrow"
   )
   expect_error(
     slice_sample(grouped, n = 5),
-    "Slicing Arrow data with groups"
+    "Slicing grouped data not supported in Arrow"
   )
 })
 
-test_that("input validation: prop", {
+test_that("input validation", {
   tab <- arrow_table(tbl)
   for (p in list("a", -1, 2, c(.01, .02), NA_real_)) {
     expect_error(
@@ -143,6 +143,11 @@ test_that("input validation: prop", {
       fixed = TRUE
     )
   }
+
+  expect_error(
+    tab %>% slice_tail(n = 3, with_ties = FALSE),
+    "`...` must be empty"
+  )
 })
 
 test_that("n <-> prop conversion when nrow is not known", {
@@ -153,7 +158,7 @@ test_that("n <-> prop conversion when nrow is not known", {
 
   expect_error(
     joined %>%
-      slice_min(int, prop = .2, with_ties = FALSE),
+      slice_min(int, prop = .25, with_ties = FALSE),
     "Slicing with `prop` when"
   )
 

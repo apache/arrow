@@ -215,13 +215,13 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  x$head <- n
+  x$head <- floor(n)
   collapse.arrow_dplyr_query(x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  x$tail <- n
+  x$tail <- floor(n)
   collapse.arrow_dplyr_query(x)
 }
 

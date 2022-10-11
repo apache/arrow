@@ -159,12 +159,12 @@ names.Scanner <- function(x) names(x$schema)
 head.Scanner <- function(x, n = 6L, ...) {
   # Negative n requires knowing nrow(x), which requires a scan itself
   assert_that(n >= 0)
-  dataset___Scanner__head(x, n)
+  dataset___Scanner__head(x, floor(n))
 }
 
 #' @export
 tail.Scanner <- function(x, n = 6L, ...) {
-  tail_from_batches(dataset___Scanner__ScanBatches(x), n)$read_table()
+  tail_from_batches(dataset___Scanner__ScanBatches(x), floor(n))$read_table()
 }
 
 tail_from_batches <- function(batches, n) {

@@ -22,6 +22,7 @@ slice_head.arrow_dplyr_query <- function(.data, ..., n, prop) {
   if (length(group_vars(.data)) > 0) {
     arrow_not_supported("Slicing grouped data")
   }
+  rlang::check_dots_empty()
 
   if (missing(n)) {
     n <- prop_to_n(.data, prop)
@@ -35,6 +36,7 @@ slice_tail.arrow_dplyr_query <- function(.data, ..., n, prop) {
   if (length(group_vars(.data)) > 0) {
     arrow_not_supported("Slicing grouped data")
   }
+  rlang::check_dots_empty()
 
   if (missing(n)) {
     n <- prop_to_n(.data, prop)
@@ -44,35 +46,37 @@ slice_tail.arrow_dplyr_query <- function(.data, ..., n, prop) {
 }
 slice_tail.Dataset <- slice_tail.ArrowTabular <- slice_tail.RecordBatchReader <- slice_tail.arrow_dplyr_query
 
-slice_min.arrow_dplyr_query <- function(.data, ..., n, prop, with_ties = TRUE) {
+slice_min.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, with_ties = TRUE) {
   if (length(group_vars(.data)) > 0) {
     arrow_not_supported("Slicing grouped data")
   }
   if (with_ties) {
     arrow_not_supported("with_ties = TRUE")
   }
+  rlang::check_dots_empty()
 
   if (missing(n)) {
     n <- prop_to_n(.data, prop)
   }
 
-  head(dplyr::arrange(.data, ...), n)
+  head(dplyr::arrange(.data, {{ order_by }}), n)
 }
 slice_min.Dataset <- slice_min.ArrowTabular <- slice_min.RecordBatchReader <- slice_min.arrow_dplyr_query
 
-slice_max.arrow_dplyr_query <- function(.data, ..., n, prop, with_ties = TRUE) {
+slice_max.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, with_ties = TRUE) {
   if (length(group_vars(.data)) > 0) {
     arrow_not_supported("Slicing grouped data")
   }
   if (with_ties) {
     arrow_not_supported("with_ties = TRUE")
   }
+  rlang::check_dots_empty()
 
   if (missing(n)) {
     n <- prop_to_n(.data, prop)
   }
 
-  sorted <- dplyr::arrange(.data, ...)
+  sorted <- dplyr::arrange(.data, {{ order_by }})
   # Invert the sort order of the things in ... so they're descending
   # TODO: handle possibility that .data was already sorted and we don't want
   # to invert those sorts? Does that matter? Or no because there's no promise
@@ -99,6 +103,7 @@ slice_sample.arrow_dplyr_query <- function(.data,
     # but you'd need to calculate sum(weight_by) in order to normalize
     arrow_not_supported("weight_by")
   }
+  rlang::check_dots_empty()
 
   # If we want n rows sampled, we have to convert n to prop, oversample some
   # just to make sure we get enough, then head(n)
