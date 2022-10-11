@@ -53,9 +53,11 @@ esac
 
 apt-get install -y -q --no-install-recommends \
   build-essential \
+  bison \
   clang \
   cmake \
   curl \
+  flex \
   git \
   gnupg \
   libcurl4-openssl-dev \
@@ -64,6 +66,7 @@ apt-get install -y -q --no-install-recommends \
   libsqlite3-dev \
   libssl-dev \
   maven \
+  m4 \
   ninja-build \
   nlohmann-json${nlohmann_json}-dev \
   openjdk-11-jdk \
