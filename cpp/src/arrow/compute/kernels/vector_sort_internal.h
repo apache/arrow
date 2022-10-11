@@ -480,10 +480,31 @@ class NestedValuesComparator {
       return Status::OK();
     }
 
+    // ResolvedChunk<StructArray> Prepare overload
+    Status Prepare(const ResolvedChunk<StructArray>& chunk_left,
+                  const ResolvedChunk<StructArray>&) {
+      return Prepare(*chunk_left.array);
+    }
+
+    // ResolvedChunk<StructArray> Compare overload
+    int Compare(const ResolvedChunk<StructArray>& chunk_left,
+                const ResolvedChunk<StructArray>& chunk_right, uint64_t field_index) {
+      std::shared_ptr<Array> field_left =
+          chunk_left.array->field(static_cast<int>(field_index));
+      std::shared_ptr<Array> field_right =
+          chunk_right.array->field(static_cast<int>(field_index));
+      return comparators_[field_index]->Compare(*field_left, *field_right, chunk_left.index,
+                                                chunk_right.index);
+    }
+
   private:
     struct NestedValueComparator {
       virtual int Compare(Array const &array, uint64_t offset, 
                           uint64_t leftidx, uint64_t rightidx) = 0;
+
+      virtual int Compare(Array const& left_array, Array const& right_array,
+                        uint64_t leftidx, uint64_t rightidx) = 0;
+
       virtual ~NestedValueComparator() = default;
     };
 
@@ -497,6 +518,22 @@ class NestedValuesComparator {
         const FieldArrayType& values = checked_cast<const FieldArrayType&>(array);
         auto left_value = GetView::LogicalValue(values.GetView(leftidx - offset));
         auto right_value = GetView::LogicalValue(values.GetView(rightidx - offset));
+        if (left_value == right_value)
+          return 0;
+        else if (left_value < right_value)
+          return -1;
+        else
+          return 1;
+      }
+
+      virtual int Compare(Array const& left_array, Array const& right_array,
+                        uint64_t leftidx, uint64_t rightidx) {
+        const FieldArrayType& left_values = checked_cast<const FieldArrayType&>(left_array);
+        const FieldArrayType& right_values =
+            checked_cast<const FieldArrayType&>(right_array);
+        auto left_value = GetView::LogicalValue(left_values.GetView(leftidx));
+        auto right_value = GetView::LogicalValue(right_values.GetView(rightidx));
+
         if (left_value == right_value)
           return 0;
         else if (left_value < right_value)
@@ -541,6 +578,43 @@ class NestedValuesComparator {
     };
 
   std::vector<std::shared_ptr<NestedValueComparator>> comparators_;
+};
+
+template <typename ArrayType>
+struct ResolvedChunkComparator {
+  bool Compare(const ChunkedArrayResolver& chunk_resolver, uint64_t left,
+               uint64_t right) {
+    const auto chunk_left = chunk_resolver.Resolve<ArrayType>(left);
+    const auto chunk_right = chunk_resolver.Resolve<ArrayType>(right);
+    return chunk_left.Value() < chunk_right.Value();
+  }
+};
+
+template <>
+struct ResolvedChunkComparator<StructArray> {
+  bool Compare(const ChunkedArrayResolver& chunk_resolver, uint64_t left,
+               uint64_t right) {
+    const auto chunk_left = chunk_resolver.Resolve<StructArray>(left);
+    const auto chunk_right = chunk_resolver.Resolve<StructArray>(right);
+    NestedValuesComparator nested_values_comparator;
+    auto status = nested_values_comparator.Prepare(chunk_left, chunk_right);
+
+    if (!status.ok()) {
+      return false;
+    }
+
+    for (int i = 0; i < chunk_left.array->num_fields(); i++) {
+      int val = nested_values_comparator.Compare(chunk_left, chunk_right, i);
+
+      if (val == 0) {
+        continue;
+      }
+
+      return val == -1;
+    }
+
+    return false;
+  }
 };
 
 }  // namespace internal

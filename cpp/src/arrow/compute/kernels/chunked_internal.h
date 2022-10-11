@@ -61,6 +61,19 @@ struct ResolvedChunk<Array> {
   bool IsNull() const { return array->IsNull(index); }
 };
 
+// ResolvedChunk specialization for StructArray
+template <>
+struct ResolvedChunk<StructArray> {
+  // The target struct in chunked array.
+  const StructArray* array;
+  // The field index in the target struct.
+  const int64_t index;
+
+  ResolvedChunk(const StructArray* array, int64_t index) : array(array), index(index) {}
+
+  bool IsNull() const { return array->field(0)->IsNull(index); }
+};
+
 struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
   ChunkedArrayResolver(const ChunkedArrayResolver& other)
       : ::arrow::internal::ChunkResolver(other.chunks_), chunks_(other.chunks_) {}

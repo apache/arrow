@@ -188,6 +188,10 @@ class ChunkedArraySorter : public TypeVisitor {
     return Status::OK();
   }
 
+  Status Visit(const StructType&) override {
+    return SortInternal<StructType>();
+  }
+
  private:
   template <typename Type>
   Status SortInternal() {
@@ -269,25 +273,18 @@ class ChunkedArraySorter : public TypeVisitor {
   template <typename ArrayType>
   void MergeNonNulls(uint64_t* range_begin, uint64_t* range_middle, uint64_t* range_end,
                      const std::vector<const Array*>& arrays, uint64_t* temp_indices) {
-    const ChunkedArrayResolver left_resolver(arrays);
-    const ChunkedArrayResolver right_resolver(arrays);
+    const ChunkedArrayResolver chunk_resolver(arrays);
+    ResolvedChunkComparator<ArrayType> resolved_chunk_comparator;
 
     if (order_ == SortOrder::Ascending) {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-                   return chunk_left.Value() < chunk_right.Value();
+                   return resolved_chunk_comparator.Compare(chunk_resolver, left, right);
                  });
     } else {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-                   // We don't use 'left > right' here to reduce required
-                   // operator. If we use 'right < left' here, '<' is only
-                   // required.
-                   return chunk_right.Value() < chunk_left.Value();
+                   return resolved_chunk_comparator.Compare(chunk_resolver, right, left);
                  });
     }
     // Copy back temp area into main buffer
