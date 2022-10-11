@@ -38,6 +38,8 @@ struct RunLengthDistribution {
 
 static constexpr size_t BENCHMARK_ARRAY_SIZE = 1000000;
 
+const RunLengthEncodeOptions benchmark_encode_options(int32());
+
 struct ValuesSet {
   ValuesSet(std::shared_ptr<DataType> type,
             std::initializer_list<const char*> json_values)
@@ -78,7 +80,7 @@ static void RLEEncodeBenchmark(benchmark::State& state, ValuesSet values,
 
   ExecContext ctx;
   for (auto _ : state) {
-    RunLengthEncode(array, &ctx).ValueOrDie();
+    RunLengthEncode(array, benchmark_encode_options, &ctx).ValueOrDie();
   }
 
   state.counters["rows_per_second"] =
@@ -125,7 +127,7 @@ static void RLEEncodeReference(benchmark::State& state, ValuesSet values,
 static void RLEDecodeBenchmark(benchmark::State& state, ValuesSet values,
                                RunLengthDistribution& distribution) {
   auto array = GenerateArray(values, distribution);
-  auto encoded_array = RunLengthEncode(array).ValueOrDie();
+  auto encoded_array = RunLengthEncode(array, benchmark_encode_options).ValueOrDie();
 
   ExecContext ctx;
   for (auto _ : state) {
@@ -182,8 +184,8 @@ static void RLEFilterBenchmark(benchmark::State& state, ValuesSet values,
   auto array = GenerateArray(values, distribution);
   auto filter =
       GenerateArray(ValuesSet(boolean(), {"true", "false", "null"}), distribution);
-  auto encoded_array = RunLengthEncode(array).ValueOrDie();
-  auto encoded_filter = RunLengthEncode(filter).ValueOrDie();
+  auto encoded_array = RunLengthEncode(array, benchmark_encode_options).ValueOrDie();
+  auto encoded_filter = RunLengthEncode(filter, benchmark_encode_options).ValueOrDie();
 
   ExecContext ctx;
 
