@@ -59,3 +59,7 @@ R package Architectural Overview
 * If libarrow source package is bundled with R package using
   ``make sync-cpp`` command then it will be included in the
   ``r/tools/cpp`` folder.
+
+* The ``r/man`` directory includes generated R documentation and
+  the files included shouldn't be updated directly but in the
+  corresponding `.R` file.
