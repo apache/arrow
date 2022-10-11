@@ -1075,3 +1075,20 @@ def test_store_capacity():
     with plasma.start_plasma_store(plasma_store_memory=10000) as (name, p):
         plasma_client = plasma.connect(name)
         assert plasma_client.store_capacity() == 10000
+
+
+@pytest.mark.plasma
+def test_plasma_deprecated():
+    import pyarrow.plasma as plasma
+
+    with pytest.warns(DeprecationWarning):
+        plasma_store_ctx = plasma.start_plasma_store(
+            plasma_store_memory=10 ** 8,
+            use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
+
+    plasma_store_name, _ = plasma_store_ctx.__enter__()
+    with pytest.warns(DeprecationWarning):
+        plasma.connect(plasma_store_name)
+
+    with pytest.warns(DeprecationWarning):
+        plasma.ObjectID(20 * b"a")
