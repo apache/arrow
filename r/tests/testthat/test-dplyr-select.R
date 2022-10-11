@@ -87,15 +87,14 @@ test_that("select/rename/rename_with using selection helpers", {
       collect(),
     tbl
   )
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        select(where(is.numeric)) %>%
-        collect(),
-      tbl
-    ),
-    "Unsupported selection helper"
+
+  compare_dplyr_binding(
+    .input %>%
+      select(where(is.numeric)) %>%
+      collect(),
+    tbl
   )
+
   compare_dplyr_binding(
     .input %>%
       rename_with(toupper) %>%
