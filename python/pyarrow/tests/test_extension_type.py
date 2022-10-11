@@ -60,20 +60,13 @@ class UuidType2(pa.PyExtensionType):
         return UuidType, ()
 
 
-class LabelType(pa.ExtensionType):
+class LabelType(pa.PyExtensionType):
 
     def __init__(self):
-        super(LabelType, self).__init__(pa.string(), "label")
+        pa.PyExtensionType.__init__(self, pa.string())
 
     def __reduce__(self):
         return LabelType, ()
-
-    def __arrow_ext_serialize__(self):
-        return b""
-
-    @classmethod
-    def __arrow_ext_deserialize__(cls, storage_type, serialized):
-        return LabelType()
 
 
 class ParamExtType(pa.PyExtensionType):

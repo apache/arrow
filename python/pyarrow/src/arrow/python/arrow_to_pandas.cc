@@ -752,6 +752,7 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   if (value_type->id() == Type::EXTENSION) {
     value_type = checked_cast<const ExtensionType&>(*value_type).storage_type();
   }
+
   auto flat_column = std::make_shared<ChunkedArray>(value_arrays, value_type);
 
   options = MakeInnerOptions(std::move(options));
@@ -1979,7 +1980,6 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::LARGE_LIST:
     case Type::MAP: {
       auto list_type = std::static_pointer_cast<BaseListType>(data.type());
-
       if (!ListTypeSupported(*list_type->value_type())) {
         return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
                                       list_type->value_type()->ToString());
