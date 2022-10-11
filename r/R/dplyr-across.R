@@ -103,7 +103,6 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
   }
 
   is_single_func <- function(fns) {
-
     # function calls with package, like base::round
     (is.call(fns) && fns[[1]] == as.name("::")) ||
       # purrr-style formulae
