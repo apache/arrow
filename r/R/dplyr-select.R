@@ -22,13 +22,39 @@ tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 select.arrow_dplyr_query <- function(.data, ...) {
   check_select_helpers(enexprs(...))
-  column_select(as_adq(.data), !!!enquos(...))
+  .data <- as_adq(.data)
+
+  sim_df <- simulate_data_frame(.data$.data$schema)
+  out <- eval_select(expr(c(...)), sim_df)
+
+  .data$selected_columns <- set_names(.data$selected_columns[out], names(out))
+
+  renamed <- out[names(out) != out]
+  if (length(renamed)) {
+    # Massage group_by
+    gbv <- .data$group_by_vars
+    renamed_groups <- gbv %in% renamed
+    gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
+    .data$group_by_vars <- gbv
+  }
+  .data
 }
 select.Dataset <- select.ArrowTabular <- select.RecordBatchReader <- select.arrow_dplyr_query
 
 rename.arrow_dplyr_query <- function(.data, ...) {
   check_select_helpers(enexprs(...))
-  column_select(as_adq(.data), !!!enquos(...), .FUN = vars_rename)
+  .data <- as_adq(.data)
+  out <- vars_rename(names(.data), !!!enquos(...))
+  .data$selected_columns <- set_names(.data$selected_columns[out], names(out))
+  renamed <- out[names(out) != out]
+  if (length(renamed)) {
+    # Massage group_by
+    gbv <- .data$group_by_vars
+    renamed_groups <- gbv %in% renamed
+    gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
+    .data$group_by_vars <- gbv
+  }
+  .data
 }
 rename.Dataset <- rename.ArrowTabular <- rename.RecordBatchReader <- rename.arrow_dplyr_query
 
@@ -38,29 +64,6 @@ rename_with.arrow_dplyr_query <- function(.data, .fn, .cols = everything(), ...)
   dplyr::rename(.data, !!set_names(old_names, .fn(old_names)))
 }
 rename_with.Dataset <- rename_with.ArrowTabular <- rename_with.RecordBatchReader <- rename_with.arrow_dplyr_query
-
-column_select <- function(.data, ..., .FUN = vars_select) {
-  # .FUN is either tidyselect::vars_select or tidyselect::vars_rename
-  # It operates on the names() of selected_columns, i.e. the column names
-  # factoring in any renaming that may already have happened
-  out <- .FUN(names(.data), !!!enquos(...))
-  # Make sure that the resulting selected columns map back to the original data,
-  # as in when there are multiple renaming steps
-  .data$selected_columns <- set_names(.data$selected_columns[out], names(out))
-
-  # If we've renamed columns, we need to project that renaming into other
-  # query parameters we've collected
-  renamed <- out[names(out) != out]
-  if (length(renamed)) {
-    # Massage group_by
-    gbv <- .data$group_by_vars
-    renamed_groups <- gbv %in% renamed
-    gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
-    .data$group_by_vars <- gbv
-    # No need to massage filters because those contain references to Arrow objects
-  }
-  .data
-}
 
 relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL) {
   # The code in this function is adapted from the code in dplyr::relocate.data.frame
