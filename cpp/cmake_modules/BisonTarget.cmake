@@ -168,16 +168,12 @@ macro(BISON_TARGET Name BisonInput BisonOutput)
 
     list(APPEND BISON_TARGET_outputs "${BISON_TARGET_output_header}")
 
-    cmake_policy(GET CMP0088 _BISON_CMP0088)
     set(_BISON_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     set(_BisonInput "${BisonInput}")
-    if("x${_BISON_CMP0088}x" STREQUAL "xNEWx")
-      set(_BISON_WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-      if(NOT IS_ABSOLUTE "${_BisonInput}")
-        set(_BisonInput "${CMAKE_CURRENT_SOURCE_DIR}/${_BisonInput}")
-      endif()
+    set(_BISON_WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    if(NOT IS_ABSOLUTE "${_BisonInput}")
+      set(_BisonInput "${CMAKE_CURRENT_SOURCE_DIR}/${_BisonInput}")
     endif()
-    unset(_BISON_CMP0088)
 
     add_custom_command(OUTPUT ${BISON_TARGET_outputs}
                        COMMAND ${BISON_EXECUTABLE} ${BISON_TARGET_cmdopt} -o
