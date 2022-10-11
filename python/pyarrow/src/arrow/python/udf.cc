@@ -18,7 +18,6 @@
 #include "arrow/python/udf.h"
 #include "arrow/compute/function.h"
 #include "arrow/python/common.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 
