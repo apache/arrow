@@ -86,6 +86,22 @@ def test_run_serialized_query(tmpdir):
     assert table.select(["foo"]) == res_tb.select(["foo"])
 
 
+@pytest.mark.parametrize("query", (pa.py_buffer(b'buffer'), b"bytes", 1))
+def test_run_query_input_types(tmpdir, query):
+
+    # Passing unsupported type, like int, will not segfault.
+    if not isinstance(query, (pa.Buffer, bytes)):
+        msg = f"Expected 'pyarrow.Buffer' or bytes, got '{type(query)}'"
+        with pytest.raises(TypeError, match=msg):
+            substrait.run_query(query)
+        return
+
+    # Otherwise error for invalid query
+    msg = "ParseFromZeroCopyStream failed for substrait.Plan"
+    with pytest.raises(OSError, match=msg):
+        substrait.run_query(query)
+
+
 def test_invalid_plan():
     query = """
     {
