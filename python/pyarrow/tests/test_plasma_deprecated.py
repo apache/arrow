@@ -27,7 +27,9 @@ def test_plasma_deprecated():
         plasma_store_ctx = plasma.start_plasma_store(
             plasma_store_memory=10 ** 8,
             use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
-        plasma_store_name, _ = plasma_store_ctx.__enter__()
+
+    plasma_store_name, _ = plasma_store_ctx.__enter__()
+    with pytest.warns(DeprecationWarning):
         plasma.connect(plasma_store_name)
 
     with pytest.warns(DeprecationWarning):
