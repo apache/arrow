@@ -57,7 +57,7 @@ class ExampleFunctionOptions : public cp::FunctionOptions {
 
 std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
     const cp::FunctionOptions&) const {
-  return std::unique_ptr<cp::FunctionOptions>(new ExampleFunctionOptions());
+  return std::make_unique<ExampleFunctionOptions>();
 }
 
 arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecSpan& batch,
@@ -149,7 +149,7 @@ arrow::Status RunComputeRegister(int argc, char** argv) {
   ARROW_RETURN_NOT_OK(maybe_plan.status());
   ARROW_ASSIGN_OR_RAISE(auto plan, maybe_plan);
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> source_gen, sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> source_gen, sink_gen;
   ARROW_RETURN_NOT_OK(
       cp::Declaration::Sequence(
           {

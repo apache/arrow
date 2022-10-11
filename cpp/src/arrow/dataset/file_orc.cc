@@ -196,15 +196,15 @@ Result<RecordBatchGenerator> OrcFileFormat::ScanBatchesAsync(
   return iter_to_gen;
 }
 
-Future<util::optional<int64_t>> OrcFileFormat::CountRows(
+Future<std::optional<int64_t>> OrcFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   auto self = checked_pointer_cast<OrcFileFormat>(shared_from_this());
   return DeferNotOk(options->io_context.executor()->Submit(
-      [self, file]() -> Result<util::optional<int64_t>> {
+      [self, file]() -> Result<std::optional<int64_t>> {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenORCReader(file->source()));
         return reader->NumberOfRows();
       }));

@@ -2254,12 +2254,12 @@ struct FWBinaryAppender {
     return Status::OK();
   }
 
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     data.push_back(v);
     return Status::OK();
   }
 
-  std::vector<util::string_view> data;
+  std::vector<std::string_view> data;
 };
 
 TEST_F(TestFWBinaryArray, ArraySpanVisitor) {
@@ -2290,7 +2290,7 @@ TEST_F(TestFWBinaryArray, ArrayIndexOperator) {
   auto fsba = checked_pointer_cast<FixedSizeBinaryArray>(arr);
 
   ASSERT_EQ("abc", (*fsba)[0].value());
-  ASSERT_EQ(util::nullopt, (*fsba)[1]);
+  ASSERT_EQ(std::nullopt, (*fsba)[1]);
   ASSERT_EQ("def", (*fsba)[2].value());
 }
 
@@ -2831,8 +2831,6 @@ class DecimalTest : public ::testing::TestWithParam<int> {
     auto type = std::make_shared<TYPE>(precision, 4);
     auto builder = std::make_shared<DecimalBuilder>(type);
 
-    size_t null_count = 0;
-
     const size_t size = draw.size();
 
     ARROW_EXPECT_OK(builder->Reserve(size));
@@ -2842,7 +2840,6 @@ class DecimalTest : public ::testing::TestWithParam<int> {
         ARROW_EXPECT_OK(builder->Append(draw[i]));
       } else {
         ARROW_EXPECT_OK(builder->AppendNull());
-        ++null_count;
       }
     }
 
@@ -3538,7 +3535,7 @@ TYPED_TEST(TestPrimitiveArray, IndexOperator) {
       ASSERT_EQ(this->values_[i], res.value());
     } else {
       ASSERT_FALSE(res.has_value());
-      ASSERT_EQ(res, util::nullopt);
+      ASSERT_EQ(res, std::nullopt);
     }
   }
 }

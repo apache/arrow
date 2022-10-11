@@ -292,7 +292,12 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    */
   public SchemaResult getSchema(FlightDescriptor descriptor, CallOption... options) {
-    return SchemaResult.fromProtocol(CallOptions.wrapStub(blockingStub, options).getSchema(descriptor.toProtocol()));
+    try {
+      return SchemaResult.fromProtocol(CallOptions.wrapStub(blockingStub, options)
+          .getSchema(descriptor.toProtocol()));
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
   }
 
   /**

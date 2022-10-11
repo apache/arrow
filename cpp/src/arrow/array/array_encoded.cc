@@ -44,16 +44,16 @@ RunLengthEncodedArray::RunLengthEncodedArray(const std::shared_ptr<DataType>& ty
 Result<std::shared_ptr<RunLengthEncodedArray>> RunLengthEncodedArray::Make(
     const std::shared_ptr<Array>& run_ends_array,
     const std::shared_ptr<Array>& values_array, int64_t logical_length, int64_t offset) {
-  if (run_ends_array->type_id() != Type::INT32) {
-    return Status::Invalid("Run ends array must be int32 type");
+  if (!RunLengthEncodedType::RunEndsTypeValid(*run_ends_array->type())) {
+    return Status::Invalid("Run ends array must be int16, int32 or int64 type");
   }
   if (run_ends_array->null_count() != 0) {
     return Status::Invalid("Run ends array cannot contain null values");
   }
 
-  return std::make_shared<RunLengthEncodedArray>(run_length_encoded(values_array->type()),
-                                                 logical_length, run_ends_array,
-                                                 values_array, offset);
+  return std::make_shared<RunLengthEncodedArray>(
+      run_length_encoded(run_ends_array->type(), values_array->type()), logical_length,
+      run_ends_array, values_array, offset);
 }
 
 std::shared_ptr<Array> RunLengthEncodedArray::values_array() const {

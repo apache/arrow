@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "arrow/dataset/partition.h"
@@ -33,7 +34,6 @@
 #include "arrow/filesystem/type_fwd.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace dataset {

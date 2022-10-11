@@ -69,18 +69,18 @@ Datum::Datum(const RecordBatch& value)
 
 std::shared_ptr<Array> Datum::make_array() const {
   DCHECK_EQ(Datum::ARRAY, this->kind());
-  return MakeArray(util::get<std::shared_ptr<ArrayData>>(this->value));
+  return MakeArray(std::get<std::shared_ptr<ArrayData>>(this->value));
 }
 
 const std::shared_ptr<DataType>& Datum::type() const {
   if (this->kind() == Datum::ARRAY) {
-    return util::get<std::shared_ptr<ArrayData>>(this->value)->type;
+    return std::get<std::shared_ptr<ArrayData>>(this->value)->type;
   }
   if (this->kind() == Datum::CHUNKED_ARRAY) {
-    return util::get<std::shared_ptr<ChunkedArray>>(this->value)->type();
+    return std::get<std::shared_ptr<ChunkedArray>>(this->value)->type();
   }
   if (this->kind() == Datum::SCALAR) {
-    return util::get<std::shared_ptr<Scalar>>(this->value)->type;
+    return std::get<std::shared_ptr<Scalar>>(this->value)->type;
   }
   static std::shared_ptr<DataType> no_type;
   return no_type;
@@ -88,10 +88,10 @@ const std::shared_ptr<DataType>& Datum::type() const {
 
 const std::shared_ptr<Schema>& Datum::schema() const {
   if (this->kind() == Datum::RECORD_BATCH) {
-    return util::get<std::shared_ptr<RecordBatch>>(this->value)->schema();
+    return std::get<std::shared_ptr<RecordBatch>>(this->value)->schema();
   }
   if (this->kind() == Datum::TABLE) {
-    return util::get<std::shared_ptr<Table>>(this->value)->schema();
+    return std::get<std::shared_ptr<Table>>(this->value)->schema();
   }
   static std::shared_ptr<Schema> no_schema;
   return no_schema;
@@ -100,13 +100,13 @@ const std::shared_ptr<Schema>& Datum::schema() const {
 int64_t Datum::length() const {
   switch (this->kind()) {
     case Datum::ARRAY:
-      return util::get<std::shared_ptr<ArrayData>>(this->value)->length;
+      return std::get<std::shared_ptr<ArrayData>>(this->value)->length;
     case Datum::CHUNKED_ARRAY:
-      return util::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
+      return std::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
     case Datum::RECORD_BATCH:
-      return util::get<std::shared_ptr<RecordBatch>>(this->value)->num_rows();
+      return std::get<std::shared_ptr<RecordBatch>>(this->value)->num_rows();
     case Datum::TABLE:
-      return util::get<std::shared_ptr<Table>>(this->value)->num_rows();
+      return std::get<std::shared_ptr<Table>>(this->value)->num_rows();
     case Datum::SCALAR:
       return 1;
     default:
@@ -117,14 +117,13 @@ int64_t Datum::length() const {
 int64_t Datum::TotalBufferSize() const {
   switch (this->kind()) {
     case Datum::ARRAY:
-      return util::TotalBufferSize(*util::get<std::shared_ptr<ArrayData>>(this->value));
+      return util::TotalBufferSize(*std::get<std::shared_ptr<ArrayData>>(this->value));
     case Datum::CHUNKED_ARRAY:
-      return util::TotalBufferSize(
-          *util::get<std::shared_ptr<ChunkedArray>>(this->value));
+      return util::TotalBufferSize(*std::get<std::shared_ptr<ChunkedArray>>(this->value));
     case Datum::RECORD_BATCH:
-      return util::TotalBufferSize(*util::get<std::shared_ptr<RecordBatch>>(this->value));
+      return util::TotalBufferSize(*std::get<std::shared_ptr<RecordBatch>>(this->value));
     case Datum::TABLE:
-      return util::TotalBufferSize(*util::get<std::shared_ptr<Table>>(this->value));
+      return util::TotalBufferSize(*std::get<std::shared_ptr<Table>>(this->value));
     case Datum::SCALAR:
       return 0;
     default:
@@ -135,11 +134,11 @@ int64_t Datum::TotalBufferSize() const {
 
 int64_t Datum::null_count() const {
   if (this->kind() == Datum::ARRAY) {
-    return util::get<std::shared_ptr<ArrayData>>(this->value)->GetNullCount();
+    return std::get<std::shared_ptr<ArrayData>>(this->value)->GetNullCount();
   } else if (this->kind() == Datum::CHUNKED_ARRAY) {
-    return util::get<std::shared_ptr<ChunkedArray>>(this->value)->null_count();
+    return std::get<std::shared_ptr<ChunkedArray>>(this->value)->null_count();
   } else if (this->kind() == Datum::SCALAR) {
-    const auto& val = *util::get<std::shared_ptr<Scalar>>(this->value);
+    const auto& val = *std::get<std::shared_ptr<Scalar>>(this->value);
     return val.is_valid ? 0 : 1;
   } else {
     DCHECK(false) << "This function only valid for array-like values";

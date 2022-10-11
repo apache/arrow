@@ -26,12 +26,12 @@ include(GNUInstallDirs)
 
 option(PARQUET_LINK_SHARED "Link to the Parquet shared library" ON)
 
-# This ensures that things like gnu++11 get passed correctly
+# This ensures that things like -std=gnu++... get passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
-# We require a C++11 compliant compiler
+# We require a C++17 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Look for installed packages the system

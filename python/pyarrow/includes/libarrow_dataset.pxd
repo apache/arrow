@@ -279,6 +279,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::CsvFragmentScanOptions"(CFragmentScanOptions):
         CCSVConvertOptions convert_options
         CCSVReadOptions read_options
+        function[StreamWrapFunc] stream_transform_func
 
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const

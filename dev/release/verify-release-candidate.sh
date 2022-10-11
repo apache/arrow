@@ -399,7 +399,7 @@ install_go() {
     return 0
   fi
 
-  local version=1.16.12
+  local version=1.17.13
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -1039,7 +1039,7 @@ test_macos_wheels() {
     local check_flight=OFF
   else
     local python_versions="3.7m 3.8 3.9 3.10"
-    local platform_tags="macosx_10_9_x86_64 macosx_10_13_x86_64"
+    local platform_tags="macosx_10_14_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment

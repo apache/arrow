@@ -278,7 +278,7 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
   ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);
 };
 
-Status ARROW_EXPORT HaveLibHdfs();
+ARROW_EXPORT Status HaveLibHdfs();
 
 }  // namespace io
 }  // namespace arrow

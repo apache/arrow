@@ -942,12 +942,12 @@ class TestCountDistinctKernel : public ::testing::Test {
     CheckScalar("count_distinct", {input}, Expected(expected_all), &all);
   }
 
-  void Check(const std::shared_ptr<DataType>& type, util::string_view json,
+  void Check(const std::shared_ptr<DataType>& type, std::string_view json,
              int64_t expected_all, bool has_nulls = true) {
     Check(ArrayFromJSON(type, json), expected_all, has_nulls);
   }
 
-  void Check(const std::shared_ptr<DataType>& type, util::string_view json) {
+  void Check(const std::shared_ptr<DataType>& type, std::string_view json) {
     auto input = ScalarFromJSON(type, json);
     auto zero = ResultWith(Expected(0));
     auto one = ResultWith(Expected(1));

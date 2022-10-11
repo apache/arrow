@@ -58,6 +58,8 @@ class ExecNode;
 }  // namespace compute
 }  // namespace arrow
 
+class ExecPlanReader;
+
 #if defined(ARROW_R_WITH_PARQUET)
 #include <parquet/type_fwd.h>
 #endif

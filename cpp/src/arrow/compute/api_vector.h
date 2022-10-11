@@ -79,6 +79,15 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   NullEncodingBehavior null_encoding_behavior = MASK;
 };
 
+/// \brief Options for the run-length encode function
+class ARROW_EXPORT RunLengthEncodeOptions : public FunctionOptions {
+ public:
+  explicit RunLengthEncodeOptions(std::shared_ptr<DataType> run_ends_type = int32());
+  static constexpr char const kTypeName[] = "RunLengthEncodeOptions";
+
+  std::shared_ptr<DataType> run_ends_type;
+};
+
 enum class SortOrder {
   /// Arrange values in increasing order
   Ascending,
@@ -582,13 +591,15 @@ Result<Datum> DictionaryEncode(
 
 /// \brief Run-Length-encode values in an array-like object
 /// \param[in] value array-like input
-/// \param[in] ctx the function execution context, optional
-/// \return result with same shape and type as input
+/// \param[in] data type to hold the logical end indexes of the individual run. Must be
+/// able to hold at least the array length \param[in] ctx the function execution context,
+/// optional \return result with same shape and type as input
 ///
 /// \since 9.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> RunLengthEncode(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> RunLengthEncode(const Datum& value, const RunLengthEncodeOptions& options,
+                              ExecContext* ctx = NULLPTR);
 
 /// \brief Decode a Run-Length-encoded array to a plain array
 /// \param[in] value run-length-encoded input
