@@ -56,3 +56,6 @@ R package Architectural Overview
 * All the C++ code connected to the R package lives in ``arrow/r/src``.
   It also includes C++ code which connects libarrow (the Arrow C++
   library) and the R code in package.
+* If libarrow source package is bundled with R package using
+  ``make sync-cpp`` command then it will be included in the
+  ``r/tools/cpp`` folder.
