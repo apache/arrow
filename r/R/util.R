@@ -253,7 +253,15 @@ augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
 }
 
 simulate_data_frame <- function(schema) {
-  arrays <- lapply(schema$fields, function(field) concat_arrays(type = field$type))
+
+  arrays <- lapply(
+    schema$fields,
+    function(field) tryCatch(
+      concat_arrays(type = field$type),
+      error = function(...) concat_arrays(type = NULL)
+    )
+  )
+
   vectors <- lapply(
     arrays,
     function(array) tryCatch(
