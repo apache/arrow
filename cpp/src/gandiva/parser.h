@@ -20,6 +20,7 @@
 #include <string>
 
 #include "arrow/type.h"
+#include "arrow/util/macros.h"
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
 
@@ -51,7 +52,7 @@ class Parser {
   gandiva::location location_;
 
   /// The result node pointer.
-  NodePtr* node_ptr_{nullptr};
+  NodePtr* node_ptr_{NULLPTR};
 
   /// error message
   std::string error_message_;
