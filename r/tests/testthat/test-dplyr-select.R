@@ -186,3 +186,32 @@ test_that("relocate with selection helpers", {
     df
   )
 })
+
+test_that("multiple select/rename and group_by", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr) %>%
+      rename(string = chr, dub = dbl2) %>%
+      rename(chr_actually = string) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr) %>%
+      select(string = chr, dub = dbl2) %>%
+      rename(chr_actually = string) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr) %>%
+      rename(string = chr, dub = dbl2) %>%
+      select(chr_actually = string) %>%
+      collect(),
+    tbl
+  )
+})
