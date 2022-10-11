@@ -311,6 +311,9 @@ TEST(Expression, ToString) {
                 })
                 .ToString(),
             "{a=a, renamed_a=a, three=3, b=" + in_12.ToString() + "}");
+
+  EXPECT_EQ(call("round", {literal(3.14)}, compute::RoundOptions()).ToString(),
+            "round(3.14, {ndigits=0, round_mode=HALF_TO_EVEN})");
 }
 
 TEST(Expression, Equality) {
