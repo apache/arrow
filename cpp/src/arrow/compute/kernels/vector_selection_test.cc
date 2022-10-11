@@ -243,40 +243,46 @@ class TestFilterKernel : public ::testing::Test {
     if (!is_primitive(values->type_id())) {
       return;
     }
-    ASSERT_OK_AND_ASSIGN(auto values_rle, RunLengthEncode(values));
-    ASSERT_OK_AND_ASSIGN(auto filter_rle, RunLengthEncode(filter));
-    ASSERT_OK_AND_ASSIGN(auto expected_rle, RunLengthEncode(expected));
-    {
-      ARROW_SCOPED_TRACE("for run-length encoded non-sliced values and filter");
-      DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
-                     expected_rle.make_array());
-    }
-    {
-      ARROW_SCOPED_TRACE(
-          "for run-length encoded values and filter with sliced child arrays");
-      auto values_rle_sliced = values_rle.array()->Copy();
-      rle_util::AddArtificialOffsetInChildArray(values_rle_sliced.get(), 2);
-      auto filter_rle_sliced = filter_rle.array()->Copy();
-      rle_util::AddArtificialOffsetInChildArray(filter_rle_sliced.get(), 1000);
-      DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
-                     expected_rle.make_array());
-    }
-    {
-      ARROW_SCOPED_TRACE("for sliced run-length encoded arrays");
-      auto values_pad = ArrayFromJSON(values->type(), "[null, null]");
-      auto filter_pad = ArrayFromJSON(boolean(), "[true, true]");
-      ASSERT_OK_AND_ASSIGN(auto values_padded,
-                           Concatenate({values_pad, values, values_pad}));
-      ASSERT_OK_AND_ASSIGN(auto filter_padded,
-                           Concatenate({filter_pad, filter, filter_pad}));
-      ASSERT_OK_AND_ASSIGN(auto values_padded_rle, RunLengthEncode(values_padded));
-      ASSERT_OK_AND_ASSIGN(auto filter_padded_rle, RunLengthEncode(filter_padded));
-      int64_t originial_length = values->length();
-      ASSERT_ARRAYS_EQUAL(*filter_padded_rle.make_array()->Slice(2, originial_length),
-                          *filter_rle.make_array());
-      DoAssertFilter(values_padded_rle.make_array()->Slice(2, originial_length),
-                     filter_padded_rle.make_array()->Slice(2, originial_length),
-                     expected_rle.make_array());
+    for (auto run_ends_type : {int16(), int32(), int64()}) {
+      ARROW_SCOPED_TRACE("for run ends array type ", *run_ends_type);
+      RunLengthEncodeOptions options(run_ends_type);
+      ASSERT_OK_AND_ASSIGN(auto values_rle, RunLengthEncode(values, options));
+      ASSERT_OK_AND_ASSIGN(auto filter_rle, RunLengthEncode(filter, options));
+      ASSERT_OK_AND_ASSIGN(auto expected_rle, RunLengthEncode(expected, options));
+      {
+        ARROW_SCOPED_TRACE("for run-length encoded non-sliced values and filter");
+        DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
+                       expected_rle.make_array());
+      }
+      {
+        ARROW_SCOPED_TRACE(
+            "for run-length encoded values and filter with sliced child arrays");
+        auto values_rle_sliced = values_rle.array()->Copy();
+        rle_util::AddArtificialOffsetInChildArray(values_rle_sliced.get(), 2);
+        auto filter_rle_sliced = filter_rle.array()->Copy();
+        rle_util::AddArtificialOffsetInChildArray(filter_rle_sliced.get(), 1000);
+        DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
+                       expected_rle.make_array());
+      }
+      {
+        ARROW_SCOPED_TRACE("for sliced run-length encoded arrays");
+        auto values_pad = ArrayFromJSON(values->type(), "[null, null]");
+        auto filter_pad = ArrayFromJSON(boolean(), "[true, true]");
+        ASSERT_OK_AND_ASSIGN(auto values_padded,
+                             Concatenate({values_pad, values, values_pad}));
+        ASSERT_OK_AND_ASSIGN(auto filter_padded,
+                             Concatenate({filter_pad, filter, filter_pad}));
+        ASSERT_OK_AND_ASSIGN(auto values_padded_rle,
+                             RunLengthEncode(values_padded, options));
+        ASSERT_OK_AND_ASSIGN(auto filter_padded_rle,
+                             RunLengthEncode(filter_padded, options));
+        int64_t originial_length = values->length();
+        ASSERT_ARRAYS_EQUAL(*filter_padded_rle.make_array()->Slice(2, originial_length),
+                            *filter_rle.make_array());
+        DoAssertFilter(values_padded_rle.make_array()->Slice(2, originial_length),
+                       filter_padded_rle.make_array()->Slice(2, originial_length),
+                       expected_rle.make_array());
+      }
     }
   }
 
