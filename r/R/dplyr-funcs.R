@@ -160,6 +160,17 @@ create_binding_cache <- function() {
   register_bindings_type()
   register_bindings_augmented()
 
+  # HACK because random() doesn't work (ARROW-17974)
+  register_scalar_function(
+    "_random_along",
+    function(context, x) {
+      Array$create(runif(length(x)))
+    },
+    in_type = schema(x = boolean()),
+    out_type = float64(),
+    auto_convert = FALSE
+  )
+
   # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)
 }

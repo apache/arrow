@@ -114,7 +114,21 @@ slice_sample.arrow_dplyr_query <- function(.data,
   validate_prop(prop)
 
   if (prop < 1) {
-    .data <- set_filters(as_adq(.data), Expression$create("random") < prop)
+    .data <- as_adq(.data)
+    # TODO(ARROW-17974): expr <- Expression$create("random") < prop
+    # HACK: use our UDF to generate random. It needs an input column because
+    # nullary functions don't work, and that column has to be typed. We've
+    # chosen boolean() type because it's compact and can always be created
+    if (query_on_dataset(.data)) {
+      # We can use this augmented field, which is boolean
+      ref <- Expression$field_ref("__last_in_fragment")
+    } else {
+      # Pick any column and do is.na, that will be boolean
+      # TODO: get an actual FieldRef because the first col could be derived
+      ref <- Expression$create("is_null", .data$selected_columns[[1]])
+    }
+    expr <- Expression$create("_random_along", ref) < prop
+    .data <- set_filters(.data, expr)
   }
   if (sampling_n) {
     .data <- head(.data, n)

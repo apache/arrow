@@ -99,13 +99,24 @@ test_that("slice_sample, ungrouped", {
     "weight_by"
   )
 
-  skip("random() doesn't actually work")
-  # ! Invalid: ExecuteScalarExpression cannot Execute non-scalar expression Array[double]
-  tab %>%
-    slice_sample(prop = .25) %>%
-    collect()
+  # Because this is random (and we only have 10 rows), try several times
+  for (i in 1:10) {
+    sampled_prop <- tab %>%
+      slice_sample(prop = .2) %>%
+      collect() %>%
+      nrow()
+    if (sampled_prop == 2) break
+  }
+  expect_equal(sampled_prop, 2)
 
-  # TODO: test that slice_sample(n) returns n rows (might need larger dataset)
+  # Test that slice_sample(n) returns n rows
+  # With a larger dataset, we would be more confident to get exactly n
+  # but with this dataset, we should at least not get >n rows
+  sampled_n <- tab %>%
+    slice_sample(prop = .2) %>%
+    collect() %>%
+    nrow()
+  expect_true(sampled_n <= 2)
 })
 
 test_that("slice_* not supported with groups", {
