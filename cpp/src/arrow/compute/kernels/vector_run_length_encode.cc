@@ -35,7 +35,11 @@ struct EncodeDecodeCommonExec {
     } else {
       result.valid = true;
     }
-    result.value = (reinterpret_cast<const CType*>(input_values))[read_offset];
+    if (result.valid) {
+      result.value = (reinterpret_cast<const CType*>(input_values))[read_offset];
+    } else {
+      result.value = {};
+    }
     return result;
   }
 
@@ -66,6 +70,8 @@ EncodeDecodeCommonExec<BooleanType, true>::ReadValue() {
   if (result.valid) {
     result.value =
         bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
+  } else {
+    result.value = 0;
   }
   return result;
 }
