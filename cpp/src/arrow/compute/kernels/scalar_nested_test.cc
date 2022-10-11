@@ -19,6 +19,7 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
@@ -114,6 +115,64 @@ TEST(TestScalarNested, ListElementInvalid) {
               Raises(StatusCode::Invalid));
   EXPECT_THAT(CallFunction("list_element", {input_scalar, index}),
               Raises(StatusCode::Invalid));
+}
+
+void CheckListSlice(std::shared_ptr<Array> input, std::shared_ptr<Array> expected,
+                    SliceOptions& args) {
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("list_slice", {input}, &args));
+  ASSERT_EQ(result, expected);
+}
+
+TEST(TestScalarNested, ListSlice) {
+  const auto value_types = {float32(), int32()};
+  for (auto value_type : value_types) {
+    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6]]"),
+                   ArrayFromJSON(fixed_size_list(value_type, 3),
+                                 "[[1, 2, 3], [4, 5, null], [6, null, null]]")};
+    for (auto input : inputs) {
+      SliceOptions args(0, 2);
+      auto expected =
+          ArrayFromJSON(fixed_size_list(value_type, 2), "[[1, 2], [4, 5], [6, null]]");
+      CheckListSlice(input, expected, args);
+
+      args.start = 1;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null]]");
+      CheckListSlice(input, expected, args);
+
+      args.start = 2;
+      args.stop = 4;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                               "[[3, null], [null, null], [null, null]]");
+      CheckListSlice(input, expected, args);
+    }
+  }
+}
+
+TEST(TestScalarNested, ListSliceBadParameters) {
+  auto input = ArrayFromJSON(list(int32()), "[[1]]");
+
+  // negative start
+  SliceOptions args(-1, 1);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "`start`(-1) should be greater than 0 and greater than `stop`(1)"),
+      CallFunction("list_slice", {input}, &args));
+  // start greater than stop
+  args.start = 1;
+  args.stop = 0;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "`start`(1) should be greater than 0 and greater than `stop`(0)"),
+      CallFunction("list_slice", {input}, &args));
+  // start same as stop
+  args.stop = args.start;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "`start`(1) should be greater than 0 and greater than `stop`(1)"),
+      CallFunction("list_slice", {input}, &args));
 }
 
 TEST(TestScalarNested, StructField) {

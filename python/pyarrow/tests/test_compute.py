@@ -2929,3 +2929,34 @@ def test_cast_table_raises():
 
     with pytest.raises(pa.lib.ArrowInvalid):
         pc.cast(table, pa.int64())
+
+
+@pytest.mark.parametrize("start,stop,expected", (
+    (0, 1, [[1], [4], [6]]),
+    (0, 2, [[1, 2], [4, 5], [6, None]]),
+    (1, 2, [[2], [5], [None]]),
+    (2, 4, [[3, None], [None, None], [None, None]])
+))
+@pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
+@pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
+def test_list_slice(start, stop, expected, value_type, list_type):
+    if list_type == "fixed":
+        arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None]],
+                       pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
+    else:
+        arr = pa.array([[1, 2, 3], [4, 5], [6]],
+                       pa.list_(pa.int8())).cast(list_type(value_type()))
+    result = pc.list_slice(arr, start, stop)
+    pylist = result.cast(pa.list_(pa.int8(), stop-start)).to_pylist()
+    assert pylist == expected
+
+
+def test_list_slice_bad_parameters():
+    arr = pa.array([[1]])
+    msg = r"`start`(.*) should be greater than 0 and greater than `stop`(.*)"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pc.list_slice(arr, -1)  # negative start?
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pc.list_slice(arr, 2, 1)  # start > stop?
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pc.list_slice(arr, 0, 0)  # start == stop?
