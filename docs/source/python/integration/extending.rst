@@ -60,7 +60,8 @@ setuptools (see below).
 
    The PyArrow-specific C++ code is now a part of the PyArrow source tree
    and not Arrow C++. That means the header files and ``arrow_python`` library
-   are not necessarily installed in the same location as that of Arrow C++.
+   are not necessarily installed in the same location as that of Arrow C++ and
+   will no longer be automatically findable by CMake.
 
 Initializing the API
 ~~~~~~~~~~~~~~~~~~~~
