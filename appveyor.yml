@@ -28,9 +28,6 @@ only_commits:
     - format/
     - python/
 
-cache:
-  - C:\Users\Appveyor\ccache
-
 matrix:
   fast_finish: true
 
@@ -53,6 +50,9 @@ environment:
 before_build:
   - call ci\scripts\ccache_setup.sh
   - call ci\appveyor-cpp-setup.bat
+
+cache:
+  - C:\Users\Appveyor\ccache
 
 build_script:
   - call ci\appveyor-cpp-build.bat
