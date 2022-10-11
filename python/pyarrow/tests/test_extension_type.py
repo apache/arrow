@@ -68,6 +68,9 @@ class LabelType(pa.ExtensionType):
     def __reduce__(self):
         return LabelType, ()
 
+    def __arrow_ext_serialize__(self):
+        return b""
+
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
         return LabelType()
