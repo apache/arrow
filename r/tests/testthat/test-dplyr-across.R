@@ -289,7 +289,6 @@ test_that("ARROW-14071 - function(x)-style lambda functions are not supported", 
     regexp = "Anonymous functions are not yet supported in Arrow"
   )
 
-
   expect_error(
     expand_across(
       as_adq(example_data),
