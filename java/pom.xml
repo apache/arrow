@@ -914,7 +914,7 @@
     </profile>
 
     <profile>
-      <id>generate-cdata-dylib_so</id>
+      <id>generate-libs-cdata-all-os</id>
       <properties>
         <arrow.c.jni.dist.dir>java-dist</arrow.c.jni.dist.dir>
       </properties>
@@ -925,18 +925,6 @@
             <artifactId>exec-maven-plugin</artifactId>
             <version>3.1.0</version>
             <executions>
-              <execution>
-                <id>cdata-dir</id>
-                <phase>generate-resources</phase>
-                <goals>
-                  <goal>exec</goal>
-                </goals>
-                <configuration>
-                  <executable>mkdir</executable>
-                  <commandlineArgs>-p java-dist java-jni</commandlineArgs>
-                  <workingDirectory>../</workingDirectory>
-                </configuration>
-              </execution>
               <execution>
                 <id>cdata-cmake</id>
                 <phase>generate-resources</phase>
@@ -979,7 +967,7 @@
     </profile>
 
     <profile>
-      <id>generate-jni-dylib_so</id>
+      <id>generate-libs-jni-macos-linux</id>
       <properties>
         <arrow.dataset.jni.dist.dir>java-dist</arrow.dataset.jni.dist.dir>
         <cpp.dependencies.builded>false</cpp.dependencies.builded>
@@ -1001,18 +989,6 @@
             <artifactId>exec-maven-plugin</artifactId>
             <version>3.1.0</version>
             <executions>
-              <execution>
-                <id>jni-dir</id>
-                <phase>generate-resources</phase>
-                <goals>
-                  <goal>exec</goal>
-                </goals>
-                <configuration>
-                  <executable>mkdir</executable>
-                  <commandlineArgs>-p cpp-jni java-dist java-jni</commandlineArgs>
-                  <workingDirectory>../</workingDirectory>
-                </configuration>
-              </execution>
               <execution>
                 <id>jni-cpp-cmake</id>
                 <phase>generate-resources</phase>
@@ -1058,6 +1034,123 @@
                     --build cpp-jni --target install --config Release
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
+                  <skip>${cpp.dependencies.builded}</skip>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jni-cmake</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -S java
+                    -B java-jni
+                    -DARROW_JAVA_JNI_ENABLE_C=${ARROW_JAVA_JNI_ENABLE_C}
+                    -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_JAVA_JNI_ENABLE_DATASET}
+                    -DARROW_JAVA_JNI_ENABLE_GANDIVA=${ARROW_JAVA_JNI_ENABLE_GANDIVA}
+                    -DARROW_JAVA_JNI_ENABLE_ORC=${ARROW_JAVA_JNI_ENABLE_ORC}
+                    -DARROW_JAVA_JNI_ENABLE_PLASMA=${ARROW_JAVA_JNI_ENABLE_PLASMA}
+                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON
+                    -DBUILD_TESTING=OFF
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_LIBDIR=lib
+                    -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
+                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jni-build</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build java-jni --target install --config Release
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>generate-libs-jni-windows</id>
+      <properties>
+        <arrow.dataset.jni.dist.dir>java-dist</arrow.dataset.jni.dist.dir>
+        <cpp.dependencies.builded>false</cpp.dependencies.builded>
+        <ARROW_CSV>ON</ARROW_CSV>
+        <ARROW_ORC>OFF</ARROW_ORC>
+        <ARROW_PARQUET>ON</ARROW_PARQUET>
+        <ARROW_JAVA_JNI_ENABLE_C>OFF</ARROW_JAVA_JNI_ENABLE_C>
+        <ARROW_JAVA_JNI_ENABLE_DATASET>ON</ARROW_JAVA_JNI_ENABLE_DATASET>
+        <ARROW_JAVA_JNI_ENABLE_GANDIVA>OFF</ARROW_JAVA_JNI_ENABLE_GANDIVA>
+        <ARROW_JAVA_JNI_ENABLE_ORC>OFF</ARROW_JAVA_JNI_ENABLE_ORC>
+        <ARROW_JAVA_JNI_ENABLE_PLASMA>OFF</ARROW_JAVA_JNI_ENABLE_PLASMA>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>jni-cpp-cmake</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -S cpp
+                    -B cpp-jni
+                    -DARROW_BUILD_SHARED=OFF
+                    -DARROW_CSV=${ARROW_CSV}
+                    -DARROW_DATASET=ON
+                    -DARROW_DEPENDENCY_USE_SHARED=OFF
+                    -DARROW_FILESYSTEM=ON
+                    -DARROW_ORC=${ARROW_ORC}
+                    -DARROW_PARQUET=${ARROW_PARQUET}
+                    -DARROW_S3=ON
+                    -DARROW_USE_CCACHE=ON
+                    -DARROW_WITH_BROTLI=ON
+                    -DARROW_WITH_LZ4=ON
+                    -DARROW_WITH_SNAPPY=ON
+                    -DARROW_WITH_ZLIB=ON
+                    -DARROW_WITH_ZSTD=ON
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_LIBDIR=lib
+                    -DCMAKE_INSTALL_PREFIX=java-dist
+                    -DCMAKE_UNITY_BUILD=ON
+                    -GNinja
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                  <skip>${cpp.dependencies.builded}</skip>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jni-cpp-build</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>ninja</executable>
+                  <commandlineArgs>
+                    install
+                  </commandlineArgs>
+                  <workingDirectory>../cpp-jni</workingDirectory>
                   <skip>${cpp.dependencies.builded}</skip>
                 </configuration>
               </execution>
