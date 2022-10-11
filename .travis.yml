@@ -100,7 +100,7 @@ jobs:
           -e ARROW_PARQUET=OFF
           -e ARROW_S3=OFF
           -e ARROW_SUBSTRAIT=OFF
-          -e CMAKE_BUILD_PARALLEL_LEVEL=1
+          -e CMAKE_BUILD_PARALLEL_LEVEL=2
           -e CMAKE_UNITY_BUILD=ON
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
@@ -151,7 +151,7 @@ jobs:
           -e ARROW_PARQUET=OFF
           -e ARROW_PYTHON=ON
           -e ARROW_S3=OFF
-          -e CMAKE_BUILD_PARALLEL_LEVEL=1
+          -e CMAKE_BUILD_PARALLEL_LEVEL=2
           -e CMAKE_UNITY_BUILD=ON
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
@@ -184,7 +184,7 @@ install:
   - sudo -H pip3 install -e dev/archery[docker]
 
 script:
-  - travis_wait 30 sleep infinity &
+  - travis_wait 20 sleep infinity &
   - |
     archery docker run \
       ${DOCKER_RUN_ARGS} \
