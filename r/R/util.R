@@ -251,3 +251,17 @@ augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
   handle_augmented_field_misuse(msg, call)
   abort(msg, call = call)
 }
+
+simulate_data_frame <- function(schema) {
+  arrays <- lapply(schema$fields, function(field) concat_arrays(type = field$type))
+  vectors <- lapply(
+    arrays,
+    function(array) tryCatch(
+      as.vector(array),
+      error = function(...) vctrs::unspecified()
+    )
+  )
+
+  names(vectors) <- names(schema)
+  tibble::new_tibble(vectors, nrow = 0)
+}
