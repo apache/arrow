@@ -480,21 +480,15 @@ class NestedValuesComparator {
       return Status::OK();
     }
 
-    // ResolvedChunk<StructArray> Prepare overload
-    Status Prepare(const ResolvedChunk<StructArray>& chunk_left,
-                  const ResolvedChunk<StructArray>&) {
-      return Prepare(*chunk_left.array);
-    }
-
-    // ResolvedChunk<StructArray> Compare overload
-    int Compare(const ResolvedChunk<StructArray>& chunk_left,
-                const ResolvedChunk<StructArray>& chunk_right, uint64_t field_index) {
+    // StructArray Compare overload
+    int Compare(StructArray const& array_left, StructArray const& array_right, uint64_t field_index,
+                uint64_t leftrowidx, uint64_t rightrowidx) {
       std::shared_ptr<Array> field_left =
-          chunk_left.array->field(static_cast<int>(field_index));
+          array_left.field(static_cast<int>(field_index));
       std::shared_ptr<Array> field_right =
-          chunk_right.array->field(static_cast<int>(field_index));
-      return comparators_[field_index]->Compare(*field_left, *field_right, chunk_left.index,
-                                                chunk_right.index);
+          array_right.field(static_cast<int>(field_index));
+      return comparators_[field_index]->Compare(*field_left, *field_right, leftrowidx,
+                                                rightrowidx);
     }
 
   private:
@@ -597,14 +591,15 @@ struct ResolvedChunkComparator<StructArray> {
     const auto chunk_left = chunk_resolver.Resolve<StructArray>(left);
     const auto chunk_right = chunk_resolver.Resolve<StructArray>(right);
     NestedValuesComparator nested_values_comparator;
-    auto status = nested_values_comparator.Prepare(chunk_left, chunk_right);
+    auto status = nested_values_comparator.Prepare(*chunk_left.array);
 
     if (!status.ok()) {
       return false;
     }
 
-    for (int i = 0; i < chunk_left.array->num_fields(); i++) {
-      int val = nested_values_comparator.Compare(chunk_left, chunk_right, i);
+    for (int field_index = 0; field_index < chunk_left.array->num_fields(); field_index++) {
+      int val = nested_values_comparator.Compare(*(chunk_left.array), *(chunk_right.array), field_index, chunk_left.index,
+                                                chunk_right.index);
 
       if (val == 0) {
         continue;
