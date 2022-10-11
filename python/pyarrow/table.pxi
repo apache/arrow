@@ -436,10 +436,12 @@ cdef class ChunkedArray(_PandasConvertible):
     def sort(self, order="ascending"):
         """
         Sort the ChunkedArray
+
         Parameters
         ----------
         order : "ascending" or "descending"
             The order of the sorting.
+
         Returns
         -------
         result : ChunkedArray

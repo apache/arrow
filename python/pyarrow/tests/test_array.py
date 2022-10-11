@@ -877,6 +877,7 @@ def test_struct_chunked_array_sort():
         {"a": 2, "b": 1, "c": "mouse"}
     ]
 
+
 @pytest.mark.parametrize("offset", (0, 1))
 def test_dictionary_from_buffers(offset):
     a = pa.array(["one", "two", "three", "two", "one"]).dictionary_encode()

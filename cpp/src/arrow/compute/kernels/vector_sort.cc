@@ -188,9 +188,7 @@ class ChunkedArraySorter : public TypeVisitor {
     return Status::OK();
   }
 
-  Status Visit(const StructType&) override {
-    return SortInternal<StructType>();
-  }
+  Status Visit(const StructType&) override { return SortInternal<StructType>(); }
 
  private:
   template <typename Type>

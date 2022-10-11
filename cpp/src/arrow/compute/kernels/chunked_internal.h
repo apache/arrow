@@ -64,14 +64,14 @@ struct ResolvedChunk<Array> {
 // ResolvedChunk specialization for StructArray
 template <>
 struct ResolvedChunk<StructArray> {
-  // The target struct in chunked array.
+  // The target structarray in chunked array.
   const StructArray* array;
-  // The field index in the target struct.
+  // The index in the target array.
   const int64_t index;
 
   ResolvedChunk(const StructArray* array, int64_t index) : array(array), index(index) {}
 
-  bool IsNull() const { return array->field(0)->IsNull(index); }
+  bool IsNull() const { return array->field(static_cast<int>(index)) == nullptr; }
 };
 
 struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
