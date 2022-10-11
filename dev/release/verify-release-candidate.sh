@@ -1014,7 +1014,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="3.7m 3.8 3.9 3.10"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10}"
   local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for python in ${python_versions}; do
@@ -1023,7 +1023,7 @@ test_linux_wheels() {
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
       CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
-      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
+      pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
@@ -1087,23 +1087,31 @@ test_wheels() {
   show_header "Downloading Python wheels"
   maybe_setup_conda python || exit 1
 
-  local download_dir=${ARROW_TMPDIR}/binaries
-  mkdir -p ${download_dir}
-
-  if [ "$(uname)" == "Darwin" ]; then
-    local filter_regex=.*macosx.*
+  local wheels_dir=
+  if [ "${SOURCE_KIND}" = "local" ]; then
+    wheels_dir="${ARROW_SOURCE_DIR}/python/repaired_wheels"
   else
-    local filter_regex=.*manylinux.*
+    local download_dir=${ARROW_TMPDIR}/binaries
+    mkdir -p ${download_dir}
+
+    if [ "$(uname)" == "Darwin" ]; then
+      local filter_regex=.*macosx.*
+    else
+      local filter_regex=.*manylinux.*
+    fi
+
+    ${PYTHON:-python3} \
+      $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+      --package_type python \
+      --regex=${filter_regex} \
+      --dest=${download_dir}
+
+    verify_dir_artifact_signatures ${download_dir}
+
+    wheels_dir=${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
   fi
 
-  ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-         --package_type python \
-         --regex=${filter_regex} \
-         --dest=${download_dir}
-
-  verify_dir_artifact_signatures ${download_dir}
-
-  pushd ${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
+  pushd ${wheels_dir}
 
   if [ "$(uname)" == "Darwin" ]; then
     test_macos_wheels
