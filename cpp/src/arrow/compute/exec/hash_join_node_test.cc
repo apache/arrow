@@ -1011,7 +1011,7 @@ TEST(HashJoin, Random) {
     bool disable_bloom_filter = (rng.from_range(0, 1) == 1);
     auto exec_ctx = std::make_unique<ExecContext>(
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
-
+    exec_ctx->set_use_threads(false);
     // Constraints
     RandomDataTypeConstraints type_constraints;
     type_constraints.Default();
