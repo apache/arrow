@@ -1853,6 +1853,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CExecContext()
         CExecContext(CMemoryPool* pool)
         CExecContext(CMemoryPool* pool, CExecutor* exc)
+        CExecContext(CMemoryPool* pool, CExecutor* exc, CFunctionRegistry* rgr)
 
         CMemoryPool* memory_pool() const
         CExecutor* executor()

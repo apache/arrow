@@ -17,6 +17,7 @@
 
 
 import pytest
+import multiprocessing as mp
 
 import pyarrow as pa
 from pyarrow import compute as pc
@@ -549,3 +550,65 @@ def test_nested_function_registry():
                                 default_registry)
 
     assert default_registry.get_function(func_name).name == func_name
+
+
+def parallel_task1(data, q):
+    def f1(ctx, x):
+        return pc.call_function("add", [x, 10],
+                                memory_pool=ctx.memory_pool)
+    func_name = "f1"
+    unary_doc = {"summary": "add function",
+                 "description": "test add function"}
+
+    default_registry = pc.function_registry()
+
+    registry1 = pc.FunctionRegistry(default_registry)
+    pc.register_scalar_function(f1,
+                                func_name,
+                                unary_doc,
+                                {"array": pa.int64()},
+                                pa.int64(),
+                                registry1)
+    func = registry1.get_function(func_name)
+    result = func.call(data)
+    q.put(result)
+
+
+def parallel_task2(data, q):
+    def f1(ctx, x):
+        return pc.call_function("multiply", [x, 10],
+                                memory_pool=ctx.memory_pool)
+    func_name = "f1"
+    unary_doc = {"summary": "multiply function",
+                 "description": "test multiply function"}
+
+    default_registry = pc.function_registry()
+
+    registry1 = pc.FunctionRegistry(default_registry)
+    pc.register_scalar_function(f1,
+                                func_name,
+                                unary_doc,
+                                {"array": pa.int64()},
+                                pa.int64(),
+                                registry1)
+    func = registry1.get_function(func_name)
+    q.put(func.call(data))
+
+
+def test_udf_usage_by_scope():
+    # With support to custom function registration on global and
+    # nested function registries, user has the ability to make an
+    # scope for a registry and get some tasks done in a particular
+    # process and drop the registry once the process terminates.
+    ctx = mp.get_context('spawn')
+    q = ctx.Queue()
+    p1 = ctx.Process(target=parallel_task1, args=(
+        [pa.array([10, 20, 30], pa.int64())], q))
+    p1.start()
+    result = q.get()
+    p1.join()
+    p2 = ctx.Process(target=parallel_task2, args=([result], q))
+    p2.start()
+    final_result = q.get()
+    p2.join()
+    assert final_result == pa.array([200, 300, 400], pa.int64())
