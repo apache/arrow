@@ -421,39 +421,24 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
 // inputs with runs of multiple elements of the same value, aimed at the RLE kernel
 TYPED_TEST(TestFilterKernelWithNumeric, FilterNumericRuns) {
   auto type = this->type_singleton();
-  this->AssertFilter(type,
-                     "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
-                     "[1, 1, 0, 0, 0, 0, 0, 1, 1]",
-                     "[1, 1, 127, 127]");
-  this->AssertFilter(type,
-                     "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
-                     "[1, 0, 1, 0, 1, 0, 1, 0, 1]",
-                     "[1, 0, 5, 127, 127]");
-  this->AssertFilter(type,
-                     "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
-                     "[1, 1, 1, 1, 1, 1, 1, 1, 1]",
-                     "[1, 1, 0, 5, 5, 5, 127, 127, 127]");
-  this->AssertFilter(type,
-                     "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
-                     "[0, 0, 0, 0, 0, 0, 0, 0, 0]",
-                     "[]");
+  this->AssertFilter(type, "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
+                     "[1, 1, 0, 0, 0, 0, 0, 1, 1]", "[1, 1, 127, 127]");
+  this->AssertFilter(type, "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
+                     "[1, 0, 1, 0, 1, 0, 1, 0, 1]", "[1, 0, 5, 127, 127]");
+  this->AssertFilter(type, "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
+                     "[1, 1, 1, 1, 1, 1, 1, 1, 1]", "[1, 1, 0, 5, 5, 5, 127, 127, 127]");
+  this->AssertFilter(type, "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
+                     "[0, 0, 0, 0, 0, 0, 0, 0, 0]", "[]");
 
-  this->AssertFilter(type,
-                     "[null, 1, 1, null, null, 5, 5, null, null]",
-                     "[1, 1, 0, 0, 0, 0, 0, 1, 1]",
-                     "[null, 1, null, null]");
-  this->AssertFilter(type,
-                     "[null, 1, 1, null, null, 5, 5, null, null]",
-                     "[1, 0, 1, 0, 1, 0, 1, 0, 1]",
-                     "[null, 1, null, 5, null]");
-  this->AssertFilter(type,
-                     "[null, 1, 1, null, null, 5, 5, null, null]",
+  this->AssertFilter(type, "[null, 1, 1, null, null, 5, 5, null, null]",
+                     "[1, 1, 0, 0, 0, 0, 0, 1, 1]", "[null, 1, null, null]");
+  this->AssertFilter(type, "[null, 1, 1, null, null, 5, 5, null, null]",
+                     "[1, 0, 1, 0, 1, 0, 1, 0, 1]", "[null, 1, null, 5, null]");
+  this->AssertFilter(type, "[null, 1, 1, null, null, 5, 5, null, null]",
                      "[1, 1, 1, 1, 1, 1, 1, 1, 1]",
                      "[null, 1, 1, null, null, 5, 5, null, null]");
-  this->AssertFilter(type,
-                     "[null, 1, 1, null, null, 5, 5, null, null]",
-                     "[0, 0, 0, 0, 0, 0, 0, 0, 0]",
-                     "[]");
+  this->AssertFilter(type, "[null, 1, 1, null, null, 5, 5, null, null]",
+                     "[0, 0, 0, 0, 0, 0, 0, 0, 0]", "[]");
 }
 
 template <typename CType>
