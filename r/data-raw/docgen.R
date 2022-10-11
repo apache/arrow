@@ -127,10 +127,7 @@ docs <- arrow:::.cache$docs
 # Add some functions
 
 # across() is handled by manipulating the quosures, not by nse_funcs
-docs[["dplyr::across"]] <- c(
-  # TODO(ARROW-17384): implement where
-  "Use of `where()` selection helper not yet supported"
-)
+docs[["dplyr::across"]] <- character(0)
 
 # if_any() and if_all() are used instead of across() in filter()
 # they are both handled by manipulating the quosures, not by nse_funcs

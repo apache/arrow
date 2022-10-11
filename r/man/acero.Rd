@@ -6,7 +6,7 @@
 \description{
 The \code{arrow} package contains methods for 32 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 205 R functions to the corresponding
+The package also has mappings of 207 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -175,13 +175,13 @@ as \code{arrow_ascii_is_decimal}.
 
 \subsection{dplyr}{
 \itemize{
-\item \code{\link[dplyr:across]{across()}}: not yet supported inside \code{filter()};
-purrr-style lambda functions
-and use of \code{where()} selection helper not yet supported
+\item \code{\link[dplyr:across]{across()}}
 \item \code{\link[dplyr:between]{between()}}
 \item \code{\link[dplyr:case_when]{case_when()}}
 \item \code{\link[dplyr:coalesce]{coalesce()}}
 \item \code{\link[dplyr:desc]{desc()}}
+\item \code{\link[dplyr:across]{if_all()}}
+\item \code{\link[dplyr:across]{if_any()}}
 \item \code{\link[dplyr:if_else]{if_else()}}
 \item \code{\link[dplyr:context]{n()}}
 \item \code{\link[dplyr:n_distinct]{n_distinct()}}

@@ -21,7 +21,7 @@
 #'
 #' The `arrow` package contains methods for 32 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 205 R functions to the corresponding
+#' The package also has mappings of 207 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -185,13 +185,13 @@
 #'
 #' ## dplyr
 #'
-#' * [`across()`][dplyr::across()]: not yet supported inside `filter()`;
-#' purrr-style lambda functions
-#' and use of `where()` selection helper not yet supported
+#' * [`across()`][dplyr::across()]
 #' * [`between()`][dplyr::between()]
 #' * [`case_when()`][dplyr::case_when()]
 #' * [`coalesce()`][dplyr::coalesce()]
 #' * [`desc()`][dplyr::desc()]
+#' * [`if_all()`][dplyr::if_all()]
+#' * [`if_any()`][dplyr::if_any()]
 #' * [`if_else()`][dplyr::if_else()]
 #' * [`n()`][dplyr::n()]
 #' * [`n_distinct()`][dplyr::n_distinct()]
