@@ -259,7 +259,3 @@ na.omit.ArrowTabular <- function(object, ...) {
 
 #' @export
 na.exclude.ArrowTabular <- na.omit.ArrowTabular
-
-pull.ArrowTabular <- function(x, var = -1) {
-  x[[vars_pull(names(x), !!enquo(var))]]
-}

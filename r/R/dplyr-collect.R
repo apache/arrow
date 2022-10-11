@@ -54,6 +54,10 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
 }
 pull.Dataset <- pull.RecordBatchReader <- pull.arrow_dplyr_query
 
+pull.ArrowTabular <- function(x, var = -1) {
+  x[[vars_pull(names(x), !!enquo(var))]]
+}
+
 restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
   # After calling collect(), make sure these features are carried over
