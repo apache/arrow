@@ -157,19 +157,29 @@ names.Scanner <- function(x) names(x$schema)
 
 #' @export
 head.Scanner <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires a scan itself
   assert_that(n >= 0)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   dataset___Scanner__head(x, floor(n))
 }
 
 #' @export
 tail.Scanner <- function(x, n = 6L, ...) {
-  tail_from_batches(dataset___Scanner__ScanBatches(x), floor(n))$read_table()
+  tail_from_batches(dataset___Scanner__ScanBatches(x), n)$read_table()
 }
 
 tail_from_batches <- function(batches, n) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires a scan itself
-  assert_that(n >= 0) # For now
+  assert_that(n >= 0)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   result <- list()
   batch_num <- 0
   # Given a list of batches, iterate from the back

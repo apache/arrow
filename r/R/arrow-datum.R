@@ -299,18 +299,23 @@ head.ArrowDatum <- function(x, n = 6L, ...) {
   } else {
     n <- min(len, n)
   }
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   if (n == len) {
     return(x)
   }
-  x$Slice(0, floor(n))
+  x$Slice(0, n)
 }
 
 #' @importFrom utils tail
 #' @export
 tail.ArrowDatum <- function(x, n = 6L, ...) {
   assert_is(n, c("numeric", "integer"))
-  n <- floor(n)
   assert_that(length(n) == 1)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   len <- NROW(x)
   if (n < 0) {
     # tail(x, negative) means all but the first n rows
