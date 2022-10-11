@@ -20,7 +20,7 @@
 
 slice_head.arrow_dplyr_query <- function(.data, ..., n, prop) {
   if (length(group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing Arrow data with groups")
+    arrow_not_supported("Slicing grouped data")
   }
 
   if (missing(n)) {
@@ -33,7 +33,7 @@ slice_head.Dataset <- slice_head.ArrowTabular <- slice_head.RecordBatchReader <-
 
 slice_tail.arrow_dplyr_query <- function(.data, ..., n, prop) {
   if (length(group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing Arrow data with groups")
+    arrow_not_supported("Slicing grouped data")
   }
 
   if (missing(n)) {
@@ -46,7 +46,7 @@ slice_tail.Dataset <- slice_tail.ArrowTabular <- slice_tail.RecordBatchReader <-
 
 slice_min.arrow_dplyr_query <- function(.data, ..., n, prop, with_ties = TRUE) {
   if (length(group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing Arrow data with groups")
+    arrow_not_supported("Slicing grouped data")
   }
   if (with_ties) {
     arrow_not_supported("with_ties = TRUE")
@@ -62,7 +62,7 @@ slice_min.Dataset <- slice_min.ArrowTabular <- slice_min.RecordBatchReader <- sl
 
 slice_max.arrow_dplyr_query <- function(.data, ..., n, prop, with_ties = TRUE) {
   if (length(group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing Arrow data with groups")
+    arrow_not_supported("Slicing grouped data")
   }
   if (with_ties) {
     arrow_not_supported("with_ties = TRUE")
@@ -89,7 +89,7 @@ slice_sample.arrow_dplyr_query <- function(.data,
                                            weight_by = NULL,
                                            replace = FALSE) {
   if (length(group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing Arrow data with groups")
+    arrow_not_supported("Slicing grouped data")
   }
   if (replace) {
     arrow_not_supported("Sampling with replacement")
