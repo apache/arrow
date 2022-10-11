@@ -17,13 +17,14 @@
 
 #include "arrow/json/parser.h"
 
-#include <forward_list>
 #include <functional>
 #include <limits>
+#include <list>
 #include <memory>
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -165,11 +166,28 @@ struct BuilderPtr {
 
 const BuilderPtr BuilderPtr::null(Kind::kNull, 0, true);
 
+/// \brief Shared context for all value builders in a `RawBuilderSet`
+class BuildContext {
+ public:
+  explicit BuildContext(MemoryPool* pool) : pool_(pool) {}
+
+  MemoryPool* pool() const { return pool_; }
+
+  // Finds or allocates a unique string and returns a persistent `std::string_view`
+  std::string_view InternString(std::string_view str) {
+    return *string_cache_.emplace(str).first;
+  }
+
+ private:
+  MemoryPool* pool_;
+  std::unordered_set<std::string> string_cache_;
+};
+
 template <>
 class RawArrayBuilder<Kind::kBoolean> {
  public:
-  explicit RawArrayBuilder(MemoryPool* pool)
-      : data_builder_(pool), null_bitmap_builder_(pool) {}
+  explicit RawArrayBuilder(BuildContext* context)
+      : data_builder_(context->pool()), null_bitmap_builder_(context->pool()) {}
 
   Status Append(bool value) {
     RETURN_NOT_OK(data_builder_.Append(value));
@@ -215,8 +233,10 @@ class RawArrayBuilder<Kind::kBoolean> {
 /// for indices referring into another array.
 class ScalarBuilder {
  public:
-  explicit ScalarBuilder(MemoryPool* pool)
-      : values_length_(0), data_builder_(pool), null_bitmap_builder_(pool) {}
+  explicit ScalarBuilder(BuildContext* context)
+      : values_length_(0),
+        data_builder_(context->pool()),
+        null_bitmap_builder_(context->pool()) {}
 
   Status Append(int32_t index, int32_t value_length) {
     RETURN_NOT_OK(data_builder_.Append(index));
@@ -269,8 +289,8 @@ class RawArrayBuilder<Kind::kString> : public ScalarBuilder {
 template <>
 class RawArrayBuilder<Kind::kArray> {
  public:
-  explicit RawArrayBuilder(MemoryPool* pool)
-      : offset_builder_(pool), null_bitmap_builder_(pool) {}
+  explicit RawArrayBuilder(BuildContext* context)
+      : offset_builder_(context->pool()), null_bitmap_builder_(context->pool()) {}
 
   Status Append(int32_t child_length) {
     RETURN_NOT_OK(offset_builder_.Append(offset_));
@@ -321,7 +341,8 @@ class RawArrayBuilder<Kind::kArray> {
 template <>
 class RawArrayBuilder<Kind::kObject> {
  public:
-  explicit RawArrayBuilder(MemoryPool* pool) : null_bitmap_builder_(pool) {}
+  explicit RawArrayBuilder(BuildContext* context)
+      : context_(context), null_bitmap_builder_(context->pool()) {}
 
   Status Append() { return null_bitmap_builder_.Append(true); }
 
@@ -329,33 +350,55 @@ class RawArrayBuilder<Kind::kObject> {
 
   Status AppendNull(int64_t count) { return null_bitmap_builder_.Append(count, false); }
 
-  int GetFieldIndex(std::string_view name) {
-    // Predict that the field is known and immediately follows the last one. Otherwise,
-    // fall back to the hash table lookup from now on
-    if (expect_index_ < num_fields() &&
-        ARROW_PREDICT_TRUE(name == field_name(expect_index_))) {
-      int index = expect_index_;
-      if (++expect_index_ == num_fields()) expect_index_ = 0;
-      return index;
-    }
-    expect_index_ = std::numeric_limits<int>::max();
+  int FindFieldIndex(std::string_view name) const {
     auto it = name_to_index_.find(name);
-    if (it == name_to_index_.end()) {
-      return -1;
-    }
-    return it->second;
+    return it != name_to_index_.end() ? it->second : -1;
   }
 
-  int AddField(std::string name, BuilderPtr builder) {
-    name_store_.push_front(std::move(name));
-    auto result = name_to_index_.emplace(name_store_.front(), num_fields());
-    // Only append the field if a new insertion happened
-    if (ARROW_PREDICT_TRUE(result.second)) {
-      field_infos_.push_back({name_store_.front(), builder});
-    } else {
-      name_store_.pop_front();
+  int GetFieldIndex(std::string_view name) {
+    if (ARROW_PREDICT_FALSE(num_fields() == 0)) {
+      return -1;
     }
-    return result.first->second;
+
+    if (skip_index_queue_) {
+      return FindFieldIndex(name);
+    }
+
+    // Field ordering has been predictable thus far, so check the LRU index first
+    auto index = index_queue_.front();
+    if (ARROW_PREDICT_TRUE(name == field_infos_[index].name)) {
+      // Front index was a match - rotate the queue
+      index_queue_.splice(index_queue_.cend(), index_queue_, index_queue_.cbegin());
+      return index;
+    }
+
+    // Prediction failed - fall back to the map
+    index = FindFieldIndex(name);
+    if (ARROW_PREDICT_FALSE(index != -1)) {
+      // We already have this key, so the incoming fields are sparse and/or inconsistently
+      // ordered. At the risk of introducing crippling overhead for worst-case input, we
+      // bail on the optimization.
+      skip_index_queue_ = true;
+      index_queue_.clear();
+    }
+
+    return index;
+  }
+
+  int AddField(std::string_view name, BuilderPtr builder) {
+    auto index = FindFieldIndex(name);
+
+    if (ARROW_PREDICT_TRUE(index == -1)) {
+      name = context_->InternString(name);
+      index = num_fields();
+      field_infos_.push_back(FieldInfo{name, builder});
+      name_to_index_.emplace(name, index);
+      if (!skip_index_queue_) {
+        index_queue_.emplace_back(index);
+      }
+    }
+
+    return index;
   }
 
   int num_fields() const { return static_cast<int>(field_infos_.size()); }
@@ -399,11 +442,18 @@ class RawArrayBuilder<Kind::kObject> {
     BuilderPtr builder;
   };
 
-  std::forward_list<std::string> name_store_;
+  BuildContext* context_;
+
   std::vector<FieldInfo> field_infos_;
   std::unordered_map<std::string_view, int> name_to_index_;
+
   TypedBufferBuilder<bool> null_bitmap_builder_;
-  int expect_index_ = 0;
+
+  // A rotating LRU-sorted queue of field indices used for optimizing name -> index
+  // lookups in cases where fields are consistently ordered. If the optimization is
+  // active, new fields are pushed to the back of the queue.
+  std::list<int> index_queue_;
+  bool skip_index_queue_ = false;
 };
 
 template <>
@@ -414,7 +464,7 @@ class RawArrayBuilder<Kind::kNumberOrString> : public ScalarBuilder {
 
 class RawBuilderSet {
  public:
-  explicit RawBuilderSet(MemoryPool* pool) : pool_(pool) {}
+  explicit RawBuilderSet(MemoryPool* pool) : context_(pool) {}
 
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
@@ -429,7 +479,7 @@ class RawBuilderSet {
     builder->index = static_cast<uint32_t>(arena<kind>().size());
     builder->kind = kind;
     builder->nullable = true;
-    arena<kind>().emplace_back(RawArrayBuilder<kind>(pool_));
+    arena<kind>().emplace_back(RawArrayBuilder<kind>(&context_));
     return Cast<kind>(*builder)->AppendNull(leading_nulls);
   }
 
@@ -590,7 +640,7 @@ class RawBuilderSet {
     return std::get<static_cast<std::size_t>(kind)>(arenas_);
   }
 
-  MemoryPool* pool_;
+  BuildContext context_;
   std::tuple<std::tuple<>, std::vector<RawArrayBuilder<Kind::kBoolean>>,
              std::vector<RawArrayBuilder<Kind::kNumber>>,
              std::vector<RawArrayBuilder<Kind::kString>>,
@@ -1080,7 +1130,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
     auto struct_builder = Cast<Kind::kObject>(builder_stack_.back());
     auto leading_nulls = static_cast<uint32_t>(struct_builder->length() - 1);
     builder_ = BuilderPtr(Kind::kNull, leading_nulls, true);
-    field_index_ = struct_builder->AddField(std::string(key, len), builder_);
+    field_index_ = struct_builder->AddField(std::string_view(key, len), builder_);
     return true;
   }
 
