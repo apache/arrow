@@ -1373,22 +1373,36 @@ null input value is converted into a null output value.
 +-----------------------------+------------------------------------+---------+
 | Extension                   | Extension storage type             |         |
 +-----------------------------+------------------------------------+---------+
-| List-like                   | List-like                          | \(2)    |
+| Struct                      | Struct                             | \(2)    |
++-----------------------------+------------------------------------+---------+
+| List-like                   | List-like                          | \(3)    |
++-----------------------------+------------------------------------+---------+
+| Map                         | Map or List of two-field struct    | \(4)    |
 +-----------------------------+------------------------------------+---------+
 | Null                        | Any                                |         |
 +-----------------------------+------------------------------------+---------+
-| Any                         | Extension                          | \(3)    |
+| Any                         | Extension                          | \(5)    |
 +-----------------------------+------------------------------------+---------+
 
 * \(1) The dictionary indices are unchanged, the dictionary values are
   cast from the input value type to the output value type (if a conversion
   is available).
 
-* \(2) The list offsets are unchanged, the list values are cast from the
+* \(2) The field names of the output type must be the same or a subset of the
+  field names of the input type; they also must have the same order. Casting to
+  a subset of field names "selects" those fields such that each output field
+  matches the data of the input field with the same name.
+
+* \(3) The list offsets are unchanged, the list values are cast from the
   input value type to the output value type (if a conversion is
   available).
 
-* \(3) Any input type that can be cast to the resulting extension's storage type.
+* \(4) Offsets are unchanged, the keys and values are cast from respective input
+  to output types (if a conversion is available). If output type is a list of
+  struct, the key field is output as the first field and the value field the 
+  second field, regardless of field names chosen.
+
+* \(5) Any input type that can be cast to the resulting extension's storage type.
   This excludes extension types, unless being cast to the same extension type.
 
 Temporal component extraction
