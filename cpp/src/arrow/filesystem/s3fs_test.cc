@@ -179,8 +179,23 @@ class S3TestMixin : public AwsTestMixin {
   void SetUp() override {
     AwsTestMixin::SetUp();
 
-    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
+    // Starting the server may fail, for example if the generated port number
+    // was "stolen" by another process. Run a dummy S3 operation to make sure it
+    // is running, otherwise retry a number of times.
+    Status connect_status;
+    int retries = kNumServerRetries;
+    do {
+      InitServerAndClient();
+      connect_status = OutcomeToStatus("ListBuckets", client_->ListBuckets());
+    } while (!connect_status.ok() && --retries > 0);
+    ASSERT_OK(connect_status);
+  }
 
+  void TearDown() override { AwsTestMixin::TearDown(); }
+
+ protected:
+  void InitServerAndClient() {
+    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     client_config_->scheme = Aws::Http::Scheme::HTTP;
@@ -194,9 +209,9 @@ class S3TestMixin : public AwsTestMixin {
                               use_virtual_addressing));
   }
 
-  void TearDown() override { AwsTestMixin::TearDown(); }
+  // How many times to try launching a server in a row before decreeing failure
+  static constexpr int kNumServerRetries = 3;
 
- protected:
   std::shared_ptr<MinioTestServer> minio_;
   std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
