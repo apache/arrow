@@ -90,7 +90,7 @@ std::shared_ptr<Buffer> GenerateFixedDifferenceBuffer(int32_t fixed_length,
   offsets.resize(length);
   ARROW_EXPECT_OK(builder.Resize(4 * length));
   for (int64_t i = 0; i < length; i++) {
-    offsets[i] = fixed_length * i;
+    offsets[i] = static_cast<int32_t>(fixed_length * i);
   }
   ARROW_EXPECT_OK(builder.Append(offsets.data(), 4 * length));
   std::shared_ptr<Buffer> buffer;
