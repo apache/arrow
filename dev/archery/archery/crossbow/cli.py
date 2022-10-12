@@ -155,6 +155,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
         queue.push()
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
+
 @crossbow.command()
 @click.option('--base-branch', default=None,
               help='Set base branch for the PR.')

@@ -364,7 +364,7 @@ class Release:
 
     @cached_property
     def default_branch(self):
-        default_branch_name = os.getenv("DEFAULT_BRANCH")
+        default_branch_name = os.getenv("ARCHERY_DEFAULT_BRANCH")
 
         if default_branch_name is None:
             try:
@@ -393,10 +393,11 @@ class Release:
                 # value from "master" to "main".
                 default_branch_name = "master"
                 warnings.warn('Unable to determine default branch name: '
-                    'DEFAULT_BRANCH environment variable is not set. Git '
-                    'repository does not contain a \'refs/remotes/origin/HEAD\''
-                    ' reference. Setting the default branch name to ' +
-                    default_branch_name, RuntimeWarning)
+                              'ARCHERY_DEFAULT_BRANCH environment variable is '
+                              'not set. Git repository does not contain a '
+                              '\'refs/remotes/origin/HEAD\'reference. Setting '
+                              'the default branch name to' +
+                              default_branch_name, RuntimeWarning)
 
         return default_branch_name
 
