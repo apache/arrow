@@ -160,7 +160,7 @@
 #' * [`max()`][base::max()]
 #' * [`mean()`][base::mean()]
 #' * [`min()`][base::min()]
-#' * [`nchar()`][base::nchar()]
+#' * [`nchar()`][base::nchar()]: `allowNA = TRUE` and `keepNA = TRUE` not supported
 #' * [`paste()`][base::paste()]: the `collapse` argument is not yet supported
 #' * [`paste0()`][base::paste0()]: the `collapse` argument is not yet supported
 #' * [`pmax()`][base::pmax()]
@@ -175,7 +175,7 @@
 #' * [`strrep()`][base::strrep()]
 #' * [`strsplit()`][base::strsplit()]
 #' * [`sub()`][base::sub()]
-#' * [`substr()`][base::substr()]
+#' * [`substr()`][base::substr()]: `start` and `stop` must be length 1
 #' * [`substring()`][base::substring()]
 #' * [`sum()`][base::sum()]
 #' * [`tan()`][base::tan()]
@@ -301,8 +301,10 @@
 #'
 #' ## stringr
 #'
+#' Pattern modifiers `coll()` and `boundary()` are not supported in any functions.
+#'
 #' * [`str_c()`][stringr::str_c()]: the `collapse` argument is not yet supported
-#' * [`str_count()`][stringr::str_count()]
+#' * [`str_count()`][stringr::str_count()]: `pattern` must be a length 1 character vector
 #' * [`str_detect()`][stringr::str_detect()]
 #' * [`str_dup()`][stringr::str_dup()]
 #' * [`str_ends()`][stringr::str_ends()]
@@ -311,9 +313,9 @@
 #' * [`str_pad()`][stringr::str_pad()]
 #' * [`str_replace()`][stringr::str_replace()]
 #' * [`str_replace_all()`][stringr::str_replace_all()]
-#' * [`str_split()`][stringr::str_split()]
+#' * [`str_split()`][stringr::str_split()]: Case-insensitive string splitting and splitting into 0 parts not supported
 #' * [`str_starts()`][stringr::str_starts()]
-#' * [`str_sub()`][stringr::str_sub()]
+#' * [`str_sub()`][stringr::str_sub()]: `start` and `end` must be length 1
 #' * [`str_to_lower()`][stringr::str_to_lower()]
 #' * [`str_to_title()`][stringr::str_to_title()]
 #' * [`str_to_upper()`][stringr::str_to_upper()]

@@ -146,7 +146,7 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[base:Extremes]{max()}}
 \item \code{\link[base:mean]{mean()}}
 \item \code{\link[base:Extremes]{min()}}
-\item \code{\link[base:nchar]{nchar()}}
+\item \code{\link[base:nchar]{nchar()}}: \code{allowNA = TRUE} and \code{keepNA = TRUE} not supported
 \item \code{\link[base:paste]{paste()}}: the \code{collapse} argument is not yet supported
 \item \code{\link[base:paste]{paste0()}}: the \code{collapse} argument is not yet supported
 \item \code{\link[base:Extremes]{pmax()}}
@@ -161,7 +161,7 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[base:strrep]{strrep()}}
 \item \code{\link[base:strsplit]{strsplit()}}
 \item \code{\link[base:grep]{sub()}}
-\item \code{\link[base:substr]{substr()}}
+\item \code{\link[base:substr]{substr()}}: \code{start} and \code{stop} must be length 1
 \item \code{\link[base:substr]{substring()}}
 \item \code{\link[base:sum]{sum()}}
 \item \code{\link[base:Trig]{tan()}}
@@ -302,9 +302,11 @@ as \code{arrow_ascii_is_decimal}.
 }
 
 \subsection{stringr}{
+
+Pattern modifiers \code{coll()} and \code{boundary()} are not supported in any functions.
 \itemize{
 \item \code{\link[stringr:str_c]{str_c()}}: the \code{collapse} argument is not yet supported
-\item \code{\link[stringr:str_count]{str_count()}}
+\item \code{\link[stringr:str_count]{str_count()}}: \code{pattern} must be a length 1 character vector
 \item \code{\link[stringr:str_detect]{str_detect()}}
 \item \code{\link[stringr:str_dup]{str_dup()}}
 \item \code{\link[stringr:str_starts]{str_ends()}}
@@ -313,9 +315,9 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[stringr:str_pad]{str_pad()}}
 \item \code{\link[stringr:str_replace]{str_replace()}}
 \item \code{\link[stringr:str_replace]{str_replace_all()}}
-\item \code{\link[stringr:str_split]{str_split()}}
+\item \code{\link[stringr:str_split]{str_split()}}: Case-insensitive string splitting and splitting into 0 parts not supported
 \item \code{\link[stringr:str_starts]{str_starts()}}
-\item \code{\link[stringr:str_sub]{str_sub()}}
+\item \code{\link[stringr:str_sub]{str_sub()}}: \code{start} and \code{end} must be length 1
 \item \code{\link[stringr:case]{str_to_lower()}}
 \item \code{\link[stringr:case]{str_to_title()}}
 \item \code{\link[stringr:case]{str_to_upper()}}

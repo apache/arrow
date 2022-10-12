@@ -89,6 +89,10 @@ do_not_link <- c(
   "stringr::str_like" # Still only in the unreleased version
 )
 
+package_notes <- list(
+  stringr = "Pattern modifiers `coll()` and `boundary()` are not supported in any functions."
+)
+
 # Vectorized function to make entries for each function
 render_fun <- function(fun, pkg_fun, notes) {
   # Add () to fun if it's not an operator
@@ -114,12 +118,14 @@ render_pkg <- function(df, pkg) {
   bullets <- df %>%
     transmute(render_fun(fun, pkg_fun, notes)) %>%
     pull()
-  # Add header
-  bullets <- c(
-    paste0("## ", pkg, "\n#'"),
-    bullets
-  )
-  paste("#'", bullets, collapse = "\n")
+  header <- paste0("## ", pkg, "\n#'")
+  # Some packages have global notes to include
+  pkg_notes <- package_notes[[pkg]]
+  if (!is.null(pkg_notes)) {
+    pkg_notes <- paste(pkg_notes, collapse = "\n#' ")
+    header <- c(header, paste0(pkg_notes, "\n#'"))
+  }
+  paste("#'", c(header, bullets), collapse = "\n")
 }
 
 docs <- arrow:::.cache$docs
