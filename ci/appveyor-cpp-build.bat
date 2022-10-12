@@ -94,13 +94,11 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       ..  || exit /B
 cmake --build . --target install --config Release || exit /B
 
-@rem Needed so arrow-python-test.exe works
-set OLD_PYTHONHOME=%PYTHONHOME%
-set PYTHONHOME=%CONDA_PREFIX%
+@rem For ORC C++
+set TZDIR=%CONDA_PREFIX%\share\zoneinfo
 
 ctest --output-on-failure || exit /B
 
-set PYTHONHOME=%OLD_PYTHONHOME%
 popd
 
 @rem

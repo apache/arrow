@@ -117,6 +117,3 @@ move tzdata %USERPROFILE%\Downloads\tzdata
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
   --output %USERPROFILE%\Downloads\tzdata\windowsZones.xml
 @rem (Doc section: Download timezone database)
-
-@rem For ORC C++
-set TZDIR=%CONDA_PREFIX%\share\zoneinfo
