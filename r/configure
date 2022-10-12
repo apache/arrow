@@ -75,6 +75,8 @@ if [ "$FORCE_AUTOBREW" = "true" ] || [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
   ARROW_USE_PKG_CONFIG="false"
 fi
 
+S3_LIBS=""
+GCS_LIBS=""
 # Note that cflags may be empty in case of success
 if [ "$ARROW_HOME" ] && [ "$FORCE_BUNDLED_BUILD" != "true" ]; then
   echo "*** Using ARROW_HOME as the source of libarrow"
@@ -91,10 +93,13 @@ else
   # Use pkg-config to find libarrow if available and allowed
   pkg-config --version >/dev/null 2>&1
   if [ $? -eq 0 ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
+    PKG_CONFIG_AVAILABLE=true
     # Set the search paths and compile flags
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_LIBS=`pkg-config --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
+  else
+    PKG_CONFIG_AVAILABLE=false
   fi
 
   if [ "$PKGCONFIG_CFLAGS" ] && [ "$PKGCONFIG_LIBS" ]; then
@@ -166,34 +171,41 @@ else
       if [ "${ARROW_DEPENDENCY_SOURCE}" = "" ]; then
         export ARROW_DEPENDENCY_SOURCE=AUTO
       fi
-      if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ]; then
-        pkg-config --version >/dev/null 2>&1
-        if [ $? -ne 0 ]; then
-          echo "**** pkg-config is required to use automatically installed Apache Arrow C++"
-          exit 1
-        fi
+      if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ] && \
+           [ "${PKG_CONFIG_AVAILABLE}" = "false" ]; then
+        export ARROW_DEPENDENCY_SOURCE=BUNDLED
+        echo "**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED"
       fi
 
       ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
 
       LIB_DIR="`pwd`/libarrow/arrow-${VERSION}/lib"
       if [ -d "$LIB_DIR" ]; then
-        # Use pkg-config to do static linking of libarrow's dependencies
-        export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-        PKG_CONFIG="pkg-config"
-        # pkg-config on CentOS 7 doesn't have --define-prefix option.
-        if ${PKG_CONFIG} --help | grep -- --define-prefix >/dev/null 2>&1; then
-          # --define-prefix is for binary packages. Binary packages
-          # uses "/arrow/r/libarrow/dist" as prefix but it doesn't
-          # match the extracted path. --define-prefix uses a directory
-          # that arrow.pc exists as its prefix instead of
-          # "/arrow/r/libarrow/dist".
-          PKG_CONFIG="${PKG_CONFIG} --define-prefix"
+        if [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
+          # Use pkg-config to do static linking of libarrow's dependencies
+          export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+          PKG_CONFIG="pkg-config"
+          # pkg-config on CentOS 7 doesn't have --define-prefix option.
+          if ${PKG_CONFIG} --help | grep -- --define-prefix >/dev/null 2>&1; then
+            # --define-prefix is for binary packages. Binary packages
+            # uses "/arrow/r/libarrow/dist" as prefix but it doesn't
+            # match the extracted path. --define-prefix uses a directory
+            # that arrow.pc exists as its prefix instead of
+            # "/arrow/r/libarrow/dist".
+            PKG_CONFIG="${PKG_CONFIG} --define-prefix"
+          fi
+          PKG_CONFIG="${PKG_CONFIG} --static --silence-errors"
+          PKG_CFLAGS="`${PKG_CONFIG} --cflags ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
+          PKG_DIRS="`${PKG_CONFIG} --libs-only-L ${PKG_CONFIG_NAME}`"
+          PKG_LIBS="`${PKG_CONFIG} --libs-only-l --libs-only-other ${PKG_CONFIG_NAME}`"
+        else
+          # This case must be ARROW_DEPENDENCY_SOURCE=BUNDLED.
+          PKG_CFLAGS="-I${LIB_DIR}/../include $PKG_CFLAGS"
+          PKG_DIRS="-L${LIB_DIR}"
+          PKG_LIBS="-larrow -larrow_bundled_dependencies"
+          S3_LIBS="-lcurl -lssl -lcrypto"
+          GCS_LIBS="-lcurl -lssl -lcrypto"
         fi
-        PKG_CONFIG="${PKG_CONFIG} --static --silence-errors"
-        PKG_CFLAGS="`${PKG_CONFIG} --cflags ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
-        PKG_DIRS="`${PKG_CONFIG} --libs-only-L ${PKG_CONFIG_NAME}`"
-        PKG_LIBS="`${PKG_CONFIG} --libs-only-l --libs-only-other ${PKG_CONFIG_NAME}`"
       fi
     fi
   fi
@@ -251,13 +263,13 @@ if [ $? -eq 0 ]; then
   fi
   if arrow_built_with ARROW_S3; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+    PKG_LIBS="$PKG_LIBS $S3_LIBS"
   fi
   if arrow_built_with ARROW_GCS; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_GCS"
+    PKG_LIBS="$PKG_LIBS $GCS_LIBS"
   fi
 
-  # prepend PKG_DIRS and append BUNDLED_LIBS to PKG_LIBS
-  PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else
