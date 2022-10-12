@@ -190,9 +190,12 @@ TEST(ConverterTest, Decimal128And256) {
     options.explicit_schema = schema({field("", decimal_type)});
 
     std::string json_source = R"(
-    {"" : "02.0000000000"}
-    {"" : "30.0000000000"}
-  )";
+      {"" : "02.0000000000"}
+      {"" : "30.0000000000"}
+      {"" : "30.01"}
+      {"" : "30.0000000000123"}
+      {"" : "30.0000000000987"}
+    )";
 
     std::shared_ptr<StructArray> parse_array;
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
@@ -204,7 +207,11 @@ TEST(ConverterTest, Decimal128And256) {
     // assert equality
     auto expected = ArrayFromJSON(decimal_type, R"([
           "02.0000000000",
-          "30.0000000000"])");
+          "30.0000000000",
+          "30.0100000000",
+          "30.0000000000",
+          "30.0000000001"
+    ])");
 
     AssertArraysEqual(*expected, *converted);
   }

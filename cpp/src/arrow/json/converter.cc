@@ -166,10 +166,19 @@ class DecimalConverter : public PrimitiveConverter {
     using Builder = typename TypeTraits<T>::BuilderType;
     Builder builder(out_type_, pool_);
     RETURN_NOT_OK(builder.Resize(dict_array.indices()->length()));
+    const auto& decimal_type(internal::checked_cast<const DecimalType&>(*out_type_));
+    int32_t out_scale = decimal_type.scale();
 
-    auto visit_valid = [&builder](string_view repr) {
-      ARROW_ASSIGN_OR_RAISE(value_type value,
-                            TypeTraits<T>::BuilderType::ValueType::FromString(repr));
+    auto visit_valid = [&builder, out_scale](string_view repr) {
+      value_type value;
+      int32_t precision, scale;
+      RETURN_NOT_OK(TypeTraits<T>::BuilderType::ValueType::FromString(
+          repr, &value, &precision, &scale));
+      if (scale > out_scale) {
+        value = value.ReduceScaleBy(scale - out_scale, true);
+      } else if (scale < out_scale) {
+        value = value.IncreaseScaleBy(out_scale - scale);
+      }
       builder.UnsafeAppend(value);
       return Status::OK();
     };
