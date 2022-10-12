@@ -171,12 +171,43 @@ class BaseTableTest {
   }
 
   @Test
+  void getVectorCopy() {
+    List<FieldVector> vectorList = twoIntColumns(allocator);
+    IntVector v0 = (IntVector) vectorList.get(0);
+    try (Table t = new Table(vectorList)) {
+      IntVector copy0 = (IntVector) t.getVectorCopy(0);
+      for (int i = 0; i < v0.getValueCount(); i++) {
+        assertEquals(v0.get(i), copy0.get(i));
+      }
+    }
+  }
+
+  @Test
   void testGetVector() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
       assertNotNull(t.getVector(INT_VECTOR_NAME_1));
       assertThrows(IllegalStateException.class,
           () -> t.getVector("wrong name"));
+    }
+  }
+
+  @Test
+  void testGetVectorCopy() {
+    List<FieldVector> vectorList = twoIntColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+      assertNotNull(t.getVectorCopy(INT_VECTOR_NAME_1));
+      assertThrows(IllegalStateException.class,
+          () -> t.getVector("wrong name"));
+    }
+  }
+
+  @Test
+  void copy() {
+    List<FieldVector> vectorList = twoIntColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+
+      // TODO: Implement test
     }
   }
 
