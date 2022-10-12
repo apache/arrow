@@ -262,7 +262,9 @@ If user forgets to close them then native object leakage might be caused.
 Development Guidelines
 ======================
 
-* Related to the note about ScanOptions batchSize argument: Let's try to read a Parquet file with gzip compression and 3 row groups:
+* The ``batchSize`` argument of ``ScanOptions`` is a limit on the size of an individual batch.
+
+  For example, let's try to read a Parquet file with gzip compression and 3 row groups:
 
     .. code-block::
 
@@ -277,9 +279,9 @@ Development Guidelines
        row group 2: RC:4 TS:190 OFFSET:420
        row group 3: RC:3 TS:179 OFFSET:838
 
-    In this case, we are configuring ScanOptions batchSize argument limit to
-    32768, it's greater than current 4 rows read on the file, then 4 is
-    used as a limit on the program execution instead of 32768 limit requested.
-
-    In case the file had more than 32768 rows, then it would get split into
-    blocks of 32768 rows or less.
+    Here, we set the batchSize in ScanOptions to 32768. Because that's greater
+    than the number of rows in the next batch, which is 4 rows because the first
+    row group has only 4 rows, then the program gets only 4 rows. The scanner
+    will not combine smaller batches to reach the limit, but it will split
+    large batches to stay under the limit. So in the case the row group had more
+    than 32768 rows, it would get split into blocks of 32768 rows or less.
