@@ -212,6 +212,27 @@ test_that("expand_across correctly expands quosures", {
     regexp = "`.names` specification must produce (number of columns * number of functions) names.",
     fixed = TRUE
   )
+
+  # Using package name prefix (ARROW-17724)
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), base::round)),
+    quos(
+      dbl = base::round(dbl),
+      dbl2 = base::round(dbl2)
+    ),
+    example_data
+  )
+
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), c(base::round, base::sqrt))),
+    quos(
+      dbl_1 = base::round(dbl),
+      dbl_2 = base::sqrt(dbl),
+      dbl2_1 = base::round(dbl2),
+      dbl2_2 = base::sqrt(dbl2)
+    ),
+    example_data
+  )
 })
 
 test_that("purrr-style lambda functions are supported", {
