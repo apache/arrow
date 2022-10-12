@@ -19,10 +19,10 @@
 # The following S3 methods are registered on load if dplyr is present
 
 slice_head.arrow_dplyr_query <- function(.data, ..., n, prop) {
-  if (length(group_vars(.data)) > 0) {
+  if (length(dplyr::group_vars(.data)) > 0) {
     arrow_not_supported("Slicing grouped data")
   }
-  rlang::check_dots_empty()
+  check_dots_empty()
 
   if (missing(n)) {
     n <- prop_to_n(.data, prop)
@@ -33,10 +33,10 @@ slice_head.arrow_dplyr_query <- function(.data, ..., n, prop) {
 slice_head.Dataset <- slice_head.ArrowTabular <- slice_head.RecordBatchReader <- slice_head.arrow_dplyr_query
 
 slice_tail.arrow_dplyr_query <- function(.data, ..., n, prop) {
-  if (length(group_vars(.data)) > 0) {
+  if (length(dplyr::group_vars(.data)) > 0) {
     arrow_not_supported("Slicing grouped data")
   }
-  rlang::check_dots_empty()
+  check_dots_empty()
 
   if (missing(n)) {
     n <- prop_to_n(.data, prop)
@@ -47,13 +47,13 @@ slice_tail.arrow_dplyr_query <- function(.data, ..., n, prop) {
 slice_tail.Dataset <- slice_tail.ArrowTabular <- slice_tail.RecordBatchReader <- slice_tail.arrow_dplyr_query
 
 slice_min.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, with_ties = TRUE) {
-  if (length(group_vars(.data)) > 0) {
+  if (length(dplyr::group_vars(.data)) > 0) {
     arrow_not_supported("Slicing grouped data")
   }
   if (with_ties) {
     arrow_not_supported("with_ties = TRUE")
   }
-  rlang::check_dots_empty()
+  check_dots_empty()
 
   if (missing(n)) {
     n <- prop_to_n(.data, prop)
@@ -64,13 +64,13 @@ slice_min.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, with_ties
 slice_min.Dataset <- slice_min.ArrowTabular <- slice_min.RecordBatchReader <- slice_min.arrow_dplyr_query
 
 slice_max.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, with_ties = TRUE) {
-  if (length(group_vars(.data)) > 0) {
+  if (length(dplyr::group_vars(.data)) > 0) {
     arrow_not_supported("Slicing grouped data")
   }
   if (with_ties) {
     arrow_not_supported("with_ties = TRUE")
   }
-  rlang::check_dots_empty()
+  check_dots_empty()
 
   if (missing(n)) {
     n <- prop_to_n(.data, prop)
@@ -92,7 +92,7 @@ slice_sample.arrow_dplyr_query <- function(.data,
                                            prop,
                                            weight_by = NULL,
                                            replace = FALSE) {
-  if (length(group_vars(.data)) > 0) {
+  if (length(dplyr::group_vars(.data)) > 0) {
     arrow_not_supported("Slicing grouped data")
   }
   if (replace) {
@@ -103,7 +103,7 @@ slice_sample.arrow_dplyr_query <- function(.data,
     # but you'd need to calculate sum(weight_by) in order to normalize
     arrow_not_supported("weight_by")
   }
-  rlang::check_dots_empty()
+  check_dots_empty()
 
   # If we want n rows sampled, we have to convert n to prop, oversample some
   # just to make sure we get enough, then head(n)

@@ -136,8 +136,9 @@ call_binding_agg <- function(fun_name, ...) {
   agg_funcs[[fun_name]](...)
 }
 
-# Called in .onLoad()
+#' @importFrom stats runif
 create_binding_cache <- function() {
+  # Called in .onLoad()
   .cache$docs <- list()
 
   # Register all available Arrow Compute functions, namespaced as arrow_fun.

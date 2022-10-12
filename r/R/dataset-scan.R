@@ -234,7 +234,7 @@ map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = FALSE, .data.frame 
   }
   FUN <- as_mapper(FUN)
   reader <- as_record_batch_reader(X)
-  dots <- rlang::list2(...)
+  dots <- list2(...)
 
   # If no schema is supplied, we have to evaluate the first batch here
   if (is.null(.schema)) {
