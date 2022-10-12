@@ -207,7 +207,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   // The output vector always has a data array.
   int64_t data_len;
   if (arrow::is_primitive(type_id) || type_id == arrow::Type::DECIMAL) {
-    const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
+    const auto& fw_type = static_cast<const arrow::FixedWidthType&>(*type);
     data_len = arrow::bit_util::BytesForBits(num_records * fw_type.bit_width());
   } else if (arrow::is_binary_like(type_id)) {
     // we don't know the expected size for varlen output vectors.
@@ -267,7 +267,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
         Status::Invalid("data buffer for varlen output vectors must be resizable"));
   } else if (arrow::is_primitive(type_id) || type_id == arrow::Type::DECIMAL) {
     // verify size of data buffer.
-    const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*field.type());
+    const auto& fw_type = static_cast<const arrow::FixedWidthType&>(*field.type());
     int64_t min_data_len =
         arrow::bit_util::BytesForBits(num_records * fw_type.bit_width());
     int64_t data_len = array_data.buffers[1]->capacity();
