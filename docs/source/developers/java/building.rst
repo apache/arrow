@@ -104,7 +104,7 @@ We can build these manually or we can use `Archery`_ to build them using a Docke
 Maven
 ~~~~~
 
-- To build only the JNI C Data Interface library:
+- To build only the JNI C Data Interface library (MacOS / Linux):
 
     .. code-block::
 
@@ -112,11 +112,17 @@ Maven
         $ export JAVA_HOME=<absolute path to your java home>
         $ java --version
         $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
-        $ # MacOS / Linux
         $ ls -latr ../java-dist/lib
         |__ libarrow_cdata_jni.dylib
         |__ libarrow_cdata_jni.so
-        $ # Windows
+
+- To build only the JNI C Data Interface library (Windows):
+
+    .. code-block::
+
+        C:\ cd arrow/java
+        C:\ java --version
+        C:\ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
         C:\ dir "../java-dist/bin"
         |__ arrow_cdata_jni.dll
 
@@ -152,17 +158,17 @@ CMake
     .. code-block::
 
         $ cd arrow
-        $ mkdir -p java-dist java-jni
+        $ mkdir -p java-dist java-cdata
         $ cmake \
             -S java \
-            -B java-jni \
+            -B java-cdata \
             -DARROW_JAVA_JNI_ENABLE_C=ON \
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
             -DBUILD_TESTING=OFF \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_LIBDIR=lib \
             -DCMAKE_INSTALL_PREFIX=java-dist
-        $ cmake --build java-jni --target install --config Release
+        $ cmake --build java-cdata --target install --config Release
         $ ls -latr java-dist/lib
         |__ libarrow_cdata_jni.dylib
         |__ libarrow_cdata_jni.so
@@ -172,17 +178,17 @@ CMake
     .. code-block::
 
         C:\ cd arrow
-        C:\ mkdir java-dist, java-jni
+        C:\ mkdir java-dist, java-cdata
         C:\ cmake ^
             -S java ^
-            -B java-jni ^
+            -B java-cdata ^
             -DARROW_JAVA_JNI_ENABLE_C=ON ^
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF ^
             -DBUILD_TESTING=OFF ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_INSTALL_LIBDIR=lib ^
             -DCMAKE_INSTALL_PREFIX=java-dist
-        C:\ cmake --build java-jni --target install --config Release
+        C:\ cmake --build java-cdata --target install --config Release
         C:\ dir "java-dist/bin"
         |__ arrow_cdata_jni.dll
 
@@ -237,7 +243,7 @@ CMake
         |__ libplasma_java.dylib
 
 - To build all JNI libraries (Windows) except the JNI C Data Interface library
-(Consider: Plasma doesn't work on Windows / ORC isn't available on Windows):
+(Please note: Plasma doesn't work on Windows / ORC isn't available on Windows):
 
     .. code-block::
 
