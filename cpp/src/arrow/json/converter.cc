@@ -166,7 +166,7 @@ class DecimalConverter : public PrimitiveConverter {
     using Builder = typename TypeTraits<T>::BuilderType;
     Builder builder(out_type_, pool_);
     RETURN_NOT_OK(builder.Resize(dict_array.indices()->length()));
-    const auto& decimal_type(internal::checked_cast<const DecimalType&>(*out_type_));
+    const auto& decimal_type(checked_cast<const DecimalType&>(*out_type_));
     int32_t out_scale = decimal_type.scale();
 
     auto visit_valid = [&builder, out_scale](string_view repr) {
