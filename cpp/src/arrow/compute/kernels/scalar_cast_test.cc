@@ -2276,6 +2276,54 @@ TEST(Cast, FSLToFSLOptionsPassThru) {
   CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
 }
 
+TEST(Cast, CastMap) {
+  const std::string map_json =
+      "[[[\"x\", 1], [\"y\", 8], [\"z\", 9]], [[\"x\", 6]], [[\"y\", 36]]]";
+  const std::string map_json_nullable =
+      "[[[\"x\", 1], [\"y\", null], [\"z\", 9]], null, [[\"y\", 36]]]";
+
+  auto CheckMapCast = [map_json,
+                       map_json_nullable](const std::shared_ptr<DataType>& dst_type) {
+    std::shared_ptr<DataType> src_type =
+        std::make_shared<MapType>(field("x", utf8(), false), field("y", int64()));
+    std::shared_ptr<Array> src = ArrayFromJSON(src_type, map_json);
+    std::shared_ptr<Array> dst = ArrayFromJSON(dst_type, map_json);
+    CheckCast(src, dst);
+
+    src = ArrayFromJSON(src_type, map_json_nullable);
+    dst = ArrayFromJSON(dst_type, map_json_nullable);
+    CheckCast(src, dst);
+  };
+
+  // Can rename fields
+  CheckMapCast(std::make_shared<MapType>(field("a", utf8(), false), field("b", int64())));
+  // Can map keys and values
+  CheckMapCast(map(large_utf8(), field("y", int32())));
+  // Can cast a map to a to a list<struct<keys=.., values=..>>
+  CheckMapCast(list(struct_({field("a", utf8()), field("b", int64())})));
+  // Can cast a map to a large_list<struct<keys=.., values=..>>
+  CheckMapCast(large_list(struct_({field("a", utf8()), field("b", int64())})));
+
+  // Can rename nested field names
+  std::shared_ptr<DataType> src_type = map(utf8(), field("x", list(field("a", int64()))));
+  std::shared_ptr<DataType> dst_type = map(utf8(), field("y", list(field("b", int64()))));
+
+  std::shared_ptr<Array> src =
+      ArrayFromJSON(src_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
+  std::shared_ptr<Array> dst =
+      ArrayFromJSON(dst_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
+
+  CheckCast(src, dst);
+
+  // Cannot cast to a list<struct<[fields]>> if there are not exactly 2 fields
+  dst_type = list(
+      struct_({field("key", int32()), field("value", int64()), field("extra", int64())}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("must be cast to a list<struct> with exactly two fields"),
+      Cast(src, dst_type));
+}
+
 static void CheckStructToStruct(
     const std::vector<std::shared_ptr<DataType>>& value_types) {
   for (const auto& src_value_type : value_types) {
