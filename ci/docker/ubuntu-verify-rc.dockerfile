@@ -16,7 +16,8 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/ubuntu:22.04
+ARG ubuntu=20.04
+FROM ${arch}/ubuntu:${ubuntu}
 
 ENV DEBIAN_FRONTEND=noninteractive
 COPY dev/release/setup-ubuntu.sh /
@@ -24,3 +25,6 @@ RUN /setup-ubuntu.sh && \
     rm /setup-ubuntu.sh && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin

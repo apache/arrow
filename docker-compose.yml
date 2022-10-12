@@ -1841,12 +1841,13 @@ services:
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
     build:
       context: .
-      dockerfile: ci/docker/ubuntu-${UBUNTU}-verify-rc.dockerfile
+      dockerfile: ci/docker/ubuntu-verify-rc.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
       args:
         repo: ${REPO}
         arch: ${ARCH}
+        ubuntu: ${UBUNTU}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
