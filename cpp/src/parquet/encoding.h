@@ -398,7 +398,7 @@ class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
  public:
   using TypedDecoder<BooleanType>::Decode;
 
-  /// \brief Decode values into a buffer
+  /// \brief Decode and bit-pack values into a buffer
   ///
   /// \param[in] buffer destination for decoded values
   /// This buffer contains bit-packed values.
