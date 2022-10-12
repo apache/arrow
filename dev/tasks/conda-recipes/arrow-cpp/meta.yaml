@@ -81,8 +81,8 @@ outputs:
         - google-cloud-cpp  # [linux]
         - grpc-cpp
         - libprotobuf
-        - clangdev 10  # [not (osx and arm64)]
-        - llvmdev 10   # [not (osx and arm64)]
+        - clangdev >=11 # [not (osx and arm64)]
+        - llvmdev >=11  # [not (osx and arm64)]
         - libutf8proc
         - lz4-c
         - numpy
@@ -184,9 +184,9 @@ outputs:
         - {{ compiler("cuda") }}  # [cuda_compiler_version != "None"]
       host:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
-        - clangdev 10  # [not (osx and arm64)]
+        - clangdev >=11 # [not (osx and arm64)]
         - cython
-        - llvmdev 10   # [not (osx and arm64)]
+        - llvmdev >=11  # [not (osx and arm64)]
         - numpy
         - openssl
         - python
@@ -262,9 +262,9 @@ outputs:
       host:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
         - {{ pin_subpackage('pyarrow', exact=True) }}
-        - clangdev 10  # [not (osx and arm64)]
+        - clangdev >=11 # [not (osx and arm64)]
         - cython
-        - llvmdev 10   # [not (osx and arm64)]
+        - llvmdev >=11  # [not (osx and arm64)]
         - numpy
         - python
         - openssl
