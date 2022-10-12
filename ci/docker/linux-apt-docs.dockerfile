@@ -58,6 +58,9 @@ RUN apt-get update -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 
 ARG maven=3.5.4

@@ -32,46 +32,46 @@ ENV R_DUCKDB_DEV=${r_duckdb_dev}
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
 ARG r=3.6
 RUN apt-get update -y && \
-    apt-get install -y \
-        dirmngr \
-        apt-transport-https \
-        software-properties-common && \
-    wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
-        tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
-    # NOTE: Only R >= 4.0 is available in this repo
-    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
-    apt-get install -y \
-        r-base=${r}* \
-        r-recommended=${r}* \
-        # system libs needed by core R packages
-        libxml2-dev \
-        libgit2-dev \
-        libssl-dev \
-        # install clang to mirror what was done on Travis
-        clang \
-        clang-format \
-        clang-tidy \
-        # R CMD CHECK --as-cran needs pdflatex to build the package manual
-        texlive-latex-base \
-        # Need locales so we can set UTF-8
-        locales \
-        # Need Python to check py-to-r bridge
-        python3 \
-        python3-pip \
-        python3-dev && \
-    locale-gen en_US.UTF-8 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+  apt-get install -y \
+  dirmngr \
+  apt-transport-https \
+  software-properties-common && \
+  wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
+  tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
+  # NOTE: Only R >= 4.0 is available in this repo
+  add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
+  apt-get install -y \
+  r-base=${r}* \
+  r-recommended=${r}* \
+  # system libs needed by core R packages
+  libxml2-dev \
+  libgit2-dev \
+  libssl-dev \
+  # install clang to mirror what was done on Travis
+  clang \
+  clang-format \
+  clang-tidy \
+  # R CMD CHECK --as-cran needs pdflatex to build the package manual
+  texlive-latex-base \
+  # Need locales so we can set UTF-8
+  locales \
+  # Need Python to check py-to-r bridge
+  python3 \
+  python3-pip \
+  python3-dev && \
+  locale-gen en_US.UTF-8 && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 
 ARG gcc_version=""
 RUN if [ "${gcc_version}" != "" ]; then \
-      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30 && \
-      update-alternatives --set cc /usr/bin/gcc && \
-      update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30 && \
-      update-alternatives --set c++ /usr/bin/g++; \
-    fi
+  update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
+  update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+  update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30 && \
+  update-alternatives --set cc /usr/bin/gcc && \
+  update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30 && \
+  update-alternatives --set c++ /usr/bin/g++; \
+  fi
 
 # Ensure parallel R package installation, set CRAN repo mirror,
 # and use pre-built binaries where possible
@@ -82,7 +82,7 @@ RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/e
 
 # Set up Python 3 and its dependencies
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip
+  ln -s /usr/bin/pip3 /usr/local/bin/pip
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
@@ -100,22 +100,22 @@ COPY python/requirements-build.txt /arrow/python/
 RUN pip install -r arrow/python/requirements-build.txt
 
 ENV \
-    ARROW_BUILD_STATIC=OFF \
-    ARROW_BUILD_TESTS=OFF \
-    ARROW_BUILD_UTILITIES=OFF \
-    ARROW_COMPUTE=ON \
-    ARROW_CSV=ON \
-    ARROW_DATASET=ON \
-    ARROW_FILESYSTEM=ON \
-    ARROW_FLIGHT=OFF \
-    ARROW_GANDIVA=OFF \
-    ARROW_HDFS=OFF \
-    ARROW_JSON=ON \
-    ARROW_NO_DEPRECATED_API=ON \
-    ARROW_ORC=OFF \
-    ARROW_PARQUET=ON \
-    ARROW_PLASMA=OFF \
-    ARROW_S3=ON \
-    ARROW_USE_CCACHE=ON \
-    ARROW_USE_GLOG=OFF \
-    LC_ALL=en_US.UTF-8
+  ARROW_BUILD_STATIC=OFF \
+  ARROW_BUILD_TESTS=OFF \
+  ARROW_BUILD_UTILITIES=OFF \
+  ARROW_COMPUTE=ON \
+  ARROW_CSV=ON \
+  ARROW_DATASET=ON \
+  ARROW_FILESYSTEM=ON \
+  ARROW_FLIGHT=OFF \
+  ARROW_GANDIVA=OFF \
+  ARROW_HDFS=OFF \
+  ARROW_JSON=ON \
+  ARROW_NO_DEPRECATED_API=ON \
+  ARROW_ORC=OFF \
+  ARROW_PARQUET=ON \
+  ARROW_PLASMA=OFF \
+  ARROW_S3=ON \
+  ARROW_USE_CCACHE=ON \
+  ARROW_USE_GLOG=OFF \
+  LC_ALL=en_US.UTF-8

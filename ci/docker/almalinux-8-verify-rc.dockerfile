@@ -18,6 +18,9 @@
 ARG arch=amd64
 FROM ${arch}/almalinux:8
 
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 COPY dev/release/setup-rhel-rebuilds.sh /
 RUN /setup-rhel-rebuilds.sh && \
     rm /setup-rhel-rebuilds.sh && \

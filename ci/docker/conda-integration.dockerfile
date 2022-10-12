@@ -36,7 +36,8 @@ RUN mamba install -q -y \
         maven=${maven} \
         nodejs=${node} \
         yarn \
-        openjdk=${jdk} && \
+        openjdk=${jdk} \
+        sccache && \
     mamba clean --all --force-pkgs-dirs
 
 # Install Rust with only the needed components
