@@ -121,8 +121,9 @@
 #' * [`all()`][base::all()]
 #' * [`any()`][base::any()]
 #' * [`as.character()`][base::as.character()]
-#' * [`as.Date()`][base::as.Date()]
-#' * [`as.difftime()`][base::as.difftime()]
+#' * [`as.Date()`][base::as.Date()]: Multiple `tryFormats` not supported in Arrow.
+#' Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc.
+#' * [`as.difftime()`][base::as.difftime()]: only supports `units = "secs"` (the default)
 #' * [`as.double()`][base::as.double()]
 #' * [`as.integer()`][base::as.integer()]
 #' * [`as.logical()`][base::as.logical()]
@@ -130,8 +131,10 @@
 #' * [`asin()`][base::asin()]
 #' * [`ceiling()`][base::ceiling()]
 #' * [`cos()`][base::cos()]
-#' * [`data.frame()`][base::data.frame()]
-#' * [`difftime()`][base::difftime()]
+#' * [`data.frame()`][base::data.frame()]: `row.names` and `check.rows` arguments not supported;
+#' `stringsAsFactors` must be `FALSE`
+#' * [`difftime()`][base::difftime()]: only supports `units = "secs"` (the default);
+#' `tz` argument not supported
 #' * [`endsWith()`][base::endsWith()]
 #' * [`exp()`][base::exp()]
 #' * [`floor()`][base::floor()]
@@ -171,7 +174,8 @@
 #' * [`sqrt()`][base::sqrt()]
 #' * [`startsWith()`][base::startsWith()]
 #' * [`strftime()`][base::strftime()]
-#' * [`strptime()`][base::strptime()]
+#' * [`strptime()`][base::strptime()]: accepts a `unit` argument not present in the `base` function.
+#' Valid values are "s", "ms" (default), "us", "ns".
 #' * [`strrep()`][base::strrep()]
 #' * [`strsplit()`][base::strsplit()]
 #' * [`sub()`][base::sub()]
@@ -217,20 +221,20 @@
 #' * [`dmilliseconds()`][lubridate::dmilliseconds()]
 #' * [`dminutes()`][lubridate::dminutes()]
 #' * [`dmonths()`][lubridate::dmonths()]
-#' * [`dmy()`][lubridate::dmy()]
-#' * [`dmy_h()`][lubridate::dmy_h()]
-#' * [`dmy_hm()`][lubridate::dmy_hm()]
-#' * [`dmy_hms()`][lubridate::dmy_hms()]
+#' * [`dmy()`][lubridate::dmy()]: `locale` argument not supported
+#' * [`dmy_h()`][lubridate::dmy_h()]: `locale` argument not supported
+#' * [`dmy_hm()`][lubridate::dmy_hm()]: `locale` argument not supported
+#' * [`dmy_hms()`][lubridate::dmy_hms()]: `locale` argument not supported
 #' * [`dnanoseconds()`][lubridate::dnanoseconds()]
-#' * [`dpicoseconds()`][lubridate::dpicoseconds()]
+#' * [`dpicoseconds()`][lubridate::dpicoseconds()]: not supported
 #' * [`dseconds()`][lubridate::dseconds()]
 #' * [`dst()`][lubridate::dst()]
 #' * [`dweeks()`][lubridate::dweeks()]
 #' * [`dyears()`][lubridate::dyears()]
-#' * [`dym()`][lubridate::dym()]
+#' * [`dym()`][lubridate::dym()]: `locale` argument not supported
 #' * [`epiweek()`][lubridate::epiweek()]
 #' * [`epiyear()`][lubridate::epiyear()]
-#' * [`fast_strptime()`][lubridate::fast_strptime()]
+#' * [`fast_strptime()`][lubridate::fast_strptime()]: non-default values of `lt` and `cutoff_2000` not supported
 #' * [`floor_date()`][lubridate::floor_date()]
 #' * [`format_ISO8601()`][lubridate::format_ISO8601()]
 #' * [`hour()`][lubridate::hour()]
@@ -242,18 +246,19 @@
 #' * [`isoyear()`][lubridate::isoyear()]
 #' * [`leap_year()`][lubridate::leap_year()]
 #' * [`make_date()`][lubridate::make_date()]
-#' * [`make_datetime()`][lubridate::make_datetime()]
-#' * [`make_difftime()`][lubridate::make_difftime()]
+#' * [`make_datetime()`][lubridate::make_datetime()]: only supports UTC (default) timezone
+#' * [`make_difftime()`][lubridate::make_difftime()]: only supports `units = "secs"` (the default);
+#' providing both `num` and `...` is not supported
 #' * [`mday()`][lubridate::mday()]
-#' * [`mdy()`][lubridate::mdy()]
-#' * [`mdy_h()`][lubridate::mdy_h()]
-#' * [`mdy_hm()`][lubridate::mdy_hm()]
-#' * [`mdy_hms()`][lubridate::mdy_hms()]
+#' * [`mdy()`][lubridate::mdy()]: `locale` argument not supported
+#' * [`mdy_h()`][lubridate::mdy_h()]: `locale` argument not supported
+#' * [`mdy_hm()`][lubridate::mdy_hm()]: `locale` argument not supported
+#' * [`mdy_hms()`][lubridate::mdy_hms()]: `locale` argument not supported
 #' * [`minute()`][lubridate::minute()]
 #' * [`month()`][lubridate::month()]
-#' * [`my()`][lubridate::my()]
-#' * [`myd()`][lubridate::myd()]
-#' * [`parse_date_time()`][lubridate::parse_date_time()]
+#' * [`my()`][lubridate::my()]: `locale` argument not supported
+#' * [`myd()`][lubridate::myd()]: `locale` argument not supported
+#' * [`parse_date_time()`][lubridate::parse_date_time()]: `quiet = FALSE` is not supported
 #' * [`pm()`][lubridate::pm()]
 #' * [`qday()`][lubridate::qday()]
 #' * [`quarter()`][lubridate::quarter()]
@@ -264,17 +269,17 @@
 #' * [`wday()`][lubridate::wday()]
 #' * [`week()`][lubridate::week()]
 #' * [`yday()`][lubridate::yday()]
-#' * [`ydm()`][lubridate::ydm()]
-#' * [`ydm_h()`][lubridate::ydm_h()]
-#' * [`ydm_hm()`][lubridate::ydm_hm()]
-#' * [`ydm_hms()`][lubridate::ydm_hms()]
+#' * [`ydm()`][lubridate::ydm()]: `locale` argument not supported
+#' * [`ydm_h()`][lubridate::ydm_h()]: `locale` argument not supported
+#' * [`ydm_hm()`][lubridate::ydm_hm()]: `locale` argument not supported
+#' * [`ydm_hms()`][lubridate::ydm_hms()]: `locale` argument not supported
 #' * [`year()`][lubridate::year()]
-#' * [`ym()`][lubridate::ym()]
-#' * [`ymd()`][lubridate::ymd()]
-#' * [`ymd_h()`][lubridate::ymd_h()]
-#' * [`ymd_hm()`][lubridate::ymd_hm()]
-#' * [`ymd_hms()`][lubridate::ymd_hms()]
-#' * [`yq()`][lubridate::yq()]
+#' * [`ym()`][lubridate::ym()]: `locale` argument not supported
+#' * [`ymd()`][lubridate::ymd()]: `locale` argument not supported
+#' * [`ymd_h()`][lubridate::ymd_h()]: `locale` argument not supported
+#' * [`ymd_hm()`][lubridate::ymd_hm()]: `locale` argument not supported
+#' * [`ymd_hms()`][lubridate::ymd_hms()]: `locale` argument not supported
+#' * [`yq()`][lubridate::yq()]: `locale` argument not supported
 #'
 #' ## methods
 #'

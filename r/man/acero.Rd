@@ -107,8 +107,9 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[base:all]{all()}}
 \item \code{\link[base:any]{any()}}
 \item \code{\link[base:character]{as.character()}}
-\item \code{\link[base:as.Date]{as.Date()}}
-\item \code{\link[base:difftime]{as.difftime()}}
+\item \code{\link[base:as.Date]{as.Date()}}: Multiple \code{tryFormats} not supported in Arrow.
+Consider using the lubridate specialised parsing functions \code{ymd()}, \code{ymd()}, etc.
+\item \code{\link[base:difftime]{as.difftime()}}: only supports \code{units = "secs"} (the default)
 \item \code{\link[base:double]{as.double()}}
 \item \code{\link[base:integer]{as.integer()}}
 \item \code{\link[base:logical]{as.logical()}}
@@ -116,8 +117,10 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[base:Trig]{asin()}}
 \item \code{\link[base:Round]{ceiling()}}
 \item \code{\link[base:Trig]{cos()}}
-\item \code{\link[base:data.frame]{data.frame()}}
-\item \code{\link[base:difftime]{difftime()}}
+\item \code{\link[base:data.frame]{data.frame()}}: \code{row.names} and \code{check.rows} arguments not supported;
+\code{stringsAsFactors} must be \code{FALSE}
+\item \code{\link[base:difftime]{difftime()}}: only supports \code{units = "secs"} (the default);
+\code{tz} argument not supported
 \item \code{\link[base:startsWith]{endsWith()}}
 \item \code{\link[base:Log]{exp()}}
 \item \code{\link[base:Round]{floor()}}
@@ -157,7 +160,8 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[base:MathFun]{sqrt()}}
 \item \code{\link[base:startsWith]{startsWith()}}
 \item \code{\link[base:strptime]{strftime()}}
-\item \code{\link[base:strptime]{strptime()}}
+\item \code{\link[base:strptime]{strptime()}}: accepts a \code{unit} argument not present in the \code{base} function.
+Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[base:strrep]{strrep()}}
 \item \code{\link[base:strsplit]{strsplit()}}
 \item \code{\link[base:grep]{sub()}}
@@ -209,20 +213,20 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[lubridate:duration]{dmilliseconds()}}
 \item \code{\link[lubridate:duration]{dminutes()}}
 \item \code{\link[lubridate:duration]{dmonths()}}
-\item \code{\link[lubridate:ymd]{dmy()}}
-\item \code{\link[lubridate:ymd_hms]{dmy_h()}}
-\item \code{\link[lubridate:ymd_hms]{dmy_hm()}}
-\item \code{\link[lubridate:ymd_hms]{dmy_hms()}}
+\item \code{\link[lubridate:ymd]{dmy()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{dmy_h()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{dmy_hm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{dmy_hms()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:duration]{dnanoseconds()}}
-\item \code{\link[lubridate:duration]{dpicoseconds()}}
+\item \code{\link[lubridate:duration]{dpicoseconds()}}: not supported
 \item \code{\link[lubridate:duration]{dseconds()}}
 \item \code{\link[lubridate:dst]{dst()}}
 \item \code{\link[lubridate:duration]{dweeks()}}
 \item \code{\link[lubridate:duration]{dyears()}}
-\item \code{\link[lubridate:ymd]{dym()}}
+\item \code{\link[lubridate:ymd]{dym()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:week]{epiweek()}}
 \item \code{\link[lubridate:year]{epiyear()}}
-\item \code{\link[lubridate:parse_date_time]{fast_strptime()}}
+\item \code{\link[lubridate:parse_date_time]{fast_strptime()}}: non-default values of \code{lt} and \code{cutoff_2000} not supported
 \item \code{\link[lubridate:round_date]{floor_date()}}
 \item \code{\link[lubridate:format_ISO8601]{format_ISO8601()}}
 \item \code{\link[lubridate:hour]{hour()}}
@@ -234,18 +238,19 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[lubridate:year]{isoyear()}}
 \item \code{\link[lubridate:leap_year]{leap_year()}}
 \item \code{\link[lubridate:make_datetime]{make_date()}}
-\item \code{\link[lubridate:make_datetime]{make_datetime()}}
-\item \code{\link[lubridate:make_difftime]{make_difftime()}}
+\item \code{\link[lubridate:make_datetime]{make_datetime()}}: only supports UTC (default) timezone
+\item \code{\link[lubridate:make_difftime]{make_difftime()}}: only supports \code{units = "secs"} (the default);
+providing both \code{num} and \code{...} is not supported
 \item \code{\link[lubridate:day]{mday()}}
-\item \code{\link[lubridate:ymd]{mdy()}}
-\item \code{\link[lubridate:ymd_hms]{mdy_h()}}
-\item \code{\link[lubridate:ymd_hms]{mdy_hm()}}
-\item \code{\link[lubridate:ymd_hms]{mdy_hms()}}
+\item \code{\link[lubridate:ymd]{mdy()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{mdy_h()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{mdy_hm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{mdy_hms()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:minute]{minute()}}
 \item \code{\link[lubridate:month]{month()}}
-\item \code{\link[lubridate:ymd]{my()}}
-\item \code{\link[lubridate:ymd]{myd()}}
-\item \code{\link[lubridate:parse_date_time]{parse_date_time()}}
+\item \code{\link[lubridate:ymd]{my()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{myd()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:parse_date_time]{parse_date_time()}}: \code{quiet = FALSE} is not supported
 \item \code{\link[lubridate:am]{pm()}}
 \item \code{\link[lubridate:day]{qday()}}
 \item \code{\link[lubridate:quarter]{quarter()}}
@@ -256,17 +261,17 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[lubridate:day]{wday()}}
 \item \code{\link[lubridate:week]{week()}}
 \item \code{\link[lubridate:day]{yday()}}
-\item \code{\link[lubridate:ymd]{ydm()}}
-\item \code{\link[lubridate:ymd_hms]{ydm_h()}}
-\item \code{\link[lubridate:ymd_hms]{ydm_hm()}}
-\item \code{\link[lubridate:ymd_hms]{ydm_hms()}}
+\item \code{\link[lubridate:ymd]{ydm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ydm_h()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ydm_hm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ydm_hms()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:year]{year()}}
-\item \code{\link[lubridate:ymd]{ym()}}
-\item \code{\link[lubridate:ymd]{ymd()}}
-\item \code{\link[lubridate:ymd_hms]{ymd_h()}}
-\item \code{\link[lubridate:ymd_hms]{ymd_hm()}}
-\item \code{\link[lubridate:ymd_hms]{ymd_hms()}}
-\item \code{\link[lubridate:ymd]{yq()}}
+\item \code{\link[lubridate:ymd]{ym()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{ymd()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ymd_h()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ymd_hm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ymd_hms()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{yq()}}: \code{locale} argument not supported
 }
 }
 
