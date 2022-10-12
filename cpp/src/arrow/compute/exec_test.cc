@@ -35,6 +35,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -55,7 +56,7 @@ using ::arrow::internal::BitmapEquals;
 using ::arrow::internal::CopyBitmap;
 using ::arrow::internal::CountSetBits;
 
-TEST(ExecBatch, Basics) {
+TEST(ExecBatch, ToRecordBatch) {
   auto i32_array = ArrayFromJSON(int32(), "[0, 1, 2]");
   auto utf8_array = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
   ExecBatch exec_batch({Datum(i32_array), Datum(utf8_array)}, 3);
@@ -66,6 +67,14 @@ TEST(ExecBatch, Basics) {
   auto reject_schema =
       schema({field("a", int32()), field("b", utf8()), field("c", float64())});
   ASSERT_RAISES(Invalid, exec_batch.ToRecordBatch(reject_schema));
+
+  auto null_schema = schema({field("a", null())});
+  // right-size but wrong-kind (null instead of array) schema yields invalid record batch
+  ASSERT_OK_AND_ASSIGN(auto null_record_batch, exec_batch.ToRecordBatch(null_schema));
+  ASSERT_NOT_OK(null_record_batch->ValidateFull());
+  // wrong-kind exec batch leads to a type error
+  ExecBatch miskinded_batch({Datum()}, 0);
+  ASSERT_RAISES(TypeError, miskinded_batch.ToRecordBatch(null_schema));
 }
 
 TEST(ExecContext, BasicWorkings) {
