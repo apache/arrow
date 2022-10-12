@@ -113,7 +113,7 @@ test_that("slice_sample, ungrouped", {
   # With a larger dataset, we would be more confident to get exactly n
   # but with this dataset, we should at least not get >n rows
   sampled_n <- tab %>%
-    slice_sample(prop = .2) %>%
+    slice_sample(n = 2) %>%
     collect() %>%
     nrow()
   expect_lte(sampled_n, 2)
@@ -121,7 +121,7 @@ test_that("slice_sample, ungrouped", {
   # Test with dataset, which matters for the UDF HACK
   sampled_n <- tab %>%
     InMemoryDataset$create() %>%
-    slice_sample(prop = .2) %>%
+    slice_sample(n = 2) %>%
     collect() %>%
     nrow()
   expect_lte(sampled_n, 2)
@@ -158,7 +158,7 @@ test_that("input validation", {
   for (p in list("a", -1, 2, c(.01, .02), NA_real_)) {
     expect_error(
       slice_head(tab, prop = !!p),
-      "`prop` must be a single numeric value in [0, 1]",
+      "`prop` must be a single numeric value between 0 and 1",
       fixed = TRUE
     )
   }

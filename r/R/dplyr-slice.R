@@ -108,7 +108,7 @@ slice_sample.arrow_dplyr_query <- function(.data,
   # If we want n rows sampled, we have to convert n to prop, oversample some
   # just to make sure we get enough, then head(n)
   sampling_n <- missing(prop)
-  if (missing(prop)) {
+  if (sampling_n) {
     prop <- min(n_to_prop(.data, n) + .05, 1)
   }
   validate_prop(prop)
@@ -137,7 +137,7 @@ slice_sample.Dataset <- slice_sample.ArrowTabular <- slice_sample.RecordBatchRea
 prop_to_n <- function(.data, prop) {
   nrows <- nrow(.data)
   if (is.na(nrows)) {
-    arrow_not_supported("Slicing with `prop` when `nrow()` requires evaluating the query")
+    arrow_not_supported("Slicing with `prop` when the query has joins or aggregations")
   }
   validate_prop(prop)
   nrows * prop
@@ -145,14 +145,14 @@ prop_to_n <- function(.data, prop) {
 
 validate_prop <- function(prop) {
   if (!is.numeric(prop) || length(prop) != 1 || is.na(prop) || prop < 0 || prop > 1) {
-    stop("`prop` must be a single numeric value in [0, 1]", call. = FALSE)
+    stop("`prop` must be a single numeric value between 0 and 1", call. = FALSE)
   }
 }
 
 n_to_prop <- function(.data, n) {
   nrows <- nrow(.data)
   if (is.na(nrows)) {
-    arrow_not_supported("slice_sample() with `n` when `nrow()` requires evaluating the query")
+    arrow_not_supported("slice_sample() with `n` when the query has joins or aggregations")
   }
   n / nrows
 }
