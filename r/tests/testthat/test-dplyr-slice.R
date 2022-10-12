@@ -116,7 +116,7 @@ test_that("slice_sample, ungrouped", {
     slice_sample(prop = .2) %>%
     collect() %>%
     nrow()
-  expect_true(sampled_n <= 2)
+  expect_lte(sampled_n, 2)
 
   # Test with dataset, which matters for the UDF HACK
   sampled_n <- tab %>%
@@ -124,7 +124,7 @@ test_that("slice_sample, ungrouped", {
     slice_sample(prop = .2) %>%
     collect() %>%
     nrow()
-  expect_true(sampled_n <= 2)
+  expect_lte(sampled_n, 2)
 })
 
 test_that("slice_* not supported with groups", {
