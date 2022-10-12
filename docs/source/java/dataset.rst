@@ -39,10 +39,10 @@ Getting Started
 
 Currently supported file formats are:
 
-- Apache Arrow (`.arrow`)
-- Apache ORC (`.orc`)
-- Apache Parquet (`.parquet`)
-- Comma-Separated Values (`.csv`)
+- Apache Arrow (``.arrow``)
+- Apache ORC (``.orc``)
+- Apache Parquet (``.parquet``)
+- Comma-Separated Values (``.csv``)
 
 Below shows a simplest example of using Dataset to query a Parquet file in Java:
 
@@ -50,7 +50,7 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
 
     // read data from file /opt/example.parquet
     String uri = "file:/opt/example.parquet";
-    ScanOptions options = new ScanOptions(/*batchSize*/ 5);
+    ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (
         BufferAllocator allocator = new RootAllocator();
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(
@@ -84,7 +84,7 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
     aware container ``VectorSchemaRoot`` by which user could be able to access
     decoded data conveniently in Java.
 
-    The ``ScanOptions`` `batchSize` argument takes effect only if it is set to a value
+    The ``ScanOptions batchSize`` argument takes effect only if it is set to a value
     smaller than the number of rows in the recordbatch.
 
 .. seealso::
@@ -126,7 +126,7 @@ within method ``Scanner::schema()``:
 .. code-block:: Java
 
     Scanner scanner = dataset.newScan(
-        new ScanOptions(100, Optional.of(new String[] {"id", "name"})));
+        new ScanOptions(32768, Optional.of(new String[] {"id", "name"})));
     Schema projectedSchema = scanner.schema();
 
 .. _java-dataset-projection:
@@ -141,20 +141,20 @@ in the projection list will be accepted. For example:
 .. code-block:: Java
 
     String[] projection = new String[] {"id", "name"};
-    ScanOptions options = new ScanOptions(100, Optional.of(projection));
+    ScanOptions options = new ScanOptions(32768, Optional.of(projection));
 
 If no projection is needed, leave the optional projection argument absent in
 ScanOptions:
 
 .. code-block:: Java
 
-    ScanOptions options = new ScanOptions(100, Optional.empty());
+    ScanOptions options = new ScanOptions(32768, Optional.empty());
 
 Or use shortcut construtor:
 
 .. code-block:: Java
 
-    ScanOptions options = new ScanOptions(100);
+    ScanOptions options = new ScanOptions(32768);
 
 Then all columns will be emitted during scanning.
 
@@ -235,19 +235,27 @@ be thrown during scanning.
 Native Object Resource Management
 =================================
 As another result of relying on JNI, all components related to
-``FileSystemDataset`` should be closed manually to release the corresponding
-native objects after using. For example:
+``FileSystemDataset`` should be closed manually or use try-with-resources to
+release the corresponding native objects after using. For example:
 
 .. code-block:: Java
 
-    DatasetFactory factory = new FileSystemDatasetFactory(allocator,
-        NativeMemoryPool.getDefault(), FileFormat.PARQUET, uri);
-    Dataset dataset = factory.finish();
-    Scanner scanner = dataset.newScan(new ScanOptions(100));
+    String uri = "file:/opt/example.parquet";
+    ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
+    try (
+        BufferAllocator allocator = new RootAllocator();
+        DatasetFactory factory = new FileSystemDatasetFactory(
+                allocator, NativeMemoryPool.getDefault(),
+                FileFormat.PARQUET, uri);
+        Dataset dataset = factory.finish();
+        Scanner scanner = dataset.newScan(options)
+    ) {
 
-    // do something
+        // do something
 
-    AutoCloseables.close(factory, dataset, scanner);
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
 
 If user forgets to close them then native object leakage might be caused.
 
@@ -269,6 +277,9 @@ Development Guidelines
        row group 2: RC:4 TS:190 OFFSET:420
        row group 3: RC:3 TS:179 OFFSET:838
 
-    In this case, we are configuring ScanOptions batchSize argument equals to
-    32768 rows, it's greater than 04 rows used on the file, then 04 rows is
-    used on the program execution instead of 32768 rows requested.
+    In this case, we are configuring ScanOptions batchSize argument limit to
+    32768, it's greater than current 4 rows read on the file, then 4 is
+    used as a limit on the program execution instead of 32768 limit requested.
+
+    In case the file had more than 32768 rows, then it would get split into
+    blocks of 32768 rows or less.
