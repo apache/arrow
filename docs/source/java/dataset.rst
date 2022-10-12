@@ -50,6 +50,7 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
 
     // read data from file /opt/example.parquet
     String uri = "file:/opt/example.parquet";
+    ScanOptions options = new ScanOptions(/*batchSize*/ 5);
     try (
         BufferAllocator allocator = new RootAllocator();
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(
@@ -271,28 +272,3 @@ Development Guidelines
     In this case, we are configuring ScanOptions batchSize argument equals to
     32768 rows, it's greater than 04 rows used on the file, then 04 rows is
     used on the program execution instead of 32768 rows requested.
-
-* Arrow Java Dataset offer native functionalities consuming native artifacts such as:
-
-    JNI Arrow C++ Dataset: Native library for Linux / MacOS / Windows
-
-        To create C++ natively objects Schema, Dataset, Scanner and export
-        that as a references.
-
-    JNI Arrow C Data Interface: Native library for Linux / MacOS / Windows
-
-        To get C++ RecordBatches and import that in a standard manner through
-        `ArrowArray` class.
-
-    .. code-block::
-
-       $ # Inspect Dataset Java jar native libraries included:
-       $ jar -tf arrow-dataset-10.0.0.jar | grep _jni
-       |__ libarrow_dataset_jni.so
-       |__ arrow_dataset_jni.dll
-       |__ libarrow_dataset_jni.dylib
-       $ # Inspect C Data Interface Java jar native libraries included:
-       $ jar -tf arrow-c-data-10.0.0.jar | grep _jni
-       |__ libarrow_cdata_jni.so
-       |__ arrow_cdata_jni.dll
-       |__ libarrow_cdata_jni.dylib
