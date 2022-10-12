@@ -157,6 +157,7 @@ groups:
     - example-*
     - wheel-*
     - python-sdist
+    - r-binary-packages
 
   nightly-tests:
     - test-*
