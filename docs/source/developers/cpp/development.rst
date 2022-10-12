@@ -185,22 +185,28 @@ in a new out-of-source CMake build directory like so:
    mkdir -p $ARROW_ROOT/cpp/iwyu
    cd $ARROW_ROOT/cpp/iwyu
    cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-     -DARROW_PYTHON=ON \
-     -DARROW_PARQUET=ON \
-     -DARROW_FLIGHT=ON \
-     -DARROW_PLASMA=ON \
-     -DARROW_GANDIVA=ON \
      -DARROW_BUILD_BENCHMARKS=ON \
      -DARROW_BUILD_BENCHMARKS_REFERENCE=ON \
      -DARROW_BUILD_TESTS=ON \
      -DARROW_BUILD_UTILITIES=ON \
+     -DARROW_COMPUTE=ON \
+     -DARROW_CSV=ON \
+     -DARROW_DATASET=ON \
+     -DARROW_FILESYSTEM=ON \
+     -DARROW_FLIGHT=ON \
+     -DARROW_GANDIVA=ON \
+     -DARROW_HDFS=ON \
+     -DARROW_JSON=ON \
+     -DARROW_PARQUET=ON \
+     -DARROW_PLASMA=ON \
      -DARROW_S3=ON \
      -DARROW_WITH_BROTLI=ON \
      -DARROW_WITH_BZ2=ON \
      -DARROW_WITH_LZ4=ON \
      -DARROW_WITH_SNAPPY=ON \
      -DARROW_WITH_ZLIB=ON \
-     -DARROW_WITH_ZSTD=ON ..
+     -DARROW_WITH_ZSTD=ON \
+     ..
 
 In order for IWYU to run on the desired component in the codebase, it must be
 enabled by the CMake configuration flags. Once this is done, you can run IWYU

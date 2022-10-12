@@ -112,6 +112,20 @@ infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
 }
 
 #' @export
+infer_type.vctrs_list_of <- function(x, ...) {
+  list_of(infer_type(attr(x, "ptype")))
+}
+
+#' @export
+infer_type.blob <- function(x, ...) {
+  if (sum(lengths(x)) > .Machine$integer.max) {
+    large_binary()
+  } else {
+    binary()
+  }
+}
+
+#' @export
 infer_type.ArrowDatum <- function(x, ...) x$type
 
 #' @export

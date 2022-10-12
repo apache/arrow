@@ -37,7 +37,11 @@ RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
-    ARROW_PYTHON=ON \
-    ARROW_HDFS=ON \
     ARROW_BUILD_TESTS=OFF \
+    ARROW_COMPUTE=ON \
+    ARROW_CSV=ON \
+    ARROW_DATASET=ON \
+    ARROW_FILESYSTEM=ON \
+    ARROW_HDFS=ON \
+    ARROW_JSON=ON \
     SPARK_VERSION=${spark}

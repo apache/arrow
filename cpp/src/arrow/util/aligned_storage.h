@@ -32,13 +32,9 @@ class AlignedStorage {
  public:
   static constexpr bool can_memcpy = std::is_trivial<T>::value;
 
-#if __cpp_constexpr >= 201304L  // non-const constexpr
   constexpr T* get() noexcept {
     return arrow::internal::launder(reinterpret_cast<T*>(&data_));
   }
-#else
-  T* get() noexcept { return arrow::internal::launder(reinterpret_cast<T*>(&data_)); }
-#endif
 
   constexpr const T* get() const noexcept {
     // Use fully qualified name to avoid ambiguities with MSVC (ARROW-14800)

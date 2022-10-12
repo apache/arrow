@@ -18,7 +18,8 @@
     </parent>
     <artifactId>arrow-plasma</artifactId>
     <name>Arrow Plasma Client</name>
-    <description>(Experimental/Contrib) Java client for the Plasma object store.</description>
+    <description>(DEPRECATED) Java client for the Plasma object store.
+        This is deprecated since 10.0.0. This will be removed from 12.0.0 or so.</description>
     <build>
         <plugins>
             <plugin>

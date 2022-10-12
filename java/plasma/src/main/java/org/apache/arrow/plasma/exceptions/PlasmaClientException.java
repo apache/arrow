@@ -19,7 +19,10 @@ package org.apache.arrow.plasma.exceptions;
 
 /**
  * Generic exception thrown by the plasma client (for example on failure to connect).
+ *
+ * @deprecated Plasma is deprecated since 10.0.0. Plasma will not be released from Apache Arrow 12.0.0 or so.
  */
+@Deprecated
 public class PlasmaClientException extends RuntimeException {
 
   public PlasmaClientException(String message) {
