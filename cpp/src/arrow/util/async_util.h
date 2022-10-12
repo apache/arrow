@@ -223,7 +223,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
       explicit SubmitTask(std::unique_ptr<State> state_holder)
           : state_holder(std::move(state_holder)) {}
       struct SubmitTaskCallback {
-        SubmitTaskCallback(std::unique_ptr<State> state_holder)
+        explicit SubmitTaskCallback(std::unique_ptr<State> state_holder)
             : state_holder(std::move(state_holder)) {}
         Status operator()(const T& item) {
           if (IsIterationEnd(item)) {
