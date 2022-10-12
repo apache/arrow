@@ -174,7 +174,7 @@ cdef class ObjectID(_Weakrefable):
 
         warnings.warn(
             "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
-            DeprecationWarning)
+            DeprecationWarning, stacklevel=2)
 
     def __eq__(self, other):
         try:
@@ -327,7 +327,7 @@ cdef class PlasmaClient(_Weakrefable):
 
         warnings.warn(
             "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
-            DeprecationWarning)
+            DeprecationWarning, stacklevel=3)
 
     cdef _get_object_buffers(self, object_ids, int64_t timeout_ms,
                              c_vector[CObjectBuffer]* result):
