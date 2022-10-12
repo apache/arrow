@@ -42,7 +42,7 @@
 #' * [`collect()`][dplyr::collect()]
 #' * [`compute()`][dplyr::compute()]
 #' * [`count()`][dplyr::count()]
-#' * [`distinct()`][dplyr::distinct()]
+#' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` not supported
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
 #' * [`full_join()`][dplyr::full_join()]
@@ -53,7 +53,7 @@
 #' * [`groups()`][dplyr::groups()]
 #' * [`inner_join()`][dplyr::inner_join()]
 #' * [`left_join()`][dplyr::left_join()]
-#' * [`mutate()`][dplyr::mutate()]
+#' * [`mutate()`][dplyr::mutate()]: window functions not currently supported
 #' * [`pull()`][dplyr::pull()]
 #' * [`relocate()`][dplyr::relocate()]
 #' * [`rename()`][dplyr::rename()]
@@ -67,7 +67,7 @@
 #' * [`slice_min()`][dplyr::slice_min()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_sample()`][dplyr::slice_sample()]: slicing within groups not supported; `replace = TRUE` and the `weight_by` argument not supported; `n` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_tail()`][dplyr::slice_tail()]: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
-#' * [`summarise()`][dplyr::summarise()]
+#' * [`summarise()`][dplyr::summarise()]: window functions not currently supported; arguments `.drop = FALSE` and `.groups = "rowwise" not supported
 #' * [`tally()`][dplyr::tally()]
 #' * [`transmute()`][dplyr::transmute()]
 #' * [`ungroup()`][dplyr::ungroup()]
@@ -295,8 +295,9 @@
 #'
 #' ## stats
 #'
-#' * [`median()`][stats::median()]
-#' * [`quantile()`][stats::quantile()]
+#' * [`median()`][stats::median()]: approximate median (t-digest) is computed
+#' * [`quantile()`][stats::quantile()]: `probs` must be length 1;
+#' approximate quantile (t-digest) is computed
 #' * [`sd()`][stats::sd()]
 #' * [`var()`][stats::var()]
 #'
