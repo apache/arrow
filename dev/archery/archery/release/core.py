@@ -389,10 +389,14 @@ class Release:
                 # The last token is the default branch name
                 default_branch_name = origin_head_name_tokenized[-1]
             except KeyError:
-                raise RuntimeError(
-                    'Unable to determine default branch name: DEFAULT_BRANCH '
-                    'environment variable is not set. Git repository does not '
-                    'contain a \'refs/remotes/origin/HEAD\' reference.')
+                # TODO: ARROW-18011 to track changing the hard coded default
+                # value from "master" to "main".
+                default_branch_name = "master"
+                warnings.warn('Unable to determine default branch name: '
+                    'DEFAULT_BRANCH environment variable is not set. Git '
+                    'repository does not contain a \'refs/remotes/origin/HEAD\''
+                    ' reference. Setting the default branch name to ' +
+                    default_branch_name, RuntimeWarning)
 
         return default_branch_name
 
