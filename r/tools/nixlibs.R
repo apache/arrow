@@ -215,7 +215,7 @@ determine_binary_from_stderr <- function(errs) {
     # If we're here, we're on an older OS but with a newer compiler than gcc 4.8
     # (we already checked), so it is possible to build with more features on.
     # We just can't use our binaries because they were built with newer glibc.
-    return(NULL)
+    return("centos-7")
   } else if (header_not_found("curl/curl", errs)) {
     # TODO(ARROW-16985): should these next 3 NULL cases return centos-7? A source build
     # won't be able to include more features.

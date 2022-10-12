@@ -86,6 +86,17 @@ def _table_from_pandas(df):
     return table.replace_schema_metadata()
 
 
+def assert_dataset_fragment_convenience_methods(dataset):
+    # FileFragment convenience methods
+    for fragment in dataset.get_fragments():
+        with fragment.open() as nf:
+            assert isinstance(nf, pa.NativeFile)
+            assert not nf.closed
+            assert nf.seekable()
+            assert nf.readable()
+            assert not nf.writable()
+
+
 @pytest.fixture
 @pytest.mark.parquet
 def mockfs():
@@ -421,6 +432,7 @@ def test_dataset(dataset, dataset_reader):
                              2.0, 2.0, 3.0, 3.0, 4.0, 4.0]
     assert result['new'] == [False, False, True, True, False, False,
                              False, False, True, True]
+    assert_dataset_fragment_convenience_methods(dataset)
 
 
 @pytest.mark.parquet
@@ -951,6 +963,9 @@ def test_make_csv_fragment_from_buffer(dataset_reader):
     csv_format = ds.CsvFileFormat()
     fragment = csv_format.make_fragment(buffer)
 
+    # When buffer, fragment open returns a BufferReader, not NativeFile
+    assert isinstance(fragment.open(), pa.BufferReader)
+
     expected = pa.table([['a', 'b', 'c'],
                          [12, 11, 10],
                          ['dog', 'cat', 'rabbit']],
@@ -1219,6 +1234,8 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     # second time -> use cached / no file IO
     with assert_opens([]):
         fragment.ensure_complete_metadata()
+
+    assert isinstance(fragment.metadata, pq.FileMetaData)
 
     # recreate fragment with row group ids
     new_fragment = fragment.format.make_fragment(
@@ -2955,6 +2972,8 @@ def test_ipc_format(tempdir, dataset_reader):
     result = dataset_reader.to_table(dataset)
     assert result.equals(table)
 
+    assert_dataset_fragment_convenience_methods(dataset)
+
     for format_str in ["ipc", "arrow"]:
         dataset = ds.dataset(path, format=format_str)
         result = dataset_reader.to_table(dataset)
@@ -2976,6 +2995,8 @@ def test_orc_format(tempdir, dataset_reader):
     result = dataset_reader.to_table(dataset)
     result.validate(full=True)
     assert result.equals(table)
+
+    assert_dataset_fragment_convenience_methods(dataset)
 
     dataset = ds.dataset(path, format="orc")
     result = dataset_reader.to_table(dataset)
@@ -3043,6 +3064,8 @@ def test_csv_format(tempdir, dataset_reader):
     dataset = ds.dataset(path, format=ds.CsvFileFormat())
     result = dataset_reader.to_table(dataset)
     assert result.equals(table)
+
+    assert_dataset_fragment_convenience_methods(dataset)
 
     dataset = ds.dataset(path, format='csv')
     result = dataset_reader.to_table(dataset)
@@ -3199,6 +3222,8 @@ def test_feather_format(tempdir, dataset_reader):
     dataset = ds.dataset(basedir, format=ds.IpcFileFormat())
     result = dataset_reader.to_table(dataset)
     assert result.equals(table)
+
+    assert_dataset_fragment_convenience_methods(dataset)
 
     dataset = ds.dataset(basedir, format="feather")
     result = dataset_reader.to_table(dataset)

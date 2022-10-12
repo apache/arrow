@@ -441,11 +441,8 @@ services:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_HOME: /arrow
       LIBARROW_MINIMAL: "false"
-      # Turn off features that aren't supported on CentOS 7 gcc 4.8
-      ARROW_GCS: "OFF"
-      ARROW_MIMALLOC: "OFF"
-      ARROW_S3: "OFF"
-    command: *cpp-static-command
+    command: /bin/bash -c " 
+          scl enable devtoolset-8 '/arrow/r/inst/build_arrow_static.sh'"
 
   ubuntu-cpp-bundled:
     # Arrow build with BUNDLED dependencies

@@ -278,3 +278,19 @@ test_that("ARROW-14071 - function(x)-style lambda functions are not supported", 
     regexp = "Anonymous functions are not yet supported in Arrow"
   )
 })
+
+test_that("if_all() and if_any() are supported", {
+
+  expect_across_equal(
+    quos(if_any(everything(), ~is.na(.x))),
+    quos(is.na(int) | is.na(dbl) | is.na(dbl2) | is.na(lgl) | is.na(false) | is.na(chr) | is.na(fct)),
+    example_data
+  )
+
+  expect_across_equal(
+    quos(if_all(everything(), ~is.na(.x))),
+    quos(is.na(int) & is.na(dbl) & is.na(dbl2) & is.na(lgl) & is.na(false) & is.na(chr) & is.na(fct)),
+    example_data
+  )
+
+})

@@ -2914,12 +2914,14 @@ def test_expression_call_function():
     assert str(pc.round(field, ndigits=1)) == \
         "round(field, {ndigits=1, round_mode=HALF_TO_EVEN})"
 
-    # mixed types are not (yet) allowed
-    with pytest.raises(TypeError):
-        pc.add(field, 1)
+    # Will convert non-expression arguments if possible
+    assert str(pc.add(field, 1)) == "add(field, 1)"
+    assert str(pc.add(field, pa.scalar(1))) == "add(field, 1)"
 
-    with pytest.raises(TypeError):
-        pc.add(1, field)
+    # Invalid pc.scalar input gives original erorr message
+    msg = "only other expressions allowed as arguments"
+    with pytest.raises(TypeError, match=msg):
+        pc.add(field, object)
 
 
 def test_cast_table_raises():

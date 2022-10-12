@@ -284,8 +284,7 @@ TEST(Expression, ToString) {
       "allow_time_overflow=false, allow_decimal_truncate=false, "
       "allow_float_truncate=false, allow_invalid_utf8=false})");
 
-  // NB: corrupted for nullary functions but we don't have any of those
-  EXPECT_EQ(call("widgetify", {}).ToString(), "widgetif)");
+  EXPECT_EQ(call("widgetify", {}).ToString(), "widgetify()");
   EXPECT_EQ(
       call("widgetify", {literal(1)}, std::make_shared<WidgetifyOptions>()).ToString(),
       "widgetify(1, widgetify)");
@@ -312,6 +311,11 @@ TEST(Expression, ToString) {
                 })
                 .ToString(),
             "{a=a, renamed_a=a, three=3, b=" + in_12.ToString() + "}");
+
+  EXPECT_EQ(call("round", {literal(3.14)}, compute::RoundOptions()).ToString(),
+            "round(3.14, {ndigits=0, round_mode=HALF_TO_EVEN})");
+  EXPECT_EQ(call("random", {}, compute::RandomOptions()).ToString(),
+            "random({initializer=SystemRandom, seed=0})");
 }
 
 TEST(Expression, Equality) {

@@ -62,6 +62,7 @@ void InitCastTable() {
   AddCastFunctions(GetNumericCasts());
   AddCastFunctions(GetTemporalCasts());
   AddCastFunctions(GetDictionaryCasts());
+  AddCastFunctions(GetExtensionCasts());
 }
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }

@@ -17,7 +17,8 @@
 
 #' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
-#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dbl map_dfr map_int map_lgl keep imap imap_chr flatten
+#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dbl map_dfr map_int map_lgl keep imap imap_chr
+#' @importFrom purrr flatten reduce
 #' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos quo
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
@@ -25,6 +26,7 @@
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
 #' @importFrom rlang is_list call2 is_empty as_function as_label arg_match is_symbol is_call call_args
 #' @importFrom rlang quo_set_env quo_get_env is_formula quo_is_call f_rhs parse_expr f_env new_quosure
+#' @importFrom rlang new_quosures expr_text
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @importFrom glue glue
 #' @useDynLib arrow, .registration = TRUE
