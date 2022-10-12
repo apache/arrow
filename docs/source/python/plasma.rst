@@ -21,6 +21,10 @@
 The Plasma In-Memory Object Store
 =================================
 
+.. warning::
+
+   Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.
+
 .. note::
 
    As present, Plasma is only supported for use on Linux and macOS.
