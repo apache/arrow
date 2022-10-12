@@ -871,8 +871,11 @@ cdef class PlasmaClient(_Weakrefable):
 
 def connect(store_socket_name, int num_retries=-1):
     """
-    Return a new PlasmaClient that is connected a plasma store and
+    DEPRECATED: Return a new PlasmaClient that is connected a plasma store and
     optionally a manager.
+
+    .. deprecated:: 10.0.0
+       Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.
 
     Parameters
     ----------
