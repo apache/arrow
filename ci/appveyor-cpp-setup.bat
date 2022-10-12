@@ -113,9 +113,10 @@ curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdat
 mkdir tzdata
 tar --extract --file tzdata.tar.gz --directory tzdata
 move tzdata %USERPROFILE%\Downloads\tzdata
-@rem For ORC C++
-set TZDIR=%USERPROFILE%\Downloads\tzdata
 @rem Also need Windows timezone mapping
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
   --output %USERPROFILE%\Downloads\tzdata\windowsZones.xml
 @rem (Doc section: Download timezone database)
+
+@rem For ORC C++
+set TZDIR=%CONDA_PREFIX%\share\zoneinfo
