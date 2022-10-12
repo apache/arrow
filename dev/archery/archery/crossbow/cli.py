@@ -155,14 +155,8 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
         queue.push()
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
-
-# Get the default branch name from the repository
-arrow_source_dir = ArrowSources.find()
-repo = Repo(arrow_source_dir.path)
-
-
 @crossbow.command()
-@click.option('--base-branch', default=repo.default_branch_name,
+@click.option('--base-branch', default=None,
               help='Set base branch for the PR.')
 @click.option('--create-pr', is_flag=True, default=False,
               help='Create GitHub Pull Request')
@@ -194,6 +188,13 @@ def verify_release_candidate(obj, base_branch, create_pr,
                              verify_wheels):
     # The verify-release-candidate command will create a PR (or find one)
     # and add the verify-rc* comment to trigger the verify tasks
+
+    # Default value for base_branch is the repository's default branch name
+    if base_branch is None:
+        # Get the default branch name from the repository
+        arrow_source_dir = ArrowSources.find()
+        repo = Repo(arrow_source_dir.path)
+        base_branch = repo.default_branch_name
 
     # Redefine Arrow repo to use the correct arrow remote.
     arrow = Repo(path=obj['arrow'].path, remote_url=remote)
