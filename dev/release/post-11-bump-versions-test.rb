@@ -209,7 +209,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           [
             "-module github.com/apache/arrow/go/v#{@snapshot_major_version}/arrow/compute",
             "+module github.com/apache/arrow/go/v#{@next_major_version}/arrow/compute",            
-            "-\tgithub.com/apache/arrow/go/v#{@snapshot_major_version} v#{@snapshot_version}",
+            "-\tgithub.com/apache/arrow/go/v#{@snapshot_major_version} v#{@release_version}",
             "+\tgithub.com/apache/arrow/go/v#{@next_major_version} v#{@next_version}",
           ],
         ]}
