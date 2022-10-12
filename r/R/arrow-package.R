@@ -51,7 +51,7 @@ supported_dplyr_methods <- list(
   transmute = NULL,
   arrange = NULL,
   rename = NULL,
-  pull = NULL,
+  pull = "returns an Arrow [ChunkedArray], not an R vector",
   relocate = NULL,
   compute = NULL,
   collapse = NULL,
