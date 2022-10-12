@@ -42,16 +42,16 @@ namespace arrow {
 
 using internal::checked_pointer_cast;
 
-constexpr int kDefaultSmallMemStreamSize = 16384 * 5;  // 80KB
-constexpr int kDefaultMemStreamSize = 10 * 1024 * 1024;
+constexpr size_t kDefaultSmallMemStreamSize = 16384 * 5;  // 80KB
+constexpr size_t kDefaultMemStreamSize = 10 * 1024 * 1024;
 constexpr int64_t kNanoMax = std::numeric_limits<int64_t>::max();
 constexpr int64_t kNanoMin = std::numeric_limits<int64_t>::lowest();
-const int64_t kMicroMax = static_cast<int>(std::floor(kNanoMax / 1000));
-const int64_t kMicroMin = static_cast<int>(std::ceil(kNanoMin / 1000));
-const int64_t kMilliMax = static_cast<int>(std::floor(kMicroMax / 1000));
-const int64_t kMilliMin = static_cast<int>(std::ceil(kMicroMin / 1000));
-const int64_t kSecondMax = static_cast<int>(std::floor(kMilliMax / 1000));
-const int64_t kSecondMin = static_cast<int>(std::ceil(kMilliMin / 1000));
+const int64_t kMicroMax = static_cast<int64_t>(std::floor(kNanoMax / 1000));
+const int64_t kMicroMin = static_cast<int64_t>(std::ceil(kNanoMin / 1000));
+const int64_t kMilliMax = static_cast<int64_t>(std::floor(kMicroMax / 1000));
+const int64_t kMilliMin = static_cast<int64_t>(std::ceil(kMicroMin / 1000));
+const int64_t kSecondMax = static_cast<int64_t>(std::floor(kMilliMax / 1000));
+const int64_t kSecondMin = static_cast<int64_t>(std::ceil(kMilliMin / 1000));
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
@@ -89,7 +89,7 @@ std::shared_ptr<Buffer> GenerateFixedDifferenceBuffer(int32_t fixed_length,
   std::vector<int32_t> offsets;
   offsets.resize(length);
   ARROW_EXPECT_OK(builder.Resize(4 * length));
-  for (int32_t i = 0; i < length; i++) {
+  for (int64_t i = 0; i < length; i++) {
     offsets[i] = fixed_length * i;
   }
   ARROW_EXPECT_OK(builder.Append(offsets.data(), 4 * length));
