@@ -232,8 +232,12 @@ be thrown during scanning.
     dataset instances. Once the Java buffers are created the passed allocator
     will become their parent allocator.
 
+Usage Notes
+===========
+
 Native Object Resource Management
-=================================
+---------------------------------
+
 As another result of relying on JNI, all components related to
 ``FileSystemDataset`` should be closed manually or use try-with-resources to
 release the corresponding native objects after using. For example:
@@ -259,29 +263,29 @@ release the corresponding native objects after using. For example:
 
 If user forgets to close them then native object leakage might be caused.
 
-Development Guidelines
-======================
+BatchSize
+---------
 
-* The ``batchSize`` argument of ``ScanOptions`` is a limit on the size of an individual batch.
+The ``batchSize`` argument of ``ScanOptions`` is a limit on the size of an individual batch.
 
-  For example, let's try to read a Parquet file with gzip compression and 3 row groups:
+For example, let's try to read a Parquet file with gzip compression and 3 row groups:
 
-    .. code-block::
+.. code-block::
 
-       # Let configure ScanOptions as:
-       ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
+   # Let configure ScanOptions as:
+   ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
 
-       $ parquet-tools meta data4_3rg_gzip.parquet
-       file schema: schema
-       age:         OPTIONAL INT64 R:0 D:1
-       name:        OPTIONAL BINARY L:STRING R:0 D:1
-       row group 1: RC:4 TS:182 OFFSET:4
-       row group 2: RC:4 TS:190 OFFSET:420
-       row group 3: RC:3 TS:179 OFFSET:838
+   $ parquet-tools meta data4_3rg_gzip.parquet
+   file schema: schema
+   age:         OPTIONAL INT64 R:0 D:1
+   name:        OPTIONAL BINARY L:STRING R:0 D:1
+   row group 1: RC:4 TS:182 OFFSET:4
+   row group 2: RC:4 TS:190 OFFSET:420
+   row group 3: RC:3 TS:179 OFFSET:838
 
-    Here, we set the batchSize in ScanOptions to 32768. Because that's greater
-    than the number of rows in the next batch, which is 4 rows because the first
-    row group has only 4 rows, then the program gets only 4 rows. The scanner
-    will not combine smaller batches to reach the limit, but it will split
-    large batches to stay under the limit. So in the case the row group had more
-    than 32768 rows, it would get split into blocks of 32768 rows or less.
+Here, we set the batchSize in ScanOptions to 32768. Because that's greater
+than the number of rows in the next batch, which is 4 rows because the first
+row group has only 4 rows, then the program gets only 4 rows. The scanner
+will not combine smaller batches to reach the limit, but it will split
+large batches to stay under the limit. So in the case the row group had more
+than 32768 rows, it would get split into blocks of 32768 rows or less.
