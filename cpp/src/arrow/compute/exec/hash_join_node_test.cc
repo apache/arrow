@@ -1004,7 +1004,7 @@ TEST(HashJoin, Random) {
 #elif defined(ADDRESS_SANITIZER)
   const int num_tests = 25;
 #else
-  const int num_tests = 25;
+  const int num_tests = 100;
 #endif
   for (int test_id = 0; test_id < num_tests; ++test_id) {
     bool parallel = (rng.from_range(0, 1) == 1);
