@@ -1081,14 +1081,21 @@ def test_store_capacity():
 def test_plasma_deprecated():
     import pyarrow.plasma as plasma
 
-    with pytest.warns(DeprecationWarning):
-        plasma_store_ctx = plasma.start_plasma_store(
-            plasma_store_memory=10 ** 8,
-            use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
-        plasma_store_name, _ = plasma_store_ctx.__enter__()
+    plasma_store_ctx = plasma.start_plasma_store(
+        plasma_store_memory=10 ** 8,
+        use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
 
     with pytest.warns(DeprecationWarning):
-        plasma.connect(plasma_store_name)
+        with plasma_store_ctx:
+            pass
+
+    plasma_store_ctx = plasma.start_plasma_store(
+        plasma_store_memory=10 ** 8,
+        use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
+
+    with plasma_store_ctx as (plasma_store_name, _):
+        with pytest.warns(DeprecationWarning):
+            plasma.connect(plasma_store_name)
 
     with pytest.warns(DeprecationWarning):
         plasma.ObjectID(20 * b"a")
