@@ -30,9 +30,11 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/compute"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/decimal256"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/gen"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
+	"github.com/klauspost/cpuid/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -2726,4 +2728,116 @@ func (c *CastSuite) TestNoOutBitmapIfIsAllValid() {
 
 func TestCasts(t *testing.T) {
 	suite.Run(t, new(CastSuite))
+}
+
+const rngseed = 0x94378165
+
+var (
+	CpuCacheSizes = [...]int{ // defaults
+		32 * 1024,   // level 1: 32K
+		256 * 1024,  // level 2: 256K
+		3072 * 1024, // level 3: 3M
+	}
+)
+
+func init() {
+	if cpuid.CPU.Cache.L1D != -1 {
+		CpuCacheSizes[0] = cpuid.CPU.Cache.L1D
+	}
+	if cpuid.CPU.Cache.L2 != -1 {
+		CpuCacheSizes[1] = cpuid.CPU.Cache.L2
+	}
+	if cpuid.CPU.Cache.L3 != -1 {
+		CpuCacheSizes[2] = cpuid.CPU.Cache.L3
+	}
+}
+
+func benchmarkNumericCast(b *testing.B, fromType, toType arrow.DataType, opts compute.CastOptions, size, min, max int64, nullprob float64) {
+	rng := gen.NewRandomArrayGenerator(rngseed, memory.DefaultAllocator)
+	arr := rng.Numeric(fromType.ID(), size, min, max, nullprob)
+	var (
+		err   error
+		out   compute.Datum
+		ctx   = context.Background()
+		input = compute.NewDatum(arr.Data())
+	)
+
+	b.Cleanup(func() {
+		arr.Release()
+		input.Release()
+	})
+
+	opts.ToType = toType
+	b.ResetTimer()
+	b.SetBytes(size * int64(fromType.(arrow.FixedWidthDataType).Bytes()))
+	for i := 0; i < b.N; i++ {
+		out, err = compute.CastDatum(ctx, input, &opts)
+		if err != nil {
+			b.Fatal(err)
+		}
+		out.Release()
+	}
+}
+
+func benchmarkFloatingToIntegerCast(b *testing.B, fromType, toType arrow.DataType, opts compute.CastOptions, size, min, max int64, nullprob float64) {
+	rng := gen.NewRandomArrayGenerator(rngseed, memory.DefaultAllocator)
+	arr := rng.Numeric(toType.ID(), size, min, max, nullprob)
+	asFloat, err := compute.CastToType(context.Background(), arr, fromType)
+	if err != nil {
+		b.Fatal(err)
+	}
+	arr.Release()
+
+	var (
+		out   compute.Datum
+		ctx   = context.Background()
+		input = compute.NewDatum(asFloat.Data())
+	)
+
+	b.Cleanup(func() {
+		asFloat.Release()
+		input.Release()
+	})
+
+	opts.ToType = toType
+	b.ResetTimer()
+	b.SetBytes(size * int64(fromType.(arrow.FixedWidthDataType).Bytes()))
+	for i := 0; i < b.N; i++ {
+		out, err = compute.CastDatum(ctx, input, &opts)
+		if err != nil {
+			b.Fatal(err)
+		}
+		out.Release()
+	}
+}
+
+func BenchmarkCasting(b *testing.B) {
+	type benchfn func(b *testing.B, fromType, toType arrow.DataType, opts compute.CastOptions, size, min, max int64, nullprob float64)
+
+	tests := []struct {
+		from, to arrow.DataType
+		min, max int64
+		safe     bool
+		fn       benchfn
+	}{
+		{arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int32, math.MinInt32, math.MaxInt32, true, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int32, math.MinInt32, math.MaxInt32, false, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Uint32, arrow.PrimitiveTypes.Int32, 0, math.MaxInt32, true, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Float64, 0, 1000, true, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Float64, 0, 1000, false, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Int32, -1000, 1000, true, benchmarkFloatingToIntegerCast},
+		{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Int32, -1000, 1000, false, benchmarkFloatingToIntegerCast},
+	}
+
+	for _, tt := range tests {
+		for _, sz := range []int64{int64(CpuCacheSizes[1]) /* L2 Cache Size */} {
+			for _, nullProb := range []float64{0, 0.1, 0.5, 0.9, 1} {
+				arraySize := sz / int64(tt.from.(arrow.FixedWidthDataType).Bytes())
+				opts := compute.DefaultCastOptions(tt.safe)
+				b.Run(fmt.Sprintf("sz=%d/nullprob=%.2f/from=%s/to=%s/safe=%t", arraySize, nullProb, tt.from, tt.to, tt.safe), func(b *testing.B) {
+					tt.fn(b, tt.from, tt.to, *opts, arraySize, tt.min, tt.max, nullProb)
+				})
+			}
+		}
+	}
 }
