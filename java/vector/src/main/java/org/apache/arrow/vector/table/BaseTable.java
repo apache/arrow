@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.util.AutoCloseables;
@@ -33,7 +32,6 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.TransferPair;
@@ -90,6 +88,10 @@ public abstract class BaseTable implements AutoCloseable {
       fieldVectorsMap.put(newField, newVector);
     }
     this.schema = new Schema(fields);
+  }
+
+  BaseTable() {
+    this.fieldVectors = new ArrayList<>();
   }
 
   /**
@@ -284,7 +286,9 @@ public abstract class BaseTable implements AutoCloseable {
         source = entry.getValue();
         FieldVector copy = source.getField().createVector(source.getAllocator());
         copy.allocateNew();
-        copy.copyFrom(0, source.getValueCount(), source);
+        for (int i = 0; i < source.getValueCount(); i++) {
+          copy.copyFromSafe(i, i, source);
+        }
         copy.setValueCount(source.getValueCount());
         return copy;
       }
@@ -301,38 +305,11 @@ public abstract class BaseTable implements AutoCloseable {
     FieldVector source = fieldVectors.get(columnIndex);
     FieldVector copy = source.getField().createVector(source.getAllocator());
     copy.allocateNew();
-    copy.copyFrom(0, source.getValueCount(), source);
+    for (int i = 0; i < source.getValueCount(); i++) {
+      copy.copyFromSafe(i, i, source);
+    }
     copy.setValueCount(source.getValueCount());
     return copy;
-  }
-
-  /**
-   * Returns a deep copy of this table.
-   */
-  public Table copy() {
-    List<FieldVector> vectorCopies = new ArrayList<>();
-    for (int i = 0; i < getVectorCount(); i++) {
-      vectorCopies.add(getVectorCopy(i));
-    }
-    DictionaryProvider providerCopy = null;
-    if (dictionaryProvider != null) {
-      Set<Long> ids = dictionaryProvider.getDictionaryIds();
-      Dictionary[] dictionaryCopies = new Dictionary[ids.size()];
-      int i = 0;
-      for (Long id : ids) {
-        Dictionary src = dictionaryProvider.lookup(id);
-        FieldVector srcVector = src.getVector();
-        FieldVector destVector = srcVector.getField().createVector(srcVector.getAllocator());
-        destVector.copyFromSafe(0, srcVector.getValueCount(), srcVector);
-        DictionaryEncoding srcEncoding = src.getEncoding();
-        Dictionary dest = new Dictionary(destVector,
-            new DictionaryEncoding(srcEncoding.getId(), srcEncoding.isOrdered(), srcEncoding.getIndexType()));
-        dictionaryCopies[i] = dest;
-        i++;
-      }
-      providerCopy = new DictionaryProvider.MapDictionaryProvider(dictionaryCopies);
-    }
-    return new Table(vectorCopies, (int) getRowCount(), providerCopy);
   }
 
   /**

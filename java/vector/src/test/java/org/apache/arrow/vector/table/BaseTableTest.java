@@ -171,18 +171,6 @@ class BaseTableTest {
   }
 
   @Test
-  void getVectorCopy() {
-    List<FieldVector> vectorList = twoIntColumns(allocator);
-    IntVector v0 = (IntVector) vectorList.get(0);
-    try (Table t = new Table(vectorList)) {
-      IntVector copy0 = (IntVector) t.getVectorCopy(0);
-      for (int i = 0; i < v0.getValueCount(); i++) {
-        assertEquals(v0.get(i), copy0.get(i));
-      }
-    }
-  }
-
-  @Test
   void testGetVector() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
@@ -193,21 +181,43 @@ class BaseTableTest {
   }
 
   @Test
-  void testGetVectorCopy() {
+  void getVectorCopyByIndex() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
+    List<FieldVector> vectorList2 = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      assertNotNull(t.getVectorCopy(INT_VECTOR_NAME_1));
+      // compare value by value
+      for (int vIdx = 0; vIdx < vectorList.size(); vIdx++) {
+        IntVector original = (IntVector) vectorList2.get(vIdx);
+        IntVector copy = (IntVector) t.getVectorCopy(vIdx);
+        assertNotNull(copy);
+        assertEquals(2, copy.getValueCount());
+        assertEquals(0, copy.getNullCount());
+        for (int i = 0; i < t.getRowCount(); i++) {
+          assertEquals(original.getObject(i), copy.getObject(i));
+        }
+      }
       assertThrows(IllegalStateException.class,
           () -> t.getVector("wrong name"));
     }
   }
 
   @Test
-  void copy() {
+  void getVectorCopyByName() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
+    List<FieldVector> vectorList2 = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-
-      // TODO: Implement test
+      assertNotNull(t.getVectorCopy(INT_VECTOR_NAME_1));
+      for (int vIdx = 0; vIdx < vectorList.size(); vIdx++) {
+        IntVector original = (IntVector) vectorList2.get(vIdx);
+        IntVector copy = (IntVector) t.getVectorCopy(original.getName());
+        assertEquals(2, copy.getValueCount());
+        assertEquals(0, copy.getNullCount());
+        for (int i = 0; i < t.getRowCount(); i++) {
+          assertEquals(original.getObject(i), copy.getObject(i));
+        }
+      }
+      assertThrows(IllegalStateException.class,
+          () -> t.getVector("wrong name"));
     }
   }
 
