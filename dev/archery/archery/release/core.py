@@ -18,11 +18,11 @@
 from abc import abstractmethod
 from collections import defaultdict
 import functools
-import re
+import os
 import pathlib
+import re
 import shelve
 import warnings
-import os
 
 from git import Repo
 from jira import JIRA
