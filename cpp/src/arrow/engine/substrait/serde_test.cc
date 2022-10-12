@@ -987,9 +987,6 @@ Result<std::string> GetSubstraitJSON() {
 }
 
 TEST(Substrait, DeserializeWithConsumerFactory) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations,
@@ -1006,13 +1003,9 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
 
   ASSERT_OK(plan->StartProducing());
   ASSERT_FINISHES_OK(plan->finished());
-#endif
 }
 
 TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
@@ -1026,13 +1019,9 @@ TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
 
   ASSERT_OK(plan->StartProducing());
   ASSERT_FINISHES_OK(plan->finished());
-#endif
 }
 
 TEST(Substrait, DeserializeWithWriteOptionsFactory) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
   dataset::internal::Initialize();
   fs::TimePoint mock_now = std::chrono::system_clock::now();
   fs::FileInfo testdir = ::arrow::fs::Dir("testdir");
@@ -1069,7 +1058,6 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
 
   ASSERT_OK(plan->StartProducing());
   ASSERT_FINISHES_OK(plan->finished());
-#endif
 }
 
 static void test_with_registries(
@@ -1084,9 +1072,6 @@ static void test_with_registries(
 }
 
 TEST(Substrait, GetRecordBatchReader) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
                                          compute::FunctionRegistry* func_registry) {
@@ -1097,7 +1082,6 @@ TEST(Substrait, GetRecordBatchReader) {
     // in case of a test failure, re-evalaute the content in the file
     EXPECT_EQ(table->num_rows(), 12);
   });
-#endif
 }
 
 TEST(Substrait, InvalidPlan) {

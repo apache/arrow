@@ -16,7 +16,6 @@
 # under the License.
 
 import os
-import sys
 import pytest
 
 import pyarrow as pa
@@ -40,9 +39,6 @@ def _write_dummy_data_to_disk(tmpdir, file_name, table):
     return path
 
 
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="ARROW-16392: file based URI is" +
-                    " not fully supported for Windows")
 def test_run_serialized_query(tmpdir):
     substrait_query = """
     {
@@ -115,9 +111,6 @@ def test_invalid_plan():
         substrait.run_query(buf)
 
 
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="ARROW-16392: file based URI is" +
-                    " not fully supported for Windows")
 def test_binary_conversion_with_json_options(tmpdir):
     substrait_query = """
     {
