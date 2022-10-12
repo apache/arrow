@@ -32,8 +32,17 @@ is not designed only for querying files but can be extended to serve all
 possible data sources such as from inter-process communication or from other
 network locations, etc.
 
+.. contents::
+
 Getting Started
 ===============
+
+Currently supported file formats are:
+
+- Apache Arrow (`.arrow`)
+- Apache ORC (`.orc`)
+- Apache Parquet (`.parquet`)
+- Comma-Separated Values (`.csv`)
 
 Below shows a simplest example of using Dataset to query a Parquet file in Java:
 
@@ -41,22 +50,31 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
 
     // read data from file /opt/example.parquet
     String uri = "file:/opt/example.parquet";
-    BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    DatasetFactory factory = new FileSystemDatasetFactory(allocator,
-        NativeMemoryPool.getDefault(), FileFormat.PARQUET, uri);
-    Dataset dataset = factory.finish();
-    Scanner scanner = dataset.newScan(new ScanOptions(100)));
-    List<ArrowRecordBatch> batches = StreamSupport.stream(
-        scanner.scan().spliterator(), false)
-            .flatMap(t -> stream(t.execute()))
-            .collect(Collectors.toList());
+    try (
+        BufferAllocator allocator = new RootAllocator();
+        DatasetFactory datasetFactory = new FileSystemDatasetFactory(
+                allocator, NativeMemoryPool.getDefault(),
+                FileFormat.PARQUET, uri);
+        Dataset dataset = datasetFactory.finish();
+        Scanner scanner = dataset.newScan(options);
+        ArrowReader reader = scanner.scanBatches()
+    ) {
+        List<ArrowRecordBatch> batches = new ArrayList<>();
+        while (reader.loadNextBatch()) {
+            try (VectorSchemaRoot root = reader.getVectorSchemaRoot()) {
+                final VectorUnloader unloader = new VectorUnloader(root);
+                batches.add(unloader.getRecordBatch());
+            }
+        }
 
-    // do something with read record batches, for example:
-    analyzeArrowData(batches);
+        // do something with read record batches, for example:
+        analyzeArrowData(batches);
 
-    // finished the analysis of the data, close all resources:
-    AutoCloseables.close(batches);
-    AutoCloseables.close(factory, dataset, scanner);
+        // finished the analysis of the data, close all resources:
+        AutoCloseables.close(batches);
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
 
 .. note::
     ``ArrowRecordBatch`` is a low-level composite Arrow data exchange format
@@ -64,6 +82,9 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
     It's recommended to use utilities ``VectorLoader`` to load it into a schema
     aware container ``VectorSchemaRoot`` by which user could be able to access
     decoded data conveniently in Java.
+
+    The ``ScanOptions`` `batchSize` argument takes effect only if it is set to a value
+    smaller than the number of rows in the recordbatch.
 
 .. seealso::
    Load record batches with :doc:`VectorSchemaRoot <vector_schema_root>`.
@@ -228,3 +249,50 @@ native objects after using. For example:
     AutoCloseables.close(factory, dataset, scanner);
 
 If user forgets to close them then native object leakage might be caused.
+
+Development Guidelines
+======================
+
+* Related to the note about ScanOptions batchSize argument: Let's try to read a Parquet file with gzip compression and 3 row groups:
+
+    .. code-block::
+
+       # Let configure ScanOptions as:
+       ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
+
+       $ parquet-tools meta data4_3rg_gzip.parquet
+       file schema: schema
+       age:         OPTIONAL INT64 R:0 D:1
+       name:        OPTIONAL BINARY L:STRING R:0 D:1
+       row group 1: RC:4 TS:182 OFFSET:4
+       row group 2: RC:4 TS:190 OFFSET:420
+       row group 3: RC:3 TS:179 OFFSET:838
+
+    In this case, we are configuring ScanOptions batchSize argument equals to
+    32768 rows, it's greater than 04 rows used on the file, then 04 rows is
+    used on the program execution instead of 32768 rows requested.
+
+* Arrow Java Dataset offer native functionalities consuming native artifacts such as:
+
+    JNI Arrow C++ Dataset: Native library for Linux / MacOS / Windows
+
+        To create C++ natively objects Schema, Dataset, Scanner and export
+        that as a references.
+
+    JNI Arrow C Data Interface: Native library for Linux / MacOS / Windows
+
+        To get C++ RecordBatches and import that in a standard manner through
+        `ArrowArray` class.
+
+    .. code-block::
+
+       $ # Inspect Dataset Java jar native libraries included:
+       $ jar -tf arrow-dataset-10.0.0.jar | grep _jni
+       |__ libarrow_dataset_jni.so
+       |__ arrow_dataset_jni.dll
+       |__ libarrow_dataset_jni.dylib
+       $ # Inspect C Data Interface Java jar native libraries included:
+       $ jar -tf arrow-c-data-10.0.0.jar | grep _jni
+       |__ libarrow_cdata_jni.so
+       |__ arrow_cdata_jni.dll
+       |__ libarrow_cdata_jni.dylib
