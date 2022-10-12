@@ -43,7 +43,7 @@ public class DatasetFileWriter {
    */
   public static void write(BufferAllocator allocator, Scanner scanner, FileFormat format, String uri,
                            String[] partitionColumns, int maxPartitions, String baseNameTemplate) {
-    final CRecordBatchIteratorImpl itr = new CRecordBatchIteratorImpl(scanner, allocator);
+    final CArrowArrayStreamIteratorImpl itr = new CArrowArrayStreamIteratorImpl(scanner, allocator);
     ArrowSchema arrowSchema = ArrowSchema.allocateNew(allocator);
     Data.exportSchema(allocator, scanner.schema(), null, arrowSchema);
 

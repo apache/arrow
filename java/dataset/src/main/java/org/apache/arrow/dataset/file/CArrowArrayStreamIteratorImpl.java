@@ -24,13 +24,13 @@ import org.apache.arrow.c.ArrowArray;
 import org.apache.arrow.c.ArrowArrayStream;
 import org.apache.arrow.c.ArrowSchema;
 import org.apache.arrow.c.Data;
-import org.apache.arrow.dataset.jni.CRecordBatchIterator;
+import org.apache.arrow.dataset.jni.CArrowArrayStreamIterator;
 import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 
-public class CRecordBatchIteratorImpl implements CRecordBatchIterator {
+public class CArrowArrayStreamIteratorImpl implements CArrowArrayStreamIterator {
 
   private final Scanner scanner;
   private final BufferAllocator allocator;
@@ -38,7 +38,7 @@ public class CRecordBatchIteratorImpl implements CRecordBatchIterator {
   private Iterator<? extends ScanTask> taskIterators;
   private ArrowReader currentReader = null;
 
-  public CRecordBatchIteratorImpl(Scanner scanner,
+  public CArrowArrayStreamIteratorImpl(Scanner scanner,
                                        BufferAllocator allocator) {
     this.scanner = scanner;
     this.allocator = allocator;

@@ -185,7 +185,7 @@ class DisposableScannerAdaptor {
 
 /// \brief Create scanner that scans over Java dataset API's components.
 ///
-/// Currently, we use a CRecordBatchIterator as the underlying
+/// Currently, we use a CArrowArrayStreamIterator as the underlying
 /// Java object to do scanning. Which means, only one single task will
 /// be produced from C++ code.
 arrow::Result<std::shared_ptr<arrow::dataset::Scanner>> MakeJavaDatasetScanner(
@@ -305,7 +305,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   native_record_batch_iterator_class =
       CreateGlobalClassReference(env,
                                  "Lorg/apache/arrow/"
-                                 "dataset/jni/CRecordBatchIterator;");
+                                 "dataset/jni/CArrowArrayStreamIterator;");
   native_record_batch_iterator_hasNext = JniGetOrThrow(
       GetMethodID(env, native_record_batch_iterator_class, "hasNext", "()Z"));
   native_record_batch_iterator_next = JniGetOrThrow(
@@ -604,7 +604,7 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
  * Class:     org_apache_arrow_dataset_file_JniWrapper
  * Method:    writeFromScannerToFile
  * Signature:
- * (Lorg/apache/arrow/dataset/jni/CRecordBatchIterator;JJLjava/lang/String;[Ljava/lang/String;ILjava/lang/String;)V
+ * (Lorg/apache/arrow/dataset/jni/CArrowArrayStreamIterator;JJLjava/lang/String;[Ljava/lang/String;ILjava/lang/String;)V
  */
 JNIEXPORT void JNICALL
 Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
