@@ -55,6 +55,19 @@ using ::arrow::internal::BitmapEquals;
 using ::arrow::internal::CopyBitmap;
 using ::arrow::internal::CountSetBits;
 
+TEST(ExecBatch, Basics) {
+  auto i32_array = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto utf8_array = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
+  ExecBatch exec_batch({Datum(i32_array), Datum(utf8_array)}, 3);
+  auto right_schema = schema({field("a", int32()), field("b", utf8())});
+  ASSERT_OK_AND_ASSIGN(auto right_record_batch, exec_batch.ToRecordBatch(right_schema));
+  auto accept_schema = schema({field("a", int32())});
+  ASSERT_OK_AND_ASSIGN(auto accept_record_batch, exec_batch.ToRecordBatch(accept_schema));
+  auto reject_schema =
+      schema({field("a", int32()), field("b", utf8()), field("c", float64())});
+  ASSERT_RAISES(Invalid, exec_batch.ToRecordBatch(reject_schema));
+}
+
 TEST(ExecContext, BasicWorkings) {
   {
     ExecContext ctx;
