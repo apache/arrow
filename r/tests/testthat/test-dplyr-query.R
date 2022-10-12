@@ -70,22 +70,23 @@ See $.data for the source Arrow object',
 
 test_that("pull", {
   compare_dplyr_binding(
-    .input %>% pull(),
+    .input %>% pull() %>% as.vector(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>% pull(1),
+    .input %>% pull(1) %>% as.vector(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>% pull(chr),
+    .input %>% pull(chr) %>% as.vector(),
     tbl
   )
   compare_dplyr_binding(
     .input %>%
       filter(int > 4) %>%
       rename(strng = chr) %>%
-      pull(strng),
+      pull(strng) %>%
+      as.vector(),
     tbl
   )
 })

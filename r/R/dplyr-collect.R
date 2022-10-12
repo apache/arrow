@@ -50,9 +50,13 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data <- as_adq(.data)
   var <- vars_pull(names(.data), !!enquo(var))
   .data$selected_columns <- set_names(.data$selected_columns[var], var)
-  dplyr::collect(.data)[[1]]
+  dplyr::compute(.data)[[1]]
 }
-pull.Dataset <- pull.ArrowTabular <- pull.RecordBatchReader <- pull.arrow_dplyr_query
+pull.Dataset <- pull.RecordBatchReader <- pull.arrow_dplyr_query
+
+pull.ArrowTabular <- function(x, var = -1) {
+  x[[vars_pull(names(x), !!enquo(var))]]
+}
 
 restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
