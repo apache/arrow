@@ -172,7 +172,7 @@ update_versions() {
   # for now we have to overcome the slight conflict between the existing
   # "compute" package and the new go.mod file.
   sed -i.bak -E -e \
-    "s|arrow/go/v${major_version} v[0-9]+\\.[0-9]+\\.[0-9]+|arrow/go/v${major_version} ${version%%-*}|" \
+    "s|arrow/go/v${major_version} v[0-9]+\\.[0-9]+\\.[0-9]+|arrow/go/v${major_version} v${version%%-*}|" \
     arrow/compute/go.mod
   
   find . -name "*.bak" -exec rm {} \;
