@@ -190,9 +190,6 @@ class RecordBatch;
 class Table;
 struct Datum;
 
-ARROW_TESTING_EXPORT
-std::vector<Type::type> AllTypeIds();
-
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
 #define ASSERT_BATCHES_APPROX_EQUAL(lhs, rhs) AssertBatchesApproxEqual((lhs), (rhs))
@@ -365,9 +362,6 @@ void SleepABit();
 // Wait until predicate is true or timeout in seconds expires.
 ARROW_TESTING_EXPORT
 void BusyWait(double seconds, std::function<bool()> predicate);
-
-ARROW_TESTING_EXPORT
-Future<> SleepAsync(double seconds);
 
 // \see SleepABit
 ARROW_TESTING_EXPORT

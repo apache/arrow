@@ -141,6 +141,9 @@ This is the list of available ones and the respective targets created:
    CMake is case-sensitive.  The names and variables listed above have to be
    spelt exactly that way!
 
+.. warning::
+   Plasma is deprecated as of Arrow 10.0.0, and will be removed in 12.0.0 or so.
+
 .. seealso::
    A Docker-based :doc:`minimal build example <examples/cmake_minimal_build>`.
 

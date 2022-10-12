@@ -1820,6 +1820,14 @@ InitializeMainRThread <- function() {
   invisible(.Call(`_arrow_InitializeMainRThread`))
 }
 
+DeinitializeMainRThread <- function() {
+  invisible(.Call(`_arrow_DeinitializeMainRThread`))
+}
+
+SetEnableSignalStopSource <- function(enabled) {
+  .Call(`_arrow_SetEnableSignalStopSource`, enabled)
+}
+
 CanRunWithCapturedR <- function() {
   .Call(`_arrow_CanRunWithCapturedR`)
 }

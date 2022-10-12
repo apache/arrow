@@ -63,6 +63,10 @@ add_arrow_lib(arrow_flight_sql
               PRIVATE_INCLUDES
               "${Protobuf_INCLUDE_DIRS}")
 
+if(ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_flight_sql_static PUBLIC ARROW_FLIGHT_SQL_STATIC)
+endif()
+
 if(MSVC)
   # Suppress warnings caused by Protobuf (casts)
   set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_FLAGS "/wd4267")

@@ -781,7 +781,9 @@ class AsofJoinNode : public ExecNode {
     // Prune memo entries that have expired (to bound memory consumption)
     if (!lhs.Empty()) {
       for (size_t i = 1; i < state_.size(); ++i) {
-        state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() - tolerance_);
+        if (lhs.GetLatestTime() > tolerance_) {
+          state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() - tolerance_);
+        }
       }
     }
 

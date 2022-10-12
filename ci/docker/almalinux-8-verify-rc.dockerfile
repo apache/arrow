@@ -18,40 +18,7 @@
 ARG arch=amd64
 FROM ${arch}/almalinux:8
 
-# A script to install dependencies required for release
-# verification Red Hat Enterprise Linux 8 clones in particular
-# on AlmaLinux 8 and Rocky Linux 8
-
-RUN dnf -y install 'dnf-command(config-manager)' && \
-    dnf config-manager --set-enabled powertools && \
-    dnf -y update && \
-    dnf -y module disable nodejs && \
-    dnf -y module enable nodejs:16 && \
-    dnf -y module disable ruby && \
-    dnf -y module enable ruby:2.7 && \
-    dnf -y groupinstall "Development Tools" && \
-    dnf -y install \
-        cmake \
-        git \
-        gobject-introspection-devel \
-        java-1.8.0-openjdk-devel \
-        libcurl-devel \
-        llvm-devel \
-        llvm-toolset \
-        maven \
-        ncurses-devel \
-        ninja-build \
-        nodejs \
-        openssl-devel \
-        python38-devel \
-        python38-pip \
-        ruby-devel \
-        sqlite-devel \
-        wget \
-        which && \
+COPY dev/release/setup-rhel-rebuilds.sh /
+RUN /setup-rhel-rebuilds.sh && \
+    rm /setup-rhel-rebuilds.sh && \
     dnf -y clean all
-
-RUN python3 -m pip install -U pip && \
-    alternatives --set python /usr/bin/python3
-
-RUN npm install -g yarn

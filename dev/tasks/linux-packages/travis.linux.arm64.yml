@@ -120,7 +120,6 @@ script:
         BUILD_DIR=build \
         DEB_BUILD_OPTIONS=parallel=2 \
         RPM_BUILD_NCPUS=2
-  - sudo rm -rf */*/build
   - popd
   # Push Docker image
   - pushd arrow/dev/tasks/linux-packages
