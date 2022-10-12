@@ -4286,6 +4286,9 @@ macro(build_orc)
   get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
 
+  get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
+
   # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
   # the protoc library.
   set(ORC_CMAKE_ARGS
@@ -4305,8 +4308,8 @@ macro(build_orc)
       "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-      "-DLZ4_HOME=${LZ4_HOME}"
-      "-DZSTD_HOME=${ZSTD_HOME}")
+      "-DLZ4_HOME=${ORC_LZ4_ROOT}"
+      "-DZSTD_HOME=${ORZ_ZSTD_ROOT}")
   if(ORC_PROTOBUF_EXECUTABLE)
     set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS}
                        "-DPROTOBUF_EXECUTABLE:FILEPATH=${ORC_PROTOBUF_EXECUTABLE}")
@@ -4329,6 +4332,7 @@ macro(build_orc)
   set(ORC_VENDORED 1)
   add_dependencies(orc_ep ZLIB::ZLIB)
   add_dependencies(orc_ep LZ4::lz4)
+  add_dependencies(orc_ep ${ARROW_ZSTD_LIBZSTD})
   add_dependencies(orc_ep ${Snappy_TARGET})
   add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
