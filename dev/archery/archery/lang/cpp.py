@@ -134,8 +134,14 @@ class CppConfiguration:
             self.with_parquet = coalesce(with_parquet, True)
 
         if self.with_python:
-            self.with_zlib = coalesce(with_zlib, True)
+            self.with_compute = coalesce(with_compute, True)
+            self.with_csv = coalesce(with_csv, True)
+            self.with_dataset = coalesce(with_dataset, True)
+            self.with_filesystem = coalesce(with_filesystem, True)
+            self.with_hdfs = coalesce(with_hdfs, True)
+            self.with_json = coalesce(with_json, True)
             self.with_lz4 = coalesce(with_lz4, True)
+            self.with_zlib = coalesce(with_zlib, True)
 
         if self.with_dataset:
             self.with_filesystem = coalesce(with_filesystem, True)
@@ -229,7 +235,6 @@ class CppConfiguration:
         yield ("ARROW_JEMALLOC", truthifier(self.with_jemalloc))
         yield ("ARROW_PARQUET", truthifier(self.with_parquet))
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
-        yield ("ARROW_PYTHON", truthifier(self.with_python))
         yield ("ARROW_S3", truthifier(self.with_s3))
 
         # Compressions

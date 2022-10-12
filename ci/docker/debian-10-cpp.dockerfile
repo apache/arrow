@@ -25,21 +25,34 @@ RUN \
     /etc/apt/sources.list.d/backports.list
 
 ARG llvm
+# We can't use LLVM 14 or later from apt.llvm.org on i386 because LLVM
+# 14 or later dropped support for i386.
 RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        dpkg-dev && \
+    latest_available_llvm_i386=13 && \
+    if [ $(dpkg-architecture -qDEB_HOST_ARCH) = "i386" -a \
+         "${llvm}" -gt "${latest_available_llvm_i386}" ]; then \
+        available_llvm="${latest_available_llvm_i386}"; \
+    else \
+        available_llvm="${llvm}"; \
+    fi && \
+    apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         apt-transport-https \
         ca-certificates \
         gnupg \
         wget && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-${llvm} main" > \
+    echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-${available_llvm} main" > \
         /etc/apt/sources.list.d/llvm.list && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
         ccache \
-        clang-${llvm} \
+        clang-${available_llvm} \
         cmake \
+        curl \
         g++ \
         gcc \
         gdb \
@@ -59,7 +72,7 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
-        llvm-${llvm}-dev \
+        llvm-${available_llvm}-dev \
         make \
         ninja-build \
         nlohmann-json3-dev \
@@ -75,6 +88,9 @@ RUN apt-get update -y -q && \
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
+
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV absl_SOURCE=BUNDLED \
     ARROW_BUILD_TESTS=ON \

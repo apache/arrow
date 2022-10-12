@@ -54,13 +54,6 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
     cdef cppclass CDecimal256" arrow::Decimal256":
         c_string ToString(int32_t scale) const
 
-cdef extern from "arrow/util/optional.h" namespace "arrow::util" nogil:
-    cdef cppclass c_optional"arrow::util::optional"[T]:
-        c_bool has_value()
-        T value()
-        c_optional(T&)
-        c_optional& operator=[U](U&)
-
 
 cdef extern from "arrow/config.h" namespace "arrow" nogil:
     cdef cppclass CBuildInfo" arrow::BuildInfo":
@@ -1229,6 +1222,9 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 ctypedef void CallbackTransform(object, const shared_ptr[CBuffer]& src,
                                 shared_ptr[CBuffer]* dest)
 
+ctypedef CResult[shared_ptr[CInputStream]] StreamWrapFunc(
+    shared_ptr[CInputStream])
+
 
 cdef extern from "arrow/util/cancel.h" namespace "arrow" nogil:
     cdef cppclass CStopToken "arrow::StopToken":
@@ -1394,6 +1390,11 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     shared_ptr[CInputStream] MakeTransformInputStream \
         "arrow::py::MakeTransformInputStream"(
         shared_ptr[CInputStream] wrapped, CTransformInputStreamVTable vtable,
+        object method_arg)
+
+    shared_ptr[function[StreamWrapFunc]] MakeStreamTransformFunc \
+        "arrow::py::MakeStreamTransformFunc"(
+        CTransformInputStreamVTable vtable,
         object method_arg)
 
     # ----------------------------------------------------------------------
@@ -2532,7 +2533,7 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         pass
 
     cdef cppclass CFilterNodeOptions "arrow::compute::FilterNodeOptions"(CExecNodeOptions):
-        CFilterNodeOptions(CExpression, c_bool async_mode)
+        CFilterNodeOptions(CExpression)
 
     cdef cppclass CProjectNodeOptions "arrow::compute::ProjectNodeOptions"(CExecNodeOptions):
         CProjectNodeOptions(vector[CExpression] expressions)
@@ -2566,6 +2567,7 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         c_string label
         vector[Input] inputs
 
+        CDeclaration()
         CDeclaration(c_string factory_name, CExecNodeOptions options)
         CDeclaration(c_string factory_name, vector[Input] inputs, shared_ptr[CExecNodeOptions] options)
 

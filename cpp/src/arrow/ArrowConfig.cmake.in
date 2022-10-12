@@ -37,8 +37,6 @@ set(ARROW_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@")
 set(ARROW_BUNDLED_STATIC_LIBS "@ARROW_BUNDLED_STATIC_LIBS@")
 set(ARROW_INCLUDE_PATH_SUFFIXES "@ARROW_INCLUDE_PATH_SUFFIXES@")
 set(ARROW_LIBRARY_PATH_SUFFIXES "@ARROW_LIBRARY_PATH_SUFFIXES@")
-set(ARROW_LLVM_VERSIONS "@ARROW_LLVM_VERSIONS@")
-set(ARROW_LLVM_VERSION_PRIMARY_MAJOR "@ARROW_LLVM_VERSION_PRIMARY_MAJOR@")
 set(ARROW_SYSTEM_DEPENDENCIES "@ARROW_SYSTEM_DEPENDENCIES@")
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowOptions.cmake")
@@ -51,7 +49,9 @@ if(ARROW_BUILD_STATIC)
   find_dependency(Threads)
 
   if(DEFINED CMAKE_MODULE_PATH)
-    set(_CMAKE_MODULE_PATH_OLD ${CMAKE_MODULE_PATH})
+    set(ARROW_CMAKE_MODULE_PATH_OLD ${CMAKE_MODULE_PATH})
+  else()
+    unset(ARROW_CMAKE_MODULE_PATH_OLD)
   endif()
   set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 
@@ -84,9 +84,9 @@ if(ARROW_BUILD_STATIC)
     endif()
   endforeach()
 
-  if(DEFINED _CMAKE_MODULE_PATH_OLD)
-    set(CMAKE_MODULE_PATH ${_CMAKE_MODULE_PATH_OLD})
-    unset(_CMAKE_MODULE_PATH_OLD)
+  if(DEFINED ARROW_CMAKE_MODULE_PATH_OLD)
+    set(CMAKE_MODULE_PATH ${ARROW_CMAKE_MODULE_PATH_OLD})
+    unset(ARROW_CMAKE_MODULE_PATH_OLD)
   else()
     unset(CMAKE_MODULE_PATH)
   endif()
@@ -107,9 +107,19 @@ if(TARGET Arrow::arrow_static AND NOT TARGET Arrow::arrow_bundled_dependencies)
   # https://cmake.org/cmake/help/latest/policy/CMP0057.html
   cmake_policy(PUSH)
   cmake_policy(SET CMP0057 NEW)
-  if(APPLE AND "AWS::aws-c-common" IN_LIST ARROW_BUNDLED_STATIC_LIBS)
-    find_library(CORE_FOUNDATION CoreFoundation)
-    target_link_libraries(Arrow::arrow_bundled_dependencies INTERFACE ${CORE_FOUNDATION})
+  if("AWS::aws-c-common" IN_LIST ARROW_BUNDLED_STATIC_LIBS)
+    if(APPLE)
+      find_library(CORE_FOUNDATION CoreFoundation)
+      target_link_libraries(Arrow::arrow_bundled_dependencies
+                            INTERFACE ${CORE_FOUNDATION})
+    elseif(WIN32)
+      target_link_libraries(Arrow::arrow_bundled_dependencies
+                            INTERFACE "winhttp.lib"
+                                      "bcrypt.lib"
+                                      "wininet.lib"
+                                      "userenv.lib"
+                                      "version.lib")
+    endif()
   endif()
   cmake_policy(POP)
 endif()
@@ -172,3 +182,18 @@ endmacro()
 arrow_keep_backward_compatibility(Arrow arrow)
 
 check_required_components(Arrow)
+
+macro(arrow_show_details package_name variable_prefix)
+  if(NOT ${package_name}_FIND_QUIETLY AND NOT ${package_name}_SHOWED_DETAILS)
+    message(STATUS "${package_name} version: ${${package_name}_VERSION}")
+    message(STATUS "Found the ${package_name} shared library: ${${variable_prefix}_SHARED_LIB}"
+    )
+    message(STATUS "Found the ${package_name} import library: ${${variable_prefix}_IMPORT_LIB}"
+    )
+    message(STATUS "Found the ${package_name} static library: ${${variable_prefix}_STATIC_LIB}"
+    )
+    set(${package_name}_SHOWED_DETAILS TRUE)
+  endif()
+endmacro()
+
+arrow_show_details(Arrow ARROW)

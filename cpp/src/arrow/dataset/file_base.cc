@@ -20,11 +20,14 @@
 #include <arrow/compute/exec/exec_plan.h>
 
 #include <algorithm>
+#include <memory>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/forest_internal.h"
+#include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/subtree_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
@@ -38,12 +41,10 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tracing_internal.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 
@@ -65,7 +66,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
 }
 
 Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
-    util::optional<Compression::type> compression) const {
+    std::optional<Compression::type> compression) const {
   ARROW_ASSIGN_OR_RAISE(auto file, Open());
   auto actual_compression = Compression::type::UNCOMPRESSED;
   if (!compression.has_value()) {
@@ -93,14 +94,17 @@ bool FileSource::Equals(const FileSource& other) const {
   bool match_file_system =
       (filesystem_ == nullptr && other.filesystem_ == nullptr) ||
       (filesystem_ && other.filesystem_ && filesystem_->Equals(other.filesystem_));
-  return match_file_system && file_info_.Equals(other.file_info_) &&
-         buffer_->Equals(*other.buffer_) && compression_ == other.compression_;
+  bool match_buffer = (buffer_ == nullptr && other.buffer_ == nullptr) ||
+                      ((buffer_ != nullptr && other.buffer_ != nullptr) &&
+                       (buffer_->address() == other.buffer_->address()));
+  return match_file_system && match_buffer && file_info_.Equals(other.file_info_) &&
+         compression_ == other.compression_;
 }
 
-Future<util::optional<int64_t>> FileFormat::CountRows(
+Future<std::optional<int64_t>> FileFormat::CountRows(
     const std::shared_ptr<FileFragment>&, compute::Expression,
     const std::shared_ptr<ScanOptions>&) {
-  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
@@ -132,12 +136,12 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
   return format_->ScanBatchesAsync(options, self);
 }
 
-Future<util::optional<int64_t>> FileFragment::CountRows(
+Future<std::optional<int64_t>> FileFragment::CountRows(
     compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
   ARROW_ASSIGN_OR_RAISE(predicate, compute::SimplifyWithGuarantee(std::move(predicate),
                                                                   partition_expression_));
   if (!predicate.IsSatisfiable()) {
-    return Future<util::optional<int64_t>>::MakeFinished(0);
+    return Future<std::optional<int64_t>>::MakeFinished(0);
   }
   auto self = checked_pointer_cast<FileFragment>(shared_from_this());
   return format()->CountRows(self, std::move(predicate), options);
@@ -151,7 +155,7 @@ struct FileSystemDataset::FragmentSubtrees {
   // Forest for skipping fragments based on extracted subtree expressions
   compute::Forest forest;
   // fragment indices and subtree expressions in forest order
-  std::vector<util::Variant<int, compute::Expression>> fragments_and_subtrees;
+  std::vector<std::variant<int, compute::Expression>> fragments_and_subtrees;
 };
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
@@ -239,13 +243,13 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
   RETURN_NOT_OK(subtrees_->forest.Visit(
       [&](compute::Forest::Ref ref) -> Result<bool> {
         if (auto fragment_index =
-                util::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
+                std::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
           fragment_indices.push_back(*fragment_index);
           return false;
         }
 
         const auto& subtree_expr =
-            util::get<compute::Expression>(subtrees_->fragments_and_subtrees[ref.i]);
+            std::get<compute::Expression>(subtrees_->fragments_and_subtrees[ref.i]);
         ARROW_ASSIGN_OR_RAISE(auto simplified,
                               SimplifyWithGuarantee(predicates.back(), subtree_expr));
 
@@ -472,19 +476,16 @@ class TeeNode : public compute::MapNode {
   TeeNode(compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
           std::unique_ptr<internal::DatasetWriter> dataset_writer,
-          FileSystemDatasetWriteOptions write_options, bool async_mode)
-      : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
+          FileSystemDatasetWriteOptions write_options)
+      : MapNode(plan, std::move(inputs), std::move(output_schema)),
         dataset_writer_(std::move(dataset_writer)),
         write_options_(std::move(write_options)) {
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> serial_throttle =
         util::AsyncTaskScheduler::MakeThrottle(1);
-    struct DestroyThrottle {
-      Status operator()() { return Status::OK(); }
-      std::unique_ptr<util::AsyncTaskScheduler::Throttle> owned_throttle;
-    };
     util::AsyncTaskScheduler::Throttle* serial_throttle_view = serial_throttle.get();
     serial_scheduler_ = plan_->async_scheduler()->MakeSubScheduler(
-        DestroyThrottle{std::move(serial_throttle)}, serial_throttle_view);
+        [owned_throttle = std::move(serial_throttle)]() { return Status::OK(); },
+        serial_throttle_view);
   }
 
   static Result<compute::ExecNode*> Make(compute::ExecPlan* plan,
@@ -502,8 +503,8 @@ class TeeNode : public compute::MapNode {
         internal::DatasetWriter::Make(write_options, plan->async_scheduler()));
 
     return plan->EmplaceNode<TeeNode>(plan, std::move(inputs), std::move(schema),
-                                      std::move(dataset_writer), std::move(write_options),
-                                      /*async_mode=*/true);
+                                      std::move(dataset_writer),
+                                      std::move(write_options));
   }
 
   const char* kind_name() const override { return "TeeNode"; }

@@ -250,9 +250,8 @@ garrow_scalar_parse(GArrowDataType *data_type,
                     GError **error)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_data =
-    arrow::util::string_view(reinterpret_cast<const char *>(data),
-                             size);
+  auto arrow_data = std::string_view(reinterpret_cast<const char *>(data),
+                                     size);
   auto arrow_scalar_result = arrow::Scalar::Parse(arrow_data_type, arrow_data);
   if (garrow::check(error, arrow_scalar_result, "[scalar][parse]")) {
     auto arrow_scalar = *arrow_scalar_result;

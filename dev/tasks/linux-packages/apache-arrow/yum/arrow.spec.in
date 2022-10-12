@@ -22,6 +22,8 @@
 %define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
 %define is_amazon_linux (%{_amzn} != 0)
 
+%define is_centos_7 (%{rhel} == 7 && !%{is_amazon_linux})
+
 %define major_version %(echo @VERSION@ | grep -o '^[0-9]*')
 
 %define boost_version %( \
@@ -54,6 +56,12 @@
 %define arrow_cmake %cmake3 -S . -B %{arrow_cmake_builddir}
 %define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
 %define arrow_cmake_install DESTDIR="%{buildroot}" make -C %{arrow_cmake_builddir} install
+%endif
+
+%if %{is_centos_7}
+%define gcc_package devtoolset-11-gcc
+%else
+%define gcc_package gcc
 %endif
 
 %define use_boost (!%{is_amazon_linux})
@@ -96,7 +104,7 @@ BuildRequires:	c-ares-devel
 BuildRequires:	cmake%{cmake_version}
 BuildRequires:	curl-devel
 BuildRequires:	flex
-BuildRequires:	gcc-c++
+BuildRequires:	%{gcc_package}-c++
 %if %{use_gflags}
 BuildRequires:	gflags-devel
 %endif

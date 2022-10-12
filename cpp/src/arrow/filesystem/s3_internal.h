@@ -19,6 +19,7 @@
 
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -33,7 +34,6 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/print.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace fs {
@@ -46,7 +46,7 @@ enum class S3Backend { Amazon, Minio, Other };
 inline S3Backend DetectS3Backend(const Aws::Http::HeaderValueCollection& headers) {
   const auto it = headers.find("server");
   if (it != headers.end()) {
-    const auto& value = util::string_view(it->second);
+    const auto& value = std::string_view(it->second);
     if (value.find("AmazonS3") != std::string::npos) {
       return S3Backend::Amazon;
     }
@@ -152,10 +152,14 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
-  return Status::IOError(
-      prefix, "AWS Error ",
-      S3ErrorToString(static_cast<Aws::S3::S3Errors>(error.GetErrorType())), " during ",
-      operation, " operation: ", error.GetMessage());
+  auto error_type = static_cast<Aws::S3::S3Errors>(error.GetErrorType());
+  std::stringstream ss;
+  ss << S3ErrorToString(error_type);
+  if (error_type == Aws::S3::S3Errors::UNKNOWN) {
+    ss << " (HTTP status " << static_cast<int>(error.GetResponseCode()) << ")";
+  }
+  return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
+                         " operation: ", error.GetMessage());
 }
 
 template <typename ErrorType, typename... Args>
@@ -214,7 +218,7 @@ inline Aws::String ToAwsString(const std::string& s) {
   return Aws::String(s.begin(), s.end());
 }
 
-inline util::string_view FromAwsString(const Aws::String& s) {
+inline std::string_view FromAwsString(const Aws::String& s) {
   return {s.data(), s.length()};
 }
 

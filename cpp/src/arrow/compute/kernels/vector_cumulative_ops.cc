@@ -59,9 +59,9 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
           auto casted_start,
           Cast(Datum(start), args.inputs[0], CastOptions::Safe(), ctx->exec_context()));
       auto new_options = OptionsType(casted_start.scalar(), options->skip_nulls);
-      return ::arrow::internal::make_unique<State>(new_options);
+      return std::make_unique<State>(new_options);
     }
-    return ::arrow::internal::make_unique<State>(*options);
+    return std::make_unique<State>(*options);
   }
 };
 

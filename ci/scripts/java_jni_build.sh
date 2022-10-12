@@ -25,6 +25,8 @@ build_dir=${3}/java_jni
 # The directory where the final binaries will be stored when scripts finish
 dist_dir=${4}
 
+prefix_dir="${build_dir}/java-jni"
+
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
 rm -rf ${build_dir}
@@ -48,11 +50,15 @@ esac
 : ${ARROW_JAVA_BUILD_TESTS:=${ARROW_BUILD_TESTS:-OFF}}
 : ${CMAKE_BUILD_TYPE:=release}
 cmake \
-  -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_DATASET:-ON} \
+  -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_DATASET:-OFF} \
+  -DARROW_JAVA_JNI_ENABLE_GANDIVA=${ARROW_GANDIVA:-OFF} \
+  -DARROW_JAVA_JNI_ENABLE_ORC=${ARROW_ORC:-OFF} \
+  -DARROW_JAVA_JNI_ENABLE_PLASMA=${ARROW_PLASMA:-OFF} \
   -DBUILD_TESTING=${ARROW_JAVA_BUILD_TESTS} \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_PREFIX_PATH=${arrow_install_dir} \
-  -DCMAKE_INSTALL_PREFIX=${dist_dir} \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_INSTALL_PREFIX=${prefix_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
   -GNinja \
   ${JAVA_JNI_CMAKE_ARGS:-} \
@@ -67,3 +73,11 @@ if [ "${ARROW_JAVA_BUILD_TESTS}" = "ON" ]; then
 fi
 cmake --build . --config ${CMAKE_BUILD_TYPE} --target install
 popd
+
+mkdir -p ${dist_dir}
+# For Windows. *.dll are installed into bin/ on Windows.
+if [ -d "${prefix_dir}/bin" ]; then
+  mv ${prefix_dir}/bin/* ${dist_dir}/
+else
+  mv ${prefix_dir}/lib/* ${dist_dir}/
+fi

@@ -24,6 +24,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
@@ -84,13 +85,11 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
@@ -657,7 +656,7 @@ class S3Client : public Aws::S3::S3Client {
     // We work around the issue by registering a DataReceivedEventHandler
     // which parses the XML response for embedded errors.
 
-    util::optional<AWSError<Aws::Client::CoreErrors>> aws_error;
+    std::optional<AWSError<Aws::Client::CoreErrors>> aws_error;
 
     auto handler = [&](const Aws::Http::HttpRequest* http_req,
                        Aws::Http::HttpResponse* http_resp,
@@ -762,7 +761,7 @@ class ClientBuilder {
   Aws::Client::ClientConfiguration* mutable_config() { return &client_config_; }
 
   Result<std::shared_ptr<S3Client>> BuildClient(
-      util::optional<io::IOContext> io_context = util::nullopt) {
+      std::optional<io::IOContext> io_context = std::nullopt) {
     credentials_provider_ = options_.credentials_provider;
     if (!options_.region.empty()) {
       client_config_.region = ToAwsString(options_.region);
@@ -858,7 +857,7 @@ class RegionResolver {
 
   static Result<std::shared_ptr<RegionResolver>> DefaultInstance() {
     static std::shared_ptr<RegionResolver> instance;
-    auto resolver = arrow::internal::atomic_load(&instance);
+    auto resolver = std::atomic_load(&instance);
     if (resolver) {
       return resolver;
     }
@@ -869,8 +868,7 @@ class RegionResolver {
     // Make sure to always return the same instance even if several threads
     // call DefaultInstance at once.
     std::shared_ptr<RegionResolver> existing;
-    if (arrow::internal::atomic_compare_exchange_strong(&instance, &existing,
-                                                        *maybe_resolver)) {
+    if (std::atomic_compare_exchange_strong(&instance, &existing, *maybe_resolver)) {
       return *maybe_resolver;
     } else {
       return existing;
@@ -954,7 +952,7 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 
   auto push = [&](std::string k, const Aws::String& v) {
     if (!v.empty()) {
-      md->Append(std::move(k), FromAwsString(v).to_string());
+      md->Append(std::move(k), std::string(FromAwsString(v)));
     }
   };
   auto push_datetime = [&](std::string k, const Aws::Utils::DateTime& v) {
@@ -1708,7 +1706,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   ClientBuilder builder_;
   io::IOContext io_context_;
   std::shared_ptr<S3Client> client_;
-  util::optional<S3Backend> backend_;
+  std::optional<S3Backend> backend_;
 
   const int32_t kListObjectsMaxKeys = 1000;
   // At most 1000 keys per multiple-delete request
@@ -1948,7 +1946,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
         is_empty = false;
         FileInfo info;
         const auto child_key = internal::RemoveTrailingSlash(FromAwsString(obj.GetKey()));
-        if (child_key == util::string_view(prefix)) {
+        if (child_key == std::string_view(prefix)) {
           // Amazon can return the "directory" key itself as part of the results, skip
           continue;
         }

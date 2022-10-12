@@ -622,6 +622,13 @@ using is_fixed_size_binary_type = std::is_base_of<FixedSizeBinaryType, T>;
 template <typename T, typename R = void>
 using enable_if_fixed_size_binary = enable_if_t<is_fixed_size_binary_type<T>::value, R>;
 
+// This includes primitive, dictionary, and fixed-size-binary types
+template <typename T>
+using is_fixed_width_type = std::is_base_of<FixedWidthType, T>;
+
+template <typename T, typename R = void>
+using enable_if_fixed_width_type = enable_if_t<is_fixed_width_type<T>::value, R>;
+
 template <typename T>
 using is_binary_like_type =
     std::integral_constant<bool, (is_base_binary_type<T>::value &&
@@ -851,7 +858,7 @@ using enable_if_physical_floating_point =
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is an integer type one
-static inline bool is_integer(Type::type type_id) {
+constexpr bool is_integer(Type::type type_id) {
   switch (type_id) {
     case Type::UINT8:
     case Type::INT8:
@@ -872,7 +879,7 @@ static inline bool is_integer(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a signed integer type one
-static inline bool is_signed_integer(Type::type type_id) {
+constexpr bool is_signed_integer(Type::type type_id) {
   switch (type_id) {
     case Type::INT8:
     case Type::INT16:
@@ -889,7 +896,7 @@ static inline bool is_signed_integer(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is an unsigned integer type one
-static inline bool is_unsigned_integer(Type::type type_id) {
+constexpr bool is_unsigned_integer(Type::type type_id) {
   switch (type_id) {
     case Type::UINT8:
     case Type::UINT16:
@@ -906,7 +913,7 @@ static inline bool is_unsigned_integer(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a floating point type one
-static inline bool is_floating(Type::type type_id) {
+constexpr bool is_floating(Type::type type_id) {
   switch (type_id) {
     case Type::HALF_FLOAT:
     case Type::FLOAT:
@@ -924,7 +931,7 @@ static inline bool is_floating(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a numeric type one
-static inline bool is_numeric(Type::type type_id) {
+constexpr bool is_numeric(Type::type type_id) {
   switch (type_id) {
     case Type::UINT8:
     case Type::INT8:
@@ -948,7 +955,7 @@ static inline bool is_numeric(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a decimal type one
-static inline bool is_decimal(Type::type type_id) {
+constexpr bool is_decimal(Type::type type_id) {
   switch (type_id) {
     case Type::DECIMAL128:
     case Type::DECIMAL256:
@@ -965,7 +972,7 @@ static inline bool is_decimal(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a primitive type one
-static inline bool is_primitive(Type::type type_id) {
+constexpr bool is_primitive(Type::type type_id) {
   switch (type_id) {
     case Type::BOOL:
     case Type::UINT8:
@@ -1002,7 +1009,7 @@ static inline bool is_primitive(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a base-binary-like type one
-static inline bool is_base_binary_like(Type::type type_id) {
+constexpr bool is_base_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:
     case Type::LARGE_BINARY:
@@ -1019,7 +1026,7 @@ static inline bool is_base_binary_like(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a binary-like type one
-static inline bool is_binary_like(Type::type type_id) {
+constexpr bool is_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:
     case Type::STRING:
@@ -1034,7 +1041,7 @@ static inline bool is_binary_like(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a large-binary-like type one
-static inline bool is_large_binary_like(Type::type type_id) {
+constexpr bool is_large_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::LARGE_BINARY:
     case Type::LARGE_STRING:
@@ -1049,7 +1056,7 @@ static inline bool is_large_binary_like(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a binary type one
-static inline bool is_binary(Type::type type_id) {
+constexpr bool is_binary(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:
     case Type::LARGE_BINARY:
@@ -1064,7 +1071,7 @@ static inline bool is_binary(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a string type one
-static inline bool is_string(Type::type type_id) {
+constexpr bool is_string(Type::type type_id) {
   switch (type_id) {
     case Type::STRING:
     case Type::LARGE_STRING:
@@ -1079,7 +1086,7 @@ static inline bool is_string(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a temporal type one
-static inline bool is_temporal(Type::type type_id) {
+constexpr bool is_temporal(Type::type type_id) {
   switch (type_id) {
     case Type::DATE32:
     case Type::DATE64:
@@ -1097,7 +1104,7 @@ static inline bool is_temporal(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is an interval type one
-static inline bool is_interval(Type::type type_id) {
+constexpr bool is_interval(Type::type type_id) {
   switch (type_id) {
     case Type::INTERVAL_MONTHS:
     case Type::INTERVAL_DAY_TIME:
@@ -1113,16 +1120,14 @@ static inline bool is_interval(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a dictionary type one
-static inline bool is_dictionary(Type::type type_id) {
-  return type_id == Type::DICTIONARY;
-}
+constexpr bool is_dictionary(Type::type type_id) { return type_id == Type::DICTIONARY; }
 
 /// \brief Check for a fixed-size-binary type
 ///
 /// This predicate also matches decimals.
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a fixed-size-binary type one
-static inline bool is_fixed_size_binary(Type::type type_id) {
+constexpr bool is_fixed_size_binary(Type::type type_id) {
   switch (type_id) {
     case Type::DECIMAL128:
     case Type::DECIMAL256:
@@ -1138,7 +1143,7 @@ static inline bool is_fixed_size_binary(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a fixed-width type one
-static inline bool is_fixed_width(Type::type type_id) {
+constexpr bool is_fixed_width(Type::type type_id) {
   return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
 }
 
@@ -1146,7 +1151,7 @@ static inline bool is_fixed_width(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a list-like type one
-static inline bool is_list_like(Type::type type_id) {
+constexpr bool is_list_like(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:
     case Type::LARGE_LIST:
@@ -1163,7 +1168,7 @@ static inline bool is_list_like(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a nested type one
-static inline bool is_nested(Type::type type_id) {
+constexpr bool is_nested(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:
     case Type::LARGE_LIST:
@@ -1183,7 +1188,7 @@ static inline bool is_nested(Type::type type_id) {
 ///
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a union type one
-static inline bool is_union(Type::type type_id) {
+constexpr bool is_union(Type::type type_id) {
   switch (type_id) {
     case Type::SPARSE_UNION:
     case Type::DENSE_UNION:

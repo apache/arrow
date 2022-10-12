@@ -210,11 +210,13 @@ endmacro()
 
 # Find modules are needed by the consumer in case of a static build, or if the
 # linkage is PUBLIC or INTERFACE.
-macro(provide_find_module PACKAGE_NAME)
+macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
   set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
   if(EXISTS "${module_}")
-    message(STATUS "Providing CMake module for ${PACKAGE_NAME}")
-    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
+    message(STATUS "Providing CMake module for ${PACKAGE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
+    )
+    install(FILES "${module_}"
+            DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}")
   endif()
   unset(module_)
 endmacro()
@@ -283,7 +285,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
     endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
-    provide_find_module(${PACKAGE_NAME})
+    provide_find_module(${PACKAGE_NAME} "Arrow")
     list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
     find_package(PkgConfig QUIET)
     foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
@@ -293,7 +295,12 @@ macro(resolve_dependency DEPENDENCY_NAME)
                         NO_CMAKE_ENVIRONMENT_PATH
                         QUIET)
       if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
+        message(STATUS "Using pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link"
+        )
         string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
+      else()
+        message(STATUS "pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link isn't found"
+        )
       endif()
     endforeach()
   endif()
@@ -1245,7 +1252,8 @@ set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
    OR ARROW_FLIGHT
-   OR ARROW_S3)
+   OR ARROW_S3
+   OR ARROW_GANDIVA)
   set(OpenSSL_SOURCE "SYSTEM")
   resolve_dependency(OpenSSL
                      HAVE_ALT
@@ -1623,10 +1631,6 @@ if(ARROW_WITH_PROTOBUF)
   if(ARROW_WITH_GRPC)
     # FlightSQL uses proto3 optionals, which require 3.15 or later.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.15.0")
-  elseif(ARROW_GANDIVA_JAVA)
-    # google::protobuf::MessageLite::ByteSize() is deprecated since
-    # Protobuf 3.4.0.
-    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.4.0")
   elseif(ARROW_SUBSTRAIT)
     # Substrait protobuf files use proto3 syntax
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
@@ -1975,9 +1979,8 @@ macro(build_gtest)
   set(dummy ">")
 
   set(GTEST_CMAKE_ARGS
-      ${EP_COMMON_TOOLCHAIN}
+      ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_SHARED_LIBS=ON
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_INSTALL_LIBDIR=lib
@@ -2088,7 +2091,7 @@ macro(build_benchmark)
   endif()
 
   if(NOT MSVC)
-    set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -std=c++11")
+    set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -std=c++17")
   endif()
 
   if(APPLE AND (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID
@@ -2396,39 +2399,41 @@ macro(build_zstd)
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
-  add_library(zstd::libzstd STATIC IMPORTED)
-  set_target_properties(zstd::libzstd
+  add_library(zstd::libzstd_static STATIC IMPORTED)
+  set_target_properties(zstd::libzstd_static
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
-  add_dependencies(zstd::libzstd zstd_ep)
+  add_dependencies(zstd::libzstd_static zstd_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
+
+  set(ZSTD_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
   # ARROW-13384: ZSTD_minCLevel was added in v1.4.0, required by ARROW-13091
   resolve_dependency(zstd
+                     HAVE_ALT
+                     TRUE
                      PC_PACKAGE_NAMES
                      libzstd
                      REQUIRED_VERSION
                      1.4.0)
 
-  if(TARGET zstd::libzstd)
-    set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
+  if(ZSTD_VENDORED)
+    set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
   else()
-    # "SYSTEM" source will prioritize cmake config, which exports
-    # zstd::libzstd_{static,shared}
     if(ARROW_ZSTD_USE_SHARED)
-      if(TARGET zstd::libzstd_shared)
-        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
-      endif()
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
     else()
-      if(TARGET zstd::libzstd_static)
-        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
-      endif()
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
     endif()
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
+      message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
+    endif()
+    message(STATUS "Found Zstandard: ${ARROW_ZSTD_LIBZSTD}")
   endif()
 endif()
 
@@ -4265,6 +4270,8 @@ macro(build_orc)
   set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
+  get_target_property(ORC_PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC} IMPORTED_LOCATION)
+
   get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
@@ -4293,6 +4300,7 @@ macro(build_orc)
       -DINSTALL_VENDORED_LIBS=OFF
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
+      "-DPROTOBUF_EXECUTABLE=${ORC_PROTOBUF_EXECUTABLE}"
       "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
       "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"

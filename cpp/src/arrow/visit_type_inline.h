@@ -57,6 +57,33 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 
 #undef TYPE_VISIT_INLINE
 
+#define TYPE_VISIT_INLINE(TYPE_CLASS)      \
+  case TYPE_CLASS##Type::type_id:          \
+    return std::forward<VISITOR>(visitor)( \
+        internal::checked_cast<const TYPE_CLASS##Type&>(type));
+
+/// \brief Call `visitor` with the corresponding concrete type class
+///
+/// Unlike VisitTypeInline which calls `visitor.Visit`, here `visitor`
+/// itself is called.
+/// `visitor` must support a `const DataType&` argument as a fallback,
+/// in addition to concrete type classes.
+///
+/// The intent is for this to be called on a generic lambda
+/// that may internally use `if constexpr` or similar constructs.
+template <typename VISITOR>
+inline auto VisitType(const DataType& type, VISITOR&& visitor)
+    -> decltype(std::forward<VISITOR>(visitor)(type)) {
+  switch (type.id()) {
+    ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
+    default:
+      break;
+  }
+  return std::forward<VISITOR>(visitor)(type);
+}
+
+#undef TYPE_VISIT_INLINE
+
 #define TYPE_ID_VISIT_INLINE(TYPE_CLASS)            \
   case TYPE_CLASS##Type::type_id: {                 \
     const TYPE_CLASS##Type* concrete_ptr = NULLPTR; \

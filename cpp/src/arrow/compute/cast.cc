@@ -62,6 +62,7 @@ void InitCastTable() {
   AddCastFunctions(GetNumericCasts());
   AddCastFunctions(GetTemporalCasts());
   AddCastFunctions(GetDictionaryCasts());
+  AddCastFunctions(GetExtensionCasts());
 }
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
@@ -94,9 +95,28 @@ class CastMetaFunction : public MetaFunction {
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     ARROW_ASSIGN_OR_RAISE(auto cast_options, ValidateOptions(options));
-    if (args[0].type()->Equals(*cast_options->to_type)) {
-      return args[0];
+    // args[0].type() could be a nullptr so check for that before
+    // we do anything with it.
+    if (args[0].type() && args[0].type()->Equals(*cast_options->to_type)) {
+      // Nested types might differ in field names but still be considered equal,
+      // so we can only return non-nested types as-is.
+      if (!is_nested(args[0].type()->id())) {
+        return args[0];
+      } else if (args[0].is_array()) {
+        // TODO(ARROW-14999): if types are equal except for field names of list
+        // types, we can also use this code path.
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array,
+                              ::arrow::internal::GetArrayView(
+                                  args[0].array(), cast_options->to_type.owned_type));
+        return Datum(array);
+      } else if (args[0].is_chunked_array()) {
+        ARROW_ASSIGN_OR_RAISE(
+            std::shared_ptr<ChunkedArray> array,
+            args[0].chunked_array()->View(cast_options->to_type.owned_type));
+        return Datum(array);
+      }
     }
+
     Result<std::shared_ptr<CastFunction>> result =
         GetCastFunction(*cast_options->to_type);
     if (!result.ok()) {

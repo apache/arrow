@@ -21,6 +21,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <sstream>
 
 #include "arrow/array/array_primitive.h"
@@ -65,6 +66,14 @@ std::vector<FieldRef> ScanOptions::MaterializedFields() const {
   }
 
   return fields;
+}
+
+std::vector<FieldPath> ScanV2Options::AllColumns(const Dataset& dataset) {
+  std::vector<FieldPath> selection(dataset.schema()->num_fields());
+  for (std::size_t i = 0; i < selection.size(); i++) {
+    selection[i] = {static_cast<int>(i)};
+  }
+  return selection;
 }
 
 namespace {
@@ -334,7 +343,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
 }
 
 Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
-    const util::optional<compute::ExecBatch>& batch, const ScanOptions& options,
+    const std::optional<compute::ExecBatch>& batch, const ScanOptions& options,
     const FragmentVector& fragments) {
   int num_fields = options.projected_schema->num_fields();
 
@@ -363,7 +372,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
   plan->SetUseLegacyBatching(use_legacy_batching);
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
@@ -402,7 +411,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   return MakeMappedGenerator(
       std::move(sink_gen),
       [sink_gen, options, stop_producing,
-       shared_fragments](const util::optional<compute::ExecBatch>& batch)
+       shared_fragments](const std::optional<compute::ExecBatch>& batch)
           -> Future<EnumeratedRecordBatch> {
         return ToEnumeratedRecordBatch(batch, *options, *shared_fragments);
       });
@@ -655,7 +664,7 @@ Result<int64_t> AsyncScanner::CountRows() {
   fragment_gen = MakeMappedGenerator(
       std::move(fragment_gen), [&](const std::shared_ptr<Fragment>& fragment) {
         return fragment->CountRows(options->filter, options)
-            .Then([&, fragment](util::optional<int64_t> fast_count) mutable
+            .Then([&, fragment](std::optional<int64_t> fast_count) mutable
                   -> std::shared_ptr<Fragment> {
               if (fast_count) {
                 // fast path: got row count directly; skip scanning this fragment
@@ -669,7 +678,7 @@ Result<int64_t> AsyncScanner::CountRows() {
             });
       });
 
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   RETURN_NOT_OK(
       compute::Declaration::Sequence(
@@ -912,7 +921,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   auto gen = MakeMappedGenerator(
       std::move(batch_gen),
       [scan_options](const EnumeratedRecordBatch& partial)
-          -> Result<util::optional<compute::ExecBatch>> {
+          -> Result<std::optional<compute::ExecBatch>> {
         // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
         // than this, for example parquet's row group stats. Failing to do this leaves
         // perf on the table because row group stats could be used to skip kernel execs in
@@ -924,7 +933,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         auto guarantee = partial.fragment.value->partition_expression();
 
         ARROW_ASSIGN_OR_RAISE(
-            util::optional<compute::ExecBatch> batch,
+            std::optional<compute::ExecBatch> batch,
             compute::MakeExecBatch(*scan_options->dataset_schema,
                                    partial.record_batch.value, guarantee));
 
@@ -978,7 +987,7 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
   }
   auto input = inputs[0];
 
-  AsyncGenerator<util::optional<compute::ExecBatch>> unordered;
+  AsyncGenerator<std::optional<compute::ExecBatch>> unordered;
   ARROW_ASSIGN_OR_RAISE(auto node,
                         compute::MakeExecNode("sink", plan, std::move(inputs),
                                               compute::SinkNodeOptions{&unordered}));
@@ -1009,8 +1018,8 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
     return fragment_index(batch) < 0;
   };
 
-  auto left_after_right = [=](const util::optional<compute::ExecBatch>& left,
-                              const util::optional<compute::ExecBatch>& right) {
+  auto left_after_right = [=](const std::optional<compute::ExecBatch>& left,
+                              const std::optional<compute::ExecBatch>& right) {
     // Before any comes first
     if (is_before_any(*left)) {
       return false;
@@ -1026,8 +1035,8 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
     return fragment_index(*left) > fragment_index(*right);
   };
 
-  auto is_next = [=](const util::optional<compute::ExecBatch>& prev,
-                     const util::optional<compute::ExecBatch>& next) {
+  auto is_next = [=](const std::optional<compute::ExecBatch>& prev,
+                     const std::optional<compute::ExecBatch>& next) {
     // Only true if next is the first batch
     if (is_before_any(*prev)) {
       return fragment_index(*next) == 0 && batch_index(*next) == 0;
@@ -1044,7 +1053,7 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
   const auto& sink_options = checked_cast<const compute::SinkNodeOptions&>(options);
   *sink_options.generator =
       MakeSequencingGenerator(std::move(unordered), left_after_right, is_next,
-                              util::make_optional(std::move(before_any)));
+                              std::make_optional(std::move(before_any)));
 
   return node;
 }

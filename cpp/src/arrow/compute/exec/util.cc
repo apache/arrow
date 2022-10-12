@@ -399,7 +399,7 @@ Status TableSinkNodeConsumer::Consume(ExecBatch batch) {
 }
 
 Future<> TableSinkNodeConsumer::Finish() {
-  ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(batches_));
+  ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(schema_, batches_));
   return Status::OK();
 }
 

@@ -19,20 +19,24 @@
 
 #pragma once
 
-#include <list>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <unordered_map>
-#include <unordered_set>
+#include <utility>
 #include <vector>
 
-#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/hash_util.h"
-#include "arrow/util/hashing.h"
-#include "arrow/util/optional.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace engine {
@@ -57,7 +61,7 @@ constexpr const char* kSubstraitAggregateGenericFunctionsUri =
     "functions_aggregate_generic.yaml";
 
 struct Id {
-  util::string_view uri, name;
+  std::string_view uri, name;
   bool empty() const { return uri.empty() && name.empty(); }
   std::string ToString() const;
 };
@@ -75,28 +79,25 @@ struct IdHashEq {
 /// storage.
 class IdStorage {
  public:
+  virtual ~IdStorage() = default;
   /// \brief Get an equivalent id pointing into this storage
   ///
   /// This operation will copy the ids into storage if they do not already exist
-  Id Emplace(Id id);
+  virtual Id Emplace(Id id) = 0;
   /// \brief Get an equivalent view pointing into this storage for a URI
   ///
   /// If no URI is found then the uri will be copied into storage
-  util::string_view EmplaceUri(util::string_view uri);
+  virtual std::string_view EmplaceUri(std::string_view uri) = 0;
   /// \brief Get an equivalent id pointing into this storage
   ///
   /// If no id is found then nullopt will be returned
-  util::optional<Id> Find(Id id) const;
+  virtual std::optional<Id> Find(Id id) const = 0;
   /// \brief Get an equivalent view pointing into this storage for a URI
   ///
   /// If no URI is found then nullopt will be returned
-  util::optional<util::string_view> FindUri(util::string_view uri) const;
+  virtual std::optional<std::string_view> FindUri(std::string_view uri) const = 0;
 
- private:
-  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> uris_;
-  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> names_;
-  std::list<std::string> owned_uris_;
-  std::list<std::string> owned_names_;
+  static std::unique_ptr<IdStorage> Make();
 };
 
 /// \brief Describes a Substrait call
@@ -119,8 +120,8 @@ class SubstraitCall {
   bool is_hash() const { return is_hash_; }
 
   bool HasEnumArg(uint32_t index) const;
-  Result<util::optional<util::string_view>> GetEnumArg(uint32_t index) const;
-  void SetEnumArg(uint32_t index, util::optional<std::string> enum_arg);
+  Result<std::optional<std::string_view>> GetEnumArg(uint32_t index) const;
+  void SetEnumArg(uint32_t index, std::optional<std::string> enum_arg);
   Result<compute::Expression> GetValueArg(uint32_t index) const;
   bool HasValueArg(uint32_t index) const;
   void SetValueArg(uint32_t index, compute::Expression value_arg);
@@ -133,7 +134,7 @@ class SubstraitCall {
   // Only needed when converting from Substrait -> Arrow aggregates.  The
   // Arrow function name depends on whether or not there are any groups
   bool is_hash_;
-  std::unordered_map<uint32_t, util::optional<std::string>> enum_args_;
+  std::unordered_map<uint32_t, std::optional<std::string>> enum_args_;
   std::unordered_map<uint32_t, compute::Expression> value_args_;
   uint32_t size_ = 0;
 };
@@ -174,13 +175,13 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   /// \brief Return a uri view owned by this registry
   ///
   /// If the URI has never been emplaced it will return nullopt
-  virtual util::optional<util::string_view> FindUri(util::string_view uri) const = 0;
+  virtual std::optional<std::string_view> FindUri(std::string_view uri) const = 0;
   /// \brief Return a id view owned by this registry
   ///
   /// If the id has never been emplaced it will return nullopt
-  virtual util::optional<Id> FindId(Id id) const = 0;
-  virtual util::optional<TypeRecord> GetType(const DataType&) const = 0;
-  virtual util::optional<TypeRecord> GetType(Id) const = 0;
+  virtual std::optional<Id> FindId(Id id) const = 0;
+  virtual std::optional<TypeRecord> GetType(const DataType&) const = 0;
+  virtual std::optional<TypeRecord> GetType(Id) const = 0;
   virtual Status CanRegisterType(Id, const std::shared_ptr<DataType>& type) const = 0;
   virtual Status RegisterType(Id, std::shared_ptr<DataType>) = 0;
   /// \brief Register a converter that converts an Arrow call to a Substrait call
@@ -253,9 +254,23 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   /// \return A converter function or an invalid status if no converter is registered
   virtual Result<SubstraitCallToArrow> GetSubstraitCallToArrow(
       Id substrait_function_id) const = 0;
+
+  /// \brief Similar to \see GetSubstraitCallToArrow but only uses the name
+  ///
+  /// There may be multiple functions with the same name and this will return
+  /// the first.  This is slower than GetSubstraitCallToArrow and should only
+  /// be used when the plan does not include a URI (or the URI is "/")
+  virtual Result<SubstraitCallToArrow> GetSubstraitCallToArrowFallback(
+      std::string_view function_name) const = 0;
+
+  /// \brief Similar to \see GetSubstraitAggregateToArrow but only uses the name
+  ///
+  /// \see GetSubstraitCallToArrowFallback for details on the fallback behavior
+  virtual Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrowFallback(
+      std::string_view function_name) const = 0;
 };
 
-constexpr util::string_view kArrowExtTypesUri =
+constexpr std::string_view kArrowExtTypesUri =
     "https://github.com/apache/arrow/blob/master/format/substrait/"
     "extension_types.yaml";
 
@@ -309,7 +324,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
  public:
   struct FunctionRecord {
     Id id;
-    util::string_view name;
+    std::string_view name;
   };
 
   struct TypeRecord {
@@ -336,12 +351,13 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// An extension set should instead be created using
   /// arrow::engine::GetExtensionSetFromPlan
   static Result<ExtensionSet> Make(
-      std::unordered_map<uint32_t, util::string_view> uris,
+      std::unordered_map<uint32_t, std::string_view> uris,
       std::unordered_map<uint32_t, Id> type_ids,
       std::unordered_map<uint32_t, Id> function_ids,
+      const ConversionOptions& conversion_options,
       const ExtensionIdRegistry* = default_extension_id_registry());
 
-  const std::unordered_map<uint32_t, util::string_view>& uris() const { return uris_; }
+  const std::unordered_map<uint32_t, std::string_view>& uris() const { return uris_; }
 
   /// \brief Returns a data type given an anchor
   ///
@@ -404,10 +420,10 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   // that we can safely ignore.  For example, we can usually safely ignore
   // extension type variations if we assume the plan is valid.  These ignorable
   // ids are stored here.
-  IdStorage plan_specific_ids_;
+  std::unique_ptr<IdStorage> plan_specific_ids_ = IdStorage::Make();
 
   // Map from anchor values to URI values referenced by this extension set
-  std::unordered_map<uint32_t, util::string_view> uris_;
+  std::unordered_map<uint32_t, std::string_view> uris_;
   // Map from anchor values to type definitions, used during Substrait->Arrow
   // and populated from the Substrait extension set
   std::unordered_map<uint32_t, TypeRecord> types_;
@@ -421,8 +437,8 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   // and built as the plan is created.
   std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> functions_map_;
 
-  Status CheckHasUri(util::string_view uri);
-  void AddUri(std::pair<uint32_t, util::string_view> uri);
+  Status CheckHasUri(std::string_view uri);
+  void AddUri(std::pair<uint32_t, std::string_view> uri);
   Status AddUri(Id id);
 };
 

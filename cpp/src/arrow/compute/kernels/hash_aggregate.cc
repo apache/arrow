@@ -49,7 +49,6 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tdigest.h"
 #include "arrow/util/thread_pool.h"
@@ -84,7 +83,7 @@ struct GroupedAggregator : KernelState {
 template <typename Impl>
 Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
-  auto impl = ::arrow::internal::make_unique<Impl>();
+  auto impl = std::make_unique<Impl>();
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
   return std::move(impl);
 }
@@ -972,7 +971,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
 template <typename T, VarOrStd result_type>
 Result<std::unique_ptr<KernelState>> VarStdInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
-  auto impl = ::arrow::internal::make_unique<GroupedVarStdImpl<T>>();
+  auto impl = std::make_unique<GroupedVarStdImpl<T>>();
   impl->result_type_ = result_type;
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
   return std::move(impl);
@@ -1373,7 +1372,7 @@ struct GroupedMinMaxImpl<Type,
   Status Consume(const ExecSpan& batch) override {
     return VisitGroupedValues<Type>(
         batch,
-        [&](uint32_t g, util::string_view val) {
+        [&](uint32_t g, std::string_view val) {
           if (!mins_[g] || val < *mins_[g]) {
             mins_[g].emplace(val.data(), val.size(), allocator_);
           }
@@ -1435,7 +1434,7 @@ struct GroupedMinMaxImpl<Type,
 
   template <typename T = Type>
   enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -1447,7 +1446,7 @@ struct GroupedMinMaxImpl<Type,
     offset_type total_length = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         if (value->size() >
                 static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
@@ -1463,7 +1462,7 @@ struct GroupedMinMaxImpl<Type,
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), value->size());
         offset += value->size();
@@ -1476,7 +1475,7 @@ struct GroupedMinMaxImpl<Type,
 
   template <typename T = Type>
   enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -1485,7 +1484,7 @@ struct GroupedMinMaxImpl<Type,
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
       } else {
@@ -1504,7 +1503,7 @@ struct GroupedMinMaxImpl<Type,
   ExecContext* ctx_;
   Allocator allocator_;
   int64_t num_groups_;
-  std::vector<util::optional<StringType>> mins_, maxes_;
+  std::vector<std::optional<StringType>> mins_, maxes_;
   TypedBufferBuilder<bool> has_values_, has_nulls_;
   std::shared_ptr<DataType> type_;
   ScalarAggregateOptions options_;
@@ -2092,7 +2091,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   Status Consume(const ExecSpan& batch) override {
     return VisitGroupedValues<Type>(
         batch,
-        [&](uint32_t g, util::string_view val) -> Status {
+        [&](uint32_t g, std::string_view val) -> Status {
           if (!bit_util::GetBit(has_one_.data(), g)) {
             ones_[g].emplace(val.data(), val.size(), allocator_);
             bit_util::SetBit(has_one_.mutable_data(), g);
@@ -2128,7 +2127,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
 
   template <typename T = Type>
   enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -2140,7 +2139,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     offset_type total_length = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         if (value->size() >
                 static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
@@ -2156,7 +2155,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), value->size());
         offset += value->size();
@@ -2169,7 +2168,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
 
   template <typename T = Type>
   enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -2178,7 +2177,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
       } else {
@@ -2195,7 +2194,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   ExecContext* ctx_;
   Allocator allocator_;
   int64_t num_groups_;
-  std::vector<util::optional<StringType>> ones_;
+  std::vector<std::optional<StringType>> ones_;
   TypedBufferBuilder<bool> has_one_;
   std::shared_ptr<DataType> out_type_;
 };
@@ -2419,7 +2418,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     num_args_ += num_values;
     return VisitGroupedValues<Type>(
         batch,
-        [&](uint32_t group, util::string_view val) -> Status {
+        [&](uint32_t group, std::string_view val) -> Status {
           values_.emplace_back(StringType(val.data(), val.size(), allocator_));
           return Status::OK();
         },
@@ -2467,7 +2466,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
 
   template <typename T = Type>
   enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -2479,7 +2478,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     offset_type total_length = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         if (value->size() >
                 static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
@@ -2495,7 +2494,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), value->size());
         offset += value->size();
@@ -2508,7 +2507,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
 
   template <typename T = Type>
   enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -2517,7 +2516,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
       } else {
@@ -2534,7 +2533,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   ExecContext* ctx_;
   Allocator allocator_;
   int64_t num_groups_, num_args_ = 0;
-  std::vector<util::optional<StringType>> values_;
+  std::vector<std::optional<StringType>> values_;
   TypedBufferBuilder<uint32_t> groups_;
   TypedBufferBuilder<bool> values_bitmap_;
   std::shared_ptr<DataType> out_type_;

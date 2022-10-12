@@ -19,6 +19,7 @@ package org.apache.arrow.flight.integration.tests;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.Objects;
 
 import org.apache.arrow.flight.CallStatus;
@@ -56,6 +57,16 @@ final class IntegrationAssertions {
   static void assertEquals(Object expected, Object actual) {
     if (!Objects.equals(expected, actual)) {
       throw new AssertionError("Expected:\n" + expected + "\nbut got:\n" + actual);
+    }
+  }
+
+  /**
+   * Assert that the two arrays are equal.
+   */
+  static void assertEquals(byte[] expected, byte[] actual) {
+    if (!Arrays.equals(expected, actual)) {
+      throw new AssertionError(
+          String.format("Expected:\n%s\nbut got:\n%s", Arrays.toString(expected), Arrays.toString(actual)));
     }
   }
 

@@ -35,3 +35,5 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowDatasetTargets.cmake")
 arrow_keep_backward_compatibility(ArrowDataset arrow_dataset)
 
 check_required_components(ArrowDataset)
+
+arrow_show_details(ArrowDataset ARROW_DATASET)

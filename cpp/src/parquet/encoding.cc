@@ -23,6 +23,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -42,7 +43,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/exception.h"
@@ -56,7 +56,7 @@ using arrow::Status;
 using arrow::VisitNullBitmapInline;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
-using arrow::util::string_view;
+using std::string_view;
 
 template <typename T>
 using ArrowPoolVector = std::vector<T, ::arrow::stl::allocator<T>>;
@@ -154,7 +154,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
-        [&](::arrow::util::string_view view) {
+        [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
@@ -617,7 +617,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   void PutBinaryArray(const ArrayType& array) {
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
-        [&](::arrow::util::string_view view) {
+        [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
@@ -658,7 +658,7 @@ void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) {
 // ByteArray and FLBA already have the dictionary encoded in their data heaps
 template <>
 void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
-  memo_table_.VisitValues(0, [&buffer](const ::arrow::util::string_view& v) {
+  memo_table_.VisitValues(0, [&buffer](const ::std::string_view& v) {
     uint32_t len = static_cast<uint32_t>(v.length());
     memcpy(buffer, &len, sizeof(len));
     buffer += sizeof(len);
@@ -669,7 +669,7 @@ void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
 
 template <>
 void DictEncoderImpl<FLBAType>::WriteDict(uint8_t* buffer) {
-  memo_table_.VisitValues(0, [&](const ::arrow::util::string_view& v) {
+  memo_table_.VisitValues(0, [&](const ::std::string_view& v) {
     DCHECK_EQ(v.length(), static_cast<size_t>(type_length_));
     memcpy(buffer, v.data(), type_length_);
     buffer += type_length_;
@@ -1146,9 +1146,7 @@ int PlainDecoder<DType>::Decode(T* buffer, int max_values) {
   return max_values;
 }
 
-class PlainBooleanDecoder : public DecoderImpl,
-                            virtual public TypedDecoder<BooleanType>,
-                            virtual public BooleanDecoder {
+class PlainBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
  public:
   explicit PlainBooleanDecoder(const ColumnDescriptor* descr);
   void SetData(int num_values, const uint8_t* data, int len) override;
@@ -2356,6 +2354,66 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 };
 
 // ----------------------------------------------------------------------
+// RLE_BOOLEAN_DECODER
+
+class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
+ public:
+  explicit RleBooleanDecoder(const ColumnDescriptor* descr)
+      : DecoderImpl(descr, Encoding::RLE) {}
+
+  void SetData(int num_values, const uint8_t* data, int len) override {
+    num_values_ = num_values;
+    uint32_t num_bytes = 0;
+
+    if (len < 4) {
+      throw ParquetException("Received invalid length : " + std::to_string(len) +
+                             " (corrupt data page?)");
+    }
+    // Load the first 4 bytes in little-endian, which indicates the length
+    num_bytes =
+        ::arrow::bit_util::ToLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(data));
+    if (num_bytes < 0 || num_bytes > static_cast<uint32_t>(len - 4)) {
+      throw ParquetException("Received invalid number of bytes : " +
+                             std::to_string(num_bytes) + " (corrupt data page?)");
+    }
+
+    auto decoder_data = data + 4;
+    decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes,
+                                                           /*bit_width=*/1);
+  }
+
+  int Decode(bool* buffer, int max_values) override {
+    max_values = std::min(max_values, num_values_);
+
+    if (decoder_->GetBatch(buffer, max_values) != max_values) {
+      ParquetException::EofException();
+    }
+    num_values_ -= max_values;
+    return max_values;
+  }
+
+  int Decode(uint8_t* buffer, int max_values) override {
+    ParquetException::NYI("Decode(uint8_t*, int) for RleBooleanDecoder");
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<BooleanType>::Accumulator* out) override {
+    ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
+  }
+
+  int DecodeArrow(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset,
+      typename EncodingTraits<BooleanType>::DictAccumulator* builder) override {
+    ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
+  }
+
+ private:
+  std::shared_ptr<::arrow::util::RleDecoder> decoder_;
+};
+
+// ----------------------------------------------------------------------
 // DELTA_BYTE_ARRAY
 
 class DeltaByteArrayDecoder : public DecoderImpl,
@@ -2651,19 +2709,19 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   if (use_dictionary) {
     switch (type_num) {
       case Type::INT32:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<Int32Type>(descr, pool));
+        return std::make_unique<DictEncoderImpl<Int32Type>>(descr, pool);
       case Type::INT64:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<Int64Type>(descr, pool));
+        return std::make_unique<DictEncoderImpl<Int64Type>>(descr, pool);
       case Type::INT96:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<Int96Type>(descr, pool));
+        return std::make_unique<DictEncoderImpl<Int96Type>>(descr, pool);
       case Type::FLOAT:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<FloatType>(descr, pool));
+        return std::make_unique<DictEncoderImpl<FloatType>>(descr, pool);
       case Type::DOUBLE:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<DoubleType>(descr, pool));
+        return std::make_unique<DictEncoderImpl<DoubleType>>(descr, pool);
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<ByteArrayType>(descr, pool));
+        return std::make_unique<DictEncoderImpl<ByteArrayType>>(descr, pool);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<FLBAType>(descr, pool));
+        return std::make_unique<DictEncoderImpl<FLBAType>>(descr, pool);
       default:
         DCHECK(false) << "Encoder not implemented";
         break;
@@ -2671,21 +2729,21 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::PLAIN) {
     switch (type_num) {
       case Type::BOOLEAN:
-        return std::unique_ptr<Encoder>(new PlainEncoder<BooleanType>(descr, pool));
+        return std::make_unique<PlainEncoder<BooleanType>>(descr, pool);
       case Type::INT32:
-        return std::unique_ptr<Encoder>(new PlainEncoder<Int32Type>(descr, pool));
+        return std::make_unique<PlainEncoder<Int32Type>>(descr, pool);
       case Type::INT64:
-        return std::unique_ptr<Encoder>(new PlainEncoder<Int64Type>(descr, pool));
+        return std::make_unique<PlainEncoder<Int64Type>>(descr, pool);
       case Type::INT96:
-        return std::unique_ptr<Encoder>(new PlainEncoder<Int96Type>(descr, pool));
+        return std::make_unique<PlainEncoder<Int96Type>>(descr, pool);
       case Type::FLOAT:
-        return std::unique_ptr<Encoder>(new PlainEncoder<FloatType>(descr, pool));
+        return std::make_unique<PlainEncoder<FloatType>>(descr, pool);
       case Type::DOUBLE:
-        return std::unique_ptr<Encoder>(new PlainEncoder<DoubleType>(descr, pool));
+        return std::make_unique<PlainEncoder<DoubleType>>(descr, pool);
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new PlainEncoder<ByteArrayType>(descr, pool));
+        return std::make_unique<PlainEncoder<ByteArrayType>>(descr, pool);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new PlainEncoder<FLBAType>(descr, pool));
+        return std::make_unique<PlainEncoder<FLBAType>>(descr, pool);
       default:
         DCHECK(false) << "Encoder not implemented";
         break;
@@ -2714,30 +2772,30 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
   if (encoding == Encoding::PLAIN) {
     switch (type_num) {
       case Type::BOOLEAN:
-        return std::unique_ptr<Decoder>(new PlainBooleanDecoder(descr));
+        return std::make_unique<PlainBooleanDecoder>(descr);
       case Type::INT32:
-        return std::unique_ptr<Decoder>(new PlainDecoder<Int32Type>(descr));
+        return std::make_unique<PlainDecoder<Int32Type>>(descr);
       case Type::INT64:
-        return std::unique_ptr<Decoder>(new PlainDecoder<Int64Type>(descr));
+        return std::make_unique<PlainDecoder<Int64Type>>(descr);
       case Type::INT96:
-        return std::unique_ptr<Decoder>(new PlainDecoder<Int96Type>(descr));
+        return std::make_unique<PlainDecoder<Int96Type>>(descr);
       case Type::FLOAT:
-        return std::unique_ptr<Decoder>(new PlainDecoder<FloatType>(descr));
+        return std::make_unique<PlainDecoder<FloatType>>(descr);
       case Type::DOUBLE:
-        return std::unique_ptr<Decoder>(new PlainDecoder<DoubleType>(descr));
+        return std::make_unique<PlainDecoder<DoubleType>>(descr);
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Decoder>(new PlainByteArrayDecoder(descr));
+        return std::make_unique<PlainByteArrayDecoder>(descr);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::unique_ptr<Decoder>(new PlainFLBADecoder(descr));
+        return std::make_unique<PlainFLBADecoder>(descr);
       default:
         break;
     }
   } else if (encoding == Encoding::BYTE_STREAM_SPLIT) {
     switch (type_num) {
       case Type::FLOAT:
-        return std::unique_ptr<Decoder>(new ByteStreamSplitDecoder<FloatType>(descr));
+        return std::make_unique<ByteStreamSplitDecoder<FloatType>>(descr);
       case Type::DOUBLE:
-        return std::unique_ptr<Decoder>(new ByteStreamSplitDecoder<DoubleType>(descr));
+        return std::make_unique<ByteStreamSplitDecoder<DoubleType>>(descr);
       default:
         throw ParquetException("BYTE_STREAM_SPLIT only supports FLOAT and DOUBLE");
         break;
@@ -2745,23 +2803,28 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::DELTA_BINARY_PACKED) {
     switch (type_num) {
       case Type::INT32:
-        return std::unique_ptr<Decoder>(new DeltaBitPackDecoder<Int32Type>(descr));
+        return std::make_unique<DeltaBitPackDecoder<Int32Type>>(descr);
       case Type::INT64:
-        return std::unique_ptr<Decoder>(new DeltaBitPackDecoder<Int64Type>(descr));
+        return std::make_unique<DeltaBitPackDecoder<Int64Type>>(descr);
       default:
         throw ParquetException("DELTA_BINARY_PACKED only supports INT32 and INT64");
         break;
     }
   } else if (encoding == Encoding::DELTA_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
-      return std::unique_ptr<Decoder>(new DeltaByteArrayDecoder(descr));
+      return std::make_unique<DeltaByteArrayDecoder>(descr);
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
-      return std::unique_ptr<Decoder>(new DeltaLengthByteArrayDecoder(descr));
+      return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
     }
     throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
+  } else if (encoding == Encoding::RLE) {
+    if (type_num == Type::BOOLEAN) {
+      return std::unique_ptr<Decoder>(new RleBooleanDecoder(descr));
+    }
+    throw ParquetException("RLE encoding only supports BOOLEAN");
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }
@@ -2777,19 +2840,19 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
     case Type::BOOLEAN:
       ParquetException::NYI("Dictionary encoding not implemented for boolean type");
     case Type::INT32:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<Int32Type>(descr, pool));
+      return std::make_unique<DictDecoderImpl<Int32Type>>(descr, pool);
     case Type::INT64:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<Int64Type>(descr, pool));
+      return std::make_unique<DictDecoderImpl<Int64Type>>(descr, pool);
     case Type::INT96:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<Int96Type>(descr, pool));
+      return std::make_unique<DictDecoderImpl<Int96Type>>(descr, pool);
     case Type::FLOAT:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<FloatType>(descr, pool));
+      return std::make_unique<DictDecoderImpl<FloatType>>(descr, pool);
     case Type::DOUBLE:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<DoubleType>(descr, pool));
+      return std::make_unique<DictDecoderImpl<DoubleType>>(descr, pool);
     case Type::BYTE_ARRAY:
-      return std::unique_ptr<Decoder>(new DictByteArrayDecoderImpl(descr, pool));
+      return std::make_unique<DictByteArrayDecoderImpl>(descr, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<FLBAType>(descr, pool));
+      return std::make_unique<DictDecoderImpl<FLBAType>>(descr, pool);
     default:
       break;
   }

@@ -73,11 +73,11 @@ func NewFileWriter(arrschema *arrow.Schema, w io.Writer, props *parquet.WriterPr
 	}
 
 	meta := make(metadata.KeyValueMetadata, 0)
-	if arrprops.storeSchema {
-		for i := 0; i < arrschema.Metadata().Len(); i++ {
-			meta.Append(arrschema.Metadata().Keys()[i], arrschema.Metadata().Values()[i])
-		}
+	for i := 0; i < arrschema.Metadata().Len(); i++ {
+		meta.Append(arrschema.Metadata().Keys()[i], arrschema.Metadata().Values()[i])
+	}
 
+	if arrprops.storeSchema {
 		serializedSchema := flight.SerializeSchema(arrschema, props.Allocator())
 		meta.Append("ARROW:schema", base64.StdEncoding.EncodeToString(serializedSchema))
 	}

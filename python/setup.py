@@ -220,6 +220,7 @@ class build_ext(_build_ext):
         '_feather',
         '_parquet',
         '_parquet_encryption',
+        '_pyarrow_cpp_tests',
         '_orc',
         '_plasma',
         '_gcsfs',
@@ -231,9 +232,10 @@ class build_ext(_build_ext):
 
     def _run_cmake_pyarrow_cpp(self, pyarrow_cpp_home):
         # check if build_type is correctly passed / set
-        if self.build_type.lower() not in ('release', 'debug'):
+        if self.build_type.lower() not in ('release', 'debug',
+                                           'relwithdebinfo'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
-                             "be 'release' or 'debug'")
+                             "be 'release', 'debug' or 'relwithdebinfo'")
 
         # The directory containing this setup.py
         source = os.path.dirname(os.path.abspath(__file__))
@@ -257,8 +259,9 @@ class build_ext(_build_ext):
                 '-DCMAKE_BUILD_TYPE=' + str(self.build_type.lower()),
                 '-DCMAKE_INSTALL_LIBDIR=lib',
                 '-DCMAKE_INSTALL_PREFIX=' + str(pyarrow_cpp_home),
-                '-DPYTHON_EXECUTABLE=' + str(sys.executable),
-                '-DPython3_EXECUTABLE=' + str(sys.executable),
+                '-DPYTHON_EXECUTABLE=' + sys.executable,
+                '-DPython3_EXECUTABLE=' + sys.executable,
+                '-DPYARROW_CXXFLAGS=' + str(self.cmake_cxxflags),
             ]
 
             # Check for specific options
@@ -278,6 +281,8 @@ class build_ext(_build_ext):
 
             # build args
             build_tool_args = []
+            if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
+                cmake_options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
             if os.environ.get('PYARROW_PARALLEL'):
                 build_tool_args.append('--')
                 build_tool_args.append(
@@ -296,9 +301,10 @@ class build_ext(_build_ext):
 
     def _run_cmake(self, pyarrow_cpp_home):
         # check if build_type is correctly passed / set
-        if self.build_type.lower() not in ('release', 'debug'):
+        if self.build_type.lower() not in ('release', 'debug',
+                                           'relwithdebinfo'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
-                             "be 'release' or 'debug'")
+                             "be 'release', 'debug' or 'relwithdebinfo'")
 
         # The directory containing this setup.py
         source = os.path.dirname(os.path.abspath(__file__))
@@ -335,9 +341,10 @@ class build_ext(_build_ext):
             static_lib_option = ''
 
             cmake_options = [
-                '-DPYTHON_EXECUTABLE=%s' % sys.executable,
-                '-DPython3_EXECUTABLE=%s' % sys.executable,
+                '-DPYTHON_EXECUTABLE=' + sys.executable,
+                '-DPython3_EXECUTABLE=' + sys.executable,
                 '-DPYARROW_CPP_HOME=' + str(pyarrow_cpp_home),
+                '-DPYARROW_CXXFLAGS=' + str(self.cmake_cxxflags),
                 static_lib_option,
             ]
 

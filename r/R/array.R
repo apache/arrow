@@ -303,7 +303,7 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
     fields <- type$fields()
     names <- map_chr(fields, "name")
     types <- map(fields, "type")
-    arrays <- Map(as_arrow_array, x, types)
+    arrays <- Map(as_arrow_array, x, type = types)
     names(arrays) <- names
 
     # TODO(ARROW-16266): a hack because there is no StructArray$create() yet
@@ -320,6 +320,26 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
   } else {
     stop_cant_convert_array(x, type)
   }
+}
+
+#' @export
+as_arrow_array.vctrs_list_of <- function(x, ..., type = NULL) {
+  type <- type %||% infer_type(x)
+  if (!inherits(type, "ListType") && !inherits(type, "LargeListType")) {
+    stop_cant_convert_array(x, type)
+  }
+
+  as_arrow_array(unclass(x), type = type)
+}
+
+#' @export
+as_arrow_array.blob <- function(x, ..., type = NULL) {
+  type <- type %||% infer_type(x)
+  if (!type$Equals(binary()) && !type$Equals(large_binary())) {
+    stop_cant_convert_array(x, type)
+  }
+
+  as_arrow_array(unclass(x), type = type)
 }
 
 stop_cant_convert_array <- function(x, type) {

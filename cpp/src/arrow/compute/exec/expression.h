@@ -22,13 +22,13 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/small_vector.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace compute {
@@ -100,6 +100,8 @@ class ARROW_EXPORT Expression {
   // XXX someday
   // Result<PipelineGraph> GetPipelines();
 
+  bool is_valid() const { return impl_ != NULLPTR; }
+
   /// Access a Call or return nullptr if this expression is not a call
   const Call* call() const;
   /// Access a Datum or return nullptr if this expression is not a literal
@@ -127,16 +129,16 @@ class ARROW_EXPORT Expression {
   explicit Expression(Parameter parameter);
 
  private:
-  using Impl = util::Variant<Datum, Parameter, Call>;
+  using Impl = std::variant<Datum, Parameter, Call>;
   std::shared_ptr<Impl> impl_;
 
-  ARROW_EXPORT friend bool Identical(const Expression& l, const Expression& r);
-
-  ARROW_EXPORT friend void PrintTo(const Expression&, std::ostream*);
+  ARROW_FRIEND_EXPORT friend bool Identical(const Expression& l, const Expression& r);
 };
 
 inline bool operator==(const Expression& l, const Expression& r) { return l.Equals(r); }
 inline bool operator!=(const Expression& l, const Expression& r) { return !l.Equals(r); }
+
+ARROW_EXPORT void PrintTo(const Expression&, std::ostream*);
 
 // Factories
 

@@ -83,6 +83,14 @@ public class GenerateSampleData {
       writeTimeStampData((TimeStampMilliTZVector) vector, valueCount);
     } else if (vector instanceof TimeStampNanoTZVector) {
       writeTimeStampData((TimeStampNanoTZVector) vector, valueCount);
+    } else if (vector instanceof UInt1Vector) {
+      writeUInt1Data((UInt1Vector) vector, valueCount);
+    } else if (vector instanceof UInt2Vector) {
+      writeUInt2Data((UInt2Vector) vector, valueCount);
+    } else if (vector instanceof UInt4Vector) {
+      writeUInt4Data((UInt4Vector) vector, valueCount);
+    } else if (vector instanceof UInt8Vector) {
+      writeUInt8Data((UInt8Vector) vector, valueCount);
     }
   }
 
@@ -257,6 +265,58 @@ public class GenerateSampleData {
   private static void writeTinyIntData(TinyIntVector vector, int valueCount) {
     final byte even = 1;
     final byte odd = 2;
+    for (int i = 0; i < valueCount; i++) {
+      if (i % 2 == 0) {
+        vector.setSafe(i, even);
+      } else {
+        vector.setSafe(i, odd);
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
+
+  private static void writeUInt1Data(UInt1Vector vector, int valueCount) {
+    final byte even = 1;
+    final byte odd = 2;
+    for (int i = 0; i < valueCount; i++) {
+      if (i % 2 == 0) {
+        vector.setSafe(i, even);
+      } else {
+        vector.setSafe(i, odd);
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
+
+  private static void writeUInt2Data(UInt2Vector vector, int valueCount) {
+    final short even = 10;
+    final short odd = 20;
+    for (int i = 0; i < valueCount; i++) {
+      if (i % 2 == 0) {
+        vector.setSafe(i, even);
+      } else {
+        vector.setSafe(i, odd);
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
+
+  private static void writeUInt4Data(UInt4Vector vector, int valueCount) {
+    final int even = 1000;
+    final int odd = 2000;
+    for (int i = 0; i < valueCount; i++) {
+      if (i % 2 == 0) {
+        vector.setSafe(i, even);
+      } else {
+        vector.setSafe(i, odd);
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
+
+  private static void writeUInt8Data(UInt8Vector vector, int valueCount) {
+    final long even = 1000000000;
+    final long odd = 2000000000;
     for (int i = 0; i < valueCount; i++) {
       if (i % 2 == 0) {
         vector.setSafe(i, even);

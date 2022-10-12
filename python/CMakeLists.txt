@@ -43,6 +43,12 @@ include(CMakeParseArguments)
 # https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
 cmake_policy(SET CMP0054 NEW)
 
+# find_package() uses <PackageName>_ROOT variables.
+# https://cmake.org/cmake/help/latest/policy/CMP0074.html
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
+
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first
@@ -59,7 +65,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.13)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
@@ -170,8 +176,11 @@ endif()
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# Add C++-only flags, like -std=c++11
+# Add C++-only flags, like -std=c++17
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
+
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 if(MSVC)
   # MSVC makes its own output directories based on the build configuration
@@ -212,11 +221,6 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
-if(PYARROW_USE_TENSORFLOW)
-  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-endif()
 
 # Python and Numpy libraries
 find_package(Python3Alt REQUIRED)
@@ -412,7 +416,8 @@ set(CYTHON_EXTENSIONS
     _feather
     _fs
     _hdfsio
-    _json)
+    _json
+    _pyarrow_cpp_tests)
 
 set(LINK_LIBS ArrowPython::arrow_python_shared)
 
@@ -590,6 +595,9 @@ endif()
 if(PYARROW_GENERATE_COVERAGE)
   set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xlinetrace=True")
 endif()
+
+# Error on any warnings not already explicitly ignored.
+set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
 
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})

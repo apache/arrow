@@ -32,13 +32,14 @@ echo "=== Building Arrow C++ libraries ==="
 install_dir=${build_dir}/cpp-install
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
-: ${ARROW_FILESYSTEM:=ON}
-: ${ARROW_GANDIVA_JAVA:=ON}
+export ARROW_DATASET
 : ${ARROW_GANDIVA:=ON}
+export ARROW_GANDIVA
 : ${ARROW_ORC:=ON}
+export ARROW_ORC
 : ${ARROW_PARQUET:=ON}
-: ${ARROW_PLASMA_JAVA_CLIENT:=ON}
 : ${ARROW_PLASMA:=ON}
+export ARROW_PLASMA
 : ${ARROW_S3:=ON}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
@@ -59,19 +60,14 @@ pushd "${build_dir}/cpp"
 cmake \
   -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
-  -DARROW_BUILD_UTILITIES=OFF \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
-  -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
-  -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA} \
   -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
-  -DARROW_JNI=ON \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
   -DARROW_PLASMA=${ARROW_PLASMA} \
-  -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT} \
   -DARROW_S3=${ARROW_S3} \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
   -DAWSSDK_SOURCE=BUNDLED \
@@ -79,6 +75,7 @@ cmake \
   -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${install_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
+  -DGTest_SOURCE=BUNDLED \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=OFF \
@@ -114,14 +111,8 @@ if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   ccache -s
 fi
 
-echo "=== Copying libraries to the distribution folder ==="
-mkdir -p "${dist_dir}"
-cp -L ${install_dir}/lib/libarrow_orc_jni.dylib ${dist_dir}
-cp -L ${install_dir}/lib/libgandiva_jni.dylib ${dist_dir}
-cp -L ${build_dir}/cpp/*/libplasma_java.dylib ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="
-
 pushd ${dist_dir}
 archery linking check-dependencies \
   --allow CoreFoundation \

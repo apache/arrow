@@ -54,7 +54,7 @@ struct DictionaryValue {
 
 template <typename T>
 struct DictionaryValue<T, enable_if_base_binary<T>> {
-  using type = util::string_view;
+  using type = std::string_view;
   using PhysicalType =
       typename std::conditional<std::is_same<typename T::offset_type, int32_t>::value,
                                 BinaryType, LargeBinaryType>::type;
@@ -62,7 +62,7 @@ struct DictionaryValue<T, enable_if_base_binary<T>> {
 
 template <typename T>
 struct DictionaryValue<T, enable_if_fixed_size_binary<T>> {
-  using type = util::string_view;
+  using type = std::string_view;
   using PhysicalType = BinaryType;
 };
 
@@ -112,8 +112,8 @@ class ARROW_EXPORT DictionaryMemoTable {
   Status GetOrInsert(const FloatType*, float value, int32_t* out);
   Status GetOrInsert(const DoubleType*, double value, int32_t* out);
 
-  Status GetOrInsert(const BinaryType*, util::string_view value, int32_t* out);
-  Status GetOrInsert(const LargeBinaryType*, util::string_view value, int32_t* out);
+  Status GetOrInsert(const BinaryType*, std::string_view value, int32_t* out);
+  Status GetOrInsert(const LargeBinaryType*, std::string_view value, int32_t* out);
 
   class DictionaryMemoTableImpl;
   std::unique_ptr<DictionaryMemoTableImpl> impl_;
@@ -257,13 +257,13 @@ class DictionaryBuilderBase : public ArrayBuilder {
   /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
   template <typename T1 = T>
   enable_if_fixed_size_binary<T1, Status> Append(const uint8_t* value) {
-    return Append(util::string_view(reinterpret_cast<const char*>(value), byte_width_));
+    return Append(std::string_view(reinterpret_cast<const char*>(value), byte_width_));
   }
 
   /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
   template <typename T1 = T>
   enable_if_fixed_size_binary<T1, Status> Append(const char* value) {
-    return Append(util::string_view(value, byte_width_));
+    return Append(std::string_view(value, byte_width_));
   }
 
   /// \brief Append a string (only for binary types)
@@ -275,13 +275,13 @@ class DictionaryBuilderBase : public ArrayBuilder {
   /// \brief Append a string (only for binary types)
   template <typename T1 = T>
   enable_if_binary_like<T1, Status> Append(const char* value, int32_t length) {
-    return Append(util::string_view(value, length));
+    return Append(std::string_view(value, length));
   }
 
   /// \brief Append a string (only for string types)
   template <typename T1 = T>
   enable_if_string_like<T1, Status> Append(const char* value, int32_t length) {
-    return Append(util::string_view(value, length));
+    return Append(std::string_view(value, length));
   }
 
   /// \brief Append a decimal (only for Decimal128Type)

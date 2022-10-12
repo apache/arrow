@@ -17,12 +17,14 @@
 
 #include "arrow/compute/exec/expression.h"
 
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/io/memory.h"
@@ -31,7 +33,6 @@
 #include "arrow/util/hash_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/vector.h"
@@ -40,6 +41,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::EndsWith;
 
 namespace compute {
 
@@ -76,10 +78,16 @@ Expression call(std::string function, std::vector<Expression> arguments,
   return Expression(std::move(call));
 }
 
-const Datum* Expression::literal() const { return util::get_if<Datum>(impl_.get()); }
+const Datum* Expression::literal() const {
+  if (impl_ == nullptr) return nullptr;
+
+  return std::get_if<Datum>(impl_.get());
+}
 
 const Expression::Parameter* Expression::parameter() const {
-  return util::get_if<Parameter>(impl_.get());
+  if (impl_ == nullptr) return nullptr;
+
+  return std::get_if<Parameter>(impl_.get());
 }
 
 const FieldRef* Expression::field_ref() const {
@@ -90,7 +98,9 @@ const FieldRef* Expression::field_ref() const {
 }
 
 const Expression::Call* Expression::call() const {
-  return util::get_if<Call>(impl_.get());
+  if (impl_ == nullptr) return nullptr;
+
+  return std::get_if<Call>(impl_.get());
 }
 
 const DataType* Expression::type() const {
@@ -117,8 +127,7 @@ std::string PrintDatum(const Datum& datum) {
       case Type::STRING:
       case Type::LARGE_STRING:
         return '"' +
-               Escape(util::string_view(*datum.scalar_as<BaseBinaryScalar>().value)) +
-               '"';
+               Escape(std::string_view(*datum.scalar_as<BaseBinaryScalar>().value)) + '"';
 
       case Type::BINARY:
       case Type::FIXED_SIZE_BINARY:
@@ -163,8 +172,8 @@ std::string Expression::ToString() const {
     return binary(Comparison::GetOp(*cmp));
   }
 
-  constexpr util::string_view kleene = "_kleene";
-  if (util::string_view{call->function_name}.ends_with(kleene)) {
+  constexpr std::string_view kleene = "_kleene";
+  if (EndsWith(call->function_name, kleene)) {
     auto op = call->function_name.substr(0, call->function_name.size() - kleene.size());
     return binary(std::move(op));
   }
@@ -187,11 +196,11 @@ std::string Expression::ToString() const {
 
   if (call->options) {
     out += call->options->ToString();
-    out.resize(out.size() + 1);
-  } else {
-    out.resize(out.size() - 1);
+  } else if (call->arguments.size()) {
+    out.resize(out.size() - 2);
   }
-  out.back() = ')';
+
+  out += ')';
   return out;
 }
 
@@ -309,13 +318,12 @@ bool Expression::IsNullLiteral() const {
 }
 
 namespace {
-util::optional<compute::NullHandling::type> GetNullHandling(
-    const Expression::Call& call) {
+std::optional<compute::NullHandling::type> GetNullHandling(const Expression::Call& call) {
   DCHECK_NE(call.function, nullptr);
   if (call.function->kind() == compute::Function::SCALAR) {
     return static_cast<const compute::ScalarKernel*>(call.kernel)->null_handling;
   }
-  return util::nullopt;
+  return std::nullopt;
 }
 }  // namespace
 
@@ -616,8 +624,8 @@ ArgumentsAndFlippedArguments(const Expression::Call& call) {
 
 template <typename BinOp, typename It,
           typename Out = typename std::iterator_traits<It>::value_type>
-util::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
-  if (begin == end) return util::nullopt;
+std::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
+  if (begin == end) return std::nullopt;
 
   Out folded = std::move(*begin++);
   while (begin != end) {
@@ -655,7 +663,7 @@ bool ExpressionHasFieldRefs(const Expression& expr) {
 }
 
 Result<Expression> FoldConstants(Expression expr) {
-  return Modify(
+  return ModifyExpression(
       std::move(expr), [](Expression expr) { return expr; },
       [](Expression expr, ...) -> Result<Expression> {
         auto call = CallNotNull(expr);
@@ -738,18 +746,18 @@ std::vector<Expression> GuaranteeConjunctionMembers(
 /// Recognizes expressions of the form:
 /// equal(a, 2)
 /// is_null(a)
-util::optional<std::pair<FieldRef, Datum>> ExtractOneFieldValue(
+std::optional<std::pair<FieldRef, Datum>> ExtractOneFieldValue(
     const Expression& guarantee) {
   auto call = guarantee.call();
-  if (!call) return util::nullopt;
+  if (!call) return std::nullopt;
 
   // search for an equality conditions between a field and a literal
   if (call->function_name == "equal") {
     auto ref = call->arguments[0].field_ref();
-    if (!ref) return util::nullopt;
+    if (!ref) return std::nullopt;
 
     auto lit = call->arguments[1].literal();
-    if (!lit) return util::nullopt;
+    if (!lit) return std::nullopt;
 
     return std::make_pair(*ref, *lit);
   }
@@ -757,12 +765,12 @@ util::optional<std::pair<FieldRef, Datum>> ExtractOneFieldValue(
   // ... or a known null field
   if (call->function_name == "is_null") {
     auto ref = call->arguments[0].field_ref();
-    if (!ref) return util::nullopt;
+    if (!ref) return std::nullopt;
 
     return std::make_pair(*ref, Datum(std::make_shared<NullScalar>()));
   }
 
-  return util::nullopt;
+  return std::nullopt;
 }
 
 // Conjunction members which are represented in known_values are erased from
@@ -800,7 +808,7 @@ Result<Expression> ReplaceFieldsWithKnownValues(const KnownFieldValues& known_va
         "ReplaceFieldsWithKnownValues called on an unbound Expression");
   }
 
-  return Modify(
+  return ModifyExpression(
       std::move(expr),
       [&known_values](Expression expr) -> Result<Expression> {
         if (auto ref = expr.field_ref()) {
@@ -871,7 +879,7 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
     }
   } AlreadyCanonicalized;
 
-  return Modify(
+  return ModifyExpression(
       std::move(expr),
       [&AlreadyCanonicalized, exec_context](Expression expr) -> Result<Expression> {
         auto call = expr.call();
@@ -953,24 +961,24 @@ struct Inequality {
   // possibly disjuncted with an "is_null" Expression.
   // cmp(a, 2)
   // cmp(a, 2) or is_null(a)
-  static util::optional<Inequality> ExtractOne(const Expression& guarantee) {
+  static std::optional<Inequality> ExtractOne(const Expression& guarantee) {
     auto call = guarantee.call();
-    if (!call) return util::nullopt;
+    if (!call) return std::nullopt;
 
     if (call->function_name == "or_kleene") {
       // expect the LHS to be a usable field inequality
       auto out = ExtractOneFromComparison(call->arguments[0]);
-      if (!out) return util::nullopt;
+      if (!out) return std::nullopt;
 
       // expect the RHS to be an is_null expression
       auto call_rhs = call->arguments[1].call();
-      if (!call_rhs) return util::nullopt;
-      if (call_rhs->function_name != "is_null") return util::nullopt;
+      if (!call_rhs) return std::nullopt;
+      if (call_rhs->function_name != "is_null") return std::nullopt;
 
       // ... and that it references the same target
       auto target = call_rhs->arguments[0].field_ref();
-      if (!target) return util::nullopt;
-      if (*target != out->target) return util::nullopt;
+      if (!target) return std::nullopt;
+      if (*target != out->target) return std::nullopt;
 
       out->nullable = true;
       return out;
@@ -980,26 +988,25 @@ struct Inequality {
     return ExtractOneFromComparison(guarantee);
   }
 
-  static util::optional<Inequality> ExtractOneFromComparison(
-      const Expression& guarantee) {
+  static std::optional<Inequality> ExtractOneFromComparison(const Expression& guarantee) {
     auto call = guarantee.call();
-    if (!call) return util::nullopt;
+    if (!call) return std::nullopt;
 
     if (auto cmp = Comparison::Get(call->function_name)) {
       // not_equal comparisons are not very usable as guarantees
-      if (*cmp == Comparison::NOT_EQUAL) return util::nullopt;
+      if (*cmp == Comparison::NOT_EQUAL) return std::nullopt;
 
       auto target = call->arguments[0].field_ref();
-      if (!target) return util::nullopt;
+      if (!target) return std::nullopt;
 
       auto bound = call->arguments[1].literal();
-      if (!bound) return util::nullopt;
-      if (!bound->is_scalar()) return util::nullopt;
+      if (!bound) return std::nullopt;
+      if (!bound->is_scalar()) return std::nullopt;
 
       return Inequality{*cmp, /*target=*/*target, *bound, /*nullable=*/false};
     }
 
-    return util::nullopt;
+    return std::nullopt;
   }
 
   /// The given expression simplifies to `value` if the inequality
@@ -1114,7 +1121,7 @@ Result<Expression> SimplifyIsValidGuarantee(Expression expr,
                                             const Expression::Call& guarantee) {
   if (guarantee.function_name != "is_valid") return expr;
 
-  return Modify(
+  return ModifyExpression(
       std::move(expr), [](Expression expr) { return expr; },
       [&](Expression expr, ...) -> Result<Expression> {
         auto call = expr.call();
@@ -1156,7 +1163,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
 
     if (auto inequality = Inequality::ExtractOne(guarantee)) {
       ARROW_ASSIGN_OR_RAISE(auto simplified,
-                            Modify(
+                            ModifyExpression(
                                 std::move(expr), [](Expression expr) { return expr; },
                                 [&](Expression expr, ...) -> Result<Expression> {
                                   return inequality->Simplify(std::move(expr));

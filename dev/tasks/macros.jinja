@@ -286,14 +286,19 @@ on:
 {%- macro github_test_r_src_pkg() -%}
   source("https://raw.githubusercontent.com/apache/arrow/HEAD/ci/etc/rprofile")
 
+  # always remove arrow (mainly for self-hosted runners)
+  try(remove.packages("arrow"), silent = TRUE)
+
   install.packages(
     "arrow",
     repos = c(getOption("arrow.dev_repo"), getOption("repos")),
-    verbose = TRUE
+    verbose = TRUE,
+    INSTALL_opts = "--build"
   )
 
   library(arrow)
   read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+  print(arrow_info())
 
   # Our Version should always be > CRAN so we would detect a CRAN version here.
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
@@ -350,8 +355,8 @@ on:
   {# use filter to cast to string and convert to lowercase to match yaml boolean #}
   {% set is_fork = (not is_upstream_b)|lower %}
 
-{% set r_release = '4.2' %}
-{% set r_oldrel = '4.1' %}
+{% set r_release = {"ver": "4.2", "rt" : "42"} %}
+{% set r_oldrel = {"ver": "4.1", "rt" : "40"} %}
 
 {%- macro github_set_env(env) -%}
   {% if env is defined %}
@@ -361,3 +366,16 @@ on:
     {% endfor %}
   {% endif %}
 {%- endmacro -%}
+
+{% macro github_set_sccache_envvars(sccache_key_prefix = "sccache") %}
+  {% set sccache_vars =  {
+            "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
+            "AWS_ACCESS_KEY_ID": '${{ secrets.AWS_ACCESS_KEY_ID }}',
+            "SCCACHE_BUCKET": '${{ secrets.SCCACHE_BUCKET }}',
+            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
+          }
+ %}
+  {% for key, value in sccache_vars.items() %}
+  {{ key }}: "{{ value }}"
+  {% endfor %}
+{% endmacro %}

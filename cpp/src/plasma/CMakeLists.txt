@@ -83,6 +83,9 @@ add_arrow_lib(plasma
               plasma
               SOURCES
               ${PLASMA_SRCS}
+              DEFINITIONS
+              "ARROW_EXPORTING"
+              "_PLASMA_NO_DEPRECATE"
               OUTPUTS
               PLASMA_LIBRARIES
               SHARED_LINK_FLAGS
@@ -97,10 +100,6 @@ add_arrow_lib(plasma
               ${PLASMA_STATIC_INSTALL_INTERFACE_LIBS})
 
 add_dependencies(plasma ${PLASMA_LIBRARIES})
-
-foreach(LIB_TARGET ${PLASMA_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-endforeach()
 
 # The optimization flag -O3 is suggested by dlmalloc.c, which is #included in
 # malloc.cc; we set it here regardless of whether we do a debug or release build.
@@ -134,6 +133,7 @@ else()
   target_link_libraries(plasma-store-server plasma_shared ${PLASMA_LINK_LIBS})
 endif()
 target_link_libraries(plasma-store-server ${GFLAGS_LIBRARIES})
+target_compile_definitions(plasma-store-server PRIVATE _PLASMA_NO_DEPRECATE)
 add_dependencies(plasma plasma-store-server)
 
 if(ARROW_RPATH_ORIGIN)
@@ -171,44 +171,6 @@ install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL}
         EXPORT plasma_targets
         DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-if(ARROW_PLASMA_JAVA_CLIENT)
-  # Plasma java client support
-  find_package(JNI REQUIRED)
-  # add jni support
-  include_directories(${JAVA_INCLUDE_PATH})
-  include_directories(${JAVA_INCLUDE_PATH2})
-  if(JNI_FOUND)
-    message(STATUS "JNI_INCLUDE_DIRS = ${JNI_INCLUDE_DIRS}")
-    message(STATUS "JNI_LIBRARIES = ${JNI_LIBRARIES}")
-  else()
-    message(WARNING "Could not find JNI")
-  endif()
-
-  add_compile_options("-I$ENV{JAVA_HOME}/include/")
-  if(WIN32)
-    add_compile_options("-I$ENV{JAVA_HOME}/include/win32")
-  elseif(APPLE)
-    add_compile_options("-I$ENV{JAVA_HOME}/include/darwin")
-  else() # linux
-    add_compile_options("-I$ENV{JAVA_HOME}/include/linux")
-  endif()
-
-  include_directories("${CMAKE_CURRENT_LIST_DIR}/lib/java")
-
-  file(GLOB PLASMA_LIBRARY_EXT_java_SRC lib/java/*.cc lib/*.cc)
-  add_library(plasma_java SHARED ${PLASMA_LIBRARY_EXT_java_SRC})
-
-  if(APPLE)
-    target_link_libraries(plasma_java
-                          plasma_static
-                          ${PLASMA_STATIC_LINK_LIBS}
-                          "-undefined dynamic_lookup"
-                          ${PTHREAD_LIBRARY})
-  else()
-    target_link_libraries(plasma_java plasma_static ${PLASMA_STATIC_LINK_LIBS}
-                          ${PTHREAD_LIBRARY})
-  endif()
-endif()
 #
 # Unit tests
 #
@@ -228,6 +190,8 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
                 "plasma"
                 LABELS
                 "plasma-tests"
+                DEFINITIONS
+                _PLASMA_NO_DEPRECATE
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 

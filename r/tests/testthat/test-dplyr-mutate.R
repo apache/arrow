@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
@@ -641,4 +639,20 @@ test_that("Can use across() within mutate()", {
     "window functions not currently supported in Arrow; pulling data into R",
     fixed = TRUE
   )
+})
+
+test_that("Can use across() within transmute()", {
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        dbl2 = dbl * 2,
+        across(c(dbl, dbl2), round),
+        int2 = int * 2,
+        dbl = dbl + 3
+      ) %>%
+      collect(),
+    example_data
+  )
+
 })

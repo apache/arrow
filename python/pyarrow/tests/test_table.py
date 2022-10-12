@@ -2192,3 +2192,15 @@ def test_table_join_many_columns():
         "col6": ["A", "B", None, "Z"],
         "col7": ["A", "B", None, "Z"],
     })
+
+
+def test_table_cast_invalid():
+    # Casting a nullable field to non-nullable should be invalid!
+    table = pa.table({'a': [None, 1], 'b': [None, True]})
+    new_schema = pa.schema([pa.field("a", "int64", nullable=True),
+                            pa.field("b", "bool", nullable=False)])
+    with pytest.raises(ValueError):
+        table.cast(new_schema)
+
+    table = pa.table({'a': [None, 1], 'b': [False, True]})
+    assert table.cast(new_schema).schema == new_schema

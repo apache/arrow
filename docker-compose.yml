@@ -62,6 +62,12 @@ x-ccache: &ccache
   CCACHE_MAXSIZE: 1G
   CCACHE_DIR: /ccache
 
+x-sccache: &sccache
+  AWS_ACCESS_KEY_ID:
+  AWS_SECRET_ACCESS_KEY:
+  SCCACHE_BUCKET:
+  SCCACHE_S3_KEY_PREFIX: ${SCCACHE_S3_KEY_PREFIX:-sccache}
+
 # CPU/memory limit presets to pass to Docker.
 #
 # Usage: archery docker run --resource-limit=github <image>
@@ -109,7 +115,6 @@ x-hierarchy:
         - conda-python-hdfs
         - conda-python-java-integration
         - conda-python-jpype
-        - conda-python-kartothek
         - conda-python-spark
         - conda-python-turbodbc
   - conda-verify-rc
@@ -264,7 +269,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_BUILD_EXAMPLES: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -276,8 +281,9 @@ services:
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+    command: &conda-cpp-command
+      ["
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
   conda-cpp-valgrind:
@@ -298,7 +304,7 @@ services:
         arch: ${ARCH}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
@@ -311,9 +317,7 @@ services:
       ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
     volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build"]
+    command: *conda-cpp-command
 
   debian-cpp:
     # Usage:
@@ -334,7 +338,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
     volumes: &debian-volumes
@@ -375,7 +379,7 @@ services:
       - apparmor:unconfined
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
     volumes: &ubuntu-volumes
@@ -411,14 +415,16 @@ services:
       - apparmor:unconfined
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_HOME: /arrow
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       LIBARROW_MINIMAL: "false"
       ARROW_MIMALLOC: "ON"
     volumes: *ubuntu-volumes
-    command: /bin/bash -c "
-        cd /arrow && r/inst/build_arrow_static.sh"
+    command: &cpp-static-command
+      /bin/bash -c "
+        cd /arrow &&
+        r/inst/build_arrow_static.sh"
 
   centos-cpp-static:
     image: ${REPO}:centos-7-cpp-static
@@ -431,17 +437,12 @@ services:
     volumes:
       - .:/arrow:delegated
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_HOME: /arrow
       LIBARROW_MINIMAL: "false"
-      # Turn off features that aren't supported on CentOS 7 gcc 4.8
-      ARROW_GCS: "OFF"
-      ARROW_MIMALLOC: "OFF"
-      ARROW_S3: "OFF"
-    command: >
-      /bin/bash -c "
-        cd /arrow && r/inst/build_arrow_static.sh"
+    command: /bin/bash -c " 
+          scl enable devtoolset-8 '/arrow/r/inst/build_arrow_static.sh'"
 
   ubuntu-cpp-bundled:
     # Arrow build with BUNDLED dependencies
@@ -458,7 +459,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       CMAKE_GENERATOR: "Unix Makefiles"
     volumes: *ubuntu-volumes
@@ -556,7 +557,7 @@ services:
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
       ARROW_BUILD_STATIC: "OFF"
@@ -587,7 +588,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
       Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
@@ -606,12 +607,16 @@ services:
     #   See https://github.com/conan-io/conan-docker-tools#readme for
     #   available images.
     image: conanio/${CONAN}
+    user: root:root
     shm_size: *shm-size
     ulimits: *ulimits
+    environment:
+      <<: *sccache
     volumes:
       - .:/arrow:delegated
     command: >-
       /bin/bash -c "
+        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
         /arrow/ci/scripts/conan_setup.sh &&
         /arrow/ci/scripts/conan_build.sh /arrow /build"
 
@@ -751,10 +756,11 @@ services:
         python: ${PYTHON}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
     volumes: *conda-volumes
     command: &python-conda-command
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+      ["
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
@@ -1034,16 +1040,13 @@ services:
         pandas: ${PANDAS}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
       PYTEST_ARGS:  # inherit
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
+    command: *python-conda-command
 
   conda-python-docs:
     # Usage:
@@ -1201,37 +1204,6 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build"]
-
-  conda-python-kartothek:
-    # Possible $KARTOTHEK parameters:
-    #  - `latest`: latest release
-    #  - `master`: git master branch, use `docker-compose run --no-cache`
-    #  - `<version>`: specific version available under github releases
-    # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-kartothek
-    #   docker-compose run --rm conda-python-kartothek
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-kartothek-${KARTOTHEK}
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-kartothek.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-kartothek-${KARTOTHEK}
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-        kartothek: ${KARTOTHEK}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_kartothek.sh /kartothek /build"]
 
   ################################## R ########################################
 
@@ -1398,21 +1370,20 @@ services:
     # Usage:
     #   docker-compose build r-revdepcheck
     #   docker-compose run r-revdepcheck
-    image: ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+    image: ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+        - ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
       args:
-        base: rstudio/r-base:4.0-focal
+        base: rstudio/r-base:4.2-focal
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
     shm_size: *shm-size
     environment:
-      LIBARROW_DOWNLOAD: "true"
-      LIBARROW_MINIMAL: "false"
-      ARROW_SOURCE_HOME: "/arrow"
+      N_JOBS:
+      ARROW_REVDEP_WORKERS:
       ARROW_R_DEV: "true"
     volumes: *ubuntu-volumes
     command: >

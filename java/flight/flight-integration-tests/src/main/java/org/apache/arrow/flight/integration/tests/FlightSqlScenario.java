@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.integration.tests;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import org.apache.arrow.flight.CallOption;
@@ -42,9 +43,17 @@ import org.apache.arrow.vector.types.pojo.Schema;
  * and that the Arrow schemas are returned as expected.
  */
 public class FlightSqlScenario implements Scenario {
-
   public static final long UPDATE_STATEMENT_EXPECTED_ROWS = 10000L;
+  public static final long UPDATE_STATEMENT_WITH_TRANSACTION_EXPECTED_ROWS = 15000L;
   public static final long UPDATE_PREPARED_STATEMENT_EXPECTED_ROWS = 20000L;
+  public static final long UPDATE_PREPARED_STATEMENT_WITH_TRANSACTION_EXPECTED_ROWS = 25000L;
+  public static final byte[] SAVEPOINT_ID = "savepoint_id".getBytes(StandardCharsets.UTF_8);
+  public static final String SAVEPOINT_NAME = "savepoint_name";
+  public static final byte[] SUBSTRAIT_PLAN_TEXT = "plan".getBytes(StandardCharsets.UTF_8);
+  public static final String SUBSTRAIT_VERSION = "version";
+  public static final FlightSqlClient.SubstraitPlan SUBSTRAIT_PLAN =
+      new FlightSqlClient.SubstraitPlan(SUBSTRAIT_PLAN_TEXT, SUBSTRAIT_VERSION);
+  public static final byte[] TRANSACTION_ID = "transaction_id".getBytes(StandardCharsets.UTF_8);
 
   @Override
   public FlightProducer producer(BufferAllocator allocator, Location location) throws Exception {
@@ -59,13 +68,11 @@ public class FlightSqlScenario implements Scenario {
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient client)
       throws Exception {
-    final FlightSqlClient sqlClient = new FlightSqlClient(client);
-
-    validateMetadataRetrieval(sqlClient);
-
-    validateStatementExecution(sqlClient);
-
-    validatePreparedStatementExecution(sqlClient, allocator);
+    try (final FlightSqlClient sqlClient = new FlightSqlClient(client)) {
+      validateMetadataRetrieval(sqlClient);
+      validateStatementExecution(sqlClient);
+      validatePreparedStatementExecution(allocator, sqlClient);
+    }
   }
 
   private void validateMetadataRetrieval(FlightSqlClient sqlClient) throws Exception {
@@ -122,40 +129,35 @@ public class FlightSqlScenario implements Scenario {
   }
 
   private void validateStatementExecution(FlightSqlClient sqlClient) throws Exception {
-    final CallOption[] options = new CallOption[0];
-
-    validate(FlightSqlScenarioProducer.getQuerySchema(),
-        sqlClient.execute("SELECT STATEMENT", options), sqlClient);
+    FlightInfo info = sqlClient.execute("SELECT STATEMENT");
+    validate(FlightSqlScenarioProducer.getQuerySchema(), info, sqlClient);
     validateSchema(FlightSqlScenarioProducer.getQuerySchema(),
-        sqlClient.getExecuteSchema("SELECT STATEMENT", options));
+        sqlClient.getExecuteSchema("SELECT STATEMENT"));
 
-    IntegrationAssertions.assertEquals(sqlClient.executeUpdate("UPDATE STATEMENT", options),
+    IntegrationAssertions.assertEquals(sqlClient.executeUpdate("UPDATE STATEMENT"),
         UPDATE_STATEMENT_EXPECTED_ROWS);
   }
 
-  private void validatePreparedStatementExecution(FlightSqlClient sqlClient,
-                                                  BufferAllocator allocator) throws Exception {
-    final CallOption[] options = new CallOption[0];
+  private void validatePreparedStatementExecution(BufferAllocator allocator,
+                                                  FlightSqlClient sqlClient) throws Exception {
     try (FlightSqlClient.PreparedStatement preparedStatement = sqlClient.prepare(
         "SELECT PREPARED STATEMENT");
          VectorSchemaRoot parameters = VectorSchemaRoot.create(
              FlightSqlScenarioProducer.getQuerySchema(), allocator)) {
       parameters.setRowCount(1);
       preparedStatement.setParameters(parameters);
-
-      validate(FlightSqlScenarioProducer.getQuerySchema(), preparedStatement.execute(options),
-          sqlClient);
+      validate(FlightSqlScenarioProducer.getQuerySchema(), preparedStatement.execute(), sqlClient);
       validateSchema(FlightSqlScenarioProducer.getQuerySchema(), preparedStatement.fetchSchema());
     }
 
-    try (FlightSqlClient.PreparedStatement preparedStatement = sqlClient.prepare(
-        "UPDATE PREPARED STATEMENT")) {
-      IntegrationAssertions.assertEquals(preparedStatement.executeUpdate(options),
+    try (FlightSqlClient.PreparedStatement preparedStatement =
+             sqlClient.prepare("UPDATE PREPARED STATEMENT")) {
+      IntegrationAssertions.assertEquals(preparedStatement.executeUpdate(),
           UPDATE_PREPARED_STATEMENT_EXPECTED_ROWS);
     }
   }
 
-  private void validate(Schema expectedSchema, FlightInfo flightInfo,
+  protected void validate(Schema expectedSchema, FlightInfo flightInfo,
                         FlightSqlClient sqlClient) throws Exception {
     Ticket ticket = flightInfo.getEndpoints().get(0).getTicket();
     try (FlightStream stream = sqlClient.getStream(ticket)) {
@@ -164,7 +166,7 @@ public class FlightSqlScenario implements Scenario {
     }
   }
 
-  private void validateSchema(Schema expected, SchemaResult actual) {
+  protected void validateSchema(Schema expected, SchemaResult actual) {
     IntegrationAssertions.assertEquals(expected, actual.getSchema());
   }
 }

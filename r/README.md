@@ -65,12 +65,8 @@ packages that contain the Arrow C++ library. On Linux, source package
 installation will also build necessary C++ dependencies. For a faster,
 more complete installation, set the environment variable
 `NOT_CRAN=true`. See `vignette("install", package = "arrow")` for
-details.
-
-For Windows users of R 3.6 and earlier, note that support for AWS S3 is not
-available, and the 32-bit version does not support Arrow Datasets.
-These features are only supported by the `rtools40` toolchain on Windows
-and thus are only available in R >= 4.0.
+details. Note that version 9.0.0 was the last version to support
+R 3.6 and lower on Windows.
 
 ### Installing a development version
 

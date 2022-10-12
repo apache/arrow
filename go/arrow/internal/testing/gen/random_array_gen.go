@@ -335,3 +335,29 @@ func (r *RandomArrayGenerator) LargeString(size int64, minLength, maxLength int6
 
 	return bldr.NewArray()
 }
+
+func (r *RandomArrayGenerator) Numeric(dt arrow.Type, size int64, min, max int64, nullprob float64) arrow.Array {
+	switch dt {
+	case arrow.INT8:
+		return r.Int8(size, int8(min), int8(max), nullprob)
+	case arrow.UINT8:
+		return r.Uint8(size, uint8(min), uint8(max), nullprob)
+	case arrow.INT16:
+		return r.Int16(size, int16(min), int16(max), nullprob)
+	case arrow.UINT16:
+		return r.Uint16(size, uint16(min), uint16(max), nullprob)
+	case arrow.INT32:
+		return r.Int32(size, int32(min), int32(max), nullprob)
+	case arrow.UINT32:
+		return r.Uint32(size, uint32(min), uint32(max), nullprob)
+	case arrow.INT64:
+		return r.Int64(size, int64(min), int64(max), nullprob)
+	case arrow.UINT64:
+		return r.Uint64(size, uint64(min), uint64(max), nullprob)
+	case arrow.FLOAT32:
+		return r.Float32(size, float32(min), float32(max), nullprob)
+	case arrow.FLOAT64:
+		return r.Float64(size, float64(min), float64(max), nullprob)
+	}
+	panic("invalid type for random numeric array")
+}

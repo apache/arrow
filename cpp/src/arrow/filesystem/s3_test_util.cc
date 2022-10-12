@@ -34,6 +34,7 @@
 #ifdef __MINGW32__
 #include <boost/asio/io_context.hpp>
 #endif
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
 // cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
@@ -110,12 +111,10 @@ Status MinioTestServer::Start() {
   bp::environment env = boost::this_process::environment();
   env["MINIO_ACCESS_KEY"] = kMinioAccessKey;
   env["MINIO_SECRET_KEY"] = kMinioSecretKey;
+  // Disable the embedded console (one less listening address to care about)
+  env["MINIO_BROWSER"] = "off";
 
   impl_->connect_string_ = GenerateConnectString();
-  // Also generate a console address, as it seems that Minio sometimes
-  // tries to listen on a port already in use.
-  const auto console_address = GenerateConnectString();
-
   auto exe_path = bp::search_path(kMinioExecutableName);
   if (exe_path.empty()) {
     return Status::IOError("Failed to find minio executable ('", kMinioExecutableName,
@@ -126,8 +125,7 @@ Status MinioTestServer::Start() {
     // NOTE: --quiet makes startup faster by suppressing remote version check
     impl_->server_process_ = std::make_shared<bp::child>(
         env, exe_path, "server", "--quiet", "--compat", "--address",
-        impl_->connect_string_, "--console-address", console_address,
-        impl_->temp_dir_->path().ToString());
+        impl_->connect_string_, impl_->temp_dir_->path().ToString());
   } catch (const std::exception& e) {
     return Status::IOError("Failed to launch Minio server: ", e.what());
   }

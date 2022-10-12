@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
 skip_if_not_available("utf8proc")
 
 library(dplyr, warn.conflicts = FALSE)
@@ -62,7 +61,8 @@ test_that("paste, paste0, and str_c", {
     .input %>%
       transmute(
         a = paste0(v, w),
-        a2 = base::paste0(v, w)) %>%
+        a2 = base::paste0(v, w)
+      ) %>%
       collect(),
     df
   )
@@ -140,12 +140,10 @@ test_that("paste, paste0, and str_c", {
     call_binding("paste", x, y, sep = NA_character_),
     "Invalid separator"
   )
-  # emits null in str_c() (consistent with stringr::str_c())
-  compare_dplyr_binding(
-    .input %>%
-      transmute(str_c(x, y, sep = NA_character_)) %>%
-      collect(),
-    df
+  # In next release of stringr (late 2022), str_c also errors
+  expect_error(
+    call_binding("str_c", x, y, sep = NA_character_),
+    "`sep` must be a single string, not `NA`."
   )
 
   # sep passed in dots to paste0 (which doesn't take a sep argument)

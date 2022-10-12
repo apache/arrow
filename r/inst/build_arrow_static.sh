@@ -36,6 +36,8 @@ set -x
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
+: ${N_JOBS:="$(nproc)"}
+
 # Make some env vars case-insensitive
 if [ "$LIBARROW_MINIMAL" != "" ]; then
   LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
@@ -75,16 +77,23 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-$ARROW_DEFAULT_PARAM} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=${ARROW_VERBOSE_THIRDPARTY_BUILD:-OFF} \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} \
+    -DCMAKE_FIND_DEBUG_MODE=${CMAKE_FIND_DEBUG_MODE:-OFF} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=${DEST_DIR} \
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
     -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
+    -Dzstd_SOURCE=${zstd_SOURCE:-} \
     ${EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
 
-${CMAKE} --build . --target install
+${CMAKE} --build . --target install -- -j $N_JOBS
+
+if command -v sccache &> /dev/null; then
+  echo "=== sccache stats after the build ==="
+  sccache --show-stats
+fi
 
 popd

@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import warnings
 
 from pyarrow._plasma import (ObjectID, ObjectNotAvailable,  # noqa
                              PlasmaBuffer, PlasmaClient, connect,
@@ -64,7 +65,7 @@ def build_plasma_tensorflow_op():
         tf_cflags = tf.sysconfig.get_compile_flags()
         if sys.platform == 'darwin':
             tf_cflags = ["-undefined", "dynamic_lookup"] + tf_cflags
-        cmd = ["g++", "-std=c++11", "-g", "-shared", cc_path,
+        cmd = ["g++", "-std=c++17", "-g", "-shared", cc_path,
                "-o", so_path, "-DNDEBUG", "-I" + pa.get_include()]
         cmd += ["-L" + dir for dir in pa.get_library_dirs()]
         cmd += ["-lplasma", "-larrow_python", "-larrow", "-fPIC"]
@@ -84,7 +85,11 @@ def start_plasma_store(plasma_store_memory,
                        plasma_directory=None, use_hugepages=False,
                        external_store=None):
     """
-    Start a plasma store process.
+    DEPRECATED: Start a plasma store process.
+
+    .. deprecated:: 10.0.0
+       Plasma is deprecated since Arrow 10.0.0. It will be removed
+       in 12.0.0 or so.
 
     Parameters
     ----------
@@ -109,6 +114,11 @@ def start_plasma_store(plasma_store_memory,
         A tuple of the name of the plasma store socket and the process ID of
         the plasma store process.
     """
+    warnings.warn(
+        "Plasma is deprecated since Arrow 10.0.0. It will be removed in "
+        "12.0.0 or so.",
+        DeprecationWarning)
+
     if use_valgrind and use_profiler:
         raise Exception("Cannot use valgrind and profiler at the same time.")
 

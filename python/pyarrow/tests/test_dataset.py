@@ -86,6 +86,17 @@ def _table_from_pandas(df):
     return table.replace_schema_metadata()
 
 
+def assert_dataset_fragment_convenience_methods(dataset):
+    # FileFragment convenience methods
+    for fragment in dataset.get_fragments():
+        with fragment.open() as nf:
+            assert isinstance(nf, pa.NativeFile)
+            assert not nf.closed
+            assert nf.seekable()
+            assert nf.readable()
+            assert not nf.writable()
+
+
 @pytest.fixture
 @pytest.mark.parquet
 def mockfs():
@@ -194,8 +205,8 @@ def multisourcefs(request):
 
     # create one with hive partitioning by color
     mockfs.create_dir('hive_color')
-    for part, chunk in df_d.groupby(["color"]):
-        folder = 'hive_color/color={}'.format(*part)
+    for part, chunk in df_d.groupby("color"):
+        folder = 'hive_color/color={}'.format(part)
         path = '{}/chunk.parquet'.format(folder)
         mockfs.create_dir(folder)
         with mockfs.open_output_stream(path) as out:
@@ -421,6 +432,7 @@ def test_dataset(dataset, dataset_reader):
                              2.0, 2.0, 3.0, 3.0, 4.0, 4.0]
     assert result['new'] == [False, False, True, True, False, False,
                              False, False, True, True]
+    assert_dataset_fragment_convenience_methods(dataset)
 
 
 @pytest.mark.parquet
@@ -951,6 +963,9 @@ def test_make_csv_fragment_from_buffer(dataset_reader):
     csv_format = ds.CsvFileFormat()
     fragment = csv_format.make_fragment(buffer)
 
+    # When buffer, fragment open returns a BufferReader, not NativeFile
+    assert isinstance(fragment.open(), pa.BufferReader)
+
     expected = pa.table([['a', 'b', 'c'],
                          [12, 11, 10],
                          ['dog', 'cat', 'rabbit']],
@@ -1219,6 +1234,8 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     # second time -> use cached / no file IO
     with assert_opens([]):
         fragment.ensure_complete_metadata()
+
+    assert isinstance(fragment.metadata, pq.FileMetaData)
 
     # recreate fragment with row group ids
     new_fragment = fragment.format.make_fragment(
@@ -2955,6 +2972,8 @@ def test_ipc_format(tempdir, dataset_reader):
     result = dataset_reader.to_table(dataset)
     assert result.equals(table)
 
+    assert_dataset_fragment_convenience_methods(dataset)
+
     for format_str in ["ipc", "arrow"]:
         dataset = ds.dataset(path, format=format_str)
         result = dataset_reader.to_table(dataset)
@@ -2976,6 +2995,8 @@ def test_orc_format(tempdir, dataset_reader):
     result = dataset_reader.to_table(dataset)
     result.validate(full=True)
     assert result.equals(table)
+
+    assert_dataset_fragment_convenience_methods(dataset)
 
     dataset = ds.dataset(path, format="orc")
     result = dataset_reader.to_table(dataset)
@@ -3043,6 +3064,8 @@ def test_csv_format(tempdir, dataset_reader):
     dataset = ds.dataset(path, format=ds.CsvFileFormat())
     result = dataset_reader.to_table(dataset)
     assert result.equals(table)
+
+    assert_dataset_fragment_convenience_methods(dataset)
 
     dataset = ds.dataset(path, format='csv')
     result = dataset_reader.to_table(dataset)
@@ -3137,6 +3160,55 @@ def test_csv_fragment_options(tempdir, dataset_reader):
         pa.table({'col0': pa.array(['foo', 'spam', 'MYNULL'])}))
 
 
+def test_encoding(tempdir, dataset_reader):
+    path = str(tempdir / 'test.csv')
+
+    for encoding, input_rows in [
+        ('latin-1', b"a,b\nun,\xe9l\xe9phant"),
+        ('utf16', b'\xff\xfea\x00,\x00b\x00\n\x00u\x00n\x00,'
+         b'\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00'),
+    ]:
+
+        with open(path, 'wb') as sink:
+            sink.write(input_rows)
+
+        # Interpret as utf8:
+        expected_schema = pa.schema([("a", pa.string()), ("b", pa.string())])
+        expected_table = pa.table({'a': ["un"],
+                                   'b': ["éléphant"]}, schema=expected_schema)
+
+        read_options = pa.csv.ReadOptions(encoding=encoding)
+        file_format = ds.CsvFileFormat(read_options=read_options)
+        dataset_transcoded = ds.dataset(path, format=file_format)
+        assert dataset_transcoded.schema.equals(expected_schema)
+        assert dataset_transcoded.to_table().equals(expected_table)
+
+
+# Test if a dataset with non-utf8 chars in the column names is properly handled
+def test_column_names_encoding(tempdir, dataset_reader):
+    path = str(tempdir / 'test.csv')
+
+    with open(path, 'wb') as sink:
+        sink.write(b"\xe9,b\nun,\xe9l\xe9phant")
+
+    # Interpret as utf8:
+    expected_schema = pa.schema([("é", pa.string()), ("b", pa.string())])
+    expected_table = pa.table({'é': ["un"],
+                               'b': ["éléphant"]}, schema=expected_schema)
+
+    # Reading as string without specifying encoding should produce an error
+    dataset = ds.dataset(path, format='csv', schema=expected_schema)
+    with pytest.raises(pyarrow.lib.ArrowInvalid, match="invalid UTF8"):
+        dataset_reader.to_table(dataset)
+
+    # Setting the encoding in the read_options should transcode the data
+    read_options = pa.csv.ReadOptions(encoding='latin-1')
+    file_format = ds.CsvFileFormat(read_options=read_options)
+    dataset_transcoded = ds.dataset(path, format=file_format)
+    assert dataset_transcoded.schema.equals(expected_schema)
+    assert dataset_transcoded.to_table().equals(expected_table)
+
+
 def test_feather_format(tempdir, dataset_reader):
     from pyarrow.feather import write_feather
 
@@ -3150,6 +3222,8 @@ def test_feather_format(tempdir, dataset_reader):
     dataset = ds.dataset(basedir, format=ds.IpcFileFormat())
     result = dataset_reader.to_table(dataset)
     assert result.equals(table)
+
+    assert_dataset_fragment_convenience_methods(dataset)
 
     dataset = ds.dataset(basedir, format="feather")
     result = dataset_reader.to_table(dataset)

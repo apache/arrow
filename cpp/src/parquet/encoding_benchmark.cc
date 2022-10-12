@@ -682,7 +682,7 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
   template <typename PutValuesFunc>
   void DoEncode(PutValuesFunc&& put_values) {
     auto node = schema::ByteArray("name");
-    descr_ = std::unique_ptr<ColumnDescriptor>(new ColumnDescriptor(node, 0, 0));
+    descr_ = std::make_unique<ColumnDescriptor>(node, 0, 0);
 
     auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
                                                    /*use_dictionary=*/true, descr_.get());

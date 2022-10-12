@@ -71,8 +71,7 @@ add_arrow_test(utility-test
                trie_test.cc
                uri_test.cc
                utf8_util_test.cc
-               value_parsing_test.cc
-               variant_test.cc)
+               value_parsing_test.cc)
 
 add_arrow_test(threading-utility-test
                SOURCES
@@ -100,4 +99,3 @@ add_arrow_benchmark(thread_pool_benchmark)
 add_arrow_benchmark(trie_benchmark)
 add_arrow_benchmark(utf8_util_benchmark)
 add_arrow_benchmark(value_parsing_benchmark)
-add_arrow_benchmark(variant_benchmark)

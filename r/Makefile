@@ -26,6 +26,7 @@ style-all:
 	R -s -e 'styler::style_file(setdiff(dir(pattern = "R$$", recursive = TRUE), source(".styler_excludes.R")$$value))'
 
 doc: style
+	R -s -f data-raw/docgen.R
 	R -s -e 'roxygen2::roxygenize()'
 	-git add --all man/*.Rd
 

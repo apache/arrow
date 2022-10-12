@@ -516,7 +516,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
 
     // second experiment, using customized type converter
-    builder.setJdbcToArrowTypeConverter(fieldInfo -> {
+    builder.setJdbcToArrowTypeConverter((fieldInfo) -> {
       switch (fieldInfo.getJdbcType()) {
         case Types.REAL:
           // this is different from the default type converter

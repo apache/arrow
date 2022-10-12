@@ -18,10 +18,12 @@ package kernels
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/internal/bitutils"
 	"golang.org/x/exp/constraints"
 )
@@ -415,7 +417,9 @@ func castNumberToNumberUnsafe(in, out *exec.ArraySpan) {
 		return
 	}
 
-	castNumericUnsafe(in.Type.ID(), out.Type.ID(), in.Buffers[1].Buf, out.Buffers[1].Buf, int(in.Len))
+	inputOffset := in.Type.(arrow.FixedWidthDataType).Bytes() * int(in.Offset)
+	outputOffset := out.Type.(arrow.FixedWidthDataType).Bytes() * int(out.Offset)
+	castNumericUnsafe(in.Type.ID(), out.Type.ID(), in.Buffers[1].Buf[inputOffset:], out.Buffers[1].Buf[outputOffset:], int(in.Len))
 }
 
 func maxDecimalDigitsForInt(id arrow.Type) (int32, error) {
@@ -443,4 +447,270 @@ var OutputTargetType = exec.NewComputedOutputType(ResolveOutputFromOptions)
 
 func resolveToFirstType(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
 	return args[0], nil
+}
+
+var OutputFirstType = exec.NewComputedOutputType(resolveToFirstType)
+
+type validityBuilder struct {
+	mem    memory.Allocator
+	buffer *memory.Buffer
+
+	data       []byte
+	bitLength  int
+	falseCount int
+}
+
+func (v *validityBuilder) Resize(n int64) {
+	if v.buffer == nil {
+		v.buffer = memory.NewResizableBuffer(v.mem)
+	}
+
+	v.buffer.ResizeNoShrink(int(bitutil.BytesForBits(n)))
+	v.data = v.buffer.Bytes()
+}
+
+func (v *validityBuilder) Reserve(n int64) {
+	if v.buffer == nil {
+		v.buffer = memory.NewResizableBuffer(v.mem)
+	}
+
+	v.buffer.Reserve(v.buffer.Cap() + int(bitutil.BytesForBits(n)))
+	v.data = v.buffer.Buf()
+}
+
+func (v *validityBuilder) UnsafeAppend(val bool) {
+	bitutil.SetBitTo(v.data, v.bitLength, val)
+	if !val {
+		v.falseCount++
+	}
+	v.bitLength++
+}
+
+func (v *validityBuilder) UnsafeAppendN(n int64, val bool) {
+	bitutil.SetBitsTo(v.data, int64(v.bitLength), n, val)
+	if !val {
+		v.falseCount += int(n)
+	}
+	v.bitLength += int(n)
+}
+
+func (v *validityBuilder) Append(val bool) {
+	v.Reserve(1)
+	v.UnsafeAppend(val)
+}
+
+func (v *validityBuilder) AppendN(n int64, val bool) {
+	v.Reserve(n)
+	v.UnsafeAppendN(n, val)
+}
+
+func (v *validityBuilder) Finish() (buf *memory.Buffer) {
+	if v.bitLength > 0 {
+		v.buffer.Resize(int(bitutil.BytesForBits(int64(v.bitLength))))
+	}
+
+	v.bitLength, v.falseCount = 0, 0
+	buf = v.buffer
+	v.buffer = nil
+	return
+}
+
+type execBufBuilder struct {
+	mem    memory.Allocator
+	buffer *memory.Buffer
+	data   []byte
+	sz     int
+}
+
+func (bldr *execBufBuilder) resize(newcap int) {
+	if bldr.buffer == nil {
+		bldr.buffer = memory.NewResizableBuffer(bldr.mem)
+	}
+
+	bldr.buffer.ResizeNoShrink(newcap)
+	bldr.data = bldr.buffer.Bytes()
+}
+
+func (bldr *execBufBuilder) reserve(additional int) {
+	if bldr.buffer == nil {
+		bldr.buffer = memory.NewResizableBuffer(bldr.mem)
+	}
+
+	mincap := bldr.sz + additional
+	if mincap <= cap(bldr.data) {
+		return
+	}
+	bldr.buffer.ResizeNoShrink(mincap)
+	bldr.data = bldr.buffer.Buf()
+}
+
+func (bldr *execBufBuilder) unsafeAppend(data []byte) {
+	copy(bldr.data[bldr.sz:], data)
+	bldr.sz += len(data)
+}
+
+func (bldr *execBufBuilder) unsafeAppendN(n int, val byte) {
+	bldr.data[bldr.sz] = val
+	for i := 1; i < n; i *= 2 {
+		copy(bldr.data[bldr.sz+i:], bldr.data[bldr.sz:bldr.sz+i])
+	}
+	bldr.sz += n
+}
+
+func (bldr *execBufBuilder) append(data []byte) {
+	if bldr.sz+len(data) > cap(bldr.data) {
+		bldr.resize(bldr.sz + len(data))
+	}
+	bldr.unsafeAppend(data)
+}
+
+func (bldr *execBufBuilder) appendN(n int, val byte) {
+	bldr.reserve(n)
+	bldr.unsafeAppendN(n, val)
+}
+
+func (bldr *execBufBuilder) advance(n int) {
+	bldr.reserve(n)
+	bldr.sz += n
+}
+
+func (bldr *execBufBuilder) unsafeAdvance(n int) {
+	bldr.sz += n
+}
+
+func (bldr *execBufBuilder) finish() (buf *memory.Buffer) {
+	if bldr.buffer == nil {
+		buf = memory.NewBufferBytes(nil)
+		return
+	}
+	bldr.buffer.Resize(bldr.sz)
+	buf = bldr.buffer
+	bldr.buffer, bldr.sz = nil, 0
+	return
+}
+
+type bufferBuilder[T exec.FixedWidthTypes] struct {
+	execBufBuilder
+	zero T
+}
+
+func newBufferBuilder[T exec.FixedWidthTypes](mem memory.Allocator) *bufferBuilder[T] {
+	return &bufferBuilder[T]{
+		execBufBuilder: execBufBuilder{
+			mem: mem,
+		},
+	}
+}
+
+func (b *bufferBuilder[T]) reserve(additional int) {
+	b.execBufBuilder.reserve(additional * int(unsafe.Sizeof(b.zero)))
+}
+
+func (b *bufferBuilder[T]) resize(newcap int) {
+	b.execBufBuilder.resize(newcap * int(unsafe.Sizeof(b.zero)))
+}
+
+func (b *bufferBuilder[T]) unsafeAppend(value T) {
+	b.execBufBuilder.unsafeAppend(exec.GetBytes([]T{value}))
+}
+
+func (b *bufferBuilder[T]) unsafeAppendN(n int, value T) {
+	data := exec.GetData[T](b.data)[b.len():]
+	b.execBufBuilder.unsafeAdvance(n * int(unsafe.Sizeof(value)))
+	data[0] = value
+	for i := 1; i < n; i *= 2 {
+		copy(data[i:], data[:i])
+	}
+}
+
+func (b *bufferBuilder[T]) unsafeAppendSlice(values []T) {
+	b.execBufBuilder.unsafeAppend(exec.GetBytes(values))
+}
+
+func (b *bufferBuilder[T]) advance(n int) {
+	b.execBufBuilder.advance(n * int(unsafe.Sizeof(b.zero)))
+}
+
+func (b *bufferBuilder[T]) append(value T) {
+	b.execBufBuilder.append(exec.GetBytes([]T{value}))
+}
+
+func (b *bufferBuilder[T]) len() int { return b.sz / int(unsafe.Sizeof(b.zero)) }
+
+func (b *bufferBuilder[T]) appendN(n int, value T) {
+	b.reserve(n + b.len())
+	b.unsafeAppendN(n, value)
+}
+
+func (b *bufferBuilder[T]) appendSlice(values []T) {
+	b.execBufBuilder.append(exec.GetBytes(values))
+}
+
+func (b *bufferBuilder[T]) cap() int {
+	return cap(b.data) / int(unsafe.Sizeof(b.zero))
+}
+
+func checkIndexBoundsImpl[T exec.IntTypes | exec.UintTypes](values *exec.ArraySpan, upperLimit uint64) error {
+	// for unsigned integers, if the values array is larger
+	// than the maximum index value, then there's no need to bounds check
+	isSigned := !arrow.IsUnsignedInteger(values.Type.ID())
+	if !isSigned && upperLimit > uint64(MaxOf[T]()) {
+		return nil
+	}
+
+	valuesData := exec.GetSpanValues[T](values, 1)
+	bitmap := values.Buffers[0].Buf
+	isOutOfBounds := func(val T) bool {
+		return ((isSigned && val < 0) || val >= 0 && uint64(val) >= upperLimit)
+	}
+	return bitutils.VisitSetBitRuns(bitmap, values.Offset, values.Len,
+		func(pos, length int64) error {
+			outOfBounds := false
+			for i := int64(0); i < length; i++ {
+				outOfBounds = outOfBounds || isOutOfBounds(valuesData[pos+i])
+			}
+			if outOfBounds {
+				for i := int64(0); i < length; i++ {
+					if isOutOfBounds(valuesData[pos+i]) {
+						return fmt.Errorf("%w: %d out of bounds",
+							arrow.ErrIndex, valuesData[pos+i])
+					}
+				}
+			}
+			return nil
+		})
+}
+
+func checkIndexBounds(values *exec.ArraySpan, upperLimit uint64) error {
+	switch values.Type.ID() {
+	case arrow.INT8:
+		return checkIndexBoundsImpl[int8](values, upperLimit)
+	case arrow.UINT8:
+		return checkIndexBoundsImpl[uint8](values, upperLimit)
+	case arrow.INT16:
+		return checkIndexBoundsImpl[int16](values, upperLimit)
+	case arrow.UINT16:
+		return checkIndexBoundsImpl[uint16](values, upperLimit)
+	case arrow.INT32:
+		return checkIndexBoundsImpl[int32](values, upperLimit)
+	case arrow.UINT32:
+		return checkIndexBoundsImpl[uint32](values, upperLimit)
+	case arrow.INT64:
+		return checkIndexBoundsImpl[int64](values, upperLimit)
+	case arrow.UINT64:
+		return checkIndexBoundsImpl[uint64](values, upperLimit)
+	default:
+		return fmt.Errorf("%w: invalid index type for bounds checking", arrow.ErrInvalid)
+	}
+}
+
+func checkIndexBoundsChunked(values *arrow.Chunked, upperLimit uint64) error {
+	var span exec.ArraySpan
+	for _, v := range values.Chunks() {
+		span.SetMembers(v.Data())
+		if err := checkIndexBounds(&span, upperLimit); err != nil {
+			return err
+		}
+	}
+	return nil
 }

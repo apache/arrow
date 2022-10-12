@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-ARG go=1.16
+ARG go=1.17
 ARG staticcheck=v0.2.2
 FROM ${arch}/golang:${go}-buster
 

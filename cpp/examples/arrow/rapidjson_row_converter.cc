@@ -97,7 +97,7 @@ class RowBatchBuilder {
     for (int64_t i = 0; i < array.length(); ++i) {
       if (!array.IsNull(i)) {
         rapidjson::Value str_key(field_->name(), rows_[i].GetAllocator());
-        arrow::util::string_view value_view = array.Value(i);
+        std::string_view value_view = array.Value(i);
         rapidjson::Value value;
         value.SetString(value_view.data(),
                         static_cast<rapidjson::SizeType>(value_view.size()),

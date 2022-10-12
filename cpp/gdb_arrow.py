@@ -426,12 +426,17 @@ class UniquePtr:
 
 class Variant:
     """
-    A arrow::util::Variant<...>.
+    A `std::variant<...>`.
     """
 
     def __init__(self, val):
         self.val = val
-        self.index = int(self.val['index_'])
+        try:
+            # libstdc++ internals
+            self.index = val['_M_index']
+        except gdb.error:
+            # fallback for other C++ standard libraries
+            self.index = gdb.parse_and_eval(f"{for_evaluation(val)}.index()")
         try:
             self.value_type = self.val.type.template_argument(self.index)
         except RuntimeError:
@@ -451,7 +456,7 @@ class Variant:
 
 class StdString:
     """
-    A `std::string` (or possibly `string_view`) value.
+    A `std::string` (or possibly `std::string_view`) value.
     """
 
     def __init__(self, val):
@@ -2158,67 +2163,6 @@ class ResultPrinter(StatusPrinter):
         return f"arrow::Result<{data_type}>({inner})"
 
 
-class StringViewPrinter:
-    """
-    Pretty-printer for arrow::util::string_view.
-    """
-
-    def __init__(self, name, val):
-        self.val = val
-
-    def to_string(self):
-        size = int(self.val['size_'])
-        if size == 0:
-            return f"arrow::util::string_view of size 0"
-        else:
-            data = bytes_literal(self.val['data_'], size)
-            return f"arrow::util::string_view of size {size}, {data}"
-
-
-class OptionalPrinter:
-    """
-    Pretty-printer for arrow::util::optional.
-    """
-
-    def __init__(self, name, val):
-        self.val = val
-
-    def to_string(self):
-        data_type = self.val.type.template_argument(0)
-        # XXX We rely on internal details of our vendored optional<T>
-        # implementation, as inlined methods may not be callable from gdb.
-        if not self.val['has_value_']:
-            inner = "nullopt"
-        else:
-            data_ptr = self.val['contained']['data'].address
-            assert data_ptr
-            inner = data_ptr.reinterpret_cast(
-                data_type.pointer()).dereference()
-        return f"arrow::util::optional<{data_type}>({inner})"
-
-
-class VariantPrinter:
-    """
-    Pretty-printer for arrow::util::Variant.
-    """
-
-    def __init__(self, name, val):
-        self.val = val
-        self.variant = Variant(val)
-
-    def to_string(self):
-        if self.variant.value_type is None:
-            return "arrow::util::Variant (uninitialized or corrupt)"
-        type_desc = (f"arrow::util::Variant of index {self.variant.index} "
-                     f"(actual type {self.variant.value_type})")
-
-        value = self.variant.value
-        if value is None:
-            return (f"{type_desc}, unavailable value")
-        else:
-            return (f"{type_desc}, value {value}")
-
-
 class FieldPrinter:
     """
     Pretty-printer for arrow::Field.
@@ -2436,11 +2380,6 @@ printers = {
     "arrow::SimpleTable": TablePrinter,
     "arrow::Status": StatusPrinter,
     "arrow::Table": TablePrinter,
-    "arrow::util::optional": OptionalPrinter,
-    "arrow::util::string_view": StringViewPrinter,
-    "arrow::util::Variant": VariantPrinter,
-    "nonstd::optional_lite::optional": OptionalPrinter,
-    "nonstd::sv_lite::basic_string_view": StringViewPrinter,
 }
 
 
