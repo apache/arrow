@@ -23,7 +23,6 @@
 
 #include "arrow/json/options.h"
 #include "arrow/json/test_common.h"
-#include "arrow/util/decimal.cc"
 
 namespace arrow {
 namespace json {
@@ -238,9 +237,9 @@ TEST(ConverterTest, Decimal128And256ScaleError) {
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
 
     std::string error_msg = "Invalid: Failed of conversion of JSON to " +
-        types[i]->ToString() +
-        arrow::ToArrowStatus(DecimalStatus::kRescaleDataLoss, 128 * (i + 1)).ToString() +
-        ": 30.0123456789001 requires scale 13";
+        types[i]->ToString() + "Invalid: Rescaling Decimal" +
+        std::to_string(128 * (i + 1)) +
+        " value would cause data loss: 30.0123456789001 requires scale 13";
     // call to convert
     ASSERT_RAISES_WITH_MESSAGE(Invalid, error_msg,
                                Convert(types[i], parse_array->GetFieldByName("")));
