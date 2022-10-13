@@ -135,7 +135,7 @@ implicit_schema <- function(.data) {
           right_cols[setdiff(names(right_cols), .data$join$by)],
           ~ .$type(.data$join$right_data$.data$schema)
         )
-        # get right table and left table column names excluding the join key
+        # get right table and left table column projections excluding the join key(s)
         right_cols_ex_by <- right_cols[setdiff(names(right_cols), .data$join$by)]
         left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
         # find the common column names in left and right tables
