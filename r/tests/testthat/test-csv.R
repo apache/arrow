@@ -614,7 +614,7 @@ test_that("read_csv_arrow() can read sub-second timestamps with col_types T sett
   expect_equal(df$time, expected, ignore_attr = "tzone")
 })
 
-test_that("read_csv_arrow() can't read timestamps with time zone, with the col_types T setting (ARROW-15602)", {
+test_that("Shows a error message when trying to read a timestamp with time zone with col_types = T (ARROW-17429)", {
   tbl <- tibble::tibble(time = c("1970-01-01T12:00:00+12:00"))
   csv_file <- tempfile()
   on.exit(unlink(csv_file))
