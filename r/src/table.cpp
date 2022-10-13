@@ -312,7 +312,17 @@ std::shared_ptr<arrow::Table> Table__from_schema(SEXP schema_sxp) {
   std::vector<std::shared_ptr<arrow::Array>> columns;
 
   for (int i = 0; i < num_fields; i++) {
-    std::shared_ptr<arrow::DataType> type = schema->field(i)->type();
+    bool is_extension_type = schema->field(i)->type()->name() == "extension";
+    std::shared_ptr<arrow::DataType> type;
+
+    // need to handle extension types a bit differently
+    if (is_extension_type) {
+      // TODO: ARROW-18043 - update this to properly construct extension types instead of
+      // converting to null
+      type = arrow::null();
+    } else {
+      type = schema->field(i)->type();
+    }
 
     std::shared_ptr<arrow::Array> array;
     std::unique_ptr<arrow::ArrayBuilder> type_builder;
