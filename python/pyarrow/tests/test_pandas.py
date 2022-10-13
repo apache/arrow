@@ -3813,7 +3813,7 @@ def test_dictionary_from_pandas_specified_type():
     with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
 
-    # mismatching order -> raise error (for now a deprecation warning)
+    # mismatching order -> raise error
     typ = pa.dictionary(
         index_type=pa.int8(), value_type=pa.string(), ordered=True)
     msg = "The 'ordered' flag of the passed categorical values "
