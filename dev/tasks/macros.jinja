@@ -269,7 +269,7 @@ on:
       rm -f apache-arrow*.rb.bak
 {% endmacro %}
 
-{%- macro github_change_r_pkg_version(is_fork, version = '\\2.\'\"$(date +%Y%m%d)\"\'' ) -%}
+{%- macro github_change_r_pkg_version(is_fork, version) -%}
   - name: Modify version
     shell: bash
     run: |

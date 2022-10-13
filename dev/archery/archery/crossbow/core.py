@@ -770,6 +770,14 @@ class Target(Serializable):
         # '10.0.0-SNAPSHOT'
         self.no_rc_snapshot_version = re.sub(
             r'\.(dev\d+)$', '-SNAPSHOT', self.no_rc_version)
+        # Substitute dev version with today
+        #
+        # Example:
+        #
+        # '10.0.0.dev235' ->
+        # '10.0.0.20221002'
+        self.no_rc_today_version = re.sub(
+            r'\.(dev\d+)\Z', date.today().strftime('.%Y%m%d'), self.no_rc_version)
 
     @classmethod
     def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
@@ -1105,7 +1113,9 @@ class Job(Serializable):
             'version': target.version,
             'no_rc_version': target.no_rc_version,
             'no_rc_semver_version': target.no_rc_semver_version,
-            'no_rc_snapshot_version': target.no_rc_snapshot_version}
+            'no_rc_snapshot_version': target.no_rc_snapshot_version,
+            'no_rc_today_version': target.no_rc_today_version,
+        }
         for task_name, task in task_definitions.items():
             task = task.copy()
             artifacts = task.pop('artifacts', None) or []  # because of yaml
