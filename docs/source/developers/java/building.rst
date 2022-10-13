@@ -50,7 +50,7 @@ repository:
 These are the options available to compile Arrow Java modules with:
 
 * Maven build tool.
-* Docker compose.
+* Docker Compose.
 * Archery.
 
 Building Java Modules
@@ -99,7 +99,7 @@ We can build these manually or we can use `Archery`_ to build them using a Docke
    If you are building on Apple Silicon, be sure to use a JDK version that was compiled
    for that architecture. See, for example, the `Azul JDK <https://www.azul.com/downloads/?os=macos&architecture=arm-64-bit&package=jdk>`_.
 
-   If you are building on Windows OS, consider to read :ref:`Developing on Windows <developers-cpp-windows>`.
+   If you are building on Windows OS, see :ref:`Developing on Windows <developers-cpp-windows>`.
 
 Maven
 ~~~~~
@@ -121,7 +121,6 @@ Maven
     .. code-block::
 
         C:\ cd arrow/java
-        C:\ java --version
         C:\ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
         C:\ dir "../java-dist/bin"
         |__ arrow_cdata_jni.dll
@@ -145,7 +144,6 @@ Maven
     .. code-block::
 
         C:\ cd arrow/java
-        C:\ java --version
         C:\ mvn generate-resources -Pgenerate-libs-jni-windows -N
         C:\ dir "../java-dist/bin"
         |__ arrow_dataset_jni.dll
@@ -243,7 +241,7 @@ CMake
         |__ libplasma_java.dylib
 
 - To build all JNI libraries (Windows) except the JNI C Data Interface library
-(Please note: Plasma doesn't work on Windows / ORC isn't available on Windows):
+  (Please note: Plasma and ORC are not available on Windows):
 
     .. code-block::
 

@@ -84,7 +84,7 @@ UI Benchmark:
 Integration Testing
 ===================
 
-Integration testing are run by archery:
+Integration tests can be run via Archery:
 
 .. code-block::
 
