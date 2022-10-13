@@ -277,7 +277,7 @@ jobs:
           {{  macros.github_test_r_src_pkg()|indent(8) }}
           '
       - name: Upload binary artifact
-        if:  matrix.config.devtoolset
+        if: matrix.config.devtoolset
         uses: actions/upload-artifact@v3
         with:
           name: r-pkg_centos7
