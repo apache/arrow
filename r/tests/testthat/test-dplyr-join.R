@@ -347,7 +347,7 @@ test_that("arrow dplyr query can join two datasets", {
   )
 })
 
-test_that("joins on datasets handles keep", {
+test_that("full joins handle keep", {
   full_data_df <- tibble::tibble(
     x = rep(c("a", "b"), each = 5),
     y = rep(1:5, 2),
