@@ -114,7 +114,7 @@ column_select <- function(.data, select_expression, op = c("select", "rename")) 
   new_names <- old_names
   new_names[out] <- names(out)
   names_compared <- set_names(old_names, new_names)
-  renamed <- names_compared[names(names_compared) != names_compared]
+  renamed <- names_compared[old_names != new_names]
 
   # Update names in group_by if changed in select() or rename()
   if (length(renamed)) {
