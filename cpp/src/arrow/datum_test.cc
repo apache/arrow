@@ -18,10 +18,12 @@
 #include <memory>
 #include <string>
 
+#include <gtest/gtest-spi.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_binary.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/chunked_array.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -147,6 +149,51 @@ TEST(Datum, TotalBufferSize) {
   ASSERT_EQ(4, chunked_datum.TotalBufferSize());
   ASSERT_EQ(4, rb_datum.TotalBufferSize());
   ASSERT_EQ(4, tab_datum.TotalBufferSize());
+}
+
+TEST(Datum, Equality) {
+  AssertDatumsEqual(ArrayFromJSON(struct_({field("a", int32())}), "[[0], [1], [2]]"),
+                    ArrayFromJSON(struct_({field("a", int32())}), "[[0], [1], [2]]"));
+  EXPECT_FATAL_FAILURE(
+      AssertDatumsEqual(ArrayFromJSON(struct_({field("a", int32())}), "[[0], [1], [2]]"),
+                        ArrayFromJSON(struct_({field("a", int64())}), "[[0], [1], [2]]")),
+      "Array types differed");
+  AssertDatumsEqual(ArrayFromJSON(struct_({field("a", int32()), field("b", int64())}),
+                                  "[[0, 0], [1, 1], [2, 2]]"),
+                    ArrayFromJSON(struct_({field("a", int32()), field("b", int64())}),
+                                  "[[0, 0], [1, 1], [2, 2]]"));
+  EXPECT_FATAL_FAILURE(
+      AssertDatumsEqual(ArrayFromJSON(struct_({field("a", int32()), field("b", int32())}),
+                                      "[[0, 0], [1, 1], [2, 2]]"),
+                        ArrayFromJSON(struct_({field("a", int32())}), "[[0], [1], [2]]")),
+      "Array types differed");
+  EXPECT_FATAL_FAILURE(
+      AssertDatumsEqual(ArrayFromJSON(struct_({field("a", int32())}), "[[0], [1], [2]]"),
+                        ArrayFromJSON(struct_({field("a", int32()), field("b", int32())}),
+                                      "[[0, 0], [1, 1], [2, 2]]")),
+      "Array types differed");
+  EXPECT_FATAL_FAILURE(
+      AssertDatumsEqual(
+          ChunkedArrayFromJSON(struct_({field("a", int32()), field("b", int32())}),
+                               {"[[0, 0], [1, 1], [2, 2]]"}),
+          ChunkedArrayFromJSON(struct_({field("a", int32())}), {"[[0], [1], [2]]"})),
+      "Failed");
+  EXPECT_FATAL_FAILURE(
+      AssertDatumsEqual(
+          ChunkedArrayFromJSON(struct_({field("a", int32())}), {"[[0], [1], [2]]"}),
+          ChunkedArrayFromJSON(struct_({field("a", int32()), field("b", int32())}),
+                               {"[[0, 0], [1, 1], [2, 2]]"})),
+      "Failed");
+
+  EXPECT_FATAL_FAILURE(
+      AssertDatumsEqual(
+          ArrayFromJSON(struct_({field("a", int32())}), "[[0], [1], [2]]"),
+          std::make_shared<StructArray>(
+              struct_({field("a", int32())}), 3,
+              std::vector<std::shared_ptr<Array>>{ArrayFromJSON(int32(), "[0, 1, 2]"),
+                                                  ArrayFromJSON(int32(), "[0, 1, 2]")},
+              NULLPTR, 0, 0)),
+      "Failed");
 }
 
 }  // namespace arrow

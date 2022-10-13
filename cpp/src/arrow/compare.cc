@@ -870,6 +870,9 @@ Status PrintDiff(const Array& left, const Array& right, int64_t left_offset,
     return Status::OK();
   }
 
+  ARROW_RETURN_NOT_OK(left.ValidateFull());
+  ARROW_RETURN_NOT_OK(right.ValidateFull());
+
   if (!left.type()->Equals(right.type())) {
     *os << "# Array types differed: " << *left.type() << " vs " << *right.type()
         << std::endl;
