@@ -777,7 +777,9 @@ class Target(Serializable):
         # '10.0.0.dev235' ->
         # '10.0.0.20221002'
         self.no_rc_today_version = re.sub(
-            r'\.(dev\d+)\Z', date.today().strftime('.%Y%m%d'), self.no_rc_version)
+            r'\.(dev\d+)\Z',
+            date.today().strftime('.%Y%m%d'),
+            self.no_rc_version)
 
     @classmethod
     def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
