@@ -310,6 +310,6 @@ def docker_compose_info(obj, service_name, only):
         click.echo(f'Service name {service_name} could not be found', err=True)
         sys.exit(1)
     else:
-        click.echo(f'Service {service_name} docker compose config:')
+        click.echo(f'Service {service_name} docker-compose config:')
         output = "\n".join(compose.info(service, only))
         click.echo(output)
