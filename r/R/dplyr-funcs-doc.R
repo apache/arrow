@@ -53,7 +53,7 @@
 #' * [`groups()`][dplyr::groups()]
 #' * [`inner_join()`][dplyr::inner_join()]
 #' * [`left_join()`][dplyr::left_join()]
-#' * [`mutate()`][dplyr::mutate()]: window functions not currently supported
+#' * [`mutate()`][dplyr::mutate()]: window functions (e.g. things that require aggregation within groups) not currently supported
 #' * [`pull()`][dplyr::pull()]: returns an Arrow [ChunkedArray], not an R vector
 #' * [`relocate()`][dplyr::relocate()]
 #' * [`rename()`][dplyr::rename()]

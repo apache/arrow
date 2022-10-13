@@ -37,7 +37,7 @@ Table into an R \code{data.frame}.
 \item \code{\link[dplyr:group_data]{groups()}}
 \item \code{\link[dplyr:mutate-joins]{inner_join()}}
 \item \code{\link[dplyr:mutate-joins]{left_join()}}
-\item \code{\link[dplyr:mutate]{mutate()}}: window functions not currently supported
+\item \code{\link[dplyr:mutate]{mutate()}}: window functions (e.g. things that require aggregation within groups) not currently supported
 \item \code{\link[dplyr:pull]{pull()}}: returns an Arrow \link{ChunkedArray}, not an R vector
 \item \code{\link[dplyr:relocate]{relocate()}}
 \item \code{\link[dplyr:rename]{rename()}}

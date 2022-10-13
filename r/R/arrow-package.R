@@ -47,7 +47,10 @@ supported_dplyr_methods <- list(
   group_vars = NULL,
   group_by_drop_default = NULL,
   ungroup = NULL,
-  mutate = "window functions not currently supported",
+  mutate = c(
+    "window functions (e.g. things that require aggregation within groups)",
+    "not currently supported"
+  ),
   transmute = NULL,
   arrange = NULL,
   rename = NULL,
