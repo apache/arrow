@@ -417,3 +417,25 @@ test_that("filter() with namespaced functions", {
     tbl
   )
 })
+
+test_that("filter() with across()", {
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(if_any(ends_with("l"), ~ is.na(.))) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(
+        false == FALSE,
+        if_all(everything(), ~ !is.na(.)),
+        int > 2
+      ) %>%
+      collect(),
+    tbl
+  )
+
+})

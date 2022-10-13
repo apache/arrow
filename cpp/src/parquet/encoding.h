@@ -397,6 +397,14 @@ class DictDecoder : virtual public TypedDecoder<DType> {
 class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
  public:
   using TypedDecoder<BooleanType>::Decode;
+
+  /// \brief Decode and bit-pack values into a buffer
+  ///
+  /// \param[in] buffer destination for decoded values
+  /// This buffer will contain bit-packed values.
+  /// \param[in] max_values max values to decode.
+  /// \return The number of values decoded. Should be identical to max_values except
+  /// at the end of the current data page.
   virtual int Decode(uint8_t* buffer, int max_values) = 0;
 };
 

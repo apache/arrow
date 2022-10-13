@@ -23,6 +23,12 @@ jobs:
   autobrew:
     name: "install from local source"
     runs-on: {{ "${{ matrix.os }}" }}
+  {% if env is defined %}
+    env:
+    {% for key, value in env.items() %}
+      {{ key }}: "{{ value }}"
+    {% endfor %}
+  {% endif %}
     strategy:
       fail-fast: false
       matrix:

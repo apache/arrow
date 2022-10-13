@@ -24,7 +24,7 @@ from cython.operator cimport dereference as deref
 
 from collections import namedtuple
 
-from pyarrow.lib import frombytes, tobytes, ordered_dict
+from pyarrow.lib import frombytes, tobytes, ordered_dict, ArrowInvalid
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -2234,7 +2234,12 @@ cdef class Expression(_Weakrefable):
 
         for argument in arguments:
             if not isinstance(argument, Expression):
-                raise TypeError("only other expressions allowed as arguments")
+                # Attempt to help convert this to an expression
+                try:
+                    argument = Expression._scalar(argument)
+                except ArrowInvalid:
+                    raise TypeError(
+                        "only other expressions allowed as arguments")
             c_arguments.push_back((<Expression> argument).expr)
 
         if options is not None:

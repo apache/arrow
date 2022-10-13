@@ -51,11 +51,13 @@ jobs:
           # These are only used while generating the page
           rm -rf build/docs/.doctrees
       - name: Upload preview to S3
-        env: 
-          AWS_ACCESS_KEY_ID: {{ '${{ secrets.CROSSBOW_DOCS_AWS_ACCESS_KEY_ID }}' }}
-          AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.CROSSBOW_DOCS_AWS_SECRET_ACCESS_KEY }}' }}
-          AWS_DEFAULT_REGION: us-east-2
-          BUCKET: s3://voltrondata-labs-crossbow-docs
+        env:
+          {%- raw %}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CROSSBOW_DOCS_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CROSSBOW_DOCS_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET_REGION }} 
+          BUCKET: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET }}
+          {% endraw %}
         run: |
           aws s3 cp build/docs/ $BUCKET/pr_docs/{{ pr_number }}/ --recursive
-          echo ":open_book: You can find the preview here: https://crossbow.voltrondata.com/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY
+          echo ":open_book: You can find the preview here: http://crossbow.voltrondata.com/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY
