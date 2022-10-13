@@ -26,7 +26,10 @@ fi
 
 dask=$1
 
-if [ "${dask}" = "master" ]; then
+# Get Git default branch name
+DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
+
+if [ "${dask}" = "${DEFAULT_BRANCH}" ]; then
   pip install https://github.com/dask/dask/archive/main.tar.gz#egg=dask[dataframe]
 elif [ "${dask}" = "latest" ]; then
   pip install dask[dataframe]
