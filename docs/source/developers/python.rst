@@ -573,6 +573,10 @@ Then run the unit tests with:
 
 .. note::
 
+   With the above instructions the Arrow C++ libraries are not bundled with
+   the Python extension. This is recommended for development as it allows the
+   C++ libraries to be re-built separately.
+
    If you want to bundle the Arrow C++ libraries with ``pyarrow``, add
    the ``--bundle-arrow-cpp`` option when building:
 
