@@ -222,9 +222,7 @@ TEST(ConverterTest, Decimal128And256) {
 }
 
 TEST(ConverterTest, Decimal128And256ScaleError) {
-  std::vector<std::shared_ptr<DataType>> types = {
-    decimal128(38, 10), decimal256(38, 10)
-  };
+  std::vector<std::shared_ptr<DataType>> types = {decimal128(38, 10), decimal256(38, 10)};
   for (int i = 0; i < 2; ++i) {
     ParseOptions options;
     options.explicit_schema = schema({field("", types[i])});
@@ -236,20 +234,17 @@ TEST(ConverterTest, Decimal128And256ScaleError) {
     std::shared_ptr<StructArray> parse_array;
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
 
-    std::string error_msg = "Invalid: Failed of conversion of JSON to " +
-        types[i]->ToString() + "Invalid: Rescaling Decimal" +
-        std::to_string(128 * (i + 1)) +
+    std::string error_msg =
+        "Invalid: Failed of conversion of JSON to " + types[i]->ToString() +
+        "Invalid: Rescaling Decimal" + std::to_string(128 * (i + 1)) +
         " value would cause data loss: 30.0123456789001 requires scale 13";
-    // call to convert
     ASSERT_RAISES_WITH_MESSAGE(Invalid, error_msg,
                                Convert(types[i], parse_array->GetFieldByName("")));
   }
 }
 
 TEST(ConverterTest, Decimal128And256PrecisionError) {
-  std::vector<std::shared_ptr<DataType>> types = {
-    decimal128(38, 10), decimal256(38, 10)
-  };
+  std::vector<std::shared_ptr<DataType>> types = {decimal128(38, 10), decimal256(38, 10)};
   for (int i = 0; i < 2; ++i) {
     ParseOptions options;
     options.explicit_schema = schema({field("", types[i])});
@@ -261,10 +256,9 @@ TEST(ConverterTest, Decimal128And256PrecisionError) {
     std::shared_ptr<StructArray> parse_array;
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
 
-    std::string error_msg = "Invalid: Failed of conversion of JSON to " +
-        types[i]->ToString() +
+    std::string error_msg =
+        "Invalid: Failed of conversion of JSON to " + types[i]->ToString() +
         "123456789012345678901234567890.0123456789 requires precision 40";
-    // call to convert
     ASSERT_RAISES_WITH_MESSAGE(Invalid, error_msg,
                                Convert(types[i], parse_array->GetFieldByName("")));
   }
