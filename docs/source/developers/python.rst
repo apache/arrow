@@ -514,19 +514,15 @@ First, starting from a fresh clone of Apache Arrow:
 
 Now, we build and install Arrow C++ libraries.
 
-We set a number of environment variables:
-
-- the path of the installation directory of the Arrow C++ libraries as
-  ``ARROW_HOME``. When using a conda environment, Arrow C++ is installed
-  in the environment directory, which path is saved in the
-  `CONDA_PREFIX <https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html#environment-variables-that-affect-the-build-process>`_
-  environment variable.
-- and the CMake generator to be used as ``PYARROW_CMAKE_GENERATOR``
+We set the path of the installation directory of the Arrow C++ libraries as
+``ARROW_HOME``. When using a conda environment, Arrow C++ is installed
+in the environment directory, which path is saved in the
+`CONDA_PREFIX <https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html#environment-variables-that-affect-the-build-process>`_
+environment variable.
 
 .. code-block::
 
    $ set ARROW_HOME=%CONDA_PREFIX%
-   $ set PYARROW_CMAKE_GENERATOR=Visual Studio 15 2017 Win64
 
 Let's configure, build and install the Arrow C++ libraries:
 
@@ -534,7 +530,7 @@ Let's configure, build and install the Arrow C++ libraries:
 
    $ mkdir arrow\cpp\build
    $ pushd arrow\cpp\build
-   $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
+   $ cmake -G "Ninja" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_UNITY_BUILD=ON ^
          -DARROW_COMPUTE=ON ^
