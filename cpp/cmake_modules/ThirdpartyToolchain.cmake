@@ -4330,16 +4330,19 @@ macro(build_orc)
   add_dependencies(toolchain orc_ep)
 
   set(ORC_VENDORED 1)
-  add_dependencies(orc_ep ZLIB::ZLIB)
-  add_dependencies(orc_ep LZ4::lz4)
-  add_dependencies(orc_ep ${ARROW_ZSTD_LIBZSTD})
-  add_dependencies(orc_ep ${Snappy_TARGET})
   add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   add_library(orc::liborc STATIC IMPORTED)
   set_target_properties(orc::liborc
                         PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+  target_link_libraries(orc::liborc INTERFACE LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD}
+                                              ${Snappy_TARGET})
+  if(APPLE)
+    target_link_libraries(orc::liborc INTERFACE ${CMAKE_DL_LIBS})
+  elseif(NOT MSVC)
+    target_link_libraries(orc::liborc INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
+  endif()
 
   add_dependencies(toolchain orc_ep)
   add_dependencies(orc::liborc orc_ep)
