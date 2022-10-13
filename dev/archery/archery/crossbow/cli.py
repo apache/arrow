@@ -190,15 +190,14 @@ def verify_release_candidate(obj, base_branch, create_pr,
     # The verify-release-candidate command will create a PR (or find one)
     # and add the verify-rc* comment to trigger the verify tasks
 
+    # Redefine Arrow repo to use the correct arrow remote.
+    arrow = Repo(path=obj['arrow'].path, remote_url=remote)
+
     # Default value for base_branch is the repository's default branch name
     if base_branch is None:
         # Get the default branch name from the repository
-        arrow_source_dir = ArrowSources.find()
-        repo = Repo(arrow_source_dir.path)
-        base_branch = repo.default_branch_name
-
-    # Redefine Arrow repo to use the correct arrow remote.
-    arrow = Repo(path=obj['arrow'].path, remote_url=remote)
+        base_branch = arrow.default_branch_name
+    
     response = arrow.github_pr(title=pr_title, head=head_branch,
                                base=base_branch, body=pr_body,
                                github_token=obj['queue'].github_token,
