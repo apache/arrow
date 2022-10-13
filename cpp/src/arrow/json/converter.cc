@@ -182,8 +182,8 @@ class DecimalConverter : public PrimitiveConverter {
       if (scale != out_scale) {
         auto result = value.Rescale(scale, out_scale);
         if (ARROW_PREDICT_FALSE(!result.ok())) {
-          return GenericConversionError(*out_type_, ". ", result.status().message(), ": ",
-                                        repr, " requires scale ", scale);
+          return GenericConversionError(*out_type_, ". ", repr, " requires scale ",
+                                        scale);
         } else {
           value = result.ValueUnsafe();
         }
