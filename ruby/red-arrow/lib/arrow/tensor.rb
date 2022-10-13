@@ -26,7 +26,7 @@ module Arrow
     #
     #   @param raw_tensor [::Array<Numeric>] The tensor represented as a
     #     raw `Array` (not `Arrow::Array`) and `Numeric`s. You can
-    #     nested `Array` for multi-dimensions array.
+    #     pass a nested `Array` for a multi-dimensional tensor.
     #
     #   @param data_type [Arrow::DataType, String, Symbol, ::Array<String>,
     #     ::Array<Symbol>, Hash, nil] The element data type of the tensor.
