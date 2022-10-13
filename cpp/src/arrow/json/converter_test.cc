@@ -259,7 +259,7 @@ TEST(ConverterTest, Decimal128And256PrecisionError) {
     std::string error_msg =
         "Invalid: Failed of conversion of JSON to " + types[i]->ToString() +
         ". 123456789012345678901234567890.0123456789 requires precision 40";
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, error_msg,
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(error_msg),
                                     Convert(types[i], parse_array->GetFieldByName("")));
   }
 }
