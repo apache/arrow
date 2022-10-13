@@ -43,7 +43,7 @@ data frame or Arrow Table.
 If passed a path, will detect and handle compression from the file extension
 (e.g. \code{.json.gz}).
 
-Arrow data types are inferred from the JSON types and values of each column:
+If \code{schema} is not provided, Arrow data types are inferred from the data:
 \itemize{
 \item JSON null values convert to the \code{\link[=null]{null()}} type, but can fall back to any other type.
 \item JSON booleans convert to \code{\link[=boolean]{boolean()}}.

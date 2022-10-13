@@ -23,7 +23,7 @@
 #' If passed a path, will detect and handle compression from the file extension
 #' (e.g. `.json.gz`).
 #'
-#' Arrow data types are inferred from the JSON types and values of each column:
+#' If `schema` is not provided, Arrow data types are inferred from the data:
 #' - JSON null values convert to the [null()] type, but can fall back to any other type.
 #' - JSON booleans convert to [boolean()].
 #' - JSON numbers convert to [int64()], falling back to [float64()] if a non-integer is encountered.
