@@ -31,6 +31,7 @@ import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pc
 from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow.includes.libarrow_feather cimport *
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport (
@@ -1161,16 +1162,92 @@ cdef class FragmentScanOptions(_Weakrefable):
             return False
 
 
+cdef class IpcWriteProperties(_Weakrefable):
+    """
+    Options for writing Arrow IPC files.
+
+    Parameters
+    ----------
+    compression : Either lz4, zstd, or None.
+    compression_level : if the compressor type supports levels,
+        this value is passed on to it.
+    """
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, *, compression=None, compression_level=None):
+        self.properties.reset(new CFeatherProperties(CFeatherProperties.Defaults()))
+        if compression is not None:
+            self.compression = compression
+        if compression_level is not None:
+            self.compression_level = compression_level
+
+    @property
+    def compression(self):
+        """
+        Compression type to use. LZ4 and ZSTD are supported
+        """
+        return deref(self.properties).compression
+
+    @compression.setter
+    def compression(self, value):
+        if value == 'zstd':
+            deref(self.properties).compression = CCompressionType_ZSTD
+        elif value == 'lz4':
+            deref(self.properties).compression = CCompressionType_LZ4_FRAME
+        else:
+            deref(self.properties).compression = CCompressionType_UNCOMPRESSED
+        
+    @property
+    def compression_level(self):
+        """
+        Compression level to use, if the compressor supports it.
+        """
+        return deref(self.properties).compression_level
+
+    @compression_level.setter
+    def compression_level(self, value):
+        deref(self.properties).compression_level = value
+
+    @staticmethod
+    cdef IpcWriteProperties wrap(CFeatherProperties properties):
+        out = IpcWriteProperties()
+        out.properties.reset(new CFeatherProperties(move(properties)))
+        return out
+
+
 cdef class IpcFileWriteOptions(FileWriteOptions):
+    cdef:
+        CIpcFileWriteOptions* ipc_options
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
+
+    @property
+    def write_options(self):
+        return IpcWriteProperties.wrap(deref(self.ipc_options.properties))
+
+    @write_options.setter
+    def write_options(self, IpcWriteProperties write_options not None):
+        self.ipc_options.properties.reset(
+            new CFeatherProperties(deref(write_options.properties)))
+
+    cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
+        FileWriteOptions.init(self, sp)
+        self.ipc_options = <CIpcFileWriteOptions*> sp.get()
 
 
 cdef class IpcFileFormat(FileFormat):
 
     def __init__(self):
         self.init(shared_ptr[CFileFormat](new CIpcFileFormat()))
+        
+    def make_write_options(self, **kwargs):
+        cdef IpcFileWriteOptions opts = \
+            <IpcFileWriteOptions> FileFormat.make_write_options(self)
+        opts.properties = IpcWriteProperties(**kwargs)
+        return opts
 
     def equals(self, IpcFileFormat other):
         return True
@@ -1181,13 +1258,6 @@ cdef class IpcFileFormat(FileFormat):
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
-
-
-cdef class FeatherFileFormat(IpcFileFormat):
-
-    @property
-    def default_extname(self):
-        return "feather"
 
 
 cdef class CsvFileFormat(FileFormat):

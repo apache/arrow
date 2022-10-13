@@ -1508,6 +1508,18 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CMetadataVersion_V3" arrow::ipc::MetadataVersion::V3"
         CMetadataVersion_V4" arrow::ipc::MetadataVersion::V4"
         CMetadataVersion_V5" arrow::ipc::MetadataVersion::V5"
+    
+    cdef cppclass CFeatherProperties" arrow::ipc::feather::WriteProperties":
+        int version
+        int chunksize
+        CCompressionType compression
+        int compression_level
+        
+        CFeatherProperties()
+        CFeatherProperties(CFeatherProperties&&)
+        
+        @staticmethod
+        CFeatherProperties Defaults()
 
     cdef cppclass CIpcWriteOptions" arrow::ipc::IpcWriteOptions":
         c_bool allow_64bit
@@ -1520,6 +1532,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool use_threads
         c_bool emit_dictionary_deltas
         c_bool unify_dictionaries
+        
+        CIpcWriteOptions()
+        CIpcWriteOptions(CIpcWriteOptions&&)
 
         @staticmethod
         CIpcWriteOptions Defaults()

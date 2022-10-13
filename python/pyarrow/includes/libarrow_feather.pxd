@@ -20,18 +20,12 @@
 from pyarrow.includes.libarrow cimport (CCompressionType, CStatus, CTable,
                                         COutputStream, CResult, shared_ptr,
                                         vector, CRandomAccessFile, CSchema,
-                                        c_string, CIpcReadOptions)
+                                        c_string, CIpcReadOptions, CFeatherProperties)
 
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     int kFeatherV1Version" arrow::ipc::feather::kFeatherV1Version"
     int kFeatherV2Version" arrow::ipc::feather::kFeatherV2Version"
-
-    cdef cppclass CFeatherProperties" arrow::ipc::feather::WriteProperties":
-        int version
-        int chunksize
-        CCompressionType compression
-        int compression_level
 
     CStatus WriteFeather" arrow::ipc::feather::WriteTable" \
         (const CTable& table, COutputStream* out,

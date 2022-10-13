@@ -28,6 +28,7 @@
 #include "arrow/io/type_fwd.h"
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/result.h"
+#include "arrow/ipc/feather.h"
 
 namespace arrow {
 namespace dataset {
@@ -83,8 +84,7 @@ class ARROW_DS_EXPORT IpcFragmentScanOptions : public FragmentScanOptions {
 
 class ARROW_DS_EXPORT IpcFileWriteOptions : public FileWriteOptions {
  public:
-  /// Options passed to ipc::MakeFileWriter. use_threads is ignored
-  std::shared_ptr<ipc::IpcWriteOptions> options;
+  std::shared_ptr<ipc::feather::WriteProperties> properties;
 
   /// custom_metadata written to the file's footer
   std::shared_ptr<const KeyValueMetadata> metadata;

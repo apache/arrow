@@ -26,7 +26,6 @@ from pyarrow._dataset import (  # noqa
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
-    FeatherFileFormat,
     FilenamePartitioning,
     FileFormat,
     FileFragment,
@@ -287,8 +286,6 @@ def _ensure_format(obj):
         return ParquetFileFormat()
     elif obj in {"ipc", "arrow"}:
         return IpcFileFormat()
-    elif obj == "feather":
-        return FeatherFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
     elif obj == "orc":

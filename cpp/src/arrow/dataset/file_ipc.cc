@@ -197,8 +197,8 @@ std::shared_ptr<FileWriteOptions> IpcFileFormat::DefaultWriteOptions() {
   std::shared_ptr<IpcFileWriteOptions> ipc_options(
       new IpcFileWriteOptions(shared_from_this()));
 
-  ipc_options->options =
-      std::make_shared<ipc::IpcWriteOptions>(ipc::IpcWriteOptions::Defaults());
+  ipc_options->properties =
+      std::make_shared<ipc::feather::WriteProperties>(ipc::feather::WriteProperties::Defaults());
   return ipc_options;
 }
 
@@ -211,9 +211,16 @@ Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
   }
 
   auto ipc_options = checked_pointer_cast<IpcFileWriteOptions>(options);
+  auto properties = ipc_options->properties;
+  ipc::IpcWriteOptions write_options = ipc::IpcWriteOptions::Defaults();
+  write_options.unify_dictionaries = true;
+  write_options.allow_64bit = true;
+  ARROW_ASSIGN_OR_RAISE(
+          write_options.codec,
+          util::Codec::Create(properties->compression, properties->compression_level));
 
   ARROW_ASSIGN_OR_RAISE(auto writer,
-                        ipc::MakeFileWriter(destination, schema, *ipc_options->options,
+                        ipc::MakeFileWriter(destination, schema, write_options,
                                             ipc_options->metadata));
 
   return std::shared_ptr<FileWriter>(

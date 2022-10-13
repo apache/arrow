@@ -124,6 +124,13 @@ cdef class FileFragment(Fragment):
     cdef void init(self, const shared_ptr[CFragment]& sp)
 
 
+cdef class IpcWriteProperties(_Weakrefable):
+    cdef:
+        unique_ptr[CFeatherProperties] properties
+
+    @staticmethod
+    cdef IpcWriteProperties wrap(CFeatherProperties properties)
+
 cdef class Partitioning(_Weakrefable):
 
     cdef:
