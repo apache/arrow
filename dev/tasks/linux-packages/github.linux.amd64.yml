@@ -46,6 +46,7 @@ jobs:
           rake --trace {{ task_namespace }}:build BUILD_DIR=build
           popd
         env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}  
           APT_TARGETS: {{ target }}
           ARROW_VERSION: {{ arrow.version }}
           REPO: {{ '${{ secrets.REPO }}' }}
