@@ -228,7 +228,7 @@ test_that("read_csv_arrow() can read timestamps", {
   # work with schema to specify timestamp with time zone type
   tbl <- tibble::tibble(time = "1970-01-01T12:00:00+12:00")
   write.csv(tbl, tf, row.names = FALSE)
-  df <- read_csv_arrow(tf2, col_types = schema(time = timestamp(unit = "us", timezone = "UTC")))
+  df <- read_csv_arrow(tf, col_types = schema(time = timestamp(unit = "us", timezone = "UTC")))
   expect_equal(df, tibble::tibble(time = as.POSIXct("1970-01-01 00:00:00", tz = "UTC")))
 })
 
@@ -614,7 +614,7 @@ test_that("read_csv_arrow() can read sub-second timestamps with col_types T sett
   expect_equal(df$time, expected, ignore_attr = "tzone")
 })
 
-test_that("Shows a error message when trying to read a timestamp with time zone with col_types = T (ARROW-17429)", {
+test_that("Shows an error message when trying to read a timestamp with time zone with col_types = T (ARROW-17429)", {
   tbl <- tibble::tibble(time = c("1970-01-01T12:00:00+12:00"))
   csv_file <- tempfile()
   on.exit(unlink(csv_file))
