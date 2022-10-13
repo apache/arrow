@@ -517,7 +517,10 @@ Now, we build and install Arrow C++ libraries.
 We set a number of environment variables:
 
 - the path of the installation directory of the Arrow C++ libraries as
-  ``ARROW_HOME``
+  ``ARROW_HOME``. When using a conda environment, Arrow C++ is installed
+  in the environment directory, which path is saved in the
+  `CONDA_PREFIX <https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html#environment-variables-that-affect-the-build-process>`_
+  environment variable.
 - and the CMake generator to be used as ``PYARROW_CMAKE_GENERATOR``
 
 .. code-block::
