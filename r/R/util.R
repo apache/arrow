@@ -238,7 +238,6 @@ is_compressed <- function(compression) {
 
 # handler function which checks for a number of different read errors
 augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
-
   msg <- conditionMessage(e)
 
   if (!is.null(schema)) {
@@ -250,8 +249,4 @@ augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
 
   handle_augmented_field_misuse(msg, call)
   abort(msg, call = call)
-}
-
-simulate_data_frame <- function(schema) {
-  as.data.frame(Table__from_schema(schema))
 }

@@ -94,7 +94,7 @@ column_select <- function(.data, select_expression, op = c("select", "rename")) 
   op <- match.arg(op)
 
   .data <- as_adq(.data)
-  sim_df <- simulate_data_frame(implicit_schema(.data))
+  sim_df <- as.data.frame(implicit_schema(.data))
   old_names <- names(sim_df)
 
   if (op == "select") {
