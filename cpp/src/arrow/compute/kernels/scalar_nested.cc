@@ -92,8 +92,8 @@ struct ListSlice {
   using offset_type = typename Type::offset_type;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const int32_t start = OptionsWrapper<SliceOptions>::Get(ctx).start;
-    const int32_t stop = OptionsWrapper<SliceOptions>::Get(ctx).stop;
+    const auto start = OptionsWrapper<SliceOptions>::Get(ctx).start;
+    const auto stop = OptionsWrapper<SliceOptions>::Get(ctx).stop;
     if (start < 0 || start >= stop) {
       return Status::Invalid("`start`(", start,
                              ") should be greater than 0 and greater than `stop`(", stop,
@@ -113,8 +113,9 @@ struct ListSlice {
       RETURN_NOT_OK(BuildArrayListType(batch, start, stop, list_, *builder));
     }
     ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
-    ARROW_ASSIGN_OR_RAISE(auto fixed_list,
-                          FixedSizeListArray::FromArrays(result, stop - start));
+    ARROW_ASSIGN_OR_RAISE(
+        auto fixed_list,
+        FixedSizeListArray::FromArrays(result, static_cast<int32_t>(stop - start)));
     out->value = fixed_list->data();
     return Status::OK();
   }
@@ -166,10 +167,11 @@ struct ListSlice {
 
 Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
                                         const std::vector<TypeHolder>& types) {
-  const int32_t start = OptionsWrapper<SliceOptions>::Get(ctx).start;
-  const int32_t stop = OptionsWrapper<SliceOptions>::Get(ctx).stop;
+  const auto start = OptionsWrapper<SliceOptions>::Get(ctx).start;
+  const auto stop = OptionsWrapper<SliceOptions>::Get(ctx).stop;
   const auto list_type = checked_cast<const BaseListType*>(types[0].type);
-  return TypeHolder(fixed_size_list(list_type->value_type(), stop - start));
+  return TypeHolder(
+      fixed_size_list(list_type->value_type(), static_cast<int32_t>(stop - start)));
 }
 
 template <typename InListType, template <typename...> class Functor>
