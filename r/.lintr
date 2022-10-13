@@ -27,5 +27,6 @@ linters: linters_with_defaults(
   )
 exclusions: list(
   "R/arrowExports.R",
+  "R/dplyr-funcs-doc.R",
   "data-raw/codegen.R"
   )

@@ -116,6 +116,7 @@ Collate:
     'dplyr-join.R'
     'dplyr-mutate.R'
     'dplyr-select.R'
+    'dplyr-slice.R'
     'dplyr-summarize.R'
     'dplyr-union.R'
     'record-batch.R'

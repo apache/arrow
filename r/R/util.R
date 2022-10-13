@@ -153,7 +153,7 @@ as_writable_table <- function(x) {
       abort(
         "Object must be coercible to an Arrow Table using `as_arrow_table()`",
         parent = e,
-        call = rlang::caller_env(2)
+        call = caller_env(2)
       )
     }
   )
@@ -238,7 +238,6 @@ is_compressed <- function(compression) {
 
 # handler function which checks for a number of different read errors
 augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
-
   msg <- conditionMessage(e)
 
   if (!is.null(schema)) {
