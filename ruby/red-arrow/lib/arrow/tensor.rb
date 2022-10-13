@@ -33,7 +33,7 @@ module Arrow
     #
     #     If you specify `nil`, data type is guessed from `raw_tensor`.
     #
-    #     See {Arrow::DataType.resolve} how to specify data type.
+    #     See {Arrow::DataType.resolve} for how to specify data type.
     #
     #   @param shape [::Array<Integer>, nil] The array of dimension sizes.
     #
