@@ -114,7 +114,7 @@ def test_cython_api(tmpdir):
         # Check basic functionality
         orig_path = sys.path[:]
         sys.path.insert(0, str(tmpdir))
-        #TODO: Remove DEBUGs
+        # TODO: Remove DEBUGs
         try:
             print(f"DEBUG - Current sys.path: {sys.path}")
             mod = __import__('pyarrow_cython_example')
@@ -127,14 +127,26 @@ def test_cython_api(tmpdir):
         # pyarrow imported first.
         code = """if 1:
             import sys
+            import os
+
+            if getattr(os, 'add_dll_directory'):
+                # Add dll directory was added on python 3.8
+                # and is required in order to find extra DLLs
+                # only for win32
+                for dir in {library_dirs}:
+                    os.add_dll_directory(dir)
 
             mod = __import__({mod_name!r})
             arr = mod.make_null_array(5)
             assert mod.get_array_length(arr) == 5
             assert arr.null_count == 5
-        """.format(mod_name='pyarrow_cython_example')
+        """.format(mod_name='pyarrow_cython_example',
+                   library_dirs=pa.get_library_dirs())
 
-        if sys.platform == 'win32':
+        if sys.platform == 'win32' and not \
+                getattr(os, 'add_dll_directory'):
+            # Python 3.8 onwards don't check extension module DLLs on path
+            # use os.add_dll_directory instead.
             delim, var = ';', 'PATH'
         else:
             delim, var = ':', 'LD_LIBRARY_PATH'
@@ -145,7 +157,7 @@ def test_cython_api(tmpdir):
         subprocess.check_call([sys.executable, '-c', code],
                               stdout=subprocess.PIPE,
                               env=subprocess_env)
-        print(f"DEBUG - Last check call")
+        print("DEBUG - Last check call")
 
 
 @pytest.mark.cython
