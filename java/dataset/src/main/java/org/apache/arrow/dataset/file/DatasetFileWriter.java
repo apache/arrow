@@ -17,12 +17,17 @@
 
 package org.apache.arrow.dataset.file;
 
+import org.apache.arrow.c.ArrowArrayStream;
 import org.apache.arrow.c.ArrowSchema;
 import org.apache.arrow.c.Data;
+import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.util.SchemaUtility;
+
+import java.util.Iterator;
 
 /**
  * JNI-based utility to write datasets into files. It internally depends on C++ static method
@@ -43,22 +48,29 @@ public class DatasetFileWriter {
    */
   public static void write(BufferAllocator allocator, Scanner scanner, FileFormat format, String uri,
                            String[] partitionColumns, int maxPartitions, String baseNameTemplate) {
-    final CArrowArrayStreamIteratorImpl itr = new CArrowArrayStreamIteratorImpl(scanner, allocator);
     ArrowSchema arrowSchema = ArrowSchema.allocateNew(allocator);
     Data.exportSchema(allocator, scanner.schema(), null, arrowSchema);
-
     RuntimeException throwableWrapper = null;
     try {
-      JniWrapper.get().writeFromScannerToFile(itr, arrowSchema.memoryAddress(),
-          format.id(), uri, partitionColumns, maxPartitions, baseNameTemplate);
+      Iterator<? extends ScanTask> taskIterators = scanner.scan().iterator();
+      while (taskIterators.hasNext()) {
+        ArrowReader currentReader = taskIterators.next().execute();
+        ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator);
+        Data.exportArrayStream(allocator, currentReader, stream);
+        JniWrapper.get().writeFromScannerToFile(stream.memoryAddress(), arrowSchema.memoryAddress(),
+            format.id(), uri, partitionColumns, maxPartitions, baseNameTemplate);
+        currentReader.close();
+        stream.close();
+      }
+
     } catch (Throwable t) {
       throwableWrapper = new RuntimeException(t);
       throw throwableWrapper;
     } finally {
-      arrowSchema.release();
-      arrowSchema.close();
       try {
-        AutoCloseables.close(itr);
+        scanner.close();
+        arrowSchema.release();
+        arrowSchema.close();
       } catch (Exception e) {
         if (throwableWrapper != null) {
           throwableWrapper.addSuppressed(e);
