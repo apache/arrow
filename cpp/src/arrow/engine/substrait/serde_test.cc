@@ -402,22 +402,36 @@ TEST(Substrait, SupportedLiterals) {
   auto ExpectEq = [](std::string_view json, Datum expected_value) {
     ARROW_SCOPED_TRACE(json);
 
-    ASSERT_OK_AND_ASSIGN(
-        auto buf, internal::SubstraitFromJSON("Expression",
-                                              "{\"literal\":" + std::string(json) + "}"));
-    ExtensionSet ext_set;
-    ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
+    for (bool nullable : {false, true}) {
+      std::string json_with_nullable;
+      std::string nullable_json = (nullable) ? ", \"nullable\": true" : "";
+      if (nullable) {
+        auto final_closing_brace = json.find_last_of('}');
+        ASSERT_NE(std::string_view::npos, final_closing_brace);
+        json_with_nullable =
+            std::string(json.substr(0, final_closing_brace)) + ", \"nullable\": true}";
+        json = json_with_nullable;
+      }
+      ASSERT_OK_AND_ASSIGN(
+          auto buf,
+          internal::SubstraitFromJSON(
+              "Expression", "{\"literal\":" + std::string(json) + nullable_json + "}"));
+      ExtensionSet ext_set;
+      ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
 
-    ASSERT_TRUE(expr.literal());
-    ASSERT_THAT(*expr.literal(), DataEq(expected_value));
+      ASSERT_TRUE(expr.literal());
+      ASSERT_THAT(*expr.literal(), DataEq(expected_value));
 
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-    EXPECT_EQ(ext_set.num_functions(), 0);  // shouldn't need extensions for core literals
+      ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
+      EXPECT_EQ(ext_set.num_functions(),
+                0);  // shouldn't need extensions for core literals
 
-    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
+      ASSERT_OK_AND_ASSIGN(auto roundtripped,
+                           DeserializeExpression(*serialized, ext_set));
 
-    ASSERT_TRUE(roundtripped.literal());
-    ASSERT_THAT(*roundtripped.literal(), DataEq(expected_value));
+      ASSERT_TRUE(roundtripped.literal());
+      ASSERT_THAT(*roundtripped.literal(), DataEq(expected_value));
+    }
   };
 
   ExpectEq(R"({"boolean": true})", Datum(true));
@@ -504,6 +518,8 @@ TEST(Substrait, SupportedLiterals) {
     ASSERT_OK_AND_ASSIGN(auto json, internal::SubstraitToJSON("Type", *buf));
     ExpectEq("{\"null\": " + json + "}", MakeNullScalar(type));
   }
+
+  ConversionOptions conversion_options;
 }
 
 TEST(Substrait, CannotDeserializeLiteral) {
@@ -515,13 +531,16 @@ TEST(Substrait, CannotDeserializeLiteral) {
                                             R"({"literal": {"list": {"values": []}}})"));
   EXPECT_THAT(DeserializeExpression(*buf, ext_set), Raises(StatusCode::Invalid));
 
-  // Invalid: required null literal
+  // Invalid: required null literal if in strict mode
+  ConversionOptions conversion_options;
+  conversion_options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
   ASSERT_OK_AND_ASSIGN(
       buf,
       internal::SubstraitFromJSON(
           "Expression",
           R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})"));
-  EXPECT_THAT(DeserializeExpression(*buf, ext_set), Raises(StatusCode::Invalid));
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options),
+              Raises(StatusCode::Invalid));
 
   // no equivalent arrow scalar
   // FIXME no way to specify scalars of user_defined_type_reference
@@ -760,6 +779,46 @@ TEST(Substrait, ReadRel) {
               UnorderedElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
   EXPECT_EQ(dataset.format()->type_name(), "parquet");
   EXPECT_EQ(*dataset.schema(), Schema({field("i", int64()), field("b", boolean())}));
+}
+
+/// \brief Create a NamedTableProvider that provides `table` regardless of the name
+NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
+  return [table = std::move(table)](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+}
+
+TEST(Substrait, RelWithHint) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Rel", R"({
+    "read": {
+      "common": {
+        "hint": {
+          "stats": {
+            "row_count": 1
+          }
+        },
+        "direct": { }
+      },
+      "base_schema": {
+        "struct": {
+          "types": [ {"i64": {}}, {"bool": {}} ]
+        },
+        "names": ["i", "b"]
+      },
+      "named_table": { "names": [ "foo" ] }
+    }
+  })"));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = AlwaysProvideSameTable(nullptr);
+
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto rel, DeserializeRelation(*buf, ext_set, conversion_options));
+
+  conversion_options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
+  ASSERT_RAISES(NotImplemented, DeserializeRelation(*buf, ext_set, conversion_options));
 }
 
 TEST(Substrait, ExtensionSetFromPlan) {
@@ -2114,15 +2173,6 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
                        GetTableFromPlan(roundtripped_filter, exec_context, dummy_schema));
   EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
-}
-
-/// \brief Create a NamedTableProvider that provides `table` regardless of the name
-NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
-  return [table = std::move(table)](const std::vector<std::string>&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
 }
 
 TEST(Substrait, ProjectRel) {
