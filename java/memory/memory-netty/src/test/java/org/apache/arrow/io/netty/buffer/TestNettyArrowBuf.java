@@ -76,7 +76,7 @@ public class TestNettyArrowBuf {
     }
   }
 
-  /* FIXME! JPMS Define a way to export methods needed
+  /* TODO: Define a way to export methods needed. Cause JPMS implementation
   @Test
   public void testSetLEValues() {
     try (BufferAllocator allocator = new RootAllocator(128);

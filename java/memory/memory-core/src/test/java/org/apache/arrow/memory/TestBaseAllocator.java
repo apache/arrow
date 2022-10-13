@@ -111,7 +111,7 @@ public class TestBaseAllocator {
   }
 
   @Test
-  @Ignore //FIXME: Review errors for JPMS
+  @Ignore //TODO: Enable test impacted by JPMS implementation
   public void testRootAllocator_getEmpty() throws Exception {
     try (final RootAllocator rootAllocator =
              new RootAllocator(MAX_ALLOCATION)) {

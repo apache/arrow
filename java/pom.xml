@@ -151,6 +151,7 @@
             <exclude>**/*.tbl</exclude>
             <exclude>**/*.iml</exclude>
             <exclude>**/flight.properties</exclude>
+            <exclude>**/*.idea/**</exclude>
           </excludes>
         </configuration>
       </plugin>
@@ -421,7 +422,7 @@
               which in turn can cause OOM. -->
               <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
             </systemPropertyVariables>
-            <useModulePath>false</useModulePath>
+            <useModulePath>false</useModulePath> <!--TODO Uses the modulepath when executing test with JDK11 -->
           </configuration>
         </plugin>
         <plugin>
@@ -793,8 +794,6 @@
               <execution>
                 <id>default-compile</id>
                 <configuration>
-                  <source>8</source>
-                  <target>8</target>
                   <excludes>
                     <exclude>module-info.java</exclude>
                   </excludes>
@@ -806,8 +805,6 @@
                   <goal>compile</goal>
                 </goals>
                 <configuration>
-                  <source>8</source>
-                  <target>8</target>
                   <excludes>
                     <exclude>module-info.java</exclude>
                   </excludes>
