@@ -416,8 +416,7 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
     // the LSB of the next byte and move on. If we memcpy + FromLittleEndian
     // as usual, we have potential undefined behavior for bools if the value
     // isn't 0 or 1
-    uint8_t tmp = arrow::bit_util::FromLittleEndian(*(buffer_ + byte_offset_));
-    *v = tmp & 1;
+    *v = *(buffer_ + byte_offset_) & 1;    
   } else {
     memcpy(v, buffer_ + byte_offset_, num_bytes);
     *v = arrow::bit_util::FromLittleEndian(*v);
