@@ -167,17 +167,26 @@ class DecimalConverter : public PrimitiveConverter {
     Builder builder(out_type_, pool_);
     RETURN_NOT_OK(builder.Resize(dict_array.indices()->length()));
     const auto& decimal_type(checked_cast<const DecimalType&>(*out_type_));
+    int32_t out_precision = decimal_type.precision();
     int32_t out_scale = decimal_type.scale();
 
-    auto visit_valid = [&builder, out_scale](string_view repr) {
+    auto visit_valid = [&](string_view repr) {
       value_type value;
       int32_t precision, scale;
       RETURN_NOT_OK(TypeTraits<T>::BuilderType::ValueType::FromString(
           repr, &value, &precision, &scale));
-      if (scale > out_scale) {
-        value = value.ReduceScaleBy(scale - out_scale, true);
-      } else if (scale < out_scale) {
-        value = value.IncreaseScaleBy(out_scale - scale);
+      if (precision > out_precision) {
+        return GenericConversionError(*out_type_, repr, " requires precision ",
+                                      precision);
+      }
+      if (scale != out_scale) {
+        auto result = value.Rescale(scale, out_scale);
+        if (ARROW_PREDICT_FALSE(!result.ok())) {
+          return GenericConversionError(*out_type_, result.status(), ": ", repr,
+                                        " requires scale ", scale);
+        } else {
+          value = result.ValueUnsafe();
+        }
       }
       builder.UnsafeAppend(value);
       return Status::OK();
