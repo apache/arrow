@@ -2953,7 +2953,7 @@ def test_list_slice(start, stop, expected, value_type, list_type):
 
 def test_list_slice_bad_parameters():
     arr = pa.array([[1]])
-    msg = r"`start`(.*) should be greater than 0 and greater than `stop`(.*)"
+    msg = r"`start`(.*) should be greater than 0 and smaller than `stop`(.*)"
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, -1)  # negative start?
     with pytest.raises(pa.ArrowInvalid, match=msg):

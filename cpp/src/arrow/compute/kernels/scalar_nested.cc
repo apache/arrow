@@ -96,7 +96,7 @@ struct ListSlice {
     const auto stop = OptionsWrapper<SliceOptions>::Get(ctx).stop;
     if (start < 0 || start >= stop) {
       return Status::Invalid("`start`(", start,
-                             ") should be greater than 0 and greater than `stop`(", stop,
+                             ") should be greater than 0 and smaller than `stop`(", stop,
                              ")");
     }
 

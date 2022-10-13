@@ -156,7 +156,7 @@ TEST(TestScalarNested, ListSliceBadParameters) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
-          "`start`(-1) should be greater than 0 and greater than `stop`(1)"),
+          "`start`(-1) should be greater than 0 and smaller than `stop`(1)"),
       CallFunction("list_slice", {input}, &args));
   // start greater than stop
   args.start = 1;
@@ -164,14 +164,14 @@ TEST(TestScalarNested, ListSliceBadParameters) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
-          "`start`(1) should be greater than 0 and greater than `stop`(0)"),
+          "`start`(1) should be greater than 0 and smaller than `stop`(0)"),
       CallFunction("list_slice", {input}, &args));
   // start same as stop
   args.stop = args.start;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
-          "`start`(1) should be greater than 0 and greater than `stop`(1)"),
+          "`start`(1) should be greater than 0 and smaller than `stop`(1)"),
       CallFunction("list_slice", {input}, &args));
 }
 
