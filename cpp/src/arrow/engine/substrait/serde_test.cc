@@ -205,7 +205,8 @@ TEST(Substrait, SupportedTypes) {
     ARROW_SCOPED_TRACE(json);
 
     ExtensionSet empty;
-    ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Type", json));
+    ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON(
+                                       "Type", json, /*ignore_unknown_fields=*/false));
     ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, empty));
 
     EXPECT_EQ(*type, *expected_type);
@@ -283,8 +284,10 @@ TEST(Substrait, SupportedExtensionTypes) {
     ASSERT_OK_AND_ASSIGN(
         auto buf,
         internal::SubstraitFromJSON(
-            "Type", "{\"user_defined\": { \"type_reference\": " + std::to_string(anchor) +
-                        ", \"nullability\": \"NULLABILITY_NULLABLE\" } }"));
+            "Type",
+            "{\"user_defined\": { \"type_reference\": " + std::to_string(anchor) +
+                ", \"nullability\": \"NULLABILITY_NULLABLE\" } }",
+            /*ignore_unknown_fields=*/false));
 
     ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, ext_set));
     EXPECT_EQ(*type, *expected_type);
@@ -301,7 +304,8 @@ TEST(Substrait, SupportedExtensionTypes) {
 TEST(Substrait, NamedStruct) {
   ExtensionSet ext_set;
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("NamedStruct", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("NamedStruct", R"({
     "struct": {
       "types": [
         {"i64": {}},
@@ -316,7 +320,8 @@ TEST(Substrait, NamedStruct) {
       ]
     },
     "names": ["a", "b", "c", "d", "e", "f"]
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   ASSERT_OK_AND_ASSIGN(auto schema, DeserializeSchema(*buf, ext_set));
   Schema expected_schema({
       field("a", int64()),
@@ -337,14 +342,16 @@ TEST(Substrait, NamedStruct) {
   ASSERT_OK_AND_ASSIGN(buf, internal::SubstraitFromJSON("NamedStruct", R"({
     "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]},
     "names": []
-  })"));
+  })",
+                                                        /*ignore_unknown_fields=*/false));
   EXPECT_THAT(DeserializeSchema(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // too many names
   ASSERT_OK_AND_ASSIGN(buf, internal::SubstraitFromJSON("NamedStruct", R"({
     "struct": {"types": []},
     "names": ["a", "b", "c"]
-  })"));
+  })",
+                                                        /*ignore_unknown_fields=*/false));
   EXPECT_THAT(DeserializeSchema(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // no schema metadata allowed
@@ -361,7 +368,8 @@ TEST(Substrait, NamedStruct) {
 TEST(Substrait, NoEquivalentArrowType) {
   ASSERT_OK_AND_ASSIGN(
       auto buf,
-      internal::SubstraitFromJSON("Type", R"({"user_defined": {"type_reference": 99}})"));
+      internal::SubstraitFromJSON("Type", R"({"user_defined": {"type_reference": 99}})",
+                                  /*ignore_unknown_fields=*/false));
   ExtensionSet empty;
   ASSERT_THAT(
       DeserializeType(*buf, empty),
@@ -401,10 +409,8 @@ TEST(Substrait, NoEquivalentSubstraitType) {
 TEST(Substrait, SupportedLiterals) {
   auto ExpectEq = [](std::string_view json, Datum expected_value) {
     ARROW_SCOPED_TRACE(json);
-
     for (bool nullable : {false, true}) {
       std::string json_with_nullable;
-      std::string nullable_json = (nullable) ? ", \"nullable\": true" : "";
       if (nullable) {
         auto final_closing_brace = json.find_last_of('}');
         ASSERT_NE(std::string_view::npos, final_closing_brace);
@@ -413,9 +419,9 @@ TEST(Substrait, SupportedLiterals) {
         json = json_with_nullable;
       }
       ASSERT_OK_AND_ASSIGN(
-          auto buf,
-          internal::SubstraitFromJSON(
-              "Expression", "{\"literal\":" + std::string(json) + nullable_json + "}"));
+          auto buf, internal::SubstraitFromJSON("Expression",
+                                                "{\"literal\":" + std::string(json) + "}",
+                                                /*ignore_unknown_fields=*/false));
       ExtensionSet ext_set;
       ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
 
@@ -518,8 +524,6 @@ TEST(Substrait, SupportedLiterals) {
     ASSERT_OK_AND_ASSIGN(auto json, internal::SubstraitToJSON("Type", *buf));
     ExpectEq("{\"null\": " + json + "}", MakeNullScalar(type));
   }
-
-  ConversionOptions conversion_options;
 }
 
 TEST(Substrait, CannotDeserializeLiteral) {
@@ -528,7 +532,8 @@ TEST(Substrait, CannotDeserializeLiteral) {
   // Invalid: missing List.element_type
   ASSERT_OK_AND_ASSIGN(
       auto buf, internal::SubstraitFromJSON("Expression",
-                                            R"({"literal": {"list": {"values": []}}})"));
+                                            R"({"literal": {"list": {"values": []}}})",
+                                            /*ignore_unknown_fields=*/false));
   EXPECT_THAT(DeserializeExpression(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // Invalid: required null literal if in strict mode
@@ -538,7 +543,8 @@ TEST(Substrait, CannotDeserializeLiteral) {
       buf,
       internal::SubstraitFromJSON(
           "Expression",
-          R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})"));
+          R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})",
+          /*ignore_unknown_fields=*/false));
   EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options),
               Raises(StatusCode::Invalid));
 
@@ -587,7 +593,8 @@ TEST(Substrait, RecursiveFieldRef) {
   ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-  ASSERT_OK_AND_ASSIGN(auto expected, internal::SubstraitFromJSON("Expression", R"({
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       internal::SubstraitFromJSON("Expression", R"({
     "selection": {
       "directReference": {
         "structField": {
@@ -601,7 +608,8 @@ TEST(Substrait, RecursiveFieldRef) {
       },
       "rootReference": {}
     }
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   ASSERT_OK(internal::CheckMessagesEquivalent("Expression", *serialized, *expected));
 }
 
@@ -619,7 +627,8 @@ TEST(Substrait, FieldRefsInExpressions) {
 
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-  ASSERT_OK_AND_ASSIGN(auto expected, internal::SubstraitFromJSON("Expression", R"({
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       internal::SubstraitFromJSON("Expression", R"({
     "selection": {
       "directReference": {
         "structField": {
@@ -638,7 +647,8 @@ TEST(Substrait, FieldRefsInExpressions) {
         }
       }
     }
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   ASSERT_OK(internal::CheckMessagesEquivalent("Expression", *serialized, *expected));
 }
 
@@ -729,7 +739,8 @@ TEST(Substrait, CallExtensionFunction) {
 }
 
 TEST(Substrait, ReadRel) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Rel", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Rel", R"({
     "read": {
       "base_schema": {
         "struct": {
@@ -759,7 +770,8 @@ TEST(Substrait, ReadRel) {
         ]
       }
     }
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto rel, DeserializeRelation(*buf, ext_set));
 
@@ -791,7 +803,8 @@ NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
 }
 
 TEST(Substrait, RelWithHint) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Rel", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Rel", R"({
     "read": {
       "common": {
         "hint": {
@@ -809,7 +822,8 @@ TEST(Substrait, RelWithHint) {
       },
       "named_table": { "names": [ "foo" ] }
     }
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = AlwaysProvideSameTable(nullptr);
@@ -861,7 +875,9 @@ TEST(Substrait, ExtensionSetFromPlan) {
       }}
     ]
 })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -899,7 +915,9 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
@@ -945,7 +963,9 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
@@ -982,7 +1002,9 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   auto sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -1260,7 +1282,9 @@ TEST(Substrait, JoinPlanBasic) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -1403,7 +1427,9 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -1414,7 +1440,8 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
 }
 
 TEST(Substrait, JoinPlanInvalidExpression) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
   "relations": [{
     "rel": {
       "join": {
@@ -1471,7 +1498,8 @@ TEST(Substrait, JoinPlanInvalidExpression) {
       }
     }
   }]
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -1555,7 +1583,8 @@ TEST(Substrait, JoinPlanInvalidKeys) {
 }
 
 TEST(Substrait, AggregateBasic) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1630,7 +1659,8 @@ TEST(Substrait, AggregateBasic) {
         "name": "sum"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   auto sp_ext_id_reg = MakeExtensionIdRegistry();
   ASSERT_OK_AND_ASSIGN(auto sink_decls,
@@ -1648,7 +1678,8 @@ TEST(Substrait, AggregateBasic) {
 }
 
 TEST(Substrait, AggregateInvalidRel) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1666,13 +1697,15 @@ TEST(Substrait, AggregateInvalidRel) {
         "name": "sum"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateInvalidFunction) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1727,13 +1760,15 @@ TEST(Substrait, AggregateInvalidFunction) {
         "name": "sum"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateInvalidAggFuncArgs) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1798,13 +1833,15 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
         "name": "sum"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateWithFilter) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1869,13 +1906,15 @@ TEST(Substrait, AggregateWithFilter) {
         "name": "equal"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateBadPhase) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1940,7 +1979,8 @@ TEST(Substrait, AggregateBadPhase) {
         "name": "equal"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
@@ -2269,7 +2309,9 @@ TEST(Substrait, ProjectRel) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("A", int32()), field("B", int32()),
                                field("C", int32()), field("equal", boolean())});
   auto expected_table = TableFromJSON(output_schema, {R"([
@@ -2389,7 +2431,9 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema =
       schema({field("A", int32()), field("C", int32()), field("equal", boolean())});
   auto expected_table = TableFromJSON(output_schema, {R"([
@@ -2452,7 +2496,9 @@ TEST(Substrait, ReadRelWithEmit) {
   }],
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("B", int32()), field("C", int32())});
   auto expected_table = TableFromJSON(output_schema, {R"([
       [1, 10],
@@ -2569,7 +2615,9 @@ TEST(Substrait, FilterRelWithEmit) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("B", int32()), field("D", int32())});
   auto expected_table = TableFromJSON(output_schema, {R"([
       [3, 5],
@@ -2699,7 +2747,9 @@ TEST(Substrait, JoinRelEndToEnd) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   // include these columns for comparison
   auto output_schema = schema({
@@ -2854,7 +2904,9 @@ TEST(Substrait, JoinRelWithEmit) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({
       field("A", int32()),
       field("B", int32()),
@@ -2979,7 +3031,9 @@ TEST(Substrait, AggregateRel) {
     }],
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("aggregates", int64()), field("keys", int32())});
   auto expected_table = TableFromJSON(output_schema, {R"([
       [80, 10],
@@ -3094,7 +3148,9 @@ TEST(Substrait, AggregateRelEmit) {
     }],
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("aggregates", int64())});
   auto expected_table = TableFromJSON(output_schema, {R"([
       [80],
@@ -3214,7 +3270,9 @@ TEST(Substrait, IsthmusPlan) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
   CheckRoundTripResult(std::move(test_schema), std::move(expected_table),
