@@ -424,12 +424,12 @@ class DockerCompose(Command):
             if hasattr(value, 'items'):
                 temp_filters = filters
                 if key == filters or filters is None:
-                    output.append(f'{prefix}- {key}')
+                    output.append(f'{prefix} {key}')
                     # Keep showing this specific key
                     # as parent matched filter
                     temp_filters = None
-                output.extend(self.info(value, temp_filters, prefix + " "))
+                output.extend(self.info(value, temp_filters, prefix + "  "))
             else:
                 if key == filters or filters is None:
-                    output.append(f'{prefix}- {key}: {value}')
+                    output.append(f'{prefix} {key}: {value}')
         return output

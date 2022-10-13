@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import sys
 
 import click
 
@@ -293,11 +294,11 @@ def docker_compose_images(obj):
 
 @docker.command('info')
 @click.argument('service_name')
-@click.option('--only', '-o', required=False,
+@click.option('--show', '-s', required=False,
               help="Show only specific docker-compose key. Examples of keys:"
                    " command, environment, build, dockerfile")
 @click.pass_obj
-def docker_compose_info(obj, service_name, only):
+def docker_compose_info(obj, service_name, show):
     """Show docker-compose definition info for service_name.
 
     SERVICE_NAME is the name of the docker service defined on
@@ -311,5 +312,5 @@ def docker_compose_info(obj, service_name, only):
         sys.exit(1)
     else:
         click.echo(f'Service {service_name} docker-compose config:')
-        output = "\n".join(compose.info(service, only))
+        output = "\n".join(compose.info(service, show))
         click.echo(output)
