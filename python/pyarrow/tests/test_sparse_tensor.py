@@ -33,7 +33,6 @@ try:
 except ImportError:
     sparse = None
 
-
 tensor_type_pairs = [
     ('i1', pa.int8()),
     ('i2', pa.int16()),
@@ -444,6 +443,8 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     assert sparse_tensor.has_canonical_format
     assert out_scipy_matrix.has_canonical_format
 
+    assert scipy_matrix.nnz == 0
+    assert scipy_matrix.nnz == sparse_tensor.non_zero_length
     assert np.array_equal(scipy_matrix.data, out_scipy_matrix.data)
     assert np.array_equal(scipy_matrix.row, out_scipy_matrix.row)
     assert np.array_equal(scipy_matrix.col, out_scipy_matrix.col)
@@ -479,6 +480,19 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
         dense_array = sparse_array.toarray()
     assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
 
+    scipy_matrix = csr_matrix([[0, 0], [0, 0]])
+    sparse_tensor = pa.SparseCSRMatrix.from_scipy(scipy_matrix,
+                                                  dim_names=dim_names)
+    out_scipy_matrix = sparse_tensor.to_scipy()
+    dense_array = scipy_matrix.toarray()
+
+    assert scipy_matrix.nnz == 0
+    assert scipy_matrix.nnz == sparse_tensor.non_zero_length
+    assert np.array_equal(scipy_matrix.data, out_scipy_matrix.data)
+    assert np.array_equal(scipy_matrix.indptr, out_scipy_matrix.indptr)
+    assert np.array_equal(scipy_matrix.indices, out_scipy_matrix.indices)
+    assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
+
 
 @pytest.mark.skipif(not sparse, reason="requires pydata/sparse")
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
@@ -504,3 +518,16 @@ def test_pydata_sparse_sparse_coo_tensor_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(sparse_array.coords, out_sparse_array.coords)
     assert np.array_equal(sparse_array.todense(),
                           sparse_tensor.to_tensor().to_numpy())
+
+    sparse_array = sparse.COO.from_numpy([[0, 0], [0, 0]])
+    sparse_tensor = pa.SparseCOOTensor.from_pydata_sparse(sparse_array,
+                                                          dim_names=dim_names)
+    out_sparse_array = sparse_tensor.to_pydata_sparse()
+    dense_array = sparse_array.todense()
+
+    assert sparse_array.nnz == 0
+    assert sparse_array.nnz == sparse_tensor.non_zero_length
+    assert out_sparse_array.nnz == sparse_tensor.non_zero_length
+    assert np.array_equal(sparse_array.data, out_sparse_array.data)
+    assert np.array_equal(sparse_array.coords, out_sparse_array.coords)
+    assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())

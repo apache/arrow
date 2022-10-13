@@ -1676,4 +1676,55 @@ TEST(TestSparseCSFMatrixForUInt64Index, Make) {
   ASSERT_RAISES(Invalid, SparseCSFTensor::Make(dense_tensor, uint64()));
 }
 
+//-----------------------------------------------------------------------------
+// Create SparseTensors from a dense Tensor with only zeros
+
+template <typename SparseTensorType>
+class TestSparseTensorFromDenseBase : public ::testing::Test {
+ public:
+  void SetUp() {
+    shape_ = {2, 12};
+    dim_names_ = {"foo", "bar"};
+    dense_values_ = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    dense_data_ = Buffer::Wrap(dense_values_);
+  }
+
+ protected:
+  std::vector<int64_t> shape_;
+  std::vector<std::string> dim_names_;
+  std::vector<int64_t> dense_values_;
+  std::shared_ptr<Buffer> dense_data_;
+};
+
+template <typename SparseTensorType>
+class TestSparseTensorFromDense : public TestSparseTensorFromDenseBase<SparseTensorType> {
+};
+
+TYPED_TEST_SUITE_P(TestSparseTensorFromDense);
+
+TYPED_TEST_P(TestSparseTensorFromDense, TestNonZeroLength) {
+  using SparseTensorType = TypeParam;
+
+  NumericTensor<Int64Type> dense_tensor_ =
+      NumericTensor<Int64Type>(this->dense_data_, this->shape_, {}, this->dim_names_);
+  ASSERT_OK_AND_ASSIGN(
+      auto sparse_tensor_,
+      SparseTensorType::Make(dense_tensor_, TypeTraits<Int64Type>::type_singleton()));
+  ASSERT_EQ(sparse_tensor_->non_zero_length(), 0);
+  ASSERT_EQ(sparse_tensor_->shape(), this->shape_);
+  ASSERT_EQ(sparse_tensor_->dim_names(), this->dim_names_);
+}
+
+REGISTER_TYPED_TEST_SUITE_P(TestSparseTensorFromDense, TestNonZeroLength);
+
+INSTANTIATE_TYPED_TEST_SUITE_P(TestSparseCOOTensor, TestSparseTensorFromDense,
+                               SparseCOOTensor);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestSparseCSRMatrix, TestSparseTensorFromDense,
+                               SparseCSRMatrix);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestSparseCSCMatrix, TestSparseTensorFromDense,
+                               SparseCSCMatrix);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestSparseCSFTensor, TestSparseTensorFromDense,
+                               SparseCSFTensor);
+
 }  // namespace arrow
