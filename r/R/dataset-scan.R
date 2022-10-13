@@ -38,7 +38,7 @@
 #' `ScannerBuilder` has the following methods:
 #'
 #' - `$Project(cols)`: Indicate that the scan should only return columns given
-#' by `cols`, a character vector of column names
+#' by `cols`, a character vector of column names or a named list of [Expression].
 #' - `$Filter(expr)`: Filter rows by an [Expression].
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
@@ -53,6 +53,28 @@
 #' query and returns an Arrow [Table].
 #' @rdname Scanner
 #' @name Scanner
+#' @examplesIf arrow_with_dataset() & arrow_with_parquet()
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#'
+#' write_dataset(mtcars, tf, partitioning="cyl")
+#'
+#' ds <- open_dataset(tf)
+#'
+#' scan_builder <- ds$NewScan()
+#' scan_builder$Filter(Expression$field_ref("hp") > 100)
+#' scan_builder$Project(list(hp_times_ten = 10 * Expression$field_ref("hp")))
+#'
+#' # Once configured, call $Finish()
+#' scanner <- scan_builder$Finish()
+#'
+#' # Can get results as a table
+#' as.data.frame(scanner$ToTable())
+#'
+#' # Or as a RecordBatchReader
+#' scanner$ToRecordBatchReader()
 #' @export
 Scanner <- R6Class("Scanner",
   inherit = ArrowObject,
