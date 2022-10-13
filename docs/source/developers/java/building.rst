@@ -88,8 +88,8 @@ Archery
     $ java --version
     $ archery docker run debian-java
 
-Building JNI Libraries (*.dylib / *.so / *.dll)
------------------------------------------------
+Building JNI Libraries (\*.dylib / \*.so / \*.dll)
+--------------------------------------------------
 
 First, we need to build the `C++ shared libraries`_ that the JNI bindings will use.
 We can build these manually or we can use `Archery`_ to build them using a Docker container
@@ -120,9 +120,9 @@ Maven
 
     .. code-block::
 
-        C:\ cd arrow/java
-        C:\ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
-        C:\ dir "../java-dist/bin"
+        $ cd arrow/java
+        $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
+        $ dir "../java-dist/bin"
         |__ arrow_cdata_jni.dll
 
 - To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
@@ -143,9 +143,9 @@ Maven
 
     .. code-block::
 
-        C:\ cd arrow/java
-        C:\ mvn generate-resources -Pgenerate-libs-jni-windows -N
-        C:\ dir "../java-dist/bin"
+        $ cd arrow/java
+        $ mvn generate-resources -Pgenerate-libs-jni-windows -N
+        $ dir "../java-dist/bin"
         |__ arrow_dataset_jni.dll
 
 CMake
@@ -175,9 +175,9 @@ CMake
 
     .. code-block::
 
-        C:\ cd arrow
-        C:\ mkdir java-dist, java-cdata
-        C:\ cmake ^
+        $ cd arrow
+        $ mkdir java-dist, java-cdata
+        $ cmake ^
             -S java ^
             -B java-cdata ^
             -DARROW_JAVA_JNI_ENABLE_C=ON ^
@@ -186,8 +186,8 @@ CMake
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_INSTALL_LIBDIR=lib ^
             -DCMAKE_INSTALL_PREFIX=java-dist
-        C:\ cmake --build java-cdata --target install --config Release
-        C:\ dir "java-dist/bin"
+        $ cmake --build java-cdata --target install --config Release
+        $ dir "java-dist/bin"
         |__ arrow_cdata_jni.dll
 
 - To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
@@ -245,9 +245,9 @@ CMake
 
     .. code-block::
 
-        C:\ cd arrow
-        C:\ mkdir java-dist, cpp-jni
-        C:\ cmake ^
+        $ cd arrow
+        $ mkdir java-dist, cpp-jni
+        $ cmake ^
             -S cpp ^
             -B cpp-jni ^
             -DARROW_BUILD_SHARED=OFF ^
@@ -269,10 +269,10 @@ CMake
             -DCMAKE_INSTALL_PREFIX=java-dist ^
             -DCMAKE_UNITY_BUILD=ON ^
             -GNinja
-        C:\ cd cpp-jni
-        C:\ ninja install
-        C:\ cd ../
-        C:\ cmake ^
+        $ cd cpp-jni
+        $ ninja install
+        $ cd ../
+        $ cmake ^
             -S java ^
             -B java-jni ^
             -DARROW_JAVA_JNI_ENABLE_C=OFF ^
@@ -285,8 +285,8 @@ CMake
             -DCMAKE_INSTALL_LIBDIR=lib ^
             -DCMAKE_INSTALL_PREFIX=java-dist ^
             -DCMAKE_PREFIX_PATH=$PWD/java-dist
-        C:\ cmake --build java-jni --target install --config Release
-        C:\ dir "java-dist/bin"
+        $ cmake --build java-jni --target install --config Release
+        $ dir "java-dist/bin"
         |__ arrow_dataset_jni.dll
 
 Archery
