@@ -456,8 +456,9 @@ Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
 
 /// \brief One-shot executor provider for all types of functions.
 ///
-/// Does kernel dispatch and argument type-checking while iteration of ChunkedArray inputs
-/// and wrapping of outputs are deferred to the executor.
+/// This function creates and initializes a `FunctionExecutor` appropriate
+/// for the given function name, input types (taken from the Datum arguments)
+/// and function options.
 ARROW_EXPORT
 Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
     const std::string& func_name, const std::vector<Datum>& args,

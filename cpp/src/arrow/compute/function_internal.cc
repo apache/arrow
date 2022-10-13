@@ -111,8 +111,8 @@ Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
 Status CheckAllArrayOrScalar(const std::vector<Datum>& values) {
   for (const auto& value : values) {
     if (!value.is_value()) {
-      return Status::Invalid("Tried executing function with non-value type: ",
-                             value.ToString());
+      return Status::TypeError("Tried executing function with non-value type: ",
+                               value.ToString());
     }
   }
   return Status::OK();

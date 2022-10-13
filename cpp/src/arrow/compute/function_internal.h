@@ -666,6 +666,7 @@ const FunctionOptionsType* GetFunctionOptionsType(const Properties&... propertie
 
 Status CheckAllArrayOrScalar(const std::vector<Datum>& values);
 
+ARROW_EXPORT
 Result<std::vector<TypeHolder>> GetFunctionArgumentTypes(const std::vector<Datum>& args);
 
 }  // namespace internal

@@ -162,10 +162,10 @@ struct ARROW_EXPORT FunctionDoc {
 /// \brief An executor of a function with a preconfigured kernel
 struct ARROW_EXPORT FunctionExecutor {
   virtual ~FunctionExecutor() = default;
-  /// \brief Initialize a preconfigured kernel
+  /// \brief Initialize or re-initialize the preconfigured kernel
   ///
-  /// This method may be called zero or more times. By default, the kernel is initialized
-  /// with default function options and exec context.
+  /// This method may be called zero or more times. Depending on how
+  /// the FunctionExecutor was obtained, it may already have been initialized.
   virtual Status Init(const FunctionOptions* options = NULLPTR,
                       ExecContext* exec_ctx = NULLPTR) = 0;
   /// \brief Execute the preconfigured kernel with arguments that must fit it
