@@ -3816,7 +3816,7 @@ def test_dictionary_from_pandas_specified_type():
     # mismatching order -> raise error (for now a deprecation warning)
     typ = pa.dictionary(
         index_type=pa.int8(), value_type=pa.string(), ordered=True)
-    with pytest.warns(FutureWarning, match="The 'ordered' flag of the passed"):
+    with pytest.raises(ValueError):
         result = pa.array(cat, type=typ)
     assert result.to_pylist() == ['a', 'b']
 
