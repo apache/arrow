@@ -143,6 +143,15 @@
 #' read_csv_arrow(tf, schema = schema(x = int32(), y = utf8()), skip = 1)
 #' read_csv_arrow(tf, col_types = schema(y = utf8()))
 #' read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
+#'
+#' # Note that you can't read a string representing a timestampe with time zone as a timestampe type without time zone.
+#' write.csv(data.frame(x = "1970-01-01T12:00:00+12:00"), file = tf, row.names = FALSE)
+#' try(read_csv_arrow(tf, skip = 1, col_names = "x", col_types = "T"))
+#' # The timestampe with time zone type must be specified with the `schema()` function.
+#' read_csv_arrow(
+#'   tf, skip = 1, col_names = "x",
+#'   col_types = schema(x = timestamp(unit = "us", timezone = "UTC"))
+#' )
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
