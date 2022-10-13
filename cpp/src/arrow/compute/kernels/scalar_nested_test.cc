@@ -126,23 +126,24 @@ void CheckListSlice(std::shared_ptr<Array> input, std::shared_ptr<Array> expecte
 TEST(TestScalarNested, ListSlice) {
   const auto value_types = {float32(), int32()};
   for (auto value_type : value_types) {
-    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6]]"),
+    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]"),
                    ArrayFromJSON(fixed_size_list(value_type, 3),
-                                 "[[1, 2, 3], [4, 5, null], [6, null, null]]")};
+                                 "[[1, 2, 3], [4, 5, null], [6, null, null], null]")};
     for (auto input : inputs) {
       SliceOptions args(0, 2);
-      auto expected =
-          ArrayFromJSON(fixed_size_list(value_type, 2), "[[1, 2], [4, 5], [6, null]]");
+      auto expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                                    "[[1, 2], [4, 5], [6, null], [null, null]]");
       CheckListSlice(input, expected, args);
 
       args.start = 1;
-      expected = ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null]]");
+      expected =
+          ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null], [null]]");
       CheckListSlice(input, expected, args);
 
       args.start = 2;
       args.stop = 4;
       expected = ArrayFromJSON(fixed_size_list(value_type, 2),
-                               "[[3, null], [null, null], [null, null]]");
+                               "[[3, null], [null, null], [null, null], [null, null]]");
       CheckListSlice(input, expected, args);
     }
   }

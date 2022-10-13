@@ -2932,19 +2932,19 @@ def test_cast_table_raises():
 
 
 @pytest.mark.parametrize("start,stop,expected", (
-    (0, 1, [[1], [4], [6]]),
-    (0, 2, [[1, 2], [4, 5], [6, None]]),
-    (1, 2, [[2], [5], [None]]),
-    (2, 4, [[3, None], [None, None], [None, None]])
+    (0, 1, [[1], [4], [6], [None]]),
+    (0, 2, [[1, 2], [4, 5], [6, None], [None, None]]),
+    (1, 2, [[2], [5], [None], [None]]),
+    (2, 4, [[3, None], [None, None], [None, None], [None, None]])
 ))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
 @pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
 def test_list_slice(start, stop, expected, value_type, list_type):
     if list_type == "fixed":
-        arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None]],
+        arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None], None],
                        pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
     else:
-        arr = pa.array([[1, 2, 3], [4, 5], [6]],
+        arr = pa.array([[1, 2, 3], [4, 5], [6], None],
                        pa.list_(pa.int8())).cast(list_type(value_type()))
     result = pc.list_slice(arr, start, stop)
     pylist = result.cast(pa.list_(pa.int8(), stop-start)).to_pylist()
