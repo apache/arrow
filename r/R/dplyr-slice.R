@@ -115,7 +115,7 @@ slice_sample.arrow_dplyr_query <- function(.data,
 
   if (prop < 1) {
     .data <- as_adq(.data)
-    # TODO(ARROW-17974): expr <- Expression$create("random") < prop
+    # TODO(ARROW-17974): use Expression$create("random") instead of UDF hack
     # HACK: use our UDF to generate random. It needs an input column because
     # nullary functions don't work, and that column has to be typed. We've
     # chosen boolean() type because it's compact and can always be created:
