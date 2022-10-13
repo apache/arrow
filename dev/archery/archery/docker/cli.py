@@ -307,7 +307,8 @@ def docker_compose_info(obj, service_name, only):
     try:
         service = compose.config.raw_config["services"][service_name]
     except KeyError:
-        click.echo(f'Service name {service_name} could not be found')
+        click.echo(f'Service name {service_name} could not be found', err=True)
+        sys.exit(1)
     else:
         click.echo(f'Service {service_name} docker compose config:')
         output = "\n".join(compose.info(service, only))
