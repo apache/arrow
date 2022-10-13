@@ -115,11 +115,12 @@ const FieldVector kAugmentedFields{
     field("__filename", utf8()),
 };
 
-Result<FieldVector> GetProjectedFields(const std::shared_ptr<ScanOptions>& scan_options,
-                                       const std::shared_ptr<Schema>& dataset_schema) {
+Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
+    const compute::Expression& projection,
+    const std::shared_ptr<Schema>& dataset_schema) {
   // process resultant dataset_schema after projection
   FieldVector project_fields;
-  if (auto call = scan_options->projection.call()) {
+  if (auto call = projection.call()) {
     if (call->function_name != "make_struct") {
       return Status::Invalid("Top level projection expression call must be make_struct");
     }
@@ -141,7 +142,7 @@ Result<FieldVector> GetProjectedFields(const std::shared_ptr<ScanOptions>& scan_
       }
     }
   }
-  return std::move(project_fields);
+  return schema(project_fields);
 }
 
 // Scan options has a number of options that we can infer from the dataset
@@ -161,10 +162,11 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     // If the user specifies a projection expression we can maybe infer from
     // that expression
     if (scan_options->projection.IsBound()) {
-      ARROW_ASSIGN_OR_RAISE(auto project_fields,
-                            GetProjectedFields(scan_options, dataset_schema));
-      if (project_fields.size() > 0) {
-        scan_options->projected_schema = schema(std::move(project_fields));
+      ARROW_ASSIGN_OR_RAISE(
+          auto project_schema,
+          GetProjectedSchemaFromExpression(scan_options->projection, dataset_schema));
+      if (project_schema->num_fields() > 0) {
+        scan_options->projected_schema = std::move(project_schema);
       }
       // If the projection isn't a call we assume it's literal(true) or some
       // invalid expression and just ignore it.  It will be replaced below
@@ -179,13 +181,13 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
       // IsName() to be true).
 
       // process resultant dataset_schema after projection
-      ARROW_ASSIGN_OR_RAISE(auto project_fields,
-                            GetProjectedFields(scan_options, dataset_schema));
+      ARROW_ASSIGN_OR_RAISE(
+          auto projected_schema,
+          GetProjectedSchemaFromExpression(scan_options->projection, dataset_schema));
 
-      if (project_fields.size() > 0) {
+      if (projected_schema->num_fields() > 0) {
         // create the projected schema only if the provided expressions
         // produces valid set of fields.
-        auto projected_schema = schema(std::move(project_fields));
         ARROW_ASSIGN_OR_RAISE(auto projection_descr,
                               ProjectionDescr::Default(*projected_schema));
         scan_options->projected_schema = std::move(projection_descr.schema);

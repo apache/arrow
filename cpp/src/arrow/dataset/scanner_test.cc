@@ -828,19 +828,11 @@ TEST(TestNewScanner, MissingColumn) {
 void WriteIpcData(const std::string& path,
                   const std::shared_ptr<fs::FileSystem> file_system,
                   const std::shared_ptr<Table> input) {
-  EXPECT_OK_AND_ASSIGN(auto mmap, file_system->OpenOutputStream(path));
+  EXPECT_OK_AND_ASSIGN(auto out_stream, file_system->OpenOutputStream(path));
   ASSERT_OK_AND_ASSIGN(
       auto file_writer,
-      MakeFileWriter(mmap, input->schema(), ipc::IpcWriteOptions::Defaults()));
-  TableBatchReader reader(input);
-  std::shared_ptr<RecordBatch> batch;
-  while (true) {
-    ASSERT_OK(reader.ReadNext(&batch));
-    if (batch == nullptr) {
-      break;
-    }
-    ASSERT_OK(file_writer->WriteRecordBatch(*batch));
-  }
+      MakeFileWriter(out_stream, input->schema(), ipc::IpcWriteOptions::Defaults()));
+  ASSERT_OK(file_writer->WriteTable(*input));
   ASSERT_OK(file_writer->Close());
 }
 
@@ -2832,33 +2824,16 @@ TEST(ScanNode, OnlyLoadProjectedFields) {
   scan_options->projection =
       call("make_struct", {extract_expr}, compute::MakeStructOptions{{"shared"}});
 
-  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-
   auto declarations = compute::Declaration::Sequence(
-      {compute::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}}),
-       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}})});
-
-  ASSERT_OK_AND_ASSIGN(auto decl, declarations.AddToPlan(plan.get()));
-
-  ASSERT_OK(decl->Validate());
-
-  auto output_schema =
-      schema({field("a", int64()), field("b", int64()), field("c", int64())});
-
+      {compute::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}})});
+  ASSERT_OK_AND_ASSIGN(auto actual, compute::DeclarationToTable(declarations));
+  // Scan node always emits augmented fields so we drop those
+  ASSERT_OK_AND_ASSIGN(auto actualMinusAgumented, actual->SelectColumns({0, 1, 2}));
   auto expected = TableFromJSON(dummy_schema, {R"([
       [null, 1, null],
       [null, 4, null]
   ])"});
-
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      output_schema, std::move(sink_gen), exec_context.memory_pool());
-
-  ASSERT_OK(plan->Validate());
-  ASSERT_OK(plan->StartProducing());
-  ASSERT_OK_AND_ASSIGN(auto actual,
-                       arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+  AssertTablesEqual(*expected, *actualMinusAgumented, /*same_chunk_layout=*/false);
 }
 
 }  // namespace dataset
