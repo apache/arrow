@@ -1683,10 +1683,9 @@ template <typename SparseTensorType>
 class TestSparseTensorFromDenseBase : public ::testing::Test {
  public:
   void SetUp() {
-    shape_ = {2, 12};
+    shape_ = {0, 12};
     dim_names_ = {"foo", "bar"};
-    dense_values_ = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    dense_values_ = {};
     dense_data_ = Buffer::Wrap(dense_values_);
   }
 
