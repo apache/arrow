@@ -225,8 +225,11 @@ test_that("read_csv_arrow() can read timestamps", {
   # time zones are being read in as time zone-naive, hence ignore_attr = "tzone"
   expect_equal(tbl, df, ignore_attr = "tzone")
 
-  df <- read_csv_arrow(tf, col_types = "T", col_names = "time", skip = 1)
-  expect_equal(tbl, df, ignore_attr = "tzone")
+  # work with schema to specify timestamp with time zone type
+  tbl <- tibble::tibble(time = "1970-01-01T12:00:00+12:00")
+  write.csv(tbl, tf, row.names = FALSE)
+  df <- read_csv_arrow(tf2, col_types = schema(time = timestamp(unit = "us", timezone = "UTC")))
+  expect_equal(df, tibble::tibble(time = as.POSIXct("1970-01-01 00:00:00", tz = "UTC")))
 })
 
 test_that("read_csv_arrow(timestamp_parsers=)", {
