@@ -24,7 +24,7 @@ module Arrow
     #
     # @overload initialize(raw_tensor, data_type: nil, shape: nil, strides: nil, dimension_names: nil)
     #
-    #   @param raw_tensor [::Array<Numeric>] The tensor represented by
+    #   @param raw_tensor [::Array<Numeric>] The tensor represented as a
     #     raw `Array` (not `Arrow::Array`) and `Numeric`s. You can
     #     nested `Array` for multi-dimensions array.
     #
