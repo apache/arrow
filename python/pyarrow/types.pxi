@@ -1307,11 +1307,6 @@ cdef class Field(_Weakrefable):
         else:
             return wrapped
 
-    def add_metadata(self, metadata):
-        warnings.warn("The 'add_metadata' method is deprecated, use "
-                      "'with_metadata' instead", FutureWarning, stacklevel=2)
-        return self.with_metadata(metadata)
-
     def with_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Field
