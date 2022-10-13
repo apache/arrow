@@ -48,7 +48,7 @@ module Arrow
     #   @param dimension_names [::Array<String>, ::Array<Symbol>, nil]
     #     The array of the dimension names.
     #
-    #     If you specify `nil`, all dimensions doesn't have their names.
+    #     If you specify `nil`, all dimensions have empty names.
     #
     #   @example Create a tensor from Ruby's Array
     #     raw_tensor = [
