@@ -176,14 +176,14 @@ class DecimalConverter : public PrimitiveConverter {
       RETURN_NOT_OK(TypeTraits<T>::BuilderType::ValueType::FromString(
           repr, &value, &precision, &scale));
       if (precision > out_precision) {
-        return GenericConversionError(*out_type_, repr, " requires precision ",
+        return GenericConversionError(*out_type_, ". ", repr, " requires precision ",
                                       precision);
       }
       if (scale != out_scale) {
         auto result = value.Rescale(scale, out_scale);
         if (ARROW_PREDICT_FALSE(!result.ok())) {
-          return GenericConversionError(*out_type_, result.status(), ": ", repr,
-                                        " requires scale ", scale);
+          return GenericConversionError(*out_type_, ". ", result.status().message(), ": ",
+                                        repr, " requires scale ", scale);
         } else {
           value = result.ValueUnsafe();
         }

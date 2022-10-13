@@ -236,7 +236,7 @@ TEST(ConverterTest, Decimal128And256ScaleError) {
 
     std::string error_msg =
         "Invalid: Failed of conversion of JSON to " + types[i]->ToString() +
-        "Invalid: Rescaling Decimal" + std::to_string(128 * (i + 1)) +
+        ". Rescaling Decimal" + std::to_string(128 * (i + 1)) +
         " value would cause data loss: 30.0123456789001 requires scale 13";
     ASSERT_RAISES_WITH_MESSAGE(Invalid, error_msg,
                                Convert(types[i], parse_array->GetFieldByName("")));
@@ -258,7 +258,7 @@ TEST(ConverterTest, Decimal128And256PrecisionError) {
 
     std::string error_msg =
         "Invalid: Failed of conversion of JSON to " + types[i]->ToString() +
-        "123456789012345678901234567890.0123456789 requires precision 40";
+        ". 123456789012345678901234567890.0123456789 requires precision 40";
     ASSERT_RAISES_WITH_MESSAGE(Invalid, error_msg,
                                Convert(types[i], parse_array->GetFieldByName("")));
   }
