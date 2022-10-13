@@ -129,12 +129,14 @@ def test_cython_api(tmpdir):
             import sys
             import os
 
-            if getattr(os, 'add_dll_directory'):
+            try:
                 # Add dll directory was added on python 3.8
                 # and is required in order to find extra DLLs
                 # only for win32
                 for dir in {library_dirs}:
                     os.add_dll_directory(dir)
+            except AttributeError:
+                pass
 
             mod = __import__({mod_name!r})
             arr = mod.make_null_array(5)
@@ -144,9 +146,9 @@ def test_cython_api(tmpdir):
                    library_dirs=pa.get_library_dirs())
 
         if sys.platform == 'win32' and not \
-                getattr(os, 'add_dll_directory'):
+                getattr(os, 'add_dll_directory', False):
             # Python 3.8 onwards don't check extension module DLLs on path
-            # use os.add_dll_directory instead.
+            # we have to use os.add_dll_directory instead.
             delim, var = ';', 'PATH'
         else:
             delim, var = ':', 'LD_LIBRARY_PATH'
