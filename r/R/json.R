@@ -21,7 +21,19 @@
 #' data frame or Arrow Table.
 #'
 #' If passed a path, will detect and handle compression from the file extension
-#' (e.g. `.json.gz`). Accepts explicit or implicit nulls.
+#' (e.g. `.json.gz`).
+#'
+#' If `schema` is not provided, Arrow data types are inferred from the data:
+#' - JSON null values convert to the [null()] type, but can fall back to any other type.
+#' - JSON booleans convert to [boolean()].
+#' - JSON numbers convert to [int64()], falling back to [float64()] if a non-integer is encountered.
+#' - JSON strings of the kind "YYYY-MM-DD" and "YYYY-MM-DD hh:mm:ss" convert to [`timestamp(unit = "s")`][timestamp()],
+#'   falling back to [utf8()] if a conversion error occurs.
+#' - JSON arrays convert to a [list_of()] type, and inference proceeds recursively on the JSON arrays' values.
+#' - Nested JSON objects convert to a [struct()] type, and inference proceeds recursively on the JSON objects' values.
+#'
+#' When `as_data_frame = FALSE`, Arrow types are further converted to R types.
+#' See `vignette("arrow", package = "arrow")` for details.
 #'
 #' @inheritParams read_delim_arrow
 #' @param schema [Schema] that describes the table.
@@ -37,7 +49,7 @@
 #'     { "hello": 3.25, "world": null }
 #'     { "hello": 0.0, "world": true, "yo": null }
 #'   ', tf, useBytes = TRUE)
-#' df <- read_json_arrow(tf)
+#' read_json_arrow(tf)
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,
