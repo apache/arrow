@@ -23,6 +23,7 @@
 
 #include "arrow/json/options.h"
 #include "arrow/json/test_common.h"
+#include "arrow/util/decimal.cc"
 
 namespace arrow {
 namespace json {
@@ -221,5 +222,53 @@ TEST(ConverterTest, Decimal128And256) {
   }
 }
 
+TEST(ConverterTest, Decimal128And256ScaleError) {
+  std::vector<std::shared_ptr<DataType>> types = {
+    decimal128(38, 10), decimal256(38, 10)
+  };
+  for (int i = 0; i < 2; ++i) {
+    ParseOptions options;
+    options.explicit_schema = schema({field("", types[i])});
+
+    std::string json_source = R"(
+      {"" : "30.0123456789001"}
+    )";
+
+    std::shared_ptr<StructArray> parse_array;
+    ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+    std::string error_msg = "Invalid: Failed of conversion of JSON to " +
+        types[i]->ToString() +
+        arrow::ToArrowStatus(DecimalStatus::kRescaleDataLoss, 128 * (i + 1)).ToString() +
+        ": 30.0123456789001 requires scale 13";
+    // call to convert
+    ASSERT_RAISES_WITH_MESSAGE(Invalid, error_msg,
+                               Convert(types[i], parse_array->GetFieldByName("")));
+  }
+}
+
+TEST(ConverterTest, Decimal128And256PrecisionError) {
+  std::vector<std::shared_ptr<DataType>> types = {
+    decimal128(38, 10), decimal256(38, 10)
+  };
+  for (int i = 0; i < 2; ++i) {
+    ParseOptions options;
+    options.explicit_schema = schema({field("", types[i])});
+
+    std::string json_source = R"(
+      {"" : "123456789012345678901234567890.0123456789"}
+    )";
+
+    std::shared_ptr<StructArray> parse_array;
+    ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+    std::string error_msg = "Invalid: Failed of conversion of JSON to " +
+        types[i]->ToString() +
+        "123456789012345678901234567890.0123456789 requires precision 40";
+    // call to convert
+    ASSERT_RAISES_WITH_MESSAGE(Invalid, error_msg,
+                               Convert(types[i], parse_array->GetFieldByName("")));
+  }
+}
 }  // namespace json
 }  // namespace arrow
