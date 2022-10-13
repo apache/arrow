@@ -1719,7 +1719,8 @@ macro(build_substrait)
   set(SUBSTRAIT_PROTOS algebra extensions/extensions plan type)
   set(ARROW_SUBSTRAIT_PROTOS extension_rels)
   set(ARROW_SUBSTRAIT_PROTOS_DIR "${CMAKE_SOURCE_DIR}/proto")
-  message("SOURCE DIR IS ${SOURCE_DIR} AND ${CMAKE_SOURCE_DIR} AND ${ARROW_SUBSTRAIT_PROTOS_DIR}")
+  message("SOURCE DIR IS ${SOURCE_DIR} AND ${CMAKE_SOURCE_DIR} AND ${ARROW_SUBSTRAIT_PROTOS_DIR}"
+  )
 
   externalproject_add(substrait_ep
                       CONFIGURE_COMMAND ""
@@ -1770,9 +1771,11 @@ macro(build_substrait)
 
     list(APPEND SUBSTRAIT_SOURCES "${SUBSTRAIT_PROTO_GEN}.cc")
   endforeach()
-  message("SOURCE DIR2 IS ${SOURCE_DIR} AND ${CMAKE_SOURCE_DIR} AND ${ARROW_SUBSTRAIT_PROTOS_DIR}")
+  message("SOURCE DIR2 IS ${SOURCE_DIR} AND ${CMAKE_SOURCE_DIR} AND ${ARROW_SUBSTRAIT_PROTOS_DIR}"
+  )
   foreach(ARROW_SUBSTRAIT_PROTO ${ARROW_SUBSTRAIT_PROTOS})
-    set(ARROW_SUBSTRAIT_PROTO_GEN "${SUBSTRAIT_CPP_DIR}/substrait/${ARROW_SUBSTRAIT_PROTO}.pb")
+    set(ARROW_SUBSTRAIT_PROTO_GEN
+        "${SUBSTRAIT_CPP_DIR}/substrait/${ARROW_SUBSTRAIT_PROTO}.pb")
     foreach(EXT h cc)
       set_source_files_properties("${ARROW_SUBSTRAIT_PROTO_GEN}.${EXT}"
                                   PROPERTIES COMPILE_OPTIONS
@@ -1781,7 +1784,8 @@ macro(build_substrait)
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${ARROW_SUBSTRAIT_PROTO_GEN}.${EXT}")
     endforeach()
-    add_custom_command(OUTPUT "${ARROW_SUBSTRAIT_PROTO_GEN}.cc" "${ARROW_SUBSTRAIT_PROTO_GEN}.h"
+    add_custom_command(OUTPUT "${ARROW_SUBSTRAIT_PROTO_GEN}.cc"
+                              "${ARROW_SUBSTRAIT_PROTO_GEN}.h"
                        COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
                                "-I${ARROW_SUBSTRAIT_PROTOS_DIR}"
                                "--cpp_out=${SUBSTRAIT_CPP_DIR}"
