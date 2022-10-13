@@ -54,17 +54,17 @@
 #' single string, one character per column, where the characters map to Arrow
 #' types analogously to the `readr` type mapping:
 #'
-#' * "c": `utf8()`
-#' * "i": `int32()`
-#' * "n": `float64()`
-#' * "d": `float64()`
-#' * "l": `bool()`
-#' * "f": `dictionary()`
-#' * "D": `date32()`
-#' * "T": `timestamp(unit = "ns")`
-#' * "t": `time32()` (The `unit` arg is set to the default value `"ms"`)
-#' * "_": `null()`
-#' * "-": `null()`
+#' * "c": [utf8()]
+#' * "i": [int32()]
+#' * "n": [float64()]
+#' * "d": [float64()]
+#' * "l": [bool()]
+#' * "f": [dictionary()]
+#' * "D": [date32()]
+#' * "T": [`timestamp(unit = "ns")`][timestamp()]
+#' * "t": [time32()] (The `unit` arg is set to the default value `"ms"`)
+#' * "_": [null()]
+#' * "-": [null()]
 #' * "?": infer the type from the data
 #'
 #' If you use the compact string representation for `col_types`, you must also
