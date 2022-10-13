@@ -47,11 +47,14 @@ final class CheckAllocator {
     Set<URL> urls = scanClasspath();
     URL rootAllocator = assertOnlyOne(urls);
     reportResult(rootAllocator);
-    if (rootAllocator.getPath().contains("memory-core")) {
+    if (rootAllocator.getPath().contains("memory-core") ||
+        rootAllocator.getPath().contains("/org/apache/arrow/memory/core/")) {
       return "org.apache.arrow.memory.DefaultAllocationManagerFactory";
-    } else if (rootAllocator.getPath().contains("memory-unsafe")) {
+    } else if (rootAllocator.getPath().contains("memory-unsafe") ||
+        rootAllocator.getPath().contains("/org/apache/arrow/memory/unsafe/")) {
       return "org.apache.arrow.memory.unsafe.DefaultAllocationManagerFactory";
-    } else if (rootAllocator.getPath().contains("memory-netty")) {
+    } else if (rootAllocator.getPath().contains("memory-netty") ||
+        rootAllocator.getPath().contains("/org/apache/arrow/memory/netty/")) {
       return "org.apache.arrow.memory.netty.DefaultAllocationManagerFactory";
     } else {
       throw new IllegalStateException("Unknown allocation manager type to infer. Current: " + rootAllocator.getPath());

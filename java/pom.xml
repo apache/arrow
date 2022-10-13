@@ -788,6 +788,7 @@
                 </path>
               </annotationProcessorPaths>
             </configuration>
+            <!-- To be able to create module-info.java class without problems is needed to exclude that for JDK8 -->
             <executions>
               <execution>
                 <id>default-compile</id>
@@ -832,8 +833,8 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
             <configuration>
-              <source>8</source>
-              <target>8</target>
+              <source>11</source>
+              <target>11</target>
               <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
                 <arg>-XDcompilePolicy=simple</arg>
@@ -857,33 +858,6 @@
                 </path>
               </annotationProcessorPaths>
             </configuration>
-            <executions>
-              <execution>
-                <id>default-compile</id>
-                <configuration>
-                  <release>11</release>
-                </configuration>
-              </execution>
-              <execution>
-                <id>default-testCompile</id>
-                <configuration>
-                  <release>11</release>
-                </configuration>
-              </execution>
-              <execution>
-                <id>base-compile</id>
-                <goals>
-                  <goal>compile</goal>
-                </goals>
-                <configuration>
-                  <source>8</source>
-                  <target>8</target>
-                  <excludes>
-                    <exclude>module-info.java</exclude>
-                  </excludes>
-                </configuration>
-              </execution>
-            </executions>
           </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
