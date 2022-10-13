@@ -145,7 +145,8 @@ struct ListSlice {
   static Status BuildArrayListType(const ExecSpan& batch, int64_t start, int64_t stop,
                                    const ArraySpan& list_, ArrayBuilder& builder) {
     const offset_type* offsets = list_.GetValues<offset_type>(1);
-    const offset_type offsets_size = list_.GetBuffer(1)->size() / sizeof(offset_type);
+    const auto offsets_size = static_cast<offset_type>(
+        static_cast<size_t>(list_.GetBuffer(1)->size()) / sizeof(offset_type));
     RETURN_NOT_OK(builder.Reserve(offsets_size - 1));
 
     const ArraySpan& list_values = list_.child_data[0];
