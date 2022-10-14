@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.dataset.CsvWriteSupport;
 import org.apache.arrow.dataset.OrcWriteSupport;
 import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.jni.NativeDataset;
@@ -359,6 +360,30 @@ public class TestFileSystemDataset extends TestNativeDataset {
 
     AutoCloseables.close(datum);
     AutoCloseables.close(factory);
+  }
+
+  @Test
+  public void testBaseCsvRead() throws Exception {
+    CsvWriteSupport writeSupport = CsvWriteSupport.writeTempFile(
+            TMP.newFolder(), "Name,Language", "Juno,Java", "Peter,Python", "Celin,C++");
+    String expectedJsonUnordered = "[[\"Juno\", \"Java\"], [\"Peter\", \"Python\"], [\"Celin\", \"C++\"]]";
+    ScanOptions options = new ScanOptions(100);
+    try (
+        FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.CSV, writeSupport.getOutputURI())
+    ) {
+      List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+      Schema schema = inferResultSchemaFromFactory(factory, options);
+
+      assertScanBatchesProduced(factory, options);
+      assertEquals(1, datum.size());
+      assertEquals(2, schema.getFields().size());
+      assertEquals("Name", schema.getFields().get(0).getName());
+
+      checkParquetReadResult(schema, expectedJsonUnordered, datum);
+
+      AutoCloseables.close(datum);
+    }
   }
 
   private void checkParquetReadResult(Schema schema, String expectedJson, List<ArrowRecordBatch> actual)

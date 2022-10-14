@@ -359,7 +359,7 @@ struct MockDataset : public FragmentDataset {
       deliver_futures.push_back(fragment->DeliverBatchesRandomly(slow, &gen_wrapper));
     }
     // Need to wait for fragments to finish init so gen stays valid
-    AllComplete(deliver_futures).Wait();
+    AllFinished(deliver_futures).Wait();
   }
 
   bool has_started() { return has_started_; }
@@ -2121,7 +2121,7 @@ struct TestPlan {
 
     auto collected_fut = CollectAsyncGenerator(sink_gen);
 
-    return AllComplete({plan->finished(), Future<>(collected_fut)})
+    return AllFinished({plan->finished(), Future<>(collected_fut)})
         .Then([collected_fut]() -> Result<std::vector<compute::ExecBatch>> {
           ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
           return ::arrow::internal::MapVector(

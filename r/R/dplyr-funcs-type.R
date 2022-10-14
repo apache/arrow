@@ -126,7 +126,7 @@ register_bindings_type_cast <- function() {
     # it is difficult to replicate the .name_repair semantics and expanding of
     # unnamed data frame arguments in the same way that the tibble() constructor
     # does.
-    args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
+    args <- dots_list(..., .named = TRUE, .homonyms = "error")
 
     build_expr(
       "make_struct",
@@ -151,7 +151,7 @@ register_bindings_type_cast <- function() {
     if (!is.null(row.names)) arrow_not_supported("row.names")
     if (!is.null(check.rows)) arrow_not_supported("check.rows")
 
-    args <- rlang::dots_list(..., .named = fix.empty.names)
+    args <- dots_list(..., .named = fix.empty.names)
     if (is.null(names(args))) {
       names(args) <- rep("", length(args))
     }

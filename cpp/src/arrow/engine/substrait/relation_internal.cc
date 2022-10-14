@@ -43,17 +43,27 @@ using internal::UriFromAbsolutePath;
 
 namespace engine {
 
+struct EmitInfo {
+  std::vector<compute::Expression> expressions;
+  std::shared_ptr<Schema> schema;
+};
+
 template <typename RelMessage>
-Result<std::vector<compute::Expression>> GetEmitInfo(
-    const RelMessage& rel, const std::shared_ptr<Schema>& schema) {
+Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
+                             const std::shared_ptr<Schema>& input_schema) {
   const auto& emit = rel.common().emit();
   int emit_size = emit.output_mapping_size();
   std::vector<compute::Expression> proj_field_refs(emit_size);
+  EmitInfo emit_info;
+  FieldVector emit_fields(emit_size);
   for (int i = 0; i < emit_size; i++) {
     int32_t map_id = emit.output_mapping(i);
     proj_field_refs[i] = compute::field_ref(FieldRef(map_id));
+    emit_fields[i] = input_schema->field(map_id);
   }
-  return std::move(proj_field_refs);
+  emit_info.expressions = std::move(proj_field_refs);
+  emit_info.schema = schema(std::move(emit_fields));
+  return std::move(emit_info);
 }
 
 template <typename RelMessage>
@@ -65,12 +75,13 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
       case ::substrait::RelCommon::EmitKindCase::kDirect:
         return no_emit_declr;
       case ::substrait::RelCommon::EmitKindCase::kEmit: {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions, GetEmitInfo(rel, schema));
+        ARROW_ASSIGN_OR_RAISE(auto emit_info, GetEmitInfo(rel, schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {no_emit_declr.declaration,
-                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            std::move(schema)};
+                 {"project",
+                  compute::ProjectNodeOptions{std::move(emit_info.expressions)}}}),
+            std::move(emit_info.schema)};
       }
       default:
         return Status::Invalid("Invalid emit case");
@@ -128,6 +139,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
       const auto& read = rel.read();
       RETURN_NOT_OK(CheckRelCommon(read));
 
+      // Get the base schema for the read relation
       ARROW_ASSIGN_OR_RAISE(auto base_schema,
                             FromProto(read.base_schema(), ext_set, conversion_options));
 
@@ -140,8 +152,6 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
       }
 
       if (read.has_projection()) {
-        // NOTE: scan_options->projection is not used by the scanner and thus can't be
-        // used for this
         return Status::NotImplemented("substrait::ReadRel::projection");
       }
 
@@ -151,19 +161,23 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
               "plan contained a named table but a NamedTableProvider has not been "
               "configured");
         }
+
+        if (read.named_table().names().empty()) {
+          return Status::Invalid("names for NamedTable not provided");
+        }
+
         const NamedTableProvider& named_table_provider =
             conversion_options.named_table_provider;
         const ::substrait::ReadRel::NamedTable& named_table = read.named_table();
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
-        if (table_names.empty()) {
-          return Status::Invalid("names for NamedTable not provided");
-        }
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
                               named_table_provider(table_names));
+
         if (!source_decl.IsValid()) {
           return Status::Invalid("Invalid NamedTable Source");
         }
+
         return ProcessEmit(std::move(read),
                            DeclarationInfo{std::move(source_decl), base_schema},
                            std::move(base_schema));
@@ -184,38 +198,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
       std::vector<fs::FileInfo> files;
 
       for (const auto& item : read.local_files().items()) {
-        std::string path;
-        if (item.path_type_case() ==
-            ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath) {
-          path = item.uri_path();
-        } else if (item.path_type_case() ==
-                   ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile) {
-          path = item.uri_file();
-        } else if (item.path_type_case() ==
-                   ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder) {
-          path = item.uri_folder();
-        } else {
-          path = item.uri_path_glob();
-        }
-
-        switch (item.file_format_case()) {
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kParquet:
-            format = std::make_shared<dataset::ParquetFileFormat>();
-            break;
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kArrow:
-            format = std::make_shared<dataset::IpcFileFormat>();
-            break;
-          default:
-            return Status::NotImplemented(
-                "unknown substrait::ReadRel::LocalFiles::FileOrFiles::file_format");
-        }
-
-        if (!StartsWith(path, "file:///")) {
-          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", path,
-                                        ") with other than local filesystem "
-                                        "(file:///)");
-        }
-
+        // Validate properties of the `FileOrFiles` item
         if (item.partition_index() != 0) {
           return Status::NotImplemented(
               "non-default substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
@@ -231,43 +214,101 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
               "non-default substrait::ReadRel::LocalFiles::FileOrFiles::length");
         }
 
-        path = path.substr(7);
+        // Extract and parse the read relation's source URI
+        ::arrow::internal::Uri item_uri;
         switch (item.path_type_case()) {
+          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath:
+            RETURN_NOT_OK(item_uri.Parse(item.uri_path()));
+            break;
+
+          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile:
+            RETURN_NOT_OK(item_uri.Parse(item.uri_file()));
+            break;
+
+          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder:
+            RETURN_NOT_OK(item_uri.Parse(item.uri_folder()));
+            break;
+
+          default:
+            RETURN_NOT_OK(item_uri.Parse(item.uri_path_glob()));
+            break;
+        }
+
+        // Validate the URI before processing
+        if (!item_uri.is_file_scheme()) {
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
+                                        item_uri.ToString(),
+                                        ") does not have file scheme (file:///)");
+        }
+
+        if (item_uri.port() != -1) {
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
+                                        item_uri.ToString(),
+                                        ") should not have a port number in path");
+        }
+
+        if (!item_uri.query_string().empty()) {
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
+                                        item_uri.ToString(),
+                                        ") should not have a query string in path");
+        }
+
+        switch (item.file_format_case()) {
+          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kParquet:
+            format = std::make_shared<dataset::ParquetFileFormat>();
+            break;
+          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kArrow:
+            format = std::make_shared<dataset::IpcFileFormat>();
+            break;
+          default:
+            return Status::NotImplemented(
+                "unsupported file format ",
+                "(see substrait::ReadRel::LocalFiles::FileOrFiles::file_format)");
+        }
+
+        // Handle the URI as appropriate
+        switch (item.path_type_case()) {
+          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile: {
+            files.emplace_back(item_uri.path(), fs::FileType::File);
+            break;
+          }
+
+          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
+            RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), &files));
+            break;
+          }
+
           case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath: {
-            ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
-            if (file.type() == fs::FileType::File) {
-              files.push_back(std::move(file));
-            } else if (file.type() == fs::FileType::Directory) {
-              fs::FileSelector selector;
-              selector.base_dir = path;
-              selector.recursive = true;
-              ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                    filesystem->GetFileInfo(selector));
-              std::move(files.begin(), files.end(), std::back_inserter(discovered_files));
+            ARROW_ASSIGN_OR_RAISE(auto file_info,
+                                  filesystem->GetFileInfo(item_uri.path()));
+
+            switch (file_info.type()) {
+              case fs::FileType::File: {
+                files.push_back(std::move(file_info));
+                break;
+              }
+              case fs::FileType::Directory: {
+                RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), &files));
+                break;
+              }
+              case fs::FileType::NotFound:
+                return Status::Invalid("Unable to find file for URI path");
+              case fs::FileType::Unknown:
+                [[fallthrough]];
+              default:
+                return Status::NotImplemented("URI path is of unknown file type.");
             }
             break;
           }
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile: {
-            files.emplace_back(path, fs::FileType::File);
-            break;
-          }
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
-            fs::FileSelector selector;
-            selector.base_dir = path;
-            selector.recursive = true;
-            ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                  filesystem->GetFileInfo(selector));
-            std::move(discovered_files.begin(), discovered_files.end(),
-                      std::back_inserter(files));
-            break;
-          }
+
           case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriPathGlob: {
-            ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                  fs::internal::GlobFiles(filesystem, path));
-            std::move(discovered_files.begin(), discovered_files.end(),
+            ARROW_ASSIGN_OR_RAISE(auto globbed_files,
+                                  fs::internal::GlobFiles(filesystem, item_uri.path()));
+            std::move(globbed_files.begin(), globbed_files.end(),
                       std::back_inserter(files));
             break;
           }
+
           default: {
             return Status::Invalid("Unrecognized file type in LocalFiles");
           }
@@ -280,7 +321,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
 
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
-      DeclarationInfo scan_declaration = {
+      DeclarationInfo scan_declaration{
           compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
           base_schema};
 
@@ -352,9 +393,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
         }
         ARROW_ASSIGN_OR_RAISE(
             project_schema,
-            project_schema->AddField(
-                num_columns + static_cast<int>(project.expressions().size()) - 1,
-                std::move(project_field)));
+            project_schema->AddField(num_columns + i, std::move(project_field)));
         i++;
         expressions.emplace_back(des_expr);
       }

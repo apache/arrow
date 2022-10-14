@@ -655,15 +655,6 @@ cdef class RecordBatchReader(_Weakrefable):
 
         return pyarrow_wrap_schema(c_schema)
 
-    def get_next_batch(self):
-        """DEPRECATED: return the next record batch.
-
-        Use read_next_batch instead."""
-        import warnings
-        warnings.warn('Please use read_next_batch instead of '
-                      'get_next_batch', FutureWarning)
-        return self.read_next_batch()
-
     def read_next_batch(self):
         """
         Read next RecordBatch from the stream.

@@ -616,15 +616,11 @@ test_that("Can use across() within mutate()", {
     )
   )
 
-  # ARROW-12778 - `where()` is not yet supported
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(across(where(is.double))) %>%
-        collect(),
-      example_data
-    ),
-    "Unsupported selection helper"
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(where(is.double))) %>%
+      collect(),
+    example_data
   )
 
   # gives the right error with window functions
@@ -642,7 +638,6 @@ test_that("Can use across() within mutate()", {
 })
 
 test_that("Can use across() within transmute()", {
-
   compare_dplyr_binding(
     .input %>%
       transmute(
@@ -654,5 +649,4 @@ test_that("Can use across() within transmute()", {
       collect(),
     example_data
   )
-
 })

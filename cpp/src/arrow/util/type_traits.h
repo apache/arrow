@@ -42,45 +42,5 @@ template <typename T>
 struct is_null_pointer : std::is_same<std::nullptr_t, typename std::remove_cv<T>::type> {
 };
 
-#ifdef __GLIBCXX__
-
-// A aligned_union backport, because old libstdc++ versions don't include it.
-
-constexpr std::size_t max_size(std::size_t a, std::size_t b) { return (a > b) ? a : b; }
-
-template <typename...>
-struct max_size_traits;
-
-template <typename H, typename... T>
-struct max_size_traits<H, T...> {
-  static constexpr std::size_t max_sizeof() {
-    return max_size(sizeof(H), max_size_traits<T...>::max_sizeof());
-  }
-  static constexpr std::size_t max_alignof() {
-    return max_size(alignof(H), max_size_traits<T...>::max_alignof());
-  }
-};
-
-template <>
-struct max_size_traits<> {
-  static constexpr std::size_t max_sizeof() { return 0; }
-  static constexpr std::size_t max_alignof() { return 0; }
-};
-
-template <std::size_t Len, typename... T>
-struct aligned_union {
-  static constexpr std::size_t alignment_value = max_size_traits<T...>::max_alignof();
-  static constexpr std::size_t size_value =
-      max_size(Len, max_size_traits<T...>::max_sizeof());
-  using type = typename std::aligned_storage<size_value, alignment_value>::type;
-};
-
-#else
-
-template <std::size_t Len, typename... T>
-using aligned_union = std::aligned_union<Len, T...>;
-
-#endif
-
 }  // namespace internal
 }  // namespace arrow

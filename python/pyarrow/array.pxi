@@ -276,12 +276,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 index_type = type.index_type
                 value_type = type.value_type
                 if values.ordered != type.ordered:
-                    warnings.warn(
+                    raise ValueError(
                         "The 'ordered' flag of the passed categorical values "
-                        "does not match the 'ordered' of the specified type. "
-                        "Using the flag of the values, but in the future this "
-                        "mismatch will raise a ValueError.",
-                        FutureWarning, stacklevel=2)
+                        "does not match the 'ordered' of the specified type. ")
             else:
                 index_type = None
                 value_type = None
