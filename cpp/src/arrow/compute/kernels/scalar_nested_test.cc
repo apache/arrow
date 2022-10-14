@@ -118,32 +118,67 @@ TEST(TestScalarNested, ListElementInvalid) {
 }
 
 void CheckListSlice(std::shared_ptr<Array> input, std::shared_ptr<Array> expected,
-                    SliceOptions& args) {
+                    const ListSliceOptions& args) {
   ASSERT_OK_AND_ASSIGN(auto result, CallFunction("list_slice", {input}, &args));
   ASSERT_EQ(result, expected);
 }
 
-TEST(TestScalarNested, ListSlice) {
+TEST(TestScalarNested, ListSliceVariableOutput) {
   const auto value_types = {float32(), int32()};
   for (auto value_type : value_types) {
-    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]"),
-                   ArrayFromJSON(fixed_size_list(value_type, 3),
-                                 "[[1, 2, 3], [4, 5, null], [6, null, null], null]")};
+    /* Variable list size output required variable size list input. */
+    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6]]")};
     for (auto input : inputs) {
-      SliceOptions args(0, 2);
-      auto expected = ArrayFromJSON(fixed_size_list(value_type, 2),
-                                    "[[1, 2], [4, 5], [6, null], [null, null]]");
+      ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                            /*return_fixed_size_list=*/false);
+      auto expected = ArrayFromJSON(list(value_type), "[[1, 2], [4, 5], [6]]");
       CheckListSlice(input, expected, args);
 
       args.start = 1;
-      expected =
-          ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null], [null]]");
+      expected = ArrayFromJSON(list(value_type), "[[2], [5], []]");
+      CheckListSlice(input, expected, args);
+
+      args.start = 2;
+      args.stop = 4;
+      expected = ArrayFromJSON(list(value_type), "[[3], [], []]");
+      CheckListSlice(input, expected, args);
+    }
+  }
+
+  // Verify passing `return_fixed_size_list=false` with fixed size input fails
+  ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                        /*return_fixed_size_list=*/false);
+  auto input = ArrayFromJSON(fixed_size_list(int32(), 1), "[[1]]");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Requesting ListArray when slicing a FixedSizeList array "
+                           "would always result in a FixedSizeList. Please set "
+                           "`return_fixed_size_list=true` when slicing a "
+                           "FixedSizeList."),
+      CallFunction("list_slice", {input}, &args));
+}
+
+TEST(TestScalarNested, ListSliceFixedOutput) {
+  const auto value_types = {float32(), int32()};
+  for (auto value_type : value_types) {
+    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6]]"),
+                   ArrayFromJSON(fixed_size_list(value_type, 3),
+                                 "[[1, 2, 3], [4, 5, null], [6, null, null]]")};
+    for (auto input : inputs) {
+      ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                            /*return_fixed_size_list=*/true);
+      auto expected =
+          ArrayFromJSON(fixed_size_list(value_type, 2), "[[1, 2], [4, 5], [6, null]]");
+      CheckListSlice(input, expected, args);
+
+      args.start = 1;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null]]");
       CheckListSlice(input, expected, args);
 
       args.start = 2;
       args.stop = 4;
       expected = ArrayFromJSON(fixed_size_list(value_type, 2),
-                               "[[3, null], [null, null], [null, null], [null, null]]");
+                               "[[3, null], [null, null], [null, null]]");
       CheckListSlice(input, expected, args);
     }
   }

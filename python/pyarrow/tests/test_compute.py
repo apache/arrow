@@ -2932,27 +2932,54 @@ def test_cast_table_raises():
 
 
 @pytest.mark.parametrize("start,stop,expected", (
-    (0, 1, [[1], [4], [6], [None]]),
-    (0, 2, [[1, 2], [4, 5], [6, None], [None, None]]),
-    (1, 2, [[2], [5], [None], [None]]),
-    (2, 4, [[3, None], [None, None], [None, None], [None, None]])
+    (0, 1, [[1], [4], [6], None]),
+    (0, 2, [[1, 2], [4, 5], [6, None], None]),
+    (1, 2, [[2], [5], [None], None]),
+    (2, 4, [[3, None], [None, None], [None, None], None])
 ))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
 @pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
-def test_list_slice(start, stop, expected, value_type, list_type):
+def test_list_slice_output_fixed(start, stop, expected, value_type, list_type):
     if list_type == "fixed":
         arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None], None],
                        pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
     else:
         arr = pa.array([[1, 2, 3], [4, 5], [6], None],
                        pa.list_(pa.int8())).cast(list_type(value_type()))
-    result = pc.list_slice(arr, start, stop)
+    result = pc.list_slice(arr, start, stop)  # default is to return fixed size
     pylist = result.cast(pa.list_(pa.int8(), stop-start)).to_pylist()
     assert pylist == expected
 
 
+@pytest.mark.parametrize("start,stop,expected", (
+    (0, 1, [[1], [4], [6], None]),
+    (0, 2, [[1, 2], [4, 5], [6], None]),
+    (1, 2, [[2], [5], [], None]),
+    (2, 4, [[3], [], [], None])
+))
+@pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
+@pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
+def test_list_slice_output_variable(start, stop, expected, value_type, list_type):
+    if list_type == "fixed":
+        arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None], None],
+                       pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
+    else:
+        arr = pa.array([[1, 2, 3], [4, 5], [6], None],
+                       pa.list_(pa.int8())).cast(list_type(value_type()))
+    if list_type == "fixed":
+        msg = ("Requesting ListArray when slicing a FixedSizeList array would "
+               "always result in a FixedSizeList. Please set "
+               "`return_fixed_size_list=true` when slicing a FixedSizeList.")
+        with pytest.raises(pa.ArrowInvalid, match=msg):
+            pc.list_slice(arr, start, stop, return_fixed_size_list=False)
+    else:
+        result = pc.list_slice(arr, start, stop, return_fixed_size_list=False)
+        pylist = result.cast(pa.list_(pa.int8())).to_pylist()
+        assert pylist == expected
+
+
 def test_list_slice_bad_parameters():
-    arr = pa.array([[1]])
+    arr = pa.array([[1]], pa.list_(pa.int8(), 1))
     msg = r"`start`(.*) should be greater than 0 and smaller than `stop`(.*)"
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, -1)  # negative start?
@@ -2960,3 +2987,19 @@ def test_list_slice_bad_parameters():
         pc.list_slice(arr, 2, 1)  # start > stop?
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 0, 0)  # start == stop?
+
+    # TODO: support step in slicing
+    msg = "Setting `step` to anything other than 1 is not supported; got step=2"
+    with pytest.raises(NotImplementedError, match=msg):
+        pc.list_slice(arr, 0, 1, step=2)
+
+
+def test_list_slice_non_nulls():
+    # potential for segfault if c++ attempts to take a validity buffer
+    # which might not exist
+    arr = pa.array([[1]], pa.list_(pa.int8()))
+    pc.list_slice(arr, 0, 1, return_fixed_size_list=True)
+    pc.list_slice(arr, 0, 1, return_fixed_size_list=False)
+
+    arr = pa.array([[1]], pa.list_(pa.int8(), 1))
+    pc.list_slice(arr, 0, 1, return_fixed_size_list=True)

@@ -1171,12 +1171,12 @@ class SliceOptions(_SliceOptions):
 cdef class _ListSliceOptions(FunctionOptions):
     def _set_options(self, start, stop=-1, step=1, return_fixed_size_list=True):
         self.wrapped.reset(new CListSliceOptions(start, stop, step, return_fixed_size_list))
-        
+
 
 class ListSliceOptions(_ListSliceOptions):
     """
     Options for list array slicing.
-    
+
     Parameters
     ----------
     start : int
@@ -1189,6 +1189,7 @@ class ListSliceOptions(_ListSliceOptions):
     return_fixed_size_list : bool, default True
         Whether to return a FixedSizeListArray.
     """
+
     def __init__(self, start, stop=-1, step=1, return_fixed_size_list=True):
         self._set_options(start, stop, step, return_fixed_size_list)
 

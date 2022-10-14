@@ -23,7 +23,9 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_generate.h"
+#include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
 namespace compute {
@@ -94,45 +96,93 @@ struct ListSlice {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto start = OptionsWrapper<ListSliceOptions>::Get(ctx).start;
     const auto stop = OptionsWrapper<ListSliceOptions>::Get(ctx).stop;
-    if (start < 0 || start >= stop) {
+    const auto step = OptionsWrapper<ListSliceOptions>::Get(ctx).step;
+    const auto return_fixed_size_list =
+        OptionsWrapper<ListSliceOptions>::Get(ctx).return_fixed_size_list;
+
+    // Invariants
+    if (start < 0 || (start >= stop && stop != -1)) {
+      // TODO: support start == stop which should give empty lists
       return Status::Invalid("`start`(", start,
                              ") should be greater than 0 and smaller than `stop`(", stop,
                              ")");
     }
-
+    if (step != 1) {
+      // TODO: support step in slicing
+      return Status::NotImplemented(
+          "Setting `step` to anything other than 1 is not supported; got step=", step);
+    }
+    if constexpr (std::is_same_v<Type, FixedSizeListType>) {
+      if (!return_fixed_size_list) {
+        return Status::Invalid(
+            "Requesting ListArray when slicing a FixedSizeList array would always "
+            "result in a FixedSizeList. Please set `return_fixed_size_list=true` when "
+            "slicing a FixedSizeList.");
+      }
+    }
     const ArraySpan& list_ = batch[0].array;
     const Type* list_type = checked_cast<const Type*>(list_.type);
 
     std::unique_ptr<ArrayBuilder> builder;
-
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), list_type->value_type(), &builder));
 
-    if constexpr (std::is_same_v<Type, FixedSizeListType>) {
-      RETURN_NOT_OK(BuildArrayFixedSizeListType(batch, start, stop, list_, *builder));
-    } else {
-      RETURN_NOT_OK(BuildArrayListType(batch, start, stop, list_, *builder));
+    std::unique_ptr<ArrayBuilder> offsets_builder;
+    if (!return_fixed_size_list) {
+      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), int32(), &offsets_builder));
     }
+
+    // construct array values
+    if constexpr (std::is_same_v<Type, FixedSizeListType>) {
+      RETURN_NOT_OK(BuildArrayFromFixedSizeListType(batch, start, stop, list_, *builder,
+                                                    offsets_builder));
+    } else {
+      RETURN_NOT_OK(
+          BuildArrayFromListType(batch, start, stop, list_, *builder, offsets_builder));
+    }
+
+    // build output arrays and set result
     ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
-    ARROW_ASSIGN_OR_RAISE(
-        auto fixed_list,
-        FixedSizeListArray::FromArrays(result, static_cast<int32_t>(stop - start)));
-    out->value = fixed_list->data();
+    if (offsets_builder != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(auto offsets_array, offsets_builder->Finish());
+      ARROW_ASSIGN_OR_RAISE(
+          auto list_array,
+          ListArray::FromArrays(*offsets_array, *result, ctx->memory_pool()));
+      out->value = list_array->data();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          auto fixed_list,
+          FixedSizeListArray::FromArrays(result, static_cast<int32_t>(stop - start)));
+      auto data = fixed_list->data();
+      if (list_.buffers[0].owner != nullptr) {
+        data->buffers[0] = *list_.buffers[0].owner;
+      }
+      out->value = data;
+    }
     return Status::OK();
   }
-  static Status BuildArrayFixedSizeListType(const ExecSpan& batch, int64_t start,
-                                            int64_t stop, const ArraySpan& list_,
-                                            ArrayBuilder& builder) {
-    const auto item_size =
+  static Status BuildArrayFromFixedSizeListType(
+      const ExecSpan& batch, int64_t start, int64_t stop, const ArraySpan& list_,
+      ArrayBuilder& builder,
+      std::unique_ptr<ArrayBuilder> const& offsets_builder = NULLPTR) {
+    const auto list_size =
         checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
     const ArraySpan& list_values = list_.child_data[0];
-    const offset_type offsets_size = list_values.length / item_size;
-    RETURN_NOT_OK(builder.Reserve(offsets_size - 1));
+    const offset_type offsets_size = list_values.length / list_size;
 
-    for (offset_type offset = 0; offset < offsets_size * item_size;
-         offset = offset + item_size) {
+    RETURN_NOT_OK(builder.Reserve(offsets_size - 1));
+    if (offsets_builder != nullptr) {
+      RETURN_NOT_OK(offsets_builder->Reserve(offsets_size - 1));
+    }
+
+    for (offset_type offset = 0; offset < offsets_size * list_size;
+         offset = offset + list_size) {
       auto cursor = offset;
       while (cursor < offset + (stop - start)) {
-        if (cursor + start >= offset + item_size) {
+        if (cursor + start >= offset + list_size) {
+          if (offsets_builder != nullptr) {
+            RETURN_NOT_OK(offsets_builder->AppendScalar(Int32Scalar(cursor + start - 1)));
+            break;
+          }
           RETURN_NOT_OK(builder.AppendNull());
         } else {
           RETURN_NOT_OK(builder.AppendArraySlice(list_values, cursor + start, 1));
@@ -142,25 +192,64 @@ struct ListSlice {
     }
     return Status::OK();
   }
-  static Status BuildArrayListType(const ExecSpan& batch, int64_t start, int64_t stop,
-                                   const ArraySpan& list_, ArrayBuilder& builder) {
+  static Status BuildArrayFromListType(
+      const ExecSpan& batch, int64_t start, int64_t stop, const ArraySpan& list_,
+      ArrayBuilder& builder,
+      std::unique_ptr<ArrayBuilder> const& offsets_builder = NULLPTR) {
     const offset_type* offsets = list_.GetValues<offset_type>(1);
     const auto offsets_size = static_cast<offset_type>(
         static_cast<size_t>(list_.GetBuffer(1)->size()) / sizeof(offset_type));
-    RETURN_NOT_OK(builder.Reserve(offsets_size - 1));
+
+    // validity bitmap if set.
+    std::unique_ptr<arrow::internal::Bitmap> validity_bitmap;
+    if (list_.buffers[0].data != nullptr) {
+      arrow::internal::Bitmap bitmap{list_.buffers[0].data, list_.offset, list_.length};
+      validity_bitmap = std::make_unique<arrow::internal::Bitmap>(bitmap);
+    }
+
+    RETURN_NOT_OK(builder.Reserve(list_.length - 1));
+    if (offsets_builder != nullptr) {
+      RETURN_NOT_OK(offsets_builder->Reserve(offsets_size - 1));
+    }
 
     const ArraySpan& list_values = list_.child_data[0];
-    for (offset_type i = 0; i < offsets_size - 1; ++i) {
+    offset_type i = 0;
+    while (i < offsets_size - 1) {
       const offset_type offset = offsets[i];
       auto cursor = offset;
+
+      // Set value(s)
       while (cursor < offset + (stop - start)) {
         if (cursor + start >= offsets[i + 1]) {
+          if (offsets_builder != nullptr) {
+            break;  // don't pad nulls for variable sized list output
+          }
           RETURN_NOT_OK(builder.AppendNull());
         } else {
           RETURN_NOT_OK(builder.AppendArraySlice(list_values, cursor + start, 1));
         }
         ++cursor;
       }
+
+      // Set offset(s)
+      if (offsets_builder != nullptr) {
+        do {
+          if (validity_bitmap != nullptr && !validity_bitmap->GetBit(i)) {
+            RETURN_NOT_OK(offsets_builder->AppendNull());
+          } else {
+            RETURN_NOT_OK(offsets_builder->AppendScalar(
+                Int32Scalar(builder.length() - (cursor - offset))));
+          }
+          ++i;
+        } while (offset == offsets[i + 1] && i < offsets_size - 1);
+      } else {
+        ++i;
+      }
+    }
+
+    // Last offset is the length of the values array
+    if (offsets_builder != nullptr) {
+      RETURN_NOT_OK(offsets_builder->AppendScalar(Int32Scalar(builder.length())));
     }
     return Status::OK();
   }
@@ -170,9 +259,16 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
                                         const std::vector<TypeHolder>& types) {
   const auto start = OptionsWrapper<ListSliceOptions>::Get(ctx).start;
   const auto stop = OptionsWrapper<ListSliceOptions>::Get(ctx).stop;
+  const auto return_fixed_size_list =
+      OptionsWrapper<ListSliceOptions>::Get(ctx).return_fixed_size_list;
   const auto list_type = checked_cast<const BaseListType*>(types[0].type);
-  return TypeHolder(
-      fixed_size_list(list_type->value_type(), static_cast<int32_t>(stop - start)));
+  if (return_fixed_size_list) {
+    return TypeHolder(
+        fixed_size_list(list_type->value_type(), static_cast<int32_t>(stop - start)));
+
+  } else {
+    return list(list_type->value_type());
+  }
 }
 
 template <typename InListType, template <typename...> class Functor>
