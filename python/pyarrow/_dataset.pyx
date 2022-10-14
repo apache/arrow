@@ -1162,9 +1162,24 @@ cdef class FragmentScanOptions(_Weakrefable):
 
 
 cdef class IpcFileWriteOptions(FileWriteOptions):
+    cdef:
+        CIpcFileWriteOptions* ipc_options
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
+
+    @property
+    def write_options(self):
+        return IpcWriteOptions.wrap(deref(self.ipc_options.options))
+
+    @write_options.setter
+    def write_options(self, IpcWriteOptions write_options not None):
+        self.ipc_options.options.reset(
+            new CIpcWriteOptions(deref(write_options.options)))
+
+    cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
+        FileWriteOptions.init(self, sp)
+        self.ipc_options = <CIpcFileWriteOptions*> sp.get()
 
 
 cdef class IpcFileFormat(FileFormat):
@@ -1174,6 +1189,12 @@ cdef class IpcFileFormat(FileFormat):
 
     def equals(self, IpcFileFormat other):
         return True
+    
+    def make_write_options(self, **kwargs):
+        cdef IpcFileWriteOptions opts = \
+            <IpcFileWriteOptions> FileFormat.make_write_options(self)
+        opts.options = IpcWriteOptions(**kwargs)
+        return opts
 
     @property
     def default_extname(self):
