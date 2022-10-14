@@ -161,8 +161,6 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
               help='Set base branch for the PR.')
 @click.option('--create-pr', is_flag=True, default=False,
               help='Create GitHub Pull Request')
-@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
-              help='OAuth token to create PR and comments in the arrow repo')
 @click.option('--head-branch', default=None,
               help='Give the branch name explicitly, e.g. release-9.0.0-rc0')
 @click.option('--pr-body', default=None,
@@ -185,7 +183,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 @click.option('--verify-wheels', is_flag=True, default=False,
               help='Trigger the verify wheels jobs')
 @click.pass_obj
-def verify_release_candidate(obj, base_branch, create_pr, github_token,
+def verify_release_candidate(obj, base_branch, create_pr,
                              head_branch, pr_body, pr_title, remote,
                              rc, version, verify_binaries, verify_source,
                              verify_wheels):
@@ -196,7 +194,7 @@ def verify_release_candidate(obj, base_branch, create_pr, github_token,
     arrow = Repo(path=obj['arrow'].path, remote_url=remote)
     response = arrow.github_pr(title=pr_title, head=head_branch,
                                base=base_branch, body=pr_body,
-                               github_token=github_token,
+                               github_token=obj['queue'].github_token,
                                create=create_pr)
 
     # If we want to trigger any verification job we add a comment to the PR.
@@ -310,15 +308,11 @@ def status(obj, job_name, fetch, task_filters, validate):
               help='Crossbow repository on github to use')
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
-@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
-              help='OAuth token to create comments in the arrow repo. '
-                   'Only necessary if --track-on-pr-titled is set.')
 @click.option('--job-name', required=True)
 @click.option('--pr-title', required=True,
               help='Track the job submitted on PR with given title')
 @click.pass_obj
-def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
-              pr_title):
+def report_pr(obj, arrow_remote, crossbow, fetch, job_name, pr_title):
     arrow = obj['arrow']
     queue = obj['queue']
     if fetch:
@@ -328,7 +322,7 @@ def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
     report = CommentReport(job, crossbow_repo=crossbow)
     target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
     pull_request = target_arrow.github_pr(title=pr_title,
-                                          github_token=github_token,
+                                          github_token=queue.github_token,
                                           create=False)
     # render the response comment's content on the PR
     pull_request.create_comment(report.show())
