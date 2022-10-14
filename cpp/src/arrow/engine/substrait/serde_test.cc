@@ -3171,5 +3171,341 @@ TEST(Substrait, IsthmusPlan) {
                        *compute::default_exec_context(), buf, {}, conversion_options);
 }
 
+TEST(Substrait, ProjectWithMultiFieldExpressions) {
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 80],
+      [20, 2, 70],
+      [30, 3, 30]
+  ])"});
+
+  const std::string substrait_json = R"({
+    "extensionUris": [{
+        "extensionUriAnchor": 1,
+        "uri": "/functions_arithmetic.yaml"
+    }],
+      "extensions": [{
+        "extensionFunction": {
+          "extensionUriReference": 1,
+          "functionAnchor": 0,
+          "name": "add:opt_i32_i32"
+        }
+    }],
+    "relations": [{
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "emit": {
+                "outputMapping": [0, 3, 6]
+              }
+            },
+            "input": {
+              "read": {
+                "common": {
+                  "direct": {
+                  }
+                },
+                "baseSchema": {
+                  "names": ["A", "B", "C"],
+                  "struct": {
+                    "types": [{
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }, {
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }, {
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }],
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["SIMPLEDATA"]
+                }
+              }
+            },
+            "expressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 1
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 2
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            },{
+              "scalarFunction": {
+                "functionReference": 0,
+                "args": [],
+                "outputType": {
+                  "i32": {
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_NULLABLE"
+                  }
+                },
+                "arguments": [{
+                  "enum": {
+                    "unspecified": {}
+                  }
+                }, {
+                  "value": {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 0
+                        }
+                      },
+                      "rootReference": {
+                      }
+                    }
+                  }
+                }, {
+                  "value": {
+                    "literal": {
+                      "i32": 1,
+                      "nullable": false,
+                      "typeVariationReference": 0
+                    }
+                  }
+                }]
+              }
+            }]
+          }
+        },
+        "names": ["A", "B", "C", "D"]
+      }
+    }]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema =
+      schema({field("A", int32()), field("A1", int32()), field("A+1", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [10, 10, 11],
+      [20, 20, 21],
+      [30, 30, 31]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("A", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10],
+      [20],
+      [30]
+  ])"});
+
+  const std::string substrait_json = R"({
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 2,
+        "name": "add"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "rel": {
+        "project": {
+          "input": {
+            "project": {
+              "common": {"emit": {"outputMapping": [2]}},
+              "input": {
+                "read": {
+                  "baseSchema": {
+                    "names": ["int"],
+                    "struct": {"types": [{"i32": {}}]}
+                  },
+                  "namedTable": {
+                    "names": ["SIMPLEDATA"]
+                  }
+                }
+              },
+              "expressions": [
+                {"selection": {"directReference": {"structField": {"field": 0}}}},
+                {
+                  "scalarFunction": {
+                    "functionReference": 2,
+                    "outputType": {"i32": {}},
+                    "arguments": [
+                      {"enum": {"unspecified": {}}},
+                      {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
+                      {"value": {"literal": {"fp64": 10}}}
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "expressions": [
+            {"selection": {"directReference": {"structField": {"field": 0}}}}
+          ]
+        }
+      }
+    }
+  ]
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  auto output_schema = schema({field("A", float64()), field("B", float64())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [20, 20],
+      [30, 30],
+      [40, 40]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("A", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10],
+      [20],
+      [30]
+  ])"});
+
+  const std::string substrait_json = R"({
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 2,
+        "name": "add"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "rel": {
+        "project": {
+          "common": {"emit": {"outputMapping": [2]}},
+          "input": {
+            "project": {
+              "common": {"emit": {"outputMapping": [1, 2]}},
+              "input": {
+                "read": {
+                  "baseSchema": {
+                    "names": ["int"],
+                    "struct": {"types": [{"i32": {}}]}
+                  },
+                  "namedTable": {
+                    "names": ["SIMPLEDATA"]
+                  }
+                }
+              },
+              "expressions": [
+                {"selection": {"directReference": {"structField": {"field": 0}}}},
+                {
+                  "scalarFunction": {
+                    "functionReference": 2,
+                    "outputType": {"i32": {}},
+                    "arguments": [
+                      {"enum": {"unspecified": {}}},
+                      {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
+                      {"value": {"literal": {"fp64": 10}}}
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "expressions": [
+            {"selection": {"directReference": {"structField": {"field": 0}}}}
+          ]
+        }
+      }
+    }
+  ]
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  auto output_schema = schema({field("A", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [10],
+      [20],
+      [30]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
 }  // namespace engine
 }  // namespace arrow

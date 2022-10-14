@@ -43,17 +43,27 @@ using internal::UriFromAbsolutePath;
 
 namespace engine {
 
+struct EmitInfo {
+  std::vector<compute::Expression> expressions;
+  std::shared_ptr<Schema> schema;
+};
+
 template <typename RelMessage>
-Result<std::vector<compute::Expression>> GetEmitInfo(
-    const RelMessage& rel, const std::shared_ptr<Schema>& schema) {
+Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
+                             const std::shared_ptr<Schema>& input_schema) {
   const auto& emit = rel.common().emit();
   int emit_size = emit.output_mapping_size();
   std::vector<compute::Expression> proj_field_refs(emit_size);
+  EmitInfo emit_info;
+  FieldVector emit_fields(emit_size);
   for (int i = 0; i < emit_size; i++) {
     int32_t map_id = emit.output_mapping(i);
     proj_field_refs[i] = compute::field_ref(FieldRef(map_id));
+    emit_fields[i] = input_schema->field(map_id);
   }
-  return std::move(proj_field_refs);
+  emit_info.expressions = std::move(proj_field_refs);
+  emit_info.schema = schema(std::move(emit_fields));
+  return std::move(emit_info);
 }
 
 template <typename RelMessage>
@@ -65,12 +75,13 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
       case substrait::RelCommon::EmitKindCase::kDirect:
         return no_emit_declr;
       case substrait::RelCommon::EmitKindCase::kEmit: {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions, GetEmitInfo(rel, schema));
+        ARROW_ASSIGN_OR_RAISE(auto emit_info, GetEmitInfo(rel, schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {no_emit_declr.declaration,
-                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            std::move(schema)};
+                 {"project",
+                  compute::ProjectNodeOptions{std::move(emit_info.expressions)}}}),
+            std::move(emit_info.schema)};
       }
       default:
         return Status::Invalid("Invalid emit case");
@@ -381,9 +392,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         }
         ARROW_ASSIGN_OR_RAISE(
             project_schema,
-            project_schema->AddField(
-                num_columns + static_cast<int>(project.expressions().size()) - 1,
-                std::move(project_field)));
+            project_schema->AddField(num_columns + i, std::move(project_field)));
         i++;
         expressions.emplace_back(des_expr);
       }
