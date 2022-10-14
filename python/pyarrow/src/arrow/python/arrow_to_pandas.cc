@@ -191,6 +191,10 @@ static inline bool ListTypeSupported(const DataType& type) {
       const auto& list_type = checked_cast<const BaseListType&>(type);
       return ListTypeSupported(*list_type.value_type());
     }
+    case Type::EXTENSION: {
+      const auto& ext = checked_cast<const ExtensionType&>(*type.GetSharedPtr());
+      return ListTypeSupported(*(ext.storage_type()));
+    }
     default:
       break;
   }
@@ -734,11 +738,20 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
-    value_arrays.emplace_back(arr.values());
+    if (arr.value_type()->id() == Type::EXTENSION) {
+      const auto& arr_ext = checked_cast<const ExtensionArray&>(*arr.values());
+      value_arrays.emplace_back(arr_ext.storage());
+    } else {
+      value_arrays.emplace_back(arr.values());
+    }
   }
+
   using ListArrayType = typename ListArrayT::TypeClass;
   const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
   auto value_type = list_type.value_type();
+  if (value_type->id() == Type::EXTENSION) {
+    value_type = checked_cast<const ExtensionType&>(*value_type).storage_type();
+  }
 
   auto flat_column = std::make_shared<ChunkedArray>(value_arrays, value_type);
 
@@ -747,14 +760,12 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   OwnedRefNoGIL owned_numpy_array;
   RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_column, nullptr,
                                             owned_numpy_array.ref()));
-
   PyObject* numpy_array = owned_numpy_array.obj();
   DCHECK(PyArray_Check(numpy_array));
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
-
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (has_nulls && arr.IsNull(i)) {

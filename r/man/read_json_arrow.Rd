@@ -41,7 +41,21 @@ data frame or Arrow Table.
 }
 \details{
 If passed a path, will detect and handle compression from the file extension
-(e.g. \code{.json.gz}). Accepts explicit or implicit nulls.
+(e.g. \code{.json.gz}).
+
+If \code{schema} is not provided, Arrow data types are inferred from the data:
+\itemize{
+\item JSON null values convert to the \code{\link[=null]{null()}} type, but can fall back to any other type.
+\item JSON booleans convert to \code{\link[=boolean]{boolean()}}.
+\item JSON numbers convert to \code{\link[=int64]{int64()}}, falling back to \code{\link[=float64]{float64()}} if a non-integer is encountered.
+\item JSON strings of the kind "YYYY-MM-DD" and "YYYY-MM-DD hh:mm:ss" convert to \code{\link[=timestamp]{timestamp(unit = "s")}},
+falling back to \code{\link[=utf8]{utf8()}} if a conversion error occurs.
+\item JSON arrays convert to a \code{\link[=list_of]{list_of()}} type, and inference proceeds recursively on the JSON arrays' values.
+\item Nested JSON objects convert to a \code{\link[=struct]{struct()}} type, and inference proceeds recursively on the JSON objects' values.
+}
+
+When \code{as_data_frame = FALSE}, Arrow types are further converted to R types.
+See \code{vignette("arrow", package = "arrow")} for details.
 }
 \examples{
 \dontshow{if (arrow_with_json()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
@@ -52,6 +66,6 @@ writeLines('
     { "hello": 3.25, "world": null }
     { "hello": 0.0, "world": true, "yo": null }
   ', tf, useBytes = TRUE)
-df <- read_json_arrow(tf)
+read_json_arrow(tf)
 \dontshow{\}) # examplesIf}
 }

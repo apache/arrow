@@ -215,12 +215,22 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   x$head <- n
   collapse.arrow_dplyr_query(x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   x$tail <- n
   collapse.arrow_dplyr_query(x)
 }

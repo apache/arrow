@@ -123,8 +123,19 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
     return(value)
   }
 
+  is_single_func <- function(fns) {
+    # function calls with package, like base::round
+    (is.call(fns) && fns[[1]] == as.name("::")) ||
+      # purrr-style formulae
+      is_formula(fns) ||
+      # single anonymous function
+      is_call(fns, "function") ||
+      # any other length 1 function calls
+      (length(fns) == 1 && (is.function(fns) || is_formula(fns) || is.name(fns)))
+  }
+
   # apply `.names` smart default
-  if (is.function(fns) || is_formula(fns) || is.name(fns) || is_call(fns, "function")) {
+  if (is_single_func(fns)) {
     names <- names %||% "{.col}"
     fns <- list("1" = fns)
   } else {
@@ -193,13 +204,13 @@ as_across_fn_call <- function(fn, var, quo_env) {
 
 expr_substitute <- function(expr, old, new) {
   switch(typeof(expr),
-   language = {
-     expr[] <- lapply(expr, expr_substitute, old, new)
-     return(expr)
-   },
-   symbol = if (identical(expr, old)) {
-     return(new)
-   }
+    language = {
+      expr[] <- lapply(expr, expr_substitute, old, new)
+      return(expr)
+    },
+    symbol = if (identical(expr, old)) {
+      return(new)
+    }
   )
 
   expr

@@ -349,7 +349,7 @@ stop_cant_convert_array <- function(x, type) {
         "Can't create Array from object of type %s",
         paste(class(x), collapse = " / ")
       ),
-      call = rlang::caller_env()
+      call = caller_env()
     )
   } else {
     abort(
@@ -358,7 +358,7 @@ stop_cant_convert_array <- function(x, type) {
         format(type$code()),
         paste(class(x), collapse = " / ")
       ),
-      call = rlang::caller_env()
+      call = caller_env()
     )
   }
 }

@@ -160,16 +160,6 @@ cdef class DataType(_Weakrefable):
         return ty.bit_width()
 
     @property
-    def num_children(self):
-        """
-        The number of child fields.
-        """
-        import warnings
-        warnings.warn("num_children is deprecated, use num_fields",
-                      FutureWarning)
-        return self.num_fields
-
-    @property
     def num_fields(self):
         """
         The number of child fields.
@@ -1316,11 +1306,6 @@ cdef class Field(_Weakrefable):
             return wrapped.to_dict()
         else:
             return wrapped
-
-    def add_metadata(self, metadata):
-        warnings.warn("The 'add_metadata' method is deprecated, use "
-                      "'with_metadata' instead", FutureWarning, stacklevel=2)
-        return self.with_metadata(metadata)
 
     def with_metadata(self, metadata):
         """

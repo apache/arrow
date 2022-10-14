@@ -1146,11 +1146,13 @@ int PlainDecoder<DType>::Decode(T* buffer, int max_values) {
   return max_values;
 }
 
-class PlainBooleanDecoder : public DecoderImpl, virtual public TypedDecoder<BooleanType> {
+class PlainBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
  public:
   explicit PlainBooleanDecoder(const ColumnDescriptor* descr);
   void SetData(int num_values, const uint8_t* data, int len) override;
 
+  // Two flavors of bool decoding
+  int Decode(uint8_t* buffer, int max_values) override;
   int Decode(bool* buffer, int max_values) override;
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
@@ -1199,6 +1201,24 @@ inline int PlainBooleanDecoder::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<BooleanType>::DictAccumulator* builder) {
   ParquetException::NYI("dictionaries of BooleanType");
+}
+
+int PlainBooleanDecoder::Decode(uint8_t* buffer, int max_values) {
+  max_values = std::min(max_values, num_values_);
+  bool val;
+  ::arrow::internal::BitmapWriter bit_writer(buffer, 0, max_values);
+  for (int i = 0; i < max_values; ++i) {
+    if (!bit_reader_->GetValue(1, &val)) {
+      ParquetException::EofException();
+    }
+    if (val) {
+      bit_writer.Set();
+    }
+    bit_writer.Next();
+  }
+  bit_writer.Finish();
+  num_values_ -= max_values;
+  return max_values;
 }
 
 int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
@@ -2336,7 +2356,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 // ----------------------------------------------------------------------
 // RLE_BOOLEAN_DECODER
 
-class RleBooleanDecoder : public DecoderImpl, virtual public TypedDecoder<BooleanType> {
+class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
  public:
   explicit RleBooleanDecoder(const ColumnDescriptor* descr)
       : DecoderImpl(descr, Encoding::RLE) {}
@@ -2370,6 +2390,10 @@ class RleBooleanDecoder : public DecoderImpl, virtual public TypedDecoder<Boolea
     }
     num_values_ -= max_values;
     return max_values;
+  }
+
+  int Decode(uint8_t* buffer, int max_values) override {
+    ParquetException::NYI("Decode(uint8_t*, int) for RleBooleanDecoder");
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,

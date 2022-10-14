@@ -153,7 +153,7 @@ as_writable_table <- function(x) {
       abort(
         "Object must be coercible to an Arrow Table using `as_arrow_table()`",
         parent = e,
-        call = rlang::caller_env(2)
+        call = caller_env(2)
       )
     }
   )

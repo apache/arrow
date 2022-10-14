@@ -76,7 +76,7 @@ if [[ -n "$DEVTOOLSET_VERSION" ]]; then
   # Only add make var if not set
   if ! grep -Fq "CXX17=" ~/.R/Makevars &> /dev/null; then
     mkdir -p ~/.R
-    echo "CXX17=g++ -std=g++17 -g -O2 -fpic" >> ~/.R/Makevars 
+    echo "CXX17=g++ -std=gnu++17 -g -O2 -fpic" >> ~/.R/Makevars 
   fi
 fi
 
