@@ -42,12 +42,18 @@ module Arrow
       when Buffer
         @data = @raw_tensor
       when String
+        unless @raw_tensor.encoding == Encoding::ASCII_8BIT
+          message = "raw tensor String must be an ASCII-8BIT encoded string: " +
+                    "#{@raw_tensor.encoding.inspect}"
+          raise ArgumentError, message
+        end
         @data = Arrow::Buffer.new(@raw_tensor)
       else
         @shape ||= guess_shape
         build_buffer
         unless @strides.nil?
-          message = "strides: must not be specified: #{@strides.inspect}"
+          message = "strides: is only accepted with " +
+                    "an Arrow::Buffer or String raw tensor: #{@strides.inspect}"
           raise ArgumentError, message
         end
       end
