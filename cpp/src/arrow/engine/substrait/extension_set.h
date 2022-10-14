@@ -340,7 +340,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// during deserialization. Note that input vectors need not be densely packed; an empty
   /// (default constructed) Id may be used as a placeholder to indicate an unused
   /// _anchor/_reference. This factory will be used to wrap the extensions declared in a
-  /// substrait::Plan before deserializing the plan's relations.
+  /// ::substrait::Plan before deserializing the plan's relations.
   ///
   /// Views will be replaced with equivalent views pointing to memory owned by the
   /// registry.
