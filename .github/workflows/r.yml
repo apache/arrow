@@ -183,8 +183,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        # - { rtools: 40, arch: 'mingw32' }
-        # - { rtools: 40, arch: 'mingw64' }
         - { rtools: 40, arch: 'ucrt64' }
     steps:
       - run: git config --global core.autocrlf false
@@ -235,7 +233,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        # - { rtools: 40, rversion: "4.1" }
         - { rtools: 42, rversion: "4.2" }
         - { rtools: 42, rversion: "devel" }
     env:
@@ -248,18 +245,6 @@ jobs:
         with:
           fetch-depth: 0
       - run: mkdir r/windows
-      - name: Download artifacts
-        if: ${{ matrix.config.rtools != 42 }}
-        uses: actions/download-artifact@v3
-        with:
-          name: libarrow-rtools${{ matrix.config.rtools }}-mingw32.zip
-          path: r/windows
-      - name: Download artifacts
-        if: ${{ matrix.config.rtools !=42 }}
-        uses: actions/download-artifact@v3
-        with:
-          name: libarrow-rtools${{ matrix.config.rtools }}-mingw64.zip
-          path: r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools == 42 }}
         uses: actions/download-artifact@v3
