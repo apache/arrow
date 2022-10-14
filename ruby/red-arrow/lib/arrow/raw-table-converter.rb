@@ -37,7 +37,8 @@ module Arrow
         @raw_table.each do |name, array|
           if array.respond_to?(:to_arrow_array)
             array = array.to_arrow_array
-          elsif array.is_a?(::Array)
+          else
+            array = array.to_ary if array.respond_to?(:to_ary)
             array = ArrayBuilder.build(array)
           end
           fields << Field.new(name.to_s, array.value_data_type)
