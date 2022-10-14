@@ -1058,7 +1058,7 @@
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
-                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist
+                    -DCMAKE_PREFIX_PATH=${project.basedir}/../${os.detected.arch}/java-dist
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
