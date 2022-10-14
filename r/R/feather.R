@@ -178,8 +178,11 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = T
   reader <- FeatherReader$create(file)
 
   col_select <- enquo(col_select)
+
   columns <- if (!quo_is_null(col_select)) {
-    vars_select(names(reader), !!col_select)
+    sim_df <- as.data.frame(reader$schema)
+    indices <- eval_select(col_select, sim_df)
+    names(reader)[indices]
   }
 
   out <- tryCatch(
