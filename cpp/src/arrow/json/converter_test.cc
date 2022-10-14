@@ -235,9 +235,8 @@ TEST(ConverterTest, Decimal128And256ScaleError) {
     std::shared_ptr<StructArray> parse_array;
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
 
-    std::string error_msg =
-        "Failed of conversion of JSON to " + types[i]->ToString() +
-        ". 30.0123456789001 requires scale 13";
+    std::string error_msg = "Failed of conversion of JSON to " + types[i]->ToString() +
+                            ". 30.0123456789001 requires scale 13";
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(error_msg),
                                     Convert(types[i], parse_array->GetFieldByName("")));
   }
