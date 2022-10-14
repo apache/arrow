@@ -144,8 +144,8 @@
 #' read_csv_arrow(tf, col_types = schema(y = utf8()))
 #' read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
 #'
-#' # Note that if a timestamp column contains time zones, type inference won't work,
-#' # whether automatic or via the string "T" `col_types` specification.
+#' # Note that if a timestamp column contains time zones,
+#' # the string "T" `col_types` specification won't work.
 #' # To parse timestamps with time zones, provide a [Schema] to `col_types`
 #' # and specify the time zone in the type object:
 #' tf <- tempfile()
