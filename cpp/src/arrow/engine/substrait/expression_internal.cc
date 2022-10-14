@@ -61,9 +61,6 @@ Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
       case substrait::FunctionArgument::Enum::EnumKindCase::kSpecified:
         call->SetEnumArg(idx, enum_val.specified());
         break;
-      case substrait::FunctionArgument::Enum::EnumKindCase::kUnspecified:
-        call->SetEnumArg(idx, std::nullopt);
-        break;
       default:
         return Status::Invalid("Unrecognized enum kind case: ",
                                enum_val.enum_kind_case());
@@ -80,6 +77,14 @@ Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
   return Status::OK();
 }
 
+void DecodeOption(const substrait::FunctionOption& opt, SubstraitCall* call) {
+  std::vector<std::string_view> prefs;
+  for (int i = 0; i < opt.preference_size(); i++) {
+    prefs.push_back(opt.preference(i));
+  }
+  call->SetOption(opt.name(), prefs);
+}
+
 Result<SubstraitCall> DecodeScalarFunction(
     Id id, const substrait::Expression::ScalarFunction& scalar_fn,
     const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
@@ -89,6 +94,9 @@ Result<SubstraitCall> DecodeScalarFunction(
   for (int i = 0; i < scalar_fn.arguments_size(); i++) {
     ARROW_RETURN_NOT_OK(DecodeArg(scalar_fn.arguments(i), static_cast<uint32_t>(i), &call,
                                   ext_set, conversion_options));
+  }
+  for (int i = 0; i < scalar_fn.options_size(); i++) {
+    DecodeOption(scalar_fn.options(i), &call);
   }
   return std::move(call);
 }
@@ -927,16 +935,12 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
       ToProto(*call.output_type(), call.output_nullable(), ext_set, conversion_options));
   scalar_fn->set_allocated_output_type(output_type.release());
 
-  for (uint32_t i = 0; i < call.size(); i++) {
+  for (int i = 0; i < call.size(); i++) {
     substrait::FunctionArgument* arg = scalar_fn->add_arguments();
     if (call.HasEnumArg(i)) {
       auto enum_val = std::make_unique<substrait::FunctionArgument::Enum>();
-      ARROW_ASSIGN_OR_RAISE(std::optional<std::string_view> enum_arg, call.GetEnumArg(i));
-      if (enum_arg) {
-        enum_val->set_specified(std::string(*enum_arg));
-      } else {
-        enum_val->set_allocated_unspecified(new google::protobuf::Empty());
-      }
+      ARROW_ASSIGN_OR_RAISE(std::string_view enum_arg, call.GetEnumArg(i));
+      enum_val->set_specified(std::string(enum_arg));
       arg->set_allocated_enum_(enum_val.release());
     } else if (call.HasValueArg(i)) {
       ARROW_ASSIGN_OR_RAISE(compute::Expression value_arg, call.GetValueArg(i));
