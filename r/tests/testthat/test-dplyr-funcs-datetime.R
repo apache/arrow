@@ -2020,14 +2020,43 @@ test_that("`as_datetime()`", {
     test_df
   )
 
+  expect_identical(
+    test_df %>%
+      arrow_table() %>%
+      transmute(
+        x = cast(as_datetime(double_date), int64())
+      ) %>%
+      collect(),
+    tibble(x = bit64::as.integer64(c(10100000000, 25200000000, NA)))
+  )
+})
+
+test_that("as_datetime() works with other functions", {
+  test_df <- tibble(
+    char_date = c("2022-03-22", "2021-07-30 14:32:47", "1970-01-01 00:00:59.123456789", NA),
+    double_date = c(10.1, 25.2, 1e-9, NA)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        ddchar_date = as_datetime(char_date),
+        ddchar_date_date32_1 = as.Date(ddchar_date),
+        ddchar_date_date32_2 = as_date(ddchar_date),
+        ddchar_date_floored = floor_date(ddchar_date, unit = "days")
+      ) %>%
+      collect(),
+    test_df
+  )
+
   # Arrow does not support conversion of timestamp to int32
   # ARROW-17428
   expect_error(
     test_df %>%
       arrow_table() %>%
       mutate(
-        ddate = as_datetime(date),
-        ddate_int = as.integer(ddate)
+        dchar_date = as_datetime(char_date),
+        dchar_date_int = as.integer(dchar_date)
       ) %>%
       compute(),
     "Unsupported cast from timestamp\\[ns, tz=UTC\\] to int32 using function cast_int32"
@@ -2039,22 +2068,11 @@ test_that("`as_datetime()`", {
     test_df %>%
       arrow_table() %>%
       mutate(
-        ddate = as_datetime(date),
-        ddate_num = as.numeric(ddate)
+        dchar_date = as_datetime(char_date),
+        dchar_date_num = as.numeric(dchar_date)
       ) %>%
       compute(),
     "Unsupported cast from timestamp\\[ns, tz=UTC\\] to double using function cast_double"
-  )
-
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(
-        ddouble_date = as_datetime(double_date),
-        ddouble_date_date32 = as.Date(ddouble_date)
-      ) %>%
-      compute(),
-    "Casting from timestamp\\[ns, tz=UTC\\] to timestamp\\[s, tz=UTC\\] would lose data: 10100000000"
   )
 })
 
