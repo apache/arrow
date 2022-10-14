@@ -312,8 +312,7 @@ def status(obj, job_name, fetch, task_filters, validate):
 @click.option('--pr-title', required=True,
               help='Track the job submitted on PR with given title')
 @click.pass_obj
-def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
-              pr_title):
+def report_pr(obj, arrow_remote, crossbow, fetch, job_name, pr_title):
     arrow = obj['arrow']
     queue = obj['queue']
     if fetch:
