@@ -36,7 +36,7 @@
 #' which returns an `arrow` [Table], or `collect()`, which pulls the resulting
 #' Table into an R `data.frame`.
 #'
-#' * [`anti_join()`][dplyr::anti_join()]
+#' * [`anti_join()`][dplyr::anti_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`arrange()`][dplyr::arrange()]
 #' * [`collapse()`][dplyr::collapse()]
 #' * [`collect()`][dplyr::collect()]
@@ -45,22 +45,22 @@
 #' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` not supported
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
-#' * [`full_join()`][dplyr::full_join()]
+#' * [`full_join()`][dplyr::full_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`glimpse()`][dplyr::glimpse()]
 #' * [`group_by()`][dplyr::group_by()]
 #' * [`group_by_drop_default()`][dplyr::group_by_drop_default()]
 #' * [`group_vars()`][dplyr::group_vars()]
 #' * [`groups()`][dplyr::groups()]
-#' * [`inner_join()`][dplyr::inner_join()]
-#' * [`left_join()`][dplyr::left_join()]
+#' * [`inner_join()`][dplyr::inner_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`left_join()`][dplyr::left_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`mutate()`][dplyr::mutate()]: window functions (e.g. things that require aggregation within groups) not currently supported
 #' * [`pull()`][dplyr::pull()]: returns an Arrow [ChunkedArray], not an R vector
 #' * [`relocate()`][dplyr::relocate()]
 #' * [`rename()`][dplyr::rename()]
 #' * [`rename_with()`][dplyr::rename_with()]
-#' * [`right_join()`][dplyr::right_join()]
+#' * [`right_join()`][dplyr::right_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`select()`][dplyr::select()]
-#' * [`semi_join()`][dplyr::semi_join()]
+#' * [`semi_join()`][dplyr::semi_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`show_query()`][dplyr::show_query()]
 #' * [`slice_head()`][dplyr::slice_head()]: slicing within groups not supported; Arrow datasets do not have row order, so head is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_max()`][dplyr::slice_max()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
