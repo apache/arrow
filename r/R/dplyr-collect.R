@@ -127,15 +127,26 @@ implicit_schema <- function(.data) {
       # Add cols from right side, except for semi/anti joins
       right_cols <- .data$join$right_data$selected_columns
       left_cols <- .data$selected_columns
-      right_fields <- map(
-        right_cols[setdiff(names(right_cols), .data$join$by)],
-        ~ .$type(.data$join$right_data$.data$schema)
-      )
-      # get right table and left table column names excluding the join key
-      right_cols_ex_by <- right_cols[setdiff(names(right_cols), .data$join$by)]
-      left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
-      # find the common column names in left and right tables
-      common_cols <- intersect(names(right_cols_ex_by), names(left_cols_ex_by))
+
+      # If keep = TRUE, we want to keep the key columns in the RHS. Otherwise,
+      # they will be dropped. Also, if the join is a full join, then we are
+      # temporarily keeping the key columns so we can coalesce them after.
+      if (.data$join$keep || .data$join$type == JoinType$FULL_OUTER) {
+        # find the common column names in left and right tables
+        common_cols <- intersect(names(right_cols), names(left_cols))
+        right_fields <- map(right_cols, ~ .$type(.data$join$right_data$.data$schema))
+      } else {
+        right_fields <- map(
+          right_cols[setdiff(names(right_cols), .data$join$by)],
+          ~ .$type(.data$join$right_data$.data$schema)
+        )
+        # get right table and left table column projections excluding the join key(s)
+        right_cols_ex_by <- right_cols[setdiff(names(right_cols), .data$join$by)]
+        left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
+        # find the common column names in left and right tables
+        common_cols <- intersect(names(right_cols_ex_by), names(left_cols_ex_by))
+      }
+
       # adding suffixes to the common columns in left and right tables
       left_fields <- add_suffix(new_fields, common_cols, .data$join$suffix[[1]])
       right_fields <- add_suffix(right_fields, common_cols, .data$join$suffix[[2]])

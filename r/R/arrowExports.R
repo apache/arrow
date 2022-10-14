@@ -452,8 +452,8 @@ ExecNode_Aggregate <- function(input, options, key_names) {
   .Call(`_arrow_ExecNode_Aggregate`, input, options, key_names)
 }
 
-ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
-  .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
+ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
+  .Call(`_arrow_ExecNode_Join`, input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
 }
 
 ExecNode_Union <- function(input, right_data) {

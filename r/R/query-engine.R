@@ -154,14 +154,13 @@ ExecPlan <- R6Class("ExecPlan",
         node <- node$Project(projection)
         if (!is.null(.data$join)) {
           right_node <- self$Build(.data$join$right_data)
-          left_output <- names(.data)
-          right_output <- setdiff(names(.data$join$right_data), .data$join$by)
+
           node <- node$Join(
             type = .data$join$type,
             right_node = right_node,
             by = .data$join$by,
-            left_output = left_output,
-            right_output = right_output,
+            left_output = .data$join$left_output,
+            right_output = .data$join$right_output,
             left_suffix = .data$join$suffix[[1]],
             right_suffix = .data$join$suffix[[2]]
           )
