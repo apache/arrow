@@ -102,7 +102,7 @@
 #' `NULL` (the default) to infer types from the data.
 #' @param col_select A character vector of column names to keep, as in the
 #' "select" argument to `data.table::fread()`, or a
-#' [tidy selection specification][tidyselect::vars_select()]
+#' [tidy selection specification][tidyselect::eval_select()]
 #' of columns, as used in `dplyr::select()`.
 #' @param na A character vector of strings to interpret as missing values.
 #' @param quoted_na Should missing values inside quotes be treated as missing
