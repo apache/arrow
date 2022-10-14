@@ -62,17 +62,18 @@ restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
   # After calling collect(), make sure these features are carried over
 
-  if (length(query$group_by_vars) > 0) {
-    # Preserve groupings, if present
+  if (length(dplyr::group_vars(query))) {
     if (is.data.frame(df)) {
-      df <- dplyr::grouped_df(
+      # Preserve groupings, if present
+      df <- dplyr::group_by(
         df,
-        dplyr::group_vars(query),
-        drop = dplyr::group_by_drop_default(query)
+        !!!syms(dplyr::group_vars(query)),
+        .drop = dplyr::group_by_drop_default(query),
+        .add = FALSE
       )
     } else {
       # This is a Table, via compute() or collect(as_data_frame = FALSE)
-      df$metadata$r$attributes$.group_vars <- query$group_by_vars
+      df$metadata$r$attributes$.group_vars <- dplyr::group_vars(query)
     }
   }
   df

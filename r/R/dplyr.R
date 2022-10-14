@@ -49,6 +49,12 @@ arrow_dplyr_query <- function(.data) {
   if (inherits(.data, "data.frame")) {
     .data <- Table$create(.data)
   }
+  # ARROW-17737: If .data is a Table, remove groups from metadata
+  # (we've already grabbed the groups above)
+  if (inherits(.data, "ArrowTabular")) {
+    .data <- ungroup.ArrowTabular(.data)
+  }
+
   # Evaluating expressions on a dataset with duplicated fieldnames will error
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
@@ -182,7 +188,7 @@ dim.arrow_dplyr_query <- function(x) {
     # Query on in-memory Table, so evaluate the filter
     # Don't need any columns
     x <- select.arrow_dplyr_query(x, NULL)
-    rows <- nrow(compute.arrow_dplyr_query(x))
+    rows <- nrow(as_arrow_table(x))
   }
   c(rows, cols)
 }
