@@ -726,15 +726,15 @@ class ORCFileWriter::Impl {
     return Status::OK();
   }
 
-  Status Write(const RecordBatch& record_batch) {
+  Status Write(const Table& table) {
     if (!writer_.get()) {
-      ARROW_ASSIGN_OR_RAISE(orc_schema_, GetOrcType(*(record_batch.schema())));
+      ARROW_ASSIGN_OR_RAISE(orc_schema_, GetOrcType(*(table.schema())));
       ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
-      arrow_schema_ = record_batch.schema();
+      arrow_schema_ = table.schema();
       ORC_CATCH_NOT_OK(
           writer_ = liborc::createWriter(*orc_schema_, out_stream_.get(), orc_options))
     } else {
-      bool schemas_matching = record_batch.schema()->Equals(arrow_schema_, false);
+      bool schemas_matching = table.schema()->Equals(arrow_schema_, false);
       if (!schemas_matching) {
         return Status::Invalid(
             "The schema of the RecordBatch does not match"
@@ -743,8 +743,8 @@ class ORCFileWriter::Impl {
       }
     }
     auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
-    int64_t num_rows = record_batch.num_rows();
-    const int num_cols = record_batch.num_columns();
+    int64_t num_rows = table.num_rows();
+    const int num_cols = table.num_columns();
     std::vector<int64_t> arrow_index_offset(num_cols, 0);
     std::vector<int> arrow_chunk_offset(num_cols, 0);
     std::unique_ptr<liborc::ColumnVectorBatch> batch =
@@ -753,9 +753,8 @@ class ORCFileWriter::Impl {
         internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
     while (num_rows > 0) {
       for (int i = 0; i < num_cols; i++) {
-        ARROW_ASSIGN_OR_RAISE(auto chunked_array, ChunkedArray::Make({ (record_batch.column(i)) }));
         RETURN_NOT_OK(adapters::orc::WriteBatch(
-          *chunked_array, batch_size, &(arrow_chunk_offset[i]),
+          *table.column(i), batch_size, &(arrow_chunk_offset[i]),
           &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
@@ -796,26 +795,13 @@ Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
 
 Status ORCFileWriter::Write(const Table& table)
 {
-  if (table.num_rows() == 0) {
-    ARROW_ASSIGN_OR_RAISE(auto empty_batch, RecordBatch::MakeEmpty(table.schema()));
-    RETURN_NOT_OK(Write(*empty_batch));
-  } else {
-    TableBatchReader reader(table);
-    std::shared_ptr<RecordBatch> batch;
-    while (true) {
-      RETURN_NOT_OK(reader.ReadNext(&batch));
-      if (batch == nullptr) {
-        break;
-      }
-      RETURN_NOT_OK(Write(*batch));
-    }
-  }
-  return Status::OK();
+  return impl_->Write(table);
 }
 
 Status ORCFileWriter::Write(const RecordBatch& record_batch)
 {
-  return impl_->Write(record_batch);
+  auto table = Table::Make(record_batch.schema(), record_batch.columns());
+  return impl_->Write(*table);
 }
 
 Status ORCFileWriter::Close() { return impl_->Close(); }
