@@ -332,15 +332,15 @@ register_bindings_datetime_conversion <- function() {
         )
       }
 
-      # base::as.Date() and lubridate::as_date() differ in the way they use the
-      # `tz` argument. Both cast to the desired timezone, if present. The
-      # difference appears when the `tz` argument is not set: `as.Date()` uses the
-      # default value ("UTC"), while `as_date()` keeps the original attribute
-      # => we only cast when we want the behaviour of the base version or when
-      # `tz` is set (i.e. not NULL)
-      if (call_binding("is.POSIXct", x)) {
-        x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
-      }
+    # base::as.Date() and lubridate::as_date() differ in the way they use the
+    # `tz` argument. Both cast to the desired timezone, if present. The
+    # difference appears when the `tz` argument is not set: `as.Date()` uses the
+    # default value ("UTC"), while `as_date()` keeps the original attribute
+    # => we only cast when we want the behaviour of the base version or when
+    # `tz` is set (i.e. not NULL)
+    if (call_binding("is.POSIXct", x)) {
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp("ns", timezone = tz)))
+    }
 
       binding_as_date(
         x = x,
@@ -366,7 +366,7 @@ register_bindings_datetime_conversion <- function() {
     # => we only cast when we want the behaviour of the base version or when
     # `tz` is set (i.e. not NULL)
     if (call_binding("is.POSIXct", x) && !is.null(tz)) {
-      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp("ns", timezone = tz)))
     }
     binding_as_date(
       x = x,
