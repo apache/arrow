@@ -174,7 +174,7 @@ jobs:
       - name: ccache info
         id: ccache-info
         run: |
-          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
         uses: actions/cache@v3
         with:
@@ -270,7 +270,7 @@ jobs:
         id: ccache-info
         shell: bash
         run: |
-          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
         uses: actions/cache@v3
         with:

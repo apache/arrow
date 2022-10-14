@@ -161,7 +161,7 @@ jobs:
       - name: ccache info
         id: ccache-info
         run: |
-          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
         uses: actions/cache@v3
         with:
@@ -274,7 +274,8 @@ jobs:
       - name: RubyGems info
         id: rubygems-info
         run: |
-          Write-Output "::set-output name=gem-dir::$(ridk exec gem env gemdir)"
+          Write-Output "gem-dir=$(ridk exec gem env gemdir)" | `
+            Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
       - name: Cache RubyGems
         uses: actions/cache@v3
         with:
