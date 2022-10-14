@@ -223,10 +223,9 @@ TEST(ConverterTest, Decimal128And256) {
 }
 
 TEST(ConverterTest, Decimal128And256ScaleError) {
-  std::vector<std::shared_ptr<DataType>> types = {decimal128(38, 10), decimal256(38, 10)};
-  for (int i = 0; i < 2; ++i) {
+  for (auto decimal_type : {decimal128(38, 10), decimal256(38, 10)}) {
     ParseOptions options;
-    options.explicit_schema = schema({field("", types[i])});
+    options.explicit_schema = schema({field("", decimal_type)});
 
     std::string json_source = R"(
       {"" : "30.0123456789001"}
@@ -235,18 +234,19 @@ TEST(ConverterTest, Decimal128And256ScaleError) {
     std::shared_ptr<StructArray> parse_array;
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
 
-    std::string error_msg = "Failed of conversion of JSON to " + types[i]->ToString() +
-                            ". 30.0123456789001 requires scale 13";
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(error_msg),
-                                    Convert(types[i], parse_array->GetFieldByName("")));
+    std::string error_msg = "Failed of conversion of JSON to " +
+                            decimal_type->ToString() +
+                            ": 30.0123456789001 requires scale 13";
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr(error_msg),
+        Convert(decimal_type, parse_array->GetFieldByName("")));
   }
 }
 
 TEST(ConverterTest, Decimal128And256PrecisionError) {
-  std::vector<std::shared_ptr<DataType>> types = {decimal128(38, 10), decimal256(38, 10)};
-  for (int i = 0; i < 2; ++i) {
+  for (auto decimal_type : {decimal128(38, 10), decimal256(38, 10)}) {
     ParseOptions options;
-    options.explicit_schema = schema({field("", types[i])});
+    options.explicit_schema = schema({field("", decimal_type)});
 
     std::string json_source = R"(
       {"" : "123456789012345678901234567890.0123456789"}
@@ -256,11 +256,13 @@ TEST(ConverterTest, Decimal128And256PrecisionError) {
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
 
     std::string error_msg =
-        "Invalid: Failed of conversion of JSON to " + types[i]->ToString() +
-        ". 123456789012345678901234567890.0123456789 requires precision 40";
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(error_msg),
-                                    Convert(types[i], parse_array->GetFieldByName("")));
+        "Invalid: Failed of conversion of JSON to " + decimal_type->ToString() +
+        ": 123456789012345678901234567890.0123456789 requires precision 40";
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr(error_msg),
+        Convert(decimal_type, parse_array->GetFieldByName("")));
   }
 }
+
 }  // namespace json
 }  // namespace arrow
