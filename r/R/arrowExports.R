@@ -2024,6 +2024,10 @@ Table__from_record_batches <- function(batches, schema_sxp) {
   .Call(`_arrow_Table__from_record_batches`, batches, schema_sxp)
 }
 
+Table__from_schema <- function(schema_sxp) {
+  .Call(`_arrow_Table__from_schema`, schema_sxp)
+}
+
 Table__ReferencedBufferSize <- function(table) {
   .Call(`_arrow_Table__ReferencedBufferSize`, table)
 }
@@ -2051,3 +2055,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

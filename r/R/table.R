@@ -134,6 +134,11 @@ Table$create <- function(..., schema = NULL) {
   if (is.null(names(dots))) {
     names(dots) <- rep_len("", length(dots))
   }
+
+  if (length(dots) == 0 && inherits(schema, "Schema")) {
+    return(Table__from_schema(schema))
+  }
+
   stopifnot(length(dots) > 0)
 
   if (all_record_batches(dots)) {
@@ -329,4 +334,10 @@ as_arrow_table.RecordBatchReader <- function(x, ...) {
 #' @export
 as_arrow_table.arrow_dplyr_query <- function(x, ...) {
   as_arrow_table(as_record_batch_reader(x))
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.Schema <- function(x, ...) {
+  Table__from_schema(x)
 }

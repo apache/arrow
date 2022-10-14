@@ -102,7 +102,7 @@
 #' an Arrow [Schema], or `NULL` (the default) to infer types from the data.
 #' @param col_select A character vector of column names to keep, as in the
 #' "select" argument to `data.table::fread()`, or a
-#' [tidy selection specification][tidyselect::vars_select()]
+#' [tidy selection specification][tidyselect::eval_select()]
 #' of columns, as used in `dplyr::select()`.
 #' @param na A character vector of strings to interpret as missing values.
 #' @param quoted_na Should missing values inside quotes be treated as missing
@@ -226,7 +226,8 @@ read_delim_arrow <- function(file,
   # TODO: move this into convert_options using include_columns
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
-    tab <- tab[vars_select(names(tab), !!col_select)]
+    sim_df <- as.data.frame(tab$schema)
+    tab <- tab[eval_select(col_select, sim_df)]
   }
 
   if (isTRUE(as_data_frame)) {

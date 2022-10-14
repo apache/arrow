@@ -101,7 +101,7 @@ an Arrow \link{Schema}, or \code{NULL} (the default) to infer types from the dat
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
-\link[tidyselect:vars_select]{tidy selection specification}
+\link[tidyselect:eval_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
 \item{na}{A character vector of strings to interpret as missing values.}

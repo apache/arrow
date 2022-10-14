@@ -180,7 +180,7 @@ as \code{arrow_ascii_is_decimal}.
 
 \subsection{dplyr}{
 \itemize{
-\item \code{\link[dplyr:across]{across()}}: Use of \code{where()} selection helper not yet supported
+\item \code{\link[dplyr:across]{across()}}
 \item \code{\link[dplyr:between]{between()}}
 \item \code{\link[dplyr:case_when]{case_when()}}
 \item \code{\link[dplyr:coalesce]{coalesce()}}

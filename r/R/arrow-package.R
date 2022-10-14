@@ -27,7 +27,7 @@
 #' @importFrom rlang is_list call2 is_empty as_function as_label arg_match is_symbol is_call call_args
 #' @importFrom rlang quo_set_env quo_get_env is_formula quo_is_call f_rhs parse_expr f_env new_quosure
 #' @importFrom rlang new_quosures expr_text caller_env check_dots_empty dots_list
-#' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
+#' @importFrom tidyselect vars_pull eval_select eval_rename
 #' @importFrom glue glue
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal

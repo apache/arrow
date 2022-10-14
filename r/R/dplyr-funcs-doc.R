@@ -190,7 +190,7 @@
 #'
 #' ## dplyr
 #'
-#' * [`across()`][dplyr::across()]: Use of `where()` selection helper not yet supported
+#' * [`across()`][dplyr::across()]
 #' * [`between()`][dplyr::between()]
 #' * [`case_when()`][dplyr::case_when()]
 #' * [`coalesce()`][dplyr::coalesce()]
