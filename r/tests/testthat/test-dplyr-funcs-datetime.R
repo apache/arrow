@@ -2023,11 +2023,18 @@ test_that("`as_datetime()`", {
   expect_identical(
     test_df %>%
       arrow_table() %>%
-      transmute(
-        x = cast(as_datetime(double_date), int64())
+      mutate(
+        x = cast(as_datetime(double_date, unit = "ns"), int64()),
+        y = cast(as_datetime(double_date, unit = "us"), int64()),
+        z = cast(as_datetime(double_date, unit = "ms"), int64()),
+        .keep = "none"
       ) %>%
       collect(),
-    tibble(x = bit64::as.integer64(c(10100000000, 25200000000, NA)))
+    tibble(
+      x = bit64::as.integer64(c(10100000000, 25200000000, NA)),
+      y = as.integer(c(10100000, 25200000, NA)),
+      z = as.integer(c(10100, 25200, NA))
+    )
   )
 })
 
