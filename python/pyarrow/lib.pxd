@@ -39,10 +39,8 @@ cdef class _Weakrefable:
 
 cdef class IpcWriteOptions(_Weakrefable):
     cdef:
-        unique_ptr[CIpcWriteOptions] options
+        CIpcWriteOptions options
         
-    @staticmethod
-    cdef IpcWriteOptions wrap(CIpcWriteOptions options)
 
 cdef class IpcReadOptions(_Weakrefable):
     cdef:

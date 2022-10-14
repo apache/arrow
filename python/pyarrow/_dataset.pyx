@@ -1170,12 +1170,14 @@ cdef class IpcFileWriteOptions(FileWriteOptions):
 
     @property
     def write_options(self):
-        return IpcWriteOptions.wrap(deref(self.ipc_options.options))
+        out = IpcWriteOptions()
+        out.options = CIpcWriteOptions(move(deref(self.ipc_options.options)))
+        return out
 
     @write_options.setter
     def write_options(self, IpcWriteOptions write_options not None):
         self.ipc_options.options.reset(
-            new CIpcWriteOptions(deref(write_options.options)))
+            new CIpcWriteOptions(write_options.options))
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
@@ -1193,7 +1195,7 @@ cdef class IpcFileFormat(FileFormat):
     def make_write_options(self, **kwargs):
         cdef IpcFileWriteOptions opts = \
             <IpcFileWriteOptions> FileFormat.make_write_options(self)
-        opts.options = IpcWriteOptions(**kwargs)
+        opts.write_options = IpcWriteOptions(**kwargs)
         return opts
 
     @property
