@@ -32,6 +32,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/time.h"
@@ -81,6 +82,38 @@ class StringFormatter<BooleanType> {
       const char string[] = "false";
       return append(std::string_view(string));
     }
+  }
+};
+
+template <>
+class StringFormatter<Decimal128Type> {
+  int32_t scale_;
+
+ public:
+  explicit StringFormatter(const DataType* type)
+      : scale_(static_cast<const Decimal128Type*>(type)->scale()) {}
+
+  using value_type = TypeTraits<Decimal128Type>::CType;
+
+  template <typename Appender>
+  Return<Appender> operator()(const value_type& value, Appender&& append) {
+    return append(value.ToString(scale_));
+  }
+};
+
+template <>
+class StringFormatter<Decimal256Type> {
+  int32_t scale_;
+
+ public:
+  explicit StringFormatter(const DataType* type)
+      : scale_(static_cast<const Decimal256Type*>(type)->scale()) {}
+
+  using value_type = TypeTraits<Decimal256Type>::CType;
+
+  template <typename Appender>
+  Return<Appender> operator()(const value_type& value, Appender&& append) {
+    return append(value.ToString(scale_));
   }
 };
 

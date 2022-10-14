@@ -25,6 +25,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"
+#include "arrow/type.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/utf8_internal.h"
@@ -58,6 +59,31 @@ struct NumericToStringCastFunctor {
         input,
         [&](value_type v) {
           return formatter(v, [&](std::string_view v) { return builder.Append(v); });
+        },
+        [&]() { return builder.AppendNull(); }));
+
+    std::shared_ptr<Array> output_array;
+    RETURN_NOT_OK(builder.Finish(&output_array));
+    out->value = std::move(output_array->data());
+    return Status::OK();
+  }
+};
+
+template <typename O, typename I>
+struct DecimalToStringCastFunctor {
+  using value_type = typename TypeTraits<I>::CType;
+  using BuilderType = typename TypeTraits<O>::BuilderType;
+  using FormatterType = StringFormatter<I>;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& input = batch[0].array;
+    FormatterType formatter(input.type);
+    BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
+    RETURN_NOT_OK(VisitArraySpanInline<I>(
+        input,
+        [&](std::string_view bytes) {
+          value_type value(reinterpret_cast<const uint8_t*>(bytes.data()));
+          return formatter(value, [&](std::string_view v) { return builder.Append(v); });
         },
         [&]() { return builder.AppendNull(); }));
 
@@ -386,6 +412,17 @@ void AddNumberToStringCasts(CastFunction* func) {
 }
 
 template <typename OutType>
+void AddDecimalToStringCasts(CastFunction* func) {
+  auto out_ty = TypeTraits<OutType>::type_singleton();
+  for (const std::shared_ptr<DataType>& in_ty : AllDecimalTypes()) {
+    DCHECK_OK(
+        func->AddKernel(in_ty->id(), {in_ty}, out_ty,
+                        GenerateDecimal<DecimalToStringCastFunctor, OutType>(*in_ty),
+                        NullHandling::COMPUTED_NO_PREALLOCATE));
+  }
+}
+
+template <typename OutType>
 void AddTemporalToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
   for (const std::shared_ptr<DataType>& in_ty : TemporalTypes()) {
@@ -429,6 +466,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddCommonCasts(Type::STRING, utf8(), cast_string.get());
   AddNumberToStringCasts<StringType>(cast_string.get());
+  AddDecimalToStringCasts<StringType>(cast_string.get());
   AddTemporalToStringCasts<StringType>(cast_string.get());
   AddBinaryToBinaryCast<StringType>(cast_string.get());
 
@@ -436,6 +474,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
   AddCommonCasts(Type::LARGE_STRING, large_utf8(), cast_large_string.get());
   AddNumberToStringCasts<LargeStringType>(cast_large_string.get());
+  AddDecimalToStringCasts<LargeStringType>(cast_large_string.get());
   AddTemporalToStringCasts<LargeStringType>(cast_large_string.get());
   AddBinaryToBinaryCast<LargeStringType>(cast_large_string.get());
 
