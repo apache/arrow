@@ -180,17 +180,17 @@ that \code{readr} uses to the \code{col_types} argument. This means you provide 
 single string, one character per column, where the characters map to Arrow
 types analogously to the \code{readr} type mapping:
 \itemize{
-\item "c": \code{utf8()}
-\item "i": \code{int32()}
-\item "n": \code{float64()}
-\item "d": \code{float64()}
-\item "l": \code{bool()}
-\item "f": \code{dictionary()}
-\item "D": \code{date32()}
-\item "T": \code{timestamp(unit = "ns")}
-\item "t": \code{time32()} (The \code{unit} arg is set to the default value \code{"ms"})
-\item "_": \code{null()}
-\item "-": \code{null()}
+\item "c": \code{\link[=utf8]{utf8()}}
+\item "i": \code{\link[=int32]{int32()}}
+\item "n": \code{\link[=float64]{float64()}}
+\item "d": \code{\link[=float64]{float64()}}
+\item "l": \code{\link[=bool]{bool()}}
+\item "f": \code{\link[=dictionary]{dictionary()}}
+\item "D": \code{\link[=date32]{date32()}}
+\item "T": \code{\link[=timestamp]{timestamp(unit = "ns")}}
+\item "t": \code{\link[=time32]{time32()}} (The \code{unit} arg is set to the default value \code{"ms"})
+\item "_": \code{\link[=null]{null()}}
+\item "-": \code{\link[=null]{null()}}
 \item "?": infer the type from the data
 }
 
@@ -219,4 +219,15 @@ write.csv(data.frame(x = c(1, 3), y = c(2, 4)), file = tf, row.names = FALSE)
 read_csv_arrow(tf, schema = schema(x = int32(), y = utf8()), skip = 1)
 read_csv_arrow(tf, col_types = schema(y = utf8()))
 read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
+
+# Note that if a timestamp column contains time zones, type inference won't work,
+# whether automatic or via the string "T" `col_types` specification.
+# To parse timestamps with time zones, provide a [Schema] to `col_types`
+# and specify the time zone in the type object:
+tf <- tempfile()
+write.csv(data.frame(x = "1970-01-01T12:00:00+12:00"), file = tf, row.names = FALSE)
+read_csv_arrow(
+  tf,
+  col_types = schema(x = timestamp(unit = "us", timezone = "UTC"))
+)
 }

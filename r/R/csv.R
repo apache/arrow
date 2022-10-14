@@ -54,17 +54,17 @@
 #' single string, one character per column, where the characters map to Arrow
 #' types analogously to the `readr` type mapping:
 #'
-#' * "c": `utf8()`
-#' * "i": `int32()`
-#' * "n": `float64()`
-#' * "d": `float64()`
-#' * "l": `bool()`
-#' * "f": `dictionary()`
-#' * "D": `date32()`
-#' * "T": `timestamp(unit = "ns")`
-#' * "t": `time32()` (The `unit` arg is set to the default value `"ms"`)
-#' * "_": `null()`
-#' * "-": `null()`
+#' * "c": [utf8()]
+#' * "i": [int32()]
+#' * "n": [float64()]
+#' * "d": [float64()]
+#' * "l": [bool()]
+#' * "f": [dictionary()]
+#' * "D": [date32()]
+#' * "T": [`timestamp(unit = "ns")`][timestamp()]
+#' * "t": [time32()] (The `unit` arg is set to the default value `"ms"`)
+#' * "_": [null()]
+#' * "-": [null()]
 #' * "?": infer the type from the data
 #'
 #' If you use the compact string representation for `col_types`, you must also
@@ -143,6 +143,17 @@
 #' read_csv_arrow(tf, schema = schema(x = int32(), y = utf8()), skip = 1)
 #' read_csv_arrow(tf, col_types = schema(y = utf8()))
 #' read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
+#'
+#' # Note that if a timestamp column contains time zones, type inference won't work,
+#' # whether automatic or via the string "T" `col_types` specification.
+#' # To parse timestamps with time zones, provide a [Schema] to `col_types`
+#' # and specify the time zone in the type object:
+#' tf <- tempfile()
+#' write.csv(data.frame(x = "1970-01-01T12:00:00+12:00"), file = tf, row.names = FALSE)
+#' read_csv_arrow(
+#'   tf,
+#'   col_types = schema(x = timestamp(unit = "us", timezone = "UTC"))
+#' )
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
