@@ -91,13 +91,15 @@ class SinkNode : public ExecNode {
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
            AsyncGenerator<std::optional<ExecBatch>>* generator,
            BackpressureOptions backpressure,
-           BackpressureMonitor** backpressure_monitor_out)
+           BackpressureMonitor** backpressure_monitor_out,
+           std::shared_ptr<Schema>* output_schema = NULLPTR)
       : ExecNode(plan, std::move(inputs), {"collected"}, {},
                  /*num_outputs=*/0),
         backpressure_queue_(backpressure.resume_if_below, backpressure.pause_if_above),
         push_gen_(),
         producer_(push_gen_.producer()),
-        node_destroyed_(std::make_shared<bool>(false)) {
+        node_destroyed_(std::make_shared<bool>(false)),
+        output_schema_(output_schema) {
     if (backpressure_monitor_out) {
       *backpressure_monitor_out = &backpressure_queue_;
     }
@@ -126,7 +128,8 @@ class SinkNode : public ExecNode {
     RETURN_NOT_OK(ValidateOptions(sink_options));
     return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator,
                                        sink_options.backpressure,
-                                       sink_options.backpressure_monitor);
+                                       sink_options.backpressure_monitor,
+                                       sink_options.output_schema);
   }
 
   const char* kind_name() const override { return "SinkNode"; }
@@ -137,6 +140,9 @@ class SinkNode : public ExecNode {
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
+    if(output_schema_) {
+      *output_schema_ = inputs_[0]->output_schema();
+    }
     return Status::OK();
   }
 
@@ -250,6 +256,7 @@ class SinkNode : public ExecNode {
   PushGenerator<std::optional<ExecBatch>> push_gen_;
   PushGenerator<std::optional<ExecBatch>>::Producer producer_;
   std::shared_ptr<bool> node_destroyed_;
+  std::shared_ptr<Schema>* output_schema_;
 };
 
 // A sink node that owns consuming the data and will not finish until the consumption

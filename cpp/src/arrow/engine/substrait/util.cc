@@ -22,6 +22,8 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 
+#include "arrow/table.h"
+
 namespace arrow {
 
 namespace engine {
@@ -82,10 +84,10 @@ class SubstraitExecutor {
     RETURN_NOT_OK(plan_->Validate());
     plan_started_ = true;
     RETURN_NOT_OK(plan_->StartProducing());
-    auto schema = sink_consumer_->schema();
+    //auto schema = sink_consumer_->schema();
     std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-        std::move(schema), std::move(generator_), exec_context_.memory_pool());
-    return sink_reader;
+        std::move(output_schema_), std::move(sink_gen_), exec_context_.memory_pool());
+    return std::move(sink_reader);
   }
 
   Status Close() {
@@ -97,18 +99,26 @@ class SubstraitExecutor {
     if (substrait_buffer.size() == 0) {
       return Status::Invalid("Empty substrait plan is passed.");
     }
-    sink_consumer_ = std::make_shared<SubstraitSinkConsumer>(generator_.producer());
-    std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
-      return sink_consumer_;
+    // sink_consumer_ = std::make_shared<SubstraitSinkConsumer>(generator_.producer());
+    // std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
+    //   return sink_consumer_;
+    // };
+  
+    sink_node_options_ = std::make_shared<compute::SinkNodeOptions>(compute::SinkNodeOptions{&sink_gen_, {}, nullptr, &output_schema_});
+    std::function<std::shared_ptr<compute::SinkNodeOptions>()> sink_factory = [&] {
+      return sink_node_options_;
     };
     ARROW_ASSIGN_OR_RAISE(
-        declarations_, engine::DeserializePlans(substrait_buffer, consumer_factory,
+        declarations_, engine::DeserializePlans(substrait_buffer, sink_factory,
                                                 registry, nullptr, conversion_options_));
     return Status::OK();
   }
 
  private:
-  arrow::PushGenerator<std::optional<compute::ExecBatch>> generator_;
+  //arrow::PushGenerator<std::optional<compute::ExecBatch>> generator_;
+  std::shared_ptr<Schema> output_schema_;
+  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen_;
+  std::shared_ptr<compute::SinkNodeOptions> sink_node_options_;
   std::vector<compute::Declaration> declarations_;
   std::shared_ptr<compute::ExecPlan> plan_;
   bool plan_started_;
@@ -131,7 +141,8 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   // check closing here, not in destructor, to expose error to caller
   RETURN_NOT_OK(executor.Close());
-  return sink_reader;
+  ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatchReader(sink_reader.get()));
+  return std::move(sink_reader);
 }
 
 Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_json) {
