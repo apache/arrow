@@ -119,6 +119,7 @@ test_that("slice_sample, ungrouped", {
   expect_lte(sampled_n, 2)
 
   # Test with dataset, which matters for the UDF HACK
+  skip_if_not_available("dataset")
   sampled_n <- tab %>%
     InMemoryDataset$create() %>%
     slice_sample(n = 2) %>%
