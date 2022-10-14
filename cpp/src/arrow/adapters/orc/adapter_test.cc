@@ -463,6 +463,16 @@ TEST_F(TestORCWriterTrivialNoConversion, writeTrivialChunkAndSelectField) {
   AssertTableWriteReadEqual(table, table_selected, kDefaultSmallMemStreamSize / 16,
                             &selected_indices);
 }
+TEST_F(TestORCWriterTrivialNoConversion, writeFilledChunkAndSelectField) {
+  std::vector<int> selected_indices = {1,14};
+  random::RandomArrayGenerator rand;
+  auto batch = rand.BatchOf(table_schema->fields(),100);
+  std::shared_ptr<Table> table = Table::Make(table_schema,batch->columns());
+  ARROW_ASSIGN_OR_RAISE(auto table_selected ,table->SelectColumns(selected_indices));
+  AssertTableWriteReadEqual(table, table_selected, kDefaultSmallMemStreamSize,
+                            &selected_indices);
+}
+
 class TestORCWriterTrivialWithConversion : public ::testing::Test {
  public:
   TestORCWriterTrivialWithConversion() {
