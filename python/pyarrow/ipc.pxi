@@ -197,7 +197,7 @@ cdef class IpcWriteOptions(_Weakrefable):
                  compression=None, bint use_threads=True,
                  bint emit_dictionary_deltas=False,
                  bint unify_dictionaries=False):
-        self.options = CIpcWriteOptions.Defaults()
+        self.c_options = CIpcWriteOptions.Defaults()
         self.allow_64bit = allow_64bit
         self.use_legacy_format = use_legacy_format
         self.metadata_version = metadata_version
@@ -209,71 +209,71 @@ cdef class IpcWriteOptions(_Weakrefable):
 
     @property
     def allow_64bit(self):
-        return self.options.allow_64bit
+        return self.c_options.allow_64bit
 
     @allow_64bit.setter
     def allow_64bit(self, bint value):
-        self.options.allow_64bit = value
+        self.c_options.allow_64bit = value
 
     @property
     def use_legacy_format(self):
-        return self.options.write_legacy_ipc_format
+        return self.c_options.write_legacy_ipc_format
 
     @use_legacy_format.setter
     def use_legacy_format(self, bint value):
-        self.options.write_legacy_ipc_format = value
+        self.c_options.write_legacy_ipc_format = value
 
     @property
     def metadata_version(self):
-        return _wrap_metadata_version(self.options.metadata_version)
+        return _wrap_metadata_version(self.c_options.metadata_version)
 
     @metadata_version.setter
     def metadata_version(self, value):
-        self.options.metadata_version = _unwrap_metadata_version(value)
+        self.c_options.metadata_version = _unwrap_metadata_version(value)
 
     @property
     def compression(self):
-        if self.options.codec == nullptr:
+        if self.c_options.codec == nullptr:
             return None
         else:
-            return frombytes(self.options.codec.get().name())
+            return frombytes(self.c_options.codec.get().name())
 
     @compression.setter
     def compression(self, value):
         if value is None:
-            self.options.codec.reset()
+            self.c_options.codec.reset()
         elif isinstance(value, str):
-            self.options.codec = shared_ptr[CCodec](GetResultValue(
+            self.c_options.codec = shared_ptr[CCodec](GetResultValue(
                 CCodec.Create(_ensure_compression(value))).release())
         elif isinstance(value, Codec):
-            self.options.codec = (<Codec>value).wrapped
+            self.c_options.codec = (<Codec>value).wrapped
         else:
             raise TypeError(
                 "Property `compression` must be None, str, or pyarrow.Codec")
 
     @property
     def use_threads(self):
-        return self.options.use_threads
+        return self.c_options.use_threads
 
     @use_threads.setter
     def use_threads(self, bint value):
-        self.options.use_threads = value
+        self.c_options.use_threads = value
 
     @property
     def emit_dictionary_deltas(self):
-        return self.options.emit_dictionary_deltas
+        return self.c_options.emit_dictionary_deltas
 
     @emit_dictionary_deltas.setter
     def emit_dictionary_deltas(self, bint value):
-        self.options.emit_dictionary_deltas = value
+        self.c_options.emit_dictionary_deltas = value
 
     @property
     def unify_dictionaries(self):
-        return self.options.unify_dictionaries
+        return self.c_options.unify_dictionaries
 
     @unify_dictionaries.setter
     def unify_dictionaries(self, bint value):
-        self.options.unify_dictionaries = value
+        self.c_options.unify_dictionaries = value
 
 
 cdef class Message(_Weakrefable):
@@ -555,7 +555,7 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
         cdef:
             shared_ptr[COutputStream] c_sink
 
-        self.options = options.options
+        self.options = options.c_options
         get_writer(sink, &c_sink)
         with nogil:
             self.writer = GetResultValue(
@@ -826,7 +826,7 @@ cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
         cdef:
             shared_ptr[COutputStream] c_sink
 
-        self.options = options.options
+        self.options = options.c_options
         get_writer(sink, &c_sink)
         with nogil:
             self.writer = GetResultValue(
