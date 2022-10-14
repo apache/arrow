@@ -140,6 +140,7 @@ DeclarationFactory MakeWriteDeclarationFactory(
 }
 
 // FIXME - Replace with actual version that includes the change
+constexpr uint32_t kMinimumMajorVersion = 0;
 constexpr uint32_t kMinimumMinorVersion = 19;
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
@@ -148,9 +149,10 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
-  if (plan.version().minor() < kMinimumMinorVersion) {
-    return Status::Invalid("Can only parse plans with a version >= 0.",
-                           kMinimumMinorVersion);
+  if (plan.version().major() < kMinimumMajorVersion &&
+      plan.version().minor() < kMinimumMinorVersion) {
+    return Status::Invalid("Can only parse plans with a version >= ",
+                           kMinimumMajorVersion, ".", kMinimumMinorVersion);
   }
 
   ARROW_ASSIGN_OR_RAISE(auto ext_set,
