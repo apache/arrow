@@ -47,8 +47,8 @@ jobs:
         run: archery docker push java-jni-manylinux-2014
     {% endif %}
 
-  build-cpp-macos:
-    name: Build C++ libraries macOS
+  build-cpp-macos-x86_64:
+    name: Build C++ libraries macOS x86_64
     runs-on: macos-latest
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.13"
@@ -76,12 +76,54 @@ jobs:
             $GITHUB_WORKSPACE/arrow/cpp-build \
             $GITHUB_WORKSPACE/arrow/java-dist
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java-dist/
+        run: |
+          mkdir -p arrow/java-dist/x86_64
+          mv arrow/java-dist/*.* arrow/java-dist/x86_64/
+          tar -cvzf arrow-shared-libs-macos-x86_64.tar.gz arrow/java-dist/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: macos-shared-lib
-          path: arrow-shared-libs-macos.tar.gz
+          name: macos-shared-lib-x86_64
+          path: arrow-shared-libs-macos-x86_64.tar.gz
+
+  build-cpp-macos-arm64:
+    name: Build C++ libraries macOS aarch_64
+    runs-on: ["self-hosted", "macOS", "aarch_64"]
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_install_archery()|indent }}
+      - name: Install dependencies
+        run: |
+          brew install --overwrite git
+          brew bundle --file=arrow/cpp/Brewfile
+          # We want to link aws-sdk-cpp statically but Homebrew's
+          # aws-sdk-cpp provides only shared library. If we have
+          # Homebrew's aws-sdk-cpp, our build mix Homebrew's
+          # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
+          # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
+          brew uninstall aws-sdk-cpp
+      - name: Setup ccache
+        run: |
+          arrow/ci/scripts/ccache_setup.sh
+      - name: Build C++ libraries
+        run: |
+          set -e
+          arrow/ci/scripts/java_jni_macos_build.sh \
+            $GITHUB_WORKSPACE/arrow \
+            $GITHUB_WORKSPACE/arrow/cpp-build \
+            $GITHUB_WORKSPACE/arrow/java-dist
+      - name: Compress into single artifact to keep directory structure
+        run: |
+          mkdir -p arrow/java-dist/aarch_64
+          mv arrow/java-dist/*.* arrow/java-dist/aarch_64/
+          tar -cvzf arrow-shared-libs-macos-aarch_64.tar.gz arrow/java-dist/
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-shared-lib-aarch_64
+          path: arrow-shared-libs-macos-aarch_64.tar.gz
 
   build-cpp-windows:
     name: Build C++ libraries Windows
@@ -118,7 +160,8 @@ jobs:
     runs-on: macos-latest
     needs:
       - build-cpp-ubuntu
-      - build-cpp-macos
+      - build-cpp-macos-x86_64
+      - build-cpp-macos-aarch_64
       - build-cpp-windows
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
@@ -126,34 +169,45 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: ubuntu-shared-lib
-      - name: Download macOS C++ libraries
+      - name: Download macOS x86_64 C++ libraries
         uses: actions/download-artifact@v2
         with:
-          name: macos-shared-lib
+          name: macos-shared-lib-x86_64
       - name: Download Windows C++ libraries
         uses: actions/download-artifact@v2
         with:
           name: windows-shared-lib
+      - name: Download macOS aarch_64 C++ libraries
+        uses: actions/download-artifact@v2
+        with:
+          name: macos-shared-lib-aarch_64
       - name: Descompress artifacts
         run: |
           tar -xvzf arrow-shared-libs-linux.tar.gz
-          tar -xvzf arrow-shared-libs-macos.tar.gz
+          tar -xvzf arrow-shared-libs-macos-x86_64.tar.gz
+          tar -xvzf arrow-shared-libs-macos-aarch_64.tar.gz
           tar -xvzf arrow-shared-libs-windows.tar.gz
       - name: Test that shared libraries exist
         run: |
           set -x
-          test -f arrow/java-dist/libarrow_cdata_jni.dylib
+          test -f arrow/java-dist/x86_64/libarrow_cdata_jni.dylib
+          test -f arrow/java-dist/aarch_64/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/libarrow_cdata_jni.so
           test -f arrow/java-dist/arrow_cdata_jni.dll
-          test -f arrow/java-dist/libarrow_dataset_jni.dylib
+          test -f arrow/java-dist/x86_64/libarrow_dataset_jni.dylib
+          test -f arrow/java-dist/aarch_64/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/libarrow_dataset_jni.so
           test -f arrow/java-dist/arrow_dataset_jni.dll
-          test -f arrow/java-dist/libarrow_orc_jni.dylib
+          test -f arrow/java-dist/x86_64/libarrow_orc_jni.dylib
+          test -f arrow/java-dist/aarch_64/libarrow_orc_jni.dylib
           test -f arrow/java-dist/libarrow_orc_jni.so
-          test -f arrow/java-dist/arrow_orc_jni.dll
-          test -f arrow/java-dist/libgandiva_jni.dylib
+          test -f arrow/java-dist/x86_64/arrow_orc_jni.dll
+          test -f arrow/java-dist/aarch_64/arrow_orc_jni.dll
+          test -f arrow/java-dist/x86_64/libgandiva_jni.dylib
+          test -f arrow/java-dist/aarch_64/libgandiva_jni.dylib
           test -f arrow/java-dist/libgandiva_jni.so
-          test -f arrow/java-dist/libplasma_java.dylib
+          test -f arrow/java-dist/x86_64/libplasma_java.dylib
+          test -f arrow/java-dist/aarch_64/libplasma_java.dylib
           test -f arrow/java-dist/libplasma_java.so
       - name: Build bundled jar
         run: |
