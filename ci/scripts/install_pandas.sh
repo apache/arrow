@@ -35,10 +35,7 @@ else
   pip install numpy==${numpy}
 fi
 
-# Get Git default branch name
-DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
-
-if [ "${pandas}" = "${DEFAULT_BRANCH}" ]; then
+if [ "${pandas}" = "upstream_devel" ]; then
   pip install git+https://github.com/pandas-dev/pandas.git --no-build-isolation
 elif [ "${pandas}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scipy-wheels-nightly/simple --pre pandas
