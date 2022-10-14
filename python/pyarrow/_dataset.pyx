@@ -1171,7 +1171,7 @@ cdef class IpcFileWriteOptions(FileWriteOptions):
     @property
     def write_options(self):
         out = IpcWriteOptions()
-        out.options = CIpcWriteOptions(move(deref(self.ipc_options.options)))
+        out.options = CIpcWriteOptions(deref(self.ipc_options.options))
         return out
 
     @write_options.setter
