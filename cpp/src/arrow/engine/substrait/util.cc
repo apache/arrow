@@ -141,7 +141,19 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   // check closing here, not in destructor, to expose error to caller
   RETURN_NOT_OK(executor.Close());
-  ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatchReader(sink_reader.get()));
+  return std::move(sink_reader);
+}
+
+Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
+    std::shared_ptr<compute::ExecPlan> plan,
+    compute::ExecContext exec_context,
+    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry,
+    const ConversionOptions& conversion_options) {
+  SubstraitExecutor executor(std::move(plan), exec_context, conversion_options);
+  RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
+  ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
+  // check closing here, not in destructor, to expose error to caller
+  RETURN_NOT_OK(executor.Close());
   return std::move(sink_reader);
 }
 
