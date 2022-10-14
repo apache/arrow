@@ -94,8 +94,8 @@ class UnwindProtectDetail : public StatusDetail {
   virtual std::string ToString() const { return "R code execution error"; }
 };
 
-static inline Status StatusUnwindProtect(SEXP token) {
-  return Status::Invalid("R code execution error")
+static inline Status StatusUnwindProtect(SEXP token, std::string reason = "") {
+  return Status::Invalid("R code execution error (", reason, ")")
       .WithDetail(std::make_shared<UnwindProtectDetail>(token));
 }
 

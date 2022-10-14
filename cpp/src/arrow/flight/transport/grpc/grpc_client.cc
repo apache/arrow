@@ -43,7 +43,6 @@
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
@@ -503,7 +502,7 @@ constexpr char kDummyRootCert[] =
 class GrpcClientImpl : public internal::ClientTransport {
  public:
   static arrow::Result<std::unique_ptr<internal::ClientTransport>> Make() {
-    return std::unique_ptr<internal::ClientTransport>(new GrpcClientImpl());
+    return std::make_unique<GrpcClientImpl>();
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,
@@ -749,8 +748,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
     RETURN_NOT_OK(options.stop_token.Poll());
 
-    *results = std::unique_ptr<ResultStream>(
-        new SimpleResultStream(std::move(materialized_results)));
+    *results = std::make_unique<SimpleResultStream>(std::move(materialized_results));
     return FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
@@ -809,7 +807,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     std::string str;
     RETURN_NOT_OK(internal::FromProto(pb_response, &str));
-    return arrow::internal::make_unique<SchemaResult>(std::move(str));
+    return std::make_unique<SchemaResult>(std::move(str));
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
@@ -821,8 +819,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<::grpc::ClientReader<pb::FlightData>> stream =
         stub_->DoGet(&rpc->context, pb_ticket);
-    *out = std::unique_ptr<internal::ClientDataStream>(
-        new GrpcClientGetStream(std::move(rpc), std::move(stream)));
+    *out = std::make_unique<GrpcClientGetStream>(std::move(rpc), std::move(stream));
     return Status::OK();
   }
 
@@ -833,8 +830,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<GrpcStream> stream = stub_->DoPut(&rpc->context);
-    *out = std::unique_ptr<internal::ClientDataStream>(
-        new GrpcClientPutStream(std::move(rpc), std::move(stream)));
+    *out = std::make_unique<GrpcClientPutStream>(std::move(rpc), std::move(stream));
     return Status::OK();
   }
 
@@ -845,8 +841,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<GrpcStream> stream = stub_->DoExchange(&rpc->context);
-    *out = std::unique_ptr<internal::ClientDataStream>(
-        new GrpcClientExchangeStream(std::move(rpc), std::move(stream)));
+    *out = std::make_unique<GrpcClientExchangeStream>(std::move(rpc), std::move(stream));
     return Status::OK();
   }
 

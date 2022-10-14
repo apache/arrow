@@ -18,6 +18,7 @@
 #include "arrow/dataset/dataset_writer.h"
 
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
@@ -27,7 +28,6 @@
 #include "arrow/table.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 
@@ -131,7 +131,8 @@ class DatasetWriterFileQueue {
                                   DatasetWriterState* writer_state)
       : options_(options), schema_(schema), writer_state_(writer_state) {}
 
-  void Start(util::AsyncTaskScheduler* scheduler, const std::string& filename) {
+  void Start(std::shared_ptr<util::AsyncTaskScheduler> scheduler,
+             const std::string& filename) {
     scheduler_ = scheduler;
     // Because the scheduler runs one task at a time we know the writer will
     // be opened before any attempt to write
@@ -212,7 +213,7 @@ class DatasetWriterFileQueue {
     // is a 1-task FIFO we know this task will run at the very end and can
     // add it now.
     scheduler_->AddSimpleTask([this] { return DoFinish(); });
-    scheduler_->End();
+    scheduler_.reset();
     return Status::OK();
   }
 
@@ -247,7 +248,7 @@ class DatasetWriterFileQueue {
   // point they are merged together and added to write_queue_
   std::deque<std::shared_ptr<RecordBatch>> staged_batches_;
   uint64_t rows_currently_staged_ = 0;
-  util::AsyncTaskScheduler* scheduler_ = nullptr;
+  std::shared_ptr<util::AsyncTaskScheduler> scheduler_ = nullptr;
 };
 
 struct WriteTask {
@@ -316,24 +317,24 @@ class DatasetWriterDirectoryQueue {
   }
 
   Result<DatasetWriterFileQueue*> OpenFileQueue(const std::string& filename) {
-    auto file_queue = ::arrow::internal::make_unique<DatasetWriterFileQueue>(
-        schema_, write_options_, writer_state_);
+    auto file_queue =
+        std::make_unique<DatasetWriterFileQueue>(schema_, write_options_, writer_state_);
     DatasetWriterFileQueue* file_queue_view = file_queue.get();
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> throttle =
         util::AsyncTaskScheduler::MakeThrottle(1);
     util::AsyncTaskScheduler::Throttle* throttle_view = throttle.get();
     auto file_finish_task = [self = this, file_queue = std::move(file_queue),
-                             throttle = std::move(throttle)]() {
+                             throttle = std::move(throttle)](Status) {
       self->writer_state_->open_files_throttle.Release(1);
       return Status::OK();
     };
-    util::AsyncTaskScheduler* file_scheduler =
+    std::shared_ptr<util::AsyncTaskScheduler> file_scheduler =
         scheduler_->MakeSubScheduler(std::move(file_finish_task), throttle_view);
-    if (init_task_) {
-      file_scheduler->AddSimpleTask(init_task_);
-      init_task_ = {};
+    if (init_future_.is_valid()) {
+      file_scheduler->AddSimpleTask(
+          [init_future = init_future_]() { return init_future; });
     }
-    file_queue_view->Start(file_scheduler, filename);
+    file_queue_view->Start(std::move(file_scheduler), filename);
     return file_queue_view;
   }
 
@@ -343,21 +344,33 @@ class DatasetWriterDirectoryQueue {
     if (directory_.empty() || !write_options_.create_dir) {
       return;
     }
+    init_future_ = Future<>::Make();
     auto create_dir_cb = [this] {
       return DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
           [this]() { return write_options_.filesystem->CreateDir(directory_); }));
     };
+    // We need to notify waiters whether the directory succeeded or failed.
+    auto notify_waiters_cb = [this] { init_future_.MarkFinished(); };
+    auto notify_waiters_on_err_cb = [this](const Status& err) {
+      init_future_.MarkFinished();
+      return err;
+    };
+    std::function<Future<>()> init_task;
     if (write_options_.existing_data_behavior ==
         ExistingDataBehavior::kDeleteMatchingPartitions) {
-      init_task_ = [this, create_dir_cb] {
+      init_task = [this, create_dir_cb, notify_waiters_cb, notify_waiters_on_err_cb] {
         return write_options_.filesystem
             ->DeleteDirContentsAsync(directory_,
                                      /*missing_dir_ok=*/true)
-            .Then(create_dir_cb);
+            .Then(create_dir_cb)
+            .Then(notify_waiters_cb, notify_waiters_on_err_cb);
       };
     } else {
-      init_task_ = [create_dir_cb] { return create_dir_cb(); };
+      init_task = [create_dir_cb, notify_waiters_cb, notify_waiters_on_err_cb] {
+        return create_dir_cb().Then(notify_waiters_cb, notify_waiters_on_err_cb);
+      };
     }
+    scheduler_->AddSimpleTask(std::move(init_task));
   }
 
   static Result<std::unique_ptr<DatasetWriterDirectoryQueue>> Make(
@@ -365,7 +378,7 @@ class DatasetWriterDirectoryQueue {
       const FileSystemDatasetWriteOptions& write_options,
       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
       std::string directory, std::string prefix) {
-    auto dir_queue = ::arrow::internal::make_unique<DatasetWriterDirectoryQueue>(
+    auto dir_queue = std::make_unique<DatasetWriterDirectoryQueue>(
         scheduler, std::move(directory), std::move(prefix), std::move(schema),
         write_options, writer_state);
     dir_queue->PrepareDirectory();
@@ -388,7 +401,7 @@ class DatasetWriterDirectoryQueue {
   std::shared_ptr<Schema> schema_;
   const FileSystemDatasetWriteOptions& write_options_;
   DatasetWriterState* writer_state_;
-  std::function<Future<>()> init_task_;
+  Future<> init_future_;
   std::string current_filename_;
   DatasetWriterFileQueue* latest_open_file_ = nullptr;
   uint64_t rows_written_ = 0;
@@ -566,8 +579,8 @@ class DatasetWriter::DatasetWriterImpl {
 DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
                              util::AsyncTaskScheduler* scheduler,
                              uint64_t max_rows_queued)
-    : impl_(::arrow::internal::make_unique<DatasetWriterImpl>(
-          std::move(write_options), scheduler, max_rows_queued)) {}
+    : impl_(std::make_unique<DatasetWriterImpl>(std::move(write_options), scheduler,
+                                                max_rows_queued)) {}
 
 Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
     FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,

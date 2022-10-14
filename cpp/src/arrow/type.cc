@@ -21,6 +21,7 @@
 #include <climits>
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <ostream>
 #include <sstream>  // IWYU pragma: keep
@@ -40,7 +41,6 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
@@ -94,6 +94,47 @@ constexpr Type::type MonthDayNanoIntervalType::type_id;
 constexpr Type::type DurationType::type_id;
 
 constexpr Type::type DictionaryType::type_id;
+
+std::vector<Type::type> AllTypeIds() {
+  return {Type::NA,
+          Type::BOOL,
+          Type::INT8,
+          Type::INT16,
+          Type::INT32,
+          Type::INT64,
+          Type::UINT8,
+          Type::UINT16,
+          Type::UINT32,
+          Type::UINT64,
+          Type::HALF_FLOAT,
+          Type::FLOAT,
+          Type::DOUBLE,
+          Type::DECIMAL128,
+          Type::DECIMAL256,
+          Type::DATE32,
+          Type::DATE64,
+          Type::TIME32,
+          Type::TIME64,
+          Type::TIMESTAMP,
+          Type::INTERVAL_DAY_TIME,
+          Type::INTERVAL_MONTHS,
+          Type::DURATION,
+          Type::STRING,
+          Type::BINARY,
+          Type::LARGE_STRING,
+          Type::LARGE_BINARY,
+          Type::FIXED_SIZE_BINARY,
+          Type::STRUCT,
+          Type::LIST,
+          Type::LARGE_LIST,
+          Type::FIXED_SIZE_LIST,
+          Type::MAP,
+          Type::DENSE_UNION,
+          Type::SPARSE_UNION,
+          Type::DICTIONARY,
+          Type::EXTENSION,
+          Type::INTERVAL_MONTH_DAY_NANO};
+}
 
 namespace internal {
 
@@ -1092,6 +1133,17 @@ Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
   return FieldPathGetImpl::Get(this, fields);
 }
 
+Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
+                                                  const std::vector<FieldPath>& paths) {
+  std::vector<std::shared_ptr<Field>> fields;
+  fields.reserve(paths.size());
+  for (const auto& path : paths) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Field> field, path.Get(schm));
+    fields.push_back(std::move(field));
+  }
+  return schema(std::move(fields));
+}
+
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
   return MakeArray(std::move(data));
@@ -1717,14 +1769,13 @@ class SchemaBuilder::Impl {
 
 SchemaBuilder::SchemaBuilder(ConflictPolicy policy,
                              Field::MergeOptions field_merge_options) {
-  impl_ = internal::make_unique<Impl>(policy, field_merge_options);
+  impl_ = std::make_unique<Impl>(policy, field_merge_options);
 }
 
 SchemaBuilder::SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
                              ConflictPolicy policy,
                              Field::MergeOptions field_merge_options) {
-  impl_ = internal::make_unique<Impl>(std::move(fields), nullptr, policy,
-                                      field_merge_options);
+  impl_ = std::make_unique<Impl>(std::move(fields), nullptr, policy, field_merge_options);
 }
 
 SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema, ConflictPolicy policy,
@@ -1734,8 +1785,8 @@ SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema, ConflictPoli
     metadata = schema->metadata()->Copy();
   }
 
-  impl_ = internal::make_unique<Impl>(schema->fields(), std::move(metadata), policy,
-                                      field_merge_options);
+  impl_ = std::make_unique<Impl>(schema->fields(), std::move(metadata), policy,
+                                 field_merge_options);
 }
 
 SchemaBuilder::~SchemaBuilder() {}

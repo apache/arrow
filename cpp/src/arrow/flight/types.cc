@@ -29,7 +29,6 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -154,7 +153,7 @@ arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
 arrow::Result<std::unique_ptr<SchemaResult>> SchemaResult::Make(const Schema& schema) {
   std::string schema_in;
   RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
-  return arrow::internal::make_unique<SchemaResult>(std::move(schema_in));
+  return std::make_unique<SchemaResult>(std::move(schema_in));
 }
 
 Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
@@ -319,7 +318,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
   }
   FlightInfo::Data data;
   RETURN_NOT_OK(internal::FromProto(pb_info, &data));
-  return std::unique_ptr<FlightInfo>(new FlightInfo(std::move(data)));
+  return std::make_unique<FlightInfo>(std::move(data));
 }
 
 Status FlightInfo::Deserialize(const std::string& serialized,
@@ -626,7 +625,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> SimpleFlightListing::Next() {
   if (position_ >= static_cast<int>(flights_.size())) {
     return nullptr;
   }
-  return std::unique_ptr<FlightInfo>(new FlightInfo(std::move(flights_[position_++])));
+  return std::make_unique<FlightInfo>(std::move(flights_[position_++]));
 }
 
 SimpleResultStream::SimpleResultStream(std::vector<Result>&& results)
@@ -636,7 +635,7 @@ arrow::Result<std::unique_ptr<Result>> SimpleResultStream::Next() {
   if (position_ >= results_.size()) {
     return nullptr;
   }
-  return std::unique_ptr<Result>(new Result(std::move(results_[position_++])));
+  return std::make_unique<Result>(std::move(results_[position_++]));
 }
 
 bool BasicAuth::Equals(const BasicAuth& other) const {

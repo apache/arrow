@@ -18,20 +18,17 @@
 #include "arrow/engine/substrait/extension_set.h"
 
 #include <list>
+#include <memory>
 #include <sstream>
 #include <unordered_set>
 
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace engine {
 namespace {
-
-// TODO(ARROW-16988): replace this with EXACT_ROUNDTRIP mode
-constexpr bool kExactRoundTrip = true;
 
 struct TypePtrHashEq {
   template <typename Ptr>
@@ -122,9 +119,7 @@ class IdStorageImpl : public IdStorage {
   std::list<std::string> owned_names_;
 };
 
-std::unique_ptr<IdStorage> IdStorage::Make() {
-  return ::arrow::internal::make_unique<IdStorageImpl>();
-}
+std::unique_ptr<IdStorage> IdStorage::Make() { return std::make_unique<IdStorageImpl>(); }
 
 Result<std::optional<std::string_view>> SubstraitCall::GetEnumArg(uint32_t index) const {
   if (index >= size_) {
@@ -212,7 +207,8 @@ Status ExtensionSet::AddUri(Id id) {
 Result<ExtensionSet> ExtensionSet::Make(
     std::unordered_map<uint32_t, std::string_view> uris,
     std::unordered_map<uint32_t, Id> type_ids,
-    std::unordered_map<uint32_t, Id> function_ids, const ExtensionIdRegistry* registry) {
+    std::unordered_map<uint32_t, Id> function_ids,
+    const ConversionOptions& conversion_options, const ExtensionIdRegistry* registry) {
   ExtensionSet set(default_extension_id_registry());
   set.registry_ = registry;
 
@@ -221,7 +217,7 @@ Result<ExtensionSet> ExtensionSet::Make(
     if (maybe_uri_internal) {
       set.uris_[uri.first] = *maybe_uri_internal;
     } else {
-      if (kExactRoundTrip) {
+      if (conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP) {
         return Status::Invalid(
             "Plan contained a URI that the extension registry is unaware of: ",
             uri.second);
@@ -251,7 +247,7 @@ Result<ExtensionSet> ExtensionSet::Make(
     if (maybe_id_internal) {
       set.functions_[function_id.first] = *maybe_id_internal;
     } else {
-      if (kExactRoundTrip) {
+      if (conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP) {
         return Status::Invalid(
             "Plan contained a function id that the extension registry is unaware of: ",
             function_id.second.uri, "#", function_id.second.name);
@@ -534,6 +530,21 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return maybe_converter->second;
   }
 
+  Result<SubstraitCallToArrow> GetSubstraitCallToArrowFallback(
+      std::string_view function_name) const override {
+    for (const auto& converter_item : substrait_to_arrow_) {
+      if (converter_item.first.name == function_name) {
+        return converter_item.second;
+      }
+    }
+    if (parent_) {
+      return parent_->GetSubstraitCallToArrowFallback(function_name);
+    }
+    return Status::NotImplemented(
+        "No conversion function exists to convert the Substrait function ", function_name,
+        " to an Arrow call expression");
+  }
+
   Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrow(
       Id substrait_function_id) const override {
     auto maybe_converter = substrait_to_arrow_agg_.find(substrait_function_id);
@@ -547,6 +558,21 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
           " to an Arrow aggregate");
     }
     return maybe_converter->second;
+  }
+
+  Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrowFallback(
+      std::string_view function_name) const override {
+    for (const auto& converter_item : substrait_to_arrow_agg_) {
+      if (converter_item.first.name == function_name) {
+        return converter_item.second;
+      }
+    }
+    if (parent_) {
+      return parent_->GetSubstraitAggregateToArrowFallback(function_name);
+    }
+    return Status::NotImplemented(
+        "No conversion function exists to convert the Substrait aggregate function ",
+        function_name, " to an Arrow call expression");
   }
 
   Result<ArrowToSubstraitCall> GetArrowToSubstraitCall(

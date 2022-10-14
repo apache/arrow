@@ -315,7 +315,7 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
 /// The consumer API allows querying a Future's current state, wait for it
 /// to complete, and composing futures with callbacks.
 template <typename T>
-class ARROW_MUST_USE_TYPE Future {
+class [[nodiscard]] Future {
  public:
   using ValueType = T;
   using SyncType = typename detail::SyncType<T>::type;
@@ -509,7 +509,7 @@ class ARROW_MUST_USE_TYPE Future {
   template <typename CallbackFactory,
             typename OnComplete = detail::result_of_t<CallbackFactory()>,
             typename Callback = WrapOnComplete<OnComplete>>
-  bool TryAddCallback(const CallbackFactory& callback_factory,
+  bool TryAddCallback(CallbackFactory callback_factory,
                       CallbackOptions opts = CallbackOptions::Defaults()) const {
     return impl_->TryAddCallback([&]() { return Callback{callback_factory()}; }, opts);
   }

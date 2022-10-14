@@ -44,23 +44,20 @@ jobs:
           ref: {{ default_branch|default("master") }}
           path: crossbow
           fetch-depth: 1
-      - name: Move docs
+      - name: Prepare docs
         run: |
           # build files are created by the docker user
           sudo chown -R ${USER}: build
-          PR_DIR=crossbow/docs/pr_docs/{{ pr_number }}
-          mkdir -p $PR_DIR
-          rsync -a --delete build/docs/ $PR_DIR
-      - name: Push changes
+          # These are only used while generating the page
+          rm -rf build/docs/.doctrees
+      - name: Upload preview to S3
+        env:
+          {%- raw %}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CROSSBOW_DOCS_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CROSSBOW_DOCS_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET_REGION }} 
+          BUCKET: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET }}
+          {% endraw %}
         run: |
-          cd crossbow
-          git config --local user.name "Github Actions"
-          git config --local user.email "github-actions@users.noreply.github.com"
-          
-          URL_PATH=pr_docs/{{ pr_number }}
-          URL=https://crossbow.voltrondata.com/$URL_PATH
-
-          git add docs/$URL_PATH
-          git commit -m "Add docs preview for PR {{ pr_number }}"
-          git push
-          echo ":open_book: You can find the preview here: $URL" >> $GITHUB_STEP_SUMMARY
+          aws s3 cp build/docs/ $BUCKET/pr_docs/{{ pr_number }}/ --recursive
+          echo ":open_book: You can find the preview here: http://crossbow.voltrondata.com/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY

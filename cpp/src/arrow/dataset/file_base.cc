@@ -20,6 +20,7 @@
 #include <arrow/compute/exec/exec_plan.h>
 
 #include <algorithm>
+#include <memory>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -40,7 +41,6 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
@@ -476,15 +476,15 @@ class TeeNode : public compute::MapNode {
   TeeNode(compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
           std::unique_ptr<internal::DatasetWriter> dataset_writer,
-          FileSystemDatasetWriteOptions write_options, bool async_mode)
-      : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
+          FileSystemDatasetWriteOptions write_options)
+      : MapNode(plan, std::move(inputs), std::move(output_schema)),
         dataset_writer_(std::move(dataset_writer)),
         write_options_(std::move(write_options)) {
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> serial_throttle =
         util::AsyncTaskScheduler::MakeThrottle(1);
     util::AsyncTaskScheduler::Throttle* serial_throttle_view = serial_throttle.get();
     serial_scheduler_ = plan_->async_scheduler()->MakeSubScheduler(
-        [owned_throttle = std::move(serial_throttle)]() { return Status::OK(); },
+        [owned_throttle = std::move(serial_throttle)](Status) { return Status::OK(); },
         serial_throttle_view);
   }
 
@@ -503,8 +503,8 @@ class TeeNode : public compute::MapNode {
         internal::DatasetWriter::Make(write_options, plan->async_scheduler()));
 
     return plan->EmplaceNode<TeeNode>(plan, std::move(inputs), std::move(schema),
-                                      std::move(dataset_writer), std::move(write_options),
-                                      /*async_mode=*/true);
+                                      std::move(dataset_writer),
+                                      std::move(write_options));
   }
 
   const char* kind_name() const override { return "TeeNode"; }
@@ -519,7 +519,7 @@ class TeeNode : public compute::MapNode {
       MapNode::Finish(std::move(writer_finish_st));
       return;
     }
-    serial_scheduler_->End();
+    serial_scheduler_.reset();
     MapNode::Finish(Status::OK());
   }
 
@@ -581,7 +581,7 @@ class TeeNode : public compute::MapNode {
   // We use a serial scheduler to submit tasks to the dataset writer.  The dataset writer
   // only returns an unfinished future when it needs backpressure.  Using a serial
   // scheduler here ensures we pause while we wait for backpressure to clear
-  util::AsyncTaskScheduler* serial_scheduler_;
+  std::shared_ptr<util::AsyncTaskScheduler> serial_scheduler_;
   int32_t backpressure_counter_ = 0;
 };
 

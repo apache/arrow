@@ -19,7 +19,8 @@
 
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 

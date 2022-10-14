@@ -222,6 +222,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     type = ensure_type(type, allow_none=True)
 
+    extension_type = None
+    if type is not None and type.id == _Type_EXTENSION:
+        extension_type = type
+        type = type.storage_type
+
     if from_pandas is None:
         c_from_pandas = False
     else:
@@ -261,21 +266,19 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
         if hasattr(values, '__arrow_array__'):
             return _handle_arrow_array_protocol(values, type, mask, size)
+        elif (pandas_api.is_categorical(values) and
+              type is not None and type.id != Type_DICTIONARY):
+            result = _ndarray_to_array(
+                np.asarray(values), mask, type, c_from_pandas, safe, pool
+            )
         elif pandas_api.is_categorical(values):
             if type is not None:
-                if type.id != Type_DICTIONARY:
-                    return _ndarray_to_array(
-                        np.asarray(values), mask, type, c_from_pandas, safe,
-                        pool)
                 index_type = type.index_type
                 value_type = type.value_type
                 if values.ordered != type.ordered:
-                    warnings.warn(
+                    raise ValueError(
                         "The 'ordered' flag of the passed categorical values "
-                        "does not match the 'ordered' of the specified type. "
-                        "Using the flag of the values, but in the future this "
-                        "mismatch will raise a ValueError.",
-                        FutureWarning, stacklevel=2)
+                        "does not match the 'ordered' of the specified type. ")
             else:
                 index_type = None
                 value_type = None
@@ -310,11 +313,15 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
-            return _ndarray_to_array(values, mask, type, c_from_pandas, safe,
-                                     pool)
+            result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
+                                       pool)
     else:
         # ConvertPySequence does strict conversion if type is explicitly passed
-        return _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+
+    if extension_type is not None:
+        result = ExtensionArray.from_storage(extension_type, result)
+    return result
 
 
 def asarray(values, type=None):

@@ -79,6 +79,25 @@ test_that("ungroup", {
   )
 })
 
+test_that("Groups before conversion to a Table must not be restored after collect() (ARROW-17737)", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = FALSE) %>%
+      ungroup() %>%
+      collect(),
+    tbl %>%
+      group_by(int)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = TRUE) %>%
+      ungroup() %>%
+      collect(),
+    tbl %>%
+      group_by(int)
+  )
+})
+
 test_that("group_by then rename", {
   compare_dplyr_binding(
     .input %>%
@@ -195,6 +214,20 @@ test_that("group_by() with .add", {
       group_by(chr, .add = TRUE) %>%
       collect(),
     tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(.add = FALSE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(.add = TRUE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
   )
   compare_dplyr_binding(
     .input %>%

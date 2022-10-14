@@ -30,14 +30,14 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
+
+#include <memory>
 
 namespace arrow {
 
 using internal::checked_cast;
-using internal::make_unique;
 using internal::StartsWith;
 using internal::UriFromAbsolutePath;
 
@@ -96,6 +96,24 @@ Status CheckRelCommon(const RelMessage& rel) {
   return Status::OK();
 }
 
+Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs,
+                            const std::string& dirpath,
+                            std::vector<fs::FileInfo>* rel_fpaths) {
+  // Define a selector for a recursive descent
+  fs::FileSelector selector;
+  selector.base_dir = dirpath;
+  selector.recursive = true;
+
+  ARROW_ASSIGN_OR_RAISE(auto file_infos, local_fs->GetFileInfo(selector));
+  for (auto& file_info : file_infos) {
+    if (file_info.IsFile()) {
+      rel_fpaths->push_back(std::move(file_info));
+    }
+  }
+
+  return Status::OK();
+}
+
 Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet& ext_set,
                                   const ConversionOptions& conversion_options) {
   static bool dataset_init = false;
@@ -109,6 +127,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       const auto& read = rel.read();
       RETURN_NOT_OK(CheckRelCommon(read));
 
+      // Get the base schema for the read relation
       ARROW_ASSIGN_OR_RAISE(auto base_schema,
                             FromProto(read.base_schema(), ext_set, conversion_options));
 
@@ -121,8 +140,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       if (read.has_projection()) {
-        // NOTE: scan_options->projection is not used by the scanner and thus can't be
-        // used for this
         return Status::NotImplemented("substrait::ReadRel::projection");
       }
 
@@ -132,19 +149,23 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
               "plan contained a named table but a NamedTableProvider has not been "
               "configured");
         }
+
+        if (read.named_table().names().empty()) {
+          return Status::Invalid("names for NamedTable not provided");
+        }
+
         const NamedTableProvider& named_table_provider =
             conversion_options.named_table_provider;
         const substrait::ReadRel::NamedTable& named_table = read.named_table();
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
-        if (table_names.empty()) {
-          return Status::Invalid("names for NamedTable not provided");
-        }
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
                               named_table_provider(table_names));
+
         if (!source_decl.IsValid()) {
           return Status::Invalid("Invalid NamedTable Source");
         }
+
         return ProcessEmit(std::move(read),
                            DeclarationInfo{std::move(source_decl), base_schema},
                            std::move(base_schema));
@@ -165,38 +186,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       std::vector<fs::FileInfo> files;
 
       for (const auto& item : read.local_files().items()) {
-        std::string path;
-        if (item.path_type_case() ==
-            substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath) {
-          path = item.uri_path();
-        } else if (item.path_type_case() ==
-                   substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile) {
-          path = item.uri_file();
-        } else if (item.path_type_case() ==
-                   substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder) {
-          path = item.uri_folder();
-        } else {
-          path = item.uri_path_glob();
-        }
-
-        switch (item.file_format_case()) {
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kParquet:
-            format = std::make_shared<dataset::ParquetFileFormat>();
-            break;
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kArrow:
-            format = std::make_shared<dataset::IpcFileFormat>();
-            break;
-          default:
-            return Status::NotImplemented(
-                "unknown substrait::ReadRel::LocalFiles::FileOrFiles::file_format");
-        }
-
-        if (!StartsWith(path, "file:///")) {
-          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", path,
-                                        ") with other than local filesystem "
-                                        "(file:///)");
-        }
-
+        // Validate properties of the `FileOrFiles` item
         if (item.partition_index() != 0) {
           return Status::NotImplemented(
               "non-default substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
@@ -212,43 +202,101 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
               "non-default substrait::ReadRel::LocalFiles::FileOrFiles::length");
         }
 
-        path = path.substr(7);
+        // Extract and parse the read relation's source URI
+        ::arrow::internal::Uri item_uri;
         switch (item.path_type_case()) {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath:
+            RETURN_NOT_OK(item_uri.Parse(item.uri_path()));
+            break;
+
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile:
+            RETURN_NOT_OK(item_uri.Parse(item.uri_file()));
+            break;
+
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder:
+            RETURN_NOT_OK(item_uri.Parse(item.uri_folder()));
+            break;
+
+          default:
+            RETURN_NOT_OK(item_uri.Parse(item.uri_path_glob()));
+            break;
+        }
+
+        // Validate the URI before processing
+        if (!item_uri.is_file_scheme()) {
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
+                                        item_uri.ToString(),
+                                        ") does not have file scheme (file:///)");
+        }
+
+        if (item_uri.port() != -1) {
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
+                                        item_uri.ToString(),
+                                        ") should not have a port number in path");
+        }
+
+        if (!item_uri.query_string().empty()) {
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
+                                        item_uri.ToString(),
+                                        ") should not have a query string in path");
+        }
+
+        switch (item.file_format_case()) {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kParquet:
+            format = std::make_shared<dataset::ParquetFileFormat>();
+            break;
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kArrow:
+            format = std::make_shared<dataset::IpcFileFormat>();
+            break;
+          default:
+            return Status::NotImplemented(
+                "unsupported file format ",
+                "(see substrait::ReadRel::LocalFiles::FileOrFiles::file_format)");
+        }
+
+        // Handle the URI as appropriate
+        switch (item.path_type_case()) {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile: {
+            files.emplace_back(item_uri.path(), fs::FileType::File);
+            break;
+          }
+
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
+            RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), &files));
+            break;
+          }
+
           case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath: {
-            ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
-            if (file.type() == fs::FileType::File) {
-              files.push_back(std::move(file));
-            } else if (file.type() == fs::FileType::Directory) {
-              fs::FileSelector selector;
-              selector.base_dir = path;
-              selector.recursive = true;
-              ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                    filesystem->GetFileInfo(selector));
-              std::move(files.begin(), files.end(), std::back_inserter(discovered_files));
+            ARROW_ASSIGN_OR_RAISE(auto file_info,
+                                  filesystem->GetFileInfo(item_uri.path()));
+
+            switch (file_info.type()) {
+              case fs::FileType::File: {
+                files.push_back(std::move(file_info));
+                break;
+              }
+              case fs::FileType::Directory: {
+                RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), &files));
+                break;
+              }
+              case fs::FileType::NotFound:
+                return Status::Invalid("Unable to find file for URI path");
+              case fs::FileType::Unknown:
+                [[fallthrough]];
+              default:
+                return Status::NotImplemented("URI path is of unknown file type.");
             }
             break;
           }
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile: {
-            files.emplace_back(path, fs::FileType::File);
-            break;
-          }
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
-            fs::FileSelector selector;
-            selector.base_dir = path;
-            selector.recursive = true;
-            ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                  filesystem->GetFileInfo(selector));
-            std::move(discovered_files.begin(), discovered_files.end(),
-                      std::back_inserter(files));
-            break;
-          }
+
           case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPathGlob: {
-            ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                  fs::internal::GlobFiles(filesystem, path));
-            std::move(discovered_files.begin(), discovered_files.end(),
+            ARROW_ASSIGN_OR_RAISE(auto globbed_files,
+                                  fs::internal::GlobFiles(filesystem, item_uri.path()));
+            std::move(globbed_files.begin(), globbed_files.end(),
                       std::back_inserter(files));
             break;
           }
+
           default: {
             return Status::Invalid("Unrecognized file type in LocalFiles");
           }
@@ -261,7 +309,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
-      DeclarationInfo scan_declaration = {
+      DeclarationInfo scan_declaration{
           compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
           base_schema};
 
@@ -505,9 +553,16 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           ARROW_ASSIGN_OR_RAISE(
               SubstraitCall aggregate_call,
               FromProto(agg_func, !keys.empty(), ext_set, conversion_options));
-          ARROW_ASSIGN_OR_RAISE(
-              ExtensionIdRegistry::SubstraitAggregateToArrow converter,
-              ext_set.registry()->GetSubstraitAggregateToArrow(aggregate_call.id()));
+          ExtensionIdRegistry::SubstraitAggregateToArrow converter;
+          if (aggregate_call.id().uri.empty() || aggregate_call.id().uri[0] == '/') {
+            ARROW_ASSIGN_OR_RAISE(
+                converter, ext_set.registry()->GetSubstraitAggregateToArrowFallback(
+                               aggregate_call.id().name));
+          } else {
+            ARROW_ASSIGN_OR_RAISE(
+                converter,
+                ext_set.registry()->GetSubstraitAggregateToArrow(aggregate_call.id()));
+          }
           ARROW_ASSIGN_OR_RAISE(compute::Aggregate arrow_agg, converter(aggregate_call));
 
           // find aggregate field ids from schema
@@ -575,7 +630,7 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto read_rel = make_unique<substrait::ReadRel>();
+  auto read_rel = std::make_unique<substrait::ReadRel>();
   const auto& scan_node_options =
       checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
   auto dataset =
@@ -591,9 +646,10 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   read_rel->set_allocated_base_schema(named_struct.release());
 
   // set local files
-  auto read_rel_lfs = make_unique<substrait::ReadRel::LocalFiles>();
+  auto read_rel_lfs = std::make_unique<substrait::ReadRel::LocalFiles>();
   for (const auto& file : dataset->files()) {
-    auto read_rel_lfs_ffs = make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
+    auto read_rel_lfs_ffs =
+        std::make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
     read_rel_lfs_ffs->set_uri_path(UriFromAbsolutePath(file));
     // set file format
     auto format_type_name = dataset->format()->type_name();
@@ -618,7 +674,7 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
 Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto filter_rel = make_unique<substrait::FilterRel>();
+  auto filter_rel = std::make_unique<substrait::FilterRel>();
   const auto& filter_node_options =
       checked_cast<const compute::FilterNodeOptions&>(*(declaration.options));
 
@@ -684,7 +740,7 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
 Result<std::unique_ptr<substrait::Rel>> ToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  auto rel = make_unique<substrait::Rel>();
+  auto rel = std::make_unique<substrait::Rel>();
   RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
   return std::move(rel);
 }

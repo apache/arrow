@@ -20,6 +20,7 @@
 #include <deque>
 #include <functional>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -28,10 +29,12 @@
 #include <gtest/gtest.h>
 
 #include "arrow/result.h"
+#include "arrow/testing/async_test_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/test_common.h"
 
 namespace arrow {
 namespace util {
@@ -79,11 +82,11 @@ TEST(AsyncTaskScheduler, Abandoned) {
   // submit any pending tasks.
   bool submitted_task_finished = false;
   bool pending_task_submitted = false;
+  AsyncTaskScheduler* weak_scheduler;
   std::unique_ptr<AsyncTaskScheduler::Throttle> throttle =
       AsyncTaskScheduler::MakeThrottle(1);
   Future<> finished_fut;
   Future<> first_task = Future<>::Make();
-  AsyncTaskScheduler* weak_scheduler;
   std::thread delete_scheduler_thread;
   {
     std::unique_ptr<AsyncTaskScheduler> scheduler =
@@ -110,10 +113,7 @@ TEST(AsyncTaskScheduler, Abandoned) {
   }
   // Here we are waiting for the scheduler to enter aborted state.  Once aborted the
   // scheduler will no longer accept new tasks and will return false.
-  BusyWait(10, [&] {
-    SleepABit();
-    return !weak_scheduler->AddSimpleTask([] { return Future<>::MakeFinished(); });
-  });
+  BusyWait(10, [&] { return weak_scheduler->IsEnded(); });
   // Now that the scheduler deletion is in progress we should be able to finish the
   // first task and be confident the second task should not be submitted.
   first_task.MarkFinished();
@@ -121,6 +121,27 @@ TEST(AsyncTaskScheduler, Abandoned) {
   delete_scheduler_thread.join();
   ASSERT_TRUE(submitted_task_finished);
   ASSERT_FALSE(pending_task_submitted);
+}
+
+TEST(AsyncTaskScheduler, TaskStaysAliveUntilFinished) {
+  std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
+  Future<> task = Future<>::Make();
+  bool my_task_destroyed = false;
+  struct MyTask : public AsyncTaskScheduler::Task {
+    MyTask(bool* my_task_destroyed_ptr, Future<> task_fut)
+        : my_task_destroyed_ptr(my_task_destroyed_ptr), task_fut(std::move(task_fut)) {}
+    ~MyTask() { *my_task_destroyed_ptr = true; }
+    Result<Future<>> operator()(AsyncTaskScheduler*) { return task_fut; }
+    bool* my_task_destroyed_ptr;
+    Future<> task_fut;
+  };
+  scheduler->AddTask(std::make_unique<MyTask>(&my_task_destroyed, task));
+  SleepABit();
+  ASSERT_FALSE(my_task_destroyed);
+  task.MarkFinished();
+  ASSERT_TRUE(my_task_destroyed);
+  scheduler->End();
+  ASSERT_FINISHES_OK(scheduler->OnFinished());
 }
 
 TEST(AsyncTaskScheduler, TaskFailsAfterEnd) {
@@ -133,56 +154,138 @@ TEST(AsyncTaskScheduler, TaskFailsAfterEnd) {
   ASSERT_FINISHES_AND_RAISES(Invalid, scheduler->OnFinished());
 }
 
+FnOnce<Status(Status)> EmptyFinishCallback() {
+  return [](Status) { return Status::OK(); };
+}
+
+#ifndef ARROW_VALGRIND
+TEST(AsyncTaskScheduler, FailingTaskStress) {
+  // Test many tasks failing at the same time
+  constexpr int kNumTasks = 256;
+  for (int i = 0; i < kNumTasks; i++) {
+    std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
+    ASSERT_TRUE(scheduler->AddSimpleTask([] { return SleepABitAsync(); }));
+    ASSERT_TRUE(scheduler->AddSimpleTask(
+        [] { return SleepABitAsync().Then([]() { return Status::Invalid("XYZ"); }); }));
+    scheduler->End();
+    ASSERT_FINISHES_AND_RAISES(Invalid, scheduler->OnFinished());
+  }
+  for (int i = 0; i < kNumTasks; i++) {
+    std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
+    {
+      std::shared_ptr<AsyncTaskScheduler> sub_scheduler =
+          scheduler->MakeSubScheduler(EmptyFinishCallback());
+      ASSERT_TRUE(sub_scheduler->AddSimpleTask([] { return SleepABitAsync(); }));
+      ASSERT_TRUE(sub_scheduler->AddSimpleTask(
+          [] { return SleepABitAsync().Then([]() { return Status::Invalid("XYZ"); }); }));
+    }
+    scheduler->End();
+    ASSERT_FINISHES_AND_RAISES(Invalid, scheduler->OnFinished());
+  }
+  // Test many schedulers failing at the same time (also a mixture of failing due
+  // to global abort racing with local task failure)
+  constexpr int kNumSchedulers = 32;
+  for (int i = 0; i < kNumTasks; i++) {
+    std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
+    std::vector<Future<>> tests;
+    for (int i = 0; i < kNumSchedulers; i++) {
+      tests.push_back(SleepABitAsync().Then([&] {
+        std::shared_ptr<AsyncTaskScheduler> sub_scheduler =
+            scheduler->MakeSubScheduler(EmptyFinishCallback());
+        std::ignore = sub_scheduler->AddSimpleTask([] {
+          return SleepABitAsync().Then([]() { return Status::Invalid("XYZ"); });
+        });
+      }));
+    }
+    AllComplete(std::move(tests)).Wait();
+    scheduler->End();
+    ASSERT_FINISHES_AND_RAISES(Invalid, scheduler->OnFinished());
+  }
+}
+#endif
+
 TEST(AsyncTaskScheduler, SubSchedulerFinishCallback) {
   bool finish_callback_ran = false;
   std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
-  AsyncTaskScheduler* sub_scheduler = scheduler->MakeSubScheduler([&] {
-    finish_callback_ran = true;
-    return Status::OK();
-  });
-  ASSERT_FALSE(finish_callback_ran);
-  sub_scheduler->End();
+  {
+    std::shared_ptr<AsyncTaskScheduler> sub_scheduler =
+        scheduler->MakeSubScheduler([&](Status) {
+          finish_callback_ran = true;
+          return Status::OK();
+        });
+    ASSERT_FALSE(finish_callback_ran);
+  }
   ASSERT_TRUE(finish_callback_ran);
   scheduler->End();
   ASSERT_FINISHES_OK(scheduler->OnFinished());
-}
 
-TEST(AsyncTaskScheduler, SubSchedulerFinishAbort) {
-  bool finish_callback_ran = false;
-  std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
-  AsyncTaskScheduler* sub_scheduler = scheduler->MakeSubScheduler([&] {
-    finish_callback_ran = true;
-    return Status::Invalid("XYZ");
-  });
-  ASSERT_FALSE(finish_callback_ran);
-  sub_scheduler->End();
+  // Finish callback should run even if sub scheduler never starts any tasks
+  finish_callback_ran = false;
+  scheduler = AsyncTaskScheduler::Make();
+  ASSERT_TRUE(scheduler->AddSimpleTask([] { return Status::Invalid("XYZ"); }));
+  {
+    std::shared_ptr<AsyncTaskScheduler> sub_scheduler =
+        scheduler->MakeSubScheduler([&](Status) {
+          finish_callback_ran = true;
+          return Status::OK();
+        });
+  }
+  scheduler->End();
+  ASSERT_FINISHES_AND_RAISES(Invalid, scheduler->OnFinished());
+  ASSERT_TRUE(finish_callback_ran);
+
+  // Finish callback should run even if scheduler aborts
+  finish_callback_ran = false;
+  scheduler = AsyncTaskScheduler::Make();
+  {
+    std::shared_ptr<AsyncTaskScheduler> sub_scheduler =
+        scheduler->MakeSubScheduler([&](Status) {
+          finish_callback_ran = true;
+          return Status::OK();
+        });
+
+    ASSERT_TRUE(sub_scheduler->AddSimpleTask([] { return Status::Invalid("XYZ"); }));
+  }
   ASSERT_TRUE(finish_callback_ran);
   scheduler->End();
   ASSERT_FINISHES_AND_RAISES(Invalid, scheduler->OnFinished());
 }
 
-FnOnce<Status()> EmptyFinishCallback() {
-  return [] { return Status::OK(); };
+TEST(AsyncTaskScheduler, SubSchedulerFinishAbort) {
+  bool finish_callback_ran = false;
+  std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
+  {
+    std::shared_ptr<AsyncTaskScheduler> sub_scheduler =
+        scheduler->MakeSubScheduler([&](Status) {
+          finish_callback_ran = true;
+          return Status::Invalid("XYZ");
+        });
+    ASSERT_FALSE(finish_callback_ran);
+  }
+  ASSERT_TRUE(finish_callback_ran);
+  scheduler->End();
+  ASSERT_FINISHES_AND_RAISES(Invalid, scheduler->OnFinished());
 }
 
 TEST(AsyncTaskScheduler, SubSchedulerNoticesParentAbort) {
   std::unique_ptr<AsyncTaskScheduler> parent = AsyncTaskScheduler::Make();
   std::unique_ptr<AsyncTaskScheduler::Throttle> child_throttle =
       AsyncTaskScheduler::MakeThrottle(1);
-  AsyncTaskScheduler* child =
-      parent->MakeSubScheduler(EmptyFinishCallback(), child_throttle.get());
+  {
+    std::shared_ptr<AsyncTaskScheduler> child =
+        parent->MakeSubScheduler(EmptyFinishCallback(), child_throttle.get());
 
-  Future<> task = Future<>::Make();
-  bool was_submitted = false;
-  ASSERT_TRUE(child->AddSimpleTask([task] { return task; }));
-  ASSERT_TRUE(child->AddSimpleTask([&was_submitted] {
-    was_submitted = true;
-    return Future<>::MakeFinished();
-  }));
-  ASSERT_TRUE(parent->AddSimpleTask([] { return Status::Invalid("XYZ"); }));
-  ASSERT_FALSE(child->AddSimpleTask([task] { return task; }));
-  task.MarkFinished();
-  child->End();
+    Future<> task = Future<>::Make();
+    bool was_submitted = false;
+    ASSERT_TRUE(child->AddSimpleTask([task] { return task; }));
+    ASSERT_TRUE(child->AddSimpleTask([&was_submitted] {
+      was_submitted = true;
+      return Future<>::MakeFinished();
+    }));
+    ASSERT_TRUE(parent->AddSimpleTask([] { return Status::Invalid("XYZ"); }));
+    ASSERT_FALSE(child->AddSimpleTask([task] { return task; }));
+    task.MarkFinished();
+  }
   parent->End();
   ASSERT_FINISHES_AND_RAISES(Invalid, parent->OnFinished());
 }
@@ -191,12 +294,36 @@ TEST(AsyncTaskScheduler, SubSchedulerNoTasks) {
   // An unended sub-scheduler should keep the parent scheduler unfinished even if there
   // there are no tasks.
   std::unique_ptr<AsyncTaskScheduler> parent = AsyncTaskScheduler::Make();
-  AsyncTaskScheduler* child = parent->MakeSubScheduler(EmptyFinishCallback());
-  parent->End();
-  AssertNotFinished(parent->OnFinished());
-  child->End();
+  {
+    std::shared_ptr<AsyncTaskScheduler> child =
+        parent->MakeSubScheduler(EmptyFinishCallback());
+    parent->End();
+    AssertNotFinished(parent->OnFinished());
+  }
   ASSERT_FINISHES_OK(parent->OnFinished());
 }
+
+TEST(AsyncTaskScheduler, AsyncGenerator) {
+  for (bool slow : {false, true}) {
+    ARROW_SCOPED_TRACE("Slow: ", slow);
+    std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
+    std::vector<TestInt> values{1, 2, 3};
+    std::vector<TestInt> seen_values{};
+    AsyncGenerator<TestInt> generator = MakeVectorGenerator<TestInt>(values);
+    if (slow) {
+      generator = util::SlowdownABit(generator);
+    }
+    std::function<Status(const TestInt&)> visitor = [&](const TestInt& val) {
+      seen_values.push_back(val);
+      return Status::OK();
+    };
+    scheduler->AddAsyncGenerator(std::move(generator), std::move(visitor),
+                                 EmptyFinishCallback());
+    scheduler->End();
+    ASSERT_FINISHES_OK(scheduler->OnFinished());
+    ASSERT_EQ(seen_values, values);
+  }
+}  // namespace util
 
 class CustomThrottle : public AsyncTaskScheduler::Throttle {
  public:
@@ -209,6 +336,7 @@ class CustomThrottle : public AsyncTaskScheduler::Throttle {
   }
   virtual void Release(int amt) {}
   void Unlock() { gate_.MarkFinished(); }
+  int Capacity() { return std::numeric_limits<int>::max(); }
 
  private:
   Future<> gate_ = Future<>::Make();
@@ -234,7 +362,7 @@ TEST(AsyncTaskScheduler, EndWaitsForAddedButNotSubmittedTasks) {
   ASSERT_TRUE(was_run);
 
   /// Same test but block task by custom throttle
-  auto custom_throttle = ::arrow::internal::make_unique<CustomThrottle>();
+  auto custom_throttle = std::make_unique<CustomThrottle>();
   task_group = AsyncTaskScheduler::Make(custom_throttle.get());
   was_run = false;
   ASSERT_TRUE(task_group->AddSimpleTask([&was_run] {
@@ -246,6 +374,47 @@ TEST(AsyncTaskScheduler, EndWaitsForAddedButNotSubmittedTasks) {
   custom_throttle->Unlock();
   ASSERT_FINISHES_OK(task_group->OnFinished());
   ASSERT_TRUE(was_run);
+}
+
+TEST(AsyncTaskScheduler, TaskWithCostBiggerThanThrottle) {
+  // It can be difficult to know the maximum cost a task may have.  In
+  // scanning this is the maximum size of a batch stored on disk which we
+  // cannot know ahead of time.  So a task may have a cost greater than the
+  // size of the throttle.  In that case we simply drop the cost to the
+  // capacity of the throttle.
+  constexpr int kThrottleCapacity = 5;
+  std::unique_ptr<AsyncTaskScheduler::Throttle> throttle =
+      AsyncTaskScheduler::MakeThrottle(kThrottleCapacity);
+  std::unique_ptr<AsyncTaskScheduler> task_group =
+      AsyncTaskScheduler::Make(throttle.get());
+  bool task_submitted = false;
+  Future<> task = Future<>::Make();
+
+  struct ExpensiveTask : AsyncTaskScheduler::Task {
+    ExpensiveTask(bool* task_submitted, Future<> task)
+        : task_submitted(task_submitted), task(std::move(task)) {}
+    Result<Future<>> operator()(AsyncTaskScheduler*) override {
+      *task_submitted = true;
+      return task;
+    }
+    int cost() const override { return kThrottleCapacity * 50; }
+    bool* task_submitted;
+    Future<> task;
+  };
+
+  Future<> blocking_task = Future<>::Make();
+  task_group->AddSimpleTask([&] { return blocking_task; });
+  task_group->AddTask(std::make_unique<ExpensiveTask>(&task_submitted, task));
+  task_group->End();
+
+  // Task should not be submitted initially because blocking_task (even though
+  // it has a cost of 1) is preventing it.
+  ASSERT_FALSE(task_submitted);
+  blocking_task.MarkFinished();
+  // One blocking_task is out of the way the task is free to run
+  ASSERT_TRUE(task_submitted);
+  task.MarkFinished();
+  ASSERT_FINISHES_OK(task_group->OnFinished());
 }
 
 TEST(AsyncTaskScheduler, TaskFinishesAfterError) {
@@ -301,6 +470,7 @@ TEST(AsyncTaskScheduler, PurgeUnsubmitted) {
   ASSERT_FALSE(was_submitted);
 }
 
+#ifndef ARROW_VALGRIND
 TEST(AsyncTaskScheduler, FifoStress) {
   // Regresses an issue where adding a task, when the throttle was
   // just cleared, could lead to the added task being run immediately,
@@ -322,6 +492,7 @@ TEST(AsyncTaskScheduler, FifoStress) {
       EXPECT_TRUE(middle_task_run);
       return Future<>::MakeFinished();
     });
+    task_group->End();
   }
 }
 
@@ -371,12 +542,11 @@ TEST(AsyncTaskScheduler, ScanningStress) {
     auto scan_batch = [&] { batches_scanned++; };
     auto submit_scan = [&]() { return SleepABitAsync().Then(scan_batch); };
     auto list_fragment = [&]() {
-      AsyncTaskScheduler* batch_scheduler =
+      std::shared_ptr<AsyncTaskScheduler> batch_scheduler =
           listing_scheduler->MakeSubScheduler(EmptyFinishCallback(), batch_limit.get());
       for (int i = 0; i < kBatchesPerFragment; i++) {
         ASSERT_TRUE(batch_scheduler->AddSimpleTask(submit_scan));
       }
-      batch_scheduler->End();
       if (++fragments_scanned == kNumFragments) {
         listing_scheduler->End();
       }
@@ -389,6 +559,7 @@ TEST(AsyncTaskScheduler, ScanningStress) {
     ASSERT_EQ(kExpectedBatchesScanned, batches_scanned.load());
   }
 }
+#endif
 
 class TaskWithPriority : public AsyncTaskScheduler::Task {
  public:
@@ -437,8 +608,8 @@ TEST(AsyncTaskScheduler, Priority) {
   constexpr int kNumConcurrentTasks = 8;
   std::unique_ptr<AsyncTaskScheduler::Throttle> throttle =
       AsyncTaskScheduler::MakeThrottle(kNumConcurrentTasks);
-  std::unique_ptr<AsyncTaskScheduler> task_group = AsyncTaskScheduler::Make(
-      throttle.get(), ::arrow::internal::make_unique<PriorityQueue>());
+  auto task_group =
+      AsyncTaskScheduler::Make(throttle.get(), std::make_unique<PriorityQueue>());
 
   std::shared_ptr<GatingTask> gate = GatingTask::Make();
   int submit_order[kNumTasks];
@@ -450,7 +621,7 @@ TEST(AsyncTaskScheduler, Priority) {
       submit_order[order_index++] = priority;
       return gate->AsyncTask();
     };
-    auto task = ::arrow::internal::make_unique<TaskWithPriority>(task_exec, priority);
+    auto task = std::make_unique<TaskWithPriority>(task_exec, priority);
     task_group->AddTask(std::move(task));
   }
   task_group->End();

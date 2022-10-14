@@ -47,7 +47,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
@@ -157,6 +156,9 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
 
 Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     std::shared_ptr<Schema> schema, MemoryPool* pool) const {
+  if (static_cast<size_t>(schema->num_fields()) > values.size()) {
+    return Status::Invalid("ExecBatch::ToTRecordBatch mismatching schema size");
+  }
   ArrayVector columns(schema->num_fields());
 
   for (size_t i = 0; i < columns.size(); ++i) {
@@ -164,8 +166,13 @@ Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     if (value.is_array()) {
       columns[i] = value.make_array();
       continue;
+    } else if (value.is_scalar()) {
+      ARROW_ASSIGN_OR_RAISE(columns[i],
+                            MakeArrayFromScalar(*value.scalar(), length, pool));
+    } else {
+      return Status::TypeError("ExecBatch::ToRecordBatch value ", i, " with unsupported ",
+                               "value kind ", ::arrow::ToString(value.kind()));
     }
-    ARROW_ASSIGN_OR_RAISE(columns[i], MakeArrayFromScalar(*value.scalar(), length, pool));
   }
 
   return RecordBatch::Make(std::move(schema), length, std::move(columns));
@@ -1098,7 +1105,7 @@ Result<std::unique_ptr<KernelExecutor>> MakeExecutor(ExecContext* ctx,
                                                      const FunctionOptions* options) {
   DCHECK_EQ(ExecutorType::function_kind, func->kind());
   auto typed_func = checked_cast<const FunctionType*>(func);
-  return std::unique_ptr<KernelExecutor>(new ExecutorType(ctx, typed_func, options));
+  return std::make_unique<ExecutorType>(ctx, typed_func, options);
 }
 
 }  // namespace
@@ -1187,15 +1194,15 @@ void PropagateNullsSpans(const ExecSpan& batch, ArraySpan* out) {
 }
 
 std::unique_ptr<KernelExecutor> KernelExecutor::MakeScalar() {
-  return ::arrow::internal::make_unique<detail::ScalarExecutor>();
+  return std::make_unique<detail::ScalarExecutor>();
 }
 
 std::unique_ptr<KernelExecutor> KernelExecutor::MakeVector() {
-  return ::arrow::internal::make_unique<detail::VectorExecutor>();
+  return std::make_unique<detail::VectorExecutor>();
 }
 
 std::unique_ptr<KernelExecutor> KernelExecutor::MakeScalarAggregate() {
-  return ::arrow::internal::make_unique<detail::ScalarAggExecutor>();
+  return std::make_unique<detail::ScalarAggExecutor>();
 }
 
 int64_t InferBatchLength(const std::vector<Datum>& values, bool* all_same) {

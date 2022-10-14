@@ -94,7 +94,7 @@ ARROW_EXPORT void InvalidValueOrDie(const Status& st);
 ///   arrow::Result<int> CalculateFoo();
 /// ```
 template <class T>
-class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
+class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   template <typename U>
   friend class Result;
 
@@ -420,11 +420,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
 
   constexpr const T& ValueUnsafe() const& { return *storage_.get(); }
 
-#if __cpp_constexpr >= 201304L  // non-const constexpr
   constexpr T& ValueUnsafe() & { return *storage_.get(); }
-#else
-  T& ValueUnsafe() & { return *storage_.get(); }
-#endif
 
   T ValueUnsafe() && { return MoveValueUnsafe(); }
 

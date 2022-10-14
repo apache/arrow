@@ -17,14 +17,16 @@
 
 #' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
-#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dbl map_dfr map_int map_lgl keep imap imap_chr flatten
+#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dbl map_dfr map_int map_lgl keep imap imap_chr
+#' @importFrom purrr flatten reduce
 #' @importFrom assertthat assert_that is.string
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos quo
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
 #' @importFrom rlang is_list call2 is_empty as_function as_label arg_match is_symbol is_call call_args
-#' @importFrom rlang quo_set_env quo_get_env is_formula quo_is_call
+#' @importFrom rlang quo_set_env quo_get_env is_formula quo_is_call f_rhs parse_expr f_env new_quosure
+#' @importFrom rlang new_quosures expr_text caller_env check_dots_empty dots_list
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @importFrom glue glue
 #' @useDynLib arrow, .registration = TRUE
@@ -62,6 +64,31 @@ supported_dplyr_methods <- list(
   rename_with = NULL,
   union = NULL,
   union_all = NULL,
+  slice_head = c(
+    "slicing within groups not supported;",
+    "Arrow datasets do not have row order, so head is non-deterministic;",
+    "`prop` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
+  slice_tail = c(
+    "slicing within groups not supported;",
+    "Arrow datasets do not have row order, so tail is non-deterministic;",
+    "`prop` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
+  slice_min = c(
+    "slicing within groups not supported;",
+    "`with_ties = TRUE` (dplyr default) is not supported;",
+    "`prop` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
+  slice_max = c(
+    "slicing within groups not supported;",
+    "`with_ties = TRUE` (dplyr default) is not supported;",
+    "`prop` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
+  slice_sample = c(
+    "slicing within groups not supported;",
+    "`replace = TRUE` and the `weight_by` argument not supported;",
+    "`n` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
   glimpse = NULL,
   show_query = NULL,
   explain = NULL
@@ -102,7 +129,10 @@ supported_dplyr_methods <- list(
     configure_tzdb()
   }
 
-  # register extension types that we use internally
+  # Set interrupt handlers
+  SetEnableSignalStopSource(TRUE)
+
+  # Register extension types that we use internally
   reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
 
   invisible()
@@ -142,6 +172,19 @@ configure_tzdb <- function() {
   })
 }
 
+# Clean up the StopSource that was registered in .onLoad() so that if the
+# package is reloaded we don't get an error from C++ informing us that
+# a StopSource has already been set up.
+.onUnload <- function(...) {
+  DeinitializeMainRThread()
+}
+
+# While .onUnload should be sufficient, devtools::load_all() does not call it
+# (but it does call .onDetach()). It is safe to call DeinitializeMainRThread()
+# more than once.
+.onDetach <- function(...) {
+  DeinitializeMainRThread()
+}
 
 # True when the OS is linux + and the R version is development
 # helpful for skipping on Valgrind, and the sanitizer checks (clang + gcc) on cran

@@ -38,7 +38,7 @@ struct MockDirInfo {
     return mtime == other.mtime && full_path == other.full_path;
   }
 
-  friend ARROW_EXPORT std::ostream& operator<<(std::ostream&, const MockDirInfo&);
+  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream&, const MockDirInfo&);
 };
 
 struct MockFileInfo {
@@ -50,7 +50,7 @@ struct MockFileInfo {
     return mtime == other.mtime && full_path == other.full_path && data == other.data;
   }
 
-  friend ARROW_EXPORT std::ostream& operator<<(std::ostream&, const MockFileInfo&);
+  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream&, const MockFileInfo&);
 };
 
 /// A mock FileSystem implementation that holds its contents in memory.
