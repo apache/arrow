@@ -271,7 +271,7 @@ Status CheckMessagesEquivalent(std::string_view message_name, const Buffer& l_bu
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
                                                   std::string_view json,
-                                                  bool ignore_unknown_fields = false);
+                                                  bool ignore_unknown_fields = true);
 
 /// \brief Utility function to convert a binary protobuf serialization of a Substrait
 /// message to JSON
