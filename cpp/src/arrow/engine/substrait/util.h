@@ -37,6 +37,13 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerialized
     compute::FunctionRegistry* func_registry = NULLPTR,
     const ConversionOptions& conversion_options = {});
 
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
+    std::shared_ptr<compute::ExecPlan> plan,
+    compute::ExecContext exec_context,
+    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry = NULLPTR,
+    const ConversionOptions& conversion_options = {});
+
+
 /// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(

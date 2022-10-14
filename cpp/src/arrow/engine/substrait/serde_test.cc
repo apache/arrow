@@ -1165,6 +1165,22 @@ TEST(Substrait, GetRecordBatchReader) {
   });
 }
 
+TEST(Substrait, GetRecordBatchReaderV2) {
+  ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
+  test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
+                                         compute::FunctionRegistry* func_registry) {
+    ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
+    compute::ExecContext exec_context(arrow::default_memory_pool(),
+                                    ::arrow::internal::GetCpuThreadPool(), func_registry);
+    ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
+    ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(plan, exec_context, *buf));
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
+    // Note: assuming the binary.parquet file contains fixed amount of records
+    // in case of a test failure, re-evalaute the content in the file
+    EXPECT_EQ(table->num_rows(), 12);
+  });
+}
+
 TEST(Substrait, InvalidPlan) {
   std::string substrait_json = R"({
     "relations": [
