@@ -211,23 +211,23 @@ class TensorTest < Test::Unit::TestCase
                      })
       end
 
-      test("Symbol, String, shape:, strides: - column major") do
+      test("Symbol, String, shape:, strides: - !contiguous and column major") do
         data_type = :uint8
-        shape = @shape.reverse
-        strides = @strides.reverse
+        @shape[-1] -= 1 # Ignore the last element in @raw_tensor
+        @strides.reverse
         tensor = Arrow::Tensor.new(data_type,
                                    @raw_tensor.flatten.pack("C*"),
-                                   shape: shape,
-                                   strides: strides)
+                                   shape: @shape,
+                                   strides: @strides)
         assert_equal({
                        value_data_type: Arrow::UInt8DataType.new,
                        buffer: @raw_tensor.flatten.pack("C*"),
-                       shape: shape,
-                       strides: strides,
+                       shape: @shape,
+                       strides: @strides,
                        dimension_names: ["", "", ""],
-                       contiguous: true,
+                       contiguous: false,
                        row_major: false,
-                       column_major: true,
+                       column_major: false,
                      },
                      {
                        value_data_type: tensor.value_data_type,
