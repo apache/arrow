@@ -92,8 +92,8 @@ struct ListSlice {
   using offset_type = typename Type::offset_type;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const auto start = OptionsWrapper<SliceOptions>::Get(ctx).start;
-    const auto stop = OptionsWrapper<SliceOptions>::Get(ctx).stop;
+    const auto start = OptionsWrapper<ListSliceOptions>::Get(ctx).start;
+    const auto stop = OptionsWrapper<ListSliceOptions>::Get(ctx).stop;
     if (start < 0 || start >= stop) {
       return Status::Invalid("`start`(", start,
                              ") should be greater than 0 and smaller than `stop`(", stop,
@@ -168,8 +168,8 @@ struct ListSlice {
 
 Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
                                         const std::vector<TypeHolder>& types) {
-  const auto start = OptionsWrapper<SliceOptions>::Get(ctx).start;
-  const auto stop = OptionsWrapper<SliceOptions>::Get(ctx).stop;
+  const auto start = OptionsWrapper<ListSliceOptions>::Get(ctx).start;
+  const auto stop = OptionsWrapper<ListSliceOptions>::Get(ctx).stop;
   const auto list_type = checked_cast<const BaseListType*>(types[0].type);
   return TypeHolder(
       fixed_size_list(list_type->value_type(), static_cast<int32_t>(stop - start)));
@@ -182,7 +182,7 @@ void AddListSliceKernels(ScalarFunction* func) {
     auto output = OutputType{MakeListSliceResolve};
     auto scalar_exec = GenerateInteger<Functor, InListType>({index_type->id()});
     ScalarKernel kernel(inputs, output, std::move(scalar_exec),
-                        OptionsWrapper<SliceOptions>::Init);
+                        OptionsWrapper<ListSliceOptions>::Init);
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
@@ -195,10 +195,13 @@ void AddListSliceKernels(ScalarFunction* func) {
   AddListSliceKernels<FixedSizeListType, ListSlice>(func);
 }
 
-const FunctionDoc list_slice_doc("Slice list into a subset",
-                                 ("`lists` must have a list-like type.\n"
-                                  "Return subset array of the list."),
-                                 {"lists"}, "SliceOptions", /*options_required=*/true);
+const FunctionDoc list_slice_doc(
+    "Slice list into a subset",
+    ("`lists` must have a list-like type.\n"
+     "Return subset array of the list, as either a variable\n"
+     "or fixed size list array."),
+    {"lists"}, "ListSliceOptions",
+    /*options_required=*/true);
 
 template <typename Type, typename IndexType>
 struct ListElement {

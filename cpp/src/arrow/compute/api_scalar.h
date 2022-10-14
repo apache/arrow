@@ -346,6 +346,16 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
   int64_t start, stop, step;
 };
 
+class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
+ public:
+  explicit ListSliceOptions(int64_t start,
+                            int64_t stop = std::numeric_limits<int64_t>::max(),
+                            int64_t step = 1, bool return_fixed_size_list = true);
+  ListSliceOptions();
+  static constexpr char const kTypeName[] = "ListSliceOptions";
+  int64_t start, stop, step, return_fixed_size_list;
+};
+
 class ARROW_EXPORT NullOptions : public FunctionOptions {
  public:
   explicit NullOptions(bool nan_is_null = false);

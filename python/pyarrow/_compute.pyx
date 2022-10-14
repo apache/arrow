@@ -1168,6 +1168,31 @@ class SliceOptions(_SliceOptions):
         self._set_options(start, stop, step)
 
 
+cdef class _ListSliceOptions(FunctionOptions):
+    def _set_options(self, start, stop=-1, step=1, return_fixed_size_list=True):
+        self.wrapped.reset(new CListSliceOptions(start, stop, step, return_fixed_size_list))
+        
+
+class ListSliceOptions(_ListSliceOptions):
+    """
+    Options for list array slicing.
+    
+    Parameters
+    ----------
+    start : int
+        Index to start slicing inner list elements (inclusive).
+    stop : int, default -1
+        If given, index to stop slicing at (exclusive).
+        If not given, slicing will stop at the end.
+    step : int, default 1
+        Slice step.
+    return_fixed_size_list : bool, default True
+        Whether to return a FixedSizeListArray.
+    """
+    def __init__(self, start, stop=-1, step=1, return_fixed_size_list=True):
+        self._set_options(start, stop, step, return_fixed_size_list)
+
+
 cdef class _ReplaceSliceOptions(FunctionOptions):
     def _set_options(self, start, stop, replacement):
         self.wrapped.reset(

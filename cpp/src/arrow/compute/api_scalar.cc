@@ -345,6 +345,11 @@ static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
+static auto kListSliceOptionsType = GetFunctionOptionsType<ListSliceOptions>(
+    DataMember("start", &ListSliceOptions::start),
+    DataMember("stop", &ListSliceOptions::stop),
+    DataMember("step", &ListSliceOptions::step),
+    DataMember("return_fixed_size_list", &ListSliceOptions::return_fixed_size_list));
 static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOptions>(
     DataMember("pattern", &SplitPatternOptions::pattern),
     DataMember("max_splits", &SplitPatternOptions::max_splits),
@@ -527,6 +532,16 @@ SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
       step(step) {}
 SliceOptions::SliceOptions() : SliceOptions(0, 0, 1) {}
 constexpr char SliceOptions::kTypeName[];
+
+ListSliceOptions::ListSliceOptions(int64_t start, int64_t stop, int64_t step,
+                                   bool return_fixed_size_list)
+    : FunctionOptions(internal::kListSliceOptionsType),
+      start(start),
+      stop(stop),
+      step(step),
+      return_fixed_size_list(return_fixed_size_list) {}
+ListSliceOptions::ListSliceOptions() : ListSliceOptions(0, -1, 1, true) {}
+constexpr char ListSliceOptions::kTypeName[];
 
 SplitOptions::SplitOptions(int64_t max_splits, bool reverse)
     : FunctionOptions(internal::kSplitOptionsType),
