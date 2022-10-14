@@ -378,29 +378,37 @@ register_bindings_datetime_conversion <- function() {
   register_binding("lubridate::as_datetime", function(x,
                                                       origin = "1970-01-01",
                                                       tz = "UTC",
-                                                      format = NULL) {
+                                                      format = NULL,
+                                                      unit = "ns") {
+    # Arrow uses unit for time parsing, as_datetime() does not.
+    unit <- make_valid_time_unit(
+      unit,
+      c(valid_time64_units, valid_time32_units)
+    )
+
     if (call_binding("is.integer", x)) {
       x <- build_expr("cast", x, options = cast_options(to_type = int64()))
     }
 
     if (call_binding("is.numeric", x)) {
+      multiple <- build_expr("^", 1000L, unit)
       delta <- call_binding("difftime", origin, "1970-01-01")
       delta <- build_expr("cast", delta, options = cast_options(to_type = int64()))
-      delta <- build_expr("*", delta, 1000000000L) # number of nanoseconds
-      x <- build_expr("*", x, 1000000000L) # number of nanoseconds
+      delta <- build_expr("*", delta, multiple)
+      x <- build_expr("*", x, multiple)
       x <- build_expr("cast", x, options = cast_options(to_type = int64()))
       x <- build_expr("+", x, delta)
     }
 
     if (call_binding("is.character", x) && !is.null(format)) {
-      # unit = 0L is the identifier for seconds in valid_time32_units
+      # unit = 3L is the identifier for nanoseconds in valid_time64_units
       x <- build_expr(
         "strptime",
         x,
-        options = list(format = format, unit = 0L, error_is_null = TRUE)
+        options = list(format = format, unit = unit, error_is_null = TRUE)
       )
     }
-    output <- build_expr("cast", x, options = cast_options(to_type = timestamp(unit = "ns")))
+    output <- build_expr("cast", x, options = cast_options(to_type = timestamp(unit = unit)))
     build_expr("assume_timezone", output, options = list(timezone = tz))
   })
 
