@@ -401,7 +401,6 @@ register_bindings_datetime_conversion <- function() {
     }
 
     if (call_binding("is.character", x) && !is.null(format)) {
-      # unit = 3L is the identifier for nanoseconds in valid_time64_units
       x <- build_expr(
         "strptime",
         x,
