@@ -20,38 +20,38 @@ the query on the data. To run the query, call either \code{compute()},
 which returns an \code{arrow} \link{Table}, or \code{collect()}, which pulls the resulting
 Table into an R \code{data.frame}.
 \itemize{
-\item \code{\link[dplyr:filter-joins]{anti_join()}}
+\item \code{\link[dplyr:filter-joins]{anti_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
 \item \code{\link[dplyr:arrange]{arrange()}}
 \item \code{\link[dplyr:compute]{collapse()}}
 \item \code{\link[dplyr:compute]{collect()}}
 \item \code{\link[dplyr:compute]{compute()}}
 \item \code{\link[dplyr:count]{count()}}
-\item \code{\link[dplyr:distinct]{distinct()}}
+\item \code{\link[dplyr:distinct]{distinct()}}: \code{.keep_all = TRUE} not supported
 \item \code{\link[dplyr:explain]{explain()}}
 \item \code{\link[dplyr:filter]{filter()}}
-\item \code{\link[dplyr:mutate-joins]{full_join()}}
+\item \code{\link[dplyr:mutate-joins]{full_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
 \item \code{\link[dplyr:glimpse]{glimpse()}}
 \item \code{\link[dplyr:group_by]{group_by()}}
 \item \code{\link[dplyr:group_by_drop_default]{group_by_drop_default()}}
 \item \code{\link[dplyr:group_data]{group_vars()}}
 \item \code{\link[dplyr:group_data]{groups()}}
-\item \code{\link[dplyr:mutate-joins]{inner_join()}}
-\item \code{\link[dplyr:mutate-joins]{left_join()}}
-\item \code{\link[dplyr:mutate]{mutate()}}
-\item \code{\link[dplyr:pull]{pull()}}
+\item \code{\link[dplyr:mutate-joins]{inner_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
+\item \code{\link[dplyr:mutate-joins]{left_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
+\item \code{\link[dplyr:mutate]{mutate()}}: window functions (e.g. things that require aggregation within groups) not currently supported
+\item \code{\link[dplyr:pull]{pull()}}: returns an Arrow \link{ChunkedArray}, not an R vector
 \item \code{\link[dplyr:relocate]{relocate()}}
 \item \code{\link[dplyr:rename]{rename()}}
 \item \code{\link[dplyr:rename]{rename_with()}}
-\item \code{\link[dplyr:mutate-joins]{right_join()}}
+\item \code{\link[dplyr:mutate-joins]{right_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
 \item \code{\link[dplyr:select]{select()}}
-\item \code{\link[dplyr:filter-joins]{semi_join()}}
+\item \code{\link[dplyr:filter-joins]{semi_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
 \item \code{\link[dplyr:explain]{show_query()}}
 \item \code{\link[dplyr:slice]{slice_head()}}: slicing within groups not supported; Arrow datasets do not have row order, so head is non-deterministic; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_max()}}: slicing within groups not supported; \code{with_ties = TRUE} (dplyr default) is not supported; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_min()}}: slicing within groups not supported; \code{with_ties = TRUE} (dplyr default) is not supported; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_sample()}}: slicing within groups not supported; \code{replace = TRUE} and the \code{weight_by} argument not supported; \code{n} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_tail()}}: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
-\item \code{\link[dplyr:summarise]{summarise()}}
+\item \code{\link[dplyr:summarise]{summarise()}}: window functions not currently supported; arguments \code{.drop = FALSE} and `.groups = "rowwise" not supported
 \item \code{\link[dplyr:count]{tally()}}
 \item \code{\link[dplyr:mutate]{transmute()}}
 \item \code{\link[dplyr:group_by]{ungroup()}}
@@ -107,8 +107,9 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[base:all]{all()}}
 \item \code{\link[base:any]{any()}}
 \item \code{\link[base:character]{as.character()}}
-\item \code{\link[base:as.Date]{as.Date()}}
-\item \code{\link[base:difftime]{as.difftime()}}
+\item \code{\link[base:as.Date]{as.Date()}}: Multiple \code{tryFormats} not supported in Arrow.
+Consider using the lubridate specialised parsing functions \code{ymd()}, \code{ymd()}, etc.
+\item \code{\link[base:difftime]{as.difftime()}}: only supports \code{units = "secs"} (the default)
 \item \code{\link[base:double]{as.double()}}
 \item \code{\link[base:integer]{as.integer()}}
 \item \code{\link[base:logical]{as.logical()}}
@@ -116,8 +117,10 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[base:Trig]{asin()}}
 \item \code{\link[base:Round]{ceiling()}}
 \item \code{\link[base:Trig]{cos()}}
-\item \code{\link[base:data.frame]{data.frame()}}
-\item \code{\link[base:difftime]{difftime()}}
+\item \code{\link[base:data.frame]{data.frame()}}: \code{row.names} and \code{check.rows} arguments not supported;
+\code{stringsAsFactors} must be \code{FALSE}
+\item \code{\link[base:difftime]{difftime()}}: only supports \code{units = "secs"} (the default);
+\code{tz} argument not supported
 \item \code{\link[base:startsWith]{endsWith()}}
 \item \code{\link[base:Log]{exp()}}
 \item \code{\link[base:Round]{floor()}}
@@ -146,7 +149,7 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[base:Extremes]{max()}}
 \item \code{\link[base:mean]{mean()}}
 \item \code{\link[base:Extremes]{min()}}
-\item \code{\link[base:nchar]{nchar()}}
+\item \code{\link[base:nchar]{nchar()}}: \code{allowNA = TRUE} and \code{keepNA = TRUE} not supported
 \item \code{\link[base:paste]{paste()}}: the \code{collapse} argument is not yet supported
 \item \code{\link[base:paste]{paste0()}}: the \code{collapse} argument is not yet supported
 \item \code{\link[base:Extremes]{pmax()}}
@@ -157,11 +160,12 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[base:MathFun]{sqrt()}}
 \item \code{\link[base:startsWith]{startsWith()}}
 \item \code{\link[base:strptime]{strftime()}}
-\item \code{\link[base:strptime]{strptime()}}
+\item \code{\link[base:strptime]{strptime()}}: accepts a \code{unit} argument not present in the \code{base} function.
+Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[base:strrep]{strrep()}}
 \item \code{\link[base:strsplit]{strsplit()}}
 \item \code{\link[base:grep]{sub()}}
-\item \code{\link[base:substr]{substr()}}
+\item \code{\link[base:substr]{substr()}}: \code{start} and \code{stop} must be length 1
 \item \code{\link[base:substr]{substring()}}
 \item \code{\link[base:sum]{sum()}}
 \item \code{\link[base:Trig]{tan()}}
@@ -209,20 +213,20 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[lubridate:duration]{dmilliseconds()}}
 \item \code{\link[lubridate:duration]{dminutes()}}
 \item \code{\link[lubridate:duration]{dmonths()}}
-\item \code{\link[lubridate:ymd]{dmy()}}
-\item \code{\link[lubridate:ymd_hms]{dmy_h()}}
-\item \code{\link[lubridate:ymd_hms]{dmy_hm()}}
-\item \code{\link[lubridate:ymd_hms]{dmy_hms()}}
+\item \code{\link[lubridate:ymd]{dmy()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{dmy_h()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{dmy_hm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{dmy_hms()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:duration]{dnanoseconds()}}
-\item \code{\link[lubridate:duration]{dpicoseconds()}}
+\item \code{\link[lubridate:duration]{dpicoseconds()}}: not supported
 \item \code{\link[lubridate:duration]{dseconds()}}
 \item \code{\link[lubridate:dst]{dst()}}
 \item \code{\link[lubridate:duration]{dweeks()}}
 \item \code{\link[lubridate:duration]{dyears()}}
-\item \code{\link[lubridate:ymd]{dym()}}
+\item \code{\link[lubridate:ymd]{dym()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:week]{epiweek()}}
 \item \code{\link[lubridate:year]{epiyear()}}
-\item \code{\link[lubridate:parse_date_time]{fast_strptime()}}
+\item \code{\link[lubridate:parse_date_time]{fast_strptime()}}: non-default values of \code{lt} and \code{cutoff_2000} not supported
 \item \code{\link[lubridate:round_date]{floor_date()}}
 \item \code{\link[lubridate:format_ISO8601]{format_ISO8601()}}
 \item \code{\link[lubridate:hour]{hour()}}
@@ -234,18 +238,19 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[lubridate:year]{isoyear()}}
 \item \code{\link[lubridate:leap_year]{leap_year()}}
 \item \code{\link[lubridate:make_datetime]{make_date()}}
-\item \code{\link[lubridate:make_datetime]{make_datetime()}}
-\item \code{\link[lubridate:make_difftime]{make_difftime()}}
+\item \code{\link[lubridate:make_datetime]{make_datetime()}}: only supports UTC (default) timezone
+\item \code{\link[lubridate:make_difftime]{make_difftime()}}: only supports \code{units = "secs"} (the default);
+providing both \code{num} and \code{...} is not supported
 \item \code{\link[lubridate:day]{mday()}}
-\item \code{\link[lubridate:ymd]{mdy()}}
-\item \code{\link[lubridate:ymd_hms]{mdy_h()}}
-\item \code{\link[lubridate:ymd_hms]{mdy_hm()}}
-\item \code{\link[lubridate:ymd_hms]{mdy_hms()}}
+\item \code{\link[lubridate:ymd]{mdy()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{mdy_h()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{mdy_hm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{mdy_hms()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:minute]{minute()}}
 \item \code{\link[lubridate:month]{month()}}
-\item \code{\link[lubridate:ymd]{my()}}
-\item \code{\link[lubridate:ymd]{myd()}}
-\item \code{\link[lubridate:parse_date_time]{parse_date_time()}}
+\item \code{\link[lubridate:ymd]{my()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{myd()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:parse_date_time]{parse_date_time()}}: \code{quiet = FALSE} is not supported
 \item \code{\link[lubridate:am]{pm()}}
 \item \code{\link[lubridate:day]{qday()}}
 \item \code{\link[lubridate:quarter]{quarter()}}
@@ -256,17 +261,17 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[lubridate:day]{wday()}}
 \item \code{\link[lubridate:week]{week()}}
 \item \code{\link[lubridate:day]{yday()}}
-\item \code{\link[lubridate:ymd]{ydm()}}
-\item \code{\link[lubridate:ymd_hms]{ydm_h()}}
-\item \code{\link[lubridate:ymd_hms]{ydm_hm()}}
-\item \code{\link[lubridate:ymd_hms]{ydm_hms()}}
+\item \code{\link[lubridate:ymd]{ydm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ydm_h()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ydm_hm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ydm_hms()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:year]{year()}}
-\item \code{\link[lubridate:ymd]{ym()}}
-\item \code{\link[lubridate:ymd]{ymd()}}
-\item \code{\link[lubridate:ymd_hms]{ymd_h()}}
-\item \code{\link[lubridate:ymd_hms]{ymd_hm()}}
-\item \code{\link[lubridate:ymd_hms]{ymd_hms()}}
-\item \code{\link[lubridate:ymd]{yq()}}
+\item \code{\link[lubridate:ymd]{ym()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{ymd()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ymd_h()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ymd_hm()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd_hms]{ymd_hms()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{yq()}}: \code{locale} argument not supported
 }
 }
 
@@ -288,8 +293,9 @@ as \code{arrow_ascii_is_decimal}.
 
 \subsection{stats}{
 \itemize{
-\item \code{\link[stats:median]{median()}}
-\item \code{\link[stats:quantile]{quantile()}}
+\item \code{\link[stats:median]{median()}}: approximate median (t-digest) is computed
+\item \code{\link[stats:quantile]{quantile()}}: \code{probs} must be length 1;
+approximate quantile (t-digest) is computed
 \item \code{\link[stats:sd]{sd()}}
 \item \code{\link[stats:cor]{var()}}
 }
@@ -302,9 +308,11 @@ as \code{arrow_ascii_is_decimal}.
 }
 
 \subsection{stringr}{
+
+Pattern modifiers \code{coll()} and \code{boundary()} are not supported in any functions.
 \itemize{
 \item \code{\link[stringr:str_c]{str_c()}}: the \code{collapse} argument is not yet supported
-\item \code{\link[stringr:str_count]{str_count()}}
+\item \code{\link[stringr:str_count]{str_count()}}: \code{pattern} must be a length 1 character vector
 \item \code{\link[stringr:str_detect]{str_detect()}}
 \item \code{\link[stringr:str_dup]{str_dup()}}
 \item \code{\link[stringr:str_starts]{str_ends()}}
@@ -313,9 +321,9 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[stringr:str_pad]{str_pad()}}
 \item \code{\link[stringr:str_replace]{str_replace()}}
 \item \code{\link[stringr:str_replace]{str_replace_all()}}
-\item \code{\link[stringr:str_split]{str_split()}}
+\item \code{\link[stringr:str_split]{str_split()}}: Case-insensitive string splitting and splitting into 0 parts not supported
 \item \code{\link[stringr:str_starts]{str_starts()}}
-\item \code{\link[stringr:str_sub]{str_sub()}}
+\item \code{\link[stringr:str_sub]{str_sub()}}: \code{start} and \code{end} must be length 1
 \item \code{\link[stringr:case]{str_to_lower()}}
 \item \code{\link[stringr:case]{str_to_title()}}
 \item \code{\link[stringr:case]{str_to_upper()}}

@@ -123,8 +123,11 @@ unregister_binding <- function(fun_name, registry = nse_funcs,
   invisible(previous_fun)
 }
 
-register_binding_agg <- function(fun_name, agg_fun, registry = agg_funcs) {
-  register_binding(fun_name, agg_fun, registry = registry)
+register_binding_agg <- function(fun_name,
+                                 agg_fun,
+                                 registry = agg_funcs,
+                                 notes = character(0)) {
+  register_binding(fun_name, agg_fun, registry = registry, notes = notes)
 }
 
 # Supports functions and tests that call previously-defined bindings

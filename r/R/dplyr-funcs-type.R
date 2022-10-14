@@ -135,42 +135,49 @@ register_bindings_type_cast <- function() {
     )
   })
 
-  register_binding("base::data.frame", function(...,
-                                                row.names = NULL,
-                                                check.rows = NULL,
-                                                check.names = TRUE,
-                                                fix.empty.names = TRUE,
-                                                stringsAsFactors = FALSE) {
-    # we need a specific value of stringsAsFactors because the default was
-    # TRUE in R <= 3.6
-    if (!identical(stringsAsFactors, FALSE)) {
-      arrow_not_supported("stringsAsFactors = TRUE")
-    }
-
-    # ignore row.names and check.rows with a warning
-    if (!is.null(row.names)) arrow_not_supported("row.names")
-    if (!is.null(check.rows)) arrow_not_supported("check.rows")
-
-    args <- dots_list(..., .named = fix.empty.names)
-    if (is.null(names(args))) {
-      names(args) <- rep("", length(args))
-    }
-
-    if (identical(check.names, TRUE)) {
-      if (identical(fix.empty.names, TRUE)) {
-        names(args) <- make.names(names(args), unique = TRUE)
-      } else {
-        name_emtpy <- names(args) == ""
-        names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+  register_binding(
+    "base::data.frame",
+    function(...,
+             row.names = NULL,
+             check.rows = NULL,
+             check.names = TRUE,
+             fix.empty.names = TRUE,
+             stringsAsFactors = FALSE) {
+      # we need a specific value of stringsAsFactors because the default was
+      # TRUE in R <= 3.6
+      if (!identical(stringsAsFactors, FALSE)) {
+        arrow_not_supported("stringsAsFactors = TRUE")
       }
-    }
 
-    build_expr(
-      "make_struct",
-      args = unname(args),
-      options = list(field_names = names(args))
+      # ignore row.names and check.rows with a warning
+      if (!is.null(row.names)) arrow_not_supported("row.names")
+      if (!is.null(check.rows)) arrow_not_supported("check.rows")
+
+      args <- dots_list(..., .named = fix.empty.names)
+      if (is.null(names(args))) {
+        names(args) <- rep("", length(args))
+      }
+
+      if (identical(check.names, TRUE)) {
+        if (identical(fix.empty.names, TRUE)) {
+          names(args) <- make.names(names(args), unique = TRUE)
+        } else {
+          name_emtpy <- names(args) == ""
+          names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+        }
+      }
+
+      build_expr(
+        "make_struct",
+        args = unname(args),
+        options = list(field_names = names(args))
+      )
+    },
+    notes = c(
+      "`row.names` and `check.rows` arguments not supported;",
+      "`stringsAsFactors` must be `FALSE`"
     )
-  })
+  )
 }
 
 register_bindings_type_inspect <- function() {
