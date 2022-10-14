@@ -360,16 +360,14 @@ test_that("full joins handle keep", {
     y = 1:5,
     z = 6:10
   )
-  full_data <- Table$create(full_data_df)
-  small_dataset <- Table$create(small_dataset_df)
 
   for (keep in c(TRUE, FALSE)) {
-    result <- full_join(small_dataset, full_data, by = c("y", "x"), keep = !!keep) %>%
-      arrange(index) %>%
-      collect()
-    expected <- full_join(small_dataset_df, full_data_df, by = c("y", "x"), keep = !!keep) %>%
-      arrange(index) %>%
-      collect()
-    expect_equal(result, expected)
+    compare_dplyr_binding(
+      .input %>%
+        full_join(full_data_df, by = c("y", "x"), keep = !!keep) %>%
+        arrange(index) %>%
+        collect(),
+      small_dataset_df
+    )
   }
 })

@@ -101,7 +101,6 @@ full_join.arrow_dplyr_query <- function(x,
   # RHS will have NAs for the join keys.
   if (!keep) {
     query$selected_columns <- post_join_projection(names(x), names(y), handle_join_by(by, x, y), suffix)
-    collapse.arrow_dplyr_query(query)
   }
 
   query
