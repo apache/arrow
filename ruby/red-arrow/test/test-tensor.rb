@@ -279,5 +279,19 @@ class TensorTest < Test::Unit::TestCase
         end
       end
     end
+
+    sub_test_case("#to_arrow_array") do
+      test("1 dimension") do
+        assert_equal(Arrow::UInt8Array.new([1, 2, 3]),
+                     Arrow::Tensor.new([1, 2, 3]).to_arrow_array)
+      end
+
+      test("2 dimensions") do
+        message = "must be 1 dimensional tensor: [3, 1]"
+        assert_raise(RangeError.new(message)) do
+          Arrow::Tensor.new([[1], [2], [3]]).to_arrow_array
+        end
+      end
+    end
   end
 end

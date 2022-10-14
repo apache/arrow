@@ -40,6 +40,13 @@ class TableTest < Test::Unit::TestCase
     @table = Arrow::Table.new(schema, [@count_array, @visible_array])
   end
 
+  sub_test_case(".new") do
+    test("{Symbol: Arrow::Tensor}") do
+      assert_equal(Arrow::Table.new(numbers: Arrow::UInt8Array.new([1, 2, 3])),
+                   Arrow::Table.new(numbers: Arrow::Tensor.new([1, 2, 3])))
+    end
+  end
+
   test("#columns") do
     assert_equal([
                    Arrow::Column.new(@table, 0),

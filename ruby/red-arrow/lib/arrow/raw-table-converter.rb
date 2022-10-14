@@ -35,7 +35,11 @@ module Arrow
         fields = []
         @values = []
         @raw_table.each do |name, array|
-          array = ArrayBuilder.build(array) if array.is_a?(::Array)
+          if array.respond_to?(:to_arrow_array)
+            array = array.to_arrow_array
+          elsif array.is_a?(::Array)
+            array = ArrayBuilder.build(array)
+          end
           fields << Field.new(name.to_s, array.value_data_type)
           @values << array
         end
