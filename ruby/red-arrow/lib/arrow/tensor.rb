@@ -22,7 +22,7 @@ module Arrow
     alias_method :initialize_raw, :initialize
     # Creates a new {Arrow::Tensor}.
     #
-    # @overload initialize(raw_tensor, data_type: nil, shape: nil, strides: nil, dimension_names: nil)
+    # @overload initialize(raw_tensor, data_type: nil, shape: nil, dimension_names: nil)
     #
     #   @param raw_tensor [::Array<Numeric>] The tensor represented as a
     #     raw `Array` (not `Arrow::Array`) and `Numeric`s. You can
@@ -38,12 +38,6 @@ module Arrow
     #   @param shape [::Array<Integer>, nil] The array of dimension sizes.
     #
     #     If you specify `nil`, shape is guessed from `raw_tensor`.
-    #
-    #   @param strides [::Array<Integer>, nil] The array of the number of
-    #     bytes in each dimension.
-    #
-    #     If you specify `nil` or an empty `Array`, strides are
-    #     guessed from `raw_tensor`.
     #
     #   @param dimension_names [::Array<String>, ::Array<Symbol>, nil]
     #     The array of the dimension names.
@@ -76,12 +70,13 @@ module Arrow
     #
     #     See {Arrow::DataType.resolve} how to specify data type.
     #
-    #   @param data [Arrow::Buffer] The data of the tensor.
+    #   @param data [Arrow::Buffer, String] The data of the tensor.
     #
     #   @param shape [::Array<Integer>] The array of dimension sizes.
     #
-    #   @param strides [::Array<Integer>, nil] The array of the number of
-    #     bytes in each dimension.
+    #   @param strides [::Array<Integer>, nil] The array of strides which
+    #     is the number of bytes between two adjacent elements in each
+    #     dimension.
     #
     #     If you specify `nil` or an empty `Array`, strides are
     #     guessed from `data_type` and `data`.
@@ -126,17 +121,20 @@ module Arrow
         shape = converter.shape
         strides = converter.strides
         dimension_names = converter.dimension_names
-      when 5
-        data_type = DataType.resolve(args[0] || data_type)
+      when 0, 2..5
+        data_type = args[0] || data_type
         data = args[1] || data
         shape = args[2] || shape
         strides = args[3] || strides
         dimension_names = args[4] || dimension_names
+        if data_type.nil?
+          raise ArgumentError, "data_type: is missing: #{data.inspect}"
+        end
       else
-        message = "wrong number of arguments (given #{n_args}, expected 1 or 5)"
+        message = "wrong number of arguments (given #{n_args}, expected 0..5)"
         raise ArgumentError, message
       end
-      initialize_raw(data_type,
+      initialize_raw(DataType.resolve(data_type),
                      data,
                      shape,
                      strides,

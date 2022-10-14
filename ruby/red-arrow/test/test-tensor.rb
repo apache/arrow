@@ -110,6 +110,131 @@ class TensorTest < Test::Unit::TestCase
                        dimension_names: tensor.dimension_names,
                      })
       end
+
+      test("Array, strides:") do
+        message = "strides: must not be specified: #{@strides.inspect}"
+        assert_raise(ArgumentError.new(message)) do
+          Arrow::Tensor.new(@raw_tensor, strides: @strides)
+        end
+      end
+
+      test("Arrow::Buffer, data_type:, shape:") do
+        data_type = :uint8
+        data = Arrow::Buffer.new(@raw_tensor.flatten.pack("C*").freeze)
+        tensor = Arrow::Tensor.new(data,
+                                   data_type: data_type,
+                                   shape: @shape)
+        assert_equal({
+                       value_data_type: Arrow::UInt8DataType.new,
+                       buffer: @raw_tensor.flatten.pack("C*"),
+                       shape: @shape,
+                       strides: @strides,
+                       dimension_names: ["", "", ""],
+                     },
+                     {
+                       value_data_type: tensor.value_data_type,
+                       buffer: tensor.buffer.data.to_s,
+                       shape: tensor.shape,
+                       strides: tensor.strides,
+                       dimension_names: tensor.dimension_names,
+                     })
+      end
+
+      test("String, data_type:, shape:") do
+        data_type = :uint8
+        data = @raw_tensor.flatten.pack("C*").freeze
+        tensor = Arrow::Tensor.new(data,
+                                   data_type: data_type,
+                                   shape: @shape)
+        assert_equal({
+                       value_data_type: Arrow::UInt8DataType.new,
+                       buffer: @raw_tensor.flatten.pack("C*"),
+                       shape: @shape,
+                       strides: @strides,
+                       dimension_names: ["", "", ""],
+                     },
+                     {
+                       value_data_type: tensor.value_data_type,
+                       buffer: tensor.buffer.data.to_s,
+                       shape: tensor.shape,
+                       strides: tensor.strides,
+                       dimension_names: tensor.dimension_names,
+                     })
+      end
+
+      test("String, data_type:") do
+        data_type = :uint8
+        data = @raw_tensor.flatten.pack("C*").freeze
+        message = "shape: is missing: #{data.inspect}"
+        assert_raise(ArgumentError.new(message)) do
+          Arrow::Tensor.new(data, data_type: data_type)
+        end
+      end
+
+      test("String, shape:") do
+        data = @raw_tensor.flatten.pack("C*").freeze
+        message = "data_type: is missing: #{data.inspect}"
+        assert_raise(ArgumentError.new(message)) do
+          Arrow::Tensor.new(data, shape: @shape)
+        end
+      end
+
+      test("Symbol, Arrow::Buffer, shape:") do
+        data_type = :uint8
+        data = Arrow::Buffer.new(@raw_tensor.flatten.pack("C*").freeze)
+        tensor = Arrow::Tensor.new(data_type,
+                                   data,
+                                   shape: @shape)
+        assert_equal({
+                       value_data_type: Arrow::UInt8DataType.new,
+                       buffer: @raw_tensor.flatten.pack("C*"),
+                       shape: @shape,
+                       strides: @strides,
+                       dimension_names: ["", "", ""],
+                     },
+                     {
+                       value_data_type: tensor.value_data_type,
+                       buffer: tensor.buffer.data.to_s,
+                       shape: tensor.shape,
+                       strides: tensor.strides,
+                       dimension_names: tensor.dimension_names,
+                     })
+      end
+
+      test("Symbol, String, shape:, strides: - !contiguous and column major") do
+        data_type = :uint8
+        raw_tensor = [
+          [1, 2, 3, 0], # 0 is padding
+          [4, 5, 6, 0], # 0 is padding
+        ]
+        data = raw_tensor.flatten.pack("C*").freeze
+        shape = [3, 2]
+        strides = [1, 4]
+        tensor = Arrow::Tensor.new(data_type,
+                                   data,
+                                   shape: shape,
+                                   strides: strides)
+        assert_equal({
+                       value_data_type: Arrow::UInt8DataType.new,
+                       buffer: raw_tensor.flatten.pack("C*"),
+                       shape: shape,
+                       strides: strides,
+                       dimension_names: ["", ""],
+                       contiguous: false,
+                       row_major: false,
+                       column_major: false,
+                     },
+                     {
+                       value_data_type: tensor.value_data_type,
+                       buffer: tensor.buffer.data.to_s,
+                       shape: tensor.shape,
+                       strides: tensor.strides,
+                       dimension_names: tensor.dimension_names,
+                       contiguous: tensor.contiguous?,
+                       row_major: tensor.row_major?,
+                       column_major: tensor.column_major?,
+                     })
+      end
     end
   end
 

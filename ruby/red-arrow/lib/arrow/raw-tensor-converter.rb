@@ -41,12 +41,22 @@ module Arrow
       case @raw_tensor
       when Buffer
         @data = @raw_tensor
+      when String
+        @data = Arrow::Buffer.new(@raw_tensor)
       else
         @shape ||= guess_shape
         build_buffer
+        unless @strides.nil?
+          message = "strides: must not be specified: #{@strides.inspect}"
+          raise ArgumentError, message
+        end
       end
-      @strides ||= []
-      @names ||= []
+      if @shape.nil?
+        raise ArgumentError, "shape: is missing: #{@raw_tensor.inspect}"
+      end
+      if @data_type.nil?
+        raise ArgumentError, "data_type: is missing: #{@raw_tensor.inspect}"
+      end
     end
 
     def guess_shape
