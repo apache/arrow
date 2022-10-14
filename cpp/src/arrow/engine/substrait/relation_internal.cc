@@ -96,6 +96,24 @@ Status CheckRelCommon(const RelMessage& rel) {
   return Status::OK();
 }
 
+Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs,
+                            const std::string& dirpath,
+                            std::vector<fs::FileInfo>* rel_fpaths) {
+  // Define a selector for a recursive descent
+  fs::FileSelector selector;
+  selector.base_dir = dirpath;
+  selector.recursive = true;
+
+  ARROW_ASSIGN_OR_RAISE(auto file_infos, local_fs->GetFileInfo(selector));
+  for (auto& file_info : file_infos) {
+    if (file_info.IsFile()) {
+      rel_fpaths->push_back(std::move(file_info));
+    }
+  }
+
+  return Status::OK();
+}
+
 Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
                                   const ExtensionSet& ext_set,
                                   const ConversionOptions& conversion_options) {
