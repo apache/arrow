@@ -50,27 +50,30 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data <- as_adq(.data)
   var <- vars_pull(names(.data), !!enquo(var))
   .data$selected_columns <- set_names(.data$selected_columns[var], var)
-  dplyr::collect(.data)[[1]]
+  dplyr::compute(.data)[[1]]
 }
-pull.Dataset <- pull.ArrowTabular <- pull.RecordBatchReader <- pull.arrow_dplyr_query
+pull.Dataset <- pull.RecordBatchReader <- pull.arrow_dplyr_query
+
+pull.ArrowTabular <- function(x, var = -1) {
+  x[[vars_pull(names(x), !!enquo(var))]]
+}
 
 restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
   # After calling collect(), make sure these features are carried over
 
-  if (length(query$group_by_vars) > 0) {
-    # Preserve groupings, if present
+  if (length(dplyr::group_vars(query))) {
     if (is.data.frame(df)) {
-      df <- dplyr::grouped_df(
+      # Preserve groupings, if present
+      df <- dplyr::group_by(
         df,
-        dplyr::group_vars(query),
-        drop = dplyr::group_by_drop_default(query)
+        !!!syms(dplyr::group_vars(query)),
+        .drop = dplyr::group_by_drop_default(query),
+        .add = FALSE
       )
     } else {
       # This is a Table, via compute() or collect(as_data_frame = FALSE)
-      df <- as_adq(df)
-      df$group_by_vars <- query$group_by_vars
-      df$drop_empty_groups <- query$drop_empty_groups
+      df$metadata$r$attributes$.group_vars <- dplyr::group_vars(query)
     }
   }
   df
@@ -80,7 +83,10 @@ collapse.arrow_dplyr_query <- function(x, ...) {
   # Figure out what schema will result from the query
   x$schema <- implicit_schema(x)
   # Nest inside a new arrow_dplyr_query (and keep groups)
-  restore_dplyr_features(arrow_dplyr_query(x), x)
+  out <- arrow_dplyr_query(x)
+  out$group_by_vars <- x$group_by_vars
+  out$drop_empty_groups <- x$drop_empty_groups
+  out
 }
 collapse.Dataset <- collapse.ArrowTabular <- collapse.RecordBatchReader <- function(x, ...) {
   arrow_dplyr_query(x)

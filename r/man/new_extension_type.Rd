@@ -57,7 +57,7 @@ Extension arrays are wrappers around regular Arrow \link{Array} objects
 that provide some customized behaviour and/or storage. A common use-case
 for extension types is to define a customized conversion between an
 an Arrow \link{Array} and an R object when the default conversion is slow
-or looses metadata important to the interpretation of values in the array.
+or loses metadata important to the interpretation of values in the array.
 For most types, the built-in
 \link[=vctrs_extension_type]{vctrs extension type} is probably sufficient.
 }

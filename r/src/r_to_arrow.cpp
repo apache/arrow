@@ -743,7 +743,7 @@ Status check_binary(SEXP x, int64_t size) {
       // check this is a list of raw vectors
       const SEXP* p_x = VECTOR_PTR_RO(x);
       for (R_xlen_t i = 0; i < size; i++, ++p_x) {
-        if (TYPEOF(*p_x) != RAWSXP) {
+        if (TYPEOF(*p_x) != RAWSXP && (*p_x != R_NilValue)) {
           return Status::Invalid("invalid R type to convert to binary");
         }
       }

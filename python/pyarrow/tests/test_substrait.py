@@ -16,7 +16,7 @@
 # under the License.
 
 import os
-import sys
+import pathlib
 import pytest
 
 import pyarrow as pa
@@ -40,9 +40,6 @@ def _write_dummy_data_to_disk(tmpdir, file_name, table):
     return path
 
 
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="ARROW-16392: file based URI is" +
-                    " not fully supported for Windows")
 def test_run_serialized_query(tmpdir):
     substrait_query = """
     {
@@ -62,7 +59,7 @@ def test_run_serialized_query(tmpdir):
             "local_files": {
                 "items": [
                 {
-                    "uri_file": "file://FILENAME_PLACEHOLDER",
+                    "uri_file": "FILENAME_PLACEHOLDER",
                     "arrow": {}
                 }
                 ]
@@ -76,7 +73,8 @@ def test_run_serialized_query(tmpdir):
     file_name = "read_data.arrow"
     table = pa.table([[1, 2, 3, 4, 5]], names=['foo'])
     path = _write_dummy_data_to_disk(tmpdir, file_name, table)
-    query = tobytes(substrait_query.replace("FILENAME_PLACEHOLDER", path))
+    query = tobytes(substrait_query.replace(
+        "FILENAME_PLACEHOLDER", pathlib.Path(path).as_uri()))
 
     buf = pa._substrait._parse_json_plan(query)
 
@@ -84,6 +82,22 @@ def test_run_serialized_query(tmpdir):
     res_tb = reader.read_all()
 
     assert table.select(["foo"]) == res_tb.select(["foo"])
+
+
+@pytest.mark.parametrize("query", (pa.py_buffer(b'buffer'), b"bytes", 1))
+def test_run_query_input_types(tmpdir, query):
+
+    # Passing unsupported type, like int, will not segfault.
+    if not isinstance(query, (pa.Buffer, bytes)):
+        msg = f"Expected 'pyarrow.Buffer' or bytes, got '{type(query)}'"
+        with pytest.raises(TypeError, match=msg):
+            substrait.run_query(query)
+        return
+
+    # Otherwise error for invalid query
+    msg = "ParseFromZeroCopyStream failed for substrait.Plan"
+    with pytest.raises(OSError, match=msg):
+        substrait.run_query(query)
 
 
 def test_invalid_plan():
@@ -99,9 +113,6 @@ def test_invalid_plan():
         substrait.run_query(buf)
 
 
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="ARROW-16392: file based URI is" +
-                    " not fully supported for Windows")
 def test_binary_conversion_with_json_options(tmpdir):
     substrait_query = """
     {
@@ -121,7 +132,7 @@ def test_binary_conversion_with_json_options(tmpdir):
             "local_files": {
                 "items": [
                 {
-                    "uri_file": "file://FILENAME_PLACEHOLDER",
+                    "uri_file": "FILENAME_PLACEHOLDER",
                     "arrow": {},
                     "metadata" : {
                       "created_by" : {},
@@ -138,7 +149,8 @@ def test_binary_conversion_with_json_options(tmpdir):
     file_name = "binary_json_data.arrow"
     table = pa.table([[1, 2, 3, 4, 5]], names=['bar'])
     path = _write_dummy_data_to_disk(tmpdir, file_name, table)
-    query = tobytes(substrait_query.replace("FILENAME_PLACEHOLDER", path))
+    query = tobytes(substrait_query.replace(
+        "FILENAME_PLACEHOLDER", pathlib.Path(path).as_uri()))
     buf = pa._substrait._parse_json_plan(tobytes(query))
 
     reader = substrait.run_query(buf)

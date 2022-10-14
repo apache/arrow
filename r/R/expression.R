@@ -173,7 +173,12 @@ Expression$create <- function(function_name,
   assert_that(is.string(function_name))
   assert_that(is_list_of(args, "Expression"), msg = "Expression arguments must be Expression objects")
   expr <- compute___expr__call(function_name, args, options)
-  expr$schema <- unify_schemas(schemas = lapply(args, function(x) x$schema))
+  if (length(args)) {
+    expr$schema <- unify_schemas(schemas = lapply(args, function(x) x$schema))
+  } else {
+    # TODO: this shouldn't be necessary
+    expr$schema <- schema()
+  }
   expr
 }
 

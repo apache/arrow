@@ -194,7 +194,15 @@ for GCS storage.
 
 If not running on Google Cloud Platform (GCP), this generally requires the
 environment variable ``GOOGLE_APPLICATION_CREDENTIALS`` to point to a
-JSON file containing credentials.
+JSON file containing credentials. Alternatively, use the ``gcloud`` CLI to
+generate a credentials file in the default location::
+
+   gcloud auth application-default login
+
+To connect to a public bucket without using any credentials, you must pass
+``anonymous=True`` to :class:`GcsFileSystem`. Otherwise, the filesystem
+will report ``Couldn't resolve host name`` since there are different host 
+names for authenticated and public access.
 
 Example showing how you can read contents from a GCS bucket::
 

@@ -182,10 +182,7 @@ jobs:
           key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-ccache-macos-
       - name: Build
-        # use brew version of clang, to be consistent with LLVM lib, see ARROW-17790.
         run: |
-          export CC=$(brew --prefix llvm)/bin/clang
-          export CXX=$(brew --prefix llvm)/bin/clang++
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash

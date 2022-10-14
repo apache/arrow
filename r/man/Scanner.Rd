@@ -30,7 +30,7 @@ to keep all rows.
 \code{ScannerBuilder} has the following methods:
 \itemize{
 \item \verb{$Project(cols)}: Indicate that the scan should only return columns given
-by \code{cols}, a character vector of column names
+by \code{cols}, a character vector of column names or a named list of \link{Expression}.
 \item \verb{$Filter(expr)}: Filter rows by an \link{Expression}.
 \item \verb{$UseThreads(threads)}: logical: should the scan use multithreading?
 The method's default input is \code{TRUE}, but you must call the method to enable
@@ -46,3 +46,28 @@ then this method can be called to reduce their size.
 query and returns an Arrow \link{Table}.
 }
 
+\examples{
+\dontshow{if (arrow_with_dataset() & arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+# Set up directory for examples
+tf <- tempfile()
+dir.create(tf)
+on.exit(unlink(tf))
+
+write_dataset(mtcars, tf, partitioning="cyl")
+
+ds <- open_dataset(tf)
+
+scan_builder <- ds$NewScan()
+scan_builder$Filter(Expression$field_ref("hp") > 100)
+scan_builder$Project(list(hp_times_ten = 10 * Expression$field_ref("hp")))
+
+# Once configured, call $Finish()
+scanner <- scan_builder$Finish()
+
+# Can get results as a table
+as.data.frame(scanner$ToTable())
+
+# Or as a RecordBatchReader
+scanner$ToRecordBatchReader()
+\dontshow{\}) # examplesIf}
+}

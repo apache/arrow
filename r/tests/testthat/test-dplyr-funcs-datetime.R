@@ -168,7 +168,8 @@ test_that("strptime", {
       mutate(
         x = strptime(x, format = "%m-%d-%Y")
       ) %>%
-      pull(),
+      pull() %>%
+      as.vector(),
     # R's strptime returns POSIXlt (list type)
     as.POSIXct(tstamp),
     ignore_attr = "tzone"

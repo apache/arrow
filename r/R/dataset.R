@@ -131,8 +131,7 @@
 #' dir.create(tf)
 #' on.exit(unlink(tf))
 #'
-#' data <- dplyr::group_by(mtcars, cyl)
-#' write_dataset(data, tf)
+#' write_dataset(mtcars, tf, partitioning="cyl")
 #'
 #' # You can specify a directory containing the files for your dataset and
 #' # open_dataset will scan all files in your directory.
@@ -145,7 +144,7 @@
 #' tf2 <- tempfile()
 #' dir.create(tf2)
 #' on.exit(unlink(tf2))
-#' write_dataset(data, tf2, format = "ipc")
+#' write_dataset(mtcars, tf2, format = "ipc")
 #' # This line will results in errors when you try to work with the data
 #' \dontrun{
 #' open_dataset(tf2)

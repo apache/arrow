@@ -5101,6 +5101,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // table.cpp
+std::shared_ptr<arrow::Table> Table__from_schema(SEXP schema_sxp);
+extern "C" SEXP _arrow_Table__from_schema(SEXP schema_sxp_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type schema_sxp(schema_sxp_sexp);
+	return cpp11::as_sexp(Table__from_schema(schema_sxp));
+END_CPP11
+}
+// table.cpp
 r_vec_size Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_Table__ReferencedBufferSize(SEXP table_sexp){
 BEGIN_CPP11
@@ -5724,6 +5732,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__SelectColumns", (DL_FUNC) &_arrow_Table__SelectColumns, 2}, 
 		{ "_arrow_all_record_batches", (DL_FUNC) &_arrow_all_record_batches, 1}, 
 		{ "_arrow_Table__from_record_batches", (DL_FUNC) &_arrow_Table__from_record_batches, 2}, 
+		{ "_arrow_Table__from_schema", (DL_FUNC) &_arrow_Table__from_schema, 1}, 
 		{ "_arrow_Table__ReferencedBufferSize", (DL_FUNC) &_arrow_Table__ReferencedBufferSize, 1}, 
 		{ "_arrow_Table__ConcatenateTables", (DL_FUNC) &_arrow_Table__ConcatenateTables, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
