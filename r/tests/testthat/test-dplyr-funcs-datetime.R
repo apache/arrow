@@ -2033,8 +2033,7 @@ test_that("`as_datetime()`", {
 
 test_that("as_datetime() works with other functions", {
   test_df <- tibble(
-    char_date = c("2022-03-22", "2021-07-30 14:32:47", "1970-01-01 00:00:59.123456789", NA),
-    double_date = c(10.1, 25.2, 1e-9, NA)
+    char_date = c("2022-03-22", "2021-07-30 14:32:47", "1970-01-01 00:00:59.123456789", NA)
   )
 
   compare_dplyr_binding(
