@@ -14,11 +14,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-go 1.18
+//go:build !noasm
 
-use (
-	./go
-	./go/arrow/compute
+package kernels
+
+import (
+	"unsafe"
+
+	"github.com/apache/arrow/go/v10/arrow"
+	"golang.org/x/sys/cpu"
 )
 
-replace github.com/apache/arrow/go/v10 v10.0.0 => ./go
+//go:noescape
+func _cast_type_numeric_neon(itype, otype int, in, out unsafe.Pointer, len int)
+
+func castNumericNeon(itype, otype arrow.Type, in, out []byte, len int) {
+	_cast_type_numeric_neon(int(itype), int(otype), unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len)
+}
+
+func init() {
+	if cpu.ARM64.HasASIMD {
+		castNumericUnsafe = castNumericNeon
+	} else {
+		castNumericUnsafe = castNumericGo
+	}
+}

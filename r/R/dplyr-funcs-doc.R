@@ -19,9 +19,9 @@
 
 #' Functions available in Arrow dplyr queries
 #'
-#' The `arrow` package contains methods for 32 `dplyr` table functions, many of
+#' The `arrow` package contains methods for 37 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 205 R functions to the corresponding
+#' The package also has mappings of 207 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -62,6 +62,11 @@
 #' * [`select()`][dplyr::select()]
 #' * [`semi_join()`][dplyr::semi_join()]
 #' * [`show_query()`][dplyr::show_query()]
+#' * [`slice_head()`][dplyr::slice_head()]: slicing within groups not supported; Arrow datasets do not have row order, so head is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
+#' * [`slice_max()`][dplyr::slice_max()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
+#' * [`slice_min()`][dplyr::slice_min()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
+#' * [`slice_sample()`][dplyr::slice_sample()]: slicing within groups not supported; `replace = TRUE` and the `weight_by` argument not supported; `n` only supported on queries where `nrow()` is knowable without evaluating
+#' * [`slice_tail()`][dplyr::slice_tail()]: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`summarise()`][dplyr::summarise()]
 #' * [`tally()`][dplyr::tally()]
 #' * [`transmute()`][dplyr::transmute()]
@@ -78,7 +83,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 243 compute
+#' In addition to these functions, you can call any of Arrow's 244 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -185,13 +190,13 @@
 #'
 #' ## dplyr
 #'
-#' * [`across()`][dplyr::across()]: not yet supported inside `filter()`;
-#' purrr-style lambda functions
-#' and use of `where()` selection helper not yet supported
+#' * [`across()`][dplyr::across()]: Use of `where()` selection helper not yet supported
 #' * [`between()`][dplyr::between()]
 #' * [`case_when()`][dplyr::case_when()]
 #' * [`coalesce()`][dplyr::coalesce()]
 #' * [`desc()`][dplyr::desc()]
+#' * [`if_all()`][dplyr::if_all()]
+#' * [`if_any()`][dplyr::if_any()]
 #' * [`if_else()`][dplyr::if_else()]
 #' * [`n()`][dplyr::n()]
 #' * [`n_distinct()`][dplyr::n_distinct()]

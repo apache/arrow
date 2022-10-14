@@ -264,19 +264,22 @@ class ScanNode : public cp::ExecNode {
       ScanState* state_view = scan_state.get();
       // Finish callback keeps the scan state alive until all scan tasks done
       struct StateHolder {
-        Status operator()() { return Status::OK(); }
+        Status operator()(Status) { return Status::OK(); }
         std::unique_ptr<ScanState> scan_state;
       };
-      util::AsyncTaskScheduler* frag_scheduler = scan_scheduler->MakeSubScheduler(
-          StateHolder{std::move(scan_state)}, node->batches_throttle_.get());
+      std::shared_ptr<util::AsyncTaskScheduler> frag_scheduler =
+          scan_scheduler->MakeSubScheduler(StateHolder{std::move(scan_state)},
+                                           node->batches_throttle_.get());
       for (int i = 0; i < fragment_scanner->NumBatches(); i++) {
         node->num_batches_.fetch_add(1);
         frag_scheduler->AddTask(std::make_unique<ScanBatchTask>(node, state_view, i));
       }
       Future<> list_and_scan_node = frag_scheduler->OnFinished();
-      frag_scheduler->End();
       // The "list fragments" task doesn't actually end until the fragments are
       // all scanned.  This allows us to enforce fragment readahead.
+      if (--node->list_tasks_ == 0) {
+        node->scan_scheduler_.reset();
+      }
       return list_and_scan_node;
     }
 
@@ -313,8 +316,8 @@ class ScanNode : public cp::ExecNode {
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
     AsyncGenerator<std::shared_ptr<Fragment>> frag_gen =
         GetFragments(options_.dataset.get(), options_.filter);
-    util::AsyncTaskScheduler* scan_scheduler = plan_->async_scheduler()->MakeSubScheduler(
-        [this]() {
+    scan_scheduler_ = plan_->async_scheduler()->MakeSubScheduler(
+        [this](Status st) {
           outputs_[0]->InputFinished(this, num_batches_.load());
           finished_.MarkFinished();
           return Status::OK();
@@ -322,12 +325,15 @@ class ScanNode : public cp::ExecNode {
         fragments_throttle_.get());
     plan_->async_scheduler()->AddAsyncGenerator<std::shared_ptr<Fragment>>(
         std::move(frag_gen),
-        [this, scan_scheduler](const std::shared_ptr<Fragment>& fragment) {
-          scan_scheduler->AddTask(std::make_unique<ListFragmentTask>(this, fragment));
+        [this](const std::shared_ptr<Fragment>& fragment) {
+          list_tasks_++;
+          scan_scheduler_->AddTask(std::make_unique<ListFragmentTask>(this, fragment));
           return Status::OK();
         },
-        [scan_scheduler]() {
-          scan_scheduler->End();
+        [this](Status) {
+          if (--list_tasks_ == 0) {
+            scan_scheduler_.reset();
+          }
           return Status::OK();
         });
     return Status::OK();
@@ -351,6 +357,11 @@ class ScanNode : public cp::ExecNode {
  private:
   ScanV2Options options_;
   std::atomic<int> num_batches_{0};
+  // TODO(ARROW-17509) list_tasks_, and scan_scheduler_ are just
+  // needed to figure out when to end scan_scheduler_.  In the future, we should not need
+  // to call end and these variables can go away.
+  std::atomic<int> list_tasks_{1};
+  std::shared_ptr<util::AsyncTaskScheduler> scan_scheduler_;
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> fragments_throttle_;
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> batches_throttle_;
 };

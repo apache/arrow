@@ -4,7 +4,7 @@ Subject: [NIGHTLY] Arrow Build Report for Job ursabot-1: 2 failed, 1 pending
 
 Arrow Build Report for Job ursabot-1
 
-See https://crossbow.voltrondata.com/ for more information.
+See http://crossbow.voltrondata.com/ for more information.
 
 All tasks: https://github.com/apache/crossbow/branches/all?query=ursabot-1
 

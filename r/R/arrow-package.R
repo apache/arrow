@@ -26,7 +26,7 @@
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
 #' @importFrom rlang is_list call2 is_empty as_function as_label arg_match is_symbol is_call call_args
 #' @importFrom rlang quo_set_env quo_get_env is_formula quo_is_call f_rhs parse_expr f_env new_quosure
-#' @importFrom rlang new_quosures expr_text
+#' @importFrom rlang new_quosures expr_text caller_env check_dots_empty dots_list
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @importFrom glue glue
 #' @useDynLib arrow, .registration = TRUE
@@ -64,6 +64,31 @@ supported_dplyr_methods <- list(
   rename_with = NULL,
   union = NULL,
   union_all = NULL,
+  slice_head = c(
+    "slicing within groups not supported;",
+    "Arrow datasets do not have row order, so head is non-deterministic;",
+    "`prop` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
+  slice_tail = c(
+    "slicing within groups not supported;",
+    "Arrow datasets do not have row order, so tail is non-deterministic;",
+    "`prop` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
+  slice_min = c(
+    "slicing within groups not supported;",
+    "`with_ties = TRUE` (dplyr default) is not supported;",
+    "`prop` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
+  slice_max = c(
+    "slicing within groups not supported;",
+    "`with_ties = TRUE` (dplyr default) is not supported;",
+    "`prop` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
+  slice_sample = c(
+    "slicing within groups not supported;",
+    "`replace = TRUE` and the `weight_by` argument not supported;",
+    "`n` only supported on queries where `nrow()` is knowable without evaluating"
+  ),
   glimpse = NULL,
   show_query = NULL,
   explain = NULL

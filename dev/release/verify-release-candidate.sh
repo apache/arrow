@@ -836,7 +836,7 @@ test_js() {
   show_header "Build and test JavaScript libraries"
 
   maybe_setup_nodejs || exit 1
-  maybe_setup_conda nodejs=17 || exit 1
+  maybe_setup_conda nodejs=16 || exit 1
 
   if ! command -v yarn &> /dev/null; then
     npm install -g yarn
