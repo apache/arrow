@@ -164,10 +164,12 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
                            BackpressureOptions backpressure = {},
-                           BackpressureMonitor** backpressure_monitor = NULLPTR)
+                           BackpressureMonitor** backpressure_monitor = NULLPTR,
+                           std::shared_ptr<Schema>* output_schema = NULLPTR)
       : generator(generator),
         backpressure(std::move(backpressure)),
-        backpressure_monitor(backpressure_monitor) {}
+        backpressure_monitor(backpressure_monitor),
+        output_schema(output_schema) {}
 
   /// \brief A pointer to a generator of batches.
   ///
@@ -186,6 +188,8 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// the amount of data currently queued in the sink node.  This is an optional utility
   /// and backpressure can be applied even if this is not used.
   BackpressureMonitor** backpressure_monitor;
+  /// TODO: remove if not working
+  std::shared_ptr<Schema>* output_schema;
 };
 
 /// \brief Control used by a SinkNodeConsumer to pause & resume

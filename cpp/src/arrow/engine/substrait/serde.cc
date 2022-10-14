@@ -108,6 +108,20 @@ DeclarationFactory MakeConsumingSinkDeclarationFactory(
   };
 }
 
+DeclarationFactory MakeSinkDeclarationFactory(
+ const SinkOptionsFactory& sink_options_factory) {
+  return [&sink_options_factory](
+             compute::Declaration input,
+             std::vector<std::string> names) -> Result<compute::Declaration> {
+    std::shared_ptr<compute::SinkNodeOptions> options = sink_options_factory();
+    if (options == nullptr) {
+      return Status::Invalid("sink options factory is exhausted");
+    }
+    return compute::Declaration::Sequence(
+        {std::move(input), {"sink", std::move(*options)}});
+  };
+}
+
 compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
                                                std::vector<std::string> names) {
   int names_size = static_cast<int>(names.size());
@@ -187,6 +201,14 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
   return DeserializePlans(buf, MakeWriteDeclarationFactory(write_options_factory),
+                          registry, ext_set_out, conversion_options);
+}
+
+Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf, const SinkOptionsFactory& sink_options_factory,
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
+    const ConversionOptions& conversion_options) {
+  return DeserializePlans(buf, MakeSinkDeclarationFactory(sink_options_factory),
                           registry, ext_set_out, conversion_options);
 }
 

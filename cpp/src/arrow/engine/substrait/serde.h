@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/compute/type_fwd.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/type_fwd.h"
@@ -136,6 +137,31 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
 /// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
+    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
+    const ConversionOptions& conversion_options = {});
+
+
+/// TODO: add documentation
+
+using SinkOptionsFactory = std::function<std::shared_ptr<compute::SinkNodeOptions>()>;
+
+/// \brief Deserializes a single-relation Substrait Plan message to an execution plan
+///
+/// The output of the single Substrait relation will be extracted from the generator
+/// in the SinkNodeOptions.
+///
+/// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
+/// message
+/// \param[in] sink_options_factory factory function for generating sink node options 
+/// of a node collecting the batches produced by each toplevel Substrait relation
+/// \param[in] registry an extension-id-registry to use, or null for the default one.
+/// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
+/// Plan is returned here.
+/// \param[in] conversion_options options to control how the conversion is to be done.
+/// \return a vector of ExecNode declarations, one for each toplevel relation in the
+/// Substrait Plan
+ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf, const SinkOptionsFactory& sink_options_factory,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
 

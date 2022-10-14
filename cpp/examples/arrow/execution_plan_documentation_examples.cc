@@ -261,9 +261,6 @@ arrow::Status ExecutePlanAndCollectAsTable(
     std::shared_ptr<arrow::Schema> schema,
     arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen) {
   // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader =
-      cp::MakeGeneratorReader(schema, std::move(sink_gen), exec_context.memory_pool());
-
   // validate the ExecPlan
   ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
@@ -272,6 +269,8 @@ arrow::Status ExecutePlanAndCollectAsTable(
 
   // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader =
+      cp::MakeGeneratorReader(schema, std::move(sink_gen), exec_context.memory_pool());
 
   ARROW_ASSIGN_OR_RAISE(response_table,
                         arrow::Table::FromRecordBatchReader(sink_reader.get()));
@@ -313,11 +312,12 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
                         cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
 
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
-
+  std::shared_ptr<arrow::Schema> output_schema;
   ARROW_RETURN_NOT_OK(
-      cp::MakeExecNode("sink", plan.get(), {scan}, cp::SinkNodeOptions{&sink_gen}));
+      cp::MakeExecNode("sink", plan.get(), {scan}, 
+      cp::SinkNodeOptions{&sink_gen, {}, NULLPTR, &output_schema}));
 
-  return ExecutePlanAndCollectAsTable(exec_context, plan, dataset->schema(), sink_gen);
+  return ExecutePlanAndCollectAsTable(exec_context, plan, output_schema, sink_gen);
 }
 // (Doc section: Scan Example)
 
@@ -343,7 +343,6 @@ arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
 
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
-
   ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("sink", plan.get(), {source}, cp::SinkNodeOptions{&sink_gen}));
 

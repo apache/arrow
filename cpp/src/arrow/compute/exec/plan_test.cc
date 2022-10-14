@@ -237,6 +237,36 @@ TEST(ExecPlanExecution, SourceSink) {
   }
 }
 
+TEST(ExecPlanExecution, SinkWithOutpuSchemaOption) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+        ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+        AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+
+        auto basic_data = MakeBasicBatches();
+
+        std::shared_ptr<Schema> output_schema;
+
+        ASSERT_OK(Declaration::Sequence(
+                      {
+                          {"source", SourceNodeOptions{basic_data.schema,
+                                                        basic_data
+                                                        .gen(parallel, slow)}},
+                          {"sink", SinkNodeOptions{&sink_gen,
+                          {}, NULLPTR, &output_schema}},
+                      })
+                      .AddToPlan(plan.get()));
+        ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                    Finishes(ResultWith(
+                      UnorderedElementsAreArray(basic_data.batches))));
+        ASSERT_TRUE(output_schema->Equals(*basic_data.schema));
+    }
+  }
+}
+
 TEST(ExecPlanExecution, UseSinkAfterExecution) {
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   {
