@@ -3292,28 +3292,56 @@ TEST(Substrait, PlanWithExtension) {
             ],
             "detail": {
               "@type": "/arrow.substrait.AsOfJoinRel",
-              "on": {
-                "selection": {
-                  "directReference": {
-                    "structField": {
-                      "field": 0,
+              "input_keys" : [
+                {
+                  "on": {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 0,
+                        }
+                      },
+                      "rootReference": {}
                     }
                   },
-                  "rootReference": {}
-                }
-              },
-              "by": [
-                {
-                  "selection": {
-                    "directReference": {
-                      "structField": {
-                        "field": 1,
+                  "by": [
+                    {
+                      "selection": {
+                        "directReference": {
+                          "structField": {
+                            "field": 1,
+                          }
+                        },
+                        "rootReference": {}
                       }
-                    },
-                    "rootReference": {}
-                  }
-                }
-              ],
+                    }
+                  ]
+		},
+                {
+                  "on": {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 0,
+                        }
+                      },
+                      "rootReference": {}
+                    }
+                  },
+                  "by": [
+                    {
+                      "selection": {
+                        "directReference": {
+                          "structField": {
+                            "field": 1,
+                          }
+                        },
+                        "rootReference": {}
+                      }
+                    }
+                  ]
+		}
+	      ],
               "tolerance": 1000
             }
           }
@@ -3349,8 +3377,10 @@ TEST(Substrait, PlanWithExtension) {
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
-  ASSERT_OK_AND_ASSIGN(auto out_schema, compute::asofjoin::MakeOutputSchema(
-                                            input_schema, FieldRef(0), {FieldRef(1)}));
+  ASSERT_OK_AND_ASSIGN(
+      auto out_schema,
+      compute::asofjoin::MakeOutputSchema(
+          input_schema, {{FieldRef(0), {FieldRef(1)}}, {FieldRef(0), {FieldRef(1)}}}));
   auto expected_table = TableFromJSON(
       out_schema, {"[[2, 1, 1.1, 1.2], [4, 1, 2.1, 1.2], [6, 2, 3.1, 3.2]]"});
   CheckRoundTripResult(std::move(out_schema), std::move(expected_table),

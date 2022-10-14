@@ -26,7 +26,11 @@ option java_multiple_files = true;
 option java_package = "io.arrow.substrait";
 
 message AsOfJoinRel {
-  .substrait.Expression on = 1;
-  repeated .substrait.Expression by = 2;
-  int64 tolerance = 3;
+  repeated AsOfJoinKeys input_keys = 1;
+  int64 tolerance = 2;
+
+  message AsOfJoinKeys {
+    .substrait.Expression on = 1;
+    repeated .substrait.Expression by = 2;
+  }
 }

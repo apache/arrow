@@ -50,24 +50,37 @@ class DefaultExtensionProvider : public ExtensionProvider {
       return Status::Invalid("substrait::AsOfJoinNode too few input tables: ",
                              inputs.size());
     }
-    // on-key
-    if (!as_of_join_rel.has_on()) {
-      return Status::Invalid("substrait::AsOfJoinNode missing on-key");
+    if (static_cast<size_t>(as_of_join_rel.input_keys_size()) != inputs.size()) {
+      return Status::Invalid("substrait::AsOfJoinNode mismatched number of inputs");
     }
-    ARROW_ASSIGN_OR_RAISE(auto on_key_expr, FromProto(as_of_join_rel.on(), ext_set, {}));
-    if (on_key_expr.field_ref() == NULLPTR) {
-      return Status::NotImplemented("substrait::AsOfJoinNode non-field-ref on-key");
-    }
-    const FieldRef& on_key = *on_key_expr.field_ref();
 
-    // by-key
-    std::vector<FieldRef> by_key;
-    for (const auto& by_item : as_of_join_rel.by()) {
-      ARROW_ASSIGN_OR_RAISE(auto by_key_expr, FromProto(by_item, ext_set, {}));
-      if (by_key_expr.field_ref() == NULLPTR) {
-        return Status::NotImplemented("substrait::AsOfJoinNode non-field-ref by-key");
+    size_t n_input = inputs.size(), i = 0;
+    std::vector<compute::AsofJoinNodeOptions::Keys> input_keys(n_input);
+    for (const auto& keys : as_of_join_rel.input_keys()) {
+      // on-key
+      if (!keys.has_on()) {
+        return Status::Invalid("substrait::AsOfJoinNode missing on-key for input ", i);
       }
-      by_key.push_back(*by_key_expr.field_ref());
+      ARROW_ASSIGN_OR_RAISE(auto on_key_expr, FromProto(keys.on(), ext_set, {}));
+      if (on_key_expr.field_ref() == NULLPTR) {
+        return Status::NotImplemented(
+            "substrait::AsOfJoinNode non-field-ref on-key for input ", i);
+      }
+      const FieldRef& on_key = *on_key_expr.field_ref();
+
+      // by-key
+      std::vector<FieldRef> by_key;
+      for (const auto& by_item : keys.by()) {
+        ARROW_ASSIGN_OR_RAISE(auto by_key_expr, FromProto(by_item, ext_set, {}));
+        if (by_key_expr.field_ref() == NULLPTR) {
+          return Status::NotImplemented(
+              "substrait::AsOfJoinNode non-field-ref by-key for input ", i);
+        }
+        by_key.push_back(*by_key_expr.field_ref());
+      }
+
+      input_keys[i] = {std::move(on_key), std::move(by_key)};
+      ++i;
     }
 
     // schema
@@ -76,10 +89,9 @@ class DefaultExtensionProvider : public ExtensionProvider {
     for (size_t i = 0; i < inputs.size(); i++) {
       input_schema[i] = inputs[i].output_schema;
     }
-    ARROW_ASSIGN_OR_RAISE(
-        auto schema, compute::asofjoin::MakeOutputSchema(input_schema, on_key, by_key));
-    compute::AsofJoinNodeOptions asofjoin_node_opts{std::move(on_key), std::move(by_key),
-                                                    tolerance};
+    ARROW_ASSIGN_OR_RAISE(auto schema,
+                          compute::asofjoin::MakeOutputSchema(input_schema, input_keys));
+    compute::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
 
     // declaration
     std::vector<compute::Declaration::Input> input_decls(inputs.size());

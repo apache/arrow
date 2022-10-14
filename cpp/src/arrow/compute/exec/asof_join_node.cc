@@ -1031,11 +1031,30 @@ class AsofJoinNode : public ExecNode {
     return match.indices()[0];
   }
 
+  static Result<size_t> GetByKeySize(
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys) {
+    size_t n_by = 0;
+    for (size_t i = 0; i < input_keys.size(); ++i) {
+      const auto& by_key = input_keys[i].by_key;
+      if (i == 0) {
+        n_by = by_key.size();
+      } else if (n_by != by_key.size()) {
+        return Status::Invalid("inconsistent size of by-key across inputs");
+      }
+    }
+    return n_by;
+  }
+
   static Result<std::vector<col_index_t>> GetIndicesOfOnKey(
-      const std::vector<std::shared_ptr<Schema>>& input_schema, const FieldRef& on_key) {
+      const std::vector<std::shared_ptr<Schema>>& input_schema,
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys) {
+    if (input_schema.size() != input_keys.size()) {
+      return Status::Invalid("mismatching number of input schema and keys");
+    }
     size_t n_input = input_schema.size();
     std::vector<col_index_t> indices_of_on_key(n_input);
     for (size_t i = 0; i < n_input; ++i) {
+      const auto& on_key = input_keys[i].on_key;
       ARROW_ASSIGN_OR_RAISE(indices_of_on_key[i],
                             FindColIndex(*input_schema[i], on_key, "on"));
     }
@@ -1044,12 +1063,17 @@ class AsofJoinNode : public ExecNode {
 
   static Result<std::vector<std::vector<col_index_t>>> GetIndicesOfByKey(
       const std::vector<std::shared_ptr<Schema>>& input_schema,
-      const std::vector<FieldRef>& by_key) {
-    size_t n_input = input_schema.size(), n_by = by_key.size();
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys) {
+    if (input_schema.size() != input_keys.size()) {
+      return Status::Invalid("mismatching number of input schema and keys");
+    }
+    ARROW_ASSIGN_OR_RAISE(size_t n_by, GetByKeySize(input_keys));
+    size_t n_input = input_schema.size();
     std::vector<std::vector<col_index_t>> indices_of_by_key(
         n_input, std::vector<col_index_t>(n_by));
     for (size_t i = 0; i < n_input; ++i) {
       for (size_t k = 0; k < n_by; k++) {
+        const auto& by_key = input_keys[i].by_key;
         ARROW_ASSIGN_OR_RAISE(indices_of_by_key[i][k],
                               FindColIndex(*input_schema[i], by_key[k], "by"));
       }
@@ -1067,7 +1091,8 @@ class AsofJoinNode : public ExecNode {
                              join_options.tolerance);
     }
 
-    size_t n_input = inputs.size(), n_by = join_options.by_key.size();
+    ARROW_ASSIGN_OR_RAISE(size_t n_by, GetByKeySize(join_options.input_keys));
+    size_t n_input = inputs.size();
     std::vector<std::string> input_labels(n_input);
     std::vector<std::shared_ptr<Schema>> input_schema(n_input);
     for (size_t i = 0; i < n_input; ++i) {
@@ -1075,9 +1100,9 @@ class AsofJoinNode : public ExecNode {
       input_schema[i] = inputs[i]->output_schema();
     }
     ARROW_ASSIGN_OR_RAISE(std::vector<col_index_t> indices_of_on_key,
-                          GetIndicesOfOnKey(input_schema, join_options.on_key));
+                          GetIndicesOfOnKey(input_schema, join_options.input_keys));
     ARROW_ASSIGN_OR_RAISE(std::vector<std::vector<col_index_t>> indices_of_by_key,
-                          GetIndicesOfByKey(input_schema, join_options.by_key));
+                          GetIndicesOfByKey(input_schema, join_options.input_keys));
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Schema> output_schema,
         MakeOutputSchema(input_schema, indices_of_on_key, indices_of_by_key));
@@ -1199,12 +1224,12 @@ void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {
 namespace asofjoin {
 
 Result<std::shared_ptr<Schema>> MakeOutputSchema(
-    const std::vector<std::shared_ptr<Schema>>& input_schema, const FieldRef& on_key,
-    const std::vector<FieldRef>& by_key) {
+    const std::vector<std::shared_ptr<Schema>>& input_schema,
+    const std::vector<AsofJoinKeys>& input_keys) {
   ARROW_ASSIGN_OR_RAISE(std::vector<col_index_t> indices_of_on_key,
-                        AsofJoinNode::GetIndicesOfOnKey(input_schema, on_key));
+                        AsofJoinNode::GetIndicesOfOnKey(input_schema, input_keys));
   ARROW_ASSIGN_OR_RAISE(std::vector<std::vector<col_index_t>> indices_of_by_key,
-                        AsofJoinNode::GetIndicesOfByKey(input_schema, by_key));
+                        AsofJoinNode::GetIndicesOfByKey(input_schema, input_keys));
   return AsofJoinNode::MakeOutputSchema(input_schema, indices_of_on_key,
                                         indices_of_by_key);
 }

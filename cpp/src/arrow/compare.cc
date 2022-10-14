@@ -305,11 +305,6 @@ class RangeDataEqualsImpl {
   Status Visit(const StructType& type) {
     const int32_t num_fields = type.num_fields();
 
-    if (left_.child_data.size() != static_cast<size_t>(num_fields) ||
-        right_.child_data.size() != static_cast<size_t>(num_fields)) {
-      result_ = false;
-      return Status::OK();
-    }
     auto compare_runs = [&](int64_t i, int64_t length) -> bool {
       for (int32_t f = 0; f < num_fields; ++f) {
         RangeDataEqualsImpl impl(options_, floating_approximate_, *left_.child_data[f],

@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
@@ -25,9 +26,11 @@ namespace arrow {
 namespace compute {
 namespace asofjoin {
 
+using AsofJoinKeys = AsofJoinNodeOptions::Keys;
+
 ARROW_EXPORT Result<std::shared_ptr<Schema>> MakeOutputSchema(
-    const std::vector<std::shared_ptr<Schema>>& input_schema, const FieldRef& on_key,
-    const std::vector<FieldRef>& by_key);
+    const std::vector<std::shared_ptr<Schema>>& input_schema,
+    const std::vector<AsofJoinKeys>& input_keys);
 
 }  // namespace asofjoin
 }  // namespace compute
