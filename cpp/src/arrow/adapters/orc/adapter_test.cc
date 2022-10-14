@@ -260,7 +260,7 @@ void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
-  AssertTableWriteReadEqual({input_table},expected_output_table,max_size);
+  AssertTableWriteReadEqual({input_table},expected_output_table,max_size,1);
 }
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
