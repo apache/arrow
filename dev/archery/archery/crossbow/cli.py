@@ -197,7 +197,7 @@ def verify_release_candidate(obj, base_branch, create_pr,
     if base_branch is None:
         # Get the default branch name from the repository
         base_branch = arrow.default_branch_name
-    
+
     response = arrow.github_pr(title=pr_title, head=head_branch,
                                base=base_branch, body=pr_body,
                                github_token=obj['queue'].github_token,
