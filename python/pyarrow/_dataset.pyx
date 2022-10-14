@@ -1191,7 +1191,7 @@ cdef class IpcFileFormat(FileFormat):
 
     def equals(self, IpcFileFormat other):
         return True
-    
+
     def make_write_options(self, **kwargs):
         cdef IpcFileWriteOptions opts = \
             <IpcFileWriteOptions> FileFormat.make_write_options(self)

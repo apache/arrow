@@ -274,7 +274,7 @@ cdef class IpcWriteOptions(_Weakrefable):
     @unify_dictionaries.setter
     def unify_dictionaries(self, bint value):
         self.options.unify_dictionaries = value
-    
+
 
 cdef class Message(_Weakrefable):
     """

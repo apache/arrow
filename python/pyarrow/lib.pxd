@@ -40,7 +40,7 @@ cdef class _Weakrefable:
 cdef class IpcWriteOptions(_Weakrefable):
     cdef:
         CIpcWriteOptions options
-        
+
 
 cdef class IpcReadOptions(_Weakrefable):
     cdef:
