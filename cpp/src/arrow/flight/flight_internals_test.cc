@@ -148,7 +148,7 @@ TEST(FlightTypes, RoundTripTypes) {
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{ticket, {location1, location2}},
                                         FlightEndpoint{ticket, {location3}}};
   ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
-  std::unique_ptr<FlightInfo> info = std::unique_ptr<FlightInfo>(new FlightInfo(data));
+  auto info = std::make_unique<FlightInfo>(data);
   ASSERT_OK_AND_ASSIGN(std::string info_serialized, info->SerializeToString());
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<FlightInfo> info_deserialized,
                        FlightInfo::Deserialize(info_serialized));

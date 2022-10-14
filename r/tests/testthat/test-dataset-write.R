@@ -739,7 +739,8 @@ test_that("Dataset min_rows_per_group", {
 
   row_group_sizes <- ds %>%
     map_batches(~ record_batch(nrows = .$num_rows)) %>%
-    pull(nrows)
+    pull(nrows) %>%
+    as.vector()
   index <- 1
 
   # We expect there to be 3 row groups since 11/5 = 2.2 and 11/4 = 2.75
@@ -778,6 +779,7 @@ test_that("Dataset write max rows per group", {
   row_group_sizes <- ds %>%
     map_batches(~ record_batch(nrows = .$num_rows)) %>%
     pull(nrows) %>%
+    as.vector() %>%
     sort()
 
   expect_equal(row_group_sizes, c(12, 18))

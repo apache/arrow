@@ -126,7 +126,7 @@ class JoinBenchmark {
     stats_.num_probe_rows = settings.num_probe_batches * settings.batch_size;
 
     ctx_ = std::make_unique<ExecContext>(default_memory_pool(),
-                                                     arrow::internal::GetCpuThreadPool());
+                                         arrow::internal::GetCpuThreadPool());
 
     schema_mgr_ = std::make_unique<HashJoinSchema>();
     Expression filter = literal(true);

@@ -45,8 +45,13 @@ RUN if [ "${numba}" != "" ]; then \
         /arrow/ci/scripts/install_numba.sh ${numba} \
     ; fi
 
-ENV ARROW_PYTHON=ON \
-    ARROW_BUILD_STATIC=OFF \
+ENV ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
-    ARROW_USE_GLOG=OFF \
+    ARROW_COMPUTE=ON \
+    ARROW_CSV=ON \
+    ARROW_DATASET=ON \
+    ARROW_FILESYSTEM=ON \
+    ARROW_HDFS=ON \
+    ARROW_JSON=ON \
+    ARROW_USE_GLOG=OFF

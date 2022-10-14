@@ -160,7 +160,7 @@ func WithNullWriter(null string) Option {
 }
 
 // WithBoolWriter override the default bool formatter with a function that returns
-//  a string representaton of bool states. i.e. True, False, 1, 0
+// a string representaton of bool states. i.e. True, False, 1, 0
 func WithBoolWriter(fmtr func(bool) string) Option {
 	return func(cfg config) {
 		switch cfg := cfg.(type) {
@@ -221,6 +221,7 @@ func validate(schema *arrow.Schema) {
 		case *arrow.StringType:
 		case *arrow.TimestampType:
 		case *arrow.Date32Type, *arrow.Date64Type:
+		case *arrow.Decimal128Type, *arrow.Decimal256Type:
 		default:
 			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}

@@ -292,11 +292,13 @@ on:
   install.packages(
     "arrow",
     repos = c(getOption("arrow.dev_repo"), getOption("repos")),
-    verbose = TRUE
+    verbose = TRUE,
+    INSTALL_opts = "--build"
   )
 
   library(arrow)
   read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+  print(arrow_info())
 
   # Our Version should always be > CRAN so we would detect a CRAN version here.
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
@@ -314,8 +316,7 @@ on:
       path: repo/libarrow/bin/windows
   {% endif %}
   {% if get_nix %}
-    # TODO(ARROW-17594): re-enable centos-7 here
-    {% for os in ["ubuntu-18.04", "ubuntu-22.04"] %}
+    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
   - name: Get {{ os }} binary
     uses: actions/download-artifact@v3
     with:

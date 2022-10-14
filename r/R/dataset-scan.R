@@ -38,7 +38,7 @@
 #' `ScannerBuilder` has the following methods:
 #'
 #' - `$Project(cols)`: Indicate that the scan should only return columns given
-#' by `cols`, a character vector of column names
+#' by `cols`, a character vector of column names or a named list of [Expression].
 #' - `$Filter(expr)`: Filter rows by an [Expression].
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
@@ -53,6 +53,28 @@
 #' query and returns an Arrow [Table].
 #' @rdname Scanner
 #' @name Scanner
+#' @examplesIf arrow_with_dataset() & arrow_with_parquet()
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#'
+#' write_dataset(mtcars, tf, partitioning="cyl")
+#'
+#' ds <- open_dataset(tf)
+#'
+#' scan_builder <- ds$NewScan()
+#' scan_builder$Filter(Expression$field_ref("hp") > 100)
+#' scan_builder$Project(list(hp_times_ten = 10 * Expression$field_ref("hp")))
+#'
+#' # Once configured, call $Finish()
+#' scanner <- scan_builder$Finish()
+#'
+#' # Can get results as a table
+#' as.data.frame(scanner$ToTable())
+#'
+#' # Or as a RecordBatchReader
+#' scanner$ToRecordBatchReader()
 #' @export
 Scanner <- R6Class("Scanner",
   inherit = ArrowObject,
@@ -135,9 +157,14 @@ names.Scanner <- function(x) names(x$schema)
 
 #' @export
 head.Scanner <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires a scan itself
   assert_that(n >= 0)
-  dataset___Scanner__head(x, n)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
+  dataset___Scanner__head(x, floor(n))
 }
 
 #' @export
@@ -146,8 +173,13 @@ tail.Scanner <- function(x, n = 6L, ...) {
 }
 
 tail_from_batches <- function(batches, n) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires a scan itself
-  assert_that(n >= 0) # For now
+  assert_that(n >= 0)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   result <- list()
   batch_num <- 0
   # Given a list of batches, iterate from the back
@@ -202,7 +234,7 @@ map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = FALSE, .data.frame 
   }
   FUN <- as_mapper(FUN)
   reader <- as_record_batch_reader(X)
-  dots <- rlang::list2(...)
+  dots <- list2(...)
 
   # If no schema is supplied, we have to evaluate the first batch here
   if (is.null(.schema)) {

@@ -151,6 +151,8 @@ Uri& Uri::operator=(Uri&& u) {
 
 std::string Uri::scheme() const { return TextRangeToString(impl_->uri_.scheme); }
 
+bool Uri::is_file_scheme() const { return impl_->is_file_uri_; }
+
 std::string Uri::host() const { return TextRangeToString(impl_->uri_.hostText); }
 
 bool Uri::has_host() const { return IsTextRangeSet(impl_->uri_.hostText); }

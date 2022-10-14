@@ -60,4 +60,5 @@ from pyarrow._flight import (  # noqa:F401
     ServerMiddleware,
     ServerMiddlewareFactory,
     Ticket,
+    TracingServerMiddlewareFactory,
 )

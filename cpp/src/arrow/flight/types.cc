@@ -318,7 +318,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
   }
   FlightInfo::Data data;
   RETURN_NOT_OK(internal::FromProto(pb_info, &data));
-  return std::unique_ptr<FlightInfo>(new FlightInfo(std::move(data)));
+  return std::make_unique<FlightInfo>(std::move(data));
 }
 
 Status FlightInfo::Deserialize(const std::string& serialized,
@@ -625,7 +625,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> SimpleFlightListing::Next() {
   if (position_ >= static_cast<int>(flights_.size())) {
     return nullptr;
   }
-  return std::unique_ptr<FlightInfo>(new FlightInfo(std::move(flights_[position_++])));
+  return std::make_unique<FlightInfo>(std::move(flights_[position_++]));
 }
 
 SimpleResultStream::SimpleResultStream(std::vector<Result>&& results)
@@ -635,7 +635,7 @@ arrow::Result<std::unique_ptr<Result>> SimpleResultStream::Next() {
   if (position_ >= results_.size()) {
     return nullptr;
   }
-  return std::unique_ptr<Result>(new Result(std::move(results_[position_++])));
+  return std::make_unique<Result>(std::move(results_[position_++]));
 }
 
 bool BasicAuth::Equals(const BasicAuth& other) const {

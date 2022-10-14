@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/type_fwd.h"
 #include "benchmark/benchmark.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
@@ -249,6 +251,30 @@ static void TimedTestAllocs(benchmark::State& state) {
       schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND, state);
   ASSERT_TRUE(status.ok());
 }
+
+static void TimedTestOutputStringAllocs(benchmark::State& state) {
+  // schema for input fields
+  auto field_a = field("abcdefghijklmnopqrstuvwxyz", arrow::utf8());
+  auto schema = arrow::schema({field_a});
+  auto pool_ = arrow::default_memory_pool();
+  // output field
+  auto field_res = field("res", utf8());
+
+  // Build expression
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto upper = TreeExprBuilder::MakeFunction("upper", {node_a}, utf8());
+  auto length = TreeExprBuilder::MakeFunction("octet_length", {upper}, int32());
+  auto expr = TreeExprBuilder::MakeExpression(upper, field_res);
+
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  FastUtf8DataGenerator data_generator(64);
+  ProjectEvaluator evaluator(projector);
+
+  ASSERT_OK((TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND, state)));
+}
 // following two tests are for benchmark optimization of
 // in expr. will be used in follow-up PRs to optimize in expr.
 
@@ -442,6 +468,7 @@ BENCHMARK(TimedTestFilterLike)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestCastFloatFromString)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestCastIntFromString)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestAllocs)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestOutputStringAllocs)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestMultiOr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestInExpr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(DecimalAdd2Fast)->MinTime(1.0)->Unit(benchmark::kMicrosecond);

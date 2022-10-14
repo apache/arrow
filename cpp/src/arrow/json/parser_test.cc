@@ -29,6 +29,7 @@
 #include "arrow/json/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
@@ -134,6 +135,24 @@ TEST(BlockParserWithSchema, SkipFieldsOutsideSchema) {
                      {field("hello", utf8()), field("yo", utf8())},
                      {"[\"3.5\", \"3.25\", \"3.125\", \"0.0\"]",
                       "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
+}
+
+TEST(BlockParserWithSchema, UnquotedDecimal) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema =
+      schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+  AssertParseColumns(options, unquoted_decimal_src(),
+                     {field("price", utf8()), field("cost", utf8())},
+                     {R"(["30.04", "1.23"])", R"(["30.001", "1.229"])"});
+}
+
+TEST(BlockParserWithSchema, MixedDecimal) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema =
+      schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+  AssertParseColumns(options, mixed_decimal_src(),
+                     {field("price", utf8()), field("cost", utf8())},
+                     {R"(["30.04", "1.23"])", R"(["30.001", "1.229"])"});
 }
 
 class BlockParserTypeError : public ::testing::TestWithParam<UnexpectedFieldBehavior> {

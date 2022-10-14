@@ -879,8 +879,8 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
     const ::arrow::Array& array, bool array_field_nullable) {
   auto constructor = std::make_unique<PathBuilder>(array_field_nullable);
   RETURN_NOT_OK(VisitArrayInline(array, constructor.get()));
-  return std::make_unique<MultipathLevelBuilderImpl>(
-      array.data(), std::move(constructor));
+  return std::make_unique<MultipathLevelBuilderImpl>(array.data(),
+                                                     std::move(constructor));
 }
 
 // static

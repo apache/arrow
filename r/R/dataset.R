@@ -131,8 +131,7 @@
 #' dir.create(tf)
 #' on.exit(unlink(tf))
 #'
-#' data <- dplyr::group_by(mtcars, cyl)
-#' write_dataset(data, tf)
+#' write_dataset(mtcars, tf, partitioning="cyl")
 #'
 #' # You can specify a directory containing the files for your dataset and
 #' # open_dataset will scan all files in your directory.
@@ -145,7 +144,7 @@
 #' tf2 <- tempfile()
 #' dir.create(tf2)
 #' on.exit(unlink(tf2))
-#' write_dataset(data, tf2, format = "ipc")
+#' write_dataset(mtcars, tf2, format = "ipc")
 #' # This line will results in errors when you try to work with the data
 #' \dontrun{
 #' open_dataset(tf2)
@@ -221,10 +220,9 @@ open_dataset <- function(sources,
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
     # n = 4 because we want the error to show up as being from open_dataset()
-    # and not handle_parquet_io_error()
+    # and not augment_io_error_msg()
     error = function(e, call = caller_env(n = 4)) {
-      handle_parquet_io_error(e, format, call)
-      abort(conditionMessage(e), call = call)
+      augment_io_error_msg(e, call, format = format)
     }
   )
 }

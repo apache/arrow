@@ -420,11 +420,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
 
   constexpr const T& ValueUnsafe() const& { return *storage_.get(); }
 
-#if __cpp_constexpr >= 201304L  // non-const constexpr
   constexpr T& ValueUnsafe() & { return *storage_.get(); }
-#else
-  T& ValueUnsafe() & { return *storage_.get(); }
-#endif
 
   T ValueUnsafe() && { return MoveValueUnsafe(); }
 

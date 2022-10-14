@@ -223,7 +223,7 @@ struct MakeConverterImpl {
     switch (t.value_type()->id()) {
 #define DICTIONARY_CASE(TYPE)                                                       \
   case TYPE::type_id:                                                               \
-    out = std::make_unique<                                                    \
+    out = std::make_unique<                                                         \
         typename ConverterTrait<DictionaryType>::template dictionary_type<TYPE>>(); \
     break;
       DICTIONARY_CASE(BooleanType);

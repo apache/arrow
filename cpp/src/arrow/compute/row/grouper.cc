@@ -57,34 +57,30 @@ struct GrouperImpl : Grouper {
       std::shared_ptr<DataType> key = key_types[i].GetSharedPtr();
 
       if (key->id() == Type::BOOL) {
-        impl->encoders_[i] =
-            std::make_unique<internal::BooleanKeyEncoder>();
+        impl->encoders_[i] = std::make_unique<internal::BooleanKeyEncoder>();
         continue;
       }
 
       if (key->id() == Type::DICTIONARY) {
         impl->encoders_[i] =
-            std::make_unique<internal::DictionaryKeyEncoder>(
-                key, ctx->memory_pool());
+            std::make_unique<internal::DictionaryKeyEncoder>(key, ctx->memory_pool());
         continue;
       }
 
       if (is_fixed_width(key->id())) {
-        impl->encoders_[i] =
-            std::make_unique<internal::FixedWidthKeyEncoder>(key);
+        impl->encoders_[i] = std::make_unique<internal::FixedWidthKeyEncoder>(key);
         continue;
       }
 
       if (is_binary_like(key->id())) {
         impl->encoders_[i] =
-            std::make_unique<internal::VarLengthKeyEncoder<BinaryType>>(
-                key);
+            std::make_unique<internal::VarLengthKeyEncoder<BinaryType>>(key);
         continue;
       }
 
       if (is_large_binary_like(key->id())) {
-        impl->encoders_[i] = std::make_unique<
-            internal::VarLengthKeyEncoder<LargeBinaryType>>(key);
+        impl->encoders_[i] =
+            std::make_unique<internal::VarLengthKeyEncoder<LargeBinaryType>>(key);
         continue;
       }
 

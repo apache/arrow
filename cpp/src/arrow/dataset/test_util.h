@@ -113,8 +113,7 @@ class GeneratedRecordBatch : public RecordBatchReader {
 template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
-  return std::make_unique<GeneratedRecordBatch<Gen>>(
-      schema, std::forward<Gen>(gen));
+  return std::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
 }
 
 std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(

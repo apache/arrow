@@ -53,7 +53,7 @@ class AuthBasicProtoServer : public FlightServerBase {
                   std::unique_ptr<ResultStream>* result) override {
     // Respond with the authenticated username.
     auto buf = Buffer::FromString(context.peer_identity());
-    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    *result = std::make_unique<SimpleResultStream>(std::vector<Result>{Result{buf}});
     return Status::OK();
   }
 };
@@ -112,8 +112,8 @@ class AuthBasicProtoScenario : public Scenario {
       return Status::Invalid("Expected UNAUTHENTICATED but got ", detail->ToString());
     }
 
-    auto client_handler = std::unique_ptr<ClientAuthHandler>(
-        new TestClientBasicAuthHandler(kAuthUsername, kAuthPassword));
+    auto client_handler =
+        std::make_unique<TestClientBasicAuthHandler>(kAuthUsername, kAuthPassword);
     RETURN_NOT_OK(client->Authenticate({}, std::move(client_handler)));
     return CheckActionResults(client.get(), action, {kAuthUsername});
   }
@@ -191,8 +191,7 @@ class TestClientMiddlewareFactory : public ClientMiddlewareFactory {
  public:
   void StartCall(const CallInfo& info,
                  std::unique_ptr<ClientMiddleware>* middleware) override {
-    *middleware =
-        std::unique_ptr<ClientMiddleware>(new TestClientMiddleware(&received_header_));
+    *middleware = std::make_unique<TestClientMiddleware>(&received_header_);
   }
 
   std::string received_header_;
@@ -214,7 +213,7 @@ class MiddlewareServer : public FlightServerBase {
       std::vector<FlightEndpoint> endpoints{FlightEndpoint{{"foo"}, {location}}};
       ARROW_ASSIGN_OR_RAISE(auto info,
                             FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
-      *result = std::unique_ptr<FlightInfo>(new FlightInfo(info));
+      *result = std::make_unique<FlightInfo>(info);
       return Status::OK();
     }
     // Fail the call immediately. In some gRPC implementations, this
@@ -386,7 +385,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}}};
     ARROW_ASSIGN_OR_RAISE(auto result,
                           FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
-    return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+    return std::make_unique<FlightInfo>(result);
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSubstraitPlan(
@@ -411,7 +410,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}}};
     ARROW_ASSIGN_OR_RAISE(auto result,
                           FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
-    return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+    return std::make_unique<FlightInfo>(result);
   }
 
   arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaStatement(
@@ -855,13 +854,13 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     ARROW_ASSIGN_OR_RAISE(auto result,
                           FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
 
-    return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+    return std::make_unique<FlightInfo>(result);
   }
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetForTestCase(
       const std::shared_ptr<Schema>& schema) {
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({}, schema));
-    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    return std::make_unique<RecordBatchStream>(reader);
   }
 };
 

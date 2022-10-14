@@ -57,7 +57,7 @@ class ExampleFunctionOptions : public cp::FunctionOptions {
 
 std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
     const cp::FunctionOptions&) const {
-  return std::unique_ptr<cp::FunctionOptions>(new ExampleFunctionOptions());
+  return std::make_unique<ExampleFunctionOptions>();
 }
 
 arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecSpan& batch,

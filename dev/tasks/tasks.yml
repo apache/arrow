@@ -99,7 +99,6 @@ groups:
   integration:
     - test-*dask*
     - test-*hdfs*
-    - test-*kartothek*
     - test-*pandas*
     - test-*spark*
     # - test-*turbodbc*
@@ -205,12 +204,11 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      # ARROW-17395: Enable this again when grpc is updated.
-      # -e ARROW_CONAN_WITH_FLIGHT_RPC=True
       flags: >-
         -e ARROW_CONAN_PARQUET=True
         -e ARROW_CONAN_WITH_BROTLI=True
         -e ARROW_CONAN_WITH_BZ2=True
+        -e ARROW_CONAN_WITH_FLIGHT_RPC=True
         -e ARROW_CONAN_WITH_GLOG=True
         -e ARROW_CONAN_WITH_JEMALLOC=True
         -e ARROW_CONAN_WITH_JSON=True
@@ -593,8 +591,10 @@ tasks:
     {% endif %}
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+    {% if architecture == "amd64" %}
       - gir1.2-arrow-flight-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-flight-sql-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+    {% endif %}
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -605,6 +605,7 @@ tasks:
       - libarrow-dataset1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
+    {% if architecture == "amd64" %}
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -619,6 +620,7 @@ tasks:
       - libarrow-flight-sql1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight1000_{no_rc_version}-1_[a-z0-9]+.deb
+    {% endif %}
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
@@ -956,9 +958,7 @@ tasks:
       custom_version: Unset
     artifacts:
       - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
-      # The centos job is currently disabled due to the
-      # change to C++ 17
-      #- r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
       - r-lib__libarrow__bin__ubuntu-18.04__arrow-[0-9\.]+\.zip
       - r-lib__libarrow__bin__ubuntu-22.04__arrow-[0-9\.]+\.zip
       - r-pkg__bin__windows__contrib__4.1__arrow_[0-9\.]+\.zip
@@ -1074,15 +1074,6 @@ tasks:
     ci: github
     template: verify-rc/github.macos.amd64.yml
     params:
-      github_runner: "macos-{{ macos_version }}"
-      target: "wheels"
-
-  verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64-conda:
-    ci: github
-    template: verify-rc/github.macos.amd64.yml
-    params:
-      env:
-        USE_CONDA: 1
       github_runner: "macos-{{ macos_version }}"
       target: "wheels"
   {% endfor %}
@@ -1312,6 +1303,13 @@ tasks:
     ci: github
     template: r/github.macos-linux.local.yml
 
+  test-r-install-local-minsizerel:
+    ci: github
+    template: r/github.macos-linux.local.yml
+    params:
+      env:
+        CMAKE_BUILD_TYPE: MinSizeRel
+
   test-r-devdocs:
     ci: github
     template: r/github.devdocs.yml
@@ -1352,7 +1350,6 @@ tasks:
   test-r-offline-maximal:
     ci: github
     template: r/github.linux.offline.build.yml
-
 
   test-r-rhub-debian-gcc-release-custom-ccache:
     ci: azure
@@ -1453,10 +1450,6 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: fedora-r-clang-sanitizer
 
-  revdep-r-check:
-    ci: github
-    template: r/github.linux.revdepcheck.yml
-
   test-debian-11-go-1.17:
     ci: azure
     template: docker-tests/azure.linux.yml
@@ -1546,18 +1539,6 @@ tasks:
 #       flags: --no-leaf-cache
 #       image: conda-python-turbodbc
 # {% endfor %}
-
-{% for kartothek_version in ["latest", "master"] %}
-  test-conda-python-3.7-kartothek-{{ kartothek_version }}:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: 3.7
-        KARTOTHEK: "{{ kartothek_version }}"
-      flags: --no-leaf-cache
-      image: conda-python-kartothek
-{% endfor %}
 
 {% for hdfs_version in ["2.9.2", "3.2.1"] %}
   test-conda-python-3.7-hdfs-{{ hdfs_version }}:
