@@ -411,12 +411,12 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
 
   // Advance byte_offset to next unread byte and read num_bytes
   byte_offset_ += bytes_read;
-  if constexpr(std::is_same_v<T, bool>) {
-    // ARROW-18031: if we're trying to get an aligned bool, just check 
+  if constexpr (std::is_same_v<T, bool>) {
+    // ARROW-18031: if we're trying to get an aligned bool, just check
     // the LSB of the next byte and move on. If we memcpy + FromLittleEndian
     // as usual, we have potential undefined behavior for bools if the value
     // isn't 0 or 1
-    *v = *(buffer_ + byte_offset_) & 1;    
+    *v = *(buffer_ + byte_offset_) & 1;
   } else {
     memcpy(v, buffer_ + byte_offset_, num_bytes);
     *v = arrow::bit_util::FromLittleEndian(*v);
