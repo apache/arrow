@@ -20,7 +20,6 @@ import shlex
 from pathlib import Path
 from functools import partial
 import tempfile
-import time
 
 import click
 import github
@@ -272,12 +271,9 @@ def submit(obj, tasks, groups, params, arrow_version, wait):
         queue.put(job, prefix="actions", increment_job_id=False)
         queue.push()
 
-        # # wait for tasks of the job are triggered to collect more
-        # # suitable task URLs
-        time.sleep(wait)
-
         # render the response comment's content
-        report = CommentReport(job, crossbow_repo=crossbow_repo)
+        report = CommentReport(job, crossbow_repo=crossbow_repo,
+                               wait_for_task=wait)
 
         # send the response
         pull_request.create_issue_comment(report.show())

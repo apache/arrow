@@ -20,6 +20,7 @@ import csv
 import operator
 import fnmatch
 import functools
+import time
 
 import click
 import requests
@@ -41,7 +42,7 @@ class Report:
         "arrow_commit",
     ]
 
-    def __init__(self, job, task_filters=None):
+    def __init__(self, job, task_filters=None, wait_for_task=None):
         self.job = job
 
         tasks = sorted(job.tasks.items())
@@ -53,6 +54,7 @@ class Report:
             tasks = [(name, task) for name, task in tasks if name in filtered]
 
         self._tasks = dict(tasks)
+        self._wait_for_task = wait_for_task
 
     @property
     def repo_url(self):
@@ -66,6 +68,8 @@ class Report:
         return '{}/tree/{}'.format(self.repo_url, branch)
 
     def task_url(self, task):
+        if self._wait_for_task:
+            time.sleep(self._wait_for_task)
         if task.status().build_links:
             # show link to the actual build, some CI providers implement
             # the statuses API others implement the checks API, retrieve any.
@@ -307,9 +311,9 @@ class CommentReport(Report):
         ),
     }
 
-    def __init__(self, job, crossbow_repo):
+    def __init__(self, job, crossbow_repo, wait_for_task=None):
         self.crossbow_repo = crossbow_repo
-        super().__init__(job)
+        super().__init__(job, wait_for_task=wait_for_task)
 
     def show(self):
         url = 'https://github.com/{repo}/branches/all?query={branch}'
