@@ -215,7 +215,8 @@ read_delim_arrow <- function(file,
   # TODO: move this into convert_options using include_columns
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
-    tab <- tab[vars_select(names(tab), !!col_select)]
+    sim_df <- as.data.frame(tab$schema)
+    tab <- tab[eval_select(col_select, sim_df)]
   }
 
   if (isTRUE(as_data_frame)) {
