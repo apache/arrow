@@ -20,6 +20,7 @@ import shlex
 from pathlib import Path
 from functools import partial
 import tempfile
+import time
 
 import click
 import github
@@ -232,8 +233,10 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
               help='Additional task parameters for rendering the CI templates')
 @click.option('--arrow-version', '-v', default=None,
               help='Set target version explicitly.')
+@click.option('--wait', default=60,
+              help='Wait the specified seconds before generating a report.')
 @click.pass_obj
-def submit(obj, tasks, groups, params, arrow_version):
+def submit(obj, tasks, groups, params, arrow_version, wait):
     """
     Submit crossbow testing tasks.
 
@@ -268,6 +271,10 @@ def submit(obj, tasks, groups, params, arrow_version):
         # add the job to the crossbow queue and push to the remote repository
         queue.put(job, prefix="actions", increment_job_id=False)
         queue.push()
+
+        # # wait for tasks of the job are triggered to collect more
+        # # suitable task URLs
+        time.sleep(wait)
 
         # render the response comment's content
         report = CommentReport(job, crossbow_repo=crossbow_repo)
