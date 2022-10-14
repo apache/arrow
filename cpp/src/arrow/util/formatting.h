@@ -85,36 +85,36 @@ class StringFormatter<BooleanType> {
   }
 };
 
-template <>
-class StringFormatter<Decimal128Type> {
-  int32_t scale_;
+/////////////////////////////////////////////////////////////////////////
+// Decimals formatting
 
+template <typename ARROW_TYPE>
+class DecimalToStringFormatterMixin {
  public:
-  explicit StringFormatter(const DataType* type)
-      : scale_(static_cast<const Decimal128Type*>(type)->scale()) {}
+  explicit DecimalToStringFormatterMixin(const DataType* type)
+      : scale_(static_cast<const ARROW_TYPE*>(type)->scale()) {}
 
-  using value_type = TypeTraits<Decimal128Type>::CType;
+  using value_type = typename TypeTraits<ARROW_TYPE>::CType;
 
   template <typename Appender>
   Return<Appender> operator()(const value_type& value, Appender&& append) {
     return append(value.ToString(scale_));
   }
+
+ private:
+  int32_t scale_;
 };
 
 template <>
-class StringFormatter<Decimal256Type> {
-  int32_t scale_;
+class StringFormatter<Decimal128Type>
+    : public DecimalToStringFormatterMixin<Decimal128Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
+};
 
- public:
-  explicit StringFormatter(const DataType* type)
-      : scale_(static_cast<const Decimal256Type*>(type)->scale()) {}
-
-  using value_type = TypeTraits<Decimal256Type>::CType;
-
-  template <typename Appender>
-  Return<Appender> operator()(const value_type& value, Appender&& append) {
-    return append(value.ToString(scale_));
-  }
+template <>
+class StringFormatter<Decimal256Type>
+    : public DecimalToStringFormatterMixin<Decimal256Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
 };
 
 /////////////////////////////////////////////////////////////////////////

@@ -25,7 +25,6 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"
-#include "arrow/type.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/utf8_internal.h"
