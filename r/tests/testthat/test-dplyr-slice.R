@@ -99,8 +99,10 @@ test_that("slice_sample, ungrouped", {
     "weight_by"
   )
 
+  # Let's not take any chances on random failures
+  skip_on_cran()
   # Because this is random (and we only have 10 rows), try several times
-  for (i in 1:10) {
+  for (i in 1:50) {
     sampled_prop <- tab %>%
       slice_sample(prop = .2) %>%
       collect() %>%
