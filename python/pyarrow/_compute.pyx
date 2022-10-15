@@ -2126,6 +2126,8 @@ def _group_by(args, keys, aggregations):
     cdef:
         vector[CDatum] c_args
         vector[CDatum] c_keys
+        # TODO: expose segment_keys
+        vector[CDatum] c_segment_keys
         vector[CAggregate] c_aggregations
         CDatum result
         CAggregate c_aggr
@@ -2143,7 +2145,7 @@ def _group_by(args, keys, aggregations):
 
     with nogil:
         result = GetResultValue(
-            GroupBy(c_args, c_keys, c_aggregations)
+            GroupBy(c_args, c_keys, c_segment_keys, c_aggregations)
         )
 
     return wrap_datum(result)

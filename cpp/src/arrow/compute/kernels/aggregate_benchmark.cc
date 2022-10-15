@@ -327,7 +327,7 @@ static void BenchmarkGroupBy(benchmark::State& state,
                           "agg_" + std::to_string(idx++), b_agg.function});
   }
   for (auto _ : state) {
-    ABORT_NOT_OK(GroupBy(arguments, keys, aggregates).status());
+    ABORT_NOT_OK(GroupBy(arguments, keys, {}, aggregates).status());
   }
 }
 

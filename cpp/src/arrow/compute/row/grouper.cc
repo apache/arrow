@@ -98,12 +98,15 @@ GroupingSegment MakeSegment(int64_t batch_length, int64_t offset, int64_t length
   return GroupingSegment{offset, length, offset + length >= batch_length};
 }
 
-int64_t GetMatchLength(const uint8_t* match_bytes, int match_width,
+int64_t GetMatchLength(const uint8_t* match_bytes, int64_t match_width,
                        const uint8_t* array_bytes, int64_t offset, int64_t length) {
   int64_t cursor, byte_cursor;
   for (cursor = offset, byte_cursor = match_width * cursor; cursor < length;
        cursor++, byte_cursor += match_width) {
-    if (memcmp(match_bytes, array_bytes + byte_cursor, match_width) != 0) break;
+    if (memcmp(match_bytes, array_bytes + byte_cursor,
+               static_cast<size_t>(match_width)) != 0) {
+      break;
+    }
   }
   return std::min(cursor, length - offset);
 }
@@ -113,7 +116,7 @@ Result<GroupingSegment> GetNextSegmentChunked(
   if (offset >= chunked_array->length()) {
     return MakeSegment(chunked_array->length(), chunked_array->length(), 0);
   }
-  int64_t past_length = 0, remaining_offset = offset;
+  int64_t remaining_offset = offset;
   const auto& arrays = chunked_array->chunks();
   for (size_t i = 0; remaining_offset >= 0 && i < arrays.size(); i++) {
     // look up chunk containing offset
@@ -135,7 +138,6 @@ Result<GroupingSegment> GetNextSegmentChunked(
       }
       return MakeSegment(chunked_array->length(), offset, total_match_length);
     }
-    past_length += array_length;
     remaining_offset -= array_length;
   }
   return Status::Invalid("segmenting invalid chunked array value");
@@ -497,6 +499,8 @@ struct GrouperImpl : public BaseGrouper {
     return std::move(impl);
   }
 
+  using BaseGrouper::Consume;
+
   Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset,
                         int64_t consume_length) override {
     ARROW_RETURN_NOT_OK(CheckForConsume(batch, consume_offset, consume_length));
@@ -672,6 +676,8 @@ struct GrouperFastImpl : public BaseGrouper {
   }
 
   ~GrouperFastImpl() { map_.cleanup(); }
+
+  using BaseGrouper::Consume;
 
   Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset,
                         int64_t consume_length) override {
