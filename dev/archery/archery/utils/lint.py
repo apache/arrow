@@ -191,6 +191,7 @@ def python_linter(src, fix=False):
                 "python/pyarrow/**/*.pxd",
                 "python/pyarrow/**/*.pxi",
                 "python/examples/**/*.py",
+                "dev/*.py",
                 "dev/archery/**/*.py",
                 "dev/release/**/*.py"]
     files = [setup_py]
