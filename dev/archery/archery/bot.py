@@ -232,8 +232,10 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
               help='Additional task parameters for rendering the CI templates')
 @click.option('--arrow-version', '-v', default=None,
               help='Set target version explicitly.')
+@click.option('--wait', default=60,
+              help='Wait the specified seconds before generating a report.')
 @click.pass_obj
-def submit(obj, tasks, groups, params, arrow_version):
+def submit(obj, tasks, groups, params, arrow_version, wait):
     """
     Submit crossbow testing tasks.
 
@@ -270,7 +272,8 @@ def submit(obj, tasks, groups, params, arrow_version):
         queue.push()
 
         # render the response comment's content
-        report = CommentReport(job, crossbow_repo=crossbow_repo)
+        report = CommentReport(job, crossbow_repo=crossbow_repo,
+                               wait_for_task=wait)
 
         # send the response
         pull_request.create_issue_comment(report.show())

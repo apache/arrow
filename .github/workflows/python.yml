@@ -167,10 +167,7 @@ jobs:
             -r python/requirements-test.txt
       - name: Build
         shell: bash
-        # use brew version of clang, to be consistent with LLVM lib, see ARROW-17790.
         run: |
-          export CC=$(brew --prefix llvm)/bin/clang
-          export CXX=$(brew --prefix llvm)/bin/clang++
           export PYTHON=python3
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build

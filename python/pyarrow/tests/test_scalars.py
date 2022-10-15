@@ -632,11 +632,6 @@ def test_dictionary():
         assert s.index.equals(i)
         assert s.dictionary.equals(dictionary)
 
-        with pytest.warns(FutureWarning):
-            assert s.index_value.equals(i)
-        with pytest.warns(FutureWarning):
-            assert s.dictionary_value.as_py() == v
-
         restored = pickle.loads(pickle.dumps(s))
         assert restored.equals(s)
 

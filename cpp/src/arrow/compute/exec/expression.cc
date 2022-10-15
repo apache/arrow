@@ -196,11 +196,11 @@ std::string Expression::ToString() const {
 
   if (call->options) {
     out += call->options->ToString();
-    out.resize(out.size() + 1);
-  } else {
-    out.resize(out.size() - 1);
+  } else if (call->arguments.size()) {
+    out.resize(out.size() - 2);
   }
-  out.back() = ')';
+
+  out += ')';
   return out;
 }
 

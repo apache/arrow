@@ -43,6 +43,12 @@ include(CMakeParseArguments)
 # https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
 cmake_policy(SET CMP0054 NEW)
 
+# find_package() uses <PackageName>_ROOT variables.
+# https://cmake.org/cmake/help/latest/policy/CMP0074.html
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
+
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first

@@ -190,9 +190,6 @@ class RecordBatch;
 class Table;
 struct Datum;
 
-ARROW_TESTING_EXPORT
-std::vector<Type::type> AllTypeIds();
-
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
 #define ASSERT_BATCHES_APPROX_EQUAL(lhs, rhs) AssertBatchesApproxEqual((lhs), (rhs))

@@ -664,7 +664,7 @@ class Queue(Repo):
             raise CrossbowError('`job.branch` is automatically generated, '
                                 'thus it must be blank')
 
-        job._queue = self
+        job.queue = self
         if increment_job_id:
             # auto increment and set next job id, e.g. build-85
             job.branch = self._next_job_id(prefix)

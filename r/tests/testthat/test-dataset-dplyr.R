@@ -284,13 +284,9 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
     group_by(fct) %>%
     compute()
 
-  # the group_by() prevents compute() from returning a Table...
-  expect_s3_class(tab5, "arrow_dplyr_query")
-
-  # ... but $.data is a Table...
-  expect_r6_class(tab5$.data, "Table")
-  # ... and the mutate() was evaluated
-  expect_true("negint" %in% names(tab5$.data))
+  expect_r6_class(tab5, "Table")
+  # mutate() was evaluated
+  expect_true("negint" %in% names(tab5))
 })
 
 test_that("head/tail on query on dataset", {
