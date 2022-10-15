@@ -66,47 +66,6 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::ThreadPool;
 
-std::vector<Type::type> AllTypeIds() {
-  return {Type::NA,
-          Type::BOOL,
-          Type::INT8,
-          Type::INT16,
-          Type::INT32,
-          Type::INT64,
-          Type::UINT8,
-          Type::UINT16,
-          Type::UINT32,
-          Type::UINT64,
-          Type::HALF_FLOAT,
-          Type::FLOAT,
-          Type::DOUBLE,
-          Type::DECIMAL128,
-          Type::DECIMAL256,
-          Type::DATE32,
-          Type::DATE64,
-          Type::TIME32,
-          Type::TIME64,
-          Type::TIMESTAMP,
-          Type::INTERVAL_DAY_TIME,
-          Type::INTERVAL_MONTHS,
-          Type::DURATION,
-          Type::STRING,
-          Type::BINARY,
-          Type::LARGE_STRING,
-          Type::LARGE_BINARY,
-          Type::FIXED_SIZE_BINARY,
-          Type::STRUCT,
-          Type::LIST,
-          Type::LARGE_LIST,
-          Type::FIXED_SIZE_LIST,
-          Type::MAP,
-          Type::DENSE_UNION,
-          Type::SPARSE_UNION,
-          Type::DICTIONARY,
-          Type::EXTENSION,
-          Type::INTERVAL_MONTH_DAY_NANO};
-}
-
 template <typename T, typename CompareFunctor>
 void AssertTsSame(const T& expected, const T& actual, CompareFunctor&& compare) {
   if (!compare(actual, expected)) {
@@ -839,6 +798,28 @@ Result<std::shared_ptr<DataType>> SmallintType::Deserialize(
   return std::make_shared<SmallintType>();
 }
 
+bool TinyintType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> TinyintType::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("tinyint", static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<TinyintArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> TinyintType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "tinyint") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*int16())) {
+    return Status::Invalid("Invalid storage type for TinyintType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<TinyintType>();
+}
+
 bool ListExtensionType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -912,6 +893,8 @@ std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
 
+std::shared_ptr<DataType> tinyint() { return std::make_shared<TinyintType>(); }
+
 std::shared_ptr<DataType> list_extension_type() {
   return std::make_shared<ListExtensionType>();
 }
@@ -941,6 +924,11 @@ std::shared_ptr<Array> ExampleUuid() {
 std::shared_ptr<Array> ExampleSmallint() {
   auto arr = ArrayFromJSON(int16(), "[-32768, null, 1, 2, 3, 4, 32767]");
   return ExtensionType::WrapArray(smallint(), arr);
+}
+
+std::shared_ptr<Array> ExampleTinyint() {
+  auto arr = ArrayFromJSON(int8(), "[-128, null, 1, 2, 3, 4, 127]");
+  return ExtensionType::WrapArray(tinyint(), arr);
 }
 
 std::shared_ptr<Array> ExampleDictExtension() {

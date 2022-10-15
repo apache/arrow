@@ -18,6 +18,14 @@
 
     Can't create Array<float64()> from object of type class_not_supported
 
+# as_arrow_array() works for blob::blob()
+
+    Can't create Array<int32()> from object of type blob / vctrs_list_of / vctrs_vctr / list
+
+# as_arrow_array() works for vctrs::list_of()
+
+    Can't create Array<int32()> from object of type vctrs_list_of / vctrs_vctr / list
+
 # Array doesn't support c()
 
     Use `concat_arrays()` or `ChunkedArray$create()` instead.

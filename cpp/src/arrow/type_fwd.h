@@ -410,6 +410,9 @@ struct Type {
   };
 };
 
+/// \brief Get a vector of all type ids
+ARROW_EXPORT std::vector<Type::type> AllTypeIds();
+
 /// \defgroup type-factories Factory functions for creating data types
 ///
 /// Factory functions for creating data types

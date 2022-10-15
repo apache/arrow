@@ -127,17 +127,21 @@ docs <- arrow:::.cache$docs
 # Add some functions
 
 # across() is handled by manipulating the quosures, not by nse_funcs
-docs[["dplyr::across"]] <- c(
-  # TODO(ARROW-17387): do filter
-  "not yet supported inside `filter()`;",
-  # TODO(ARROW-17384): implement where
-  "and use of `where()` selection helper not yet supported"
-)
+docs[["dplyr::across"]] <- character(0)
+
+# if_any() and if_all() are used instead of across() in filter()
+# they are both handled by manipulating the quosures, not by nse_funcs
+docs[["dplyr::if_any"]] <- character(0)
+docs[["dplyr::if_all"]] <- character(0)
+
 # desc() is a special helper handled inside of arrange()
 docs[["dplyr::desc"]] <- character(0)
 
 # add tidyselect helpers by parsing the reexports file
 tidyselect <- grep("^tidyselect::", readLines("R/reexports-tidyselect.R"), value = TRUE)
+
+# HACK: remove the _random_along UDF we're using (fix in ARROW-17974)
+docs[["_random_along"]] <- NULL
 
 docs <- c(docs, setNames(rep(list(NULL), length(tidyselect)), tidyselect))
 

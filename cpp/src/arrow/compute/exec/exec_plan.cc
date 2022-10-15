@@ -598,7 +598,7 @@ Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(Declaration declara
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
   ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
   auto collected_fut = CollectAsyncGenerator(sink_gen);
-  return AllComplete({exec_plan->finished(), Future<>(collected_fut)})
+  return AllFinished({exec_plan->finished(), Future<>(collected_fut)})
       .Then([collected_fut, exec_plan]() -> Result<std::vector<ExecBatch>> {
         ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
         return ::arrow::internal::MapVector(

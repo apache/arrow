@@ -118,7 +118,8 @@ test_that("arrange() on integer, double, and character columns", {
     .input %>%
       group_by(grp) %>%
       arrange(.by_group = TRUE) %>%
-      pull(grp),
+      pull(grp) %>%
+      as.vector(),
     tbl
   )
   compare_dplyr_binding(

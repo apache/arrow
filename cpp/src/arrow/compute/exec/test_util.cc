@@ -185,7 +185,7 @@ Future<std::vector<ExecBatch>> StartAndCollect(
 
   auto collected_fut = CollectAsyncGenerator(gen);
 
-  return AllComplete({plan->finished(), Future<>(collected_fut)})
+  return AllFinished({plan->finished(), Future<>(collected_fut)})
       .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
         ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
         return ::arrow::internal::MapVector(

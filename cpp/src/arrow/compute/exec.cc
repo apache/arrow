@@ -156,6 +156,9 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
 
 Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     std::shared_ptr<Schema> schema, MemoryPool* pool) const {
+  if (static_cast<size_t>(schema->num_fields()) > values.size()) {
+    return Status::Invalid("ExecBatch::ToTRecordBatch mismatching schema size");
+  }
   ArrayVector columns(schema->num_fields());
 
   for (size_t i = 0; i < columns.size(); ++i) {
@@ -163,8 +166,13 @@ Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     if (value.is_array()) {
       columns[i] = value.make_array();
       continue;
+    } else if (value.is_scalar()) {
+      ARROW_ASSIGN_OR_RAISE(columns[i],
+                            MakeArrayFromScalar(*value.scalar(), length, pool));
+    } else {
+      return Status::TypeError("ExecBatch::ToRecordBatch value ", i, " with unsupported ",
+                               "value kind ", ::arrow::ToString(value.kind()));
     }
-    ARROW_ASSIGN_OR_RAISE(columns[i], MakeArrayFromScalar(*value.scalar(), length, pool));
   }
 
   return RecordBatch::Make(std::move(schema), length, std::move(columns));

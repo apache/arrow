@@ -128,10 +128,11 @@ fi
 
 # Create Pull Request and Crossbow comment to run verify source tasks
 if [ ${SOURCE_PR} -gt 0 ]; then
-  archery crossbow verify-release-candidate \
+  archery crossbow \
+    --github-token=${ARROW_GITHUB_API_TOKEN} \
+    verify-release-candidate \
     --base-branch=${maint_branch} \
     --create-pr \
-    --github-token=${ARROW_GITHUB_API_TOKEN} \
     --head-branch=${release_candidate_branch} \
     --pr-body="PR to verify Release Candidate" \
     --pr-title="WIP: [Release] Verify ${release_candidate_branch}" \
