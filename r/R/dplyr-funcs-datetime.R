@@ -382,6 +382,8 @@ register_bindings_datetime_conversion <- function() {
     if (call_binding("is.numeric", x)) {
       delta <- call_binding("difftime", origin, "1970-01-01")
       delta <- build_expr("cast", delta, options = cast_options(to_type = int64()))
+      delta <- build_expr("*", delta, 1000000000L) # number of nanoseconds
+      x <- build_expr("*", x, 1000000000L) # number of nanoseconds
       x <- build_expr("cast", x, options = cast_options(to_type = int64()))
       x <- build_expr("+", x, delta)
     }
@@ -394,7 +396,7 @@ register_bindings_datetime_conversion <- function() {
         options = list(format = format, unit = 0L, error_is_null = TRUE)
       )
     }
-    output <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
+    output <- build_expr("cast", x, options = cast_options(to_type = timestamp(unit = "ns")))
     build_expr("assume_timezone", output, options = list(timezone = tz))
   })
 
