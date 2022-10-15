@@ -379,6 +379,10 @@ register_bindings_datetime_conversion <- function() {
                                                       origin = "1970-01-01",
                                                       tz = "UTC",
                                                       format = NULL) {
+    if (call_binding("is.integer", x)) {
+      x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+    }
+
     if (call_binding("is.numeric", x)) {
       delta <- call_binding("difftime", origin, "1970-01-01")
       delta <- build_expr("cast", delta, options = cast_options(to_type = int64()))
