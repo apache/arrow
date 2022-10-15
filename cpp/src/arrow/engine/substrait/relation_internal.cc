@@ -92,9 +92,11 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
 }
 
 template <typename RelMessage>
-Status CheckRelCommon(const RelMessage& rel) {
+Status CheckRelCommon(const RelMessage& rel,
+                      const ConversionOptions& conversion_options) {
   if (rel.has_common()) {
-    if (rel.common().has_hint()) {
+    if (rel.common().has_hint() &&
+        conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP) {
       return Status::NotImplemented("substrait::RelCommon::Hint");
     }
     if (rel.common().has_advanced_extension()) {
@@ -136,7 +138,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
   switch (rel.rel_type_case()) {
     case substrait::Rel::RelTypeCase::kRead: {
       const auto& read = rel.read();
-      RETURN_NOT_OK(CheckRelCommon(read));
+      RETURN_NOT_OK(CheckRelCommon(read, conversion_options));
 
       // Get the base schema for the read relation
       ARROW_ASSIGN_OR_RAISE(auto base_schema,
@@ -330,7 +332,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
     case substrait::Rel::RelTypeCase::kFilter: {
       const auto& filter = rel.filter();
-      RETURN_NOT_OK(CheckRelCommon(filter));
+      RETURN_NOT_OK(CheckRelCommon(filter, conversion_options));
 
       if (!filter.has_input()) {
         return Status::Invalid("substrait::FilterRel with no input relation");
@@ -356,7 +358,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
     case substrait::Rel::RelTypeCase::kProject: {
       const auto& project = rel.project();
-      RETURN_NOT_OK(CheckRelCommon(project));
+      RETURN_NOT_OK(CheckRelCommon(project, conversion_options));
       if (!project.has_input()) {
         return Status::Invalid("substrait::ProjectRel with no input relation");
       }
@@ -410,7 +412,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
     case substrait::Rel::RelTypeCase::kJoin: {
       const auto& join = rel.join();
-      RETURN_NOT_OK(CheckRelCommon(join));
+      RETURN_NOT_OK(CheckRelCommon(join, conversion_options));
 
       if (!join.has_left()) {
         return Status::Invalid("substrait::JoinRel with no left relation");
@@ -506,7 +508,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
       const auto& aggregate = rel.aggregate();
-      RETURN_NOT_OK(CheckRelCommon(aggregate));
+      RETURN_NOT_OK(CheckRelCommon(aggregate, conversion_options));
 
       if (!aggregate.has_input()) {
         return Status::Invalid("substrait::AggregateRel with no input relation");
