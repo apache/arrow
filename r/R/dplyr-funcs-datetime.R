@@ -339,7 +339,7 @@ register_bindings_datetime_conversion <- function() {
     # => we only cast when we want the behaviour of the base version or when
     # `tz` is set (i.e. not NULL)
     if (call_binding("is.POSIXct", x)) {
-      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), timezone = tz)))
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp("ns", timezone = tz)))
     }
 
       binding_as_date(
@@ -366,7 +366,7 @@ register_bindings_datetime_conversion <- function() {
     # => we only cast when we want the behaviour of the base version or when
     # `tz` is set (i.e. not NULL)
     if (call_binding("is.POSIXct", x) && !is.null(tz)) {
-      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), timezone = tz)))
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp("ns", timezone = tz)))
     }
     binding_as_date(
       x = x,
