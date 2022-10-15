@@ -119,7 +119,7 @@ AsofJoinNodeOptions GetRepeatedOptions(size_t repeat, FieldRef on_key,
 static void AsOfJoinOverhead(benchmark::State& state) {
   int64_t tolerance = 0;
   AsofJoinNodeOptions options =
-      GetRepatedOptions(int(state.range(4)), kTimeCol, {kKeyCol}, tolerance);
+      GetRepeatedOptions(int(state.range(4)), kTimeCol, {kKeyCol}, tolerance);
   TableJoinOverhead(
       state,
       TableGenerationProperties{int(state.range(0)), int(state.range(1)),
