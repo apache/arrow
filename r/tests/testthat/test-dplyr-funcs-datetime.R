@@ -1995,6 +1995,7 @@ test_that("`as_datetime()`", {
   test_df <- tibble(
     date = as.Date(c("2022-03-22", "2021-07-30", NA)),
     char_date = c("2022-03-22", "2021-07-30 14:32:47", NA),
+    char_date_subsec = c("1970-01-01T00:00:59.123456789", "2000-02-29T23:23:23.999999999", NA),
     char_date_non_iso = c("2022-22-03 12:34:56", "2021-30-07 14:32:47", NA),
     int_date = c(10L, 25L, NA),
     integerish_date = c(10, 25, NA),
@@ -2008,24 +2009,15 @@ test_that("`as_datetime()`", {
         ddate2 = lubridate::as_datetime(date),
         dchar_date_no_tz = as_datetime(char_date),
         dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
+        dchar_date_subsec_no_tz = as_datetime(char_date_subsec),
+        dchar_date_subsec_with_tz = as_datetime(char_date_subsec, tz = "Pacific/Marquesas"),
         dint_date = as_datetime(int_date, origin = "1970-01-02"),
         dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
-        dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # Arrow does not support conversion of double to date
-  # the below should error with an error message originating in the C++ code
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(
+        dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01"),
         ddouble_date = as_datetime(double_date)
       ) %>%
       collect(),
-    regexp = "Float value 10.1 was truncated converting to int64"
+    test_df
   )
 })
 
