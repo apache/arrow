@@ -217,6 +217,7 @@ jobs:
       ARROW_HOME: /usr
       ARROW_JEMALLOC: OFF
       ARROW_MIMALLOC: ON
+      ARROW_ORC: ON
       ARROW_PARQUET: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
@@ -286,7 +287,10 @@ jobs:
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: bash
-        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+        run: |
+          # For ORC
+          export TZDIR=/c/msys64/usr/share/zoneinfo
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
