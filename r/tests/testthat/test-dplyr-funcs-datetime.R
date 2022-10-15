@@ -2019,6 +2019,43 @@ test_that("`as_datetime()`", {
       collect(),
     test_df
   )
+
+  # Arrow does not support conversion of timestamp to int32
+  # ARROW-17428
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        ddate = as_datetime(date),
+        ddate_int = as.integer(ddate)
+      ) %>%
+      compute(),
+    "Unsupported cast from timestamp\\[ns, tz=UTC\\] to int32 using function cast_int32"
+  )
+
+  # Arrow does not support conversion of timestamp to double
+  # ARROW-17428
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        ddate = as_datetime(date),
+        ddate_num = as.numeric(ddate)
+      ) %>%
+      compute(),
+    "Unsupported cast from timestamp\\[ns, tz=UTC\\] to double using function cast_double"
+  )
+
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        ddouble_date = as_datetime(double_date),
+        ddouble_date_date32 = as.Date(ddouble_date)
+      ) %>%
+      compute(),
+    "Casting from timestamp\\[ns, tz=UTC\\] to timestamp\\[s, tz=UTC\\] would lose data: 10100000000"
+  )
 })
 
 test_that("parse_date_time() works with year, month, and date components", {
