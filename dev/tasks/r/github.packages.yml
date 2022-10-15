@@ -31,7 +31,7 @@ jobs:
       pkg_version: {{ '${{ steps.save-version.outputs.pkg_version }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_change_r_pkg_version(is_fork, arrow.no_rc_today_version)|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, arrow.no_rc_r_version)|indent }}
       - name: Save Version
         id: save-version
         shell: bash
