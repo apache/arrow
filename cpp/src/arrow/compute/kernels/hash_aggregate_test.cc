@@ -334,8 +334,8 @@ void test_group_class_supported_keys() {
 }
 
 template <typename Batch>
-void test_segments(std::unique_ptr<GroupingSegmenter>& segmenter, const Batch& batch,
-                   std::vector<GroupingSegment> expected_segments) {
+void TestSegments(std::unique_ptr<GroupingSegmenter>& segmenter, const Batch& batch,
+                  std::vector<GroupingSegment> expected_segments) {
   int64_t offset = 0;
   for (auto expected_segment : expected_segments) {
     ASSERT_OK_AND_ASSIGN(auto segment, segmenter->GetNextSegment(batch, offset));
@@ -380,7 +380,7 @@ void test_grouping_segmenter_basics(SetupBatch setup, ConvertBatch convert) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 0 "),
                                     segmenter->GetNextSegment(converted2, 0));
     ASSERT_OK_AND_ASSIGN(auto converted0, convert(batch0));
-    test_segments(segmenter, converted0, {{0, 3, true}, {3, 0, true}});
+    TestSegments(segmenter, converted0, {{0, 3, true}, {3, 0, true}});
   }
   {
     SCOPED_TRACE("bad_types1 segmenting of batch1");
@@ -396,7 +396,7 @@ void test_grouping_segmenter_basics(SetupBatch setup, ConvertBatch convert) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 1 "),
                                     segmenter->GetNextSegment(converted2, 0));
     ASSERT_OK_AND_ASSIGN(auto converted1, convert(batch1));
-    test_segments(segmenter, converted1, {{0, 2, false}, {2, 1, true}, {3, 0, true}});
+    TestSegments(segmenter, converted1, {{0, 2, false}, {2, 1, true}, {3, 0, true}});
   }
   {
     SCOPED_TRACE("bad_types2 segmenting of batch2");
@@ -412,8 +412,8 @@ void test_grouping_segmenter_basics(SetupBatch setup, ConvertBatch convert) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 2 "),
                                     segmenter->GetNextSegment(converted1, 0));
     ASSERT_OK_AND_ASSIGN(auto converted2, convert(batch2));
-    test_segments(segmenter, converted2,
-                  {{0, 1, false}, {1, 1, false}, {2, 1, true}, {3, 0, true}});
+    TestSegments(segmenter, converted2,
+                 {{0, 1, false}, {1, 1, false}, {2, 1, true}, {3, 0, true}});
   }
 }
 
@@ -4338,7 +4338,29 @@ TEST(GroupBy, OnlyKeys) {
   }
 }
 
-TEST(GroupBy, SegmentKeyWithChunkedArray) {
+void TestSegmentKey(const std::shared_ptr<Table>& table, Datum output,
+                    const std::vector<Datum>& segment_keys) {
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
+                           },
+                           {
+                               table->GetColumnByName("key"),
+                           },
+                           segment_keys,
+                           {
+                               {"hash_count", nullptr, "agg_0", "hash_count"},
+                               {"hash_sum", nullptr, "agg_1", "hash_sum"},
+                               {"hash_min_max", nullptr, "agg_2", "hash_min_max"},
+                           }));
+
+  AssertDatumsEqual(output, aggregated_and_grouped, /*verbose=*/true);
+}
+
+Result<std::shared_ptr<Table>> GetSingleSegmentKeyInputAsChunked() {
   auto table = TableFromJSON(schema({field("argument", float64()), field("key", int64()),
                                      field("segment_key", int64())}),
                              {R"([{"argument": 1.0,   "key": 1,    "segment_key": 1},
@@ -4365,50 +4387,146 @@ TEST(GroupBy, SegmentKeyWithChunkedArray) {
                          {"argument": 0.75,  "key": null, "segment_key": 0},
                          {"argument": null,  "key": 3,    "segment_key": 0}
                         ])"});
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
-                           {
-                               table->GetColumnByName("argument"),
-                               table->GetColumnByName("argument"),
-                               table->GetColumnByName("argument"),
-                           },
-                           {
-                               table->GetColumnByName("key"),
-                           },
-                           {
-                               table->GetColumnByName("segment_key"),
-                           },
-                           {
-                               {"hash_count", nullptr, "agg_0", "hash_count"},
-                               {"hash_sum", nullptr, "agg_1", "hash_sum"},
-                               {"hash_min_max", nullptr, "agg_2", "hash_min_max"},
-                           }));
+  return table;
+}
 
-  AssertDatumsEqual(
-      ChunkedArrayFromJSON(struct_({
-                               field("hash_count", int64()),
-                               field("hash_sum", float64()),
-                               field("hash_min_max", struct_({
-                                                         field("min", float64()),
-                                                         field("max", float64()),
-                                                     })),
-                               field("key_0", int64()),
-                               field("key_1", int64()),
-                           }),
-                           {R"([
+Result<std::shared_ptr<Table>> GetSingleSegmentKeyInputAsCombined() {
+  ARROW_ASSIGN_OR_RAISE(auto table, GetSingleSegmentKeyInputAsChunked());
+  return table->CombineChunks();
+}
+
+Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentKeyOutput() {
+  return ChunkedArrayFromJSON(struct_({
+                                  field("hash_count", int64()),
+                                  field("hash_sum", float64()),
+                                  field("hash_min_max", struct_({
+                                                            field("min", float64()),
+                                                            field("max", float64()),
+                                                        })),
+                                  field("key_0", int64()),
+                                  field("key_1", int64()),
+                              }),
+                              {R"([
     [2, 4.25,   {"min": 1.0,   "max": 3.25},  1, 1],
     [3, -0.125, {"min": -0.25, "max": 0.125}, 2, 1],
     [0, null,   {"min": null,  "max": null},  3, 1],
     [2, 4.75,   {"min": 0.75,  "max": 4.0},   null, 1]
   ])",
-                            R"([
+                               R"([
     [2, 4.25,   {"min": 1.0,   "max": 3.25},  1, 0],
     [3, -0.125, {"min": -0.25, "max": 0.125}, 2, 0],
     [0, null,   {"min": null,  "max": null},  3, 0],
     [2, 4.75,   {"min": 0.75,  "max": 4.0},   null, 0]
-  ])"}),
-      aggregated_and_grouped,
-      /*verbose=*/true);
+  ])"});
+}
+
+void TestSingleSegmentKey(std::function<Result<std::shared_ptr<Table>>()> get_table) {
+  ASSERT_OK_AND_ASSIGN(auto table, get_table());
+  ASSERT_OK_AND_ASSIGN(auto output, GetSingleSegmentKeyOutput());
+  TestSegmentKey(table, output, {table->GetColumnByName("segment_key")});
+}
+
+TEST(GroupBy, SingleSegmentKeyChunked) {
+  TestSingleSegmentKey(GetSingleSegmentKeyInputAsChunked);
+}
+
+TEST(GroupBy, SingleSegmentKeyCombined) {
+  TestSingleSegmentKey(GetSingleSegmentKeyInputAsCombined);
+}
+
+// extracts one segment of the obtained (single-segment-key) table
+Result<std::shared_ptr<Table>> GetEmptySegmentKeyInput(
+    std::function<Result<std::shared_ptr<Table>>()> get_table) {
+  ARROW_ASSIGN_OR_RAISE(auto table, get_table());
+  auto sliced = table->Slice(0, 10);
+  ARROW_ASSIGN_OR_RAISE(auto batch, sliced->CombineChunksToBatch());
+  ARROW_ASSIGN_OR_RAISE(auto array, batch->ToStructArray());
+  ARROW_ASSIGN_OR_RAISE(auto chunked, ChunkedArray::Make({array}, array->type()));
+  return Table::FromChunkedStructArray(chunked);
+}
+
+Result<std::shared_ptr<Table>> GetEmptySegmentKeyInputAsChunked() {
+  return GetEmptySegmentKeyInput(GetSingleSegmentKeyInputAsChunked);
+}
+
+Result<std::shared_ptr<Table>> GetEmptySegmentKeyInputAsCombined() {
+  return GetEmptySegmentKeyInput(GetSingleSegmentKeyInputAsCombined);
+}
+
+// extracts the expected output for one segment
+Result<std::shared_ptr<Array>> GetEmptySegmentKeyOutput() {
+  ARROW_ASSIGN_OR_RAISE(auto chunked, GetSingleSegmentKeyOutput());
+  ARROW_ASSIGN_OR_RAISE(auto table, Table::FromChunkedStructArray(chunked));
+  ARROW_ASSIGN_OR_RAISE(auto removed, table->RemoveColumn(table->num_columns() - 1));
+  auto sliced = removed->Slice(0, 4);
+  ARROW_ASSIGN_OR_RAISE(auto batch, sliced->CombineChunksToBatch());
+  return batch->ToStructArray();
+}
+
+void TestEmptySegmentKey(std::function<Result<std::shared_ptr<Table>>()> get_table) {
+  ASSERT_OK_AND_ASSIGN(auto table, get_table());
+  ASSERT_OK_AND_ASSIGN(auto output, GetEmptySegmentKeyOutput());
+  TestSegmentKey(table, output, {});
+}
+
+TEST(GroupBy, EmptySegmentKeyChunked) {
+  TestEmptySegmentKey(GetEmptySegmentKeyInputAsChunked);
+}
+
+TEST(GroupBy, EmptySegmentKeyCombined) {
+  TestEmptySegmentKey(GetEmptySegmentKeyInputAsCombined);
+}
+
+// adds a named copy of the last (single-segment-key) column to the obtained table
+Result<std::shared_ptr<Table>> GetMultiSegmentKeyInput(
+    std::function<Result<std::shared_ptr<Table>>()> get_table,
+    const std::string& add_name) {
+  ARROW_ASSIGN_OR_RAISE(auto table, get_table());
+  int last = table->num_columns() - 1;
+  auto add_field = field(add_name, table->schema()->field(last)->type());
+  return table->AddColumn(table->num_columns(), add_field, table->column(last));
+}
+
+Result<std::shared_ptr<Table>> GetMultiSegmentKeyInputAsChunked(
+    const std::string& add_name) {
+  return GetMultiSegmentKeyInput(GetSingleSegmentKeyInputAsChunked, add_name);
+}
+
+Result<std::shared_ptr<Table>> GetMultiSegmentKeyInputAsCombined(
+    const std::string& add_name) {
+  return GetMultiSegmentKeyInput(GetSingleSegmentKeyInputAsCombined, add_name);
+}
+
+// adds a named copy of the last (single-segment-key) column to the expected output table
+Result<std::shared_ptr<ChunkedArray>> GetMultiSegmentKeyOutput(
+    const std::string& add_name) {
+  ARROW_ASSIGN_OR_RAISE(auto chunked, GetSingleSegmentKeyOutput());
+  ARROW_ASSIGN_OR_RAISE(auto table, Table::FromChunkedStructArray(chunked));
+  int last = table->num_columns() - 1;
+  auto add_field = field(add_name, table->schema()->field(last)->type());
+  ARROW_ASSIGN_OR_RAISE(auto added,
+                        table->AddColumn(last + 1, add_field, table->column(last)));
+  ARROW_ASSIGN_OR_RAISE(auto batch, added->CombineChunksToBatch());
+  ARROW_ASSIGN_OR_RAISE(auto array, batch->ToStructArray());
+  return ChunkedArray::Make({array->Slice(0, 4), array->Slice(4, 4)}, array->type());
+}
+
+void TestMultiSegmentKey(
+    std::function<Result<std::shared_ptr<Table>>(const std::string&)> get_table) {
+  std::string add_name = "segment_key2";
+  ASSERT_OK_AND_ASSIGN(auto table, get_table(add_name));
+  ASSERT_OK_AND_ASSIGN(auto output, GetMultiSegmentKeyOutput("key_2"));
+  TestSegmentKey(
+      table, output,
+      {table->GetColumnByName("segment_key"), table->GetColumnByName(add_name)});
+}
+
+TEST(GroupBy, MultiSegmentKeyChunked) {
+  TestMultiSegmentKey(GetMultiSegmentKeyInputAsChunked);
+}
+
+TEST(GroupBy, MultiSegmentKeyCombined) {
+  TestMultiSegmentKey(GetMultiSegmentKeyInputAsCombined);
 }
 
 }  // namespace compute
