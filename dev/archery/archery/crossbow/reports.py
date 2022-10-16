@@ -70,7 +70,6 @@ class Report:
     def task_url(self, task):
         # Only wait if the link to the actual build is not present.
         if not task.status().build_links and self._wait_for_task:
-            print("Waiting for task")
             time.sleep(self._wait_for_task)
         if task.status().build_links:
             # show link to the actual build, some CI providers implement
