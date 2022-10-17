@@ -266,10 +266,7 @@ class ArrowConan(ConanFile):
             if self.options.gandiva:
                 return True
             version = tools.Version(self.version)
-            if version.major == "1":
-                if self._parquet() and self.settings.compiler == "gcc" and self.settings.compiler.version < tools.Version("4.9"):
-                    return True
-            elif version.major >= "2":
+            if version.major >= "2":
                 if self.settings.compiler == "Visual Studio":
                     return True
             return False
@@ -614,8 +611,6 @@ class ArrowConan(ConanFile):
             if self.options.gandiva:
                 # FIXME: only filesystem component is used
                 self.cpp_info.components["libgandiva"].requires.append("boost::boost")
-            if self._parquet() and self.settings.compiler == "gcc" and self.settings.compiler.version < tools.Version("4.9"):
-                self.cpp_info.components["libparquet"].requires.append("boost::boost")
             if tools.Version(self.version) >= "2.0":
                 # FIXME: only headers components is used
                 self.cpp_info.components["libarrow"].requires.append("boost::boost")
