@@ -1521,6 +1521,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool emit_dictionary_deltas
         c_bool unify_dictionaries
 
+        CIpcWriteOptions()
+        CIpcWriteOptions(CIpcWriteOptions&&)
+
         @staticmethod
         CIpcWriteOptions Defaults()
 
