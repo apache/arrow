@@ -313,7 +313,33 @@ TEST(FunctionMapping, ValidCases) {
        {"abc", "def"},
        {utf8(), utf8()},
        "abcdef",
-       utf8()}};
+       utf8()},
+      {{kSubstraitLogarithmicFunctionsUri, "ln"},
+       {"SILENT","1"},
+       {nullptr, int8()},
+       "0",
+       float64()},
+      {{kSubstraitLogarithmicFunctionsUri, "log10"},
+       {"SILENT","1"},
+       {nullptr, int8()},
+       "0",
+       float64()},
+      {{kSubstraitLogarithmicFunctionsUri, "log2"},
+       {"SILENT","2"},
+       {nullptr, int8()},
+       "1",
+       float64()},
+      {{kSubstraitLogarithmicFunctionsUri, "log1p"},
+       {"SILENT","0"},
+       {nullptr, int8()},
+       "0",
+       float64()},
+      {{kSubstraitLogarithmicFunctionsUri, "logb"},
+       {"SILENT","10", "10"},
+       {nullptr, int8(), int8()},
+       "1",
+       float64()}
+      };
   CheckValidTestCases(valid_test_cases);
 }
 

@@ -863,6 +863,32 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
                                   DecodeOptionlessOverflowableArithmetic(function_name)));
     }
+
+    // Mappings for log functions
+    for (const auto& function_name : {"ln", "log10", "log2", "logb", "log1p"}) {
+      DCHECK_OK(
+          AddSubstraitCallToArrow({kSubstraitLogarithmicFunctionsUri, function_name},
+                                  DecodeOptionlessOverflowableArithmetic(function_name)));
+    }
+
+    // Mappings for rounding functions
+    for (const auto& function_name : {"ceil", "floor"}) {
+      DCHECK_OK(
+          AddSubstraitCallToArrow({kSubstraitRoundingFunctionsUri, function_name},
+                                  DecodeOptionlessOverflowableArithmetic(function_name)));
+    }
+
+    for (const auto& function_name :
+         std::vector<std::pair<std::string_view, std::string_view>>{
+             {"ln", "ln"},
+             {kSubstraitComparisonFunctionsUri, "equal"},
+             {kSubstraitComparisonFunctionsUri, "not_equal"}}) {
+      DCHECK_OK(AddSubstraitCallToArrow(
+          {function_name.first, function_name.second},
+          DecodeOptionlessBasicMapping(std::string(function_name.second),
+                                       /*max_args=*/2)));
+    }
+
     // Basic mappings that need _kleene appended to them
     for (const auto& function_name : {"or", "and"}) {
       DCHECK_OK(AddSubstraitCallToArrow(
