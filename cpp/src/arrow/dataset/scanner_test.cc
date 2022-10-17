@@ -1082,13 +1082,13 @@ TEST_P(TestScanner, ProjectedScanNestedFromNames) {
                                                        field("f64", float64())}))})),
   });
   ASSERT_OK_AND_ASSIGN(auto descr,
-                       ProjectionDescr::FromNames({"struct.i32", "nested.right.f64"},
+                       ProjectionDescr::FromNames({".struct.i32", "nested.right.f64"},
                                                   *options_->dataset_schema))
   SetProjection(options_.get(), std::move(descr));
   auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto batch_out = ConstantArrayGenerator::Zeroes(
       GetParam().items_per_batch,
-      schema({field("struct.i32", int32()), field("nested.right.f64", float64())}));
+      schema({field(".struct.i32", int32()), field("nested.right.f64", float64())}));
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
 }
 
