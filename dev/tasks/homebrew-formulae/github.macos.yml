@@ -28,7 +28,10 @@ jobs:
 
       {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Test formula
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8)}}  
         run: |
+          brew install sccache
           brew install -v --HEAD apache-arrow
           brew test apache-arrow
           brew audit --strict apache-arrow

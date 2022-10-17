@@ -34,6 +34,8 @@ jobs:
       {{ macros.github_login_dockerhub()|indent }}
 
       - name: Build wheel
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8)}}  
         shell: bash
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
 

@@ -57,6 +57,9 @@ jobs:
           CALL bootstrap-vcpkg.bat -win64 -disableMetrics
           CALL vcpkg integrate install
           CALL setx PATH "%PATH%;C:\vcpkg"
+      - name: Install sccache
+        shell: bash
+        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
       - name: Setup NuGet Credentials
         shell: bash
         env: 

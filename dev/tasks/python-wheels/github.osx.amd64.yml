@@ -97,6 +97,8 @@ jobs:
 
       - name: Build Wheel
         shell: bash
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8)}}  
         run: |
           $PYTHON -m venv build-env
           source build-env/bin/activate

@@ -35,6 +35,8 @@ jobs:
 
       - name: Execute Docker Build
         shell: bash
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8)}}  
         run: |
           archery docker run \
             -e VERIFY_VERSION="{{ release|default("") }}" \
