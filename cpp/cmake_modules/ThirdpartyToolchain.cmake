@@ -4338,13 +4338,18 @@ macro(build_orc)
   set_target_properties(orc::liborc
                         PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
-  target_link_libraries(orc::liborc INTERFACE LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD}
-                                              ${Snappy_TARGET})
+  set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
   if(NOT MSVC)
     if(NOT APPLE)
-      target_link_libraries(orc::liborc INTERFACE Threads::Threads)
+      list(APPEND ORC_LINK_LIBRARIES Threads::Threads)
     endif()
-    target_link_libraries(orc::liborc INTERFACE ${CMAKE_DL_LIBS})
+    list(APPEND ORC_LINK_LIBRARIES ${CMAKE_DL_LIBS})
+  endif()
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(orc::liborc PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                 "${ORC_LINK_LIBRARIES}")
+  else()
+    target_link_libraries(orc::liborc INTERFACE ${ORC_LINK_LIBRARIES})
   endif()
 
   add_dependencies(toolchain orc_ep)
