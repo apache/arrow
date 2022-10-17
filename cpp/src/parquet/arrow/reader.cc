@@ -1077,9 +1077,7 @@ class RowGroupGenerator {
       return ::arrow::AsyncGeneratorEnd<RecordBatchGenerator>();
     }
     index_++;
-    BEGIN_PARQUET_CATCH_EXCEPTIONS
     FillReadahead();
-    END_PARQUET_CATCH_EXCEPTIONS
     ReadRequest next = std::move(in_flight_reads_.front());
     DCHECK(!in_flight_reads_.empty());
     in_flight_reads_.pop();
@@ -1114,9 +1112,11 @@ class RowGroupGenerator {
     } else {
       auto ready = ::arrow::Future<>::MakeFinished();
       row_group_read = ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
+        BEGIN_PARQUET_CATCH_EXCEPTIONS
         reader->parquet_reader()->PreBuffer({row_group}, column_indices_,
                                             reader_properties_.io_context(),
                                             reader_properties_.cache_options());
+        END_PARQUET_CATCH_EXCEPTIONS
         auto wait_buffer =
             reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
         wait_buffer.Wait();
