@@ -33,12 +33,22 @@ static void ConsumeWhitespace(std::string_view& view) {
   view.remove_prefix(first_nonwhitespace);
 }
 
-static std::string_view TrimUntilNextSeparator(std::string_view& view) {
-  constexpr const char* separators = " \f\n\r\t\v)";
+static std::string_view ExtractUntil(std::string_view& view,
+                                     const std::string_view separators) {
   size_t separator = view.find_first_of(separators);
   std::string_view result = view.substr(0, separator);
   view.remove_prefix(separator);
   return result;
+}
+
+static std::string_view TrimUntilNextSeparator(std::string_view& view) {
+  constexpr const char* separators = " \f\n\r\t\v),";
+  return ExtractUntil(view, separators);
+}
+
+static std::string_view ExtractArgument(std::string_view& view) {
+  constexpr const char* separators = ",)";
+  return ExtractUntil(view, separators);
 }
 
 static const std::unordered_map<std::string_view, std::shared_ptr<DataType>>
@@ -205,27 +215,33 @@ static Result<Expression> ParseExpr(std::string_view& expr);
 
 static Result<Expression> ParseCall(std::string_view& expr) {
   ConsumeWhitespace(expr);
-  if (expr.empty()) return Status::Invalid("Found unterminated expression");
+  if (expr.empty()) return Status::Invalid("Found empty expression");
 
-  std::string_view function_name = TrimUntilNextSeparator(expr);
+  std::string_view function_name = ExtractUntil(expr, "(");
+  if (expr.empty())
+    return Status::Invalid("Expected argument list after function name", function_name);
+  expr.remove_prefix(1);  // Remove the open paren
 
   std::vector<Expression> args;
   do {
     ConsumeWhitespace(expr);
-    if (expr.empty()) return Status::Invalid("Found unterminated expression");
+    if (expr.empty())
+      return Status::Invalid("Found unterminated expression argument list");
     if (expr[0] == ')') break;
+    if (!args.empty()) RETURN_NOT_OK(ParseComma(expr));
+
     ARROW_ASSIGN_OR_RAISE(Expression arg, ParseExpr(expr));
     args.emplace_back(std::move(arg));
   } while (true);
 
+  expr.remove_prefix(1);  // Remove the close paren
   return call(std::string(function_name), std::move(args));
 }
 
 static Result<Expression> ParseFieldRef(std::string_view& expr) {
-  if (expr.empty() || std::isspace(expr[0]))
-    return Status::Invalid("Found an empty named fieldref");
+  if (expr.empty()) return Status::Invalid("Found an empty named fieldref");
 
-  std::string_view dot_path = TrimUntilNextSeparator(expr);
+  std::string_view dot_path = ExtractArgument(expr);
   ARROW_ASSIGN_OR_RAISE(FieldRef field, FieldRef::FromDotPath(dot_path));
   return field_ref(std::move(field));
 }
@@ -256,6 +272,8 @@ static Result<std::shared_ptr<DataType>> ParseDataType(std::string_view& type) {
 }
 
 static Result<Expression> ParseLiteral(std::string_view& expr) {
+  ARROW_DCHECK(expr[0] == '$');
+  expr.remove_prefix(1);
   size_t colon = expr.find_first_of(":");
   std::string_view type_name = expr.substr(0, colon);
   expr.remove_prefix(colon);
@@ -275,18 +293,14 @@ static Result<Expression> ParseLiteral(std::string_view& expr) {
 static Result<Expression> ParseExpr(std::string_view& expr) {
   ConsumeWhitespace(expr);
   if (expr.empty()) return Status::Invalid("Expression is empty!");
-
-  char expr_start = expr[0];
-  expr.remove_prefix(1);
-  switch (expr_start) {
-    case '(':
-      return ParseCall(expr);
-    case '!':
+  switch (expr[0]) {
+    case '.':
+    case '[':
       return ParseFieldRef(expr);
     case '$':
       return ParseLiteral(expr);
     default:
-      return Status::Invalid("Invalid start of expression");
+      return ParseCall(expr);
   }
 }
 

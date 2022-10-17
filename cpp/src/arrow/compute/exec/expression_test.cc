@@ -1564,7 +1564,7 @@ TEST(Expression, SerializationRoundTrips) {
 }
 
 TEST(Expression, ParseBasic) {
-  const char* expr_str = "(add $int32:1 !.i32_0)";
+  const char* expr_str = "add($int32:1, .i32_0)";
   ASSERT_OK_AND_ASSIGN(Expression expr, Expression::FromString(expr_str));
   ExecBatch batch = ExecBatchFromJSON({int32(), int32()}, "[[1, 2], [1, 2]]");
   std::shared_ptr<Schema> sch =
