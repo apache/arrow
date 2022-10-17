@@ -17,15 +17,7 @@
   under the License.
 -->
 
-# arrow 10.0.0
-## Arrays and tables
-
-`as_arrow_array()` can now take `blob::blob` and `?vctrs::list_of`, which
-convert to binary and list arrays, respectively. Also fixed issue where 
-`as_arrow_array()` ignored type argument when passed a `StructArray`.
-
-The `unique()` function works on `?Table`, `?RecordBatch`, `?Dataset`, and
-`?RecordBatchReader`.
+# arrow 9.0.0.9000
 
 ## Arrow dplyr queries
 
@@ -56,9 +48,31 @@ returns a `?Table`, instead of an query object.
 Finally, long-running queries can now be cancelled and will abort their 
 computation immediately.
 
+## Arrays and tables
+
+`as_arrow_array()` can now take `blob::blob` and `?vctrs::list_of`, which
+convert to binary and list arrays, respectively. Also fixed issue where 
+`as_arrow_array()` ignored type argument when passed a `StructArray`.
+
+The `unique()` function works on `?Table`, `?RecordBatch`, `?Dataset`, and
+`?RecordBatchReader`.
+
 ## Reading and writing
 
 `write_feather()` can take `FALSE` to choose writing uncompressed files.
+
+## Installation
+
+As of version 10.0.0, `arrow` requires C++17 to build. This means that:
+
+* On Windows, you need `R >= 4.0`. Version 9.0.0 was the last version to support
+  R 3.6.
+* On CentOS 7, you can build the latest version of `arrow`,
+  but you first need to install a newer compiler than the default system compiler,
+  gcc 4.8. See `vignette("install", package = "arrow")` for guidance.
+  Note that you only need the newer compiler to build `arrow`:
+  installing a binary package, as from RStudio Package Manager,
+  or loading a package you've already installed works fine with the system defaults.
 
 # arrow 9.0.0
 
