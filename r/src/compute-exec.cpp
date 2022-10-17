@@ -202,7 +202,10 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     if (plan_status_ == PLAN_RUNNING) {
       if (!plan_->finished().is_finished()) {
         plan_->StopProducing();
-        ARROW_RETURN_NOT_OK(plan_->finished().result());
+        arrow::Status result = plan_->finished().status();
+        if (!result.ok() && !result.IsCancelled()) {
+          return result;
+        }
       }
     }
 
