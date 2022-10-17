@@ -3241,6 +3241,31 @@ def test_feather_format(tempdir, dataset_reader):
         dataset_reader.to_table(ds.dataset(basedir, format="feather"))
 
 
+@pytest.mark.pandas
+@pytest.mark.parametrize("compression", [
+    "lz4",
+    "zstd",
+])
+def test_feather_format_compressed(tempdir, compression, dataset_reader):
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    basedir = tempdir / "feather_dataset"
+    basedir.mkdir()
+    file_format = ds.IpcFileFormat()
+    write_options = file_format.make_write_options(compression=compression)
+    ds.write_dataset(
+        table,
+        str(basedir / "data.arrow"),
+        format=file_format,
+        file_options=write_options
+    )
+
+    dataset = ds.dataset(basedir, format=ds.IpcFileFormat())
+    result = dataset_reader.to_table(dataset)
+    assert result.equals(table)
+
+
 def _create_parquet_dataset_simple(root_path):
     """
     Creates a simple (flat files, no nested partitioning) Parquet dataset
