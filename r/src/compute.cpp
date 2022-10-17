@@ -609,10 +609,18 @@ std::vector<std::string> compute__GetFunctionNames() {
 class RScalarUDFKernelState : public arrow::compute::KernelState {
  public:
   RScalarUDFKernelState(cpp11::sexp exec_func, cpp11::sexp resolver)
-      : exec_func_(exec_func), resolver_(resolver) {}
+      : exec_func_(exec_func),
+        resolver_(resolver),
+        exec_fun_shelter_(exec_func),
+        resolver_shelter_(resolver) {}
 
   cpp11::function exec_func_;
   cpp11::function resolver_;
+  // cpp11::function does not protect its argument from garbage collection,
+  // so we need a C++ object that does to make sure the functions still exist
+  // when called.
+  cpp11::sexp exec_fun_shelter_;
+  cpp11::sexp resolver_shelter_;
 };
 
 arrow::Result<arrow::TypeHolder> ResolveScalarUDFOutputType(
