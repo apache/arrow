@@ -109,7 +109,7 @@ TEST(TestScalarHash, Hash64IntMap) {
   auto result_data = *(hash_result.array());
 
   // validate each value
-  for (int val_ndx = 0; val_ndx < test_vals_first.size(); ++val_ndx) {
+  for (size_t val_ndx = 0; val_ndx < test_vals_first.size(); ++val_ndx) {
     uint64_t expected_hash = hash_combine(hash_int<uint16_t>(test_vals_first[val_ndx]),
                                           hash_int<int16_t>(test_vals_second[val_ndx]));
     uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
