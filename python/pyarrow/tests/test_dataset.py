@@ -4797,10 +4797,10 @@ def test_read_table_nested_columns(tempdir, format):
     table = pa.table({"user_id": ["abc123", "qrs456"],
                       "a.dotted.field": [1, 2],
                       "interaction": [
-        {"type": "click", "element": "button",
-         "values": [1, 2], "structs":[{"foo": "bar"}]},
+        {"type": None, "element": "button",
+         "values": [1, 2], "structs":[{"foo": "bar"}, None]},
         {"type": "scroll", "element": "window",
-         "values": [3, 4], "structs":[{"fizz": "buzz"}]}
+         "values": [None, 3, 4], "structs":[{"fizz": "buzz"}]}
     ]})
     ds.write_dataset(table, tempdir / "table", format=format)
     ds1 = ds.dataset(tempdir / "table", format=format)
@@ -4810,8 +4810,8 @@ def test_read_table_nested_columns(tempdir, format):
         columns=["user_id", "interaction.type", "interaction.values",
                  "interaction.structs", "a.dotted.field"])
     assert table.to_pylist() == [
-        {'user_id': 'abc123', 'type': 'click', 'values': [1, 2],
-         'structs': [{'fizz': None, 'foo': 'bar'}], 'a.dotted.field': 1},
-        {'user_id': 'qrs456', 'type': 'scroll', 'values': [3, 4],
+        {'user_id': 'abc123', 'type': None, 'values': [1, 2],
+         'structs': [{'fizz': None, 'foo': 'bar'}, None], 'a.dotted.field': 1},
+        {'user_id': 'qrs456', 'type': 'scroll', 'values': [None, 3, 4],
          'structs': [{'fizz': 'buzz', 'foo': None}], 'a.dotted.field': 2}
     ]
