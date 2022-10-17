@@ -243,9 +243,14 @@ cdef class IpcWriteOptions(_Weakrefable):
         if value is None:
             self.c_options.codec.reset()
         elif isinstance(value, str):
+            codec_type = _ensure_compression(value)
+            if codec_type != CCompressionType_ZSTD and codec_type != CCompressionType_LZ4_FRAME:
+                raise ValueError("Compression type must be lz4, zstd or None")
             self.c_options.codec = shared_ptr[CCodec](GetResultValue(
-                CCodec.Create(_ensure_compression(value))).release())
+                CCodec.Create(codec_type)).release())
         elif isinstance(value, Codec):
+            if value.name != "lz4" and value.name != "zstd":
+                raise ValueError("Compression type must be lz4, zstd or None")
             self.c_options.codec = (<Codec>value).wrapped
         else:
             raise TypeError(

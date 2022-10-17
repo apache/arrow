@@ -3245,6 +3245,7 @@ def test_feather_format(tempdir, dataset_reader):
 @pytest.mark.parametrize("compression", [
     "lz4",
     "zstd",
+    "brotli"  # not supported
 ])
 def test_feather_format_compressed(tempdir, compression, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
@@ -3253,6 +3254,14 @@ def test_feather_format_compressed(tempdir, compression, dataset_reader):
     basedir = tempdir / "feather_dataset"
     basedir.mkdir()
     file_format = ds.IpcFileFormat()
+    if compression == "brotli":
+        with pytest.raises(ValueError, match="Compression type"):
+            write_options = file_format.make_write_options(compression=compression)
+        with pytest.raises(ValueError, match="Compression type"):
+            codec = pa.Codec(compression)
+            write_options = file_format.make_write_options(compression=codec)
+        return
+
     write_options = file_format.make_write_options(compression=compression)
     ds.write_dataset(
         table,
