@@ -858,7 +858,7 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
 
     // -------------- Substrait -> Arrow Functions -----------------
     // Mappings with a _checked variant
-    for (const auto& function_name : {"add", "subtract", "multiply", "divide"}) {
+    for (const auto& function_name : {"add", "subtract", "multiply", "divide", "sign"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
                                   DecodeOptionlessOverflowableArithmetic(function_name)));
@@ -876,17 +876,6 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitRoundingFunctionsUri, function_name},
                                   DecodeOptionlessOverflowableArithmetic(function_name)));
-    }
-
-    for (const auto& function_name :
-         std::vector<std::pair<std::string_view, std::string_view>>{
-             {"ln", "ln"},
-             {kSubstraitComparisonFunctionsUri, "equal"},
-             {kSubstraitComparisonFunctionsUri, "not_equal"}}) {
-      DCHECK_OK(AddSubstraitCallToArrow(
-          {function_name.first, function_name.second},
-          DecodeOptionlessBasicMapping(std::string(function_name.second),
-                                       /*max_args=*/2)));
     }
 
     // Basic mappings that need _kleene appended to them
