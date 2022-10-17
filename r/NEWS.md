@@ -61,6 +61,10 @@ The `unique()` function works on `?Table`, `?RecordBatch`, `?Dataset`, and
 
 `write_feather()` can take `FALSE` to choose writing uncompressed files.
 
+Also, a breaking change for IPC files in `write_dataset()`: passing
+`"ipc"` or  `"feather"` to `format` will now write files with `.arrow`
+extension instead of `.feather`.
+
 ## Installation
 
 As of version 10.0.0, `arrow` requires C++17 to build. This means that:
