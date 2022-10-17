@@ -222,9 +222,10 @@ class TypedColumnReader : public ColumnReader {
   // Skip reading values. This method will work for both repeated and
   // non-repeated fields. Note that this method is skipping values and not
   // records. This distinction is important for repeated fields, meaning that
-  // we are not skipping over the values to the next record. We are skipping
-  // through them. So after the skip the iterator could be in the middle of a
-  // repeated field.
+  // we are not skipping over the values to the next record. For example,
+  // consider the following two consecutive records containing one repeated field:
+  // {[1, 2, 3]}, {[4, 5]}. If we Skip(2), our next read value will be 3, which
+  // is inside the first record.
   // Returns the number of values skipped.
   virtual int64_t Skip(int64_t num_values_to_skip) = 0;
 
