@@ -44,6 +44,8 @@ If you are on CentOS 7, to build arrow you will need to install a newer `devtool
 
 yum install -y centos-release-scl
 yum install -y devtoolset-8
+# Optional: also install cloud storage dependencies, as described below
+yum install -y libcurl-devel openssl-devel
 
 source /opt/rh/devtoolset-8/enable
 
