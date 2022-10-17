@@ -24,6 +24,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -1334,11 +1335,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   // Throw away levels from start_levels_position to levels_position_.
-  // Will update levels_position_ and levels_written_ accordingly and move
-  // the levels to left to fill in the gap. It will not shrink the size
-  // of the buffer or overwrite the positions after levels_written_.
-  // This is inefficient, though necessary to consume levels that we have
-  // already read into the buffer and we want to Skip.
+  // Will update levels_position_, levels_written_, and levels_capacity_
+  // accordingly and move the levels to left to fill in the gap.
+  // It will shrink the size of the buffer.
   void ThrowAwayLevels(int64_t start_levels_position) {
     ARROW_DCHECK_LE(levels_position_, levels_written_);
     ARROW_DCHECK_LE(start_levels_position, levels_position_);
@@ -1347,16 +1346,24 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t gap = levels_position_ - start_levels_position;
     if (gap == 0) return;
 
-    std::copy(def_levels() + levels_position_, def_levels() + levels_written_,
-              def_levels() + levels_position_ - gap);
+    int64_t levels_remaining = levels_written_ - gap;
+
+    int16_t* def_data = def_levels();
+    std::copy(def_data + levels_position_, def_data + levels_written_,
+              def_data + levels_position_ - gap);
+    PARQUET_THROW_NOT_OK(def_levels_->Resize(levels_remaining * sizeof(int16_t), false));
 
     if (this->max_rep_level_ > 0) {
-      std::copy(rep_levels() + levels_position_, rep_levels() + levels_written_,
-                rep_levels() + levels_position_ - gap);
+      int16_t* rep_data = rep_levels();
+      std::copy(rep_data + levels_position_, rep_data + levels_written_,
+                rep_data + levels_position_ - gap);
+      PARQUET_THROW_NOT_OK(
+          rep_levels_->Resize(levels_remaining * sizeof(int16_t), false));
     }
 
     levels_written_ -= gap;
     levels_position_ -= gap;
+    levels_capacity_ -= gap;
   }
 
   // Skip records that we have in our buffer. This function is only for
@@ -1401,16 +1408,50 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     return skipped_records;
   }
 
-  // Skip records for repeated fields. Returns number of skipped records.
+  // Attempts to skip num_records from the buffer. Will throw away levels
+  // and corresponding values for the records it skipped and consumes them from the
+  // underlying decoder. Will advance levels_position_ and update
+  // at_record_start_.
+  // Returns how many records were skipped.
+  int64_t DelimitAndSkipRecordsInBuffer(int64_t num_records) {
+    if (num_records == 0) return 0;
+    // Look at the buffered levels, delimit them based on
+    // (rep_level == 0), report back how many records are in there, and
+    // fill in how many not-null values (def_level == max_def_level_).
+    // DelimitRecords updates levels_position_.
+    int64_t start_levels_position = levels_position_;
+    int64_t values_seen = 0;
+    int64_t skipped_records = DelimitRecords(num_records, &values_seen);
+    if (ReadAndThrowAwayValues(values_seen) != values_seen) {
+      throw ParquetException("Could not read and throw away requested values");
+    }
+    // Mark those levels and values as consumed in the the underlying page.
+    // This must be done before we throw away levels since it updates
+    // levels_position_ and levels_written_.
+    this->ConsumeBufferedValues(levels_position_ - start_levels_position);
+    // Updated levels_position_ and levels_written_.
+    ThrowAwayLevels(start_levels_position);
+    return skipped_records;
+  }
+
+  // Skip records for repeated fields. For repeated fields, we are technically
+  // reading and throwing away the levels and values since we do not know the record
+  // boundaries in advance. Keep filling the buffer and skipping until we reach the
+  // desired number of records or we run out of values in the column chunk.
+  // Returns number of skipped records.
   int64_t SkipRecordsRepeated(int64_t num_records) {
     ARROW_DCHECK_GT(this->max_rep_level_, 0);
-
-    // For repeated fields, we are technically reading and throwing away the
-    // levels and values since we do not know the record boundaries in advance.
-    // Keep filling the buffer and skipping until we reach the desired number
-    // of records or we run out of values in the column chunk.
     int64_t skipped_records = 0;
-    int64_t level_batch_size = std::max<int64_t>(kMinLevelBatchSize, num_records);
+
+    // First consume what is in the buffer.
+    if (levels_position_ < levels_written_) {
+      // This updates at_record_start_.
+      skipped_records = DelimitAndSkipRecordsInBuffer(num_records);
+    }
+
+    int64_t level_batch_size =
+        std::max<int64_t>(kMinLevelBatchSize, num_records - skipped_records);
+
     // If 'at_record_start_' is false, but (skip_records == num_records), it
     // means that for the last record that was counted, we have not seen all
     // of it's values yet.
@@ -1451,24 +1492,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       }
 
       levels_written_ += levels_read;
-
-      // Look at the buffered levels, delimit them based on
-      // (rep_level == 0), report back how many records are in there, and
-      // fill in how many not-null values (def_level == max_def_level_).
-      // DelimitRecords updates levels_position_.
-      int64_t start_levels_position = levels_position_;
       int64_t remaining_records = num_records - skipped_records;
-      int64_t values_seen = 0;
-      skipped_records += DelimitRecords(remaining_records, &values_seen);
-      if (ReadAndThrowAwayValues(values_seen) != values_seen) {
-        throw ParquetException("Could not read and throw away requested values");
-      }
-      // Mark those levels and values as consumed in the the underlying page.
-      // This must be done before we throw away levels since it updates
-      // levels_position_ and levels_written_.
-      this->ConsumeBufferedValues(levels_position_ - start_levels_position);
-      // Updated levels_position_ and levels_written_.
-      ThrowAwayLevels(start_levels_position);
+      // This updates at_record_start_.
+      skipped_records += DelimitAndSkipRecordsInBuffer(remaining_records);
     }
 
     return skipped_records;
@@ -1664,25 +1690,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     ResetValues();
 
     if (levels_written_ > 0) {
-      const int64_t levels_remaining = levels_written_ - levels_position_;
-      // Shift remaining levels to beginning of buffer and trim to only the number
-      // of decoded levels remaining
-      int16_t* def_data = def_levels();
-      int16_t* rep_data = rep_levels();
-
-      std::copy(def_data + levels_position_, def_data + levels_written_, def_data);
-      PARQUET_THROW_NOT_OK(
-          def_levels_->Resize(levels_remaining * sizeof(int16_t), false));
-
-      if (this->max_rep_level_ > 0) {
-        std::copy(rep_data + levels_position_, rep_data + levels_written_, rep_data);
-        PARQUET_THROW_NOT_OK(
-            rep_levels_->Resize(levels_remaining * sizeof(int16_t), false));
-      }
-
-      levels_written_ -= levels_position_;
-      levels_position_ = 0;
-      levels_capacity_ = levels_remaining;
+      // Throw away levels from 0 to levels_position_.
+      ThrowAwayLevels(0);
     }
 
     // Call Finish on the binary builders to reset them

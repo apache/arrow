@@ -663,6 +663,9 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
              /*levels_position=*/3);
   CheckReadValues(/*expected_values=*/{10, 20, 20}, /*expected_defs=*/{1, 1, 1},
                   /*expected_reps=*/{0, 0, 1});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/3,
+             /*levels_position=*/0);
 }
 
 // Test that we can skip required top level field.
@@ -693,6 +696,9 @@ TEST_F(RecordReaderTest, SkipRequiredTopLevel) {
              /*levels_position=*/0);
   CheckReadValues(/*expected_values=*/{30, 30}, /*expected_defs=*/{},
                   /*expected_reps=*/{});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
+             /*levels_position=*/0);
 }
 
 // Skip an optional field. Intentionally included some null values.
@@ -749,6 +755,10 @@ TEST_F(RecordReaderTest, SkipOptional) {
                /*levels_position=*/3);
     CheckReadValues(/*expected_values=*/{20, kNullValue, 30}, /*expected_defs=*/{1, 0, 1},
                     /*expected_reps=*/{});
+    // Reset after a Skip.
+    record_reader_->Reset();
+    CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
+             /*levels_position=*/0);
   }
 
   {
@@ -758,10 +768,10 @@ TEST_F(RecordReaderTest, SkipOptional) {
     int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1);
 
     ASSERT_EQ(records_read, 1);
-    CheckState(/*values_written=*/4, /*null_count=*/1, /*levels_written=*/4,
-               /*levels_position=*/4);
-    CheckReadValues(/*expected_values=*/{20, kNullValue, 30, 60},
-                    /*expected_defs=*/{1, 0, 1, 1},
+    CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/1,
+               /*levels_position=*/1);
+    CheckReadValues(/*expected_values=*/{60},
+                    /*expected_defs=*/{1},
                     /*expected_reps=*/{});
   }
 
@@ -840,6 +850,53 @@ TEST_F(RecordReaderTest, SkipRepeated) {
     CheckReadValues(/*expected_values=*/{20, 20, 20, 40},
                     /*expected_defs=*/{1, 1, 1, 1},
                     /*expected_reps=*/{0, 1, 1, 0});
+  }
+}
+
+// Tests that for repeated fields, we first consume what is in the buffer
+// before reading more levels.
+TEST_F(RecordReaderTest, SkipRepeatedConsumeBufferFirst) {
+  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+
+  std::vector<std::shared_ptr<Page>> pages;
+  std::vector<int32_t> values(2048, 10);
+  std::vector<int16_t> def_levels(2048, 1);
+  std::vector<int16_t> rep_levels(2048, 0);
+
+  std::unique_ptr<PageReader> pager;
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
+      Encoding::PLAIN,
+      /*indices=*/{},
+      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
+      level_info_.rep_level);
+  pages.push_back(std::move(page));
+  pager.reset(new test::MockPageReader(pages));
+  record_reader_->SetPageReader(std::move(pager));
+  {
+    // Read 1000 records. We will read 1024 levels because that is the minimum
+    // number of levels to read.
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1000);
+    ASSERT_EQ(records_read, 1000);
+    CheckState(/*values_written=*/1000, /*null_count=*/0, /*levels_written=*/1024,
+               /*levels_position=*/1000);
+    std::vector<int32_t> expected_values(1000, 10);
+    std::vector<int16_t> expected_def_levels(1000, 1);
+    std::vector<int16_t> expected_rep_levels(1000, 0);
+    CheckReadValues(expected_values, expected_def_levels, expected_rep_levels);
+    // Reset removes the already consumed values and levels.
+    record_reader_->Reset();
+  }
+
+  {  // Skip 12 records. Since we already have 24 in the buffer, we should not be
+    // reading any more levels into the buffer, we will just consume 12 of it.
+    int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/12);
+    ASSERT_EQ(records_skipped, 12);
+    CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/12,
+               /*levels_position=*/0);
+    // Everthing is empty because we reset the reader before this skip.
+    CheckReadValues(/*expected_values=*/{}, /*expected_def_levels=*/{},
+                    /*expected_rep_levels=*/{});
   }
 }
 
