@@ -858,7 +858,7 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
 
     // -------------- Substrait -> Arrow Functions -----------------
     // Mappings with a _checked variant
-    for (const auto& function_name : {"add", "subtract", "multiply", "divide", "sign", 
+    for (const auto& function_name : {"add", "subtract", "multiply", "divide", "sign",
                                       "power", "sqrt", "exp", "abs"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},

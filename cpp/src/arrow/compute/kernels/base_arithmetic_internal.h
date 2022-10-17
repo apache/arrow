@@ -493,8 +493,7 @@ struct Exp {
   }
 
   template <typename T, typename Arg>
-  static enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp,
-                                                        Status*) {
+  static enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return std::exp(exp);
   }
@@ -508,8 +507,7 @@ struct ExpChecked {
   }
 
   template <typename T, typename Arg>
-  static enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp,
-                                                        Status*) {
+  static enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return std::exp(exp);
   }
