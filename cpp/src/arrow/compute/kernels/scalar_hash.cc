@@ -72,7 +72,6 @@ struct FastHashScalar {
       return Status::Invalid("FastHash currently supports a single array input");
     }
     ArraySpan hash_input = input_arg[0].array;
-    ArraySpan* result_span = out->array_span();
 
     auto exec_ctx = default_exec_context();
     if (ctx && ctx->exec_context()) {
@@ -95,10 +94,8 @@ struct FastHashScalar {
     ARROW_ASSIGN_OR_RAISE(KeyColumnArrayVec input_keycols,
                           ColumnArraysFromArraySpan(hash_input, hash_input.length));
 
-    // Preserve input validity buffer
-    result_span->SetBuffer(0, hash_input.GetBuffer(0));
-
     // Call the hashing function, overloaded based on OutputCType
+    ArraySpan* result_span = out->array_span();
     FastHashMultiColumn(input_keycols, &hash_ctx, result_span->GetValues<OutputCType>(1));
 
     return Status::OK();
