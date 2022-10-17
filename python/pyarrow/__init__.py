@@ -51,7 +51,7 @@ except ImportError:
             """
             from setuptools_scm.git import parse
             kwargs['describe_command'] = \
-                "git describe --dirty --tags --long --match 'apache-arrow-[0-9].*'"
+                "git describe --dirty --tags --long --match 'apache-arrow-[0-9]*.*'"
             return parse(root, **kwargs)
         __version__ = setuptools_scm.get_version('../',
                                                  parse=parse_git)
@@ -341,13 +341,21 @@ def __getattr__(name):
 
 
 def _plasma_store_entry_point():
-    """Entry point for starting the plasma store.
+    """
+    DEPRECATED: Entry point for starting the plasma store.
 
     This can be used by invoking e.g.
     ``plasma_store -s /tmp/plasma -m 1000000000``
     from the command line and will start the plasma_store executable with the
     given arguments.
+
+    .. deprecated:: 10.0.0
+       Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.
     """
+    warnings.warn(
+        "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
+        DeprecationWarning)
+
     import pyarrow
     plasma_store_executable = _os.path.join(pyarrow.__path__[0],
                                             "plasma-store-server")

@@ -118,6 +118,9 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 			}
 		}
 		return true
+	case *TimestampType:
+		r := right.(*TimestampType)
+		return l.Unit == r.Unit && l.TimeZone == r.TimeZone
 	default:
 		return reflect.DeepEqual(left, right)
 	}

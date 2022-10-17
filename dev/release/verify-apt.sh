@@ -61,6 +61,7 @@ case "${TYPE}" in
     ;;
 esac
 
+have_flight=yes
 have_plasma=yes
 have_python=yes
 workaround_missing_packages=()
@@ -76,6 +77,7 @@ case "${distribution}-${code_name}" in
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
+  have_flight=no
   have_plasma=no
 fi
 
@@ -151,7 +153,7 @@ pushd build/minimal_build
 cmake .
 make -j$(nproc)
 ./arrow-example
-c++ -std=c++11 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+c++ -std=c++17 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
 ./arrow-example
 popd
 echo "::endgroup::"
@@ -184,23 +186,17 @@ ruby -r gi -e "p GI.load('ArrowDataset')"
 echo "::endgroup::"
 
 
-echo "::group::Test Apache Arrow Flight"
-${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
-${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
-ruby -r gi -e "p GI.load('ArrowFlight')"
-echo "::endgroup::"
+if [ "${have_flight}" = "yes" ]; then
+  echo "::group::Test Apache Arrow Flight"
+  ${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
+  ${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
+  ruby -r gi -e "p GI.load('ArrowFlight')"
+  echo "::endgroup::"
 
-
-echo "::group::Test Apache Arrow Flight SQL"
-${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
-${APT_INSTALL} libarrow-flight-sql-glib-doc=${package_version}
-ruby -r gi -e "p GI.load('ArrowFlightSQL')"
-echo "::endgroup::"
-
-
-if [ "${have_python}" = "yes" ]; then
-  echo "::group::Test libarrow-python"
-  ${APT_INSTALL} libarrow-python-dev=${package_version}
+  echo "::group::Test Apache Arrow Flight SQL"
+  ${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
+  ${APT_INSTALL} libarrow-flight-sql-glib-doc=${package_version}
+  ruby -r gi -e "p GI.load('ArrowFlightSQL')"
   echo "::endgroup::"
 fi
 

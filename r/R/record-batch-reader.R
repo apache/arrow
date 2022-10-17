@@ -98,6 +98,7 @@ RecordBatchReader <- R6Class("RecordBatchReader",
     read_next_batch = function() RecordBatchReader__ReadNext(self),
     batches = function() RecordBatchReader__batches(self),
     read_table = function() Table__from_RecordBatchReader(self),
+    Close = function() RecordBatchReader__Close(self),
     export_to_c = function(stream_ptr) ExportRecordBatchReader(self, stream_ptr),
     ToString = function() self$schema$ToString()
   ),
@@ -129,8 +130,13 @@ as.data.frame.RecordBatchReader <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.RecordBatchReader <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires consuming the whole RBR
   assert_that(n >= 0)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   RecordBatchReader__Head(x, n)
 }
 

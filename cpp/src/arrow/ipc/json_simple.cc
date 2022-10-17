@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <sstream>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -36,7 +37,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
 
 #include "arrow/json/rapidjson_defs.h"
@@ -317,7 +317,7 @@ class DecimalConverter final
     if (json_obj.IsString()) {
       int32_t precision, scale;
       DecimalValue d;
-      auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
+      auto view = std::string_view(json_obj.GetString(), json_obj.GetStringLength());
       RETURN_NOT_OK(DecimalValue::FromString(view, &d, &precision, &scale));
       if (scale != decimal_type_->scale()) {
         return Status::Invalid("Invalid scale for decimal: expected ",
@@ -359,7 +359,7 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
     if (json_obj.IsNumber()) {
       RETURN_NOT_OK(ConvertNumber<Int64Type>(json_obj, *this->type_, &value));
     } else if (json_obj.IsString()) {
-      util::string_view view(json_obj.GetString(), json_obj.GetStringLength());
+      std::string_view view(json_obj.GetString(), json_obj.GetStringLength());
       if (!ParseValue(*timestamp_type_, view.data(), view.size(), &value)) {
         return Status::Invalid("couldn't parse timestamp from ", view);
       }
@@ -461,7 +461,7 @@ class StringConverter final
       return this->AppendNull();
     }
     if (json_obj.IsString()) {
-      auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
+      auto view = std::string_view(json_obj.GetString(), json_obj.GetStringLength());
       return builder_->Append(view);
     } else {
       return JSONTypeError("string", json_obj.GetType());
@@ -492,7 +492,7 @@ class FixedSizeBinaryConverter final
       return this->AppendNull();
     }
     if (json_obj.IsString()) {
-      auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
+      auto view = std::string_view(json_obj.GetString(), json_obj.GetStringLength());
       if (view.length() != static_cast<size_t>(builder_->byte_width())) {
         std::stringstream ss;
         ss << "Invalid string length " << view.length() << " in JSON input for "
@@ -906,7 +906,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
 }  // namespace
 
 Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                             util::string_view json_string) {
+                                             std::string_view json_string) {
   std::shared_ptr<Converter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
@@ -926,12 +926,12 @@ Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>& ty
 
 Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                              const std::string& json_string) {
-  return ArrayFromJSON(type, util::string_view(json_string));
+  return ArrayFromJSON(type, std::string_view(json_string));
 }
 
 Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                              const char* json_string) {
-  return ArrayFromJSON(type, util::string_view(json_string));
+  return ArrayFromJSON(type, std::string_view(json_string));
 }
 
 Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
@@ -948,8 +948,8 @@ Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
 }
 
 Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,
-                         util::string_view indices_json,
-                         util::string_view dictionary_json, std::shared_ptr<Array>* out) {
+                         std::string_view indices_json, std::string_view dictionary_json,
+                         std::shared_ptr<Array>* out) {
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("DictArrayFromJSON requires dictionary type, got ", *type);
   }
@@ -965,8 +965,8 @@ Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,
       .Value(out);
 }
 
-Status ScalarFromJSON(const std::shared_ptr<DataType>& type,
-                      util::string_view json_string, std::shared_ptr<Scalar>* out) {
+Status ScalarFromJSON(const std::shared_ptr<DataType>& type, std::string_view json_string,
+                      std::shared_ptr<Scalar>* out) {
   std::shared_ptr<Converter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
@@ -985,7 +985,7 @@ Status ScalarFromJSON(const std::shared_ptr<DataType>& type,
 }
 
 Status DictScalarFromJSON(const std::shared_ptr<DataType>& type,
-                          util::string_view index_json, util::string_view dictionary_json,
+                          std::string_view index_json, std::string_view dictionary_json,
                           std::shared_ptr<Scalar>* out) {
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("DictScalarFromJSON requires dictionary type, got ", *type);

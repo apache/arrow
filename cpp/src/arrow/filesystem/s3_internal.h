@@ -19,6 +19,7 @@
 
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -33,33 +34,19 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/print.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace fs {
 namespace internal {
 
-#define ARROW_AWS_ASSIGN_OR_RAISE_IMPL(outcome_name, lhs, rexpr) \
-  auto outcome_name = (rexpr);                                   \
-  if (!outcome_name.IsSuccess()) {                               \
-    return ErrorToStatus(outcome_name.GetError());               \
-  }                                                              \
-  lhs = std::move(outcome_name).GetResultWithOwnership();
-
-#define ARROW_AWS_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
-
-#define ARROW_AWS_ASSIGN_OR_RAISE(lhs, rexpr) \
-  ARROW_AWS_ASSIGN_OR_RAISE_IMPL(             \
-      ARROW_AWS_ASSIGN_OR_RAISE_NAME(_aws_error_or_value, __COUNTER__), lhs, rexpr);
-
 // XXX Should we expose this at some point?
 enum class S3Backend { Amazon, Minio, Other };
 
 // Detect the S3 backend type from the S3 server's response headers
-S3Backend DetectS3Backend(const Aws::Http::HeaderValueCollection& headers) {
+inline S3Backend DetectS3Backend(const Aws::Http::HeaderValueCollection& headers) {
   const auto it = headers.find("server");
   if (it != headers.end()) {
-    const auto& value = util::string_view(it->second);
+    const auto& value = std::string_view(it->second);
     if (value.find("AmazonS3") != std::string::npos) {
       return S3Backend::Amazon;
     }
@@ -71,7 +58,7 @@ S3Backend DetectS3Backend(const Aws::Http::HeaderValueCollection& headers) {
 }
 
 template <typename Error>
-S3Backend DetectS3Backend(const Aws::Client::AWSError<Error>& error) {
+inline S3Backend DetectS3Backend(const Aws::Client::AWSError<Error>& error) {
   return DetectS3Backend(error.GetResponseHeaders());
 }
 
@@ -101,63 +88,127 @@ inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& erro
           error_type == Aws::S3::S3Errors::BUCKET_ALREADY_OWNED_BY_YOU);
 }
 
+inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
+  switch (error_type) {
+#define S3_ERROR_CASE(NAME)     \
+  case Aws::S3::S3Errors::NAME: \
+    return #NAME;
+
+    S3_ERROR_CASE(INCOMPLETE_SIGNATURE)
+    S3_ERROR_CASE(INTERNAL_FAILURE)
+    S3_ERROR_CASE(INVALID_ACTION)
+    S3_ERROR_CASE(INVALID_CLIENT_TOKEN_ID)
+    S3_ERROR_CASE(INVALID_PARAMETER_COMBINATION)
+    S3_ERROR_CASE(INVALID_QUERY_PARAMETER)
+    S3_ERROR_CASE(INVALID_PARAMETER_VALUE)
+    S3_ERROR_CASE(MISSING_ACTION)
+    S3_ERROR_CASE(MISSING_AUTHENTICATION_TOKEN)
+    S3_ERROR_CASE(MISSING_PARAMETER)
+    S3_ERROR_CASE(OPT_IN_REQUIRED)
+    S3_ERROR_CASE(REQUEST_EXPIRED)
+    S3_ERROR_CASE(SERVICE_UNAVAILABLE)
+    S3_ERROR_CASE(THROTTLING)
+    S3_ERROR_CASE(VALIDATION)
+    S3_ERROR_CASE(ACCESS_DENIED)
+    S3_ERROR_CASE(RESOURCE_NOT_FOUND)
+    S3_ERROR_CASE(UNRECOGNIZED_CLIENT)
+    S3_ERROR_CASE(MALFORMED_QUERY_STRING)
+    S3_ERROR_CASE(SLOW_DOWN)
+    S3_ERROR_CASE(REQUEST_TIME_TOO_SKEWED)
+    S3_ERROR_CASE(INVALID_SIGNATURE)
+    S3_ERROR_CASE(SIGNATURE_DOES_NOT_MATCH)
+    S3_ERROR_CASE(INVALID_ACCESS_KEY_ID)
+    S3_ERROR_CASE(REQUEST_TIMEOUT)
+    S3_ERROR_CASE(NETWORK_CONNECTION)
+    S3_ERROR_CASE(UNKNOWN)
+    S3_ERROR_CASE(BUCKET_ALREADY_EXISTS)
+    S3_ERROR_CASE(BUCKET_ALREADY_OWNED_BY_YOU)
+    // The following is the most recent addition to S3Errors
+    // and is not supported yet for some versions of the SDK
+    // that Apache Arrow is using. This is not a big deal
+    // since this error will happen only in very specialized
+    // settings and we will print the correct numerical error
+    // code as per the "default" case down below. We should
+    // put it back once the SDK has been upgraded in all
+    // Apache Arrow build configurations.
+    // S3_ERROR_CASE(INVALID_OBJECT_STATE)
+    S3_ERROR_CASE(NO_SUCH_BUCKET)
+    S3_ERROR_CASE(NO_SUCH_KEY)
+    S3_ERROR_CASE(NO_SUCH_UPLOAD)
+    S3_ERROR_CASE(OBJECT_ALREADY_IN_ACTIVE_TIER)
+    S3_ERROR_CASE(OBJECT_NOT_IN_ACTIVE_TIER)
+
+#undef S3_ERROR_CASE
+    default:
+      return "[code " + std::to_string(static_cast<int>(error_type)) + "]";
+  }
+}
+
 // TODO qualify error messages with a prefix indicating context
 // (e.g. "When completing multipart upload to bucket 'xxx', key 'xxx': ...")
 template <typename ErrorType>
-Status ErrorToStatus(const std::string& prefix,
+Status ErrorToStatus(const std::string& prefix, const std::string& operation,
                      const Aws::Client::AWSError<ErrorType>& error) {
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
-  return Status::IOError(prefix, "AWS Error [code ",
-                         static_cast<int>(error.GetErrorType()),
-                         "]: ", error.GetMessage());
+  auto error_type = static_cast<Aws::S3::S3Errors>(error.GetErrorType());
+  std::stringstream ss;
+  ss << S3ErrorToString(error_type);
+  if (error_type == Aws::S3::S3Errors::UNKNOWN) {
+    ss << " (HTTP status " << static_cast<int>(error.GetResponseCode()) << ")";
+  }
+  return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
+                         " operation: ", error.GetMessage());
 }
 
 template <typename ErrorType, typename... Args>
-Status ErrorToStatus(const std::tuple<Args&...>& prefix,
+Status ErrorToStatus(const std::tuple<Args&...>& prefix, const std::string& operation,
                      const Aws::Client::AWSError<ErrorType>& error) {
   std::stringstream ss;
   ::arrow::internal::PrintTuple(&ss, prefix);
-  return ErrorToStatus(ss.str(), error);
+  return ErrorToStatus(ss.str(), operation, error);
 }
 
 template <typename ErrorType>
-Status ErrorToStatus(const Aws::Client::AWSError<ErrorType>& error) {
-  return ErrorToStatus(std::string(), error);
+Status ErrorToStatus(const std::string& operation,
+                     const Aws::Client::AWSError<ErrorType>& error) {
+  return ErrorToStatus(std::string(), operation, error);
 }
 
 template <typename AwsResult, typename Error>
-Status OutcomeToStatus(const std::string& prefix,
+Status OutcomeToStatus(const std::string& prefix, const std::string& operation,
                        const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   if (outcome.IsSuccess()) {
     return Status::OK();
   } else {
-    return ErrorToStatus(prefix, outcome.GetError());
+    return ErrorToStatus(prefix, operation, outcome.GetError());
   }
 }
 
 template <typename AwsResult, typename Error, typename... Args>
-Status OutcomeToStatus(const std::tuple<Args&...>& prefix,
+Status OutcomeToStatus(const std::tuple<Args&...>& prefix, const std::string& operation,
                        const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   if (outcome.IsSuccess()) {
     return Status::OK();
   } else {
-    return ErrorToStatus(prefix, outcome.GetError());
+    return ErrorToStatus(prefix, operation, outcome.GetError());
   }
 }
 
 template <typename AwsResult, typename Error>
-Status OutcomeToStatus(const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
-  return OutcomeToStatus(std::string(), outcome);
+Status OutcomeToStatus(const std::string& operation,
+                       const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
+  return OutcomeToStatus(std::string(), operation, outcome);
 }
 
 template <typename AwsResult, typename Error>
-Result<AwsResult> OutcomeToResult(Aws::Utils::Outcome<AwsResult, Error> outcome) {
+Result<AwsResult> OutcomeToResult(const std::string& operation,
+                                  Aws::Utils::Outcome<AwsResult, Error> outcome) {
   if (outcome.IsSuccess()) {
     return std::move(outcome).GetResultWithOwnership();
   } else {
-    return ErrorToStatus(outcome.GetError());
+    return ErrorToStatus(operation, outcome.GetError());
   }
 }
 
@@ -167,7 +218,7 @@ inline Aws::String ToAwsString(const std::string& s) {
   return Aws::String(s.begin(), s.end());
 }
 
-inline util::string_view FromAwsString(const Aws::String& s) {
+inline std::string_view FromAwsString(const Aws::String& s) {
   return {s.data(), s.length()};
 }
 

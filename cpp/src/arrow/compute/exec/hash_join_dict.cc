@@ -127,7 +127,7 @@ static Result<std::shared_ptr<ArrayData>> ConvertImp(
   } else {
     const auto& scalar = input.scalar_as<arrow::internal::PrimitiveScalarBase>();
     if (scalar.is_valid) {
-      const util::string_view data = scalar.view();
+      const std::string_view data = scalar.view();
       DCHECK_EQ(data.size(), sizeof(FROM));
       const FROM from = *reinterpret_cast<const FROM*>(data.data());
       const TO to_value = static_cast<TO>(from);

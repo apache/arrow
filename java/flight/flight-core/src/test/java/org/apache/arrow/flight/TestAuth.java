@@ -24,56 +24,61 @@ import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TestAuth {
 
   /** An auth handler that does not send messages should not block the server forever. */
-  @Test(expected = RuntimeException.class)
+  @Test
   public void noMessages() throws Exception {
-    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-        final FlightServer s = FlightTestUtil
-            .getStartedServer(
-                location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
-                    new OneshotAuthHandler()).build());
-        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
-      client.authenticate(new ClientAuthHandler() {
-        @Override
-        public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
-        }
+    Assertions.assertThrows(RuntimeException.class, () -> {
+      try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+           final FlightServer s = FlightTestUtil
+               .getStartedServer(
+                   location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
+                       new OneshotAuthHandler()).build());
+           final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+        client.authenticate(new ClientAuthHandler() {
+          @Override
+          public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
+          }
 
-        @Override
-        public byte[] getCallToken() {
-          return new byte[0];
-        }
-      });
-    }
+          @Override
+          public byte[] getCallToken() {
+            return new byte[0];
+          }
+        });
+      }
+    });
   }
 
   /** An auth handler that sends an error should not block the server forever. */
-  @Test(expected = RuntimeException.class)
+  @Test
   public void clientError() throws Exception {
-    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-        final FlightServer s = FlightTestUtil
-            .getStartedServer(
-                location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
-                    new OneshotAuthHandler()).build());
-        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
-      client.authenticate(new ClientAuthHandler() {
-        @Override
-        public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
-          outgoing.send(new byte[0]);
-          // Ensure the server-side runs
-          incoming.next();
-          outgoing.onError(new RuntimeException("test"));
-        }
+    Assertions.assertThrows(RuntimeException.class, () -> {
+      try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+           final FlightServer s = FlightTestUtil
+               .getStartedServer(
+                   location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
+                       new OneshotAuthHandler()).build());
+           final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+        client.authenticate(new ClientAuthHandler() {
+          @Override
+          public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
+            outgoing.send(new byte[0]);
+            // Ensure the server-side runs
+            incoming.next();
+            outgoing.onError(new RuntimeException("test"));
+          }
 
-        @Override
-        public byte[] getCallToken() {
-          return new byte[0];
-        }
-      });
-    }
+          @Override
+          public byte[] getCallToken() {
+            return new byte[0];
+          }
+        });
+      }
+    });
   }
 
   private static class OneshotAuthHandler implements ServerAuthHandler {

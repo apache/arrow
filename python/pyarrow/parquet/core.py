@@ -18,9 +18,9 @@
 
 from collections import defaultdict
 from concurrent import futures
+from contextlib import nullcontext
 from functools import partial, reduce
 
-import sys
 import json
 from collections.abc import Collection
 import numpy as np
@@ -44,7 +44,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
 from pyarrow.fs import (LocalFileSystem, FileSystem,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
-from pyarrow.util import guid, _is_path_like, _stringify_path
+from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 _URI_STRIP_SCHEMES = ('hdfs',)
 
@@ -140,11 +140,27 @@ _DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF),
     """
 
 
-def _filters_to_expression(filters):
+def filters_to_expression(filters):
     """
-    Check if filters are well-formed.
+    Check if filters are well-formed and convert to an ``Expression``.
 
-    See _DNF_filter_doc above for more details.
+    Parameters
+    ----------
+    filters : List[Tuple] or List[List[Tuple]]
+
+    Notes
+    -----
+    See internal ``pyarrow._DNF_filter_doc`` attribute for more details.
+
+    Examples
+    --------
+
+    >>> filters_to_expression([('foo', '==', 'bar')])
+    <pyarrow.compute.Expression (foo == "bar")>
+
+    Returns
+    -------
+    pyarrow.compute.Expression
     """
     import pyarrow.dataset as ds
 
@@ -188,6 +204,11 @@ def _filters_to_expression(filters):
         disjunction_members.append(reduce(operator.and_, conjunction_members))
 
     return reduce(operator.or_, disjunction_members)
+
+
+_filters_to_expression = _deprecate_api(
+    "_filters_to_expression", "filters_to_expression",
+    filters_to_expression, "10.0.0", DeprecationWarning)
 
 
 # ----------------------------------------------------------------------
@@ -293,8 +314,15 @@ class ParquetFile:
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
         )
+        self._close_source = getattr(source, 'closed', True)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
 
     def _build_nested_paths(self):
         paths = self.reader.column_paths
@@ -374,6 +402,14 @@ class ParquetFile:
         1
         """
         return self.reader.num_row_groups
+
+    def close(self, force: bool = False):
+        if self._close_source or force:
+            self.reader.close()
+
+    @property
+    def closed(self) -> bool:
+        return self.reader.closed
 
     def read_row_group(self, i, columns=None, use_threads=True,
                        use_pandas_metadata=False):
@@ -1128,8 +1164,8 @@ class ParquetDatasetPiece:
         -------
         metadata : FileMetaData
         """
-        f = self.open()
-        return f.metadata
+        with self.open() as parquet:
+            return parquet.metadata
 
     def open(self):
         """
@@ -1203,6 +1239,9 @@ class ParquetDatasetPiece:
                 arr = pa.DictionaryArray.from_arrays(indices, dictionary)
                 table = table.append_column(name, arr)
 
+        # To ParquetFile the source looked like it was already open, so won't
+        # actually close it without overriding.
+        reader.close(force=True)
         return table
 
 
@@ -1784,6 +1823,9 @@ Examples
             raise NotImplementedError("split_row_groups not yet implemented")
 
         if filters is not None:
+            if hasattr(filters, "cast"):
+                raise TypeError(
+                    "Expressions as filter not supported for legacy dataset")
             filters = _check_filters(filters)
             self._filter(filters)
 
@@ -1889,7 +1931,8 @@ Examples
         """
         tables = []
         for piece in self._pieces:
-            table = piece.read(columns=columns, use_threads=use_threads,
+            table = piece.read(columns=columns,
+                               use_threads=use_threads,
                                partitions=self._partitions,
                                use_pandas_metadata=use_pandas_metadata)
             tables.append(table)
@@ -2318,9 +2361,9 @@ class _ParquetDatasetV2:
         if decryption_properties is not None:
             read_options.update(decryption_properties=decryption_properties)
 
-        # map filters to Expressions
-        self._filters = filters
-        self._filter_expression = filters and _filters_to_expression(filters)
+        self._filter_expression = None
+        if filters is not None:
+            self._filter_expression = filters_to_expression(filters)
 
         # map old filesystems to new one
         if filesystem is not None:
@@ -3300,6 +3343,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
             if col in partition_cols:
                 subschema = subschema.remove(subschema.get_field_index(col))
 
+        # ARROW-17829: avoid deprecation warnings for df.groupby
+        # https://github.com/pandas-dev/pandas/issues/42795
+        if len(partition_keys) == 1:
+            partition_keys = partition_keys[0]
+
         for keys, subgroup in data_df.groupby(partition_keys):
             if not isinstance(keys, tuple):
                 keys = (keys,)
@@ -3389,7 +3437,8 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
         metadata.write_metadata_file(where)
 
 
-def read_metadata(where, memory_map=False, decryption_properties=None):
+def read_metadata(where, memory_map=False, decryption_properties=None,
+                  filesystem=None):
     """
     Read FileMetaData from footer of a single Parquet file.
 
@@ -3400,6 +3449,10 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
         Create memory map when the source is a file path.
     decryption_properties : FileDecryptionProperties, default None
         Decryption properties for reading encrypted Parquet files.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
 
     Returns
     -------
@@ -3422,11 +3475,19 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
       format_version: 2.6
       serialized_size: ...
     """
-    return ParquetFile(where, memory_map=memory_map,
-                       decryption_properties=decryption_properties).metadata
+    filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+    file_ctx = nullcontext()
+    if filesystem is not None:
+        file_ctx = where = filesystem.open_input_file(where)
+
+    with file_ctx:
+        file = ParquetFile(where, memory_map=memory_map,
+                           decryption_properties=decryption_properties)
+        return file.metadata
 
 
-def read_schema(where, memory_map=False, decryption_properties=None):
+def read_schema(where, memory_map=False, decryption_properties=None,
+                filesystem=None):
     """
     Read effective Arrow schema from Parquet file metadata.
 
@@ -3437,6 +3498,10 @@ def read_schema(where, memory_map=False, decryption_properties=None):
         Create memory map when the source is a file path.
     decryption_properties : FileDecryptionProperties, default None
         Decryption properties for reading encrypted Parquet files.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
 
     Returns
     -------
@@ -3454,11 +3519,43 @@ def read_schema(where, memory_map=False, decryption_properties=None):
     n_legs: int64
     animal: string
     """
-    return ParquetFile(
-        where, memory_map=memory_map,
-        decryption_properties=decryption_properties).schema.to_arrow_schema()
+    filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+    file_ctx = nullcontext()
+    if filesystem is not None:
+        file_ctx = where = filesystem.open_input_file(where)
+
+    with file_ctx:
+        file = ParquetFile(
+            where, memory_map=memory_map,
+            decryption_properties=decryption_properties)
+        return file.schema.to_arrow_schema()
 
 
-# re-export everything
-# std `from . import *` ignores symbols with leading `_`
-__all__ = list(sys.modules[__name__].__dict__)
+__all__ = (
+    "ColumnChunkMetaData",
+    "ColumnSchema",
+    "FileDecryptionProperties",
+    "FileEncryptionProperties",
+    "FileMetaData",
+    "ParquetDataset",
+    "ParquetDatasetPiece",
+    "ParquetFile",
+    "ParquetLogicalType",
+    "ParquetManifest",
+    "ParquetPartitions",
+    "ParquetReader",
+    "ParquetSchema",
+    "ParquetWriter",
+    "PartitionSet",
+    "RowGroupMetaData",
+    "Statistics",
+    "read_metadata",
+    "read_pandas",
+    "read_schema",
+    "read_table",
+    "write_metadata",
+    "write_table",
+    "write_to_dataset",
+    "_filters_to_expression",
+    "filters_to_expression",
+)

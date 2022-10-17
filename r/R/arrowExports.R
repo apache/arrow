@@ -404,24 +404,32 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
+ExecPlanReader__batches <- function(reader) {
+  .Call(`_arrow_ExecPlanReader__batches`, reader)
+}
+
+Table__from_ExecPlanReader <- function(reader) {
+  .Call(`_arrow_Table__from_ExecPlanReader`, reader)
+}
+
+ExecPlanReader__Plan <- function(reader) {
+  .Call(`_arrow_ExecPlanReader__Plan`, reader)
+}
+
+ExecPlanReader__PlanStatus <- function(reader) {
+  .Call(`_arrow_ExecPlanReader__PlanStatus`, reader)
+}
+
 ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
-ExecPlan_read_table <- function(plan, final_node, sort_options, metadata, head) {
-  .Call(`_arrow_ExecPlan_read_table`, plan, final_node, sort_options, metadata, head)
-}
-
-ExecPlan_StopProducing <- function(plan) {
-  invisible(.Call(`_arrow_ExecPlan_StopProducing`, plan))
+ExecPlan_ToString <- function(plan) {
+  .Call(`_arrow_ExecPlan_ToString`, plan)
 }
 
 ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
-}
-
-ExecPlan_BuildAndShow <- function(plan, final_node, sort_options, head) {
-  .Call(`_arrow_ExecPlan_BuildAndShow`, plan, final_node, sort_options, head)
 }
 
 ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
@@ -444,8 +452,8 @@ ExecNode_Aggregate <- function(input, options, key_names) {
   .Call(`_arrow_ExecNode_Aggregate`, input, options, key_names)
 }
 
-ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
-  .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
+ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
+  .Call(`_arrow_ExecNode_Join`, input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
 }
 
 ExecNode_Union <- function(input, right_data) {
@@ -1728,6 +1736,10 @@ RecordBatchReader__schema <- function(reader) {
   .Call(`_arrow_RecordBatchReader__schema`, reader)
 }
 
+RecordBatchReader__Close <- function(reader) {
+  invisible(.Call(`_arrow_RecordBatchReader__Close`, reader))
+}
+
 RecordBatchReader__ReadNext <- function(reader) {
   .Call(`_arrow_RecordBatchReader__ReadNext`, reader)
 }
@@ -1806,6 +1818,14 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
 
 InitializeMainRThread <- function() {
   invisible(.Call(`_arrow_InitializeMainRThread`))
+}
+
+DeinitializeMainRThread <- function() {
+  invisible(.Call(`_arrow_DeinitializeMainRThread`))
+}
+
+SetEnableSignalStopSource <- function(enabled) {
+  .Call(`_arrow_SetEnableSignalStopSource`, enabled)
 }
 
 CanRunWithCapturedR <- function() {
@@ -2002,6 +2022,10 @@ all_record_batches <- function(lst) {
 
 Table__from_record_batches <- function(batches, schema_sxp) {
   .Call(`_arrow_Table__from_record_batches`, batches, schema_sxp)
+}
+
+Table__from_schema <- function(schema_sxp) {
+  .Call(`_arrow_Table__from_schema`, schema_sxp)
 }
 
 Table__ReferencedBufferSize <- function(table) {

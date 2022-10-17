@@ -88,8 +88,8 @@ static void TableJoinOverhead(benchmark::State& state,
     }
     ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * join_node,
                          MakeExecNode(factory_name, plan.get(), input_nodes, options));
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-    MakeExecNode("sink", plan.get(), {join_node}, SinkNodeOptions{&sink_gen});
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+    ASSERT_OK(MakeExecNode("sink", plan.get(), {join_node}, SinkNodeOptions{&sink_gen}));
     state.ResumeTiming();
     ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
   }
@@ -109,7 +109,7 @@ static void TableJoinOverhead(benchmark::State& state,
 
 static void AsOfJoinOverhead(benchmark::State& state) {
   int64_t tolerance = 0;
-  AsofJoinNodeOptions options = AsofJoinNodeOptions(kTimeCol, kKeyCol, tolerance);
+  AsofJoinNodeOptions options = AsofJoinNodeOptions(kTimeCol, {kKeyCol}, tolerance);
   TableJoinOverhead(
       state,
       TableGenerationProperties{int(state.range(0)), int(state.range(1)),

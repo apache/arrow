@@ -131,7 +131,7 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
   }
 
   ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(ctx));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   RETURN_NOT_OK(
       Declaration::Sequence(
           {
@@ -148,11 +148,11 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
   auto collected_fut = CollectAsyncGenerator(sink_gen);
 
   auto start_and_collect =
-      AllComplete({plan->finished(), Future<>(collected_fut)})
+      AllFinished({plan->finished(), Future<>(collected_fut)})
           .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
             ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
             return ::arrow::internal::MapVector(
-                [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+                [](std::optional<ExecBatch> batch) { return std::move(*batch); },
                 std::move(collected));
           });
 

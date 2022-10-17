@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(utf8proc_FOUND)
+  return()
+endif()
+
 function(extract_utf8proc_version)
   if(utf8proc_INCLUDE_DIR)
     file(READ "${utf8proc_INCLUDE_DIR}/utf8proc.h" UTF8PROC_H_CONTENT)

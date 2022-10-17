@@ -221,7 +221,7 @@ func (b *{{.Name}}Builder) unmarshalOne(dec *json.Decoder) error {
 	case string:
 {{if (eq .Name "Timestamp") -}}
 		loc, _ := b.dtype.GetZone()
-		tm, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
+		tm, _, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
 {{else -}}
 		tm, err := {{.QualifiedType}}FromString(v, b.dtype.Unit)
 {{end}}

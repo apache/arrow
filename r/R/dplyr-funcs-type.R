@@ -23,23 +23,34 @@ register_bindings_type <- function() {
   register_bindings_type_format()
 }
 
-register_bindings_type_cast <- function() {
-  register_binding("cast", function(x, target_type, safe = TRUE, ...) {
-    opts <- cast_options(safe, ...)
-    opts$to_type <- as_type(target_type)
-    Expression$create("cast", x, options = opts)
-  })
+#' Change the type of an array or column
+#'
+#' This is a wrapper around the `$cast()` method that many Arrow objects have.
+#' It is more convenient to call inside `dplyr` pipelines than the method.
+#'
+#' @param x an `Array`, `Table`, `Expression`, or similar Arrow data object.
+#' @param to [DataType] to cast to; for [Table] and [RecordBatch],
+#' it should be a [Schema].
+#' @param safe logical: only allow the type conversion if no data is lost
+#' (truncation, overflow, etc.). Default is `TRUE`
+#' @param ... specific `CastOptions` to set
+#' @return an `Expression`
+#'
+#' @examples
+#' \dontrun{
+#' mtcars %>%
+#'   arrow_table() %>%
+#'   mutate(cyl = cast(cyl, string()))
+#' }
+#' @keywords internal
+#' @seealso https://arrow.apache.org/docs/cpp/api/compute.html for the list of
+#' supported CastOptions.
+cast <- function(x, to, safe = TRUE, ...) {
+  x$cast(to, safe = safe, ...)
+}
 
-  register_binding("dictionary_encode", function(x,
-                                                 null_encoding_behavior = c("mask", "encode")) {
-    behavior <- toupper(match.arg(null_encoding_behavior))
-    null_encoding_behavior <- NullEncodingBehavior[[behavior]]
-    Expression$create(
-      "dictionary_encode",
-      x,
-      options = list(null_encoding_behavior = null_encoding_behavior)
-    )
-  })
+register_bindings_type_cast <- function() {
+  register_binding("arrow::cast", cast)
 
   # as.* type casting functions
   # as.factor() is mapped in expression.R
@@ -115,7 +126,7 @@ register_bindings_type_cast <- function() {
     # it is difficult to replicate the .name_repair semantics and expanding of
     # unnamed data frame arguments in the same way that the tibble() constructor
     # does.
-    args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
+    args <- dots_list(..., .named = TRUE, .homonyms = "error")
 
     build_expr(
       "make_struct",
@@ -124,42 +135,49 @@ register_bindings_type_cast <- function() {
     )
   })
 
-  register_binding("base::data.frame", function(...,
-                                                row.names = NULL,
-                                                check.rows = NULL,
-                                                check.names = TRUE,
-                                                fix.empty.names = TRUE,
-                                                stringsAsFactors = FALSE) {
-    # we need a specific value of stringsAsFactors because the default was
-    # TRUE in R <= 3.6
-    if (!identical(stringsAsFactors, FALSE)) {
-      arrow_not_supported("stringsAsFactors = TRUE")
-    }
-
-    # ignore row.names and check.rows with a warning
-    if (!is.null(row.names)) arrow_not_supported("row.names")
-    if (!is.null(check.rows)) arrow_not_supported("check.rows")
-
-    args <- rlang::dots_list(..., .named = fix.empty.names)
-    if (is.null(names(args))) {
-      names(args) <- rep("", length(args))
-    }
-
-    if (identical(check.names, TRUE)) {
-      if (identical(fix.empty.names, TRUE)) {
-        names(args) <- make.names(names(args), unique = TRUE)
-      } else {
-        name_emtpy <- names(args) == ""
-        names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+  register_binding(
+    "base::data.frame",
+    function(...,
+             row.names = NULL,
+             check.rows = NULL,
+             check.names = TRUE,
+             fix.empty.names = TRUE,
+             stringsAsFactors = FALSE) {
+      # we need a specific value of stringsAsFactors because the default was
+      # TRUE in R <= 3.6
+      if (!identical(stringsAsFactors, FALSE)) {
+        arrow_not_supported("stringsAsFactors = TRUE")
       }
-    }
 
-    build_expr(
-      "make_struct",
-      args = unname(args),
-      options = list(field_names = names(args))
+      # ignore row.names and check.rows with a warning
+      if (!is.null(row.names)) arrow_not_supported("row.names")
+      if (!is.null(check.rows)) arrow_not_supported("check.rows")
+
+      args <- dots_list(..., .named = fix.empty.names)
+      if (is.null(names(args))) {
+        names(args) <- rep("", length(args))
+      }
+
+      if (identical(check.names, TRUE)) {
+        if (identical(fix.empty.names, TRUE)) {
+          names(args) <- make.names(names(args), unique = TRUE)
+        } else {
+          name_emtpy <- names(args) == ""
+          names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+        }
+      }
+
+      build_expr(
+        "make_struct",
+        args = unname(args),
+        options = list(field_names = names(args))
+      )
+    },
+    notes = c(
+      "`row.names` and `check.rows` arguments not supported;",
+      "`stringsAsFactors` must be `FALSE`"
     )
-  })
+  )
 }
 
 register_bindings_type_inspect <- function() {

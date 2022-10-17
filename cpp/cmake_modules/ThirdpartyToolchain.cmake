@@ -40,12 +40,6 @@ set(ARROW_RE2_LINKAGE
     "static"
     CACHE STRING "How to link the re2 library. static|shared (default static)")
 
-if(ARROW_PROTOBUF_USE_SHARED)
-  set(Protobuf_USE_STATIC_LIBS OFF)
-else()
-  set(Protobuf_USE_STATIC_LIBS ON)
-endif()
-
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
@@ -216,18 +210,25 @@ endmacro()
 
 # Find modules are needed by the consumer in case of a static build, or if the
 # linkage is PUBLIC or INTERFACE.
-macro(provide_find_module PACKAGE_NAME)
+macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
   set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
   if(EXISTS "${module_}")
-    message(STATUS "Providing CMake module for ${PACKAGE_NAME}")
-    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}")
+    message(STATUS "Providing CMake module for ${PACKAGE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
+    )
+    install(FILES "${module_}"
+            DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}")
   endif()
   unset(module_)
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
-  set(one_value_args HAVE_ALT IS_RUNTIME_DEPENDENCY REQUIRED_VERSION USE_CONFIG)
+  set(one_value_args
+      FORCE_ANY_NEWER_VERSION
+      HAVE_ALT
+      IS_RUNTIME_DEPENDENCY
+      REQUIRED_VERSION
+      USE_CONFIG)
   set(multi_value_args COMPONENTS PC_PACKAGE_NAMES)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -247,7 +248,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
     set(PACKAGE_NAME ${DEPENDENCY_NAME})
   endif()
   set(FIND_PACKAGE_ARGUMENTS ${PACKAGE_NAME})
-  if(ARG_REQUIRED_VERSION)
+  if(ARG_REQUIRED_VERSION AND NOT ARG_FORCE_ANY_NEWER_VERSION)
     list(APPEND FIND_PACKAGE_ARGUMENTS ${ARG_REQUIRED_VERSION})
   endif()
   if(ARG_USE_CONFIG)
@@ -258,7 +259,16 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     find_package(${FIND_PACKAGE_ARGUMENTS})
-    if(${${PACKAGE_NAME}_FOUND})
+    set(COMPATIBLE ${${PACKAGE_NAME}_FOUND})
+    if(COMPATIBLE
+       AND ARG_FORCE_ANY_NEWER_VERSION
+       AND ARG_REQUIRED_VERSION)
+      if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
+        message(DEBUG "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}")
+        set(COMPATIBLE FALSE)
+      endif()
+    endif()
+    if(COMPATIBLE)
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
       build_dependency(${DEPENDENCY_NAME})
@@ -268,9 +278,14 @@ macro(resolve_dependency DEPENDENCY_NAME)
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
     find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
+    if(ARG_FORCE_ANY_NEWER_VERSION AND ARG_REQUIRED_VERSION)
+      if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
+        message(FATAL_ERROR "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}")
+      endif()
+    endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
-    provide_find_module(${PACKAGE_NAME})
+    provide_find_module(${PACKAGE_NAME} "Arrow")
     list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
     find_package(PkgConfig QUIET)
     foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
@@ -280,7 +295,12 @@ macro(resolve_dependency DEPENDENCY_NAME)
                         NO_CMAKE_ENVIRONMENT_PATH
                         QUIET)
       if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
+        message(STATUS "Using pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link"
+        )
         string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
+      else()
+        message(STATUS "pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link isn't found"
+        )
       endif()
     endforeach()
   endif()
@@ -1019,12 +1039,16 @@ if(ARROW_USE_BOOST)
     # Find static boost headers and libs
     set(Boost_USE_STATIC_LIBS ON)
   endif()
+  if(ARROW_BOOST_REQUIRE_LIBRARY)
+    set(ARROW_BOOST_COMPONENTS system filesystem)
+  else()
+    set(ARROW_BOOST_COMPONENTS)
+  endif()
   resolve_dependency(Boost
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      COMPONENTS
-                     system
-                     filesystem
+                     ${ARROW_BOOST_COMPONENTS}
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE)
@@ -1083,6 +1107,7 @@ endif()
 macro(find_curl)
   if(NOT TARGET CURL::libcurl)
     find_package(CURL REQUIRED)
+    list(APPEND ARROW_SYSTEM_DEPENDENCIES CURL)
     if(NOT TARGET CURL::libcurl)
       # For CMake 3.11 or older
       add_library(CURL::libcurl UNKNOWN IMPORTED)
@@ -1224,52 +1249,23 @@ if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
-if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
-  execute_process(COMMAND ${BREW_BIN} --prefix "openssl@1.1"
-                  OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
-                  OUTPUT_STRIP_TRAILING_WHITESPACE)
-  if(OPENSSL11_BREW_PREFIX)
-    set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
-  else()
-    execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
-                    OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(OPENSSL_BREW_PREFIX)
-      set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
-    endif()
-  endif()
-endif()
-
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
    OR ARROW_FLIGHT
-   OR ARROW_S3)
-  # OpenSSL is required
-  if(ARROW_OPENSSL_USE_SHARED)
-    # Find shared OpenSSL libraries.
-    set(OpenSSL_USE_STATIC_LIBS OFF)
-    # Seems that different envs capitalize this differently?
-    set(OPENSSL_USE_STATIC_LIBS OFF)
-    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS ON)
-
-    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
-    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
-    unset(BUILD_SHARED_LIBS_KEEP)
-  else()
-    # Find static OpenSSL headers and libs
-    set(OpenSSL_USE_STATIC_LIBS ON)
-    set(OPENSSL_USE_STATIC_LIBS ON)
-    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
-  endif()
+   OR ARROW_S3
+   OR ARROW_GANDIVA)
+  set(OpenSSL_SOURCE "SYSTEM")
+  resolve_dependency(OpenSSL
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_OPENSSL_REQUIRED_VERSION})
   set(ARROW_USE_OPENSSL ON)
 endif()
 
 if(ARROW_USE_OPENSSL)
   message(STATUS "Found OpenSSL Crypto Library: ${OPENSSL_CRYPTO_LIBRARY}")
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
-
-  list(APPEND ARROW_SYSTEM_DEPENDENCIES OpenSSL)
 else()
   message(STATUS "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
   )
@@ -1508,6 +1504,7 @@ macro(build_thrift)
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
+  set(THRIFT_VENDORED TRUE)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
 endmacro()
@@ -1634,10 +1631,6 @@ if(ARROW_WITH_PROTOBUF)
   if(ARROW_WITH_GRPC)
     # FlightSQL uses proto3 optionals, which require 3.15 or later.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.15.0")
-  elseif(ARROW_GANDIVA_JAVA)
-    # google::protobuf::MessageLite::ByteSize() is deprecated since
-    # Protobuf 3.4.0.
-    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.4.0")
   elseif(ARROW_SUBSTRAIT)
     # Substrait protobuf files use proto3 syntax
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
@@ -1645,6 +1638,8 @@ if(ARROW_WITH_PROTOBUF)
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
   resolve_dependency(Protobuf
+                     HAVE_ALT
+                     TRUE
                      REQUIRED_VERSION
                      ${ARROW_PROTOBUF_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
@@ -1984,9 +1979,8 @@ macro(build_gtest)
   set(dummy ">")
 
   set(GTEST_CMAKE_ARGS
-      ${EP_COMMON_TOOLCHAIN}
+      ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_SHARED_LIBS=ON
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_INSTALL_LIBDIR=lib
@@ -2097,7 +2091,7 @@ macro(build_benchmark)
   endif()
 
   if(NOT MSVC)
-    set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -std=c++11")
+    set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -std=c++17")
   endif()
 
   if(APPLE AND (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID
@@ -2248,7 +2242,11 @@ else()
 endif()
 
 if(ARROW_USE_XSIMD)
-  resolve_dependency(xsimd REQUIRED_VERSION "8.1.0")
+  resolve_dependency(xsimd
+                     REQUIRED_VERSION
+                     "8.1.0"
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE)
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(xsimd INTERFACE IMPORTED)
@@ -2306,53 +2304,44 @@ if(ARROW_WITH_ZLIB)
 endif()
 
 macro(build_lz4)
-  message(STATUS "Building lz4 from source")
-  set(LZ4_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix/src/lz4_ep")
-  set(LZ4_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix")
-
-  if(MSVC)
-    if(ARROW_USE_STATIC_CRT)
-      if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-        set(LZ4_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreadedDebug")
-      else()
-        set(LZ4_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreaded")
-      endif()
-    endif()
-    set(LZ4_STATIC_LIB
-        "${LZ4_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
-    set(LZ4_BUILD_COMMAND
-        BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64
-        /p:PlatformToolset=v140 ${LZ4_RUNTIME_LIBRARY_LINKAGE} /t:Build
-        ${LZ4_BUILD_DIR}/build/VS2010/lz4.sln)
-  else()
-    set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
-    # Must explicitly invoke sh on MinGW
-    set(LZ4_BUILD_COMMAND
-        BUILD_COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/build-support/build-lz4-lib.sh"
-        "AR=${CMAKE_AR}" "OS=${CMAKE_SYSTEM_NAME}")
+  message(STATUS "Building LZ4 from source")
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    message(FATAL_ERROR "Building LZ4 using ExternalProject requires at least CMake 3.7")
   endif()
+
+  set(LZ4_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-install")
+
+  set(LZ4_STATIC_LIB
+      "${LZ4_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}lz4${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+  set(LZ4_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DBUILD_SHARED_LIBS=OFF
+      -DBUILD_STATIC_LIBS=ON
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+      -DLZ4_BUILD_CLI=OFF
+      -DLZ4_BUILD_LEGACY_LZ4C=OFF)
 
   # We need to copy the header in lib to directory outside of the build
   externalproject_add(lz4_ep
-                      URL ${LZ4_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${LZ4_CMAKE_ARGS}
+                      SOURCE_SUBDIR "build/cmake"
+                      INSTALL_DIR ${LZ4_PREFIX}
+                      URL ${LZ4_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
-                      UPDATE_COMMAND ${CMAKE_COMMAND} -E copy_directory
-                                     "${LZ4_BUILD_DIR}/lib" "${LZ4_PREFIX}/include"
-                                     ${LZ4_PATCH_COMMAND}
-                      CONFIGURE_COMMAND ""
-                      INSTALL_COMMAND ""
-                      BINARY_DIR ${LZ4_BUILD_DIR}
-                      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB} ${LZ4_BUILD_COMMAND})
+                      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB})
 
   file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
-  add_library(lz4::lz4 STATIC IMPORTED)
-  set_target_properties(lz4::lz4
+  add_library(LZ4::lz4 STATIC IMPORTED)
+  set_target_properties(LZ4::lz4
                         PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
   add_dependencies(toolchain lz4_ep)
-  add_dependencies(lz4::lz4 lz4_ep)
+  add_dependencies(LZ4::lz4 lz4_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4::lz4)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
 endmacro()
 
 if(ARROW_WITH_LZ4)
@@ -2364,7 +2353,12 @@ if(ARROW_WITH_LZ4)
 endif()
 
 macro(build_zstd)
-  message(STATUS "Building zstd from source")
+  message(STATUS "Building Zstandard from source")
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    message(FATAL_ERROR "Building Zstandard using ExternalProject requires at least CMake 3.7"
+    )
+  endif()
+
   set(ZSTD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-install")
 
   set(ZSTD_CMAKE_ARGS
@@ -2394,10 +2388,6 @@ macro(build_zstd)
         -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS})
   endif()
 
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    message(FATAL_ERROR "Building zstd using ExternalProject requires at least CMake 3.7")
-  endif()
-
   externalproject_add(zstd_ep
                       ${EP_LOG_OPTIONS}
                       CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
@@ -2409,39 +2399,41 @@ macro(build_zstd)
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
-  add_library(zstd::libzstd STATIC IMPORTED)
-  set_target_properties(zstd::libzstd
+  add_library(zstd::libzstd_static STATIC IMPORTED)
+  set_target_properties(zstd::libzstd_static
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
-  add_dependencies(zstd::libzstd zstd_ep)
+  add_dependencies(zstd::libzstd_static zstd_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
+
+  set(ZSTD_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
   # ARROW-13384: ZSTD_minCLevel was added in v1.4.0, required by ARROW-13091
   resolve_dependency(zstd
+                     HAVE_ALT
+                     TRUE
                      PC_PACKAGE_NAMES
                      libzstd
                      REQUIRED_VERSION
                      1.4.0)
 
-  if(TARGET zstd::libzstd)
-    set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
+  if(ZSTD_VENDORED)
+    set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
   else()
-    # "SYSTEM" source will prioritize cmake config, which exports
-    # zstd::libzstd_{static,shared}
     if(ARROW_ZSTD_USE_SHARED)
-      if(TARGET zstd::libzstd_shared)
-        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
-      endif()
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
     else()
-      if(TARGET zstd::libzstd_static)
-        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
-      endif()
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
     endif()
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
+      message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
+    endif()
+    message(STATUS "Found Zstandard: ${ARROW_ZSTD_LIBZSTD}")
   endif()
 endif()
 
@@ -4044,7 +4036,10 @@ macro(build_google_cloud_cpp_storage)
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
-  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  if(NOT OpenSSL_FOUND)
+    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
+                       ${ARROW_OPENSSL_REQUIRED_VERSION})
+  endif()
 
   # Build google-cloud-cpp, with only storage_client
 
@@ -4275,6 +4270,8 @@ macro(build_orc)
   set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
+  get_target_property(ORC_PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC} IMPORTED_LOCATION)
+
   get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
@@ -4286,8 +4283,11 @@ macro(build_orc)
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
-  get_target_property(ORC_LZ4_ROOT lz4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
+
+  get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
 
   # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
   # the protoc library.
@@ -4303,12 +4303,13 @@ macro(build_orc)
       -DINSTALL_VENDORED_LIBS=OFF
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
+      "-DPROTOBUF_EXECUTABLE=${ORC_PROTOBUF_EXECUTABLE}"
       "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
       "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-      "-DLZ4_HOME=${LZ4_HOME}"
-      "-DZSTD_HOME=${ZSTD_HOME}")
+      "-DLZ4_HOME=${ORC_LZ4_ROOT}"
+      "-DZSTD_HOME=${ORZ_ZSTD_ROOT}")
   if(ORC_PROTOBUF_EXECUTABLE)
     set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS}
                        "-DPROTOBUF_EXECUTABLE:FILEPATH=${ORC_PROTOBUF_EXECUTABLE}")
@@ -4324,20 +4325,32 @@ macro(build_orc)
                       URL ${ORC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
-
-  add_dependencies(toolchain orc_ep)
+                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
+                      DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
+                              ${ARROW_ZSTD_LIBZSTD}
+                              ${Snappy_TARGET}
+                              LZ4::lz4
+                              ZLIB::ZLIB)
 
   set(ORC_VENDORED 1)
-  add_dependencies(orc_ep ZLIB::ZLIB)
-  add_dependencies(orc_ep lz4::lz4)
-  add_dependencies(orc_ep ${Snappy_TARGET})
-  add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   add_library(orc::liborc STATIC IMPORTED)
   set_target_properties(orc::liborc
                         PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+  set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
+  if(NOT MSVC)
+    if(NOT APPLE)
+      list(APPEND ORC_LINK_LIBRARIES Threads::Threads)
+    endif()
+    list(APPEND ORC_LINK_LIBRARIES ${CMAKE_DL_LIBS})
+  endif()
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(orc::liborc PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                 "${ORC_LINK_LIBRARIES}")
+  else()
+    target_link_libraries(orc::liborc INTERFACE ${ORC_LINK_LIBRARIES})
+  endif()
 
   add_dependencies(toolchain orc_ep)
   add_dependencies(orc::liborc orc_ep)
@@ -4548,11 +4561,11 @@ macro(build_opentelemetry)
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
     add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS opentelemetry-cpp::${_OPENTELEMETRY_LIB})
   endforeach()
 
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${OPENTELEMETRY_INCLUDE_DIR})
-
 endmacro()
 
 if(ARROW_WITH_OPENTELEMETRY)
@@ -4752,49 +4765,7 @@ macro(build_awssdk)
 endmacro()
 
 if(ARROW_S3)
-  # See https://aws.amazon.com/blogs/developer/developer-experience-of-the-aws-sdk-for-c-now-simplified-by-cmake/
-
-  # Workaround to force AWS CMake configuration to look for shared libraries
-  if(DEFINED ENV{CONDA_PREFIX})
-    if(DEFINED BUILD_SHARED_LIBS)
-      set(BUILD_SHARED_LIBS_WAS_SET TRUE)
-      set(BUILD_SHARED_LIBS_VALUE ${BUILD_SHARED_LIBS})
-    else()
-      set(BUILD_SHARED_LIBS_WAS_SET FALSE)
-    endif()
-    set(BUILD_SHARED_LIBS "ON")
-  endif()
-
-  # Need to customize the find_package() call, so cannot call resolve_dependency()
-  if(AWSSDK_SOURCE STREQUAL "AUTO")
-    find_package(AWSSDK
-                 COMPONENTS config
-                            s3
-                            transfer
-                            identity-management
-                            sts)
-    if(NOT AWSSDK_FOUND)
-      build_awssdk()
-    endif()
-  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
-    build_awssdk()
-  elseif(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    find_package(AWSSDK REQUIRED
-                 COMPONENTS config
-                            s3
-                            transfer
-                            identity-management
-                            sts)
-  endif()
-
-  # Restore previous value of BUILD_SHARED_LIBS
-  if(DEFINED ENV{CONDA_PREFIX})
-    if(BUILD_SHARED_LIBS_WAS_SET)
-      set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_VALUE})
-    else()
-      unset(BUILD_SHARED_LIBS)
-    endif()
-  endif()
+  resolve_dependency(AWSSDK HAVE_ALT TRUE)
 
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")

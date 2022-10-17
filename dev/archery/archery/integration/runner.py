@@ -35,8 +35,8 @@ from .tester_rust import RustTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
 from .tester_csharp import CSharpTester
-from .util import (ARROW_ROOT_DEFAULT, guid, SKIP_ARROW, SKIP_FLIGHT,
-                   printer)
+from .util import guid, SKIP_ARROW, SKIP_FLIGHT, printer
+from ..utils.source import ARROW_ROOT_DEFAULT
 from . import datagen
 
 
@@ -140,7 +140,6 @@ class IntegrationRunner(object):
             if prefix == '2.0.0-compression':
                 skip.add("C#")
                 skip.add("JS")
-                skip.add("Rust")
 
             # See https://github.com/apache/arrow/pull/9822 for how to
             # disable specific compression type tests.
@@ -430,11 +429,15 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "middleware",
             description="Ensure headers are propagated via middleware.",
-            skip={"Rust"}   # TODO(ARROW-10961): tonic upgrade needed
         ),
         Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
+            skip={"Rust"}
+        ),
+        Scenario(
+            "flight_sql:extension",
+            description="Ensure Flight SQL extensions work as expected.",
             skip={"Rust", "Go"}
         ),
     ]

@@ -23,6 +23,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -43,7 +44,6 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/arrow/reader.h"

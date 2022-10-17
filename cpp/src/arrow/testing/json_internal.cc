@@ -472,7 +472,7 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  void WriteRawNumber(util::string_view v) {
+  void WriteRawNumber(std::string_view v) {
     // Avoid RawNumber() as it misleadingly adds quotes
     // (see https://github.com/Tencent/rapidjson/pull/1155)
     writer_->RawValue(v.data(), v.size(), rj::kNumberType);
@@ -503,7 +503,7 @@ class ArrayWriter {
     static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        fmt(arr.Value(i), [&](util::string_view repr) {
+        fmt(arr.Value(i), [&](std::string_view repr) {
           writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
         });
       } else {
@@ -630,7 +630,7 @@ class ArrayWriter {
       // Represent 64-bit integers as strings, as JSON numbers cannot represent
       // them exactly.
       ::arrow::internal::StringFormatter<typename CTypeTraits<T>::ArrowType> formatter;
-      auto append = [this](util::string_view v) {
+      auto append = [this](std::string_view v) {
         writer_->String(v.data(), static_cast<rj::SizeType>(v.size()));
         return Status::OK();
       };

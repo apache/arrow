@@ -96,6 +96,8 @@ BINARY_SYMMETRIC(bitwise_xor, int64, ^)
 
 MOD_OP(mod, int64, int32, int32)
 MOD_OP(mod, int64, int64, int64)
+MOD_OP(mod, uint32, uint32, uint32)
+MOD_OP(mod, uint64, uint64, uint64)
 
 PMOD_OP(pmod, int32, int32, int32)
 PMOD_OP(pmod, int64, int64, int64)
@@ -437,6 +439,8 @@ void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
 
 DIV(int32)
 DIV(int64)
+DIV(uint32)
+DIV(uint64)
 
 #undef DIV
 

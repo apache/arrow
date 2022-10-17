@@ -91,7 +91,7 @@ func processStream(w io.Writer, rin io.Reader) error {
 		r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				return nil
+				break
 			}
 			return err
 		}

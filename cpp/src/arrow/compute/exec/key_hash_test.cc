@@ -35,9 +35,12 @@ namespace compute {
 
 class TestVectorHash {
  private:
-  static Result<std::shared_ptr<BinaryArray>> GenerateUniqueRandomBinary(
-      random::pcg32_fast* random, int num, int min_length, int max_length) {
-    BinaryBuilder builder;
+  template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType>
+  static enable_if_base_binary<Type, Result<std::shared_ptr<ArrayType>>>
+  GenerateUniqueRandomBinary(random::pcg32_fast* random, int num, int min_length,
+                             int max_length) {
+    using BuilderType = typename TypeTraits<Type>::BuilderType;
+    BuilderType builder;
     std::unordered_set<std::string> unique_key_strings;
     std::vector<uint8_t> temp_buffer;
     temp_buffer.resize(max_length);
@@ -58,12 +61,14 @@ class TestVectorHash {
       }
     }
     ARROW_ASSIGN_OR_RAISE(auto uniques, builder.Finish());
-    return checked_pointer_cast<BinaryArray>(uniques);
+    return checked_pointer_cast<ArrayType>(uniques);
   }
 
-  static Result<std::pair<std::vector<int>, std::shared_ptr<BinaryArray>>>
-  SampleUniqueBinary(random::pcg32_fast* random, int num, const BinaryArray& uniques) {
-    BinaryBuilder builder;
+  template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType>
+  static Result<std::pair<std::vector<int>, std::shared_ptr<ArrayType>>>
+  SampleUniqueBinary(random::pcg32_fast* random, int num, const ArrayType& uniques) {
+    using BuilderType = typename TypeTraits<Type>::BuilderType;
+    BuilderType builder;
     std::vector<int> row_ids;
     row_ids.resize(num);
 
@@ -75,13 +80,18 @@ class TestVectorHash {
       ARROW_RETURN_NOT_OK(builder.Append(uniques.GetView(row_id)));
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> sampled, builder.Finish());
-    return std::pair<std::vector<int>, std::shared_ptr<BinaryArray>>{
-        std::move(row_ids), checked_pointer_cast<BinaryArray>(sampled)};
+    return std::pair<std::vector<int>, std::shared_ptr<ArrayType>>{
+        std::move(row_ids), checked_pointer_cast<ArrayType>(sampled)};
   }
 
  public:
+  template <typename Type>
   static void RunSingle(random::pcg32_fast* random, bool use_32bit_hash,
                         bool use_varlen_input, int min_length, int max_length) {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
+    using OffsetType = typename TypeTraits<Type>::OffsetType;
+    using offset_t = typename std::make_unsigned<typename OffsetType::c_type>::type;
+
     constexpr int min_num_unique = 100;
     constexpr int max_num_unique = 1000;
     constexpr int min_num_rows = 4000;
@@ -111,14 +121,15 @@ class TestVectorHash {
     }
 
     ASSERT_OK_AND_ASSIGN(
-        std::shared_ptr<BinaryArray> uniques,
-        GenerateUniqueRandomBinary(random, num_unique, min_length, max_length));
-    ASSERT_OK_AND_ASSIGN(auto sampled, SampleUniqueBinary(random, num_rows, *uniques));
+        std::shared_ptr<ArrayType> uniques,
+        GenerateUniqueRandomBinary<Type>(random, num_unique, min_length, max_length));
+    ASSERT_OK_AND_ASSIGN(auto sampled,
+                         SampleUniqueBinary<Type>(random, num_rows, *uniques));
     const std::vector<int>& row_ids = sampled.first;
-    const std::shared_ptr<BinaryArray>& keys_array = sampled.second;
+    const std::shared_ptr<ArrayType>& keys_array = sampled.second;
     const uint8_t* keys = keys_array->raw_data();
-    const uint32_t* key_offsets =
-        reinterpret_cast<const uint32_t*>(keys_array->raw_value_offsets());
+    const offset_t* key_offsets =
+        reinterpret_cast<const offset_t*>(keys_array->raw_value_offsets());
 
     std::vector<uint32_t> hashes_scalar32;
     std::vector<uint64_t> hashes_scalar64;
@@ -208,7 +219,8 @@ class TestVectorHash {
   }
 };
 
-TEST(VectorHash, Basic) {
+template <typename Type>
+void RunTestVectorHash() {
   random::pcg32_fast gen(/*seed=*/0);
 
   int numtest = 40;
@@ -219,12 +231,20 @@ TEST(VectorHash, Basic) {
   for (bool use_32bit_hash : {true, false}) {
     for (bool use_varlen_input : {false, true}) {
       for (int itest = 0; itest < numtest; ++itest) {
-        TestVectorHash::RunSingle(&gen, use_32bit_hash, use_varlen_input, min_length,
-                                  max_length);
+        TestVectorHash::RunSingle<Type>(&gen, use_32bit_hash, use_varlen_input,
+                                        min_length, max_length);
       }
     }
   }
 }
+
+TEST(VectorHash, BasicBinary) { RunTestVectorHash<BinaryType>(); }
+
+TEST(VectorHash, BasicLargeBinary) { RunTestVectorHash<LargeBinaryType>(); }
+
+TEST(VectorHash, BasicString) { RunTestVectorHash<StringType>(); }
+
+TEST(VectorHash, BasicLargeString) { RunTestVectorHash<LargeStringType>(); }
 
 }  // namespace compute
 }  // namespace arrow

@@ -703,14 +703,14 @@ def test_struct_from_arrays():
     assert arr.to_pylist() == [None] + expected_list[1:]
 
     # Bad masks
-    with pytest.raises(ValueError, match='Mask must be'):
+    with pytest.raises(TypeError, match='Mask must be'):
         pa.StructArray.from_arrays(arrays, fields, mask=[True, False, False])
 
     with pytest.raises(ValueError, match='not contain nulls'):
         pa.StructArray.from_arrays(
             arrays, fields, mask=pa.array([True, False, None]))
 
-    with pytest.raises(ValueError, match='Mask must be'):
+    with pytest.raises(TypeError, match='Mask must be'):
         pa.StructArray.from_arrays(
             arrays, fields, mask=pa.chunked_array([mask]))
 
@@ -723,6 +723,15 @@ def test_struct_array_from_chunked():
 
     with pytest.raises(TypeError, match="Expected Array"):
         pa.StructArray.from_arrays([chunked_arr], ["foo"])
+
+
+@pytest.mark.parametrize("offset", (0, 1))
+def test_dictionary_from_buffers(offset):
+    a = pa.array(["one", "two", "three", "two", "one"]).dictionary_encode()
+    b = pa.DictionaryArray.from_buffers(a.type, len(a)-offset,
+                                        a.indices.buffers(), a.dictionary,
+                                        offset=offset)
+    assert a[offset:] == b
 
 
 def test_dictionary_from_numpy():
@@ -917,6 +926,60 @@ def test_list_from_arrays(list_array_type, list_type_factory):
     typ = list_type_factory(pa.binary())
     with pytest.raises(TypeError):
         list_array_type.from_arrays(offsets, values, type=typ)
+
+
+@pytest.mark.parametrize(('list_array_type', 'list_type_factory'), (
+    (pa.ListArray, pa.list_),
+    (pa.LargeListArray, pa.large_list)
+))
+@pytest.mark.parametrize("arr", (
+    [None, [0]],
+    [None, [0, None], [0]],
+    [[0], [1]],
+))
+def test_list_array_types_from_arrays(
+    list_array_type, list_type_factory, arr
+):
+    arr = pa.array(arr, list_type_factory(pa.int8()))
+    reconstructed_arr = list_array_type.from_arrays(
+        arr.offsets, arr.values, mask=arr.is_null())
+    assert arr == reconstructed_arr
+
+
+@pytest.mark.parametrize(('list_array_type', 'list_type_factory'), (
+    (pa.ListArray, pa.list_),
+    (pa.LargeListArray, pa.large_list)
+))
+def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
+    # Fail when manual offsets include nulls and mask passed
+    # ListArray.offsets doesn't report nulls.
+
+    # This test case arr.offsets == [0, 1, 1, 3, 4]
+    arr = pa.array([[0], None, [0, None], [0]], list_type_factory(pa.int8()))
+    offsets = pa.array([0, None, 1, 3, 4])
+
+    # Using array's offset has no nulls; gives empty lists on top level
+    reconstructed_arr = list_array_type.from_arrays(arr.offsets, arr.values)
+    assert reconstructed_arr.to_pylist() == [[0], [], [0, None], [0]]
+
+    # Manually specifiying offsets (with nulls) is same as mask at top level
+    reconstructed_arr = list_array_type.from_arrays(offsets, arr.values)
+    assert arr == reconstructed_arr
+    reconstructed_arr = list_array_type.from_arrays(arr.offsets,
+                                                    arr.values,
+                                                    mask=arr.is_null())
+    assert arr == reconstructed_arr
+
+    # But using both is ambiguous, in this case `offsets` has nulls
+    with pytest.raises(ValueError, match="Ambiguous to specify both "):
+        list_array_type.from_arrays(offsets, arr.values, mask=arr.is_null())
+
+    # Not supported to reconstruct from a slice.
+    arr_slice = arr[1:]
+    msg = "Null bitmap with offsets slice not supported."
+    with pytest.raises(NotImplementedError, match=msg):
+        list_array_type.from_arrays(
+            arr_slice.offsets, arr_slice.values, mask=arr_slice.is_null())
 
 
 def test_map_labelled():
@@ -2622,30 +2685,49 @@ def test_list_array_flatten(offset_type, list_type_factory):
     assert arr2.values.values.equals(arr0)
 
 
-@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list])
-def test_list_value_parent_indices(list_type_factory):
+@pytest.mark.parametrize('list_type', [
+    pa.list_(pa.int32()),
+    pa.list_(pa.int32(), list_size=2),
+    pa.large_list(pa.int32())])
+def test_list_value_parent_indices(list_type):
     arr = pa.array(
         [
-            [0, 1, 2],
+            [0, 1],
             None,
-            [],
+            [None, None],
             [3, 4]
-        ], type=list_type_factory(pa.int32()))
-    expected = pa.array([0, 0, 0, 3, 3], type=pa.int64())
+        ], type=list_type)
+    expected = pa.array([0, 0, 2, 2, 3, 3], type=pa.int64())
     assert arr.value_parent_indices().equals(expected)
 
 
-@pytest.mark.parametrize(('offset_type', 'list_type_factory'),
-                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list)])
-def test_list_value_lengths(offset_type, list_type_factory):
-    arr = pa.array(
-        [
-            [0, 1, 2],
-            None,
-            [],
-            [3, 4]
-        ], type=list_type_factory(pa.int32()))
-    expected = pa.array([3, None, 0, 2], type=offset_type)
+@pytest.mark.parametrize(('offset_type', 'list_type'),
+                         [(pa.int32(), pa.list_(pa.int32())),
+                          (pa.int32(), pa.list_(pa.int32(), list_size=2)),
+                          (pa.int64(), pa.large_list(pa.int32()))])
+def test_list_value_lengths(offset_type, list_type):
+
+    # FixedSizeListArray needs fixed list sizes
+    if getattr(list_type, "list_size", None):
+        arr = pa.array(
+            [
+                [0, 1],
+                None,
+                [None, None],
+                [3, 4]
+            ], type=list_type)
+        expected = pa.array([2, None, 2, 2], type=offset_type)
+
+    # Otherwise create variable list sizes
+    else:
+        arr = pa.array(
+            [
+                [0, 1, 2],
+                None,
+                [],
+                [3, 4]
+            ], type=list_type)
+        expected = pa.array([3, None, 0, 2], type=offset_type)
     assert arr.value_lengths().equals(expected)
 
 
@@ -2708,7 +2790,6 @@ def test_fixed_size_list_array_flatten():
     typ1 = pa.list_(pa.int64(), 2)
     arr1 = pa.array([
         [1, 2], [3, 4], [5, 6],
-        None, None, None,
         [7, None], None, [8, 9]
     ], type=typ1)
     assert arr1.type.equals(typ1)
@@ -2716,13 +2797,17 @@ def test_fixed_size_list_array_flatten():
 
     typ0 = pa.int64()
     arr0 = pa.array([
-        1, 2, 3, 4, 5, 6,
-        None, None, None, None, None, None,
-        7, None, None, None, 8, 9,
+        1, 2, 3, 4, 5, 6, 7, None, 8, 9,
     ], type=typ0)
     assert arr0.type.equals(typ0)
     assert arr1.flatten().equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
+
+
+def test_fixed_size_list_array_flatten_with_slice():
+    array = pa.array([[1], [2], [3]],
+                     type=pa.list_(pa.float64(), list_size=1))
+    assert array[2:].flatten() == pa.array([3], type=pa.float64())
 
 
 def test_map_array_values_offsets():

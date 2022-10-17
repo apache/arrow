@@ -23,7 +23,9 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -38,9 +40,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_builder.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/type_fwd.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
@@ -190,9 +190,6 @@ class RecordBatch;
 class Table;
 struct Datum;
 
-ARROW_TESTING_EXPORT
-std::vector<Type::type> AllTypeIds();
-
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
 #define ASSERT_BATCHES_APPROX_EQUAL(lhs, rhs) AssertBatchesApproxEqual((lhs), (rhs))
@@ -270,7 +267,7 @@ ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lh
                                                const std::shared_ptr<Schema>& rhs,
                                                bool check_metadata = false);
 
-ARROW_TESTING_EXPORT Result<util::optional<std::string>> PrintArrayDiff(
+ARROW_TESTING_EXPORT Result<std::optional<std::string>> PrintArrayDiff(
     const ChunkedArray& expected, const ChunkedArray& actual);
 
 ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
@@ -316,16 +313,16 @@ ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
-                                     util::string_view json);
+                                     std::string_view json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                         util::string_view indices_json,
-                                         util::string_view dictionary_json);
+                                         std::string_view indices_json,
+                                         std::string_view dictionary_json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>&,
-                                                 util::string_view);
+                                                 std::string_view);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
@@ -333,12 +330,12 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataTyp
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>&,
-                                       util::string_view json);
+                                       std::string_view json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>&,
-                                           util::string_view index_json,
-                                           util::string_view dictionary_json);
+                                           std::string_view index_json,
+                                           std::string_view dictionary_json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
@@ -365,9 +362,6 @@ void SleepABit();
 // Wait until predicate is true or timeout in seconds expires.
 ARROW_TESTING_EXPORT
 void BusyWait(double seconds, std::function<bool()> predicate);
-
-ARROW_TESTING_EXPORT
-Future<> SleepAsync(double seconds);
 
 // \see SleepABit
 ARROW_TESTING_EXPORT
@@ -530,32 +524,3 @@ class ARROW_TESTING_EXPORT GatingTask {
 };
 
 }  // namespace arrow
-
-namespace nonstd {
-namespace sv_lite {
-
-// Without this hint, GTest will print string_views as a container of char
-template <class Char, class Traits = std::char_traits<Char>>
-void PrintTo(const basic_string_view<Char, Traits>& view, std::ostream* os) {
-  *os << view;
-}
-
-}  // namespace sv_lite
-
-namespace optional_lite {
-
-template <typename T>
-void PrintTo(const optional<T>& opt, std::ostream* os) {
-  if (opt.has_value()) {
-    *os << "{";
-    ::testing::internal::UniversalPrint(*opt, os);
-    *os << "}";
-  } else {
-    *os << "nullopt";
-  }
-}
-
-inline void PrintTo(const decltype(nullopt)&, std::ostream* os) { *os << "nullopt"; }
-
-}  // namespace optional_lite
-}  // namespace nonstd

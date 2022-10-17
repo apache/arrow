@@ -150,6 +150,13 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CS3CredentialsKind_WebIdentity \
             "arrow::fs::S3CredentialsKind::WebIdentity"
 
+    cdef cppclass CS3RetryStrategy "arrow::fs::S3RetryStrategy":
+        @staticmethod
+        shared_ptr[CS3RetryStrategy] GetAwsDefaultRetryStrategy(int64_t max_attempts)
+
+        @staticmethod
+        shared_ptr[CS3RetryStrategy] GetAwsStandardRetryStrategy(int64_t max_attempts)
+
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
         double connect_timeout
@@ -166,6 +173,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         int load_frequency
         CS3ProxyOptions proxy_options
         CS3CredentialsKind credentials_kind
+        shared_ptr[CS3RetryStrategy] retry_strategy
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key,
@@ -215,7 +223,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_string default_bucket_location
-        c_optional[double] retry_limit_seconds
+        optional[double] retry_limit_seconds
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_bool Equals(const CS3Options& other)
 

@@ -273,6 +273,10 @@ type Decimal128 struct {
 	Value decimal128.Num
 }
 
+func (s *Decimal128) Data() []byte {
+	return (*[arrow.Decimal128SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
+}
+
 func (s *Decimal128) value() interface{} { return s.Value }
 
 func (s *Decimal128) String() string {
@@ -335,6 +339,10 @@ func NewDecimal128Scalar(val decimal128.Num, typ arrow.DataType) *Decimal128 {
 type Decimal256 struct {
 	scalar
 	Value decimal256.Num
+}
+
+func (s *Decimal256) Data() []byte {
+	return (*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
 func (s *Decimal256) value() interface{} { return s.Value }
@@ -466,10 +474,6 @@ func MakeNullScalar(dt arrow.DataType) Scalar {
 	return makeNullFn[byte(dt.ID()&0x3f)](dt)
 }
 
-func unsupportedScalarType(dt arrow.DataType) Scalar {
-	panic("unsupported scalar data type: " + dt.ID().String())
-}
-
 func invalidScalarType(dt arrow.DataType) Scalar {
 	panic("invalid scalar type: " + dt.ID().String())
 }
@@ -515,18 +519,43 @@ func init() {
 		arrow.INTERVAL_MONTH_DAY_NANO: func(dt arrow.DataType) Scalar { return &MonthDayNanoInterval{scalar: scalar{dt, false}} },
 		arrow.DECIMAL128:              func(dt arrow.DataType) Scalar { return &Decimal128{scalar: scalar{dt, false}} },
 		arrow.LIST:                    func(dt arrow.DataType) Scalar { return &List{scalar: scalar{dt, false}} },
-		arrow.STRUCT:                  func(dt arrow.DataType) Scalar { return &Struct{scalar: scalar{dt, false}} },
-		arrow.SPARSE_UNION:            unsupportedScalarType,
-		arrow.DENSE_UNION:             unsupportedScalarType,
-		arrow.DICTIONARY:              func(dt arrow.DataType) Scalar { return NewNullDictScalar(dt) },
-		arrow.LARGE_STRING:            func(dt arrow.DataType) Scalar { return &LargeString{&String{&Binary{scalar: scalar{dt, false}}}} },
-		arrow.LARGE_BINARY:            func(dt arrow.DataType) Scalar { return &LargeBinary{&Binary{scalar: scalar{dt, false}}} },
-		arrow.LARGE_LIST:              func(dt arrow.DataType) Scalar { return &LargeList{&List{scalar: scalar{dt, false}}} },
-		arrow.DECIMAL256:              func(dt arrow.DataType) Scalar { return &Decimal256{scalar: scalar{dt, false}} },
-		arrow.MAP:                     func(dt arrow.DataType) Scalar { return &Map{&List{scalar: scalar{dt, false}}} },
-		arrow.EXTENSION:               func(dt arrow.DataType) Scalar { return &Extension{scalar: scalar{dt, false}} },
-		arrow.FIXED_SIZE_LIST:         func(dt arrow.DataType) Scalar { return &FixedSizeList{&List{scalar: scalar{dt, false}}} },
-		arrow.DURATION:                func(dt arrow.DataType) Scalar { return &Duration{scalar: scalar{dt, false}} },
+		arrow.STRUCT: func(dt arrow.DataType) Scalar {
+			typ := dt.(*arrow.StructType)
+			values := make([]Scalar, len(typ.Fields()))
+			for i, f := range typ.Fields() {
+				values[i] = MakeNullScalar(f.Type)
+			}
+			return &Struct{scalar: scalar{dt, false}, Value: values}
+		},
+		arrow.SPARSE_UNION: func(dt arrow.DataType) Scalar {
+			typ := dt.(*arrow.SparseUnionType)
+			if len(typ.Fields()) == 0 {
+				panic("cannot make scalar of empty union type")
+			}
+			values := make([]Scalar, len(typ.Fields()))
+			for i, f := range typ.Fields() {
+				values[i] = MakeNullScalar(f.Type)
+			}
+			return NewSparseUnionScalar(values, typ.TypeCodes()[0], typ)
+		},
+		arrow.DENSE_UNION: func(dt arrow.DataType) Scalar {
+			typ := dt.(*arrow.DenseUnionType)
+			if len(typ.Fields()) == 0 {
+				panic("cannot make scalar of empty union type")
+			}
+			return NewDenseUnionScalar(MakeNullScalar(typ.Fields()[0].Type), typ.TypeCodes()[0], typ)
+		},
+		arrow.DICTIONARY:   func(dt arrow.DataType) Scalar { return NewNullDictScalar(dt) },
+		arrow.LARGE_STRING: func(dt arrow.DataType) Scalar { return &LargeString{&String{&Binary{scalar: scalar{dt, false}}}} },
+		arrow.LARGE_BINARY: func(dt arrow.DataType) Scalar { return &LargeBinary{&Binary{scalar: scalar{dt, false}}} },
+		arrow.LARGE_LIST:   func(dt arrow.DataType) Scalar { return &LargeList{&List{scalar: scalar{dt, false}}} },
+		arrow.DECIMAL256:   func(dt arrow.DataType) Scalar { return &Decimal256{scalar: scalar{dt, false}} },
+		arrow.MAP:          func(dt arrow.DataType) Scalar { return &Map{&List{scalar: scalar{dt, false}}} },
+		arrow.EXTENSION: func(dt arrow.DataType) Scalar {
+			return &Extension{scalar: scalar{dt, false}, Value: MakeNullScalar(dt.(arrow.ExtensionType).StorageType())}
+		},
+		arrow.FIXED_SIZE_LIST: func(dt arrow.DataType) Scalar { return &FixedSizeList{&List{scalar: scalar{dt, false}}} },
+		arrow.DURATION:        func(dt arrow.DataType) Scalar { return &Duration{scalar: scalar{dt, false}} },
 		// invalid data types to fill out array size 2^6 - 1
 		63: invalidScalarType,
 	}
@@ -549,6 +578,10 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		buf := memory.NewBufferBytes(arr.Value(idx))
 		defer buf.Release()
 		return NewBinaryScalar(buf, arr.DataType()), nil
+	case *array.LargeBinary:
+		buf := memory.NewBufferBytes(arr.Value(idx))
+		defer buf.Release()
+		return NewLargeBinaryScalar(buf), nil
 	case *array.Boolean:
 		return NewBooleanScalar(arr.Value(idx)), nil
 	case *array.Date32:
@@ -605,6 +638,11 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		slice := array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))
 		defer slice.Release()
 		return NewListScalar(slice), nil
+	case *array.LargeList:
+		offsets := arr.Offsets()
+		slice := array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))
+		defer slice.Release()
+		return NewLargeListScalar(slice), nil
 	case *array.Map:
 		offsets := arr.Offsets()
 		slice := array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))
@@ -618,6 +656,8 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return ScalarNull, nil
 	case *array.String:
 		return NewStringScalar(arr.Value(idx)), nil
+	case *array.LargeString:
+		return NewLargeStringScalar(arr.Value(idx)), nil
 	case *array.Struct:
 		children := make(Vector, arr.NumField())
 		for i := range children {
@@ -646,12 +686,47 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		scalar.Value.Dict = arr.Dictionary()
 		scalar.Value.Dict.Retain()
 		return scalar, nil
+	case *array.SparseUnion:
+		var err error
+		typeCode := arr.TypeCode(idx)
+		children := make([]Scalar, arr.NumFields())
+		defer func() {
+			if err != nil {
+				for _, c := range children {
+					if c == nil {
+						break
+					}
+
+					if v, ok := c.(Releasable); ok {
+						v.Release()
+					}
+				}
+			}
+		}()
+
+		for i := range arr.UnionType().Fields() {
+			if children[i], err = GetScalar(arr.Field(i), idx); err != nil {
+				return nil, err
+			}
+		}
+		return NewSparseUnionScalar(children, typeCode, arr.UnionType().(*arrow.SparseUnionType)), nil
+	case *array.DenseUnion:
+		typeCode := arr.TypeCode(idx)
+		child := arr.Field(arr.ChildID(idx))
+		offset := arr.ValueOffset(idx)
+		value, err := GetScalar(child, int(offset))
+		if err != nil {
+			return nil, err
+		}
+		return NewDenseUnionScalar(value, typeCode, arr.UnionType().(*arrow.DenseUnionType)), nil
 	}
 
 	return nil, fmt.Errorf("cannot create scalar from array of type %s", arr.DataType())
 }
 
 // MakeArrayOfNull creates an array of size length which is all null of the given data type.
+//
+// Deprecated: Use array.MakeArrayOfNull
 func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) arrow.Array {
 	var (
 		buffers  = []*memory.Buffer{nil}
@@ -749,12 +824,16 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Arr
 			data.Release()
 		}()
 		return array.MakeFromData(data), nil
-	case PrimitiveScalar:
-		data := finishFixedWidth(s.Data())
-		defer data.Release()
-		return array.MakeFromData(data), nil
 	case *Decimal128:
 		data := finishFixedWidth(arrow.Decimal128Traits.CastToBytes([]decimal128.Num{s.Value}))
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case *Decimal256:
+		data := finishFixedWidth(arrow.Decimal256Traits.CastToBytes([]decimal256.Num{s.Value}))
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case PrimitiveScalar:
+		data := finishFixedWidth(s.Data())
 		defer data.Release()
 		return array.MakeFromData(data), nil
 	case *List:
@@ -902,6 +981,16 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 		return valueHash(s.Value.Days) & valueHash(s.Value.Milliseconds)
 	case *MonthDayNanoInterval:
 		return valueHash(s.Value.Months) & valueHash(s.Value.Days) & valueHash(s.Value.Nanoseconds)
+	case *SparseUnion:
+		// typecode is ignored when comparing for equality, so don't hash it either
+		out ^= Hash(seed, s.Value[s.ChildID])
+	case *DenseUnion:
+		// typecode is ignored when comparing equality, so don't hash it either
+		out ^= Hash(seed, s.Value)
+	case *Dictionary:
+		if s.Value.Index.IsValid() {
+			out ^= Hash(seed, s.Value.Index)
+		}
 	case PrimitiveScalar:
 		h.Write(s.Data())
 		hash()
@@ -915,10 +1004,6 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 			if c.IsValid() {
 				out ^= Hash(seed, c)
 			}
-		}
-	case *Dictionary:
-		if s.Value.Index.IsValid() {
-			out ^= Hash(seed, s.Value.Index)
 		}
 	}
 

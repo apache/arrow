@@ -50,8 +50,8 @@ import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Charsets;
 import com.google.protobuf.ByteString;
@@ -65,8 +65,8 @@ public class TestBasicOperation {
 
   @Test
   public void fastPathDefaults() {
-    Assert.assertTrue(ArrowMessage.ENABLE_ZERO_COPY_READ);
-    Assert.assertFalse(ArrowMessage.ENABLE_ZERO_COPY_WRITE);
+    Assertions.assertTrue(ArrowMessage.ENABLE_ZERO_COPY_READ);
+    Assertions.assertFalse(ArrowMessage.ENABLE_ZERO_COPY_WRITE);
   }
 
   /**
@@ -75,7 +75,7 @@ public class TestBasicOperation {
   @Test
   public void unknownScheme() throws URISyntaxException {
     final Location location = new Location("s3://unknown");
-    Assert.assertEquals("s3", location.getUri().getScheme());
+    Assertions.assertEquals("s3", location.getUri().getScheme());
   }
 
   @Test
@@ -83,7 +83,7 @@ public class TestBasicOperation {
     test(c -> {
       try {
         final FlightInfo info = c.getInfo(FlightDescriptor.path("test"));
-        Assert.assertEquals(new URI("https://example.com"), info.getEndpoints().get(0).getLocations().get(0).getUri());
+        Assertions.assertEquals(new URI("https://example.com"), info.getEndpoints().get(0).getLocations().get(0).getUri());
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);
       }
@@ -93,7 +93,7 @@ public class TestBasicOperation {
   @Test
   public void roundTripTicket() throws Exception {
     final Ticket ticket = new Ticket(new byte[]{0, 1, 2, 3, 4, 5});
-    Assert.assertEquals(ticket, Ticket.deserialize(ticket.serialize()));
+    Assertions.assertEquals(ticket, Ticket.deserialize(ticket.serialize()));
   }
 
   @Test
@@ -116,17 +116,17 @@ public class TestBasicOperation {
                 Location.forGrpcInsecure("localhost", 50051))
         ), 200, 500);
 
-    Assert.assertEquals(info1, FlightInfo.deserialize(info1.serialize()));
-    Assert.assertEquals(info2, FlightInfo.deserialize(info2.serialize()));
-    Assert.assertEquals(info3, FlightInfo.deserialize(info3.serialize()));
+    Assertions.assertEquals(info1, FlightInfo.deserialize(info1.serialize()));
+    Assertions.assertEquals(info2, FlightInfo.deserialize(info2.serialize()));
+    Assertions.assertEquals(info3, FlightInfo.deserialize(info3.serialize()));
   }
 
   @Test
   public void roundTripDescriptor() throws Exception {
     final FlightDescriptor cmd = FlightDescriptor.command("test command".getBytes(StandardCharsets.UTF_8));
-    Assert.assertEquals(cmd, FlightDescriptor.deserialize(cmd.serialize()));
+    Assertions.assertEquals(cmd, FlightDescriptor.deserialize(cmd.serialize()));
     final FlightDescriptor path = FlightDescriptor.path("foo", "bar", "test.arrow");
-    Assert.assertEquals(path, FlightDescriptor.deserialize(path.serialize()));
+    Assertions.assertEquals(path, FlightDescriptor.deserialize(path.serialize()));
   }
 
   @Test
@@ -136,7 +136,7 @@ public class TestBasicOperation {
       for (FlightInfo i : c.listFlights(Criteria.ALL)) {
         count += 1;
       }
-      Assert.assertEquals(1, count);
+      Assertions.assertEquals(1, count);
     });
   }
 
@@ -147,7 +147,7 @@ public class TestBasicOperation {
       for (FlightInfo i : c.listFlights(new Criteria(new byte[]{1}))) {
         count += 1;
       }
-      Assert.assertEquals(0, count);
+      Assertions.assertEquals(0, count);
     });
   }
 
@@ -180,21 +180,21 @@ public class TestBasicOperation {
     test(c -> {
       Iterator<Result> stream = c.doAction(new Action("hello"));
 
-      Assert.assertTrue(stream.hasNext());
+      Assertions.assertTrue(stream.hasNext());
       Result r = stream.next();
-      Assert.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+      Assertions.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
     });
     test(c -> {
       Iterator<Result> stream = c.doAction(new Action("hellooo"));
 
-      Assert.assertTrue(stream.hasNext());
+      Assertions.assertTrue(stream.hasNext());
       Result r = stream.next();
-      Assert.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+      Assertions.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
 
-      Assert.assertTrue(stream.hasNext());
+      Assertions.assertTrue(stream.hasNext());
       r = stream.next();
-      Assert.assertArrayEquals("!".getBytes(Charsets.UTF_8), r.getBody());
-      Assert.assertFalse(stream.hasNext());
+      Assertions.assertArrayEquals("!".getBytes(Charsets.UTF_8), r.getBody());
+      Assertions.assertFalse(stream.hasNext());
     });
   }
 
@@ -240,7 +240,7 @@ public class TestBasicOperation {
   public void propagateErrors() throws Exception {
     test(client -> {
       FlightTestUtil.assertCode(FlightStatusCode.UNIMPLEMENTED, () -> {
-        client.doAction(new Action("invalid-action")).forEachRemaining(action -> Assert.fail());
+        client.doAction(new Action("invalid-action")).forEachRemaining(action -> Assertions.fail());
       });
     });
   }
@@ -254,7 +254,7 @@ public class TestBasicOperation {
         int value = 0;
         while (stream.next()) {
           for (int i = 0; i < root.getRowCount(); i++) {
-            Assert.assertEquals(value, iv.get(i));
+            Assertions.assertEquals(value, iv.get(i));
             value++;
           }
         }
@@ -269,12 +269,12 @@ public class TestBasicOperation {
   public void getStreamLargeBatch() throws Exception {
     test(c -> {
       try (final FlightStream stream = c.getStream(new Ticket(Producer.TICKET_LARGE_BATCH))) {
-        Assert.assertEquals(128, stream.getRoot().getFieldVectors().size());
-        Assert.assertTrue(stream.next());
-        Assert.assertEquals(65536, stream.getRoot().getRowCount());
-        Assert.assertTrue(stream.next());
-        Assert.assertEquals(65536, stream.getRoot().getRowCount());
-        Assert.assertFalse(stream.next());
+        Assertions.assertEquals(128, stream.getRoot().getFieldVectors().size());
+        Assertions.assertTrue(stream.next());
+        Assertions.assertEquals(65536, stream.getRoot().getRowCount());
+        Assertions.assertTrue(stream.next());
+        Assertions.assertEquals(65536, stream.getRoot().getRowCount());
+        Assertions.assertFalse(stream.next());
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -362,28 +362,28 @@ public class TestBasicOperation {
       final MethodDescriptor.Marshaller<ArrowMessage> marshaller = ArrowMessage.createMarshaller(allocator);
       try (final ArrowMessage message = new ArrowMessage(
               unloader.getRecordBatch(), /* appMetadata */ null, /* tryZeroCopy */ false, IpcOption.DEFAULT)) {
-        Assert.assertEquals(ArrowMessage.HeaderType.RECORD_BATCH, message.getMessageType());
+        Assertions.assertEquals(ArrowMessage.HeaderType.RECORD_BATCH, message.getMessageType());
         // Should have at least one empty body buffer (there may be multiple for e.g. data and validity)
         Iterator<ArrowBuf> iterator = message.getBufs().iterator();
-        Assert.assertTrue(iterator.hasNext());
+        Assertions.assertTrue(iterator.hasNext());
         while (iterator.hasNext()) {
-          Assert.assertEquals(0, iterator.next().capacity());
+          Assertions.assertEquals(0, iterator.next().capacity());
         }
         final Flight.FlightData protobufData = arrowMessageToProtobuf(marshaller, message)
             .toBuilder()
             .clearDataBody()
             .build();
-        Assert.assertEquals(0, protobufData.getDataBody().size());
+        Assertions.assertEquals(0, protobufData.getDataBody().size());
         ArrowMessage parsedMessage = marshaller.parse(new ByteArrayInputStream(protobufData.toByteArray()));
         // Should have an empty body buffer
         Iterator<ArrowBuf> parsedIterator = parsedMessage.getBufs().iterator();
-        Assert.assertTrue(parsedIterator.hasNext());
-        Assert.assertEquals(0, parsedIterator.next().capacity());
+        Assertions.assertTrue(parsedIterator.hasNext());
+        Assertions.assertEquals(0, parsedIterator.next().capacity());
         // Should have only one (the parser synthesizes exactly one); in the case of empty buffers, this is equivalent
-        Assert.assertFalse(parsedIterator.hasNext());
+        Assertions.assertFalse(parsedIterator.hasNext());
         // Should not throw
         final ArrowRecordBatch rb = parsedMessage.asRecordBatch();
-        Assert.assertEquals(rb.computeBodyLength(), 0);
+        Assertions.assertEquals(rb.computeBodyLength(), 0);
       }
     }
   }
@@ -396,17 +396,17 @@ public class TestBasicOperation {
       final MethodDescriptor.Marshaller<ArrowMessage> marshaller = ArrowMessage.createMarshaller(allocator);
       Flight.FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]).toProtocol();
       try (final ArrowMessage message = new ArrowMessage(descriptor, schema, IpcOption.DEFAULT)) {
-        Assert.assertEquals(ArrowMessage.HeaderType.SCHEMA, message.getMessageType());
+        Assertions.assertEquals(ArrowMessage.HeaderType.SCHEMA, message.getMessageType());
         // Should have no body buffers
-        Assert.assertFalse(message.getBufs().iterator().hasNext());
+        Assertions.assertFalse(message.getBufs().iterator().hasNext());
         final Flight.FlightData protobufData = arrowMessageToProtobuf(marshaller, message)
             .toBuilder()
             .setDataBody(ByteString.EMPTY)
             .build();
-        Assert.assertEquals(0, protobufData.getDataBody().size());
+        Assertions.assertEquals(0, protobufData.getDataBody().size());
         final ArrowMessage parsedMessage = marshaller.parse(new ByteArrayInputStream(protobufData.toByteArray()));
         // Should have no body buffers
-        Assert.assertFalse(parsedMessage.getBufs().iterator().hasNext());
+        Assertions.assertFalse(parsedMessage.getBufs().iterator().hasNext());
         // Should not throw
         parsedMessage.asSchema();
       }

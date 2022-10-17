@@ -153,6 +153,10 @@ func NewRecord(schema *arrow.Schema, cols []arrow.Array, nrows int64) *simpleRec
 }
 
 func (rec *simpleRecord) validate() error {
+	if rec.rows == 0 && len(rec.arrs) == 0 {
+		return nil
+	}
+
 	if len(rec.arrs) != len(rec.schema.Fields()) {
 		return fmt.Errorf("arrow/array: number of columns/fields mismatch")
 	}

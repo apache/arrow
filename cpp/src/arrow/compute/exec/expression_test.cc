@@ -30,7 +30,6 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/make_unique.h"
 
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
@@ -86,7 +85,7 @@ void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
   }
 }
 
-const auto no_change = util::nullopt;
+const auto no_change = std::nullopt;
 
 TEST(ExpressionUtils, Comparison) {
   auto Expect = [](Result<std::string> expected, Datum l, Datum r) {
@@ -122,7 +121,7 @@ TEST(ExpressionUtils, Comparison) {
 }
 
 TEST(ExpressionUtils, StripOrderPreservingCasts) {
-  auto Expect = [](Expression expr, util::optional<Expression> expected_stripped) {
+  auto Expect = [](Expression expr, std::optional<Expression> expected_stripped) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
     if (!expected_stripped) {
       expected_stripped = expr;
@@ -242,7 +241,7 @@ class WidgetifyOptionsType : public FunctionOptionsType {
   }
   std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
     const auto& opts = static_cast<const WidgetifyOptions&>(options);
-    return arrow::internal::make_unique<WidgetifyOptions>(opts.really);
+    return std::make_unique<WidgetifyOptions>(opts.really);
   }
 };
 WidgetifyOptions::WidgetifyOptions(bool really)
@@ -285,8 +284,7 @@ TEST(Expression, ToString) {
       "allow_time_overflow=false, allow_decimal_truncate=false, "
       "allow_float_truncate=false, allow_invalid_utf8=false})");
 
-  // NB: corrupted for nullary functions but we don't have any of those
-  EXPECT_EQ(call("widgetify", {}).ToString(), "widgetif)");
+  EXPECT_EQ(call("widgetify", {}).ToString(), "widgetify()");
   EXPECT_EQ(
       call("widgetify", {literal(1)}, std::make_shared<WidgetifyOptions>()).ToString(),
       "widgetify(1, widgetify)");
@@ -313,6 +311,11 @@ TEST(Expression, ToString) {
                 })
                 .ToString(),
             "{a=a, renamed_a=a, three=3, b=" + in_12.ToString() + "}");
+
+  EXPECT_EQ(call("round", {literal(3.14)}, compute::RoundOptions()).ToString(),
+            "round(3.14, {ndigits=0, round_mode=HALF_TO_EVEN})");
+  EXPECT_EQ(call("random", {}, compute::RandomOptions()).ToString(),
+            "random({initializer=SystemRandom, seed=0})");
 }
 
 TEST(Expression, Equality) {
@@ -499,7 +502,7 @@ TEST(Expression, BindLiteral) {
   }
 }
 
-void ExpectBindsTo(Expression expr, util::optional<Expression> expected,
+void ExpectBindsTo(Expression expr, std::optional<Expression> expected,
                    Expression* bound_out = nullptr,
                    const Schema& schema = *kBoringSchema) {
   if (!expected) {

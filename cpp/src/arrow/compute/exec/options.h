@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,13 +30,12 @@
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace compute {
 
-using AsyncExecBatchGenerator = AsyncGenerator<util::optional<ExecBatch>>;
+using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
 
 /// \addtogroup execnode-options
 /// @{
@@ -51,20 +51,22 @@ class ARROW_EXPORT ExecNodeOptions {
 class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
  public:
   SourceNodeOptions(std::shared_ptr<Schema> output_schema,
-                    std::function<Future<util::optional<ExecBatch>>()> generator)
+                    std::function<Future<std::optional<ExecBatch>>()> generator)
       : output_schema(std::move(output_schema)), generator(std::move(generator)) {}
 
   static Result<std::shared_ptr<SourceNodeOptions>> FromTable(const Table& table,
                                                               arrow::internal::Executor*);
 
   std::shared_ptr<Schema> output_schema;
-  std::function<Future<util::optional<ExecBatch>>()> generator;
+  std::function<Future<std::optional<ExecBatch>>()> generator;
 };
 
 /// \brief An extended Source node which accepts a table
 class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
  public:
-  TableSourceNodeOptions(std::shared_ptr<Table> table, int64_t max_batch_size)
+  static constexpr int64_t kDefaultMaxBatchSize = 1 << 20;
+  TableSourceNodeOptions(std::shared_ptr<Table> table,
+                         int64_t max_batch_size = kDefaultMaxBatchSize)
       : table(table), max_batch_size(max_batch_size) {}
 
   // arrow table which acts as the data source
@@ -82,11 +84,10 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
 /// excluded in the batch emitted by this node.
 class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
  public:
-  explicit FilterNodeOptions(Expression filter_expression, bool async_mode = true)
-      : filter_expression(std::move(filter_expression)), async_mode(async_mode) {}
+  explicit FilterNodeOptions(Expression filter_expression)
+      : filter_expression(std::move(filter_expression)) {}
 
   Expression filter_expression;
-  bool async_mode;
 };
 
 /// \brief Make a node which executes expressions on input batches, producing new batches.
@@ -98,14 +99,11 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
  public:
   explicit ProjectNodeOptions(std::vector<Expression> expressions,
-                              std::vector<std::string> names = {}, bool async_mode = true)
-      : expressions(std::move(expressions)),
-        names(std::move(names)),
-        async_mode(async_mode) {}
+                              std::vector<std::string> names = {})
+      : expressions(std::move(expressions)), names(std::move(names)) {}
 
   std::vector<Expression> expressions;
   std::vector<std::string> names;
-  bool async_mode;
 };
 
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.
@@ -164,7 +162,7 @@ struct ARROW_EXPORT BackpressureOptions {
 /// Emitted batches will not be ordered.
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator,
+  explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
@@ -176,7 +174,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// This will be set when the node is added to the plan and should be used to consume
   /// data from the plan.  If this function is not called frequently enough then the sink
   /// node will start to accumulate data and may apply backpressure.
-  std::function<Future<util::optional<ExecBatch>>()>* generator;
+  std::function<Future<std::optional<ExecBatch>>()>* generator;
   /// \brief Options to control when to apply backpressure
   ///
   /// This is optional, the default is to never apply backpressure.  If the plan is not
@@ -248,7 +246,7 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
  public:
   explicit OrderBySinkNodeOptions(
       SortOptions sort_options,
-      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      std::function<Future<std::optional<ExecBatch>>()>* generator)
       : SinkNodeOptions(generator), sort_options(std::move(sort_options)) {}
 
   SortOptions sort_options;
@@ -395,23 +393,25 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
 /// This node will output one row for each row in the left table.
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
-  AsofJoinNodeOptions(FieldRef on_key, FieldRef by_key, int64_t tolerance)
-      : on_key(std::move(on_key)), by_key(std::move(by_key)), tolerance(tolerance) {}
+  AsofJoinNodeOptions(FieldRef on_key, std::vector<FieldRef> by_key, int64_t tolerance)
+      : on_key(std::move(on_key)), by_key(by_key), tolerance(tolerance) {}
 
-  /// \brief "on" key for the join. Each
+  /// \brief "on" key for the join.
   ///
-  /// All inputs tables must be sorted by the "on" key. Inexact
-  /// match is used on the "on" key. i.e., a row is considiered match iff
+  /// All inputs tables must be sorted by the "on" key. Must be a single field of a common
+  /// type. Inexact match is used on the "on" key. i.e., a row is considered match iff
   /// left_on - tolerance <= right_on <= left_on.
-  /// Currently, "on" key must be an int64 field
+  /// Currently, the "on" key must be of an integer, date, or timestamp type.
   FieldRef on_key;
   /// \brief "by" key for the join.
   ///
   /// All input tables must have the "by" key.  Exact equality
   /// is used for the "by" key.
-  /// Currently, the "by" key must be an int32 field
-  FieldRef by_key;
-  /// Tolerance for inexact "on" key matching
+  /// Currently, the "by" key must be of an integer, date, timestamp, or base-binary type
+  std::vector<FieldRef> by_key;
+  /// \brief Tolerance for inexact "on" key matching.  Must be non-negative.
+  ///
+  /// The tolerance is interpreted in the same units as the "on" key.
   int64_t tolerance;
 };
 
@@ -423,7 +423,7 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
  public:
   explicit SelectKSinkNodeOptions(
       SelectKOptions select_k_options,
-      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      std::function<Future<std::optional<ExecBatch>>()>* generator)
       : SinkNodeOptions(generator), select_k_options(std::move(select_k_options)) {}
 
   /// SelectK options

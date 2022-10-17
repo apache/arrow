@@ -98,39 +98,50 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
-  register_binding_agg("stats::quantile", function(x, probs, na.rm = FALSE) {
-    if (length(probs) != 1) {
-      arrow_not_supported("quantile() with length(probs) != 1")
-    }
-    # TODO: Bind to the Arrow function that returns an exact quantile and remove
-    # this warning (ARROW-14021)
-    warn(
-      "quantile() currently returns an approximate quantile in Arrow",
-      .frequency = "once",
-      .frequency_id = "arrow.quantile.approximate",
-      class = "arrow.quantile.approximate"
+  register_binding_agg(
+    "stats::quantile",
+    function(x, probs, na.rm = FALSE) {
+      if (length(probs) != 1) {
+        arrow_not_supported("quantile() with length(probs) != 1")
+      }
+      # TODO: Bind to the Arrow function that returns an exact quantile and remove
+      # this warning (ARROW-14021)
+      warn(
+        "quantile() currently returns an approximate quantile in Arrow",
+        .frequency = "once",
+        .frequency_id = "arrow.quantile.approximate",
+        class = "arrow.quantile.approximate"
+      )
+      list(
+        fun = "tdigest",
+        data = x,
+        options = list(skip_nulls = na.rm, q = probs)
+      )
+    },
+    notes = c(
+      "`probs` must be length 1;",
+      "approximate quantile (t-digest) is computed"
     )
-    list(
-      fun = "tdigest",
-      data = x,
-      options = list(skip_nulls = na.rm, q = probs)
-    )
-  })
-  register_binding_agg("stats::median", function(x, na.rm = FALSE) {
-    # TODO: Bind to the Arrow function that returns an exact median and remove
-    # this warning (ARROW-14021)
-    warn(
-      "median() currently returns an approximate median in Arrow",
-      .frequency = "once",
-      .frequency_id = "arrow.median.approximate",
-      class = "arrow.median.approximate"
-    )
-    list(
-      fun = "approximate_median",
-      data = x,
-      options = list(skip_nulls = na.rm)
-    )
-  })
+  )
+  register_binding_agg(
+    "stats::median",
+    function(x, na.rm = FALSE) {
+      # TODO: Bind to the Arrow function that returns an exact median and remove
+      # this warning (ARROW-14021)
+      warn(
+        "median() currently returns an approximate median in Arrow",
+        .frequency = "once",
+        .frequency_id = "arrow.median.approximate",
+        class = "arrow.median.approximate"
+      )
+      list(
+        fun = "approximate_median",
+        data = x,
+        options = list(skip_nulls = na.rm)
+      )
+    },
+    notes = "approximate median (t-digest) is computed"
+  )
   register_binding_agg("dplyr::n_distinct", function(..., na.rm = FALSE) {
     list(
       fun = "count_distinct",
@@ -179,10 +190,10 @@ agg_funcs[["::"]] <- function(lhs, rhs) {
 
 # The following S3 methods are registered on load if dplyr is present
 
-summarise.arrow_dplyr_query <- function(.data, ...) {
+summarise.arrow_dplyr_query <- function(.data, ..., .groups = NULL) {
   call <- match.call()
   .data <- as_adq(.data)
-  exprs <- quos(...)
+  exprs <- expand_across(.data, quos(...))
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
     unlist(lapply(exprs, all.vars)), # vars referenced in summarise
@@ -198,7 +209,7 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
   .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
 
   # Try stuff, if successful return()
-  out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
+  out <- try(do_arrow_summarize(.data, !!!exprs, .groups = .groups), silent = TRUE)
   if (inherits(out, "try-error")) {
     return(abandon_ship(call, .data, format(out)))
   } else {

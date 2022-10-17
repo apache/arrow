@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -89,6 +90,7 @@ import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
 import org.apache.arrow.vector.holders.NullableLargeVarBinaryHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
+import org.apache.arrow.vector.table.Table;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -656,6 +658,38 @@ public class RoundtripTest {
     imported.close();
   }
 
+  /**
+   * Tests exporting Table and importing back to VSR. Importing back to Table is not supported at present.
+   */
+  @Test
+  public void testTable() {
+    VectorSchemaRoot imported;
+
+    // Consumer allocates empty structures
+    try (ArrowSchema consumerArrowSchema = ArrowSchema.allocateNew(allocator);
+        ArrowArray consumerArrowArray = ArrowArray.allocateNew(allocator)) {
+      try (
+          VectorSchemaRoot vsr = createTestVSR();
+          Table table = new Table(vsr)) {
+        // Producer creates structures from existing memory pointers
+        try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
+            ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
+          // Producer exports vector into the C Data Interface structures
+          Data.exportTable(allocator, table, null, arrowArray, arrowSchema);
+        }
+      }
+      // Consumer imports vector
+      imported = Data.importVectorSchemaRoot(allocator, consumerArrowArray, consumerArrowSchema, null);
+    }
+
+    // Ensure that imported VectorSchemaRoot is valid even after C Data Interface
+    // structures are closed
+    try (VectorSchemaRoot original = createTestVSR()) {
+      assertTrue(imported.equals(original));
+    }
+    imported.close();
+  }
+
   @Test
   public void testVectorSchemaRootWithDuplicatedFieldNames() {
     VectorSchemaRoot imported;
@@ -713,6 +747,22 @@ public class RoundtripTest {
       Schema importedSchema = Data.importSchema(allocator, consumerArrowSchema, null);
       assertEquals(schema.toJson(), importedSchema.toJson());
     }
+  }
+
+  @Test
+  public void testImportedBufferAsNioBuffer() {
+    IntVector imported;
+    try (final IntVector vector = new IntVector("v", allocator)) {
+      setVector(vector, 1, 2, 3, null);
+      imported = (IntVector) vectorRoundtrip(vector);
+    }
+    ArrowBuf dataBuffer = imported.getDataBuffer();
+    ByteBuffer nioBuffer = dataBuffer.nioBuffer().asReadOnlyBuffer();
+    nioBuffer.order(ByteOrder.nativeOrder());
+    assertEquals(1, nioBuffer.getInt(0));
+    assertEquals(2, nioBuffer.getInt(1 << 2));
+    assertEquals(3, nioBuffer.getInt(2 << 2));
+    imported.close();
   }
 
   @Test

@@ -57,7 +57,7 @@ if [ ${R_CUSTOM_CCACHE} = "true" ]; then
 CCACHE=ccache
 CC=\$(CCACHE) gcc\$(VER)
 CXX=\$(CCACHE) g++\$(VER)
-CXX11=\$(CCACHE) g++\$(VER)" >> ~/.R/Makevars
+CXX17=\$(CCACHE) g++\$(VER)" >> ~/.R/Makevars
 
   mkdir -p ~/.ccache/
   echo "max_size = 5.0G
@@ -67,30 +67,17 @@ sloppiness = include_file_ctime
 hash_dir = false" >> ~/.ccache/ccache.conf
 fi
 
-
-# Special hacking to try to reproduce quirks on fedora-clang-devel on CRAN
-# which uses a bespoke clang compiled to use libc++
-# https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
-if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
-  dnf install -y libcxx-devel
-  sed -i.bak -E -e 's/(CXX1?1? =.*)/\1 -stdlib=libc++/g' $(${R_BIN} RHOME)/etc/Makeconf
-  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
-
-  sed -i.bak -E -e 's/(\-std=gnu\+\+)/-std=c++/g' $(${R_BIN} RHOME)/etc/Makeconf
-  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
-
-  sed -i.bak -E -e 's/(CXXFLAGS = )(.*)/\1 -g -O3 -Wall -pedantic -frtti -fPIC/' $(${R_BIN} RHOME)/etc/Makeconf
-  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
-
-  sed -i.bak -E -e 's/(LDFLAGS =.*)/\1 -stdlib=libc++/g' $(${R_BIN} RHOME)/etc/Makeconf
-  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
-fi
-
 # Special hacking to try to reproduce quirks on centos using non-default build
 # tooling.
-if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
+if [[ -n "$DEVTOOLSET_VERSION" ]]; then
   $PACKAGE_MANAGER install -y centos-release-scl
   $PACKAGE_MANAGER install -y "devtoolset-$DEVTOOLSET_VERSION"
+  
+  # Only add make var if not set
+  if ! grep -Fq "CXX17=" ~/.R/Makevars &> /dev/null; then
+    mkdir -p ~/.R
+    echo "CXX17=g++ -std=gnu++17 -g -O2 -fpic" >> ~/.R/Makevars 
+  fi
 fi
 
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then

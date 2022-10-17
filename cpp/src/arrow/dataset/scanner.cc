@@ -21,6 +21,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <sstream>
 
 #include "arrow/array/array_primitive.h"
@@ -67,6 +68,14 @@ std::vector<FieldRef> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
+std::vector<FieldPath> ScanV2Options::AllColumns(const Dataset& dataset) {
+  std::vector<FieldPath> selection(dataset.schema()->num_fields());
+  for (std::size_t i = 0; i < selection.size(); i++) {
+    selection[i] = {static_cast<int>(i)};
+  }
+  return selection;
+}
+
 namespace {
 class ScannerRecordBatchReader : public RecordBatchReader {
  public:
@@ -106,6 +115,36 @@ const FieldVector kAugmentedFields{
     field("__filename", utf8()),
 };
 
+Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
+    const compute::Expression& projection,
+    const std::shared_ptr<Schema>& dataset_schema) {
+  // process resultant dataset_schema after projection
+  FieldVector project_fields;
+  if (auto call = projection.call()) {
+    if (call->function_name != "make_struct") {
+      return Status::Invalid("Top level projection expression call must be make_struct");
+    }
+    for (const compute::Expression& arg : call->arguments) {
+      if (auto field_ref = arg.field_ref()) {
+        if (field_ref->IsName()) {
+          auto field = dataset_schema->GetFieldByName(*field_ref->name());
+          if (field) {
+            project_fields.push_back(std::move(field));
+          }
+          // if the field is not present in the schema we ignore it.
+          // the case is if kAugmentedFields are present in the expression
+          // and if they are not present in the provided schema, we ignore them.
+        } else {
+          return Status::Invalid(
+              "No projected schema was supplied and we could not infer the projected "
+              "schema from the projection expression.");
+        }
+      }
+    }
+  }
+  return schema(project_fields);
+}
+
 // Scan options has a number of options that we can infer from the dataset
 // schema if they are not specified.
 Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
@@ -123,26 +162,11 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     // If the user specifies a projection expression we can maybe infer from
     // that expression
     if (scan_options->projection.IsBound()) {
-      if (auto call = scan_options->projection.call()) {
-        if (call->function_name != "make_struct") {
-          return Status::Invalid(
-              "Top level projection expression call must be make_struct");
-        }
-        FieldVector fields;
-        for (const compute::Expression& arg : call->arguments) {
-          if (auto field_ref = arg.field_ref()) {
-            if (field_ref->IsName()) {
-              fields.push_back(field(*field_ref->name(), arg.type()->GetSharedPtr()));
-              break;
-            }
-          }
-          // Either the expression for this field is not a field_ref or it is not a
-          // simple field_ref.  User must supply projected_schema
-          return Status::Invalid(
-              "No projected schema was supplied and we could not infer the projected "
-              "schema from the projection expression.");
-        }
-        scan_options->projected_schema = schema(fields);
+      ARROW_ASSIGN_OR_RAISE(
+          auto project_schema,
+          GetProjectedSchemaFromExpression(scan_options->projection, dataset_schema));
+      if (project_schema->num_fields() > 0) {
+        scan_options->projected_schema = std::move(project_schema);
       }
       // If the projection isn't a call we assume it's literal(true) or some
       // invalid expression and just ignore it.  It will be replaced below
@@ -151,10 +175,33 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     // If we couldn't infer it from the projection expression then just grab all
     // fields from the dataset
     if (!scan_options->projected_schema) {
-      ARROW_ASSIGN_OR_RAISE(auto projection_descr,
-                            ProjectionDescr::Default(*dataset_schema));
-      scan_options->projected_schema = std::move(projection_descr.schema);
-      scan_options->projection = projection_descr.expression;
+      // Until now, we assume the project expression is bound, but if it is not
+      // bound, we have to check the expressions and make sure bind them
+      // and create the projected schema based on the field_refs (which guarantees
+      // IsName() to be true).
+
+      // process resultant dataset_schema after projection
+      ARROW_ASSIGN_OR_RAISE(
+          auto projected_schema,
+          GetProjectedSchemaFromExpression(scan_options->projection, dataset_schema));
+
+      if (projected_schema->num_fields() > 0) {
+        // create the projected schema only if the provided expressions
+        // produces valid set of fields.
+        ARROW_ASSIGN_OR_RAISE(auto projection_descr,
+                              ProjectionDescr::Default(*projected_schema));
+        scan_options->projected_schema = std::move(projection_descr.schema);
+        scan_options->projection = projection_descr.expression;
+        ARROW_ASSIGN_OR_RAISE(scan_options->projection,
+                              scan_options->projection.Bind(*projected_schema));
+      } else {
+        // if projected_fields are not found, we default to creating the projected_schema
+        // and projection from the dataset_schema.
+        ARROW_ASSIGN_OR_RAISE(auto projection_descr,
+                              ProjectionDescr::Default(*dataset_schema));
+        scan_options->projected_schema = std::move(projection_descr.schema);
+        scan_options->projection = projection_descr.expression;
+      }
     }
   }
 
@@ -334,7 +381,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
 }
 
 Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
-    const util::optional<compute::ExecBatch>& batch, const ScanOptions& options,
+    const std::optional<compute::ExecBatch>& batch, const ScanOptions& options,
     const FragmentVector& fragments) {
   int num_fields = options.projected_schema->num_fields();
 
@@ -363,7 +410,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
   plan->SetUseLegacyBatching(use_legacy_batching);
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
@@ -402,7 +449,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   return MakeMappedGenerator(
       std::move(sink_gen),
       [sink_gen, options, stop_producing,
-       shared_fragments](const util::optional<compute::ExecBatch>& batch)
+       shared_fragments](const std::optional<compute::ExecBatch>& batch)
           -> Future<EnumeratedRecordBatch> {
         return ToEnumeratedRecordBatch(batch, *options, *shared_fragments);
       });
@@ -655,7 +702,7 @@ Result<int64_t> AsyncScanner::CountRows() {
   fragment_gen = MakeMappedGenerator(
       std::move(fragment_gen), [&](const std::shared_ptr<Fragment>& fragment) {
         return fragment->CountRows(options->filter, options)
-            .Then([&, fragment](util::optional<int64_t> fast_count) mutable
+            .Then([&, fragment](std::optional<int64_t> fast_count) mutable
                   -> std::shared_ptr<Fragment> {
               if (fast_count) {
                 // fast path: got row count directly; skip scanning this fragment
@@ -669,7 +716,7 @@ Result<int64_t> AsyncScanner::CountRows() {
             });
       });
 
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   RETURN_NOT_OK(
       compute::Declaration::Sequence(
@@ -826,20 +873,29 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
   return Status::OK();
 }
 
-Status ScannerBuilder::FragmentReadahead(int fragment_readahead) {
-  if (fragment_readahead <= 0) {
-    return Status::Invalid("FragmentReadahead must be greater than 0, got ",
-                           fragment_readahead);
-  }
-  scan_options_->fragment_readahead = fragment_readahead;
-  return Status::OK();
-}
-
 Status ScannerBuilder::BatchSize(int64_t batch_size) {
   if (batch_size <= 0) {
     return Status::Invalid("BatchSize must be greater than 0, got ", batch_size);
   }
   scan_options_->batch_size = batch_size;
+  return Status::OK();
+}
+
+Status ScannerBuilder::BatchReadahead(int32_t batch_readahead) {
+  if (batch_readahead < 0) {
+    return Status::Invalid("BatchReadahead must be greater than or equal 0, got ",
+                           batch_readahead);
+  }
+  scan_options_->batch_readahead = batch_readahead;
+  return Status::OK();
+}
+
+Status ScannerBuilder::FragmentReadahead(int32_t fragment_readahead) {
+  if (fragment_readahead < 0) {
+    return Status::Invalid("FragmentReadahead must be greater than or equal 0, got ",
+                           fragment_readahead);
+  }
+  scan_options_->fragment_readahead = fragment_readahead;
   return Status::OK();
 }
 
@@ -903,7 +959,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   auto gen = MakeMappedGenerator(
       std::move(batch_gen),
       [scan_options](const EnumeratedRecordBatch& partial)
-          -> Result<util::optional<compute::ExecBatch>> {
+          -> Result<std::optional<compute::ExecBatch>> {
         // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
         // than this, for example parquet's row group stats. Failing to do this leaves
         // perf on the table because row group stats could be used to skip kernel execs in
@@ -915,7 +971,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         auto guarantee = partial.fragment.value->partition_expression();
 
         ARROW_ASSIGN_OR_RAISE(
-            util::optional<compute::ExecBatch> batch,
+            std::optional<compute::ExecBatch> batch,
             compute::MakeExecBatch(*scan_options->dataset_schema,
                                    partial.record_batch.value, guarantee));
 
@@ -969,7 +1025,7 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
   }
   auto input = inputs[0];
 
-  AsyncGenerator<util::optional<compute::ExecBatch>> unordered;
+  AsyncGenerator<std::optional<compute::ExecBatch>> unordered;
   ARROW_ASSIGN_OR_RAISE(auto node,
                         compute::MakeExecNode("sink", plan, std::move(inputs),
                                               compute::SinkNodeOptions{&unordered}));
@@ -1000,8 +1056,8 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
     return fragment_index(batch) < 0;
   };
 
-  auto left_after_right = [=](const util::optional<compute::ExecBatch>& left,
-                              const util::optional<compute::ExecBatch>& right) {
+  auto left_after_right = [=](const std::optional<compute::ExecBatch>& left,
+                              const std::optional<compute::ExecBatch>& right) {
     // Before any comes first
     if (is_before_any(*left)) {
       return false;
@@ -1017,8 +1073,8 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
     return fragment_index(*left) > fragment_index(*right);
   };
 
-  auto is_next = [=](const util::optional<compute::ExecBatch>& prev,
-                     const util::optional<compute::ExecBatch>& next) {
+  auto is_next = [=](const std::optional<compute::ExecBatch>& prev,
+                     const std::optional<compute::ExecBatch>& next) {
     // Only true if next is the first batch
     if (is_before_any(*prev)) {
       return fragment_index(*next) == 0 && batch_index(*next) == 0;
@@ -1035,7 +1091,7 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
   const auto& sink_options = checked_cast<const compute::SinkNodeOptions&>(options);
   *sink_options.generator =
       MakeSequencingGenerator(std::move(unordered), left_after_right, is_next,
-                              util::make_optional(std::move(before_any)));
+                              std::make_optional(std::move(before_any)));
 
   return node;
 }

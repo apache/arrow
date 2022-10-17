@@ -49,20 +49,6 @@ const (
 	kMaxNestingDepth = 64
 )
 
-func hasValidityBitmap(id arrow.Type, version MetadataVersion) bool {
-	// in <=V4 Null types had no validity bitmap
-	// in >=V5 Null and Union types have no validity bitmap
-	if version < MetadataV5 {
-		return id != arrow.NULL
-	}
-
-	switch id {
-	case arrow.NULL, arrow.DENSE_UNION, arrow.SPARSE_UNION:
-		return false
-	}
-	return true
-}
-
 type startVecFunc func(b *flatbuffers.Builder, n int) flatbuffers.UOffsetT
 
 type fieldMetadata struct {

@@ -1,0 +1,41 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# This config sets the following variables in your project::
+#
+#   ArrowPython_FOUND - true if Arrow Python found on the system
+#
+# This config sets the following targets in your project::
+#
+#   ArrowPython::arrow_python_shared - for linked as shared library if shared library is built
+#   ArrowPython::arrow_python_static - for linked as static library if static library is built
+
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(Arrow)
+if(PARQUET_REQUIRE_ENCRYPTION)
+  find_dependency(Parquet)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonTargets.cmake")
+
+arrow_keep_backward_compatibility(ArrowPython arrow_python)
+
+check_required_components(ArrowPython)
+
+arrow_show_details(ArrowPython ARROW_PYTHON)

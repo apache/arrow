@@ -80,6 +80,14 @@ run
 
 and look for the "custom options" section.
 
+.. note::
+
+   There are a few low-level tests written directly in C++. These tests are
+   implemented in `pyarrow/src/python_test.cc <https://github.com/apache/arrow/blob/master/python/pyarrow/src/python_test.cc>`_,
+   but they are also wrapped in a ``pytest``-based
+   `test module <https://github.com/apache/arrow/blob/master/python/pyarrow/tests/test_cpp_internals.py>`_
+   run automatically as part of the PyArrow test suite.
+
 Test Groups
 -----------
 
@@ -101,7 +109,8 @@ The test groups currently include:
 * ``large_memory``: Test requiring a large amount of system RAM
 * ``orc``: Apache ORC tests
 * ``parquet``: Apache Parquet tests
-* ``plasma``: Plasma Object Store tests
+* ``plasma``: Plasma Object Store tests (deprecated since Arrow 10.0.0,
+  will be removed in 12.0.0 or so)
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
 
@@ -138,8 +147,8 @@ For running the benchmarks, see :ref:`python-benchmarks`.
 
 .. _build_pyarrow:
 
-Building on Linux and MacOS
-=============================
+Building on Linux and macOS
+===========================
 
 System Requirements
 -------------------
@@ -289,21 +298,24 @@ created above (stored in ``$ARROW_HOME``):
 
    $ mkdir arrow/cpp/build
    $ pushd arrow/cpp/build
-
    $ cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_INSTALL_LIBDIR=lib \
            -DCMAKE_BUILD_TYPE=Debug \
+           -DARROW_BUILD_TESTS=ON \
+           -DARROW_COMPUTE=ON \
+           -DARROW_CSV=ON \
            -DARROW_DATASET=ON \
+           -DARROW_FILESYSTEM=ON \
+           -DARROW_HDFS=ON \
+           -DARROW_JSON=ON \
+           -DARROW_PARQUET=ON \
+           -DARROW_WITH_BROTLI=ON \
            -DARROW_WITH_BZ2=ON \
-           -DARROW_WITH_ZLIB=ON \
-           -DARROW_WITH_ZSTD=ON \
            -DARROW_WITH_LZ4=ON \
            -DARROW_WITH_SNAPPY=ON \
-           -DARROW_WITH_BROTLI=ON \
-           -DARROW_PARQUET=ON \
+           -DARROW_WITH_ZLIB=ON \
+           -DARROW_WITH_ZSTD=ON \
            -DPARQUET_REQUIRE_ENCRYPTION=ON \
-           -DARROW_PYTHON=ON \
-           -DARROW_BUILD_TESTS=ON \
            ..
    $ make -j4
    $ make install
@@ -319,7 +331,8 @@ adding flags with ``ON``:
 * ``ARROW_ORC``: Support for Apache ORC file format
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
 * ``PARQUET_REQUIRE_ENCRYPTION``: Support for Parquet Modular Encryption
-* ``ARROW_PLASMA``: Shared memory object store
+* ``ARROW_PLASMA``: Shared memory object store (deprecated since Arrow 10.0.0,
+  will be removed in 12.0.0 or so)
 
 Anything set to ``ON`` above can also be turned off. Note that some compression
 libraries are recommended for full Parquet support.
@@ -390,6 +403,13 @@ variable to 1.
 
 To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``PYARROW_PARALLEL`` environment variable.
+
+.. note::
+
+   If you used a different directory name for building Arrow C++ (by default it is
+   named "build"), then you should also set the environment variable
+   ``ARROW_BUILD_DIR='name_of_build_dir'``. This way
+   PyArrow can find the Arrow C++ built files.
 
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
@@ -502,13 +522,18 @@ Let's configure, build and install the Arrow C++ libraries:
    $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_UNITY_BUILD=ON ^
+         -DARROW_COMPUTE=ON ^
+         -DARROW_CSV=ON ^
          -DARROW_CXXFLAGS="/WX /MP" ^
-         -DARROW_WITH_LZ4=on ^
-         -DARROW_WITH_SNAPPY=on ^
-         -DARROW_WITH_ZLIB=on ^
-         -DARROW_WITH_ZSTD=on ^
-         -DARROW_PARQUET=on ^
-         -DARROW_PYTHON=on ^
+         -DARROW_DATASET=ON ^
+         -DARROW_FILESYSTEM=ON ^
+         -DARROW_HDFS=ON ^
+         -DARROW_JSON=ON ^
+         -DARROW_PARQUET=ON ^
+         -DARROW_WITH_LZ4=ON ^
+         -DARROW_WITH_SNAPPY=ON ^
+         -DARROW_WITH_ZLIB=ON ^
+         -DARROW_WITH_ZSTD=ON ^
          ..
    $ cmake --build . --target INSTALL --config Release
    $ popd
@@ -519,6 +544,7 @@ Now, we can build pyarrow:
 
    $ pushd arrow\python
    $ set PYARROW_WITH_PARQUET=1
+   $ set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
    $ python setup.py build_ext --inplace
    $ popd
 
@@ -526,6 +552,11 @@ Now, we can build pyarrow:
 
    For building pyarrow, the above defined environment variables need to also
    be set. Remember this if to want to re-build ``pyarrow`` after your initial build.
+
+.. note::
+
+   If you are using Conda with Python 3.9 or earlier, you must
+   set ``CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1``.
 
 Then run the unit tests with:
 
@@ -572,10 +603,15 @@ configuration of the Arrow C++ library build:
    $ pushd arrow\cpp\build
    $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-         -DARROW_CXXFLAGS="/WX /MP" ^
-         -DARROW_PARQUET=on ^
-         -DARROW_PYTHON=on ^
          -DARROW_BUILD_TESTS=ON ^
+         -DARROW_COMPUTE=ON ^
+         -DARROW_CSV=ON ^
+         -DARROW_CXXFLAGS="/WX /MP" ^
+         -DARROW_DATASET=ON ^
+         -DARROW_FILESYSTEM=ON ^
+         -DARROW_HDFS=ON ^
+         -DARROW_JSON=ON ^
+         -DARROW_PARQUET=ON ^
          ..
    $ cmake --build . --target INSTALL --config Release
    $ popd
@@ -604,6 +640,46 @@ Caveats
 -------
 
 The Plasma component is not supported on Windows.
+
+Deleting stale build artifacts
+==============================
+
+When there have been changes to the structure of the Arrow C++ library or PyArrow,
+a thorough cleaning is recommended as a first attempt to fixing build errors.
+
+.. note::
+
+   It is not necessarily intuitive from the error itself that the problem is due to stale artifacts.
+   Example of a build error from stale artifacts is "Unknown CMake command "arrow_keep_backward_compatibility"".
+
+To delete stale Arrow C++ build artifacts:
+
+.. code-block::
+
+   $ rm -rf arrow/cpp/build
+
+To delete stale PyArrow build artifacts:
+
+.. code-block::
+
+   $ git clean -Xfd python
+
+If using a Conda environment, there are some build artifacts that get installed in
+``$ARROW_HOME`` (aka ``$CONDA_PREFIX``). For example, ``$ARROW_HOME/lib/cmake/Arrow*``,
+``$ARROW_HOME/include/arrow``, ``$ARROW_HOME/lib/libarrow*``, etc.
+
+These files can be manually deleted. If unsure which files to erase, one approach
+is to recreate the Conda environment.
+
+Either delete the current one, and start fresh:
+
+.. code-block::
+
+   $ conda deactivate
+   $ conda remove -n pyarrow-dev
+
+Or, less destructively, create a different environment with a different name.
+
 
 Installing Nightly Packages
 ===========================

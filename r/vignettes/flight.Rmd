@@ -85,3 +85,5 @@ client %>%
 Because `flight_get()` returns an Arrow data structure, you can directly pipe
 its result into a [dplyr](https://dplyr.tidyverse.org/) workflow.
 See `vignette("dataset", package = "arrow")` for more information on working with Arrow objects via a dplyr interface.
+
+# [Flight best practices](../cpp/flight.html#best-practices)

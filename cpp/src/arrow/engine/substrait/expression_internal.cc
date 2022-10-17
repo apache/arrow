@@ -19,6 +19,7 @@
 
 #include "arrow/engine/substrait/expression_internal.h"
 
+#include <memory>
 #include <utility>
 
 #include "arrow/builder.h"
@@ -28,7 +29,6 @@
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/visit_scalar_inline.h"
 
 namespace arrow {
@@ -37,9 +37,105 @@ using internal::checked_cast;
 
 namespace engine {
 
-namespace internal {
-using ::arrow::internal::make_unique;
-}  // namespace internal
+namespace {
+
+Id NormalizeFunctionName(Id id) {
+  // Substrait plans encode the types into the function name so it might look like
+  // add:opt_i32_i32.  We don't care about  the :opt_i32_i32 so we just trim it
+  std::string_view func_name = id.name;
+  std::size_t colon_index = func_name.find_first_of(':');
+  if (colon_index != std::string_view::npos) {
+    func_name = func_name.substr(0, colon_index);
+  }
+  return {id.uri, func_name};
+}
+
+}  // namespace
+
+Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
+                 SubstraitCall* call, const ExtensionSet& ext_set,
+                 const ConversionOptions& conversion_options) {
+  if (arg.has_enum_()) {
+    const substrait::FunctionArgument::Enum& enum_val = arg.enum_();
+    switch (enum_val.enum_kind_case()) {
+      case substrait::FunctionArgument::Enum::EnumKindCase::kSpecified:
+        call->SetEnumArg(idx, enum_val.specified());
+        break;
+      case substrait::FunctionArgument::Enum::EnumKindCase::kUnspecified:
+        call->SetEnumArg(idx, std::nullopt);
+        break;
+      default:
+        return Status::Invalid("Unrecognized enum kind case: ",
+                               enum_val.enum_kind_case());
+    }
+  } else if (arg.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
+                          FromProto(arg.value(), ext_set, conversion_options));
+    call->SetValueArg(idx, std::move(expr));
+  } else if (arg.has_type()) {
+    return Status::NotImplemented("Type arguments not currently supported");
+  } else {
+    return Status::NotImplemented("Unrecognized function argument class");
+  }
+  return Status::OK();
+}
+
+Result<SubstraitCall> DecodeScalarFunction(
+    Id id, const substrait::Expression::ScalarFunction& scalar_fn,
+    const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(auto output_type_and_nullable,
+                        FromProto(scalar_fn.output_type(), ext_set, conversion_options));
+  SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second);
+  for (int i = 0; i < scalar_fn.arguments_size(); i++) {
+    ARROW_RETURN_NOT_OK(DecodeArg(scalar_fn.arguments(i), static_cast<uint32_t>(i), &call,
+                                  ext_set, conversion_options));
+  }
+  return std::move(call);
+}
+
+std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor) {
+  const google::protobuf::EnumValueDescriptor* value_desc =
+      descriptor->FindValueByNumber(value);
+  if (value_desc == nullptr) {
+    return "unknown";
+  }
+  return value_desc->name();
+}
+
+Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,
+                                const ExtensionSet& ext_set,
+                                const ConversionOptions& conversion_options) {
+  if (func.phase() != substrait::AggregationPhase::AGGREGATION_PHASE_INITIAL_TO_RESULT) {
+    return Status::NotImplemented(
+        "Unsupported aggregation phase '",
+        EnumToString(func.phase(), substrait::AggregationPhase_descriptor()),
+        "'.  Only INITIAL_TO_RESULT is supported");
+  }
+  if (func.invocation() !=
+      substrait::AggregateFunction::AggregationInvocation::
+          AggregateFunction_AggregationInvocation_AGGREGATION_INVOCATION_ALL) {
+    return Status::NotImplemented(
+        "Unsupported aggregation invocation '",
+        EnumToString(func.invocation(),
+                     substrait::AggregateFunction::AggregationInvocation_descriptor()),
+        "'.  Only AGGREGATION_INVOCATION_ALL is "
+        "supported");
+  }
+  if (func.sorts_size() > 0) {
+    return Status::NotImplemented("Aggregation sorts are not supported");
+  }
+  ARROW_ASSIGN_OR_RAISE(auto output_type_and_nullable,
+                        FromProto(func.output_type(), ext_set, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(Id id, ext_set.DecodeFunction(func.function_reference()));
+  id = NormalizeFunctionName(id);
+  SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second,
+                     is_hash);
+  for (int i = 0; i < func.arguments_size(); i++) {
+    ARROW_RETURN_NOT_OK(DecodeArg(func.arguments(i), static_cast<uint32_t>(i), &call,
+                                  ext_set, conversion_options));
+  }
+  return std::move(call);
+}
 
 Result<compute::Expression> FromProto(const substrait::Expression& expr,
                                       const ExtensionSet& ext_set,
@@ -54,7 +150,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
     case substrait::Expression::kSelection: {
       if (!expr.selection().has_direct_reference()) break;
 
-      util::optional<compute::Expression> out;
+      std::optional<compute::Expression> out;
       if (expr.selection().has_expression()) {
         ARROW_ASSIGN_OR_RAISE(
             out, FromProto(expr.selection().expression(), ext_set, conversion_options));
@@ -166,34 +262,25 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
     case substrait::Expression::kScalarFunction: {
       const auto& scalar_fn = expr.scalar_function();
 
-      ARROW_ASSIGN_OR_RAISE(auto decoded_function,
+      ARROW_ASSIGN_OR_RAISE(Id function_id,
                             ext_set.DecodeFunction(scalar_fn.function_reference()));
+      function_id = NormalizeFunctionName(function_id);
+      ExtensionIdRegistry::SubstraitCallToArrow function_converter;
 
-      std::vector<compute::Expression> arguments(scalar_fn.arguments_size());
-      for (int i = 0; i < scalar_fn.arguments_size(); ++i) {
-        const auto& argument = scalar_fn.arguments(i);
-        switch (argument.arg_type_case()) {
-          case substrait::FunctionArgument::kValue: {
-            ARROW_ASSIGN_OR_RAISE(
-                arguments[i], FromProto(argument.value(), ext_set, conversion_options));
-            break;
-          }
-          default:
-            return Status::NotImplemented(
-                "only value arguments are currently supported for functions");
-        }
-      }
-
-      auto func_name = decoded_function.name.to_string();
-      if (func_name != "cast") {
-        return compute::call(func_name, std::move(arguments));
-      } else {
+      if (function_id.uri.empty() || function_id.uri[0] == '/') {
+        // Currently the Substrait project has not aligned on a standard URI and often
+        // seems to use /.  In that case we fall back to name-only matching.
         ARROW_ASSIGN_OR_RAISE(
-            auto output_type_desc,
-            FromProto(scalar_fn.output_type(), ext_set, conversion_options));
-        auto cast_options = compute::CastOptions::Safe(std::move(output_type_desc.first));
-        return compute::call(func_name, std::move(arguments), std::move(cast_options));
+            function_converter,
+            ext_set.registry()->GetSubstraitCallToArrowFallback(function_id.name));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(function_converter,
+                              ext_set.registry()->GetSubstraitCallToArrow(function_id));
       }
+      ARROW_ASSIGN_OR_RAISE(
+          SubstraitCall substrait_call,
+          DecodeScalarFunction(function_id, scalar_fn, ext_set, conversion_options));
+      return function_converter(substrait_call);
     }
 
     default:
@@ -208,7 +295,8 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
 Result<Datum> FromProto(const substrait::Expression::Literal& lit,
                         const ExtensionSet& ext_set,
                         const ConversionOptions& conversion_options) {
-  if (lit.nullable()) {
+  if (lit.nullable() &&
+      conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP) {
     // FIXME not sure how this field should be interpreted and there's no way to round
     // trip it through arrow
     return Status::Invalid(
@@ -544,7 +632,7 @@ struct ScalarToProtoImpl {
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
 
   Status Visit(const Decimal128Scalar& s) {
-    auto decimal = internal::make_unique<Lit::Decimal>();
+    auto decimal = std::make_unique<Lit::Decimal>();
 
     auto decimal_type = checked_cast<const Decimal128Type*>(s.type.get());
     decimal->set_precision(decimal_type->precision());
@@ -621,7 +709,7 @@ struct ScalarToProtoImpl {
     key_values->Reserve(static_cast<int>(kv_arr.length()));
 
     for (int64_t i = 0; i < s.value->length(); ++i) {
-      auto kv = internal::make_unique<Lit::Map::KeyValue>();
+      auto kv = std::make_unique<Lit::Map::KeyValue>();
 
       ARROW_ASSIGN_OR_RAISE(Datum key_scalar, kv_arr.field(0)->GetScalar(i));
       ARROW_ASSIGN_OR_RAISE(auto key, ToProto(key_scalar, ext_set_, conversion_options_));
@@ -650,7 +738,7 @@ struct ScalarToProtoImpl {
     }
 
     if (auto length = UnwrapVarChar(*s.type)) {
-      auto var_char = internal::make_unique<Lit::VarChar>();
+      auto var_char = std::make_unique<Lit::VarChar>();
       var_char->set_length(*length);
       var_char->set_value(checked_cast<const StringScalar&>(*s.value).value->ToString());
 
@@ -665,7 +753,7 @@ struct ScalarToProtoImpl {
     };
 
     if (UnwrapIntervalYear(*s.type)) {
-      auto interval_year = internal::make_unique<Lit::IntervalYearToMonth>();
+      auto interval_year = std::make_unique<Lit::IntervalYearToMonth>();
       interval_year->set_years(GetPairOfInts().first);
       interval_year->set_months(GetPairOfInts().second);
 
@@ -674,7 +762,7 @@ struct ScalarToProtoImpl {
     }
 
     if (UnwrapIntervalDay(*s.type)) {
-      auto interval_day = internal::make_unique<Lit::IntervalDayToSecond>();
+      auto interval_day = std::make_unique<Lit::IntervalDayToSecond>();
       interval_day->set_days(GetPairOfInts().first);
       interval_day->set_seconds(GetPairOfInts().second);
 
@@ -713,7 +801,7 @@ Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(
                                   " as a substrait::Expression::Literal");
   }
 
-  auto out = internal::make_unique<substrait::Expression::Literal>();
+  auto out = std::make_unique<substrait::Expression::Literal>();
 
   if (datum.scalar()->is_valid) {
     RETURN_NOT_OK(
@@ -785,7 +873,7 @@ static Result<std::unique_ptr<substrait::Expression>> MakeDirectReference(
     }
   }
 
-  auto selection = internal::make_unique<substrait::Expression::FieldReference>();
+  auto selection = std::make_unique<substrait::Expression::FieldReference>();
   selection->set_allocated_direct_reference(ref_segment.release());
 
   if (expr && expr->rex_type_case() != substrait::Expression::REX_TYPE_NOT_SET) {
@@ -795,7 +883,7 @@ static Result<std::unique_ptr<substrait::Expression>> MakeDirectReference(
         new substrait::Expression::FieldReference::RootReference());
   }
 
-  auto out = internal::make_unique<substrait::Expression>();
+  auto out = std::make_unique<substrait::Expression>();
   out->set_allocated_selection(selection.release());
   return std::move(out);
 }
@@ -805,10 +893,10 @@ static Result<std::unique_ptr<substrait::Expression>> MakeDirectReference(
 static Result<std::unique_ptr<substrait::Expression>> MakeStructFieldReference(
     std::unique_ptr<substrait::Expression>&& expr, int field) {
   auto struct_field =
-      internal::make_unique<substrait::Expression::ReferenceSegment::StructField>();
+      std::make_unique<substrait::Expression::ReferenceSegment::StructField>();
   struct_field->set_field(field);
 
-  auto ref_segment = internal::make_unique<substrait::Expression::ReferenceSegment>();
+  auto ref_segment = std::make_unique<substrait::Expression::ReferenceSegment>();
   ref_segment->set_allocated_struct_field(struct_field.release());
 
   return MakeDirectReference(std::move(expr), std::move(ref_segment));
@@ -818,13 +906,48 @@ static Result<std::unique_ptr<substrait::Expression>> MakeStructFieldReference(
 static Result<std::unique_ptr<substrait::Expression>> MakeListElementReference(
     std::unique_ptr<substrait::Expression>&& expr, int offset) {
   auto list_element =
-      internal::make_unique<substrait::Expression::ReferenceSegment::ListElement>();
+      std::make_unique<substrait::Expression::ReferenceSegment::ListElement>();
   list_element->set_offset(offset);
 
-  auto ref_segment = internal::make_unique<substrait::Expression::ReferenceSegment>();
+  auto ref_segment = std::make_unique<substrait::Expression::ReferenceSegment>();
   ref_segment->set_allocated_list_element(list_element.release());
 
   return MakeDirectReference(std::move(expr), std::move(ref_segment));
+}
+
+Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCall(
+    const SubstraitCall& call, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(uint32_t anchor, ext_set->EncodeFunction(call.id()));
+  auto scalar_fn = std::make_unique<substrait::Expression::ScalarFunction>();
+  scalar_fn->set_function_reference(anchor);
+  ARROW_ASSIGN_OR_RAISE(
+      std::unique_ptr<substrait::Type> output_type,
+      ToProto(*call.output_type(), call.output_nullable(), ext_set, conversion_options));
+  scalar_fn->set_allocated_output_type(output_type.release());
+
+  for (uint32_t i = 0; i < call.size(); i++) {
+    substrait::FunctionArgument* arg = scalar_fn->add_arguments();
+    if (call.HasEnumArg(i)) {
+      auto enum_val = std::make_unique<substrait::FunctionArgument::Enum>();
+      ARROW_ASSIGN_OR_RAISE(std::optional<std::string_view> enum_arg, call.GetEnumArg(i));
+      if (enum_arg) {
+        enum_val->set_specified(std::string(*enum_arg));
+      } else {
+        enum_val->set_allocated_unspecified(new google::protobuf::Empty());
+      }
+      arg->set_allocated_enum_(enum_val.release());
+    } else if (call.HasValueArg(i)) {
+      ARROW_ASSIGN_OR_RAISE(compute::Expression value_arg, call.GetValueArg(i));
+      ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression> value_expr,
+                            ToProto(value_arg, ext_set, conversion_options));
+      arg->set_allocated_value(value_expr.release());
+    } else {
+      return Status::Invalid("Call reported having ", call.size(),
+                             " arguments but no argument could be found at index ", i);
+    }
+  }
+  return std::move(scalar_fn);
 }
 
 Result<std::unique_ptr<substrait::Expression>> ToProto(
@@ -834,7 +957,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     return Status::Invalid("ToProto requires a bound Expression");
   }
 
-  auto out = internal::make_unique<substrait::Expression>();
+  auto out = std::make_unique<substrait::Expression>();
 
   if (auto datum = expr.literal()) {
     ARROW_ASSIGN_OR_RAISE(auto literal, ToProto(*datum, ext_set, conversion_options));
@@ -859,7 +982,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     auto conditions = call->arguments[0].call();
     if (conditions && conditions->function_name == "make_struct") {
       // catch the special case of calls convertible to IfThen
-      auto if_then_ = internal::make_unique<substrait::Expression::IfThen>();
+      auto if_then_ = std::make_unique<substrait::Expression::IfThen>();
 
       // don't try to convert argument 0 of the case_when; we have to convert the elements
       // of make_struct individually
@@ -873,7 +996,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
       for (size_t i = 0; i < conditions->arguments.size(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto cond_substrait, ToProto(conditions->arguments[i],
                                                            ext_set, conversion_options));
-        auto clause = internal::make_unique<substrait::Expression::IfThen::IfClause>();
+        auto clause = std::make_unique<substrait::Expression::IfThen::IfClause>();
         clause->set_allocated_if_(cond_substrait.release());
         clause->set_allocated_then(arguments[i].release());
         if_then_->mutable_ifs()->AddAllocated(clause.release());
@@ -911,7 +1034,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     if (arguments[0]->has_selection() &&
         arguments[0]->selection().has_direct_reference()) {
       if (arguments[1]->has_literal() && arguments[1]->literal().literal_type_case() ==
-                                             substrait::Expression_Literal::kI32) {
+                                             substrait::Expression::Literal::kI32) {
         return MakeListElementReference(std::move(arguments[0]),
                                         arguments[1]->literal().i32());
       }
@@ -920,11 +1043,11 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
 
   if (call->function_name == "if_else") {
     // catch the special case of calls convertible to IfThen
-    auto if_clause = internal::make_unique<substrait::Expression::IfThen::IfClause>();
+    auto if_clause = std::make_unique<substrait::Expression::IfThen::IfClause>();
     if_clause->set_allocated_if_(arguments[0].release());
     if_clause->set_allocated_then(arguments[1].release());
 
-    auto if_then = internal::make_unique<substrait::Expression::IfThen>();
+    auto if_then = std::make_unique<substrait::Expression::IfThen>();
     if_then->mutable_ifs()->AddAllocated(if_clause.release());
     if_then->set_allocated_else_(arguments[2].release());
 
@@ -933,17 +1056,12 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
   }
 
   // other expression types dive into extensions immediately
-  ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set->EncodeFunction(call->function_name));
-
-  auto scalar_fn = internal::make_unique<substrait::Expression::ScalarFunction>();
-  scalar_fn->set_function_reference(anchor);
-  scalar_fn->mutable_arguments()->Reserve(static_cast<int>(arguments.size()));
-  for (auto& arg : arguments) {
-    auto argument = internal::make_unique<substrait::FunctionArgument>();
-    argument->set_allocated_value(arg.release());
-    scalar_fn->mutable_arguments()->AddAllocated(argument.release());
-  }
-
+  ARROW_ASSIGN_OR_RAISE(
+      ExtensionIdRegistry::ArrowToSubstraitCall converter,
+      ext_set->registry()->GetArrowToSubstraitCall(call->function_name));
+  ARROW_ASSIGN_OR_RAISE(SubstraitCall substrait_call, converter(*call));
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression::ScalarFunction> scalar_fn,
+                        EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
   out->set_allocated_scalar_function(scalar_fn.release());
   return std::move(out);
 }

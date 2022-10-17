@@ -49,6 +49,12 @@ arrow_dplyr_query <- function(.data) {
   if (inherits(.data, "data.frame")) {
     .data <- Table$create(.data)
   }
+  # ARROW-17737: If .data is a Table, remove groups from metadata
+  # (we've already grabbed the groups above)
+  if (inherits(.data, "ArrowTabular")) {
+    .data <- ungroup.ArrowTabular(.data)
+  }
+
   # Evaluating expressions on a dataset with duplicated fieldnames will error
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
@@ -110,6 +116,9 @@ make_field_refs <- function(field_names) {
 #' @export
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
+  # If we are using this augmented field, it won't be in the schema
+  schm[["__filename"]] <- string()
+
   types <- map_chr(x$selected_columns, function(expr) {
     name <- expr$field_name
     if (nzchar(name)) {
@@ -179,14 +188,13 @@ dim.arrow_dplyr_query <- function(x) {
     # Query on in-memory Table, so evaluate the filter
     # Don't need any columns
     x <- select.arrow_dplyr_query(x, NULL)
-    rows <- nrow(compute.arrow_dplyr_query(x))
+    rows <- nrow(as_arrow_table(x))
   }
   c(rows, cols)
 }
 
 #' @export
 unique.arrow_dplyr_query <- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
-
   if (isTRUE(incomparables)) {
     arrow_not_supported("`unique()` with `incomparables = TRUE`")
   }
@@ -213,12 +221,22 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   x$head <- n
   collapse.arrow_dplyr_query(x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   x$tail <- n
   collapse.arrow_dplyr_query(x)
 }
@@ -259,11 +277,11 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #' mtcars %>%
 #'   arrow_table() %>%
 #'   filter(mpg > 20) %>%
-#'   mutate(x = gear/carb) %>%
+#'   mutate(x = gear / carb) %>%
 #'   show_exec_plan()
 show_exec_plan <- function(x) {
   adq <- as_adq(x)
-  plan <- ExecPlan$create()
+
   # do not show the plan if we have a nested query (as this will force the
   # evaluation of the inner query/queries)
   # TODO see if we can remove after ARROW-16628
@@ -271,8 +289,11 @@ show_exec_plan <- function(x) {
     warn("The `ExecPlan` cannot be printed for a nested query.")
     return(invisible(x))
   }
-  final_node <- plan$Build(adq)
-  cat(plan$BuildAndShow(final_node))
+
+  result <- as_record_batch_reader(adq)
+  cat(result$Plan()$ToString())
+  result$Close()
+
   invisible(x)
 }
 

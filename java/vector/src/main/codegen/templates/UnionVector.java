@@ -851,4 +851,16 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
         }
       }
     }
+
+  /**
+   * Set the element at the given index to null. For UnionVector, it throws an UnsupportedOperationException
+   * as nulls are not supported at the top level and isNull() always returns false.
+   *
+   * @param index position of element
+   * @throws UnsupportedOperationException whenever invoked
+   */
+  @Override
+  public void setNull(int index) {
+    throw new UnsupportedOperationException("The method setNull() is not supported on UnionVector.");
+  }
 }

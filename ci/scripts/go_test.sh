@@ -19,10 +19,24 @@
 
 set -ex
 
+# simplistic semver comparison
+verlte() {
+    [ "$1" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]
+}
+verlt() {
+    [ "$1" = "$2" ] && return 1 || verlte $1 $2
+}
+
+ver=`go env GOVERSION`
+
 source_dir=${1}/go
 
-# when we upgrade to at least go1.18, we can add the new -asan option here
 testargs="-race"
+if verlte "1.18" "${ver#go}" && [ "$(go env GOOS)" != "darwin" ]; then
+    # asan not supported on darwin/amd64
+    testargs="-asan"
+fi
+
 case "$(uname)" in
     MINGW*)
         # -asan and -race don't work on windows currently
@@ -45,9 +59,9 @@ fi
 pushd ${source_dir}/arrow
 
 TAGS="assert,test"
-if [[ -n "${ARROW_GO_TESTCGO}" ]]; then    
+if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     if [[ "${MSYSTEM}" = "MINGW64" ]]; then
-        export PATH=${MINGW_PREFIX}/bin:$PATH        
+        export PATH=${MINGW_PREFIX}/bin:$PATH
     fi
     TAGS="${TAGS},ccalloc"
 fi
@@ -57,9 +71,12 @@ fi
 # tag in order to run its tests so that the testing functions implemented
 # in .c files don't get included in non-test builds.
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags $TAGS $d
-done
+go test $testargs -tags $TAGS ./...
+
+# only test compute when Go is >= 1.18
+if verlte "1.18" "${ver#go}"; then
+    go test $testargs -tags $TAGS ./compute/...
+fi
 
 popd
 
@@ -67,8 +84,6 @@ export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
 
 pushd ${source_dir}/parquet
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags assert $d
-done
+go test $testargs -tags assert ./...
 
 popd

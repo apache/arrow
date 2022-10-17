@@ -18,17 +18,17 @@
 #include "./arrow_types.h"
 #include "./safe-call-into-r.h"
 
+#include <arrow/buffer.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
-#include <arrow/compute/exec/options.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
-#include <arrow/util/optional.h>
 #include <arrow/util/thread_pool.h>
 
 #include <iostream>
+#include <optional>
 
 namespace compute = ::arrow::compute;
 
@@ -56,17 +56,170 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
       });
 }
 
-std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
-ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
-                 const std::shared_ptr<compute::ExecNode>& final_node,
-                 cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
-  // a section of this code is copied and used in ExecPlan_BuildAndShow - the 2 need
-  // to be in sync
-  // Start of chunk used in ExecPlan_BuildAndShow
+// This class is a special RecordBatchReader that holds a reference to the
+// underlying exec plan so that (1) it can request that the ExecPlan *stop*
+// producing when this object is deleted and (2) it can defer requesting
+// the ExecPlan to *start* producing until the first batch has been pulled.
+// This allows it to be transformed (e.g., using map_batches() or head())
+// and queried (i.e., used as input to another ExecPlan), at the R level
+// while maintaining the ability for the entire plan to be executed at once
+// (e.g., to support user-defined functions) or never executed at all (e.g.,
+// to support printing a nested ExecPlan without having to execute it).
+class ExecPlanReader : public arrow::RecordBatchReader {
+ public:
+  enum ExecPlanReaderStatus { PLAN_NOT_STARTED, PLAN_RUNNING, PLAN_FINISHED };
 
+  ExecPlanReader(const std::shared_ptr<arrow::compute::ExecPlan>& plan,
+                 const std::shared_ptr<arrow::Schema>& schema,
+                 arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen)
+      : schema_(schema),
+        plan_(plan),
+        sink_gen_(sink_gen),
+        plan_status_(PLAN_NOT_STARTED),
+        stop_token_(MainRThread::GetInstance().GetStopToken()) {}
+
+  std::string PlanStatus() const {
+    switch (plan_status_) {
+      case PLAN_NOT_STARTED:
+        return "PLAN_NOT_STARTED";
+      case PLAN_RUNNING:
+        return "PLAN_RUNNING";
+      case PLAN_FINISHED:
+        return "PLAN_FINISHED";
+      default:
+        return "UNKNOWN";
+    }
+  }
+
+  std::shared_ptr<arrow::Schema> schema() const override { return schema_; }
+
+  arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) override {
+    // If this is the first batch getting pulled, tell the exec plan to
+    // start producing
+    if (plan_status_ == PLAN_NOT_STARTED) {
+      ARROW_RETURN_NOT_OK(StartProducing());
+    }
+
+    // If we've closed the reader, keep sending nullptr
+    // (consistent with what most RecordBatchReader subclasses do)
+    if (plan_status_ == PLAN_FINISHED) {
+      batch_out->reset();
+      return arrow::Status::OK();
+    }
+
+    // Check for cancellation and stop the plan if we have a request. When
+    // the ExecPlan supports passing a StopToken and handling this itself,
+    // this will be redundant.
+    if (stop_token_.IsStopRequested()) {
+      StopProducing();
+      return stop_token_.Poll();
+    }
+
+    auto out = sink_gen_().result();
+    if (!out.ok()) {
+      StopProducing();
+      return out.status();
+    }
+
+    if (out.ValueUnsafe()) {
+      auto batch_result = out.ValueUnsafe()->ToRecordBatch(schema_, gc_memory_pool());
+      if (!batch_result.ok()) {
+        StopProducing();
+        return batch_result.status();
+      }
+
+      *batch_out = batch_result.ValueUnsafe();
+    } else {
+      batch_out->reset();
+      StopProducing();
+    }
+
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Close() override {
+    StopProducing();
+    return arrow::Status::OK();
+  }
+
+  const std::shared_ptr<arrow::compute::ExecPlan>& Plan() const { return plan_; }
+
+  ~ExecPlanReader() { StopProducing(); }
+
+ private:
+  std::shared_ptr<arrow::Schema> schema_;
+  std::shared_ptr<arrow::compute::ExecPlan> plan_;
+  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen_;
+  ExecPlanReaderStatus plan_status_;
+  arrow::StopToken stop_token_;
+
+  arrow::Status StartProducing() {
+    ARROW_RETURN_NOT_OK(plan_->StartProducing());
+    plan_status_ = PLAN_RUNNING;
+    return arrow::Status::OK();
+  }
+
+  void StopProducing() {
+    if (plan_status_ == PLAN_RUNNING) {
+      // We're done with the plan, but it may still need some time
+      // to finish and clean up after itself. To do this, we give a
+      // callable with its own copy of the shared_ptr<ExecPlan> so
+      // that it can delete itself when it is safe to do so.
+      std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
+      bool not_finished_yet = plan_->finished().TryAddCallback(
+          [&plan] { return [plan](const arrow::Status&) {}; });
+
+      if (not_finished_yet) {
+        plan_->StopProducing();
+      }
+    }
+
+    plan_status_ = PLAN_FINISHED;
+    plan_.reset();
+    sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
+  }
+};
+
+// [[arrow::export]]
+cpp11::list ExecPlanReader__batches(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  auto result = RunWithCapturedRIfPossible<arrow::RecordBatchVector>(
+      [&]() { return reader->ToRecordBatches(); });
+  return arrow::r::to_r_list(ValueOrStop(result));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__from_ExecPlanReader(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ToTable(); });
+
+  return ValueOrStop(result);
+}
+
+// [[arrow::export]]
+std::shared_ptr<compute::ExecPlan> ExecPlanReader__Plan(
+    const std::shared_ptr<ExecPlanReader>& reader) {
+  if (reader->PlanStatus() == "PLAN_FINISHED") {
+    cpp11::stop("Can't extract ExecPlan from a finished ExecPlanReader");
+  }
+
+  return reader->Plan();
+}
+
+// [[arrow::export]]
+std::string ExecPlanReader__PlanStatus(const std::shared_ptr<ExecPlanReader>& reader) {
+  return reader->PlanStatus();
+}
+
+// [[arrow::export]]
+std::shared_ptr<ExecPlanReader> ExecPlan_run(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    cpp11::strings metadata, int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
-  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   // Sorting uses a different sink node; there is no general sort yet
   if (sort_options.size() > 0) {
@@ -92,21 +245,7 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
                        compute::SinkNodeOptions{&sink_gen});
   }
 
-  // End of chunk used in ExecPlan_BuildAndShow
-
   StopIfNotOk(plan->Validate());
-
-  // If the generator is destroyed before being completely drained, inform plan
-  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
-                                         bool not_finished_yet =
-                                             plan->finished().TryAddCallback([&plan] {
-                                               return [plan](const arrow::Status&) {};
-                                             });
-
-                                         if (not_finished_yet) {
-                                           plan->StopProducing();
-                                         }
-                                       }};
 
   // Attach metadata to the schema
   auto out_schema = final_node->output_schema();
@@ -115,90 +254,18 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
     out_schema = out_schema->WithMetadata(kv);
   }
 
-  std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
-      out;
-  out.first = plan;
-  out.second = compute::MakeGeneratorReader(
-      out_schema, [stop_producing, plan, sink_gen] { return sink_gen(); },
-      gc_memory_pool());
-  return out;
+  return std::make_shared<ExecPlanReader>(plan, out_schema, sink_gen);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
-  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-  StopIfNotOk(prepared_plan.first->StartProducing());
-  return prepared_plan.second;
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Table> ExecPlan_read_table(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
-  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-
-  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
-      [&]() -> arrow::Result<std::shared_ptr<arrow::Table>> {
-        ARROW_RETURN_NOT_OK(prepared_plan.first->StartProducing());
-        return prepared_plan.second->ToTable();
-      });
-
-  return ValueOrStop(result);
-}
-
-// [[arrow::export]]
-void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan) {
-  plan->StopProducing();
+std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
+  return plan->ToString();
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<compute::ExecNode>& node) {
   return node->output_schema();
-}
-
-// [[arrow::export]]
-std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan,
-                                  const std::shared_ptr<compute::ExecNode>& final_node,
-                                  cpp11::list sort_options, int64_t head = -1) {
-  // a section of this code is copied from ExecPlan_prepare - the 2 need to be in sync
-  // Start of chunk copied from ExecPlan_prepare
-
-  // For now, don't require R to construct SinkNodes.
-  // Instead, just pass the node we should collect as an argument.
-  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
-
-  // Sorting uses a different sink node; there is no general sort yet
-  if (sort_options.size() > 0) {
-    if (head >= 0) {
-      // Use the SelectK node to take only what we need
-      MakeExecNodeOrStop(
-          "select_k_sink", plan.get(), {final_node.get()},
-          compute::SelectKSinkNodeOptions{
-              arrow::compute::SelectKOptions(
-                  head, std::dynamic_pointer_cast<compute::SortOptions>(
-                            make_compute_options("sort_indices", sort_options))
-                            ->sort_keys),
-              &sink_gen});
-    } else {
-      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
-                         compute::OrderBySinkNodeOptions{
-                             *std::dynamic_pointer_cast<compute::SortOptions>(
-                                 make_compute_options("sort_indices", sort_options)),
-                             &sink_gen});
-    }
-  } else {
-    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
-                       compute::SinkNodeOptions{&sink_gen});
-  }
-
-  // End of chunk copied from ExecPlan_prepare
-
-  return plan->ToString();
 }
 
 #if defined(ARROW_R_WITH_DATASET)
@@ -222,8 +289,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 
   options->dataset_schema = dataset->schema();
 
-  // ScanNode needs the filter to do predicate pushdown and skip partitions
-  options->filter = ValueOrStop(filter->Bind(*dataset->schema()));
+  options->filter = *filter;
 
   // ScanNode needs to know which fields to materialize (and which are unnecessary)
   std::vector<compute::Expression> exprs;
@@ -232,9 +298,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
   }
 
   options->projection =
-      ValueOrStop(call("make_struct", std::move(exprs),
-                       compute::MakeStructOptions{std::move(materialized_field_names)})
-                      .Bind(*dataset->schema()));
+      call("make_struct", std::move(exprs),
+           compute::MakeStructOptions{std::move(materialized_field_names)});
 
   return MakeExecNodeOrStop("scan", plan.get(), {},
                             ds::ScanNodeOptions{dataset, options});
@@ -334,7 +399,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
 
 // [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Join(
-    const std::shared_ptr<compute::ExecNode>& input, int type,
+    const std::shared_ptr<compute::ExecNode>& input, compute::JoinType join_type,
     const std::shared_ptr<compute::ExecNode>& right_data,
     std::vector<std::string> left_keys, std::vector<std::string> right_keys,
     std::vector<std::string> left_output, std::vector<std::string> right_output,
@@ -349,35 +414,14 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
   for (auto&& name : left_output) {
     left_out_refs.emplace_back(std::move(name));
   }
-  if (type != 0 && type != 2) {
+  // dplyr::semi_join => LEFT_SEMI; dplyr::anti_join => LEFT_ANTI
+  // So ignoring RIGHT_SEMI and RIGHT_ANTI here because dplyr doesn't implement them.
+  if (join_type != compute::JoinType::LEFT_SEMI &&
+      join_type != compute::JoinType::LEFT_ANTI) {
     // Don't include out_refs in semi/anti join
     for (auto&& name : right_output) {
       right_out_refs.emplace_back(std::move(name));
     }
-  }
-
-  // TODO: we should be able to use this enum directly
-  compute::JoinType join_type;
-  if (type == 0) {
-    join_type = compute::JoinType::LEFT_SEMI;
-  } else if (type == 1) {
-    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
-    join_type = compute::JoinType::RIGHT_SEMI;
-  } else if (type == 2) {
-    join_type = compute::JoinType::LEFT_ANTI;
-  } else if (type == 3) {
-    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
-    join_type = compute::JoinType::RIGHT_ANTI;
-  } else if (type == 4) {
-    join_type = compute::JoinType::INNER;
-  } else if (type == 5) {
-    join_type = compute::JoinType::LEFT_OUTER;
-  } else if (type == 6) {
-    join_type = compute::JoinType::RIGHT_OUTER;
-  } else if (type == 7) {
-    join_type = compute::JoinType::FULL_OUTER;
-  } else {
-    cpp11::stop("todo");
   }
 
   return MakeExecNodeOrStop(

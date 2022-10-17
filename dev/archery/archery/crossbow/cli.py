@@ -17,6 +17,7 @@
 
 from pathlib import Path
 import time
+import sys
 
 import click
 
@@ -160,8 +161,6 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
               help='Set base branch for the PR.')
 @click.option('--create-pr', is_flag=True, default=False,
               help='Create GitHub Pull Request')
-@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
-              help='OAuth token to create PR and comments in the arrow repo')
 @click.option('--head-branch', default=None,
               help='Give the branch name explicitly, e.g. release-9.0.0-rc0')
 @click.option('--pr-body', default=None,
@@ -184,7 +183,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 @click.option('--verify-wheels', is_flag=True, default=False,
               help='Trigger the verify wheels jobs')
 @click.pass_obj
-def verify_release_candidate(obj, base_branch, create_pr, github_token,
+def verify_release_candidate(obj, base_branch, create_pr,
                              head_branch, pr_body, pr_title, remote,
                              rc, version, verify_binaries, verify_source,
                              verify_wheels):
@@ -195,7 +194,7 @@ def verify_release_candidate(obj, base_branch, create_pr, github_token,
     arrow = Repo(path=obj['arrow'].path, remote_url=remote)
     response = arrow.github_pr(title=pr_title, head=head_branch,
                                base=base_branch, body=pr_body,
-                               github_token=github_token,
+                               github_token=obj['queue'].github_token,
                                create=create_pr)
 
     # If we want to trigger any verification job we add a comment to the PR.
@@ -273,37 +272,47 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
               help='Fetch references (branches and tags) from the remote')
 @click.option('--task-filter', '-f', 'task_filters', multiple=True,
               help='Glob pattern for filtering relevant tasks')
+@click.option('--validate/--no-validate', default=False,
+              help='Return non-zero exit code '
+                   'if there is any non-success task')
 @click.pass_obj
-def status(obj, job_name, fetch, task_filters):
+def status(obj, job_name, fetch, task_filters, validate):
     output = obj['output']
     queue = obj['queue']
     if fetch:
         queue.fetch()
     job = queue.get(job_name)
 
+    success = True
+
+    def asset_callback(task_name, task, asset):
+        nonlocal success
+        if task.status().combined_state in {'error', 'failure'}:
+            success = False
+        if asset is None:
+            success = False
+
     report = ConsoleReport(job, task_filters=task_filters)
-    report.show(output)
+    report.show(output, asset_callback=asset_callback)
+    if validate and not success:
+        sys.exit(1)
 
 
 @crossbow.command()
 @click.option('--arrow-remote', '-r', default=None,
               help='Set GitHub remote explicitly, which is going to be cloned '
                    'on the CI services. Note, that no validation happens '
-                   'locally. Examples: https://github.com/apache/arrow or '
-                   'https://github.com/raulcd/arrow.')
+                   'locally. Examples: "https://github.com/apache/arrow" or '
+                   '"raulcd/arrow".')
 @click.option('--crossbow', '-c', default='ursacomputing/crossbow',
               help='Crossbow repository on github to use')
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
-@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
-              help='OAuth token to create comments in the arrow repo. '
-                   'Only necessary if --track-on-pr-titled is set.')
 @click.option('--job-name', required=True)
 @click.option('--pr-title', required=True,
               help='Track the job submitted on PR with given title')
 @click.pass_obj
-def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
-              pr_title):
+def report_pr(obj, arrow_remote, crossbow, fetch, job_name, pr_title):
     arrow = obj['arrow']
     queue = obj['queue']
     if fetch:
@@ -313,7 +322,7 @@ def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
     report = CommentReport(job, crossbow_repo=crossbow)
     target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
     pull_request = target_arrow.github_pr(title=pr_title,
-                                          github_token=github_token,
+                                          github_token=queue.github_token,
                                           create=False)
     # render the response comment's content on the PR
     pull_request.create_comment(report.show())
@@ -536,3 +545,46 @@ def upload_artifacts(obj, tag, sha, patterns, method):
     queue.github_overwrite_release_assets(
         tag_name=tag, target_commitish=sha, method=method, patterns=patterns
     )
+
+
+@crossbow.command()
+@click.option('--dry-run/--execute', default=False,
+              help='Just display process, don\'t download anything')
+@click.option('--days', default=90,
+              help='Branches older than this amount of days will be deleted')
+@click.option('--maximum', default=1000,
+              help='Maximum limit of branches to delete for a single run')
+@click.pass_obj
+def delete_old_branches(obj, dry_run, days, maximum):
+    """
+    Deletes branches on queue repository (crossbow) that are older than number
+    of days.
+    With a maximum number of branches to be deleted. This is required to avoid
+    triggering GitHub protection limits.
+    """
+    queue = obj['queue']
+    ts = time.time() - days * 24 * 3600
+    refs = []
+    for ref in queue.repo.listall_reference_objects():
+        commit = ref.peel()
+        if commit.commit_time < ts and not ref.name.startswith(
+                "refs/remotes/origin/pr/"):
+            # Check if reference is a remote reference to point
+            # to the remote head.
+            ref_name = ref.name
+            if ref_name.startswith("refs/remotes/origin"):
+                ref_name = ref_name.replace("remotes/origin", "heads")
+            refs.append(f":{ref_name}")
+
+    def batch_gen(iterable, step):
+        total_length = len(iterable)
+        to_delete = min(total_length, maximum)
+        print(f"Total number of references to be deleted: {to_delete}")
+        for index in range(0, to_delete, step):
+            yield iterable[index:min(index + step, to_delete)]
+
+    for batch in batch_gen(refs, 50):
+        if not dry_run:
+            queue.push(batch)
+        else:
+            print(batch)

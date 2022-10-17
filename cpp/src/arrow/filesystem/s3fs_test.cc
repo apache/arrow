@@ -179,8 +179,23 @@ class S3TestMixin : public AwsTestMixin {
   void SetUp() override {
     AwsTestMixin::SetUp();
 
-    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
+    // Starting the server may fail, for example if the generated port number
+    // was "stolen" by another process. Run a dummy S3 operation to make sure it
+    // is running, otherwise retry a number of times.
+    Status connect_status;
+    int retries = kNumServerRetries;
+    do {
+      InitServerAndClient();
+      connect_status = OutcomeToStatus("ListBuckets", client_->ListBuckets());
+    } while (!connect_status.ok() && --retries > 0);
+    ASSERT_OK(connect_status);
+  }
 
+  void TearDown() override { AwsTestMixin::TearDown(); }
+
+ protected:
+  void InitServerAndClient() {
+    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     client_config_->scheme = Aws::Http::Scheme::HTTP;
@@ -194,9 +209,9 @@ class S3TestMixin : public AwsTestMixin {
                               use_virtual_addressing));
   }
 
-  void TearDown() override { AwsTestMixin::TearDown(); }
+  // How many times to try launching a server in a row before decreeing failure
+  static constexpr int kNumServerRetries = 3;
 
- protected:
   std::shared_ptr<MinioTestServer> minio_;
   std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
@@ -413,28 +428,28 @@ class TestS3FS : public S3TestMixin {
     {
       Aws::S3::Model::CreateBucketRequest req;
       req.SetBucket(ToAwsString("bucket"));
-      ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+      ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
       req.SetBucket(ToAwsString("empty-bucket"));
-      ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+      ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
     }
     {
       Aws::S3::Model::PutObjectRequest req;
       req.SetBucket(ToAwsString("bucket"));
       req.SetKey(ToAwsString("emptydir/"));
       req.SetBody(std::make_shared<std::stringstream>(""));
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       // NOTE: no need to create intermediate "directories" somedir/ and
       // somedir/subdir/
       req.SetKey(ToAwsString("somedir/subdir/subfile"));
       req.SetBody(std::make_shared<std::stringstream>("sub data"));
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       req.SetKey(ToAwsString("somefile"));
       req.SetBody(std::make_shared<std::stringstream>("some data"));
       req.SetContentType("x-arrow/test");
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       req.SetKey(ToAwsString("otherdir/1/2/3/otherfile"));
       req.SetBody(std::make_shared<std::stringstream>("other data"));
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
     }
   }
 
@@ -1203,7 +1218,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     {
       Aws::S3::Model::CreateBucketRequest req;
       req.SetBucket(ToAwsString("s3fs-test-bucket"));
-      ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+      ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
     }
 
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());

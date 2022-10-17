@@ -41,13 +41,13 @@
 #include <cstdint>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 
 #include "arrow/result.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 
 #undef CPUINFO_ARCH_X86
@@ -111,7 +111,8 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
     if (RelationCache == buffer_position->Relationship) {
       PCACHE_DESCRIPTOR cache = &buffer_position->Cache;
       if (cache->Level >= 1 && cache->Level <= kCacheLevels) {
-        (*cache_sizes)[cache->Level - 1] += cache->Size;
+        const int64_t current = (*cache_sizes)[cache->Level - 1];
+        (*cache_sizes)[cache->Level - 1] = std::max<int64_t>(current, cache->Size);
       }
     }
     offset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
@@ -225,7 +226,7 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
 
 #elif defined(__APPLE__)
 //------------------------------ MACOS ------------------------------//
-util::optional<int64_t> IntegerSysCtlByName(const char* name) {
+std::optional<int64_t> IntegerSysCtlByName(const char* name) {
   size_t len = sizeof(int64_t);
   int64_t data = 0;
   if (sysctlbyname(name, &data, &len, nullptr, 0) == 0) {
@@ -237,7 +238,7 @@ util::optional<int64_t> IntegerSysCtlByName(const char* name) {
     auto st = IOErrorFromErrno(errno, "sysctlbyname failed for '", name, "'");
     ARROW_LOG(WARNING) << st.ToString();
   }
-  return util::nullopt;
+  return std::nullopt;
 }
 
 void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
@@ -295,35 +296,31 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
 //------------------------------ LINUX ------------------------------//
 // Get cache size, return 0 on error
 int64_t LinuxGetCacheSize(int level) {
-  const struct {
-    int sysconf_name;
-    const char* sysfs_path;
-  } kCacheSizeEntries[] = {
-      {
-          _SC_LEVEL1_DCACHE_SIZE,
-          "/sys/devices/system/cpu/cpu0/cache/index0/size",  // l1d (index1 is l1i)
-      },
-      {
-          _SC_LEVEL2_CACHE_SIZE,
-          "/sys/devices/system/cpu/cpu0/cache/index2/size",  // l2
-      },
-      {
-          _SC_LEVEL3_CACHE_SIZE,
-          "/sys/devices/system/cpu/cpu0/cache/index3/size",  // l3
-      },
-  };
-  static_assert(sizeof(kCacheSizeEntries) / sizeof(kCacheSizeEntries[0]) == kCacheLevels,
-                "");
-
   // get cache size by sysconf()
+#ifdef _SC_LEVEL1_DCACHE_SIZE
+  const int kCacheSizeConf[] = {
+      _SC_LEVEL1_DCACHE_SIZE,
+      _SC_LEVEL2_CACHE_SIZE,
+      _SC_LEVEL3_CACHE_SIZE,
+  };
+  static_assert(sizeof(kCacheSizeConf) / sizeof(kCacheSizeConf[0]) == kCacheLevels, "");
+
   errno = 0;
-  const int64_t cache_size = sysconf(kCacheSizeEntries[level].sysconf_name);
+  const int64_t cache_size = sysconf(kCacheSizeConf[level]);
   if (errno == 0 && cache_size > 0) {
     return cache_size;
   }
+#endif
 
-  // get cache size from sysfs if sysconf() fails (it does happen on Arm)
-  std::ifstream cacheinfo(kCacheSizeEntries[level].sysfs_path, std::ios::in);
+  // get cache size from sysfs if sysconf() fails or not supported
+  const char* kCacheSizeSysfs[] = {
+      "/sys/devices/system/cpu/cpu0/cache/index0/size",  // l1d (index1 is l1i)
+      "/sys/devices/system/cpu/cpu0/cache/index2/size",  // l2
+      "/sys/devices/system/cpu/cpu0/cache/index3/size",  // l3
+  };
+  static_assert(sizeof(kCacheSizeSysfs) / sizeof(kCacheSizeSysfs[0]) == kCacheLevels, "");
+
+  std::ifstream cacheinfo(kCacheSizeSysfs[level], std::ios::in);
   if (!cacheinfo) {
     return 0;
   }

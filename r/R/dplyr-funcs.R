@@ -59,13 +59,17 @@ NULL
 #'   summarise) because the data mask has to be a list.
 #' @param registry An environment in which the functions should be
 #'   assigned.
-#'
+#' @param notes string for the docs: note any limitations or differences in
+#'   behavior between the Arrow version and the R function.
 #' @return The previously registered binding or `NULL` if no previously
 #'   registered function existed.
 #' @keywords internal
 #'
-register_binding <- function(fun_name, fun, registry = nse_funcs,
-                             update_cache = FALSE) {
+register_binding <- function(fun_name,
+                             fun,
+                             registry = nse_funcs,
+                             update_cache = FALSE,
+                             notes = character(0)) {
   unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
   previous_fun <- registry[[unqualified_name]]
@@ -76,7 +80,8 @@ register_binding <- function(fun_name, fun, registry = nse_funcs,
       paste0(
         "A \"",
         unqualified_name,
-        "\" binding already exists in the registry and will be overwritten.")
+        "\" binding already exists in the registry and will be overwritten."
+      )
     )
   }
 
@@ -84,6 +89,8 @@ register_binding <- function(fun_name, fun, registry = nse_funcs,
   # unqualified_name and fun_name will be the same if not prefixed
   registry[[unqualified_name]] <- fun
   registry[[fun_name]] <- fun
+
+  .cache$docs[[fun_name]] <- notes
 
   if (update_cache) {
     fun_cache <- .cache$functions
@@ -116,8 +123,11 @@ unregister_binding <- function(fun_name, registry = nse_funcs,
   invisible(previous_fun)
 }
 
-register_binding_agg <- function(fun_name, agg_fun, registry = agg_funcs) {
-  register_binding(fun_name, agg_fun, registry = registry)
+register_binding_agg <- function(fun_name,
+                                 agg_fun,
+                                 registry = agg_funcs,
+                                 notes = character(0)) {
+  register_binding(fun_name, agg_fun, registry = registry, notes = notes)
 }
 
 # Supports functions and tests that call previously-defined bindings
@@ -129,9 +139,9 @@ call_binding_agg <- function(fun_name, ...) {
   agg_funcs[[fun_name]](...)
 }
 
-# Called in .onLoad()
 create_binding_cache <- function() {
-  arrow_funcs <- list()
+  # Called in .onLoad()
+  .cache$docs <- list()
 
   # Register all available Arrow Compute functions, namespaced as arrow_fun.
   all_arrow_funs <- list_compute_functions()
@@ -151,6 +161,7 @@ create_binding_cache <- function() {
   register_bindings_math()
   register_bindings_string()
   register_bindings_type()
+  register_bindings_augmented()
 
   # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)

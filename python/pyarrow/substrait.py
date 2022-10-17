@@ -16,5 +16,6 @@
 # under the License.
 
 from pyarrow._substrait import (  # noqa
+    get_supported_functions,
     run_query,
 )

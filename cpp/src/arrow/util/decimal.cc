@@ -287,7 +287,7 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
   const uint32_t* segment = &segments[num_segments - 1];
   internal::StringFormatter<UInt32Type> format;
   // First segment is formatted as-is.
-  format(*segment, [&output](util::string_view formatted) {
+  format(*segment, [&output](std::string_view formatted) {
     memcpy(output, formatted.data(), formatted.size());
     output += formatted.size();
   });
@@ -295,7 +295,7 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
     --segment;
     // Right-pad formatted segment such that e.g. 123 is formatted as "000000123".
     output += 9;
-    format(*segment, [output](util::string_view formatted) {
+    format(*segment, [output](std::string_view formatted) {
       memcpy(output - formatted.size(), formatted.data(), formatted.size());
     });
   }
@@ -355,7 +355,7 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
       str->push_back('+');
     }
     internal::StringFormatter<Int32Type> format;
-    format(adjusted_exponent, [str](util::string_view formatted) {
+    format(adjusted_exponent, [str](std::string_view formatted) {
       str->append(formatted.data(), formatted.size());
     });
     return;
@@ -397,7 +397,7 @@ std::string Decimal128::ToString(int32_t scale) const {
 // Iterates over input and for each group of kInt64DecimalDigits multiple out by
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
-static inline void ShiftAndAdd(const util::string_view& input, uint64_t out[],
+static inline void ShiftAndAdd(const std::string_view& input, uint64_t out[],
                                size_t out_size) {
   for (size_t posn = 0; posn < input.size();) {
     const size_t group_size = std::min(kInt64DecimalDigits, input.size() - posn);
@@ -420,8 +420,8 @@ static inline void ShiftAndAdd(const util::string_view& input, uint64_t out[],
 namespace {
 
 struct DecimalComponents {
-  util::string_view whole_digits;
-  util::string_view fractional_digits;
+  std::string_view whole_digits;
+  std::string_view fractional_digits;
   int32_t exponent = 0;
   char sign = 0;
   bool has_exponent = false;
@@ -436,14 +436,14 @@ inline bool IsDigit(char c) { return c >= '0' && c <= '9'; }
 inline bool StartsExponent(char c) { return c == 'e' || c == 'E'; }
 
 inline size_t ParseDigitsRun(const char* s, size_t start, size_t size,
-                             util::string_view* out) {
+                             std::string_view* out) {
   size_t pos;
   for (pos = start; pos < size; ++pos) {
     if (!IsDigit(s[pos])) {
       break;
     }
   }
-  *out = util::string_view(s + start, pos - start);
+  *out = std::string_view(s + start, pos - start);
   return pos;
 }
 
@@ -508,7 +508,7 @@ inline Status ToArrowStatus(DecimalStatus dstatus, int num_bits) {
 }
 
 template <typename Decimal>
-Status DecimalFromString(const char* type_name, const util::string_view& s, Decimal* out,
+Status DecimalFromString(const char* type_name, const std::string_view& s, Decimal* out,
                          int32_t* precision, int32_t* scale) {
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to ", type_name);
@@ -573,33 +573,33 @@ Status DecimalFromString(const char* type_name, const util::string_view& s, Deci
 
 }  // namespace
 
-Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
+Status Decimal128::FromString(const std::string_view& s, Decimal128* out,
                               int32_t* precision, int32_t* scale) {
   return DecimalFromString("decimal128", s, out, precision, scale);
 }
 
 Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
                               int32_t* scale) {
-  return FromString(util::string_view(s), out, precision, scale);
+  return FromString(std::string_view(s), out, precision, scale);
 }
 
 Status Decimal128::FromString(const char* s, Decimal128* out, int32_t* precision,
                               int32_t* scale) {
-  return FromString(util::string_view(s), out, precision, scale);
+  return FromString(std::string_view(s), out, precision, scale);
 }
 
-Result<Decimal128> Decimal128::FromString(const util::string_view& s) {
+Result<Decimal128> Decimal128::FromString(const std::string_view& s) {
   Decimal128 out;
   RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
   return std::move(out);
 }
 
 Result<Decimal128> Decimal128::FromString(const std::string& s) {
-  return FromString(util::string_view(s));
+  return FromString(std::string_view(s));
 }
 
 Result<Decimal128> Decimal128::FromString(const char* s) {
-  return FromString(util::string_view(s));
+  return FromString(std::string_view(s));
 }
 
 // Helper function used by Decimal128::FromBigEndian
@@ -706,33 +706,33 @@ std::string Decimal256::ToString(int32_t scale) const {
   return str;
 }
 
-Status Decimal256::FromString(const util::string_view& s, Decimal256* out,
+Status Decimal256::FromString(const std::string_view& s, Decimal256* out,
                               int32_t* precision, int32_t* scale) {
   return DecimalFromString("decimal256", s, out, precision, scale);
 }
 
 Status Decimal256::FromString(const std::string& s, Decimal256* out, int32_t* precision,
                               int32_t* scale) {
-  return FromString(util::string_view(s), out, precision, scale);
+  return FromString(std::string_view(s), out, precision, scale);
 }
 
 Status Decimal256::FromString(const char* s, Decimal256* out, int32_t* precision,
                               int32_t* scale) {
-  return FromString(util::string_view(s), out, precision, scale);
+  return FromString(std::string_view(s), out, precision, scale);
 }
 
-Result<Decimal256> Decimal256::FromString(const util::string_view& s) {
+Result<Decimal256> Decimal256::FromString(const std::string_view& s) {
   Decimal256 out;
   RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
   return std::move(out);
 }
 
 Result<Decimal256> Decimal256::FromString(const std::string& s) {
-  return FromString(util::string_view(s));
+  return FromString(std::string_view(s));
 }
 
 Result<Decimal256> Decimal256::FromString(const char* s) {
-  return FromString(util::string_view(s));
+  return FromString(std::string_view(s));
 }
 
 Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t length) {

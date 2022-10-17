@@ -35,6 +35,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -43,7 +44,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -55,6 +55,68 @@ namespace detail {
 using ::arrow::internal::BitmapEquals;
 using ::arrow::internal::CopyBitmap;
 using ::arrow::internal::CountSetBits;
+
+TEST(ExecBatch, SliceBasics) {
+  int64_t length = 4, cut_length = 2, left_length = length - cut_length;
+  ExecBatch batch{{Int32Scalar(0), ArrayFromJSON(utf8(), R"(["a", "b", "c", "d"])"),
+                   ChunkedArrayFromJSON(float64(), {"[1.1]", "[2.2]", "[3.3]", "[4.4]"})},
+                  length};
+  std::vector<ExecBatch> expected_sliced{
+      {{Int32Scalar(0), ArrayFromJSON(utf8(), R"(["a", "b"])"),
+        ChunkedArrayFromJSON(float64(), {"[1.1]", "[2.2]"})},
+       cut_length},
+      {{Int32Scalar(0), ArrayFromJSON(utf8(), R"(["c", "d"])"),
+        ChunkedArrayFromJSON(float64(), {"[3.3]", "[4.4]"})},
+       left_length}};
+  std::vector<ExecBatch> actual_sliced = {batch.Slice(0, cut_length),
+                                          batch.Slice(cut_length, left_length)};
+  for (size_t i = 0; i < expected_sliced.size(); i++) {
+    ASSERT_EQ(expected_sliced[i].length, actual_sliced[i].length);
+    ASSERT_EQ(expected_sliced[i].values.size(), actual_sliced[i].values.size());
+    for (size_t j = 0; j < expected_sliced[i].values.size(); j++) {
+      AssertDatumsEqual(expected_sliced[i].values[j], actual_sliced[i].values[j]);
+    }
+    ASSERT_EQ(expected_sliced[i].ToString(), actual_sliced[i].ToString());
+  }
+}
+
+TEST(ExecBatch, ToRecordBatch) {
+  auto i32_array = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto utf8_array = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
+  ExecBatch exec_batch({Datum(i32_array), Datum(utf8_array)}, 3);
+
+  auto right_schema = schema({field("a", int32()), field("b", utf8())});
+  ASSERT_OK_AND_ASSIGN(auto right_record_batch, exec_batch.ToRecordBatch(right_schema));
+  ASSERT_OK(right_record_batch->ValidateFull());
+  auto expected_batch = RecordBatchFromJSON(right_schema, R"([
+      {"a": 0, "b": "a"},
+      {"a": 1, "b": "b"},
+      {"a": 2, "b": "c"}
+      ])");
+  AssertBatchesEqual(*right_record_batch, *expected_batch);
+
+  // With a scalar column
+  auto utf8_scalar = ScalarFromJSON(utf8(), R"("z")");
+  exec_batch = ExecBatch({Datum(i32_array), Datum(utf8_scalar)}, 3);
+  ASSERT_OK_AND_ASSIGN(right_record_batch, exec_batch.ToRecordBatch(right_schema));
+  ASSERT_OK(right_record_batch->ValidateFull());
+  expected_batch = RecordBatchFromJSON(right_schema, R"([
+      {"a": 0, "b": "z"},
+      {"a": 1, "b": "z"},
+      {"a": 2, "b": "z"}
+      ])");
+  AssertBatchesEqual(*right_record_batch, *expected_batch);
+
+  // Wrong number of fields in schema
+  auto reject_schema =
+      schema({field("a", int32()), field("b", utf8()), field("c", float64())});
+  ASSERT_RAISES(Invalid, exec_batch.ToRecordBatch(reject_schema));
+
+  // Wrong-kind exec batch (not really valid, but test it here anyway)
+  ExecBatch miskinded_batch({Datum()}, 0);
+  auto null_schema = schema({field("a", null())});
+  ASSERT_RAISES(TypeError, miskinded_batch.ToRecordBatch(null_schema));
+}
 
 TEST(ExecContext, BasicWorkings) {
   {
@@ -766,7 +828,7 @@ TEST_F(TestExecSpanIterator, ChunkedArrays) {
 }
 
 TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
-  auto carr = std::shared_ptr<ChunkedArray>(new ChunkedArray({}, int32()));
+  auto carr = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
 
   auto CheckArgs = [&](const ExecBatch& batch) {
     ExecSpanIterator iterator;
@@ -883,7 +945,7 @@ class ExampleOptionsType : public FunctionOptionsType {
   }
   std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
     const auto& opts = static_cast<const ExampleOptions&>(options);
-    return arrow::internal::make_unique<ExampleOptions>(opts.value);
+    return std::make_unique<ExampleOptions>(opts.value);
   }
 };
 ExampleOptions::ExampleOptions(std::shared_ptr<Scalar> value)
@@ -897,7 +959,7 @@ struct ExampleState : public KernelState {
 Result<std::unique_ptr<KernelState>> InitStateful(KernelContext*,
                                                   const KernelInitArgs& args) {
   auto func_options = static_cast<const ExampleOptions*>(args.options);
-  return std::unique_ptr<KernelState>(new ExampleState{func_options->value});
+  return std::make_unique<ExampleState>(func_options->value);
 }
 
 Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -1064,8 +1126,8 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
 
     // Input is chunked, output has one big chunk
     {
-      auto carr = std::shared_ptr<ChunkedArray>(
-          new ChunkedArray({arr->Slice(0, 10), arr->Slice(10)}));
+      auto carr =
+          std::make_shared<ChunkedArray>(ArrayVector{arr->Slice(0, 10), arr->Slice(10)});
       std::vector<Datum> args = {Datum(carr)};
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       std::shared_ptr<ChunkedArray> actual = result.chunked_array();

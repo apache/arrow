@@ -17,10 +17,40 @@
 
 # distutils: language = c++
 
+from libcpp.vector cimport vector as std_vector
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
+ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&)
 
-cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine::substrait" nogil:
-    CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(const CBuffer& substrait_buffer)
+cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" nogil:
+    cdef enum ConversionStrictness \
+            "arrow::engine::ConversionStrictness":
+        EXACT_ROUNDTRIP \
+            "arrow::engine::ConversionStrictness::EXACT_ROUNDTRIP"
+        PRESERVE_STRUCTURE \
+            "arrow::engine::ConversionStrictness::PRESERVE_STRUCTURE"
+        BEST_EFFORT \
+            "arrow::engine::ConversionStrictness::BEST_EFFORT"
+
+    cdef cppclass CConversionOptions \
+            "arrow::engine::ConversionOptions":
+        ConversionStrictness conversion_strictness
+        function[CNamedTableProvider] named_table_provider
+
+cdef extern from "arrow/engine/substrait/extension_set.h" \
+        namespace "arrow::engine" nogil:
+
+    cdef cppclass ExtensionIdRegistry:
+        std_vector[c_string] GetSupportedSubstraitFunctions()
+
+    ExtensionIdRegistry* default_extension_id_registry()
+
+
+cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
+    CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(
+        const CBuffer& substrait_buffer, const ExtensionIdRegistry* registry,
+        CFunctionRegistry* func_registry, const CConversionOptions& conversion_options)
+
     CResult[shared_ptr[CBuffer]] SerializeJsonPlan(const c_string& substrait_json)

@@ -40,6 +40,8 @@ public class JdbcToArrowConfigBuilder {
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
   private Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> explicitTypesByColumnName;
+  private Map<String, String> schemaMetadata;
+  private Map<Integer, Map<String, String>> columnMetadataByColumnIndex;
   private int targetBatchSize;
   private Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
   private RoundingMode bigDecimalRoundingMode;
@@ -58,6 +60,8 @@ public class JdbcToArrowConfigBuilder {
     this.arraySubTypesByColumnName = null;
     this.explicitTypesByColumnIndex = null;
     this.explicitTypesByColumnName = null;
+    this.schemaMetadata = null;
+    this.columnMetadataByColumnIndex = null;
     this.bigDecimalRoundingMode = null;
   }
 
@@ -227,6 +231,23 @@ public class JdbcToArrowConfigBuilder {
   }
 
   /**
+   * Set metadata for schema.
+   */
+  public JdbcToArrowConfigBuilder setSchemaMetadata(Map<String, String> schemaMetadata) {
+    this.schemaMetadata = schemaMetadata;
+    return this;
+  }
+
+  /**
+   * Set metadata from columnIndex->meta map on per field basis.
+   */
+  public JdbcToArrowConfigBuilder setColumnMetadataByColumnIndex(
+          Map<Integer, Map<String, String>> columnMetadataByColumnIndex) {
+    this.columnMetadataByColumnIndex = columnMetadataByColumnIndex;
+    return this;
+  }
+
+  /**
    * Set the rounding mode used when the scale of the actual value does not match the declared scale.
    * <p>
    * By default, an error is raised in such cases.
@@ -255,6 +276,8 @@ public class JdbcToArrowConfigBuilder {
         jdbcToArrowTypeConverter,
         explicitTypesByColumnIndex,
         explicitTypesByColumnName,
+        schemaMetadata,
+        columnMetadataByColumnIndex,
         bigDecimalRoundingMode);
   }
 }

@@ -66,7 +66,7 @@ after_success:
   {{ macros.travis_upload_releases("arrow/python/repaired_wheels/*.whl") }}
   {{ macros.travis_upload_gemfury("arrow/python/repaired_wheels/*.whl") }}
 
-  {% if arrow.branch == 'master' %}
+  {% if arrow.is_default_branch() %}
   # Push the docker image to dockerhub
   - archery docker push python-wheel-manylinux-{{ manylinux_version }}
   - archery docker push python-wheel-manylinux-test-unittests

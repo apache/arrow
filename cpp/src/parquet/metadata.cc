@@ -21,13 +21,13 @@
 #include <cinttypes>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
@@ -690,8 +690,10 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
-    if (!schema()->Equals(*other->schema())) {
-      throw ParquetException("AppendRowGroups requires equal schemas.");
+    std::ostringstream diff_output;
+    if (!schema()->Equals(*other->schema(), &diff_output)) {
+      auto msg = "AppendRowGroups requires equal schemas.\n" + diff_output.str();
+      throw ParquetException(msg);
     }
 
     // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop
@@ -1050,8 +1052,8 @@ class ApplicationVersionParser {
 
  private:
   bool IsSpace(const std::string& string, const size_t& offset) {
-    auto target = ::arrow::util::string_view(string).substr(offset, 1);
-    return target.find_first_of(spaces_) != ::arrow::util::string_view::npos;
+    auto target = ::std::string_view(string).substr(offset, 1);
+    return target.find_first_of(spaces_) != ::std::string_view::npos;
   }
 
   void RemovePrecedingSpaces(const std::string& string, size_t& start,

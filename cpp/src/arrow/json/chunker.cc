@@ -18,6 +18,7 @@
 #include "arrow/json/chunker.h"
 
 #include <algorithm>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -27,13 +28,10 @@
 #include "arrow/buffer.h"
 #include "arrow/json/options.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
-using internal::make_unique;
-using util::string_view;
+using std::string_view;
 
 namespace json {
 
@@ -140,7 +138,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     return Status::OK();
   }
 
-  Status FindLast(util::string_view block, int64_t* out_pos) override {
+  Status FindLast(std::string_view block, int64_t* out_pos) override {
     const size_t block_length = block.size();
     size_t consumed_length = 0;
     while (consumed_length < block_length) {
@@ -164,7 +162,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     return Status::OK();
   }
 
-  Status FindNth(util::string_view partial, util::string_view block, int64_t count,
+  Status FindNth(std::string_view partial, std::string_view block, int64_t count,
                  int64_t* out_pos, int64_t* num_found) override {
     return Status::NotImplemented("ParsingBoundaryFinder::FindNth");
   }
@@ -179,7 +177,7 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
   } else {
     delimiter = MakeNewlineBoundaryFinder();
   }
-  return std::unique_ptr<Chunker>(new Chunker(std::move(delimiter)));
+  return std::make_unique<Chunker>(std::move(delimiter));
 }
 
 }  // namespace json

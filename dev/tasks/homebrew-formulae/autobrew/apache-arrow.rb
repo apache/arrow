@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow.rb
+# https://github.com/autobrew/homebrew-core/blob/-/Formula/apache-arrow.rb
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
@@ -25,15 +25,15 @@ class ApacheArrow < Formula
 
   bottle do
     cellar :any
-    sha256 "a55211ba6f464681b7ca1b48defdad9cfbe1cf6fad8ff9ec875dc5a3c8f3c5ed" => :el_capitan_or_later
+    sha256 "9cd44700798638b5e3ee8774b3929f3fad815290d05572d1f39f01d6423eaad0" => :high_sierra
     root_url "https://autobrew.github.io/bottles"
   end
 
   # NOTE: if you add something here, be sure to add to PKG_LIBS in r/tools/autobrew
   depends_on "boost" => :build
-  depends_on "brotli"
   depends_on "cmake" => :build
   depends_on "aws-sdk-cpp"
+  depends_on "brotli" 
   depends_on "lz4"
   depends_on "snappy"
   depends_on "thrift"
@@ -46,17 +46,15 @@ class ApacheArrow < Formula
       -DARROW_BUILD_UTILITIES=ON
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
+      -DARROW_CXXFLAGS="-D_LIBCPP_DISABLE_AVAILABILITY"
       -DARROW_DATASET=ON
       -DARROW_FILESYSTEM=ON
       -DARROW_GCS=ON
-      -DARROW_HDFS=OFF
       -DARROW_JEMALLOC=ON
       -DARROW_JSON=ON
       -DARROW_MIMALLOC=ON
       -DARROW_PARQUET=ON
-      -DARROW_PYTHON=OFF
       -DARROW_S3=ON
-      -DARROW_USE_GLOG=OFF
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON
       -DARROW_WITH_BROTLI=ON
       -DARROW_WITH_BZ2=ON
@@ -64,9 +62,8 @@ class ApacheArrow < Formula
       -DARROW_WITH_SNAPPY=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
-      -DCMAKE_UNITY_BUILD=OFF
-      -DPARQUET_BUILD_EXECUTABLES=ON
       -DLZ4_HOME=#{Formula["lz4"].prefix}
+      -DPARQUET_BUILD_EXECUTABLES=ON
       -DTHRIFT_HOME=#{Formula["thrift"].prefix}
     ]
 
@@ -86,7 +83,8 @@ class ApacheArrow < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++17", "-I#{include}", "-L#{lib}", \
+      "-larrow", "-larrow_bundled_dependencies", "-o", "test"
     system "./test"
   end
 end

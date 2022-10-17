@@ -41,6 +41,7 @@ cdef class IpcWriteOptions(_Weakrefable):
     cdef:
         CIpcWriteOptions c_options
 
+
 cdef class IpcReadOptions(_Weakrefable):
     cdef:
         CIpcReadOptions c_options
@@ -71,7 +72,7 @@ cdef class DataType(_Weakrefable):
         bytes pep3118_format
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *
-    cdef Field field(self, int i)
+    cpdef Field field(self, i)
 
 
 cdef class ListType(DataType):
@@ -383,7 +384,7 @@ cdef class MapArray(ListArray):
     pass
 
 
-cdef class FixedSizeListArray(Array):
+cdef class FixedSizeListArray(BaseListArray):
     pass
 
 
@@ -535,6 +536,9 @@ cdef NativeFile get_native_file(object source, c_bool use_memory_map)
 cdef shared_ptr[CInputStream] native_transcoding_input_stream(
     shared_ptr[CInputStream] stream, src_encoding,
     dest_encoding) except *
+
+cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
+    src_encoding, dest_encoding) except *
 
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)

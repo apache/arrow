@@ -37,7 +37,7 @@ For example, to read a parquet file from the example NYC taxi data
 bucket <- s3_bucket("voltrondata-labs-datasets")
 # Or in GCS (anonymous = TRUE is required if credentials are not configured):
 bucket <- gs_bucket("voltrondata-labs-datasets", anonymous = TRUE)
-df <- read_parquet(bucket$path("nyc-taxi/year=2019/month=6/data.parquet"))
+df <- read_parquet(bucket$path("nyc-taxi/year=2019/month=6/part-0.parquet"))
 ```
 
 Note that this will be slower to read than if the file were local,
@@ -68,14 +68,14 @@ useful for holding a reference to a subdirectory somewhere (on S3, GCS, or elsew
 One way to get a subtree is to call the `$cd()` method on a `FileSystem`
 
 ```r
-june2019 <- bucket$cd("2019/06")
-df <- read_parquet(june2019$path("data.parquet"))
+june2019 <- bucket$cd("nyc-taxi/year=2019/month=6")
+df <- read_parquet(june2019$path("part-0.parquet"))
 ```
 
 `SubTreeFileSystem` can also be made from a URI:
 
 ```r
-june2019 <- SubTreeFileSystem$create("s3://voltrondata-labs-datasets/nyc-taxi/2019/06")
+june2019 <- SubTreeFileSystem$create("s3://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6")
 ```
 
 ## URIs
@@ -98,17 +98,17 @@ gs://anonymous@bucket/path
 For example, one of the NYC taxi data files used in `vignette("dataset", package = "arrow")` is found at
 
 ```
-s3://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet
+s3://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet
 # Or in GCS (anonymous required on public buckets):
-gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet
+gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet
 ```
 
 Given this URI, you can pass it to `read_parquet()` just as if it were a local file path:
 
 ```r
-df <- read_parquet("s3://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
+df <- read_parquet("s3://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet")
 # Or in GCS:
-df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
+df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet")
 ```
 
 ### URI options
@@ -190,7 +190,7 @@ must pass `anonymous = TRUE` or `anonymous` as the user in a URI:
 ```r
 bucket <- gs_bucket("voltrondata-labs-datasets", anonymous = TRUE)
 fs <- GcsFileSystem$create(anonymous = TRUE)
-df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
+df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet")
 ```
 
 <!-- TODO(ARROW-16880): Describe what credentials to use for particular use cases
