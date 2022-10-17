@@ -485,6 +485,31 @@ struct NegateChecked {
   }
 };
 
+struct Exp {
+  template <typename T, typename Arg>
+  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg exp,
+                                                     Status* st) {
+    return std::exp(exp);
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg exp,
+                                                       Status* st) {
+    return std::exp(exp);
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg exp, Status*) {
+    return std::exp(exp);
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp,
+                                                        Status*) {
+    return std::exp(exp);
+  }
+};
+
 struct Power {
   ARROW_NOINLINE
   static uint64_t IntegerPower(uint64_t base, uint64_t exp) {
