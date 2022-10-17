@@ -36,38 +36,38 @@
 #' which returns an `arrow` [Table], or `collect()`, which pulls the resulting
 #' Table into an R `data.frame`.
 #'
-#' * [`anti_join()`][dplyr::anti_join()]
+#' * [`anti_join()`][dplyr::anti_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`arrange()`][dplyr::arrange()]
 #' * [`collapse()`][dplyr::collapse()]
 #' * [`collect()`][dplyr::collect()]
 #' * [`compute()`][dplyr::compute()]
 #' * [`count()`][dplyr::count()]
-#' * [`distinct()`][dplyr::distinct()]
+#' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` not supported
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
-#' * [`full_join()`][dplyr::full_join()]
+#' * [`full_join()`][dplyr::full_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`glimpse()`][dplyr::glimpse()]
 #' * [`group_by()`][dplyr::group_by()]
 #' * [`group_by_drop_default()`][dplyr::group_by_drop_default()]
 #' * [`group_vars()`][dplyr::group_vars()]
 #' * [`groups()`][dplyr::groups()]
-#' * [`inner_join()`][dplyr::inner_join()]
-#' * [`left_join()`][dplyr::left_join()]
-#' * [`mutate()`][dplyr::mutate()]
-#' * [`pull()`][dplyr::pull()]
+#' * [`inner_join()`][dplyr::inner_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`left_join()`][dplyr::left_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`mutate()`][dplyr::mutate()]: window functions (e.g. things that require aggregation within groups) not currently supported
+#' * [`pull()`][dplyr::pull()]: returns an Arrow [ChunkedArray], not an R vector
 #' * [`relocate()`][dplyr::relocate()]
 #' * [`rename()`][dplyr::rename()]
 #' * [`rename_with()`][dplyr::rename_with()]
-#' * [`right_join()`][dplyr::right_join()]
+#' * [`right_join()`][dplyr::right_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`select()`][dplyr::select()]
-#' * [`semi_join()`][dplyr::semi_join()]
+#' * [`semi_join()`][dplyr::semi_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`show_query()`][dplyr::show_query()]
 #' * [`slice_head()`][dplyr::slice_head()]: slicing within groups not supported; Arrow datasets do not have row order, so head is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_max()`][dplyr::slice_max()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_min()`][dplyr::slice_min()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_sample()`][dplyr::slice_sample()]: slicing within groups not supported; `replace = TRUE` and the `weight_by` argument not supported; `n` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_tail()`][dplyr::slice_tail()]: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
-#' * [`summarise()`][dplyr::summarise()]
+#' * [`summarise()`][dplyr::summarise()]: window functions not currently supported; arguments `.drop = FALSE` and `.groups = "rowwise" not supported
 #' * [`tally()`][dplyr::tally()]
 #' * [`transmute()`][dplyr::transmute()]
 #' * [`ungroup()`][dplyr::ungroup()]
@@ -121,8 +121,9 @@
 #' * [`all()`][base::all()]
 #' * [`any()`][base::any()]
 #' * [`as.character()`][base::as.character()]
-#' * [`as.Date()`][base::as.Date()]
-#' * [`as.difftime()`][base::as.difftime()]
+#' * [`as.Date()`][base::as.Date()]: Multiple `tryFormats` not supported in Arrow.
+#' Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc.
+#' * [`as.difftime()`][base::as.difftime()]: only supports `units = "secs"` (the default)
 #' * [`as.double()`][base::as.double()]
 #' * [`as.integer()`][base::as.integer()]
 #' * [`as.logical()`][base::as.logical()]
@@ -130,8 +131,10 @@
 #' * [`asin()`][base::asin()]
 #' * [`ceiling()`][base::ceiling()]
 #' * [`cos()`][base::cos()]
-#' * [`data.frame()`][base::data.frame()]
-#' * [`difftime()`][base::difftime()]
+#' * [`data.frame()`][base::data.frame()]: `row.names` and `check.rows` arguments not supported;
+#' `stringsAsFactors` must be `FALSE`
+#' * [`difftime()`][base::difftime()]: only supports `units = "secs"` (the default);
+#' `tz` argument not supported
 #' * [`endsWith()`][base::endsWith()]
 #' * [`exp()`][base::exp()]
 #' * [`floor()`][base::floor()]
@@ -160,7 +163,7 @@
 #' * [`max()`][base::max()]
 #' * [`mean()`][base::mean()]
 #' * [`min()`][base::min()]
-#' * [`nchar()`][base::nchar()]
+#' * [`nchar()`][base::nchar()]: `allowNA = TRUE` and `keepNA = TRUE` not supported
 #' * [`paste()`][base::paste()]: the `collapse` argument is not yet supported
 #' * [`paste0()`][base::paste0()]: the `collapse` argument is not yet supported
 #' * [`pmax()`][base::pmax()]
@@ -171,11 +174,12 @@
 #' * [`sqrt()`][base::sqrt()]
 #' * [`startsWith()`][base::startsWith()]
 #' * [`strftime()`][base::strftime()]
-#' * [`strptime()`][base::strptime()]
+#' * [`strptime()`][base::strptime()]: accepts a `unit` argument not present in the `base` function.
+#' Valid values are "s", "ms" (default), "us", "ns".
 #' * [`strrep()`][base::strrep()]
 #' * [`strsplit()`][base::strsplit()]
 #' * [`sub()`][base::sub()]
-#' * [`substr()`][base::substr()]
+#' * [`substr()`][base::substr()]: `start` and `stop` must be length 1
 #' * [`substring()`][base::substring()]
 #' * [`sum()`][base::sum()]
 #' * [`tan()`][base::tan()]
@@ -217,20 +221,20 @@
 #' * [`dmilliseconds()`][lubridate::dmilliseconds()]
 #' * [`dminutes()`][lubridate::dminutes()]
 #' * [`dmonths()`][lubridate::dmonths()]
-#' * [`dmy()`][lubridate::dmy()]
-#' * [`dmy_h()`][lubridate::dmy_h()]
-#' * [`dmy_hm()`][lubridate::dmy_hm()]
-#' * [`dmy_hms()`][lubridate::dmy_hms()]
+#' * [`dmy()`][lubridate::dmy()]: `locale` argument not supported
+#' * [`dmy_h()`][lubridate::dmy_h()]: `locale` argument not supported
+#' * [`dmy_hm()`][lubridate::dmy_hm()]: `locale` argument not supported
+#' * [`dmy_hms()`][lubridate::dmy_hms()]: `locale` argument not supported
 #' * [`dnanoseconds()`][lubridate::dnanoseconds()]
-#' * [`dpicoseconds()`][lubridate::dpicoseconds()]
+#' * [`dpicoseconds()`][lubridate::dpicoseconds()]: not supported
 #' * [`dseconds()`][lubridate::dseconds()]
 #' * [`dst()`][lubridate::dst()]
 #' * [`dweeks()`][lubridate::dweeks()]
 #' * [`dyears()`][lubridate::dyears()]
-#' * [`dym()`][lubridate::dym()]
+#' * [`dym()`][lubridate::dym()]: `locale` argument not supported
 #' * [`epiweek()`][lubridate::epiweek()]
 #' * [`epiyear()`][lubridate::epiyear()]
-#' * [`fast_strptime()`][lubridate::fast_strptime()]
+#' * [`fast_strptime()`][lubridate::fast_strptime()]: non-default values of `lt` and `cutoff_2000` not supported
 #' * [`floor_date()`][lubridate::floor_date()]
 #' * [`format_ISO8601()`][lubridate::format_ISO8601()]
 #' * [`hour()`][lubridate::hour()]
@@ -242,18 +246,19 @@
 #' * [`isoyear()`][lubridate::isoyear()]
 #' * [`leap_year()`][lubridate::leap_year()]
 #' * [`make_date()`][lubridate::make_date()]
-#' * [`make_datetime()`][lubridate::make_datetime()]
-#' * [`make_difftime()`][lubridate::make_difftime()]
+#' * [`make_datetime()`][lubridate::make_datetime()]: only supports UTC (default) timezone
+#' * [`make_difftime()`][lubridate::make_difftime()]: only supports `units = "secs"` (the default);
+#' providing both `num` and `...` is not supported
 #' * [`mday()`][lubridate::mday()]
-#' * [`mdy()`][lubridate::mdy()]
-#' * [`mdy_h()`][lubridate::mdy_h()]
-#' * [`mdy_hm()`][lubridate::mdy_hm()]
-#' * [`mdy_hms()`][lubridate::mdy_hms()]
+#' * [`mdy()`][lubridate::mdy()]: `locale` argument not supported
+#' * [`mdy_h()`][lubridate::mdy_h()]: `locale` argument not supported
+#' * [`mdy_hm()`][lubridate::mdy_hm()]: `locale` argument not supported
+#' * [`mdy_hms()`][lubridate::mdy_hms()]: `locale` argument not supported
 #' * [`minute()`][lubridate::minute()]
 #' * [`month()`][lubridate::month()]
-#' * [`my()`][lubridate::my()]
-#' * [`myd()`][lubridate::myd()]
-#' * [`parse_date_time()`][lubridate::parse_date_time()]
+#' * [`my()`][lubridate::my()]: `locale` argument not supported
+#' * [`myd()`][lubridate::myd()]: `locale` argument not supported
+#' * [`parse_date_time()`][lubridate::parse_date_time()]: `quiet = FALSE` is not supported
 #' * [`pm()`][lubridate::pm()]
 #' * [`qday()`][lubridate::qday()]
 #' * [`quarter()`][lubridate::quarter()]
@@ -264,17 +269,17 @@
 #' * [`wday()`][lubridate::wday()]
 #' * [`week()`][lubridate::week()]
 #' * [`yday()`][lubridate::yday()]
-#' * [`ydm()`][lubridate::ydm()]
-#' * [`ydm_h()`][lubridate::ydm_h()]
-#' * [`ydm_hm()`][lubridate::ydm_hm()]
-#' * [`ydm_hms()`][lubridate::ydm_hms()]
+#' * [`ydm()`][lubridate::ydm()]: `locale` argument not supported
+#' * [`ydm_h()`][lubridate::ydm_h()]: `locale` argument not supported
+#' * [`ydm_hm()`][lubridate::ydm_hm()]: `locale` argument not supported
+#' * [`ydm_hms()`][lubridate::ydm_hms()]: `locale` argument not supported
 #' * [`year()`][lubridate::year()]
-#' * [`ym()`][lubridate::ym()]
-#' * [`ymd()`][lubridate::ymd()]
-#' * [`ymd_h()`][lubridate::ymd_h()]
-#' * [`ymd_hm()`][lubridate::ymd_hm()]
-#' * [`ymd_hms()`][lubridate::ymd_hms()]
-#' * [`yq()`][lubridate::yq()]
+#' * [`ym()`][lubridate::ym()]: `locale` argument not supported
+#' * [`ymd()`][lubridate::ymd()]: `locale` argument not supported
+#' * [`ymd_h()`][lubridate::ymd_h()]: `locale` argument not supported
+#' * [`ymd_hm()`][lubridate::ymd_hm()]: `locale` argument not supported
+#' * [`ymd_hms()`][lubridate::ymd_hms()]: `locale` argument not supported
+#' * [`yq()`][lubridate::yq()]: `locale` argument not supported
 #'
 #' ## methods
 #'
@@ -290,8 +295,9 @@
 #'
 #' ## stats
 #'
-#' * [`median()`][stats::median()]
-#' * [`quantile()`][stats::quantile()]
+#' * [`median()`][stats::median()]: approximate median (t-digest) is computed
+#' * [`quantile()`][stats::quantile()]: `probs` must be length 1;
+#' approximate quantile (t-digest) is computed
 #' * [`sd()`][stats::sd()]
 #' * [`var()`][stats::var()]
 #'
@@ -301,8 +307,10 @@
 #'
 #' ## stringr
 #'
+#' Pattern modifiers `coll()` and `boundary()` are not supported in any functions.
+#'
 #' * [`str_c()`][stringr::str_c()]: the `collapse` argument is not yet supported
-#' * [`str_count()`][stringr::str_count()]
+#' * [`str_count()`][stringr::str_count()]: `pattern` must be a length 1 character vector
 #' * [`str_detect()`][stringr::str_detect()]
 #' * [`str_dup()`][stringr::str_dup()]
 #' * [`str_ends()`][stringr::str_ends()]
@@ -311,9 +319,9 @@
 #' * [`str_pad()`][stringr::str_pad()]
 #' * [`str_replace()`][stringr::str_replace()]
 #' * [`str_replace_all()`][stringr::str_replace_all()]
-#' * [`str_split()`][stringr::str_split()]
+#' * [`str_split()`][stringr::str_split()]: Case-insensitive string splitting and splitting into 0 parts not supported
 #' * [`str_starts()`][stringr::str_starts()]
-#' * [`str_sub()`][stringr::str_sub()]
+#' * [`str_sub()`][stringr::str_sub()]: `start` and `end` must be length 1
 #' * [`str_to_lower()`][stringr::str_to_lower()]
 #' * [`str_to_title()`][stringr::str_to_title()]
 #' * [`str_to_upper()`][stringr::str_to_upper()]

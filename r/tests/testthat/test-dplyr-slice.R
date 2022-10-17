@@ -99,8 +99,10 @@ test_that("slice_sample, ungrouped", {
     "weight_by"
   )
 
+  # Let's not take any chances on random failures
+  skip_on_cran()
   # Because this is random (and we only have 10 rows), try several times
-  for (i in 1:10) {
+  for (i in 1:50) {
     sampled_prop <- tab %>%
       slice_sample(prop = .2) %>%
       collect() %>%
@@ -119,6 +121,7 @@ test_that("slice_sample, ungrouped", {
   expect_lte(sampled_n, 2)
 
   # Test with dataset, which matters for the UDF HACK
+  skip_if_not_available("dataset")
   sampled_n <- tab %>%
     InMemoryDataset$create() %>%
     slice_sample(n = 2) %>%
