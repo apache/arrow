@@ -4,7 +4,7 @@
 \alias{map_batches}
 \title{Apply a function to a stream of RecordBatches}
 \usage{
-map_batches(X, FUN, ..., .schema = NULL, .lazy = FALSE, .data.frame = NULL)
+map_batches(X, FUN, ..., .schema = NULL, .lazy = TRUE, .data.frame = NULL)
 }
 \arguments{
 \item{X}{A \code{Dataset} or \code{arrow_dplyr_query} object, as returned by the
