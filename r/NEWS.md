@@ -27,7 +27,7 @@ Several new functions can be used in queries:
   columns;
 * `add_filename()` can be used to get the filename a row came from (only 
   available when querying `?Dataset`);
-* Five functions in the `slice_*` family: `dplyr::slice_min()`, 
+* Added five functions in the `slice_*` family: `dplyr::slice_min()`, 
   `dplyr::slice_max()`, `dplyr::slice_head()`, `dplyr::slice_tail()`, and
   `dplyr::slice_sample()`.
 
@@ -51,7 +51,7 @@ computation immediately.
 ## Arrays and tables
 
 `as_arrow_array()` can now take `blob::blob` and `?vctrs::list_of`, which
-convert to binary and list arrays, respectively. Also fixed issue where 
+convert to binary and list arrays, respectively. Also fixed an issue where 
 `as_arrow_array()` ignored type argument when passed a `StructArray`.
 
 The `unique()` function works on `?Table`, `?RecordBatch`, `?Dataset`, and
