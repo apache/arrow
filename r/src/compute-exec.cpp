@@ -111,40 +111,45 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     // the ExecPlan supports passing a StopToken and handling this itself,
     // this will be redundant.
     if (stop_token_.IsStopRequested()) {
-      StopProducing();
+      ARROW_RETURN_NOT_OK(StopProducing());
       return stop_token_.Poll();
     }
 
     auto out = sink_gen_().result();
     if (!out.ok()) {
-      StopProducing();
+      ARROW_RETURN_NOT_OK(StopProducing());
       return out.status();
     }
 
     if (out.ValueUnsafe()) {
       auto batch_result = out.ValueUnsafe()->ToRecordBatch(schema_, gc_memory_pool());
       if (!batch_result.ok()) {
-        StopProducing();
+        ARROW_RETURN_NOT_OK(StopProducing());
         return batch_result.status();
       }
 
       *batch_out = batch_result.ValueUnsafe();
     } else {
       batch_out->reset();
-      StopProducing();
+      ARROW_RETURN_NOT_OK(StopProducing());
     }
 
     return arrow::Status::OK();
   }
 
   arrow::Status Close() override {
-    StopProducing();
+    ARROW_RETURN_NOT_OK(StopProducing());
     return arrow::Status::OK();
   }
 
   const std::shared_ptr<arrow::compute::ExecPlan>& Plan() const { return plan_; }
 
-  ~ExecPlanReader() { StopProducing(); }
+  ~ExecPlanReader() {
+    arrow::Status maybe_done = StopProducing();
+    if (!maybe_done.ok()) {
+      maybe_done.Warn();
+    }
+  }
 
   static int64_t EmptyTheTrash() {
     auto& trash_can = TrashCan();
@@ -193,16 +198,18 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     return arrow::Status::OK();
   }
 
-  void StopProducing() {
+  arrow::Status StopProducing() {
     if (plan_status_ == PLAN_RUNNING) {
       if (!plan_->finished().is_finished()) {
         plan_->StopProducing();
+        ARROW_RETURN_NOT_OK(plan_->finished().result());
       }
     }
 
     plan_status_ = PLAN_FINISHED;
     plan_.reset();
     sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
+    return arrow::Status::OK();
   }
 
   static int64_t RegisterExecPlan(std::shared_ptr<compute::ExecPlan> plan) {
