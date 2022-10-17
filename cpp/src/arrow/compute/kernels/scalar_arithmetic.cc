@@ -2224,16 +2224,21 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(power)));
 
   // ----------------------------------------------------------------------
-  auto exp = MakeUnaryArithmeticFunction<Exp>(
-      "exp", exp_doc);
-  DCHECK_OK(registry->AddFunction(std::move(exp)));
-
-  // ----------------------------------------------------------------------
   auto power_checked =
       MakeArithmeticFunctionNotNull<PowerChecked,
                                     ArithmeticDecimalToFloatingPointFunction>(
           "power_checked", pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
+
+  // ----------------------------------------------------------------------
+  auto exp = MakeUnaryArithmeticFunctionFloatingPoint<Exp>(
+      "exp", exp_doc);
+  DCHECK_OK(registry->AddFunction(std::move(exp)));
+
+  // ----------------------------------------------------------------------
+  auto exp_checked = MakeUnaryArithmeticFunctionFloatingPoint<ExpChecked>(
+      "exp_checked", exp_doc);
+  DCHECK_OK(registry->AddFunction(std::move(exp_checked)));
 
   // ----------------------------------------------------------------------
   auto sqrt = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", sqrt_doc);

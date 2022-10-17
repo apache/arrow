@@ -487,25 +487,30 @@ struct NegateChecked {
 
 struct Exp {
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg exp,
-                                                     Status* st) {
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg exp, Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
     return std::exp(exp);
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg exp,
-                                                       Status* st) {
-    return std::exp(exp);
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg exp, Status*) {
-    return std::exp(exp);
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp,
+  static enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp,
                                                         Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    return std::exp(exp);
+  }
+};
+
+struct ExpChecked {
+  template <typename T, typename Arg>
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg exp, Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    return std::exp(exp);
+  }
+
+  template <typename T, typename Arg>
+  static enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp,
+                                                        Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
     return std::exp(exp);
   }
 };
