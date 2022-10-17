@@ -32,7 +32,6 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/time.h"
