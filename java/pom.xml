@@ -44,7 +44,7 @@
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
-    <error_prone_core.version>2.13.1</error_prone_core.version>
+    <error_prone_core.version>2.16</error_prone_core.version>
     <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
   </properties>
 
