@@ -32,14 +32,23 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-/// Internal use only: helper function for testing HashAggregateKernels.
+/// Internal use only: helpers for PyArrow and testing HashAggregateKernels.
 /// For public use see arrow::compute::Grouper or create an execution plan
 /// and use an aggregate node.
+
 ARROW_EXPORT
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
                       const std::vector<Datum>& segment_keys,
                       const std::vector<Aggregate>& aggregates, bool use_threads = false,
                       ExecContext* ctx = default_exec_context());
+
+using GroupByCallback = std::function<Status(const Datum&)>;
+
+ARROW_EXPORT
+Status GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
+               const std::vector<Datum>& segment_keys,
+               const std::vector<Aggregate>& aggregates, GroupByCallback callback,
+               bool use_threads = false, ExecContext* ctx = default_exec_context());
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<Aggregate>& aggregates,

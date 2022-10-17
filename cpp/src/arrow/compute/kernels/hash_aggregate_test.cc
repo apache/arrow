@@ -71,6 +71,31 @@ using internal::checked_pointer_cast;
 namespace compute {
 namespace {
 
+Result<Datum> AlternatorGroupBy(const std::vector<Datum>& arguments,
+                                const std::vector<Datum>& keys,
+                                const std::vector<Datum>& segment_keys,
+                                const std::vector<Aggregate>& aggregates,
+                                bool use_threads = false,
+                                ExecContext* ctx = default_exec_context()) {
+  static uint64_t counter = 0;
+  if ((counter++ & 0x1) == 0) {
+    return internal::GroupBy(arguments, keys, segment_keys, aggregates, use_threads, ctx);
+  }
+  ArrayVector arrays;
+  ARROW_RETURN_NOT_OK(internal::GroupBy(
+      arguments, keys, segment_keys, aggregates,
+      [&arrays](const Datum& datum) {
+        arrays.push_back(datum.make_array());
+        return Status::OK();
+      },
+      use_threads, ctx));
+  if (arrays.size() == 1) {
+    return arrays[0];
+  } else {
+    return ChunkedArray::Make(arrays);
+  }
+}
+
 Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys,
                            const std::vector<Aggregate>& aggregates) {
   ARROW_ASSIGN_OR_RAISE(auto key_batch, ExecBatch::Make(std::move(keys)));
@@ -241,7 +266,7 @@ void ValidateGroupBy(const std::vector<Aggregate>& aggregates,
                      std::vector<Datum> arguments, std::vector<Datum> keys) {
   ASSERT_OK_AND_ASSIGN(Datum expected, NaiveGroupBy(arguments, keys, aggregates));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual, internal::GroupBy(arguments, keys, {}, aggregates));
+  ASSERT_OK_AND_ASSIGN(Datum actual, AlternatorGroupBy(arguments, keys, {}, aggregates));
 
   ASSERT_OK(expected.make_array()->ValidateFull());
   ValidateOutput(actual);
@@ -278,7 +303,7 @@ Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
     return GroupByUsingExecPlan(arguments, keys, segment_keys, internal_aggregates,
                                 use_threads, small_chunksize_context(use_threads));
   } else {
-    return internal::GroupBy(arguments, keys, segment_keys, internal_aggregates,
+    return AlternatorGroupBy(arguments, keys, segment_keys, internal_aggregates,
                              use_threads, default_exec_context());
   }
 }
@@ -2216,7 +2241,7 @@ TEST(GroupBy, AnyAndAll) {
     auto keep_nulls_min_count =
         std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         internal::GroupBy(
+                         AlternatorGroupBy(
                              {
                                  table->GetColumnByName("argument"),
                                  table->GetColumnByName("argument"),
@@ -2353,7 +2378,7 @@ TEST(GroupBy, CountDistinct) {
 
     ASSERT_OK_AND_ASSIGN(
         Datum aggregated_and_grouped,
-        internal::GroupBy(
+        AlternatorGroupBy(
             {
                 table->GetColumnByName("argument"),
                 table->GetColumnByName("argument"),
@@ -2421,7 +2446,7 @@ TEST(GroupBy, CountDistinct) {
 
     ASSERT_OK_AND_ASSIGN(
         aggregated_and_grouped,
-        internal::GroupBy(
+        AlternatorGroupBy(
             {
                 table->GetColumnByName("argument"),
                 table->GetColumnByName("argument"),
@@ -2469,7 +2494,7 @@ TEST(GroupBy, CountDistinct) {
 
     ASSERT_OK_AND_ASSIGN(
         aggregated_and_grouped,
-        internal::GroupBy(
+        AlternatorGroupBy(
             {
                 table->GetColumnByName("argument"),
                 table->GetColumnByName("argument"),
@@ -2542,7 +2567,7 @@ TEST(GroupBy, Distinct) {
   ])"});
 
     ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
-                         internal::GroupBy(
+                         AlternatorGroupBy(
                              {
                                  table->GetColumnByName("argument"),
                                  table->GetColumnByName("argument"),
@@ -2616,7 +2641,7 @@ TEST(GroupBy, Distinct) {
 ])",
                                                                                   });
     ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
-                         internal::GroupBy(
+                         AlternatorGroupBy(
                              {
                                  table->GetColumnByName("argument"),
                                  table->GetColumnByName("argument"),
@@ -2975,7 +3000,7 @@ TEST(GroupBy, ListNumeric) {
   ])"});
 
         ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
-                             internal::GroupBy(
+                             AlternatorGroupBy(
                                  {
                                      table->GetColumnByName("argument"),
                                  },
@@ -3047,7 +3072,7 @@ TEST(GroupBy, ListNumeric) {
   ])"});
 
         ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
-                             internal::GroupBy(
+                             AlternatorGroupBy(
                                  {
                                      table->GetColumnByName("argument"),
                                  },
@@ -3117,7 +3142,7 @@ TEST(GroupBy, ListBinaryTypes) {
 ])"});
 
         ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                             internal::GroupBy(
+                             AlternatorGroupBy(
                                  {
                                      table->GetColumnByName("argument0"),
                                  },
@@ -3180,7 +3205,7 @@ TEST(GroupBy, ListBinaryTypes) {
 ])"});
 
         ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                             internal::GroupBy(
+                             AlternatorGroupBy(
                                  {
                                      table->GetColumnByName("argument0"),
                                  },
@@ -3406,7 +3431,7 @@ TEST(GroupBy, CountAndSum) {
       std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
-      internal::GroupBy(
+      AlternatorGroupBy(
           {
               // NB: passing an argument twice or also using it as a key is legal
               batch->GetColumnByName("argument"),
@@ -3468,7 +3493,7 @@ TEST(GroupBy, Product) {
   auto min_count =
       std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("key"),
@@ -3507,7 +3532,7 @@ TEST(GroupBy, Product) {
   ])");
 
   ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                batch->GetColumnByName("argument"),
                            },
@@ -3547,7 +3572,7 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
   auto min_count =
       std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
@@ -3607,7 +3632,7 @@ TEST(GroupBy, SumOnlyStringAndDictKeys) {
     ])");
 
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         internal::GroupBy({batch->GetColumnByName("argument")},
+                         AlternatorGroupBy({batch->GetColumnByName("argument")},
                                            {batch->GetColumnByName("key")}, {},
                                            {
                                                {"hash_sum", nullptr, "agg_0", "hash_sum"},
@@ -3727,7 +3752,7 @@ TEST(GroupBy, WithChunkedArray) {
                          {"argument": null,  "key": 3}
                         ])"});
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                table->GetColumnByName("argument"),
                                table->GetColumnByName("argument"),
@@ -3768,7 +3793,7 @@ TEST(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
       {R"([{"argument": 1, "key": 0}])", R"([{"argument": 0,   "key": 1}])"});
   ScalarAggregateOptions count_options;
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                table->GetColumnByName("argument"),
                            },
@@ -3810,7 +3835,7 @@ TEST(GroupBy, SmallChunkSizeSumOnly) {
     [null,  3]
   ])");
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({batch->GetColumnByName("argument")},
+                       AlternatorGroupBy({batch->GetColumnByName("argument")},
                                          {batch->GetColumnByName("key")}, {},
                                          {
                                              {"hash_sum", nullptr, "agg_0", "hash_sum"},
@@ -4341,7 +4366,7 @@ TEST(GroupBy, OnlyKeys) {
 void TestSegmentKey(const std::shared_ptr<Table>& table, Datum output,
                     const std::vector<Datum>& segment_keys) {
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                table->GetColumnByName("argument"),
                                table->GetColumnByName("argument"),

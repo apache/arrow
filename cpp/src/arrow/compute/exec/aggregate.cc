@@ -419,31 +419,8 @@ class GroupByProcess {
     return Status::OK();
   }
 
-  Result<Datum> Run(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
-                    const std::vector<Datum>& segment_keys) {
-    ARROW_ASSIGN_OR_RAISE(auto batch_info,
-                          BatchInfo::Make(arguments, keys, segment_keys));
-    ARROW_RETURN_NOT_OK(CheckTypes(batch_info));
-
-    if (segment_keys.size() == 0) {
-      // an optimized code-path - the code works correctly without it
-      return Run(std::move(batch_info));
-    }
-    int64_t offset = 0;
-    ArrayVector arrays;
-    while (true) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto segment, segmenter->GetNextSegment(batch_info.segment_keys_batch, offset));
-      if (segment.offset >= batch_info.segment_keys_batch.length) break;
-      BatchInfo segment_batch_info = batch_info.Slice(segment.offset, segment.length);
-      ARROW_ASSIGN_OR_RAISE(auto datum, Run(segment_batch_info));
-      arrays.push_back(datum.make_array());
-      offset = segment.offset + segment.length;
-    }
-    return ChunkedArray::Make(arrays);
-  }
-
   Result<Datum> Run(const BatchInfo& batch_info) {
+    ARROW_RETURN_NOT_OK(CheckTypes(batch_info));
     ARROW_RETURN_NOT_OK(state_info.Init());
 
     // Consume batch
@@ -454,6 +431,44 @@ class GroupByProcess {
 
     // Finalize output
     return state_info.Finalize();
+  }
+
+  Status Run(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
+             const std::vector<Datum>& segment_keys, GroupByCallback callback) {
+    ARROW_ASSIGN_OR_RAISE(auto batch_info,
+                          BatchInfo::Make(arguments, keys, segment_keys));
+    ARROW_RETURN_NOT_OK(CheckTypes(batch_info));
+
+    if (segment_keys.size() == 0) {
+      // an optimized code-path - the code works correctly without it
+      ARROW_ASSIGN_OR_RAISE(auto datum, Run(std::move(batch_info)));
+      return callback(datum);
+    }
+    int64_t offset = 0;
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto segment, segmenter->GetNextSegment(batch_info.segment_keys_batch, offset));
+      if (segment.offset >= batch_info.segment_keys_batch.length) break;
+      BatchInfo segment_batch_info = batch_info.Slice(segment.offset, segment.length);
+      ARROW_ASSIGN_OR_RAISE(auto datum, Run(segment_batch_info));
+      ARROW_RETURN_NOT_OK(callback(datum));
+      offset = segment.offset + segment.length;
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Run(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
+                    const std::vector<Datum>& segment_keys) {
+    ArrayVector arrays;
+    ARROW_RETURN_NOT_OK(Run(arguments, keys, segment_keys, [&arrays](const Datum& datum) {
+      arrays.push_back(datum.make_array());
+      return Status::OK();
+    }));
+    if (arrays.size() == 1) {
+      return arrays[0];
+    } else {
+      return ChunkedArray::Make(arrays);
+    }
   }
 
  private:
@@ -477,6 +492,15 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   ARROW_ASSIGN_OR_RAISE(auto gbp, GroupByProcess::Make(arguments, keys, segment_keys,
                                                        aggregates, use_threads, ctx));
   return gbp->Run(arguments, keys, segment_keys);
+}
+
+Status GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
+               const std::vector<Datum>& segment_keys,
+               const std::vector<Aggregate>& aggregates, GroupByCallback callback,
+               bool use_threads, ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(auto gbp, GroupByProcess::Make(arguments, keys, segment_keys,
+                                                       aggregates, use_threads, ctx));
+  return gbp->Run(arguments, keys, segment_keys, callback);
 }
 
 }  // namespace internal
