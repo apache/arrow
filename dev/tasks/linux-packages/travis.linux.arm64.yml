@@ -20,7 +20,7 @@
 arch: arm64-graviton2
 virt: vm
 os: linux
-dist: focal
+dist: jammy
 group: edge
 language: minimal
 
