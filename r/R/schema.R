@@ -383,3 +383,8 @@ as_schema.Schema <- function(x, ...) {
 as_schema.StructType <- function(x, ...) {
   schema(!!!x$fields())
 }
+
+#' @export
+as.data.frame.Schema <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.data.frame(Table__from_schema(x))
+}

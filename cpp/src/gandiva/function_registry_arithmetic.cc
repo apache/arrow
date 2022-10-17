@@ -103,6 +103,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide, {}),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int32, int32),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int64, int64),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, uint32, uint32, uint32),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, uint64, uint64, uint64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, decimal128),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, float64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(pmod, {}, int32),
@@ -111,6 +113,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(pmod, {}, float64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, int32),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, int64),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, uint32),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, uint64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, float32),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, float64),
 

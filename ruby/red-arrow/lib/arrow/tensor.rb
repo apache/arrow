@@ -150,5 +150,15 @@ module Arrow
     def to_arrow
       self
     end
+
+    def to_arrow_array
+      if n_dimensions != 1
+        raise RangeError, "must be 1 dimensional tensor: #{shape.inspect}"
+      end
+      value_data_type.array_class.new(size,
+                                      buffer,
+                                      nil,
+                                      0)
+    end
   end
 end

@@ -1005,11 +1005,11 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, int type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right);
-extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
+std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, compute::JoinType join_type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right);
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP join_type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
-	arrow::r::Input<int>::type type(type_sexp);
+	arrow::r::Input<compute::JoinType>::type join_type(join_type_sexp);
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type right_data(right_data_sexp);
 	arrow::r::Input<std::vector<std::string>>::type left_keys(left_keys_sexp);
 	arrow::r::Input<std::vector<std::string>>::type right_keys(right_keys_sexp);
@@ -1017,7 +1017,7 @@ BEGIN_CPP11
 	arrow::r::Input<std::vector<std::string>>::type right_output(right_output_sexp);
 	arrow::r::Input<std::string>::type output_suffix_for_left(output_suffix_for_left_sexp);
 	arrow::r::Input<std::string>::type output_suffix_for_right(output_suffix_for_right_sexp);
-	return cpp11::as_sexp(ExecNode_Join(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right));
+	return cpp11::as_sexp(ExecNode_Join(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right));
 END_CPP11
 }
 // compute-exec.cpp
@@ -5101,6 +5101,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // table.cpp
+std::shared_ptr<arrow::Table> Table__from_schema(SEXP schema_sxp);
+extern "C" SEXP _arrow_Table__from_schema(SEXP schema_sxp_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type schema_sxp(schema_sxp_sexp);
+	return cpp11::as_sexp(Table__from_schema(schema_sxp));
+END_CPP11
+}
+// table.cpp
 r_vec_size Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_Table__ReferencedBufferSize(SEXP table_sexp){
 BEGIN_CPP11
@@ -5724,6 +5732,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__SelectColumns", (DL_FUNC) &_arrow_Table__SelectColumns, 2}, 
 		{ "_arrow_all_record_batches", (DL_FUNC) &_arrow_all_record_batches, 1}, 
 		{ "_arrow_Table__from_record_batches", (DL_FUNC) &_arrow_Table__from_record_batches, 2}, 
+		{ "_arrow_Table__from_schema", (DL_FUNC) &_arrow_Table__from_schema, 1}, 
 		{ "_arrow_Table__ReferencedBufferSize", (DL_FUNC) &_arrow_Table__ReferencedBufferSize, 1}, 
 		{ "_arrow_Table__ConcatenateTables", (DL_FUNC) &_arrow_Table__ConcatenateTables, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 

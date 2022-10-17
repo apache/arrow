@@ -122,8 +122,6 @@ endmacro()
 
 macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
-    # ARROW-17817: ORC can't be built on Windows.
-    set(ARROW_ORC OFF)
     # Plasma using glog is not fully tested on windows.
     set(ARROW_USE_GLOG OFF)
   endif()

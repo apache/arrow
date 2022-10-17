@@ -172,8 +172,6 @@ def _apply_options(cmd, options):
               help="Build the Arrow IPC extensions.")
 @click.option("--with-json", default=None, type=BOOL,
               help="Build the Arrow JSON parser module.")
-@click.option("--with-jni", default=None, type=BOOL,
-              help="Build the Arrow JNI lib.")
 @click.option("--with-mimalloc", default=None, type=BOOL,
               help="Build the Arrow mimalloc based allocator.")
 @click.option("--with-parquet", default=None, type=BOOL,

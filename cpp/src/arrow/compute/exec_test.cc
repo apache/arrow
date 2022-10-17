@@ -56,6 +56,30 @@ using ::arrow::internal::BitmapEquals;
 using ::arrow::internal::CopyBitmap;
 using ::arrow::internal::CountSetBits;
 
+TEST(ExecBatch, SliceBasics) {
+  int64_t length = 4, cut_length = 2, left_length = length - cut_length;
+  ExecBatch batch{{Int32Scalar(0), ArrayFromJSON(utf8(), R"(["a", "b", "c", "d"])"),
+                   ChunkedArrayFromJSON(float64(), {"[1.1]", "[2.2]", "[3.3]", "[4.4]"})},
+                  length};
+  std::vector<ExecBatch> expected_sliced{
+      {{Int32Scalar(0), ArrayFromJSON(utf8(), R"(["a", "b"])"),
+        ChunkedArrayFromJSON(float64(), {"[1.1]", "[2.2]"})},
+       cut_length},
+      {{Int32Scalar(0), ArrayFromJSON(utf8(), R"(["c", "d"])"),
+        ChunkedArrayFromJSON(float64(), {"[3.3]", "[4.4]"})},
+       left_length}};
+  std::vector<ExecBatch> actual_sliced = {batch.Slice(0, cut_length),
+                                          batch.Slice(cut_length, left_length)};
+  for (size_t i = 0; i < expected_sliced.size(); i++) {
+    ASSERT_EQ(expected_sliced[i].length, actual_sliced[i].length);
+    ASSERT_EQ(expected_sliced[i].values.size(), actual_sliced[i].values.size());
+    for (size_t j = 0; j < expected_sliced[i].values.size(); j++) {
+      AssertDatumsEqual(expected_sliced[i].values[j], actual_sliced[i].values[j]);
+    }
+    ASSERT_EQ(expected_sliced[i].ToString(), actual_sliced[i].ToString());
+  }
+}
+
 TEST(ExecBatch, ToRecordBatch) {
   auto i32_array = ArrayFromJSON(int32(), "[0, 1, 2]");
   auto utf8_array = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");

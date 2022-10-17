@@ -123,8 +123,11 @@ unregister_binding <- function(fun_name, registry = nse_funcs,
   invisible(previous_fun)
 }
 
-register_binding_agg <- function(fun_name, agg_fun, registry = agg_funcs) {
-  register_binding(fun_name, agg_fun, registry = registry)
+register_binding_agg <- function(fun_name,
+                                 agg_fun,
+                                 registry = agg_funcs,
+                                 notes = character(0)) {
+  register_binding(fun_name, agg_fun, registry = registry, notes = notes)
 }
 
 # Supports functions and tests that call previously-defined bindings
@@ -136,7 +139,6 @@ call_binding_agg <- function(fun_name, ...) {
   agg_funcs[[fun_name]](...)
 }
 
-#' @importFrom stats runif
 create_binding_cache <- function() {
   # Called in .onLoad()
   .cache$docs <- list()
@@ -160,17 +162,6 @@ create_binding_cache <- function() {
   register_bindings_string()
   register_bindings_type()
   register_bindings_augmented()
-
-  # HACK because random() doesn't work (ARROW-17974)
-  register_scalar_function(
-    "_random_along",
-    function(context, x) {
-      Array$create(runif(length(x)))
-    },
-    in_type = schema(x = boolean()),
-    out_type = float64(),
-    auto_convert = FALSE
-  )
 
   # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)
