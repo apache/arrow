@@ -90,8 +90,28 @@ TEST(TestScalarHash, Hash64Negative) {
 
   // validate each value
   for (int val_ndx = 0; val_ndx < test_inputs->length(); ++val_ndx) {
-    ARROW_LOG(INFO) << "hash index: " << std::to_string(val_ndx);
     uint64_t expected_hash = hash_int<uint32_t>(test_values[val_ndx]);
+    uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
+    ASSERT_EQ(expected_hash, actual_hash);
+  }
+}
+
+TEST(TestScalarHash, Hash64IntMap) {
+  constexpr int data_bufndx{1};
+  std::vector<uint16_t> test_vals_first{7, 67, 3, 31, 17, 29};
+  std::vector<int16_t> test_vals_second{67, 7, 31, 3, 29, 17};
+
+  auto test_map = ArrayFromJSON(map(uint16(), int16()),
+                                R"([[[ 7, 67]], [[67,  7]], [[ 3, 31]],
+                                    [[31,  3]], [[17, 29]], [[29, 17]]])");
+
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_map}));
+  auto result_data = *(hash_result.array());
+
+  // validate each value
+  for (int val_ndx = 0; val_ndx < test_vals_first.size(); ++val_ndx) {
+    uint64_t expected_hash = hash_combine(hash_int<uint16_t>(test_vals_first[val_ndx]),
+                                          hash_int<int16_t>(test_vals_second[val_ndx]));
     uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
     ASSERT_EQ(expected_hash, actual_hash);
   }
