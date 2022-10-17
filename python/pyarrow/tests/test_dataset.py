@@ -3248,13 +3248,24 @@ def test_feather_format(tempdir, dataset_reader):
     "brotli"  # not supported
 ])
 def test_feather_format_compressed(tempdir, compression, dataset_reader):
-    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
-                      'b': pa.array([.1, .2, .3], type="float64")})
-    if not pa.Codec.is_available(compression)
+    table = pa.table({'a': pa.array([0]*300, type="int8"),
+                      'b': pa.array([.1, .2, .3]*100, type="float64")})
+    if not pa.Codec.is_available(compression):
         pytest.skip()
-    basedir = tempdir / "feather_dataset"
+
+    basedir = tempdir / "feather_dataset_compressed"
     basedir.mkdir()
     file_format = ds.IpcFileFormat()
+
+    uncompressed_basedir = tempdir / "feather_dataset_uncompressed"
+    uncompressed_basedir.mkdir()
+    ds.write_dataset(
+        table,
+        str(uncompressed_basedir / "data.arrow"),
+        format=file_format,
+        file_options=file_format.make_write_options(compression=None)
+    )
+
     if compression == "brotli":
         with pytest.raises(ValueError, match="Compression type"):
             write_options = file_format.make_write_options(
@@ -3275,6 +3286,12 @@ def test_feather_format_compressed(tempdir, compression, dataset_reader):
     dataset = ds.dataset(basedir, format=ds.IpcFileFormat())
     result = dataset_reader.to_table(dataset)
     assert result.equals(table)
+
+    compressed_file = basedir / "data.arrow" / "part-0.arrow"
+    compressed_size = compressed_file.stat().st_size
+    uncompressed_file = uncompressed_basedir / "data.arrow" / "part-0.arrow"
+    uncompressed_size = uncompressed_file.stat().st_size
+    assert compressed_size < uncompressed_size
 
 
 def _create_parquet_dataset_simple(root_path):
