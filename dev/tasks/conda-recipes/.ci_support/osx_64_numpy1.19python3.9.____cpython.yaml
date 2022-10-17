@@ -1,5 +1,5 @@
 MACOSX_DEPLOYMENT_TARGET:
-- '10.9'
+- '10.13'
 bzip2:
 - '1'
 c_compiler:
