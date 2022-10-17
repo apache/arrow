@@ -141,39 +141,47 @@ test_that("Error handling", {
 # TODO: casting: int and float columns?
 
 test_that("right_join", {
-  compare_dplyr_binding(
-    .input %>%
-      right_join(to_join, by = "some_grouping") %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        right_join(to_join, by = "some_grouping", keep = !!keep) %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("inner_join", {
-  compare_dplyr_binding(
-    .input %>%
-      inner_join(to_join, by = "some_grouping") %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        inner_join(to_join, by = "some_grouping", keep = !!keep) %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("full_join", {
-  compare_dplyr_binding(
-    .input %>%
-      full_join(to_join, by = "some_grouping") %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        full_join(to_join, by = "some_grouping", keep = !!keep) %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("semi_join", {
-  compare_dplyr_binding(
-    .input %>%
-      semi_join(to_join, by = "some_grouping") %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        semi_join(to_join, by = "some_grouping", keep = !!keep) %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("anti_join", {
@@ -337,4 +345,29 @@ test_that("arrow dplyr query can join two datasets", {
       expect_equal(nrow(res), 21872)
     }
   )
+})
+
+test_that("full joins handle keep", {
+  full_data_df <- tibble::tibble(
+    x = rep(c("a", "b"), each = 5),
+    y = rep(1:5, 2),
+    z = rep("zzz", 10),
+    index = 1:10
+  )
+  small_dataset_df <- tibble::tibble(
+    value = c(0.1, 0.2, 0.3, 0.4, 0.5),
+    x = c(rep("a", 3), rep("b", 2)),
+    y = 1:5,
+    z = 6:10
+  )
+
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        full_join(full_data_df, by = c("y", "x"), keep = !!keep) %>%
+        arrange(index) %>%
+        collect(),
+      small_dataset_df
+    )
+  }
 })

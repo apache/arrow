@@ -451,7 +451,7 @@ TEST(AsyncTaskScheduler, FailAfterAdd) {
 }
 
 TEST(AsyncTaskScheduler, PurgeUnsubmitted) {
-  /// If a task fails then unsubmitted tasks should not be executed
+  // If a task fails then unsubmitted tasks should not be executed
   std::unique_ptr<AsyncTaskScheduler::Throttle> throttle =
       AsyncTaskScheduler::MakeThrottle(1);
   std::unique_ptr<AsyncTaskScheduler> task_group =
@@ -460,13 +460,32 @@ TEST(AsyncTaskScheduler, PurgeUnsubmitted) {
   ASSERT_TRUE(task_group->AddSimpleTask([will_fail] { return will_fail; }));
   bool was_submitted = false;
   ASSERT_TRUE(task_group->AddSimpleTask([&was_submitted] {
-    was_submitted = false;
+    was_submitted = true;
     return Future<>::MakeFinished();
   }));
   will_fail.MarkFinished(Status::Invalid("XYZ"));
   task_group->End();
   Future<> finished_fut = task_group->OnFinished();
   ASSERT_FINISHES_AND_RAISES(Invalid, finished_fut);
+  ASSERT_FALSE(was_submitted);
+
+  // Purge might still be needed when in the ended state too
+  throttle = AsyncTaskScheduler::MakeThrottle(2);
+  task_group = AsyncTaskScheduler::Make(throttle.get());
+  will_fail = Future<>::Make();
+  Future<> slow_task_that_passes = Future<>::Make();
+  ASSERT_TRUE(task_group->AddSimpleTask([will_fail] { return will_fail; }));
+  ASSERT_TRUE(task_group->AddSimpleTask(
+      [slow_task_that_passes] { return slow_task_that_passes; }));
+  was_submitted = false;
+  ASSERT_TRUE(task_group->AddSimpleTask([&was_submitted] {
+    was_submitted = true;
+    return Future<>::MakeFinished();
+  }));
+  task_group->End();
+  will_fail.MarkFinished(Status::Invalid("XYZ"));
+  slow_task_that_passes.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, task_group->OnFinished());
   ASSERT_FALSE(was_submitted);
 }
 

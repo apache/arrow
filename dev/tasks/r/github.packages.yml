@@ -40,7 +40,7 @@ jobs:
         id: save-version
         shell: bash
         run: |
-          echo "::set-output name=pkg_version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)"
+          echo "pkg_version=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)" >> $GITHUB_OUTPUT
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -215,14 +215,14 @@ jobs:
 
           # encode contrib.url for artifact name
           cmd <- paste0(
-            "::set-output name=path::",
+            "path=",
             gsub(
               "/", "__",
               contrib.url("", type = "binary")
             ),
             "\n"
           )
-          cat(cmd)
+          cat(cmd, file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3

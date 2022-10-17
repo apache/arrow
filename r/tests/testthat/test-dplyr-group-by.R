@@ -298,14 +298,10 @@ test_that("Can use across() within group_by()", {
     tbl
   )
 
-  # ARROW-12778 - `where()` is not yet supported
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        group_by(across(where(is.numeric))) %>%
-        collect(),
-      tbl
-    ),
-    "Unsupported selection helper"
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across(where(is.numeric))) %>%
+      collect(),
+    tbl
   )
 })

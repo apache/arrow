@@ -295,7 +295,8 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
 Result<Datum> FromProto(const substrait::Expression::Literal& lit,
                         const ExtensionSet& ext_set,
                         const ConversionOptions& conversion_options) {
-  if (lit.nullable()) {
+  if (lit.nullable() &&
+      conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP) {
     // FIXME not sure how this field should be interpreted and there's no way to round
     // trip it through arrow
     return Status::Invalid(

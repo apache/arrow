@@ -22,7 +22,6 @@
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
-#include <arrow/compute/exec/options.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
@@ -400,7 +399,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
 
 // [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Join(
-    const std::shared_ptr<compute::ExecNode>& input, int type,
+    const std::shared_ptr<compute::ExecNode>& input, compute::JoinType join_type,
     const std::shared_ptr<compute::ExecNode>& right_data,
     std::vector<std::string> left_keys, std::vector<std::string> right_keys,
     std::vector<std::string> left_output, std::vector<std::string> right_output,
@@ -415,35 +414,14 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
   for (auto&& name : left_output) {
     left_out_refs.emplace_back(std::move(name));
   }
-  if (type != 0 && type != 2) {
+  // dplyr::semi_join => LEFT_SEMI; dplyr::anti_join => LEFT_ANTI
+  // So ignoring RIGHT_SEMI and RIGHT_ANTI here because dplyr doesn't implement them.
+  if (join_type != compute::JoinType::LEFT_SEMI &&
+      join_type != compute::JoinType::LEFT_ANTI) {
     // Don't include out_refs in semi/anti join
     for (auto&& name : right_output) {
       right_out_refs.emplace_back(std::move(name));
     }
-  }
-
-  // TODO: we should be able to use this enum directly
-  compute::JoinType join_type;
-  if (type == 0) {
-    join_type = compute::JoinType::LEFT_SEMI;
-  } else if (type == 1) {
-    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
-    join_type = compute::JoinType::RIGHT_SEMI;
-  } else if (type == 2) {
-    join_type = compute::JoinType::LEFT_ANTI;
-  } else if (type == 3) {
-    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
-    join_type = compute::JoinType::RIGHT_ANTI;
-  } else if (type == 4) {
-    join_type = compute::JoinType::INNER;
-  } else if (type == 5) {
-    join_type = compute::JoinType::LEFT_OUTER;
-  } else if (type == 6) {
-    join_type = compute::JoinType::RIGHT_OUTER;
-  } else if (type == 7) {
-    join_type = compute::JoinType::FULL_OUTER;
-  } else {
-    cpp11::stop("todo");
   }
 
   return MakeExecNodeOrStop(

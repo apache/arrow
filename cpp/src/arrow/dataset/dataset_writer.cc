@@ -352,7 +352,10 @@ class DatasetWriterDirectoryQueue {
     // We need to notify waiters whether the directory succeeded or failed.
     auto notify_waiters_cb = [this] { init_future_.MarkFinished(); };
     auto notify_waiters_on_err_cb = [this](const Status& err) {
-      init_future_.MarkFinished();
+      // If there is an error the scheduler will abort but that takes some time
+      // and we don't want to start writing in the meantime so we send an error to the
+      // file writing queue and return the error.
+      init_future_.MarkFinished(err);
       return err;
     };
     std::function<Future<>()> init_task;

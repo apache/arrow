@@ -47,6 +47,9 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
+#include "arrow/dataset/file_ipc.h"
+#include "arrow/ipc/writer.h"
+
 using testing::ElementsAre;
 using testing::UnorderedElementsAreArray;
 
@@ -820,6 +823,17 @@ TEST(TestNewScanner, MissingColumn) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> expected_nulls,
                        MakeArrayOfNull(test_schema->field(2)->type(), kRowsPerTestBatch));
   AssertArraysEqual(*expected_nulls, *batches[0]->column(1));
+}
+
+void WriteIpcData(const std::string& path,
+                  const std::shared_ptr<fs::FileSystem> file_system,
+                  const std::shared_ptr<Table> input) {
+  EXPECT_OK_AND_ASSIGN(auto out_stream, file_system->OpenOutputStream(path));
+  ASSERT_OK_AND_ASSIGN(
+      auto file_writer,
+      MakeFileWriter(out_stream, input->schema(), ipc::IpcWriteOptions::Defaults()));
+  ASSERT_OK(file_writer->WriteTable(*input));
+  ASSERT_OK(file_writer->Close());
 }
 
 struct TestScannerParams {
@@ -2508,8 +2522,11 @@ TEST(ScanNode, MinimalEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  // set the projection such that required project experssion field is included as a
+  // field_ref
+  compute::Expression project_expr = field_ref("a");
   options->projection =
-      call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
+      call("make_struct", {project_expr}, compute::MakeStructOptions{{"a * 2"}});
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(
@@ -2603,8 +2620,11 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  // set the projection such that required project experssion field is included as a
+  // field_ref
+  compute::Expression project_expr = field_ref("a");
   options->projection =
-      call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
+      call("make_struct", {project_expr}, compute::MakeStructOptions{{"a * 2"}});
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(
@@ -2695,9 +2715,12 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  // set the projection such that required project experssion field is included as a
+  // field_ref
+  compute::Expression a = field_ref("a");
   compute::Expression b = field_ref("b");
   options->projection =
-      call("make_struct", {a_times_2, b}, compute::MakeStructOptions{{"a * 2", "b"}});
+      call("make_struct", {a, b}, compute::MakeStructOptions{{"a * 2", "b"}});
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(
@@ -2756,6 +2779,61 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
                                                {"sum(a * 2)": 40, "b": false}
                                           ])JSON"});
   AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
+}
+
+TEST(ScanNode, OnlyLoadProjectedFields) {
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+
+  auto dummy_schema = schema(
+      {field("key", int64()), field("shared", int64()), field("distinct", int64())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+    ])"});
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "plan_scan_disk_test.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("plan-test-tempdir-"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  WriteIpcData(file_path_str, filesystem, table);
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  compute::Expression extract_expr = compute::field_ref("shared");
+  // don't use a function.
+  scan_options->projection =
+      call("make_struct", {extract_expr}, compute::MakeStructOptions{{"shared"}});
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}})});
+  ASSERT_OK_AND_ASSIGN(auto actual, compute::DeclarationToTable(declarations));
+  // Scan node always emits augmented fields so we drop those
+  ASSERT_OK_AND_ASSIGN(auto actualMinusAgumented, actual->SelectColumns({0, 1, 2}));
+  auto expected = TableFromJSON(dummy_schema, {R"([
+      [null, 1, null],
+      [null, 4, null]
+  ])"});
+  AssertTablesEqual(*expected, *actualMinusAgumented, /*same_chunk_layout=*/false);
 }
 
 }  // namespace dataset
