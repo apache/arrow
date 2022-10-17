@@ -19,6 +19,7 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -29,22 +30,59 @@
 namespace arrow {
 namespace compute {
 
-TEST(TestScalarHash, FastHash64Primitive) {
-  for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
-    auto input_arr = ArrayFromJSON(input_dtype, "[3, null, 2, 0, 127, 64]");
+namespace {
 
-    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {input_arr}));
+// combining based on key_hash.h:CombineHashesImp (96a3af4)
+static const uint64_t combiner_const = 0x9e3779b9UL;
+static inline uint64_t hash_combine(uint64_t h1, uint64_t h2) {
+  uint64_t combiner_result = combiner_const + h2 + (h1 << 6) + (h1 >> 2);
+  return h1 ^ combiner_result;
+}
+
+// hash_int based on key_hash.cc:HashIntImp (672431b)
+template <typename T>
+uint64_t hash_int(T val) {
+  constexpr uint64_t int_const = 11400714785074694791ULL;
+  uint64_t cast_val = static_cast<uint64_t>(val);
+
+  return static_cast<uint64_t>(BYTESWAP(cast_val * int_const));
+}
+
+template <typename T>
+uint64_t hash_int_add(T val, uint64_t first_hash) {
+  return hash_combine(first_hash, hash_int(val));
+}
+
+}  // namespace
+
+TEST(TestScalarHash, Hash64Primitive) {
+  constexpr int data_bufndx{1};
+  std::vector<int32_t> test_values{3, -1, 2, 0, 127, 64};
+  std::string test_inputs_str{"[3, -1, 2, 0, 127, 64]"};
+
+  for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
+    auto test_inputs = ArrayFromJSON(input_dtype, test_inputs_str);
+
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_inputs}));
+    auto result_data = *(hash_result.array());
+
+    // validate each value
+    for (int val_ndx = 0; val_ndx < test_inputs->length(); ++val_ndx) {
+      uint64_t expected_hash = hash_int<int32_t>(test_values[val_ndx]);
+      uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
+      ASSERT_EQ(expected_hash, actual_hash);
+    }
   }
 }
 
-TEST(TestScalarHash, FastHash64Strings) {
+TEST(TestScalarHash, Hash64Strings) {
   auto test_strarr = ArrayFromJSON(utf8(), R"(["first-A", "second-A", "third-A",
                                                "first-B", "second-B", "third-B"])");
 
   ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_strarr}));
 }
 
-TEST(TestScalarHash, FastHash64List) {
+TEST(TestScalarHash, Hash64List) {
   auto test_list = ArrayFromJSON(list(utf8()),
                                  R"([["first-A", "second-A", "third-A"],
                                      ["first-B", "second-B", "third-B"]])");
@@ -52,7 +90,7 @@ TEST(TestScalarHash, FastHash64List) {
   ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_list}));
 }
 
-TEST(TestScalarHash, FastHash64Map) {
+TEST(TestScalarHash, Hash64Map) {
   auto test_map = ArrayFromJSON(map(utf8(), uint8()),
                                 R"([[["first-A", 1], ["second-A", 2], ["third-A", 3]],
                                     [["first-B", 10], ["second-B", 20], ["third-B", 30]]

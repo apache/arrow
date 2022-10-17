@@ -102,9 +102,10 @@ struct FastHashScalar {
     FastHashMultiColumn(input_keycols, &hash_ctx,
                         reinterpret_cast<OutputCType*>(hash_buffer->mutable_data()));
 
-    out->value = ArrayData{TypeTraits<HashArrowType>::type_singleton(),
-                           hash_input.length,
-                           {hash_input.GetBuffer(0), std::move(hash_buffer)}};
+    out->value = std::make_shared<ArrayData>(
+        TypeTraits<HashArrowType>::type_singleton(), hash_input.length,
+        BufferVector{hash_input.GetBuffer(0), std::move(hash_buffer)});
+
     return Status::OK();
   }
 };
@@ -119,14 +120,14 @@ std::shared_ptr<ScalarFunction> RegisterKernelsFastHash64() {
   // Associate kernel with function
   for (auto& simple_inputtype : PrimitiveTypes()) {
     DCHECK_OK(fn_hash_64->AddKernel({InputType(simple_inputtype)}, OutputType(uint64()),
-                                    FastHashScalar<>::Exec));
+                                    FastHashScalar<UInt64Type>::Exec));
   }
 
   for (const auto nested_type :
        {Type::STRUCT, Type::DENSE_UNION, Type::SPARSE_UNION, Type::LIST,
         Type::FIXED_SIZE_LIST, Type::MAP, Type::DICTIONARY}) {
     DCHECK_OK(fn_hash_64->AddKernel({InputType(nested_type)}, OutputType(uint64()),
-                                    FastHashScalar<>::Exec));
+                                    FastHashScalar<UInt64Type>::Exec));
   }
 
   // Return function to be registered
