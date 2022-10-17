@@ -57,8 +57,8 @@ uint64_t hash_int_add(T val, uint64_t first_hash) {
 
 TEST(TestScalarHash, Hash64Primitive) {
   constexpr int data_bufndx{1};
-  std::vector<int32_t> test_values{3, -1, 2, 0, 127, 64};
-  std::string test_inputs_str{"[3, -1, 2, 0, 127, 64]"};
+  std::vector<int32_t> test_values{3, 1, 2, 0, 127, 64};
+  std::string test_inputs_str{"[3, 1, 2, 0, 127, 64]"};
 
   for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
     auto test_inputs = ArrayFromJSON(input_dtype, test_inputs_str);
@@ -72,6 +72,28 @@ TEST(TestScalarHash, Hash64Primitive) {
       uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
       ASSERT_EQ(expected_hash, actual_hash);
     }
+  }
+}
+
+// NOTE: oddly, if int32_t or uint64_t is used for hash_int<>, this fails
+TEST(TestScalarHash, Hash64Negative) {
+  constexpr int data_bufndx{1};
+  std::vector<int32_t> test_values{-3, 1, -2, 0, -127, 64};
+
+  Int32Builder input_builder;
+  ASSERT_OK(input_builder.Reserve(test_values.size()));
+  ASSERT_OK(input_builder.AppendValues(test_values));
+  ASSERT_OK_AND_ASSIGN(auto test_inputs, input_builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_inputs}));
+  auto result_data = *(hash_result.array());
+
+  // validate each value
+  for (int val_ndx = 0; val_ndx < test_inputs->length(); ++val_ndx) {
+    ARROW_LOG(INFO) << "hash index: " << std::to_string(val_ndx);
+    uint64_t expected_hash = hash_int<uint32_t>(test_values[val_ndx]);
+    uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
+    ASSERT_EQ(expected_hash, actual_hash);
   }
 }
 

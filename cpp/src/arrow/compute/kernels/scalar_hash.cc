@@ -72,6 +72,7 @@ struct FastHashScalar {
       return Status::Invalid("FastHash currently supports a single array input");
     }
     ArraySpan hash_input = input_arg[0].array;
+    ArraySpan* result_span = out->array_span();
 
     auto exec_ctx = default_exec_context();
     if (ctx && ctx->exec_context()) {
@@ -89,22 +90,16 @@ struct FastHashScalar {
     hash_ctx.hardware_flags = exec_ctx->cpu_info()->hardware_flags();
     hash_ctx.stack = &stack_memallocator;
 
-    // Allocate an output buffer; this gets moved into an ArrayData at the end
-    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> hash_buffer,
-                          AllocateBuffer(hash_input.length * sizeof(OutputCType)));
-
     // Construct vector<KeyColumnArray> from input ArraySpan; this essentially
     // flattens the input array span, lifting nested Array buffers into a single level
     ARROW_ASSIGN_OR_RAISE(KeyColumnArrayVec input_keycols,
                           ColumnArraysFromArraySpan(hash_input, hash_input.length));
 
-    // Call the hashing function, overloaded based on OutputCType
-    FastHashMultiColumn(input_keycols, &hash_ctx,
-                        reinterpret_cast<OutputCType*>(hash_buffer->mutable_data()));
+    // Preserve input validity buffer
+    result_span->SetBuffer(0, hash_input.GetBuffer(0));
 
-    out->value = std::make_shared<ArrayData>(
-        TypeTraits<HashArrowType>::type_singleton(), hash_input.length,
-        BufferVector{hash_input.GetBuffer(0), std::move(hash_buffer)});
+    // Call the hashing function, overloaded based on OutputCType
+    FastHashMultiColumn(input_keycols, &hash_ctx, result_span->GetValues<OutputCType>(1));
 
     return Status::OK();
   }
