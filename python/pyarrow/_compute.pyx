@@ -1321,8 +1321,23 @@ class MakeStructOptions(_MakeStructOptions):
 
 
 cdef class _StructFieldOptions(FunctionOptions):
-    def _set_options(self, indices):
-        self.wrapped.reset(new CStructFieldOptions(indices))
+    def _set_options(self, indices, is_dot_path):
+        cdef:
+            CFieldRef field_ref
+        if isinstance(indices, list):
+            self.wrapped.reset(new CStructFieldOptions(<vector[int]>indices))
+            return
+        if isinstance(indices, (bytes, str)):
+            if is_dot_path:
+                field_ref = GetResultValue(
+                    CFieldRef.FromDotPath(<c_string>tobytes(indices)))
+            else:
+                field_ref = CFieldRef(<c_string>tobytes(indices))
+        elif isinstance(indices, int):
+            field_ref = CFieldRef(<int> indices)
+        else:
+            raise TypeError('Expected list of integers, single integer or string index')
+        self.wrapped.reset(new CStructFieldOptions(field_ref))
 
 
 class StructFieldOptions(_StructFieldOptions):
@@ -1336,8 +1351,8 @@ class StructFieldOptions(_StructFieldOptions):
         will look up the second nested field in the fifth outer field.
     """
 
-    def __init__(self, indices):
-        self._set_options(indices)
+    def __init__(self, indices, is_dot_path=False):
+        self._set_options(indices, is_dot_path)
 
 
 cdef class _ScalarAggregateOptions(FunctionOptions):

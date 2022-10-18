@@ -1161,9 +1161,7 @@ Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
   return FieldPathGetImpl::Get(this, data.child_data);
 }
 
-FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
-  DCHECK_GT(std::get<FieldPath>(impl_).indices().size(), 0);
-}
+FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {}
 
 void FieldRef::Flatten(std::vector<FieldRef> children) {
   // flatten children

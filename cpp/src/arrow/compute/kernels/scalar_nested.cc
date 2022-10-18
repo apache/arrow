@@ -196,17 +196,24 @@ const FunctionDoc list_element_doc(
 struct StructFieldFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
-
     std::shared_ptr<Array> current = MakeArray(batch[0].array.ToArrayData());
-    for (const auto& index : options.indices) {
+
+    // Specific struct handling
+    if (current->type()->id() == Type::STRUCT) {
+      ARROW_ASSIGN_OR_RAISE(current, ApplyFieldRef(ctx, options.field_ref, current));
+      out->value = current->data();
+      return Status::OK();
+    }
+
+    // indices required now for remaining union types, which is part of field_path
+    if (!options.field_ref.IsFieldPath()) {
+      return Status::Invalid("Indices required for: ", current->type()->ToString());
+    }
+
+    // union types
+    for (const auto& index : options.field_ref.field_path()->indices()) {
       RETURN_NOT_OK(CheckIndex(index, *current->type()));
       switch (current->type()->id()) {
-        case Type::STRUCT: {
-          const auto& struct_array = checked_cast<const StructArray&>(*current);
-          ARROW_ASSIGN_OR_RAISE(
-              current, struct_array.GetFlattenedField(index, ctx->memory_pool()));
-          break;
-        }
         case Type::DENSE_UNION: {
           // We implement this here instead of in DenseUnionArray since it's
           // easiest to do via Take(), but DenseUnionArray can't rely on
@@ -252,6 +259,28 @@ struct StructFieldFunctor {
     return Status::OK();
   }
 
+  static Result<std::shared_ptr<Array>> ApplyFieldRef(KernelContext* ctx,
+                                                      const FieldRef& field_ref,
+                                                      std::shared_ptr<Array> current) {
+    if (field_ref.IsName()) {
+      const auto& array = checked_cast<const StructArray&>(*current);
+      current = array.GetFieldByName(*field_ref.name());
+      if (current == nullptr) {
+        return Status::Invalid("Field not found in struct: '", *field_ref.name(), "'");
+      }
+    } else if (field_ref.nested_refs() == nullptr) {
+      for (const auto& idx : field_ref.field_path()->indices()) {
+        const auto& array = checked_cast<const StructArray&>(*current);
+        ARROW_ASSIGN_OR_RAISE(current, array.GetFlattenedField(idx, ctx->memory_pool()));
+      }
+    } else {
+      for (const auto& ref : *field_ref.nested_refs()) {
+        ARROW_ASSIGN_OR_RAISE(current, ApplyFieldRef(ctx, ref, current));
+      }
+    }
+    return current;
+  }
+
   static Status CheckIndex(int index, const DataType& type) {
     if (!ValidParentType(type)) {
       return Status::TypeError("struct_field: cannot subscript field of type ", type);
@@ -273,11 +302,21 @@ Result<TypeHolder> ResolveStructFieldType(KernelContext* ctx,
                                           const std::vector<TypeHolder>& types) {
   const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
   const DataType* type = types.front().type;
-  for (const auto& index : options.indices) {
-    RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
-    type = type->field(index)->type().get();
+  if (options.field_ref.IsName() || options.field_ref.IsNested()) {
+    for (const auto& ref : options.field_ref.FindAll(*type)) {
+      for (const auto& index : ref.indices()) {
+        type = type->field(index)->type().get();
+      }
+    }
+    return type;
+  } else {
+    DCHECK(options.field_ref.IsFieldPath());
+    for (const auto& index : options.field_ref.field_path()->indices()) {
+      RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
+      type = type->field(index)->type().get();
+    }
+    return type;
   }
-  return type;
 }
 
 void AddStructFieldKernels(ScalarFunction* func) {

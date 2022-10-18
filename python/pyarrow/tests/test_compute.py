@@ -2691,15 +2691,19 @@ def test_struct_fields_options():
     b = pa.array(["bar", None, ""])
     c = pa.StructArray.from_arrays([a, b], ["a", "b"])
     arr = pa.StructArray.from_arrays([a, c], ["a", "c"])
-
-    assert pc.struct_field(arr,
-                           indices=[1, 1]) == pa.array(["bar", None, ""])
-    assert pc.struct_field(arr, [1, 1]) == pa.array(["bar", None, ""])
-    assert pc.struct_field(arr, [0]) == pa.array([4, 5, 6], type=pa.int64())
+    assert pc.struct_field(arr, '.c.b', is_dot_path=True) == b
+    assert pc.struct_field(arr, '.a', is_dot_path=True) == a
+    assert pc.struct_field(arr, indices=[1, 1]) == b
+    assert pc.struct_field(arr, [1, 1]) == b
+    assert pc.struct_field(arr, [0]) == a
     assert pc.struct_field(arr, []) == arr
 
     with pytest.raises(TypeError, match="an integer is required"):
         pc.struct_field(arr, indices=['a'])
+
+    msg = "Field not found in struct: 'foo'"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pc.struct_field(arr, 'foo')
 
     # TODO: https://issues.apache.org/jira/browse/ARROW-14853
     # assert pc.struct_field(arr) == arr
