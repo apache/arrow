@@ -431,5 +431,8 @@ class DockerCompose(Command):
                 output.extend(self.info(value, temp_filters, prefix + "  "))
             else:
                 if key == filters or filters is None:
-                    output.append(f'{prefix} {key}: {value}')
+                    output.append(
+                        f'{prefix} {key}: ' +
+                        f'{value if value is not None else "<inherited>"}'
+                    )
         return output

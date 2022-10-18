@@ -114,6 +114,11 @@ services:
 arrow_compose_yml = """
 version: '3.5'
 
+x-sccache: &sccache
+  AWS_ACCESS_KEY_ID:
+  AWS_SECRET_ACCESS_KEY:
+  SCCACHE_BUCKET:
+
 x-with-gpus:
   - ubuntu-cuda
 
@@ -162,6 +167,8 @@ services:
     image: org/ubuntu-cpp-cmake32
   ubuntu-c-glib:
     image: org/ubuntu-c-glib
+    environment:
+      <<: [*sccache]
   ubuntu-ruby:
     image: org/ubuntu-ruby
   ubuntu-cuda:
@@ -554,3 +561,14 @@ def test_service_info_non_existing_filters(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path)
     service = compose.config.raw_config["services"]["conda-cpp"]
     assert compose.info(service, filters="non-existing") == []
+
+
+def test_service_info_inherited_env(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+    service = compose.config.raw_config["services"]["ubuntu-c-glib"]
+    assert compose.info(service, filters="environment") == [
+        "  environment",
+        "    AWS_ACCESS_KEY_ID: <inherited>",
+        "    AWS_SECRET_ACCESS_KEY: <inherited>",
+        "    SCCACHE_BUCKET: <inherited>"
+    ]
