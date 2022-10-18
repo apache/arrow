@@ -65,7 +65,7 @@ class PARQUET_EXPORT FileWriter {
   /// \param properties general Parquet writer properties.
   /// \param arrow_properties Arrow-specific writer properties.
   ///
-  /// \since 10.0.0
+  /// \since 11.0.0
   static ::arrow::Result<std::unique_ptr<FileWriter>> Open(
       const ::arrow::Schema& schema, MemoryPool* pool,
       std::shared_ptr<::arrow::io::OutputStream> sink,
@@ -73,12 +73,12 @@ class PARQUET_EXPORT FileWriter {
       std::shared_ptr<ArrowWriterProperties> arrow_properties =
           default_arrow_writer_properties());
 
-  ARROW_DEPRECATED("Deprecated in 10.0.0. Result variants instead.")
+  ARROW_DEPRECATED("Deprecated in 11.0.0. Use result variants instead.")
   static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
                               std::shared_ptr<::arrow::io::OutputStream> sink,
                               std::shared_ptr<WriterProperties> properties,
                               std::unique_ptr<FileWriter>* writer);
-  ARROW_DEPRECATED("Deprecated in 10.0.0. Result variants instead.")
+  ARROW_DEPRECATED("Deprecated in 11.0.0. Use result variants instead.")
   static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
                               std::shared_ptr<::arrow::io::OutputStream> sink,
                               std::shared_ptr<WriterProperties> properties,
@@ -92,7 +92,8 @@ class PARQUET_EXPORT FileWriter {
   ///
   /// \param table Arrow table to write.
   /// \param chunk_size maximum size of row groups to write.
-  virtual ::arrow::Status WriteTable(const ::arrow::Table& table, int64_t chunk_size) = 0;
+  virtual ::arrow::Status WriteTable(
+      const ::arrow::Table& table, int64_t chunk_size = DEFAULT_MAX_ROW_GROUP_LENGTH) = 0;
 
   /// \brief Start a new row group.
   ///
@@ -145,7 +146,8 @@ PARQUET_EXPORT
 /// \param arrow_properties Arrow-specific writer properties.
 ::arrow::Status PARQUET_EXPORT
 WriteTable(const ::arrow::Table& table, MemoryPool* pool,
-           std::shared_ptr<::arrow::io::OutputStream> sink, int64_t chunk_size,
+           std::shared_ptr<::arrow::io::OutputStream> sink,
+           int64_t chunk_size = DEFAULT_MAX_ROW_GROUP_LENGTH,
            std::shared_ptr<WriterProperties> properties = default_writer_properties(),
            std::shared_ptr<ArrowWriterProperties> arrow_properties =
                default_arrow_writer_properties());

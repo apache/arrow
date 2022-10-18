@@ -122,7 +122,7 @@ standard C++ input operators which ensures type-safety.
 
 Please note that types must match the schema exactly i.e. if the
 schema field is an unsigned 16-bit integer then you must supply a
-uint16_t type.
+``uint16_t`` type.
 
 Exceptions are used to signal errors.  A :class:`ParquetException` is
 thrown in the following circumstances:
@@ -145,15 +145,15 @@ thrown in the following circumstances:
          infile,
          arrow::io::ReadableFile::Open("test.parquet"));
 
-      parquet::StreamReader os{parquet::ParquetFileReader::Open(infile)};
+      parquet::StreamReader stream{parquet::ParquetFileReader::Open(infile)};
 
       std::string article;
       float price;
       uint32_t quantity;
 
-      while ( !os.eof() )
+      while ( !stream.eof() )
       {
-         os >> article >> price >> quantity >> parquet::EndRow;
+         stream >> article >> price >> quantity >> parquet::EndRow;
          // ...
       }
    }
@@ -174,7 +174,7 @@ The :func:`arrow::WriteTable` function writes an entire
    :emphasize-lines: 19-21
    :dedent: 2
 
-.. warning::
+.. note::
 
    Column compression is off by default in C++. See :ref:`below <parquet-writer-properties>` 
    for how to choose a compression codec in the writer properties.
@@ -261,8 +261,8 @@ To configure how Parquet files are written, use the :class:`WriterProperties::Bu
       .compression(Compression::SNAPPY)
       .build();
 
-The ``max_row_group_length`` sets an upper bound that takes precedent over the
-``chunk_size`` passed in the write methods.
+The ``max_row_group_length`` sets an upper bound on the number of rows per row
+group that takes precedent over the ``chunk_size`` passed in the write methods.
 
 You can set the version of Parquet to write with ``version``, which determines
 which logical types are available. In addition, you can set the data page version
@@ -295,11 +295,10 @@ be changed with ``encoding()``.
 
    std::shared_ptr<WriterProperties> props = WriterProperties::Builder()
      .compression(Compression::SNAPPY)        // Fallback
-     ->compression("colA", Compression::ZSTD) // Only applies to colA
+     ->compression("colA", Compression::ZSTD) // Only applies to column "colA"
      ->encoding(Encoding::BIT_PACKED)         // Fallback
-     ->encoding("colB", Encoding::RLE)        // Only applies to colB
-     ->disable_dictionary("colB")             // Always use RLE, never dictionary
-     ->disable_statistics("colB")             // Stats won't be written for colB
+     ->encoding("colB", Encoding::RLE)        // Only applies to column "colB"
+     ->disable_dictionary("colB")             // Never dictionary-encode column "colB"
      ->build();
 
 Statistics are enabled by default for all columns. You can disable statistics for
@@ -323,10 +322,19 @@ There are also Arrow-specific settings that can be configured with
       ->build();
 
 These options mostly dictate how Arrow types are converted to Parquet types.
-Turning on ``store_schema`` will cause the writer to place the serialized Arrow
-schema within the file metadata. This allows the Arrow reader to automatically
-determine which columns should be read back as dictionary-encoded columns,
-potentially saving memory.
+Turning on ``store_schema`` will cause the writer to store the serialized Arrow
+schema within the file metadata. Since there is no bijection between Parquet
+schemas and Arrow schemas, storing the Arrow schema allows the Arrow reader
+to more faithfully recreate the original data. This mapping from Parquet types
+back to original Arrow types includes:
+
+* Reading timestamps with original timezone information (Parquet does not
+  support time zones);
+* Reading Arrow types from their storage types (such as Duration from int64
+  columns);
+* Reading string and binary columns back into large variants with 64-bit offsets;
+* Reading back columns as dictionary encoded (whether an Arrow column and a 
+  the serialized Parquet version are dictionary encoded are independent).
 
 Supported Parquet features
 ==========================

@@ -1290,22 +1290,19 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
   return Status::OK();
 }
 
-Result<std::shared_ptr<RecordBatchReader>> FileReader::GetRecordBatchReader() {
-  std::vector<int> row_group_indices = Iota(num_row_groups());
-  return GetRecordBatchReader(row_group_indices);
-}
-
 Result<std::shared_ptr<RecordBatchReader>> FileReader::GetRecordBatchReader(
-    const std::vector<int>& row_group_indices) {
-  std::vector<int> column_indices = Iota(parquet_reader()->metadata()->num_columns());
-  return GetRecordBatchReader(row_group_indices, column_indices);
-}
+    const std::optional<std::vector<int>>& row_group_indices,
+    const std::optional<std::vector<int>>& column_indices) {
+  std::vector<int> row_group_indices_ =
+      row_group_indices.has_value() ? row_group_indices.value() : Iota(num_row_groups());
 
-Result<std::shared_ptr<RecordBatchReader>> FileReader::GetRecordBatchReader(
-    const std::vector<int>& row_group_indices, const std::vector<int>& column_indices) {
+  std::vector<int> column_indices_ =
+      column_indices.has_value() ? column_indices.value()
+                                 : Iota(parquet_reader()->metadata()->num_columns());
+
   std::unique_ptr<RecordBatchReader> tmp;
   std::shared_ptr<RecordBatchReader> out;
-  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
+  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices_, column_indices_, &tmp));
   out.reset(tmp.release());
   return out;
 }

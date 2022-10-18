@@ -170,6 +170,7 @@ class PARQUET_EXPORT FileReader {
       const std::vector<int>& row_group_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
 
+  ARROW_DEPRECATED("Deprecated in 11.0.0. Use result variants instead.")
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
 
@@ -184,6 +185,8 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+
+  ARROW_DEPRECATED("Deprecated in 11.0.0. Use result variants instead.")
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
@@ -194,23 +197,10 @@ class PARQUET_EXPORT FileReader {
   /// \param row_group_indices indices of which row groups to include.
   /// \param column_indices indices of columns to include.
   ///
-  /// \since 10.0.0
+  /// \since 11.0.0
   ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader(
-      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices);
-
-  /// \brief Return a RecordBatchReader of row groups selected from
-  /// row_group_indices, including all columns.
-  ///
-  /// \param row_group_indices indices of which row groups to include.
-  ///
-  /// \since 10.0.0
-  ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader(
-      const std::vector<int>& row_group_indices);
-
-  /// \brief Return a RecordBatchReader of all row groups and all columns.
-  ///
-  /// \since 10.0.0
-  ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader();
+      const std::optional<std::vector<int>>& row_group_indices = std::nullopt,
+      const std::optional<std::vector<int>>& column_indices = std::nullopt);
 
   /// \brief Return a generator of record batches.
   ///
