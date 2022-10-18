@@ -255,6 +255,7 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                        opt_selected_read_indices == nullptr
                            ? reader->Read()
                            : reader->Read(*opt_selected_read_indices));
+  ASSERT_OK(actual_output_table->ValidateFull());
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
 
@@ -467,7 +468,7 @@ TEST_F(TestORCWriterTrivialNoConversion, writeTrivialChunkAndSelectField) {
 TEST_F(TestORCWriterTrivialNoConversion, writeFilledChunkAndSelectField) {
   std::vector<int> selected_indices = {1, 7};
   random::RandomArrayGenerator rand(kRandomSeed);
-  std::shared_ptr<Schema> localSchema = schema({
+  std::shared_ptr<Schema> local_schema = schema({
       field("bool", boolean()),
       field("int32", int32()),
       field("int64", int64()),
@@ -479,8 +480,8 @@ TEST_F(TestORCWriterTrivialNoConversion, writeFilledChunkAndSelectField) {
       field("string", utf8()),
       field("binary", binary()),
   });
-  auto batch = rand.BatchOf(localSchema->fields(), 100);
-  std::shared_ptr<Table> table = Table::Make(localSchema, batch->columns());
+  auto batch = rand.BatchOf(local_schema->fields(), 100);
+  std::shared_ptr<Table> table = Table::Make(local_schema, batch->columns());
   EXPECT_OK_AND_ASSIGN(auto table_selected, table->SelectColumns(selected_indices));
   AssertTableWriteReadEqual(table, table_selected, kDefaultSmallMemStreamSize,
                             &selected_indices);
