@@ -345,11 +345,10 @@ TEST_F(TestPrimitiveReader, TestSkipRepeatedField) {
   std::vector<int32_t> values = {10, 10, 20, 20, 20};
   std::vector<int16_t> def_levels = {0, 1, 1, 1, 1, 1};
   std::vector<int16_t> rep_levels = {0, 0, 1, 0, 1, 1};
-  std::shared_ptr<DataPageV1> page =
-      MakeDataPage<Int32Type>(&descr, values, /*num_values=*/def_levels.size(),
-                              Encoding::PLAIN, /*indices=*/{},
-                              /*indices_size=*/0, def_levels, max_def_level_,
-                              rep_levels, max_rep_level_);
+  num_values_ = static_cast<int>(def_levels.size());
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      &descr, values, num_values_, Encoding::PLAIN, /*indices=*/{},
+      /*indices_size=*/0, def_levels, max_def_level_, rep_levels, max_rep_level_);
 
   pages_.push_back(std::move(page));
 
@@ -374,6 +373,13 @@ TEST_F(TestPrimitiveReader, TestSkipRepeatedField) {
   ASSERT_TRUE(vector_equal({10, 20, 20, 20}, read_vals));
   ASSERT_TRUE(vector_equal({1, 1, 1, 1}, read_defs));
   ASSERT_TRUE(vector_equal({1, 0, 1, 1}, read_reps));
+
+  // No values remain in data page
+  levels_skipped = reader->Skip(2);
+  ASSERT_EQ(0, levels_skipped);
+  reader->ReadBatch(10, read_defs.data(), read_reps.data(), read_vals.data(),
+                    &num_read_values);
+  ASSERT_EQ(num_read_values, 0);
 }
 
 // Page claims to have two values but only 1 is present.
