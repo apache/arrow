@@ -1088,7 +1088,7 @@ TEST_P(TestScanner, ProjectedScanNestedFromNames) {
   auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto batch_out = ConstantArrayGenerator::Zeroes(
       GetParam().items_per_batch,
-      schema({field(".struct.i32", int32()), field("nested.right.f64", float64())}));
+      schema({field("i32", int32()), field("f64", float64())}));
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
 }
 
