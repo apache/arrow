@@ -130,6 +130,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::BINARY,
           Type::LARGE_STRING,
           Type::LARGE_BINARY,
+          Type::STRING_VIEW,
+          Type::BINARY_VIEW,
           Type::FIXED_SIZE_BINARY,
           Type::STRUCT,
           Type::LIST,
