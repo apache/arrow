@@ -26,19 +26,6 @@ pushd ${source_dir}
 
 printenv
 
-if [[ -n "$DEVTOOLSET_VERSION" ]]; then
-  # enable the devtoolset version to use it
-  source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
-
-  # Build images which require the devtoolset don't have CXX17 variables
-  # set as the system compiler doesn't support C++17
-  mkdir -p ~/.R
-  echo "CC = $(which gcc) -fPIC" >> ~/.R/Makevars
-  echo "CXX17 = $(which g++) -fPIC" >> ~/.R/Makevars
-  echo "CXX17STD = -std=c++17" >> ~/.R/Makevars
-  echo "CXX17FLAGS = ${CXX11FLAGS}" >> ~/.R/Makevars
-fi
-
 # Run the nixlibs.R test suite, which is not included in the installed package
 ${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
 

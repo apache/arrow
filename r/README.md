@@ -29,8 +29,8 @@ access to the Arrow C++ library API and higher-level access through a
     efficiency** (`read_csv_arrow()`, `read_json_arrow()`)
 -   Write CSV files (`write_csv_arrow()`)
 -   Manipulate and analyze Arrow data with **`dplyr` verbs**
--   Read and write files in **Amazon S3** buckets with no additional
-    function calls
+-   Read and write files in **Amazon S3** and **Google Cloud Storage**
+    buckets with no additional function calls
 -   Exercise **fine control over column types** for seamless
     interoperability with databases and data warehouse systems
 -   Use **compression codecs** including Snappy, gzip, Brotli,
@@ -64,9 +64,18 @@ additional system dependencies. For macOS and Windows, CRAN hosts binary
 packages that contain the Arrow C++ library. On Linux, source package
 installation will also build necessary C++ dependencies. For a faster,
 more complete installation, set the environment variable
-`NOT_CRAN=true`. See `vignette("install", package = "arrow")` for
-details. Note that version 9.0.0 was the last version to support
-R 3.6 and lower on Windows.
+`NOT_CRAN=true`. See `vignette("install", package = "arrow")` for details.
+
+As of version 10.0.0, `arrow` requires C++17 to build. This means that:
+
+* On Windows, you need `R >= 4.0`. Version 9.0.0 was the last version to support
+R 3.6.
+* On CentOS 7, you can build the latest version of `arrow`,
+but you first need to install a newer compiler than the default system compiler,
+gcc 4.8. See `vignette("install", package = "arrow")` for guidance.
+Note that you only need the newer compiler to build `arrow`:
+installing a binary package, as from RStudio Package Manager,
+or loading a package you've already installed works fine with the system defaults.
 
 ### Installing a development version
 
@@ -134,7 +143,7 @@ returns an R `data.frame`. To return an Arrow `Table`, set argument
 -   `read_json_arrow()`: read a JSON data file
 
 For writing data to single files, the `arrow` package provides the
-functions `write_parquet()`, `write_feather()`, and `write_csv_arrow()`. 
+functions `write_parquet()`, `write_feather()`, and `write_csv_arrow()`.
 These can be used with R `data.frame` and Arrow `Table` objects.
 
 For example, let’s write the Star Wars characters data that’s included
@@ -266,7 +275,7 @@ sw %>%
 ```
 
 Additionally, equality joins (e.g. `left_join()`, `inner_join()`) are supported
-for joining multiple tables. 
+for joining multiple tables.
 
 ```r
 jedi <- data.frame(

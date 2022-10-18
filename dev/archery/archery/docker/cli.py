@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import sys
 
 import click
 
@@ -289,3 +290,27 @@ def docker_compose_images(obj):
     click.echo('Available images:')
     for image in compose.images():
         click.echo(f' - {image}')
+
+
+@docker.command('info')
+@click.argument('service_name')
+@click.option('--show', '-s', required=False,
+              help="Show only specific docker-compose key. Examples of keys:"
+                   " command, environment, build, dockerfile")
+@click.pass_obj
+def docker_compose_info(obj, service_name, show):
+    """Show docker-compose definition info for service_name.
+
+    SERVICE_NAME is the name of the docker service defined on
+    the docker-compose. Look at `archery docker images` output for names.
+    """
+    compose = obj['compose']
+    try:
+        service = compose.config.raw_config["services"][service_name]
+    except KeyError:
+        click.echo(f'Service name {service_name} could not be found', err=True)
+        sys.exit(1)
+    else:
+        click.echo(f'Service {service_name} docker-compose config:')
+        output = "\n".join(compose.info(service, show))
+        click.echo(output)
