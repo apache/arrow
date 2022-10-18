@@ -86,7 +86,7 @@ outputs:
         - libutf8proc
         - lz4-c
         - numpy
-        - orc  # [unix]
+        - orc
         - openssl
         - python
         - rapidjson
@@ -216,7 +216,7 @@ outputs:
         - pyarrow.dataset
         - pyarrow.flight
         - pyarrow.gandiva  # [not (osx and arm64)]
-        - pyarrow.orc      # [unix]
+        - pyarrow.orc
         - pyarrow.parquet
         - pyarrow.plasma   # [unix]
         - pyarrow.fs
