@@ -2462,6 +2462,10 @@ void InitStaticData() {
   // Temporal types
   g_temporal_types = {date32(),
                       date64(),
+                      duration(TimeUnit::SECOND),
+                      duration(TimeUnit::MILLI),
+                      duration(TimeUnit::MICRO),
+                      duration(TimeUnit::NANO),
                       time32(TimeUnit::SECOND),
                       time32(TimeUnit::MILLI),
                       time64(TimeUnit::MICRO),
