@@ -609,7 +609,10 @@ std::vector<std::string> compute__GetFunctionNames() {
 class RScalarUDFKernelState : public arrow::compute::KernelState {
  public:
   RScalarUDFKernelState(cpp11::sexp exec_func, cpp11::sexp resolver)
-      : exec_func_(exec_func), resolver_(resolver) {}
+      : exec_func_(exec_func),
+        resolver_(resolver),
+        exec_func_shelter_(exec_func),
+        resolver_shelter_(resolver) {}
 
   cpp11::sexp exec_func_;
   cpp11::sexp resolver_;

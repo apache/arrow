@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
+#include "./safe-call-into-r.h"
 
 #include <arrow/array.h>
 #include <arrow/extension_type.h>
@@ -34,7 +35,7 @@ class RExtensionType : public arrow::ExtensionType {
  public:
   RExtensionType(const std::shared_ptr<arrow::DataType> storage_type,
                  std::string extension_name, std::string extension_metadata,
-                 std::shared_ptr<cpp11::environment> r6_class)
+                 std::shared_ptr<thread_safe_sexp> r6_class)
       : arrow::ExtensionType(storage_type),
         extension_name_(extension_name),
         extension_metadata_(extension_metadata),
@@ -58,7 +59,7 @@ class RExtensionType : public arrow::ExtensionType {
 
   std::unique_ptr<RExtensionType> Clone() const;
 
-  cpp11::environment r6_class() const { return *r6_class_; }
+  cpp11::environment r6_class() const { return r6_class_->data(); }
 
   cpp11::environment r6_instance(std::shared_ptr<arrow::DataType> storage_type,
                                  const std::string& serialized_data) const;
@@ -71,5 +72,5 @@ class RExtensionType : public arrow::ExtensionType {
   std::string extension_name_;
   std::string extension_metadata_;
   std::string cached_to_string_;
-  std::shared_ptr<cpp11::environment> r6_class_;
+  std::shared_ptr<thread_safe_sexp> r6_class_;
 };

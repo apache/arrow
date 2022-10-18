@@ -141,6 +141,40 @@ class MainRThread {
   MainRThread() : initialized_(false), executor_(nullptr), stop_source_(nullptr) {}
 };
 
+// This class is a version of cpp11::sexp suitable for objects that might be
+// created or deleted on other threads, since the constructor and deleter
+// of cpp11::sexp calls R code and may crash in this situation.
+class thread_safe_sexp {
+ public:
+  thread_safe_sexp() : data_(R_NilValue), preserve_token_(R_NilValue) {}
+  thread_safe_sexp(SEXP data) : data_(data), preserve_token_(R_NilValue) {
+    if (!MainRThread::GetInstance().IsMainThread()) {
+      arrow::Status warn_status = arrow::Status::Invalid(
+          "Attempt to construct a thread_safe_sexp from the non-R thread");
+      warn_status.Warn();
+    }
+
+    preserve_token_ = cpp11::preserved.insert(data_);
+  }
+
+  SEXP data() const { return data_; }
+
+  ~thread_safe_sexp() {
+    if (MainRThread::GetInstance().IsMainThread()) {
+      cpp11::preserved.release(preserve_token_);
+    } else {
+      // Rather than crash, just warn and leak this object
+      arrow::Status warn_status = arrow::Status::Invalid(
+          "Leaking SEXP that can't be deleted from a non-R thread");
+      warn_status.Warn();
+    }
+  }
+
+ private:
+  SEXP data_;
+  SEXP preserve_token_;
+};
+
 // This object is used to ensure that signal hanlders are registered when
 // RunWithCapturedR launches its background thread to call Arrow and is
 // cleaned up however this exits. Note that the lifecycle of the StopSource,

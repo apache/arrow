@@ -138,7 +138,7 @@ cpp11::environment ExtensionType__initialize(
     const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name,
     cpp11::raws extension_metadata, cpp11::environment r6_class) {
   std::string metadata_string(extension_metadata.begin(), extension_metadata.end());
-  auto r6_class_shared = std::make_shared<cpp11::environment>(r6_class);
+  auto r6_class_shared = std::make_shared<thread_safe_sexp>(r6_class);
   RExtensionType cpp_type(storage_type, extension_name, metadata_string, r6_class_shared);
   return cpp_type.r6_instance();
 }
