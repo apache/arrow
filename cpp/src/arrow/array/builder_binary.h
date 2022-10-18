@@ -567,7 +567,6 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
       ARROW_ASSIGN_OR_RAISE(value, data_heap_builder_.Append(value, length));
     }
     UnsafeAppend(StringHeader(value, length));
-    UnsafeAppendToBitmap(true);
     return Status::OK();
   }
 
