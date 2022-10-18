@@ -1578,6 +1578,33 @@ TEST(Expression, ParseBasic) {
   ASSERT_EQ(vals[1], 2);
 }
 
+TEST(Expression, ParseComplexExpr) {
+  const char* expr_str = "add(multiply(.m, .x), .b)";
+  ASSERT_OK_AND_ASSIGN(Expression expr, Expression::FromString(expr_str));
+  ExecBatch batch =
+      ExecBatchFromJSON({int32(), int32(), int32()}, "[[3, 1, 1], [1, 1, 0], [3, 3, 1]]");
+  std::shared_ptr<Schema> sch =
+      schema({field("m", int32()), field("x", int32()), field("b", int32())});
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*sch.get()));
+  ASSERT_OK_AND_ASSIGN(Datum result, ExecuteScalarExpression(expr, batch));
+  const int32_t* vals =
+      reinterpret_cast<const int32_t*>(result.array()->buffers[1]->data());
+  ASSERT_EQ(result.array()->length, 3);
+  ASSERT_EQ(vals[0], 4);
+  ASSERT_EQ(vals[1], 1);
+  ASSERT_EQ(vals[2], 10);
+}
+
+TEST(Expression, ParseComplexScalar) {
+  const char* expr_str = "add($duration(MILLI):10, $duration(MILLI):20)";
+  ASSERT_OK_AND_ASSIGN(Expression expr, Expression::FromString(expr_str));
+  std::shared_ptr<Schema> empty_schema = schema({});
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*empty_schema.get()));
+  ASSERT_OK_AND_ASSIGN(Datum result, ExecuteScalarExpression(expr, {}));
+  DurationScalar expected(30, TimeUnit::MILLI);
+  ASSERT_TRUE(result.scalar()->Equals(expected));
+}
+
 TEST(Projection, AugmentWithNull) {
   // NB: input contains *no columns* except i32
   auto input = ArrayFromJSON(struct_({kBoringSchema->GetFieldByName("i32")}),
