@@ -4784,6 +4784,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // schema.cpp
+std::shared_ptr<arrow::Schema> schema_2(cpp11::list field_list);
+extern "C" SEXP _arrow_schema_2(SEXP field_list_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type field_list(field_list_sexp);
+	return cpp11::as_sexp(schema_2(field_list));
+END_CPP11
+}
+// schema.cpp
 std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s);
 extern "C" SEXP _arrow_Schema__ToString(SEXP s_sexp){
 BEGIN_CPP11
@@ -5696,6 +5704,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Scalar__Equals", (DL_FUNC) &_arrow_Scalar__Equals, 2}, 
 		{ "_arrow_Scalar__ApproxEquals", (DL_FUNC) &_arrow_Scalar__ApproxEquals, 2}, 
 		{ "_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1}, 
+		{ "_arrow_schema_2", (DL_FUNC) &_arrow_schema_2, 1}, 
 		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1}, 
 		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 
 		{ "_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2}, 

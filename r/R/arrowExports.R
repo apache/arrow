@@ -1880,6 +1880,10 @@ schema_ <- function(fields) {
   .Call(`_arrow_schema_`, fields)
 }
 
+schema_2 <- function(field_list) {
+  .Call(`_arrow_schema_2`, field_list)
+}
+
 Schema__ToString <- function(s) {
   .Call(`_arrow_Schema__ToString`, s)
 }
