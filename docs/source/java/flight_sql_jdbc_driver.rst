@@ -66,12 +66,19 @@ The URI format is as follows::
 
   jdbc:arrow-flight-sql://HOSTNAME:PORT[/?param1=val1&param2=val2&...]
 
-where
+For example, take this URI::
 
+  jdbc:arrow-flight-sql://localhost:12345/?username=admin&password=pass&useEncryption=1
+
+This will connect to a Flight SQL service running on ``localhost`` on
+port 12345.  It will create a secure, encrypted connection, and
+authenticate using the username ``admin`` and the password ``pass``.
+
+The components of the URI are as follows.
+
+* The URI scheme must be ``jdbc:arrow-flight-sql://``.
 * **HOSTNAME** is the hostname of the Flight SQL service.
 * **PORT** is the port of the Flight SQL service.
-
-By default, this will create an insecure (plaintext) connection.
 
 Additional options can be passed as query parameters.  The supported
 parameters are:
@@ -109,7 +116,8 @@ parameters are:
 
    * - useEncryption
      - false
-     - Whether to use TLS
+     - Whether to use TLS (the default is an insecure, plaintext
+       connection)
 
    * - username
      - null
