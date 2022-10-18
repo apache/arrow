@@ -184,7 +184,7 @@ Schema$create <- function(...) {
   if (all(map_lgl(.list, ~ inherits(., "Field")))) {
     schema_(.list)
   } else {
-    schema_2(map(.list, as_type))
+    schema_2(imap(.list, as_type))
   }
 }
 #' @include arrowExports.R
