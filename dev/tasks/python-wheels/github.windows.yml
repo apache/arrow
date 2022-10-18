@@ -42,6 +42,8 @@ jobs:
       {{ macros.github_install_archery()|indent }}
 
       - name: Build wheel
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: cmd
         run: |
           cd arrow
