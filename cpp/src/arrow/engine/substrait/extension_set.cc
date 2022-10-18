@@ -717,6 +717,15 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessOverflowableArithmetic
   };
 }
 
+ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessUncheckedArithmetic(
+    const std::string& function_name) {
+  return [function_name](const SubstraitCall& call) -> Result<compute::Expression> {
+    ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
+                          GetValueArgs(call, 1));
+    return arrow::compute::call(function_name, std::move(value_args));
+  };
+}
+
 template <bool kChecked>
 ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessOverflowableArithmetic(
     Id substrait_fn_id) {
@@ -858,11 +867,18 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
 
     // -------------- Substrait -> Arrow Functions -----------------
     // Mappings with a _checked variant
-    for (const auto& function_name : {"add", "subtract", "multiply", "divide", "sign",
-                                      "power", "sqrt", "exp", "abs"}) {
+    for (const auto& function_name :
+         {"add", "subtract", "multiply", "divide", "power", "sqrt", "abs"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
                                   DecodeOptionlessOverflowableArithmetic(function_name)));
+    }
+
+    // Mappings without a _checked variant
+    for (const auto& function_name : {"exp", "sign"}) {
+      DCHECK_OK(
+          AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
+                                  DecodeOptionlessUncheckedArithmetic(function_name)));
     }
 
     // Mappings for log functions
@@ -876,7 +892,7 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     for (const auto& function_name : {"ceil", "floor"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitRoundingFunctionsUri, function_name},
-                                  DecodeOptionlessOverflowableArithmetic(function_name)));
+                                  DecodeOptionlessUncheckedArithmetic(function_name)));
     }
 
     // Basic mappings that need _kleene appended to them

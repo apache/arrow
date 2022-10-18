@@ -2235,11 +2235,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(exp)));
 
   // ----------------------------------------------------------------------
-  auto exp_checked =
-      MakeUnaryArithmeticFunctionFloatingPoint<ExpChecked>("exp_checked", exp_doc);
-  DCHECK_OK(registry->AddFunction(std::move(exp_checked)));
-
-  // ----------------------------------------------------------------------
   auto sqrt = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", sqrt_doc);
   DCHECK_OK(registry->AddFunction(std::move(sqrt)));
 
