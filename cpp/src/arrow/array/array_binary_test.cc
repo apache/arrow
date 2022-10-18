@@ -883,11 +883,15 @@ class TestBaseBinaryDataVisitor : public ::testing::Test {
   void SetUp() override { type_ = TypeTraits<TypeClass>::type_singleton(); }
 
   void TestBasics() {
-    auto array = ArrayFromJSON(type_, R"(["foo", null, "bar"])");
+    auto array = ArrayFromJSON(
+        type_,
+        R"(["foo", null, "bar", "inline_me", "allocate_me_aaaaa", "allocate_me_bbbb"])");
     BinaryAppender appender;
     ArraySpanVisitor<TypeClass> visitor;
     ASSERT_OK(visitor.Visit(*array->data(), &appender));
-    ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"foo", "(null)", "bar"}));
+    ASSERT_THAT(appender.data,
+                ::testing::ElementsAreArray({"foo", "(null)", "bar", "inline_me",
+                                             "allocate_me_aaaaa", "allocate_me_bbbb"}));
     ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
   }
 
@@ -904,7 +908,10 @@ class TestBaseBinaryDataVisitor : public ::testing::Test {
   std::shared_ptr<DataType> type_;
 };
 
-TYPED_TEST_SUITE(TestBaseBinaryDataVisitor, BaseBinaryArrowTypes);
+using BinaryAndBin = ::testing::Types<BinaryType, LargeBinaryType, StringType,
+                                      LargeStringType, BinaryViewType, StringViewType>;
+
+TYPED_TEST_SUITE(TestBaseBinaryDataVisitor, BaseBinaryOrBinaryViewLikeArrowTypes);
 
 TYPED_TEST(TestBaseBinaryDataVisitor, Basics) { this->TestBasics(); }
 
