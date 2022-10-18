@@ -147,7 +147,7 @@ class MainRThread {
 class thread_safe_sexp {
  public:
   thread_safe_sexp() : data_(R_NilValue), preserve_token_(R_NilValue) {}
-  thread_safe_sexp(SEXP data) : data_(data), preserve_token_(R_NilValue) {
+  explicit thread_safe_sexp(SEXP data) : data_(data), preserve_token_(R_NilValue) {
     if (!MainRThread::GetInstance().IsMainThread()) {
       arrow::Status warn_status = arrow::Status::Invalid(
           "Attempt to construct a thread_safe_sexp from the non-R thread");
