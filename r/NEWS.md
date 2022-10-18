@@ -31,7 +31,7 @@ Several new functions can be used in queries:
   `dplyr::slice_max()`, `dplyr::slice_head()`, `dplyr::slice_tail()`, and
   `dplyr::slice_sample()`.
 
-A full list of functions available in queries is available at `?acero`.
+For a full list of functions available in queries see `?acero`.
 
 A few new features and bugfixes were implemented for joins.
 Extension arrays are now supported in joins, allowing, for example, joining 
@@ -43,7 +43,7 @@ be all `NA` for rows in the right hand side without any matches on the left.
 
 A few breaking changes: Calling `dplyr::pull()` will return a `?ChunkedArray` 
 instead of an R vector. Calling `dplyr::compute()` on a query that is grouped 
-returns a `?Table`, instead of an query object.
+returns a `?Table`, instead of a query object.
 
 Finally, long-running queries can now be cancelled and will abort their 
 computation immediately.
