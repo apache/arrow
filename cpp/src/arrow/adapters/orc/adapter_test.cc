@@ -467,14 +467,18 @@ TEST_F(TestORCWriterTrivialNoConversion, writeTrivialChunkAndSelectField) {
 TEST_F(TestORCWriterTrivialNoConversion, writeFilledChunkAndSelectField) {
   std::vector<int> selected_indices = {1, 7};
   random::RandomArrayGenerator rand(kRandomSeed);
-  std::shared_ptr<Schema> localSchema = schema(
-    { field("bool", boolean()), field("int32",int32()),
-     field("int64", int64()), field("float", float32()),
-     field("struct", struct_({field("a", utf8()), field("b", int64())})),
-     field("double", float64()), field("date32", date32()),
-     field("ts3", timestamp(TimeUnit::NANO)), field("string", utf8()),
-     field("binary", binary()),
-   });
+  std::shared_ptr<Schema> localSchema = schema({
+      field("bool", boolean()),
+      field("int32", int32()),
+      field("int64", int64()),
+      field("float", float32()),
+      field("struct", struct_({field("a", utf8()), field("b", int64())})),
+      field("double", float64()),
+      field("date32", date32()),
+      field("ts3", timestamp(TimeUnit::NANO)),
+      field("string", utf8()),
+      field("binary", binary()),
+  });
   auto batch = rand.BatchOf(localSchema->fields(), 100);
   std::shared_ptr<Table> table = Table::Make(localSchema, batch->columns());
   EXPECT_OK_AND_ASSIGN(auto table_selected, table->SelectColumns(selected_indices));
