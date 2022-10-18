@@ -684,6 +684,7 @@ def test_partitioning():
         names=["f1", "f2", "part"]
     )
     partitioning_schema = pa.schema([("part", pa.string())])
+    modified_partitioning_schema = pa.schema([("f1", pa.int64())])
     for klass in [ds.DirectoryPartitioning, ds.HivePartitioning,
                   ds.FilenamePartitioning]:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -694,6 +695,13 @@ def test_partitioning():
                                    partitioning=partitioning)
             load_back_table = load_back.to_table()
             assert load_back_table.equals(table)
+
+        # test roundtrip with different partitioning field
+            with pytest.raises(pa.ArrowInvalid):
+                load_back = ds.dataset(tempdir, format='ipc',
+                                       partitioning=klass(
+                                           modified_partitioning_schema)
+                                       )
 
 
 def test_expression_arithmetic_operators():

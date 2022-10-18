@@ -236,24 +236,34 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
     InspectOptions options) {
   std::vector<std::shared_ptr<Schema>> schemas;
 
+  ARROW_ASSIGN_OR_RAISE(auto partition_schema,
+                        options_.partitioning.GetOrInferSchema(
+                            StripPrefixAndFilename(files_, options_.partition_base_dir)));
+
   const bool has_fragments_limit = options.fragments >= 0;
   int fragments = options.fragments;
   for (const auto& info : files_) {
     if (has_fragments_limit && fragments-- == 0) break;
     auto result = format_->Inspect({info, fs_});
+
     if (ARROW_PREDICT_FALSE(!result.ok())) {
       return result.status().WithMessage(
           "Error creating dataset. Could not read schema from '", info.path(),
           "'. Is this a '", format_->type_name(), "' file?: ", result.status().message());
     }
+
+    if (partition_schema->num_fields()) {
+      auto field_check =
+          result->get()->CanReferenceFieldsByNames(partition_schema->field_names());
+      if (ARROW_PREDICT_FALSE(field_check.ok())) {
+        return Status::Invalid(
+            "Error creating dataset. Partitioning field(s) present in fragment.");
+      }
+    }
+
     schemas.push_back(result.MoveValueUnsafe());
   }
-
-  ARROW_ASSIGN_OR_RAISE(auto partition_schema,
-                        options_.partitioning.GetOrInferSchema(
-                            StripPrefixAndFilename(files_, options_.partition_base_dir)));
   schemas.push_back(partition_schema);
-
   return schemas;
 }
 
