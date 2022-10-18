@@ -87,8 +87,8 @@ jobs:
           path: arrow-shared-libs-macos-x86_64.tar.gz
 
   build-cpp-macos-arm64:
-    name: Build C++ libraries macOS aarch_64
-    runs-on: ["self-hosted", "macOS", "aarch_64"]
+    name: Build C++ libraries macOS arm64
+    runs-on: ["self-hosted", "macOS", "arm64"]
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.13"
     steps:
@@ -118,12 +118,12 @@ jobs:
         run: |
           mkdir -p arrow/java-dist/aarch_64
           mv arrow/java-dist/*.* arrow/java-dist/aarch_64/
-          tar -cvzf arrow-shared-libs-macos-aarch_64.tar.gz arrow/java-dist/
+          tar -cvzf arrow-shared-libs-macos-arm64.tar.gz arrow/java-dist/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: macos-shared-lib-aarch_64
-          path: arrow-shared-libs-macos-aarch_64.tar.gz
+          name: macos-shared-lib-arm64
+          path: arrow-shared-libs-macos-arm64.tar.gz
 
   build-cpp-windows:
     name: Build C++ libraries Windows
@@ -161,7 +161,7 @@ jobs:
     needs:
       - build-cpp-ubuntu
       - build-cpp-macos-x86_64
-      - build-cpp-macos-aarch_64
+      - build-cpp-macos-arm64
       - build-cpp-windows
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
@@ -177,21 +177,19 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: windows-shared-lib
-      - name: Download macOS aarch_64 C++ libraries
+      - name: Download macOS arm64 C++ libraries
         uses: actions/download-artifact@v2
         with:
-          name: macos-shared-lib-aarch_64
+          name: macos-shared-lib-arm64
       - name: Descompress artifacts
         run: |
           tar -xvzf arrow-shared-libs-linux.tar.gz
           tar -xvzf arrow-shared-libs-macos-x86_64.tar.gz
-          tar -xvzf arrow-shared-libs-macos-aarch_64.tar.gz
+          tar -xvzf arrow-shared-libs-macos-arm64.tar.gz
           tar -xvzf arrow-shared-libs-windows.tar.gz
       - name: Test that shared libraries exist
         run: |
           set -x
-          test -f arrow/java-dist/x86_64/libarrow_cdata_jni.dylib
-          test -f arrow/java-dist/aarch_64/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/libarrow_cdata_jni.so
           test -f arrow/java-dist/arrow_cdata_jni.dll
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.dylib
@@ -201,8 +199,7 @@ jobs:
           test -f arrow/java-dist/x86_64/libarrow_orc_jni.dylib
           test -f arrow/java-dist/aarch_64/libarrow_orc_jni.dylib
           test -f arrow/java-dist/libarrow_orc_jni.so
-          test -f arrow/java-dist/x86_64/arrow_orc_jni.dll
-          test -f arrow/java-dist/aarch_64/arrow_orc_jni.dll
+          test -f arrow/java-dist/arrow_orc_jni.dll
           test -f arrow/java-dist/x86_64/libgandiva_jni.dylib
           test -f arrow/java-dist/aarch_64/libgandiva_jni.dylib
           test -f arrow/java-dist/libgandiva_jni.so
