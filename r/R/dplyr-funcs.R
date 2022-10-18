@@ -75,7 +75,7 @@ register_binding <- function(fun_name,
   previous_fun <- registry[[unqualified_name]]
 
   # if the unqualified name exists in the registry, warn
-  if (!is.null(previous_fun)) {
+  if (!is.null(previous_fun) && !identical(fun, previous_fun)) {
     warn(
       paste0(
         "A \"",

@@ -611,8 +611,8 @@ class RScalarUDFKernelState : public arrow::compute::KernelState {
   RScalarUDFKernelState(cpp11::sexp exec_func, cpp11::sexp resolver)
       : exec_func_(exec_func), resolver_(resolver) {}
 
-  cpp11::function exec_func_;
-  cpp11::function resolver_;
+  cpp11::sexp exec_func_;
+  cpp11::sexp resolver_;
 };
 
 arrow::Result<arrow::TypeHolder> ResolveScalarUDFOutputType(
@@ -630,7 +630,8 @@ arrow::Result<arrow::TypeHolder> ResolveScalarUDFOutputType(
               cpp11::to_r6<arrow::DataType>(input_types[i].GetSharedPtr());
         }
 
-        cpp11::sexp output_type_sexp = state->resolver_(input_types_sexp);
+        cpp11::sexp output_type_sexp =
+            cpp11::function(state->resolver_)(input_types_sexp);
         if (!Rf_inherits(output_type_sexp, "DataType")) {
           cpp11::stop(
               "Function specified as arrow_scalar_function() out_type argument must "
@@ -674,7 +675,8 @@ arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
         cpp11::writable::list udf_context = {batch_length_sexp, output_type_sexp};
         udf_context.names() = {"batch_length", "output_type"};
 
-        cpp11::sexp func_result_sexp = state->exec_func_(udf_context, args_sexp);
+        cpp11::sexp func_result_sexp =
+            cpp11::function(state->exec_func_)(udf_context, args_sexp);
 
         if (Rf_inherits(func_result_sexp, "Array")) {
           auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(func_result_sexp);
