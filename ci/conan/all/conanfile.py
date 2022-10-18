@@ -302,7 +302,7 @@ class ArrowConan(ConanFile):
         if self._with_thrift():
             self.requires("thrift/0.16.0")
         if self._with_protobuf():
-            self.requires("protobuf/3.21.1")
+            self.requires("protobuf/3.21.4")
         if self._with_jemalloc():
             self.requires("jemalloc/5.2.1")
         if self._with_boost():
@@ -346,7 +346,7 @@ class ArrowConan(ConanFile):
         if self.options.with_zstd:
             self.requires("zstd/1.5.2")
         if self._with_re2():
-            self.requires("re2/20220201")
+            self.requires("re2/20220601")
         if self._with_utf8proc():
             self.requires("utf8proc/2.7.0")
         if self.options.with_backtrace:
