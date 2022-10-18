@@ -144,6 +144,59 @@ struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
   }
 };
 
+// BinaryView, StringView...
+template <typename T>
+struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
+  using c_type = std::string_view;
+
+  template <typename ValidFunc, typename NullFunc>
+  static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
+                            NullFunc&& null_func) {
+    if (arr.length == 0) {
+      return Status::OK();
+    }
+    const StringHeader* headers;
+    if (arr.buffers[1].data == NULLPTR) {
+      headers = NULLPTR;
+    } else {
+      // Do not apply the array offset to the values array; the value_offsets
+      // index the non-sliced values array.
+      headers = arr.GetValues<StringHeader>(1);
+    }
+    return VisitBitBlocks(
+        arr.buffers[0].data, arr.offset, arr.length,
+        [&](int64_t (index)) {
+          return valid_func(static_cast<std::string_view>(headers[index]));
+        },
+        [&]() {
+          return null_func();
+        });
+  }
+
+  template <typename ValidFunc, typename NullFunc>
+  static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
+                        NullFunc&& null_func) {
+    if (arr.length == 0) {
+      return;
+    }
+    const StringHeader* headers;
+    if (arr.buffers[1].data == NULLPTR) {
+      headers = NULLPTR;
+    } else {
+      // Do not apply the array offset to the values array; the value_offsets
+      // index the non-sliced values array.
+      headers = arr.GetValues<StringHeader>(1);
+    }
+
+    VisitBitBlocksVoid(
+        arr.buffers[0].data, arr.offset, arr.length,
+        [&](int64_t (index)) {
+          valid_func(static_cast<std::string_view>(headers[index]));
+        },
+        std::forward<NullFunc>(null_func));
+  }
+};
+
 // FixedSizeBinary, Decimal128
 template <typename T>
 struct ArraySpanInlineVisitor<T, enable_if_fixed_size_binary<T>> {
