@@ -115,6 +115,12 @@ implicit_schema <- function(.data) {
   # want to go one level up (where we may have called implicit_schema() before)
   .data <- ensure_group_vars(.data)
   old_schm <- .data$.data$schema
+
+  if (is.null(.data$aggregations) && is.null(.data$join) && !needs_projection(.data$selected_columns, old_schm)) {
+    # Just use the schema we have
+    return(old_schm)
+  }
+
   # Add in any augmented fields that may exist in the query but not in the
   # real data, in case we have FieldRefs to them
   old_schm[["__filename"]] <- string()
