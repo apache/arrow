@@ -98,8 +98,8 @@ download_binary <- function(lib) {
 # * Some other string: a "distro-version" that corresponds to a binary that is
 #   available, to override what this function may discover by default.
 #   Possible values are:
-#    * "centos-7" (gcc 4.8, no AWS/GCS support)
-#    * "ubuntu-18.04" (gcc 8, openssl 1)
+#    * "centos-7" (gcc 8 (devtoolset), openssl 1, glib 2.17)
+#    * "ubuntu-18.04" (gcc 8, openssl 1, glib 2.27)
 #    * "ubuntu-22.04" (openssl 3)
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
@@ -137,28 +137,21 @@ check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apa
 
 select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
                           arch = tolower(Sys.info()[["machine"]]),
-                          compiler_version = compiler_version_string(),
                           test_program = test_for_curl_and_openssl) {
   if (identical(os, "linux") && identical(arch, "x86_64")) {
     # We only host x86 linux binaries today
-    is_gcc4 <- any(grepl("^g\\+\\+.*[^\\d.]4(\\.\\d){2}", compiler_version))
-    if (is_gcc4) {
-      cat("*** Some features are not available with gcc 4\n")
-      return("centos-7")
-    } else {
-      tryCatch(
-        # Somehow the test program system2 call errors on the sanitizer builds
-        # so globally handle the possibility that this could fail
-        {
-          errs <- compile_test_program(test_program)
-          determine_binary_from_stderr(errs)
-        },
-        error = function(e) {
-          cat("*** Unable to find libcurl and openssl\n")
-          NULL
-        }
-      )
-    }
+    tryCatch(
+      # Somehow the test program system2 call errors on the sanitizer builds
+      # so globally handle the possibility that this could fail
+      {
+        errs <- compile_test_program(test_program)
+        determine_binary_from_stderr(errs)
+      },
+      error = function(e) {
+        cat("*** Unable to find libcurl and openssl\n")
+        NULL
+      }
+    )
   } else {
     # No binary available for arch
     cat(sprintf("*** Building on %s %s\n", os, arch))
@@ -196,30 +189,20 @@ compile_test_program <- function(code) {
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
-# TODO(ARROW-16976): build "ubuntu-18.04" on centos7 with newer devtoolset (but glibc is 2.17) for broader compatibility (like manylinux2014)?
+# TODO(ARROW-16976): drop "ubuntu-18.04" and just use "centos-7"
+# (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
     # There was no error in compiling: so we found libcurl and openssl > 1.0.2,
     # openssl is < 3.0, glibc is >= 2.27, and we're not using a strict libc++
     cat("*** Found libcurl and openssl >= 1.0.2\n")
     return("ubuntu-18.04")
+    # Else, check for dealbreakers:
   } else if (any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our binaries are all built with GNU stdlib so they fail with libc++
     cat("*** Found libc++\n")
     return(NULL)
-  } else if (any(grepl("glibc version too old", errs))) {
-    # ubuntu-18.04 has glibc 2.27, so even if you install newer compilers
-    # (e.g. devtoolset on centos) and have curl/openssl, you run into problems
-    # TODO(ARROW-16976): build binaries with older glibc
-    cat("*** Checking glibc version\n")
-    # If we're here, we're on an older OS but with a newer compiler than gcc 4.8
-    # (we already checked), so it is possible to build with more features on.
-    # We just can't use our binaries because they were built with newer glibc.
-    return("centos-7")
   } else if (header_not_found("curl/curl", errs)) {
-    # TODO(ARROW-16985): should these next 3 NULL cases return centos-7? A source build
-    # won't be able to include more features.
-    # Could check if build_ok (also for glibc?)
     cat("*** libcurl not found\n")
     return(NULL)
   } else if (header_not_found("openssl/opensslv", errs)) {
@@ -228,6 +211,15 @@ determine_binary_from_stderr <- function(errs) {
   } else if (any(grepl("OpenSSL version too old", errs))) {
     cat("*** openssl found but version >= 1.0.2 is required for some features\n")
     return(NULL)
+    # Else, determine which other binary will work
+  } else if (any(grepl("glibc version too old", errs))) {
+    # ubuntu-18.04 has glibc 2.27, so even if you install newer compilers
+    # (e.g. devtoolset on centos) and have curl/openssl, you run into problems
+    # TODO(ARROW-16976): build binaries with older glibc
+    cat("*** Checking glibc version\n")
+    # If we're here, we're on an older OS but with a new enough compiler
+    # (e.g. CentOS 7 with devtoolset-8)
+    return("centos-7")
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
     cat("*** Found libcurl and openssl >= 3.0.0\n")
     return("ubuntu-22.04")
@@ -238,10 +230,6 @@ determine_binary_from_stderr <- function(errs) {
 header_not_found <- function(header, errs) {
   regex <- sprintf("[Ee]rror.*%s\\.h", header)
   any(grepl(regex, errs))
-}
-
-compiler_version_string <- function(compiler = R_CMD_config("CXX17")) {
-  system(paste(compiler, "--version"), intern = TRUE)
 }
 
 #### start distro ####
@@ -436,10 +424,9 @@ build_libarrow <- function(src_dir, dst_dir) {
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_var_list <- with_cloud_support(env_var_list)
-  env_var_list <- with_mimalloc(env_var_list)
 
-  # turn_off_all_optional_features() needs to happen after with_mimalloc() and
-  # with_cloud_support(), since those might turn features ON.
+  # turn_off_all_optional_features() needs to happen after
+  # with_cloud_support(), since it might turn features ON.
   thirdparty_deps_unavailable <- !download_ok &&
     !dir.exists(thirdparty_dependency_dir) &&
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
@@ -654,26 +641,12 @@ is_feature_requested <- function(env_varname, default = env_is("LIBARROW_MINIMAL
   requested
 }
 
-with_mimalloc <- function(env_var_list) {
-  arrow_mimalloc <- is_feature_requested("ARROW_MIMALLOC")
-  if (arrow_mimalloc) {
-    # User wants mimalloc. If they're using gcc, let's make sure the version is >= 4.9
-    if (isTRUE(cmake_gcc_version(env_var_list) < "4.9")) {
-      cat("**** mimalloc support not available for gcc < 4.9; building with ARROW_MIMALLOC=OFF\n")
-      arrow_mimalloc <- FALSE
-    }
-  }
-  replace(env_var_list, "ARROW_MIMALLOC", ifelse(arrow_mimalloc, "ON", "OFF"))
-}
-
 with_cloud_support <- function(env_var_list) {
   arrow_s3 <- is_feature_requested("ARROW_S3")
   arrow_gcs <- is_feature_requested("ARROW_GCS")
   if (arrow_s3 || arrow_gcs) {
     # User wants S3 or GCS support.
-    # If they're using gcc, let's make sure the version is >= 4.9
-    # (aws-sdk-cpp requires that; google-cloud-cpp only tests with >= 6.3)
-    # and make sure that we have curl and openssl system libs
+    # Make sure that we have curl and openssl system libs
     feats <- c(
       if (arrow_s3) "S3",
       if (arrow_gcs) "GCS"
@@ -690,11 +663,7 @@ with_cloud_support <- function(env_var_list) {
     # capabilities for using binaries. We could consider consolidating this
     # logic, though these use cmake in order to match exactly what we do in the
     # libarrow build, and maybe that increases the fidelity.
-    if (isTRUE(cmake_gcc_version(env_var_list) < "4.9")) {
-      print_warning("not available for gcc < 4.9")
-      arrow_s3 <- FALSE
-      arrow_gcs <- FALSE
-    } else if (!cmake_find_package("CURL", NULL, env_var_list)) {
+    if (!cmake_find_package("CURL", NULL, env_var_list)) {
       # curl on macos should be installed, so no need to alter this for macos
       # TODO: check for apt/yum/etc. and message the right thing?
       print_warning("requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb)")
@@ -710,25 +679,6 @@ with_cloud_support <- function(env_var_list) {
   # Update the build flags
   env_var_list <- replace(env_var_list, "ARROW_S3", ifelse(arrow_s3, "ON", "OFF"))
   replace(env_var_list, "ARROW_GCS", ifelse(arrow_gcs, "ON", "OFF"))
-}
-
-cmake_gcc_version <- function(env_var_list) {
-  # This function returns NA if using a non-gcc compiler
-  # Always enclose calls to it in isTRUE() or isFALSE()
-  vals <- cmake_cxx_compiler_vars(env_var_list)
-  if (!identical(vals[["CMAKE_CXX_COMPILER_ID"]], "GNU")) {
-    return(NA)
-  }
-  package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]])
-}
-
-cmake_cxx_compiler_vars <- function(env_var_list) {
-  env_vars <- env_vars_as_string(env_var_list)
-  info <- system(paste("export", env_vars, "&& $CMAKE --system-information"), intern = TRUE)
-  info <- grep("^[A-Z_]* .*$", info, value = TRUE)
-  vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
-  names(vals) <- sub("^(.*?) .*$", "\\1", info)
-  vals[grepl("^CMAKE_CXX_COMPILER_?", names(vals))]
 }
 
 cmake_find_package <- function(pkg, version = NULL, env_var_list) {

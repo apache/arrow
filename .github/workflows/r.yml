@@ -211,7 +211,6 @@ jobs:
       - name: Build Arrow C++
         shell: bash
         env:
-          RTOOLS_VERSION: ${{ matrix.config.rtools }}
           MINGW_ARCH: ${{ matrix.config.arch }}
         run: ci/scripts/r_windows_build.sh
       - name: Rename libarrow.zip
