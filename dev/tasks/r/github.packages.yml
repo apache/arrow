@@ -163,7 +163,7 @@ jobs:
           rig default {{ '${{ matrix.r_version.r }}' }}$rig_arch
 
           rig system setup-user-lib
-          rig system add-pak 
+          rig system add-pak
       {{ macros.github_setup_local_r_repo(false, true)|indent }}
       - name: Prepare Dependency Installation
 
@@ -275,18 +275,13 @@ jobs:
           ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
-          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
-          if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
-            # enable the devtoolset version to use it
-            source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
-          fi
           Rscript -e '
           {{  macros.github_test_r_src_pkg()|indent(8) }}
           '
       - name: Upload binary artifact
-        if:  matrix.config.devtoolset 
+        if:  matrix.config.devtoolset
         uses: actions/upload-artifact@v3
         with:
           name: r-pkg_centos7
@@ -307,11 +302,11 @@ jobs:
             pkg <- pkg[[1]]
             warning("Multiple packages found! Using first one.")
           }
-          
+
           # Install dependencies from RSPM
           install.packages("arrow", repos = "https://packagemanager.rstudio.com/all/__linux__/centos7/latest")
           remove.packages("arrow")
-          
+
           install.packages(pkg)
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
