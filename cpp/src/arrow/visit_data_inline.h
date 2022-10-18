@@ -165,12 +165,10 @@ struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
     }
     return VisitBitBlocks(
         arr.buffers[0].data, arr.offset, arr.length,
-        [&](int64_t (index)) {
+        [&](int64_t(index)) {
           return valid_func(static_cast<std::string_view>(headers[index]));
         },
-        [&]() {
-          return null_func();
-        });
+        [&]() { return null_func(); });
   }
 
   template <typename ValidFunc, typename NullFunc>
@@ -190,7 +188,7 @@ struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
 
     VisitBitBlocksVoid(
         arr.buffers[0].data, arr.offset, arr.length,
-        [&](int64_t (index)) {
+        [&](int64_t(index)) {
           valid_func(static_cast<std::string_view>(headers[index]));
         },
         std::forward<NullFunc>(null_func));
