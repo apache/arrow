@@ -261,7 +261,7 @@ void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
-  AssertTableWriteReadEqual({input_table},expected_output_table,max_size,1);
+  AssertTableWriteReadEqual({input_table}, expected_output_table, max_size, 1);
 }
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
@@ -751,7 +751,6 @@ class TestORCWriterMultipleWrite : public ::testing::Test {
 TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
   const int64_t num_rows = 1234;
   const int num_writes = 5;
-  
   std::shared_ptr<Schema> input_schema = schema({field("col0", int32())});
   ArrayVector vect;
   std::vector<std::shared_ptr<Table>> input_tables;
@@ -761,10 +760,9 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
     auto input_chunked_array = std::make_shared<ChunkedArray>(array_int);
     input_tables.emplace_back(Table::Make(input_schema, {input_chunked_array}));
   }
-  
   auto expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
   std::shared_ptr<Table> expected_output_table =
-                             Table::Make(input_schema, {expected_output_chunked_array});
+      Table::Make(input_schema, {expected_output_chunked_array});
   AssertTableWriteReadEqual(input_tables, expected_output_table,
                             kDefaultSmallMemStreamSize * 100);
 }

@@ -280,16 +280,16 @@ class ARROW_EXPORT ORCFileWriter {
   /// \param[in] table the Arrow table from which data is extracted.
   /// \return Status
   Status Write(const Table& table);
-  
+
   /// \brief Write a RecordBatch. This can be called multiple times.
   ///
-  /// RecordBatches passed in subsequent calls must match the schema of the 
+  /// RecordBatches passed in subsequent calls must match the schema of the
   /// RecordBatch that was written first.
   ///
   /// \param[in] record_batch the Arrow RecordBatch from which data is extracted.
   /// \return Status
   Status Write(const RecordBatch& record_batch);
-  
+
   /// \brief Close an ORC writer (orc::Writer)
   ///
   /// \return Status

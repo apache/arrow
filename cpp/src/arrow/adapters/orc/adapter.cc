@@ -754,8 +754,8 @@ class ORCFileWriter::Impl {
     while (num_rows > 0) {
       for (int i = 0; i < num_cols; i++) {
         RETURN_NOT_OK(adapters::orc::WriteBatch(
-          *table.column(i), batch_size, &(arrow_chunk_offset[i]),
-          &(arrow_index_offset[i]), (root->fields)[i]));
+            *table.column(i), batch_size, &(arrow_chunk_offset[i]),
+            &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
       writer_->add(*batch);
@@ -793,13 +793,9 @@ Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
   return std::move(result);
 }
 
-Status ORCFileWriter::Write(const Table& table)
-{
-  return impl_->Write(table);
-}
+Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }
 
-Status ORCFileWriter::Write(const RecordBatch& record_batch)
-{
+Status ORCFileWriter::Write(const RecordBatch& record_batch) {
   auto table = Table::Make(record_batch.schema(), record_batch.columns());
   return impl_->Write(*table);
 }
