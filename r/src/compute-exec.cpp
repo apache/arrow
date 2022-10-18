@@ -151,35 +151,6 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     }
   }
 
-  static int64_t EmptyTheTrash() {
-    auto& trash_can = TrashCan();
-    for (int64_t i = trash_can.size() - 1; i >= 0; i--) {
-      if (trash_can[i]->finished().is_finished()) {
-        trash_can.erase(trash_can.begin() + i, trash_can.begin() + i + 1);
-      }
-    }
-    return trash_can.size();
-  }
-
-  static bool WaitForAllExecPlansToFinish(double seconds) {
-    bool all_finished = true;
-    for (const auto& plan : TrashCan()) {
-      all_finished = all_finished && plan->finished().Wait(seconds);
-    }
-    EmptyTheTrash();
-
-    if (TrashCan().size() > 0) {
-      Rprintf("Waited %g seconds for ExecPlans to finish but %d plans remain:\n", seconds,
-              (int)TrashCan().size());
-    }
-
-    for (const auto& plan : TrashCan()) {
-      Rprintf("\n%s\n", plan->ToString().c_str());
-    }
-
-    return all_finished;
-  }
-
  private:
   std::shared_ptr<arrow::Schema> schema_;
   std::shared_ptr<arrow::compute::ExecPlan> plan_;
@@ -188,11 +159,6 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   arrow::StopToken stop_token_;
 
   arrow::Status StartProducing() {
-    std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
-    auto maybe_trash_can_size =
-        SafeCallIntoR<int64_t>([plan]() { return RegisterExecPlan(plan); });
-    ARROW_RETURN_NOT_OK(maybe_trash_can_size);
-
     ARROW_RETURN_NOT_OK(plan_->StartProducing());
     plan_status_ = PLAN_RUNNING;
     return arrow::Status::OK();
@@ -213,17 +179,6 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     plan_.reset();
     sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
     return arrow::Status::OK();
-  }
-
-  static int64_t RegisterExecPlan(std::shared_ptr<compute::ExecPlan> plan) {
-    EmptyTheTrash();
-    TrashCan().push_back(plan);
-    return TrashCan().size();
-  }
-
-  static std::vector<std::shared_ptr<compute::ExecPlan>>& TrashCan() {
-    static std::vector<std::shared_ptr<compute::ExecPlan>> trash_can;
-    return trash_can;
   }
 };
 
@@ -302,11 +257,6 @@ std::shared_ptr<ExecPlanReader> ExecPlan_run(
   }
 
   return std::make_shared<ExecPlanReader>(plan, out_schema, sink_gen);
-}
-
-// [[arrow::export]]
-int ExecPlan_WaitForAllToFinish(double seconds) {
-  return ExecPlanReader::WaitForAllExecPlansToFinish(seconds);
 }
 
 // [[arrow::export]]
