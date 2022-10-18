@@ -1876,8 +1876,12 @@ Scalar__ApproxEquals <- function(lhs, rhs) {
   .Call(`_arrow_Scalar__ApproxEquals`, lhs, rhs)
 }
 
-schema_ <- function(fields) {
-  .Call(`_arrow_schema_`, fields)
+Schema__from_fields <- function(fields) {
+  .Call(`_arrow_Schema__from_fields`, fields)
+}
+
+Schema__from_list <- function(field_list) {
+  .Call(`_arrow_Schema__from_list`, field_list)
 }
 
 Schema__ToString <- function(s) {
