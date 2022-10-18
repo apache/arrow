@@ -194,6 +194,7 @@ on:
       --queue-path $(pwd) \
       --queue-remote {{ queue_remote_url }} \
       upload-artifacts \
+      --method requests \
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
     {% if pattern is string %}
