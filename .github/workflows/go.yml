@@ -79,7 +79,7 @@ jobs:
         run: archery docker push debian-go
       - name: Run Benchmarks
         env:
-          CONBENCH_URL: ${{ secrets.CONBENCH_URL }}
+          CONBENCH_URL: https://conbench.ursa.dev
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
           CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
         run: |
@@ -234,7 +234,7 @@ jobs:
       - name: Run Benchmarks
         shell: bash
         env:
-          CONBENCH_URL: ${{ secrets.CONBENCH_URL }}
+          CONBENCH_URL: 'https://conbench.ursa.dev'
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
           CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
         run: |
