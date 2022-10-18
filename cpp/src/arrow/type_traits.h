@@ -844,8 +844,8 @@ using enable_if_has_c_type = enable_if_t<has_c_type<T>::value, R>;
 template <typename T>
 using has_string_view =
     std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
-                           std::is_same<BinaryViewType, T>::value ||
-                           std::is_same<LargeBinaryType, T>::value ||
+                                     std::is_same<BinaryViewType, T>::value ||
+                                     std::is_same<LargeBinaryType, T>::value ||
                                      std::is_same<StringType, T>::value ||
                                      std::is_same<StringViewType, T>::value ||
                                      std::is_same<LargeStringType, T>::value ||
