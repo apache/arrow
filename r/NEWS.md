@@ -63,7 +63,7 @@ The `unique()` function works on `?Table`, `?RecordBatch`, `?Dataset`, and
 
 Also, a breaking change for IPC files in `write_dataset()`: passing
 `"ipc"` or  `"feather"` to `format` will now write files with `.arrow`
-extension instead of `.feather`.
+extension instead of `.ipc` or `.feather`.
 
 ## Installation
 
