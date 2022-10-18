@@ -64,7 +64,7 @@ class RFunctionRecordBatchReader : public arrow::RecordBatchReader {
  public:
   RFunctionRecordBatchReader(cpp11::sexp fun,
                              const std::shared_ptr<arrow::Schema>& schema)
-      : fun_(fun), fun_shelter_(fun), schema_(schema) {}
+      : fun_(fun), schema_(schema) {}
 
   std::shared_ptr<arrow::Schema> schema() const { return schema_; }
 
