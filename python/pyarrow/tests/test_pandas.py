@@ -4479,9 +4479,7 @@ def test_timestamp_as_object_pytz_offset():
     timezone = pytz.FixedOffset(120)
     dt = timezone.localize(datetime.datetime(2022, 5, 12, 16, 57))
 
-    timestamps = pa.array([dt])
-    names = ["timestamp_col"]
-    table = pa.Table.from_arrays([timestamps], names=names)
+    table = pa.table({"timestamp_col": pa.array([dt])})
 
     expected = table.to_pandas()
     result = table.to_pandas(timestamp_as_object=True)
