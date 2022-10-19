@@ -1185,34 +1185,49 @@ class Config(dict):
                     "Unable to match any tasks for `{}`".format(pattern)
                 )
 
+        def resolve_group(group):
+            group_tasks = set()
+            patterns = list(config_groups[group])
+            blocklist_patterns = [
+                x.strip("~") for x in patterns if x.startswith("~")]
+            patterns = [x for x in patterns if not x.startswith("~")]
+
+            # treat the task/group names as glob patterns to select
+            # tasks/groups more easily
+            for pattern in patterns:
+                matched_tasks = fnmatch.filter(valid_tasks, pattern)
+                matched_groups = fnmatch.filter(valid_groups, pattern)
+                matched_groups = set(matched_groups).difference([group])
+                if len(matched_tasks) == 0 and len(matched_groups) == 0:
+                    raise CrossbowError(
+                        "Unable to match any tasks/groups for `{}`".format(
+                            pattern)
+                    )
+                group_tasks.update(matched_tasks)
+                for matched_group in matched_groups:
+                    group_tasks.update(resolve_group(matched_group))
+
+            # remove any tasks/groups that are negated with
+            # ~task-name/~group-name
+            for block_pattern in blocklist_patterns:
+                matched_tasks = fnmatch.filter(valid_tasks, block_pattern)
+                matched_groups = fnmatch.filter(valid_groups, block_pattern)
+                matched_groups = set(matched_groups).difference([group])
+                if len(matched_tasks) == 0 and len(matched_groups) == 0:
+                    raise CrossbowError(
+                        "Unable to match any tasks/groups for `{}`".format(
+                            pattern)
+                    )
+                group_tasks = group_tasks.difference(matched_tasks)
+                for matched_group in matched_groups:
+                    group_tasks = group_tasks.differece(
+                        resolve_group(matched_group))
+
+            return group_tasks
+
         requested_group_tasks = set()
         for group in group_allowlist:
-            # separate the patterns from the blocklist patterns
-            task_patterns = list(config_groups[group])
-            task_blocklist_patterns = [
-                x.strip("~") for x in task_patterns if x.startswith("~")]
-            task_patterns = [x for x in task_patterns if not x.startswith("~")]
-
-            # treat the task names as glob patterns to select tasks more easily
-            for pattern in task_patterns:
-                matches = fnmatch.filter(valid_tasks, pattern)
-                if len(matches):
-                    requested_group_tasks.update(matches)
-                else:
-                    raise CrossbowError(
-                        "Unable to match any tasks for `{}`".format(pattern)
-                    )
-
-            # remove any tasks that are negated with ~task-name
-            for block_pattern in task_blocklist_patterns:
-                matches = fnmatch.filter(valid_tasks, block_pattern)
-                if len(matches):
-                    requested_group_tasks = requested_group_tasks.difference(
-                        matches)
-                else:
-                    raise CrossbowError(
-                        "Unable to match any tasks for `{}`".format(pattern)
-                    )
+            requested_group_tasks.update(resolve_group(group))
 
         requested_tasks = requested_tasks.union(requested_group_tasks)
 
@@ -1231,16 +1246,13 @@ class Config(dict):
     def validate(self):
         # validate that the task groups are properly refering to the tasks
         for group_name, group in self['groups'].items():
-            for pattern in group:
-                # remove the negation character for blocklisted tasks
-                pattern = pattern.strip("~")
-                tasks = self.select(tasks=[pattern])
-                if not tasks:
-                    raise CrossbowError(
-                        "The pattern `{}` defined for task group `{}` is not "
-                        "matching any of the tasks defined in the "
-                        "configuration file.".format(pattern, group_name)
-                    )
+            tasks = self.select(groups=[group_name])
+            if not tasks:
+                raise CrossbowError(
+                    "The patterns `{}` defined for task group `{}` is not "
+                    "matching any of the tasks defined in the "
+                    "configuration file.".format(group, group_name)
+                )
 
         # validate that the tasks are constructible
         for task_name, task in self['tasks'].items():

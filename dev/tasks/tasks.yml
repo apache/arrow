@@ -139,24 +139,7 @@ groups:
 {######################## Tasks to run regularly #############################}
 
   nightly:
-    - verify-rc-source-*
-    - almalinux-*
-    - amazon-linux-*
-    - debian-*
-    - ubuntu-*
-    - centos-*
-    - conan-*
-    - conda-*
-    - java-jars
-    # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
-    - homebrew-cpp
-    - homebrew-r-autobrew
-    - homebrew-r-brew
-    - nuget
-    - test-*
-    - example-*
-    - wheel-*
-    - python-sdist
+    - nightly-*
 
   nightly-tests:
     - test-*
