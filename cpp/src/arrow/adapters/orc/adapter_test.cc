@@ -298,7 +298,7 @@ void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<RecordBatch>>& 
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
-                                std::vector<std::shared_ptr<Table>> input_tables;
+    std::vector<std::shared_ptr<Table>> input_tables;
     input_tables.push_back(input_table);
     AssertTableWriteReadEqual(input_tables, expected_output_table, max_size);
   AssertTableWriteReadEqual(input_tables, expected_output_table, max_size);
@@ -868,7 +868,7 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntFieldRecordBatch) {
   for (int i = 0; i < num_writes; i++) {
     auto array_int = rand.ArrayOf(int32(), num_rows, 0);
     vect.push_back(array_int);
-    input_batches.emplace_back(RecordBatch::Make(input_schema, num_rows,{array_int}));
+    input_batches.emplace_back(RecordBatch::Make(input_schema, num_rows, {array_int}));
   }
   auto expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
   std::shared_ptr<Table> expected_output_table =
