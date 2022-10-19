@@ -2132,9 +2132,7 @@ TEST(ScanOptions, TestMaterializedFields) {
 
 namespace {
 struct TestPlan {
-  explicit TestPlan() : plan(compute::ExecPlan::Make().ValueOrDie()) {
-    internal::Initialize();
-  }
+  TestPlan() : plan(compute::ExecPlan::Make().ValueOrDie()) { internal::Initialize(); }
 
   Future<std::vector<compute::ExecBatch>> Run() {
     RETURN_NOT_OK(plan->Validate());

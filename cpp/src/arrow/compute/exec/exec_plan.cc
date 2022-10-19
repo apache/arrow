@@ -103,7 +103,7 @@ struct ExecPlanImpl : public ExecPlan {
 
   Status ScheduleTask(std::function<Status()> fn) {
     auto executor = exec_context_.executor();
-    if (!executor) return fn();
+    DCHECK_NE(nullptr, executor);
     // Adds a task which submits fn to the executor and tracks its progress.  If we're
     // aborted then the task is ignored and fn is not executed.
     async_scheduler_->AddSimpleTask(
@@ -141,6 +141,7 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing(::arrow::internal::Executor* executor) {
+    DCHECK_NE(nullptr, executor);
     exec_context_ =
         ExecContext(exec_context_.memory_pool(), executor, exec_context_.func_registry());
     START_COMPUTE_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
@@ -171,12 +172,8 @@ struct ExecPlanImpl : public ExecPlan {
     });
 
     task_scheduler_->RegisterEnd();
-    int num_threads = 1;
-    bool sync_execution = true;
-    if (auto executor = exec_context_.executor()) {
-      num_threads = executor->GetCapacity();
-      sync_execution = false;
-    }
+    int num_threads = executor->GetCapacity();
+    bool sync_execution = num_threads == 1;
     RETURN_NOT_OK(task_scheduler_->StartScheduling(
         0 /* thread_index */,
         [this](std::function<Status(size_t)> fn) -> Status {

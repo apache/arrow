@@ -714,7 +714,7 @@ TEST(ExecPlanExecution, StressSourceSink) {
 }
 
 TEST(ExecPlanExecution, StressSourceOrderBy) {
-  auto input_schema = schema({field("a", int32()), field("b", boolean())});
+  auto input_schema = schema({field("a", int32())});
   for (bool slow : {false, true}) {
     SCOPED_TRACE(slow ? "slowed" : "unslowed");
 
@@ -999,12 +999,14 @@ TEST(ExecPlanExecution, NestedSourceProjectGroupedSum) {
     auto input = MakeNestedBatches();
     auto expected = ExecBatchFromJSON({int64(), boolean()}, R"([
       [null, true],
-      [17, false],
-      [5, null]
+      [5, null],
+      [17, false]
 ])");
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
     AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+
+    SortOptions options({SortKey("str", SortOrder::Descending)});
 
     ASSERT_OK(
         Declaration::Sequence(
@@ -1019,12 +1021,15 @@ TEST(ExecPlanExecution, NestedSourceProjectGroupedSum) {
                 {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr,
                                                                     "i32", "sum(i32)"}},
                                                    /*keys=*/{"bool"}}},
-                {"sink", SinkNodeOptions{&sink_gen}},
+                {"order_by_sink",
+                 OrderBySinkNodeOptions{SortOptions({SortKey(0, SortOrder::Ascending)},
+                                                    NullPlacement::AtStart),
+                                        &sink_gen}},
             })
             .AddToPlan(plan.get()));
 
     ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                Finishes(ResultWith(UnorderedElementsAreArray({expected}))));
+                Finishes(ResultWith(ElementsAreArray({expected}))));
   }
 }
 

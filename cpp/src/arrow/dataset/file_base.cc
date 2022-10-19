@@ -20,6 +20,7 @@
 #include <arrow/compute/exec/exec_plan.h>
 
 #include <algorithm>
+#include <iostream>
 #include <memory>
 #include <unordered_map>
 #include <variant>
@@ -401,13 +402,9 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
 
 }  // namespace
 
-Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
-                                std::shared_ptr<Scanner> scanner) {
-  if (!scanner->options()->use_threads) {
-    // FIXME: Can use RunSynchronously here
-    return Status::NotImplemented(
-        "FileSystemDataset::Write using a scanner must use threads");
-  }
+Future<> FileSystemDataset::WriteAsync(const FileSystemDatasetWriteOptions& write_options,
+                                       std::shared_ptr<Scanner> scanner,
+                                       ::arrow::internal::Executor* executor) {
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
 
   auto exprs = scanner->options()->projection.call()->arguments;
@@ -432,7 +429,17 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
           .AddToPlan(plan.get()));
 
   RETURN_NOT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
-  return plan->finished().status();
+  // Keep plan alive until it is done
+  return plan->finished().Then([plan = std::move(plan)] {});
+}
+
+Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
+                                std::shared_ptr<Scanner> scanner) {
+  return ::arrow::internal::RunSynchronously<Future<>>(
+      [write_options, scanner](::arrow::internal::Executor* executor) {
+        return WriteAsync(write_options, scanner, executor);
+      },
+      scanner->options()->use_threads);
 }
 
 Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
