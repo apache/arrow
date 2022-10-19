@@ -292,6 +292,7 @@ test_that("nested exec plans can contain user-defined functions", {
 })
 
 test_that("head() on exec plan containing user-defined functions", {
+  skip("Test is flaky on very slow runners")
   skip_if_not_available("dataset")
   skip_if_not(CanRunWithCapturedR())
 
