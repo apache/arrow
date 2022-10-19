@@ -1,4 +1,12 @@
-# Developer environment setup
+---
+title: "Arrow Developer Environment"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Arrow Developer Environment}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
 
 ```{r setup-options, include=FALSE}
 knitr::opts_chunk$set(error = TRUE, eval = FALSE)

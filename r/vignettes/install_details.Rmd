@@ -1,5 +1,10 @@
 ---
-title: "How the R package is installed - advanced"
+title: "Understanding Arrow installation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Understanding Arrow installation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 This document is intended specifically for arrow _developers_ who wish to know 

@@ -1,8 +1,8 @@
 ---
-title: "Connecting to Flight RPC Servers"
+title: "Connecting to Arrow Flight Servers"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Connecting to Flight RPC Servers}
+  %\VignetteIndexEntry{Connecting to Arrow Flight Servers}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

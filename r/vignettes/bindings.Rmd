@@ -1,4 +1,11 @@
-# Writing Bindings
+---
+title: "Writing Arrow Bindings"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Writing Arrow Bindings}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
 
 ```{r, include=FALSE}
 library(arrow, warn.conflicts = FALSE)

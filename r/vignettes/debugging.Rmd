@@ -1,4 +1,11 @@
-# Debugging Arrow
+---
+title: "Debugging Arrow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Debugging Arrow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
 
 If you are a developer working with Arrow code, the package's use of tidy eval 
 and C++ necessitates a solid debugging strategy.  In this article, we recommend

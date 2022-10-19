@@ -1,8 +1,8 @@
 ---
-title: "Arrow R Developer Guide"
+title: "Arrow Developer Guide"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Arrow R Developer Guide}
+  %\VignetteIndexEntry{Arrow Developer Guide}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
