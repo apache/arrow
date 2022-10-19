@@ -24,11 +24,12 @@ type EncodedType interface {
 // RunLengthEncodedType is the datatype to represent a run-length encoded
 // array of data.
 type RunLengthEncodedType struct {
-	enc DataType
+	ends DataType
+	enc  DataType
 }
 
-func RunLengthEncodedOf(dt DataType) *RunLengthEncodedType {
-	return &RunLengthEncodedType{enc: dt}
+func RunLengthEncodedOf(runEnds, encoded DataType) *RunLengthEncodedType {
+	return &RunLengthEncodedType{ends: runEnds, enc: encoded}
 }
 
 func (*RunLengthEncodedType) ID() Type     { return RUN_LENGTH_ENCODED }
@@ -38,11 +39,26 @@ func (*RunLengthEncodedType) Layout() DataTypeLayout {
 }
 
 func (t *RunLengthEncodedType) String() string {
-	return t.Name() + "<" + t.enc.String() + ">"
+	return t.Name() + "<run_ends: " + t.ends.String() + ", values: " + t.enc.String() + ">"
 }
 
 func (t *RunLengthEncodedType) Fingerprint() string {
-	return typeFingerprint(t) + "{" + t.enc.Fingerprint() + "}"
+	return typeFingerprint(t) + "{" + t.ends.Fingerprint() + ";" + t.enc.Fingerprint() + ";}"
 }
 
 func (t *RunLengthEncodedType) Encoded() DataType { return t.enc }
+
+func (t *RunLengthEncodedType) Fields() []Field {
+	return []Field{
+		{Name: "run_ends", Type: t.ends},
+		{Name: "encoded", Type: t.enc, Nullable: true},
+	}
+}
+
+func (*RunLengthEncodedType) ValidRunEndsType(dt DataType) bool {
+	switch dt.ID() {
+	case INT16, INT32, INT64:
+		return true
+	}
+	return false
+}

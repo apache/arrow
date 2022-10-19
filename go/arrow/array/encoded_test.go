@@ -66,7 +66,7 @@ func TestRLEFromRunEndsAndValues(t *testing.T) {
 	assert.EqualValues(t, 1, rleArray.Offset())
 	assert.Zero(t, rleArray.Data().NullN())
 
-	assert.PanicsWithError(t, "invalid: arrow/array: run ends array must be int32", func() {
+	assert.PanicsWithError(t, "invalid: arrow/array: run ends array must be int16, int32, or int64", func() {
 		array.NewRunLengthEncodedArray(stringValues, int32Values, 3, 0)
 	})
 	assert.PanicsWithError(t, "invalid: arrow/array: run ends array cannot contain nulls", func() {
