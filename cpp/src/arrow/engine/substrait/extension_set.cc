@@ -176,11 +176,10 @@ std::optional<std::vector<std::string> const*> SubstraitCall::GetOption(
 
 void SubstraitCall::SetOption(std::string_view option_name,
                               const std::vector<std::string_view>& option_preferences) {
-  std::vector<std::string> prefs_copy;
-  std::transform(option_preferences.begin(), option_preferences.end(),
-                 std::back_inserter(prefs_copy),
-                 [](std::string_view pref) { return std::string(pref); });
-  options_[std::string(option_name)] = prefs_copy;
+  auto& prefs = options_[std::string(option_name)];
+  for (std::string_view pref : option_preferences) {
+    prefs.emplace_back(pref);
+  }
 }
 
 // A builder used when creating a Substrait plan from an Arrow execution plan.  In
