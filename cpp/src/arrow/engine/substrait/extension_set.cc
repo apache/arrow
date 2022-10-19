@@ -710,16 +710,10 @@ Result<std::optional<Enum>> ParseOption(const SubstraitCall& call,
     }
   }
   // Prepare error message
-  std::stringstream joined_prefs;
-  for (std::size_t i = 0; i < prefs->size(); i++) {
-    joined_prefs << (*prefs)[i];
-    if (i < prefs->size() - 1) {
-      joined_prefs << ", ";
-    }
-  }
   return Status::NotImplemented("During a call to a function with id ", call.id().uri,
                                 "#", call.id().name, " the plan requested the option ",
-                                option_name, " to be one of [", joined_prefs.str(),
+                                option_name, " to be one of [",
+                                arrow::internal::JoinStrings(*prefs),
                                 "] but none of those option values are supported");
 }
 
