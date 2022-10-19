@@ -400,22 +400,13 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
 
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.2")
-    # Disabling semantic interposition allows faster calling conventions
-    # when calling global functions internally, and can also help inlining.
-    # See https://stackoverflow.com/questions/35745543/new-option-in-gcc-5-3-fno-semantic-interposition
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -fno-semantic-interposition")
-  endif()
+  # Disabling semantic interposition allows faster calling conventions
+  # when calling global functions internally, and can also help inlining.
+  # See https://stackoverflow.com/questions/35745543/new-option-in-gcc-5-3-fno-semantic-interposition
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -fno-semantic-interposition")
 
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.9")
-    # Add colors when paired with ninja
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "6.0")
-    # Work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43407
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-attributes")
-  endif()
+  # Add colors when paired with ninja
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
 
   if(CMAKE_UNITY_BUILD)
     # Work around issue similar to https://bugs.webkit.org/show_bug.cgi?id=176869
@@ -507,18 +498,12 @@ if(ARROW_CPU_FLAG STREQUAL "armv8")
 
     add_definitions(-DARROW_HAVE_NEON)
 
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
-                                                "5.4")
-      message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well."
-      )
-    else()
-      if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
-        add_definitions(-DARROW_HAVE_ARMV8_CRYPTO)
-      endif()
-      # armv8.1+ implies crc support
-      if(ARROW_ARMV8_ARCH_FLAG MATCHES "armv8\\.[1-9]|\\+crc")
-        add_definitions(-DARROW_HAVE_ARMV8_CRC)
-      endif()
+    if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
+      add_definitions(-DARROW_HAVE_ARMV8_CRYPTO)
+    endif()
+    # armv8.1+ implies crc support
+    if(ARROW_ARMV8_ARCH_FLAG MATCHES "armv8\\.[1-9]|\\+crc")
+      add_definitions(-DARROW_HAVE_ARMV8_CRC)
     endif()
   elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
     message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by Arm.")
