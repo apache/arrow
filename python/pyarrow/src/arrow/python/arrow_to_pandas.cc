@@ -1085,10 +1085,7 @@ struct ObjectWriterVisitor {
       OwnedRef naive_datetime_replace(PyObject_GetAttrString(naive_datetime, "replace"));
       OwnedRef datetime_utc(PyObject_Call(naive_datetime_replace.obj(), args.obj(), keywords.obj()));
       // second step: adjust the datetime to tzinfo timezone (astimezone method)
-      OwnedRef args_astimezone(PyTuple_New(1));
-      PyTuple_SetItem(args_astimezone.obj(), 0, tzinfo.obj());
-      OwnedRef astimezone(PyObject_GetAttrString(datetime_utc.obj(), "astimezone"));
-      *out = PyObject_CallObject(astimezone.obj(), args_astimezone.obj());
+      *out = PyObject_CallMethod(datetime_utc.obj(), "astimezone", "O", tzinfo.obj());
 
       // the timezone naive object is no longer required
       Py_DECREF(naive_datetime);
