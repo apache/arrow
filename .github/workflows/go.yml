@@ -78,6 +78,7 @@ jobs:
         continue-on-error: true
         run: archery docker push debian-go
       - name: Run Benchmarks
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         env:
           CONBENCH_URL: https://conbench.ursa.dev
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
@@ -228,10 +229,12 @@ jobs:
         shell: bash
         run: ci/scripts/go_test.sh $(pwd)
       - name: Setup Python
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Run Benchmarks
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         shell: bash
         env:
           CONBENCH_URL: 'https://conbench.ursa.dev'
