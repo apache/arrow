@@ -255,7 +255,7 @@ test_that("user-defined functions work during multi-threaded execution", {
 })
 
 test_that("nested exec plans can contain user-defined functions", {
-  skip_if_not_dev_mode()
+  skip("Test is flaky on very slow runners")
 
   register_scalar_function(
     "times_32",
