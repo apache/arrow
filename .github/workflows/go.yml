@@ -240,6 +240,7 @@ jobs:
           CONBENCH_URL: 'https://conbench.ursa.dev'
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
           CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
+          CONBENCH_REF_NAME: ${{ github.ref_name }}
         run: |
           pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python ci/scripts/go_bench_adapt.py
