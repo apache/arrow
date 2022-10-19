@@ -255,8 +255,7 @@ test_that("user-defined functions work during multi-threaded execution", {
 })
 
 test_that("nested exec plans can contain user-defined functions", {
-  skip_if_not_available("dataset")
-  skip_if_not(CanRunWithCapturedR())
+  skip_if_not_dev_mode()
 
   register_scalar_function(
     "times_32",
