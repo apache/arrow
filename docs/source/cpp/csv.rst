@@ -35,7 +35,7 @@ Reading CSV files
 
 Data in a CSV file can either be read in as a single Arrow Table using
 :class:`~arrow::csv::TableReader` or streamed as RecordBatches using
-:class:`~arrow::csv::StreamingReader`. See :ref:`Tradeoffs <tradeoffs>` for a
+:class:`~arrow::csv::StreamingReader`. See :ref:`Tradeoffs <cpp-csv-tradeoffs>` for a
 discussion of the tradeoffs between the two methods.
 
 TableReader
@@ -128,7 +128,7 @@ Behavior of :class:`~arrow::csv::StreamingReader` can be customized using a
 combination of :class:`~arrow::csv::ReadOptrions`,
 :class:`~arrow::csv::ParseOptions`, and :class:`~arrow::csv::ConvertOptions`.
 
-.. _tradeoffs:
+.. _cpp-csv-tradeoffs:
 
 Tradeoffs
 ---------
@@ -137,7 +137,7 @@ The choice between using :class:`~arrow::csv::TableReader` or :class:`~arrow::cs
 will depend on your use case but two caveats are worth pointing out:
 
 1. :class:`~arrow::csv::TableReader` is capable of using multiple threads (See
-   :ref:`Performance <performance>`) whereas
+   :ref:`Performance <cpp-csv-performance>`) whereas
    :class:`~arrow::csv::StreamingReader` is always single-threaded and will
    ignore :member:`ReadOptions::use_threads`.
 2. :class:`~arrow::csv::StreamingReader` performs type inference off the first
@@ -353,7 +353,7 @@ Write Options
 The format of written CSV files can be customized via :class:`~arrow::csv::WriteOptions`.
 Currently few options are available; more will be added in future releases.
 
-.. _performance:
+.. _cpp-csv-performance:
 
 Performance
 ===========
