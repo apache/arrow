@@ -43,7 +43,7 @@ register_bindings_type <- function() {
 #'   mutate(cyl = cast(cyl, string()))
 #' }
 #' @keywords internal
-#' @seealso https://arrow.apache.org/docs/cpp/api/compute.html for the list of
+#' @seealso [Arrow C++ documentation](https://arrow.apache.org/docs/cpp/compute.html) for the list of
 #' supported CastOptions.
 cast <- function(x, to, safe = TRUE, ...) {
   x$cast(to, safe = safe, ...)

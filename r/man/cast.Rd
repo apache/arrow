@@ -32,7 +32,7 @@ mtcars \%>\%
 }
 }
 \seealso{
-https://arrow.apache.org/docs/cpp/api/compute.html for the list of
+\href{https://arrow.apache.org/docs/cpp/compute.html}{Arrow C++ documentation} for the list of
 supported CastOptions.
 }
 \keyword{internal}
