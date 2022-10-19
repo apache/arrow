@@ -77,7 +77,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
         trace <- trace_back()
         # TODO: remove `trace$calls %||% trace$call` once rlang > 0.4.11 is released
         in_dplyr_collect <- any(map_lgl(trace$calls %||% trace$call, function(x) {
-          grepl("collect.arrow_dplyr_query", x, fixed = TRUE)[[1]]
+          grepl("collect\\.([aA]rrow|Dataset)", x)[[1]]
         }))
         if (in_dplyr_collect) {
           warning(
