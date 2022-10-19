@@ -522,7 +522,7 @@ environment variable.
 
 .. code-block::
 
-   $ set ARROW_HOME=%CONDA_PREFIX%
+   $ set ARROW_HOME=%CONDA_PREFIX%\Library
 
 Let's configure, build and install the Arrow C++ libraries:
 
