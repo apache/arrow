@@ -56,33 +56,14 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     """
     cdef:
         CExecutor *c_executor
-        shared_ptr[CExecContext] c_exec_context
-        shared_ptr[CExecPlan] c_exec_plan
         vector[CDeclaration] c_decls
-        vector[CExecNode*] _empty
-        vector[CExecNode*] c_final_node_vec
-        CExecNode *c_node
-        CTable* c_table
         shared_ptr[CTable] c_in_table
         shared_ptr[CTable] c_out_table
         shared_ptr[CTableSourceNodeOptions] c_tablesourceopts
         shared_ptr[CScanNodeOptions] c_scanopts
         shared_ptr[CExecNodeOptions] c_input_node_opts
-        shared_ptr[CSinkNodeOptions] c_sinkopts
-        shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
-        shared_ptr[CRecordBatchReader] c_recordbatchreader
         vector[CDeclaration].iterator plan_iter
         vector[CDeclaration.Input] no_c_inputs
-        CStatus c_plan_status
-
-    if use_threads:
-        c_executor = GetCpuThreadPool()
-    else:
-        c_executor = NULL
-
-    c_exec_context = make_shared[CExecContext](
-        c_default_memory_pool(), c_executor)
-    c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
 
     plan_iter = plan.begin()
 
@@ -124,42 +105,16 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         c_decls.push_back(deref(plan_iter))
         inc(plan_iter)
 
-    # Add all CDeclarations to the plan
-    c_node = GetResultValue(
-        CDeclaration.Sequence(c_decls).AddToPlan(&deref(c_exec_plan))
-    )
-    c_final_node_vec.push_back(c_node)
-
-    # Create the output node
-    c_async_exec_batch_gen = make_shared[CAsyncExecBatchGenerator]()
-    c_sinkopts = make_shared[CSinkNodeOptions](c_async_exec_batch_gen.get())
-    GetResultValue(
-        MakeExecNode(tobytes("sink"), &deref(c_exec_plan),
-                     c_final_node_vec, deref(c_sinkopts))
-    )
-
-    # Convert the asyncgenerator to a sync batch reader
-    c_recordbatchreader = MakeGeneratorReader(c_node.output_schema(),
-                                              deref(c_async_exec_batch_gen),
-                                              deref(c_exec_context).memory_pool())
-
-    # Start execution of the ExecPlan
-    deref(c_exec_plan).Validate()
-    deref(c_exec_plan).StartProducing()
+    c_plan_decl = CDeclaration.Sequence(c_decls)
 
     # Convert output to the expected one.
-    c_out_table = GetResultValue(
-        CTable.FromRecordBatchReader(c_recordbatchreader.get()))
+    c_out_table = GetResultValue(DeclarationToTable(c_plan_decl))
     if output_type == Table:
         output = pyarrow_wrap_table(c_out_table)
     elif output_type == InMemoryDataset:
         output = InMemoryDataset(pyarrow_wrap_table(c_out_table))
     else:
         raise TypeError("Unsupported output type")
-
-    with nogil:
-        c_plan_status = deref(c_exec_plan).finished().status()
-    check_status(c_plan_status)
 
     return output
 

@@ -152,7 +152,7 @@ void MinimalEndToEndScan(
       schema({field("a*2", int32())}), std::move(sink_gen), default_memory_pool());
 
   // start the ExecPlan
-  ASSERT_OK(plan->StartProducing(compute::default_exec_context()));
+  ASSERT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
 
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
@@ -198,7 +198,7 @@ void ScanOnly(
                                    std::move(sink_gen), default_memory_pool());
 
   // start the ExecPlan
-  ASSERT_OK(plan->StartProducing(compute::default_exec_context()));
+  ASSERT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
 
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));

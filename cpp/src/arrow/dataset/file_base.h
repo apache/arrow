@@ -243,6 +243,11 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
       std::vector<std::shared_ptr<FileFragment>> fragments,
       std::shared_ptr<Partitioning> partitioning = NULLPTR);
 
+  /// \brief Write a dataset
+  static Future<> WriteAsync(const FileSystemDatasetWriteOptions& write_options,
+                             std::shared_ptr<Scanner> scanner,
+                             ::arrow::internal::Executor* executor);
+
   /// \brief Write a dataset.
   static Status Write(const FileSystemDatasetWriteOptions& write_options,
                       std::shared_ptr<Scanner> scanner);

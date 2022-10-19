@@ -2564,7 +2564,6 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
 cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
     cdef cppclass CDeclaration "arrow::compute::Declaration":
         cppclass Input:
-            Input(CExecNode*)
             Input(CDeclaration)
 
         c_string label
@@ -2577,37 +2576,11 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         @staticmethod
         CDeclaration Sequence(vector[CDeclaration] decls)
 
-        CResult[CExecNode*] AddToPlan(CExecPlan* plan) const
-
-    cdef cppclass CExecPlan "arrow::compute::ExecPlan":
-        @staticmethod
-        CResult[shared_ptr[CExecPlan]] Make(CExecContext* exec_context)
-
-        CStatus StartProducing()
-        CStatus Validate()
-        CStatus StopProducing()
-
-        CFuture_Void finished()
-
-        vector[CExecNode*] sinks() const
-        vector[CExecNode*] sources() const
-
-    cdef cppclass CExecNode "arrow::compute::ExecNode":
-        const vector[CExecNode*]& inputs() const
-        const shared_ptr[CSchema]& output_schema() const
-
     cdef cppclass CExecBatch "arrow::compute::ExecBatch":
         vector[CDatum] values
         int64_t length
 
-    shared_ptr[CRecordBatchReader] MakeGeneratorReader(
-        shared_ptr[CSchema] schema,
-        CAsyncExecBatchGenerator gen,
-        CMemoryPool* memory_pool
-    )
-    CResult[CExecNode*] MakeExecNode(c_string factory_name, CExecPlan* plan,
-                                     vector[CExecNode*] inputs,
-                                     const CExecNodeOptions& options)
+    CResult[shared_ptr[CTable]] DeclarationToTable(CDeclaration declaration)
 
 
 cdef extern from "arrow/extension_type.h" namespace "arrow":
