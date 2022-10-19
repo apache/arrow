@@ -38,11 +38,13 @@ Data in a CSV file can either be read in as a single Arrow Table using
 :class:`~arrow::csv::StreamingReader`. See :ref:`Tradeoffs <cpp-csv-tradeoffs>` for a
 discussion of the tradeoffs between the two methods.
 
+Both these readers require an :class:`arrow::io::InputStream` instance
+representing the input file. Their behavior can be customized using a
+combination of :class:`~arrow::csv::ReadOptions`,
+:class:`~arrow::csv::ParseOptions`, and :class:`~arrow::csv::ConvertOptions`.
+
 TableReader
 -----------
-
-The :class:`~arrow::csv::TableReader` class requires an
-:class:`::arrow::io::InputStream` instance representing the input file.
 
 .. code-block:: cpp
 
@@ -78,15 +80,8 @@ The :class:`~arrow::csv::TableReader` class requires an
       std::shared_ptr<arrow::Table> table = *maybe_table;
    }
 
-Behavior of :class:`~arrow::csv::TableReader` can be customized using a
-combination of :class:`~arrow::csv::ReadOptions`,
-:class:`~arrow::csv::ParseOptions`, and :class:`~arrow::csv::ConvertOptions`.
-
 StreamingReader
 ---------------
-
-The :class:`~arrow::csv::StreamingReader` class requires an
-:class:`::arrow::io::InputStream` instance representing the input file.
 
 .. code-block:: cpp
 
@@ -123,10 +118,6 @@ The :class:`~arrow::csv::StreamingReader` class requires an
         // Handle end of file
       }
    }
-
-Behavior of :class:`~arrow::csv::StreamingReader` can be customized using a
-combination of :class:`~arrow::csv::ReadOptrions`,
-:class:`~arrow::csv::ParseOptions`, and :class:`~arrow::csv::ConvertOptions`.
 
 .. _cpp-csv-tradeoffs:
 
