@@ -18,7 +18,7 @@ it should be a \link{Schema}.}
 \item{...}{specific \code{CastOptions} to set}
 }
 \value{
-an \code{Expression}
+An \link{Expression}
 }
 \description{
 This is a wrapper around the \verb{$cast()} method that many Arrow objects have.

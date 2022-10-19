@@ -34,7 +34,7 @@ register_bindings_type <- function() {
 #' @param safe logical: only allow the type conversion if no data is lost
 #' (truncation, overflow, etc.). Default is `TRUE`
 #' @param ... specific `CastOptions` to set
-#' @return an `Expression`
+#' @return An [Expression]
 #'
 #' @examples
 #' \dontrun{
