@@ -1077,22 +1077,16 @@ struct ObjectWriterVisitor {
 
       // convert the timezone naive datetime object to timezone aware
       // first: replacing timezone with timezone.utc
-      PyObject* args = PyTuple_New(0);
-      PyObject* keywords = PyDict_New();
-      PyDict_SetItemString(keywords, "tzinfo", PyDateTime_TimeZone_UTC);
-      PyObject* naive_datetime_replace =
-          PyObject_GetAttrString(naive_datetime, "replace");
-      PyObject* datetime_utc = PyObject_Call(naive_datetime_replace, args, keywords);
+      OwnedRef args(PyTuple_New(0));
+      OwnedRef keywords(PyDict_New());
+      PyDict_SetItemString(keywords.obj(), "tzinfo", PyDateTime_TimeZone_UTC);
+      OwnedRef naive_datetime_replace(PyObject_GetAttrString(naive_datetime, "replace"));
+      OwnedRef datetime_utc(PyObject_Call(naive_datetime_replace.obj(), args.obj(), keywords.obj()));
       // second: adjust the datetime to tzinfo timezone
-      PyObject* astimezone = PyObject_GetAttrString(datetime_utc, "astimezone");
-      *out = PyObject_CallOneArg(astimezone, tzinfo.obj());
+      OwnedRef astimezone(PyObject_GetAttrString(datetime_utc.obj(), "astimezone"));
+      *out = PyObject_CallOneArg(astimezone.obj(), tzinfo.obj());
 
-      // arguments for replace method and the timezone naive object are no longer required
-      Py_DECREF(args);
-      Py_DECREF(keywords);
-      Py_DECREF(naive_datetime_replace);
-      Py_DECREF(datetime_utc);
-      Py_DECREF(astimezone);
+      // the timezone naive object is no longer required
       Py_DECREF(naive_datetime);
       RETURN_IF_PYERROR();
 
