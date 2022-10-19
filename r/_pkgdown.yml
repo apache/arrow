@@ -53,6 +53,7 @@ template:
       card: summary_large_image
 
 home:
+  title: Arrow R Package
   sidebar:
     structure:
       - project
@@ -63,7 +64,6 @@ home:
       - citation
       - authors
       - dev
-
     components:
       project:
         title: Arrow Project
@@ -110,9 +110,6 @@ articles:
       - data_wrangling
       - dataset
       - python
-
-  - title: Remote data sources
-    contents:
       - cloud_storage
       - flight
 
