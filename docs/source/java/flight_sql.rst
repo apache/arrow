@@ -15,28 +15,18 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Java Implementation
-===================
+================
+Arrow Flight SQL
+================
 
-This is the documentation of the Java API of Apache Arrow. For more details
-on the Arrow format and other language bindings see the :doc:`parent documentation <../index>`.
+Arrow Flight SQL is an RPC framework for efficient transfer of Arrow data
+over the network.
 
-.. toctree::
-   :maxdepth: 2
+.. seealso::
 
-   quickstartguide
-   overview
-   install
-   memory
-   vector
-   vector_schema_root
-   table
-   ipc
-   algorithm
-   flight
-   flight_sql
-   flight_sql_jdbc_driver
-   dataset
-   cdata
-   jdbc
-   Reference (javadoc) <reference/index>
+   :doc:`Flight SQL protocol documentation <../format/FlightSql>`
+        Documentation of the Flight SQL protocol.
+
+For usage information, see the `API documentation`_.
+
+.. _API documentation: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/sql/package-summary.html
