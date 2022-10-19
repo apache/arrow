@@ -133,15 +133,18 @@ combination of :class:`~arrow::csv::ReadOptrions`,
 Tradeoffs
 ---------
 
-The choice between using :class:`~arrow::csv::TableReader` or :class:`~arrow::csv::StreamingReader`
-will depend on your use case but two caveats are worth pointing out:
+The choice between using :class:`~arrow::csv::TableReader` or
+:class:`~arrow::csv::StreamingReader` will depend on your use case but two
+caveats are worth pointing out:
 
 1. :class:`~arrow::csv::TableReader` is capable of using multiple threads (See
    :ref:`Performance <cpp-csv-performance>`) whereas
    :class:`~arrow::csv::StreamingReader` is always single-threaded and will
    ignore :member:`ReadOptions::use_threads`.
 2. :class:`~arrow::csv::StreamingReader` performs type inference off the first
-   block that's read in, after which point the types are frozen. Either set :member:`ReadOptions::block_size` to a large enough value or use :member:`ConvertOptions::column_types` to set the desired data types
+   block that's read in, after which point the types are frozen. Either set
+   :member:`ReadOptions::block_size` to a large enough value or use
+   :member:`ConvertOptions::column_types` to set the desired data types
    explicitly.
 
 Writing CSV files
