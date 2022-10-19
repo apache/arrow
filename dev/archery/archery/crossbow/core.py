@@ -531,8 +531,8 @@ class Repo:
                 mime = mimetypes.guess_type(name)[0] or 'application/zip'
 
                 logger.info(
-                    'Uploading asset `{}` with mimetype {} and size {}...'
-                    .format(name, mime, size)
+                    'Uploading asset `{}` ({})({}) with mimetype {} and size {}...'
+                    .format(name, path, pattern, mime, size)
                 )
 
                 if method == 'requests':
