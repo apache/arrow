@@ -1,8 +1,10 @@
 ---
-title: "Arrow Developer Guide"
+title: "Introduction to Arrow R development"
+description: >
+  Learn how to contribute to the arrow package
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Arrow Developer Guide}
+  %\VignetteIndexEntry{Introduction to Arrow R development}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

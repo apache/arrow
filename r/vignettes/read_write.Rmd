@@ -1,0 +1,72 @@
+---
+title: "Reading and writing data files"
+description: >
+  Learn how to read and write CSV, Parquet, and Feather files with arrow 
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Reading and writing data files}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+The `arrow` package provides functions for reading single data files in
+several common formats. By default, calling any of these functions
+returns an R `data.frame`. To return an Arrow `Table`, set argument
+`as_data_frame = FALSE`.
+
+-   `read_parquet()`: read a file in Parquet format
+-   `read_feather()`: read a file in Feather format (the Apache Arrow
+    IPC format)
+-   `read_delim_arrow()`: read a delimited text file (default delimiter
+    is comma)
+-   `read_csv_arrow()`: read a comma-separated values (CSV) file
+-   `read_tsv_arrow()`: read a tab-separated values (TSV) file
+-   `read_json_arrow()`: read a JSON data file
+
+For writing data to single files, the `arrow` package provides the
+functions `write_parquet()`, `write_feather()`, and `write_csv_arrow()`.
+These can be used with R `data.frame` and Arrow `Table` objects.
+
+For example, let’s write the Star Wars characters data that’s included
+in `dplyr` to a Parquet file, then read it back in. Parquet is a popular
+choice for storing analytic data; it is optimized for reduced file sizes
+and fast read performance, especially for column-based access patterns.
+Parquet is widely supported by many tools and platforms.
+
+First load the `arrow` and `dplyr` packages:
+
+``` r
+library(arrow, warn.conflicts = FALSE)
+library(dplyr, warn.conflicts = FALSE)
+```
+
+Then write the `data.frame` named `starwars` to a Parquet file at
+`file_path`:
+
+``` r
+file_path <- tempfile()
+write_parquet(starwars, file_path)
+```
+
+Then read the Parquet file into an R `data.frame` named `sw`:
+
+``` r
+sw <- read_parquet(file_path)
+```
+
+R object attributes are preserved when writing data to Parquet or
+Feather files and when reading those files back into R. This enables
+round-trip writing and reading of `sf::sf` objects, R `data.frame`s with
+with `haven::labelled` columns, and `data.frame`s with other custom
+attributes.
+
+For reading and writing larger files or sets of multiple files, `arrow`
+defines `Dataset` objects and provides the functions `open_dataset()`
+and `write_dataset()`, which enable analysis and processing of
+bigger-than-memory data, including the ability to partition data into
+smaller chunks without loading the full data into memory. For examples
+of these functions, see `vignette("dataset", package = "arrow")`.
+
+All these functions can read and write files in the local filesystem or
+in Amazon S3 (by passing S3 URIs beginning with `s3://`). For more
+details, see `vignette("fs", package = "arrow")`

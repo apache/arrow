@@ -1,0 +1,35 @@
+---
+title: "Installing development versions"
+description: >
+  Learn how to install nightly builds of Arrow 
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Installing development versions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+Development versions of the package (binary and source) are built
+nightly and hosted at <https://nightlies.apache.org/arrow/r/>. To
+install from there:
+
+``` r
+install.packages("arrow", repos = c(arrow = "https://nightlies.apache.org/arrow/r", getOption("repos")))
+```
+
+Conda users can install `arrow` nightly builds with
+
+``` shell
+conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow
+```
+
+If you already have a version of `arrow` installed, you can switch to
+the latest nightly development version with
+
+``` r
+arrow::install_arrow(nightly = TRUE)
+```
+
+These nightly package builds are not official Apache releases and are
+not recommended for production use. They may be useful for testing bug
+fixes and new features under active development.

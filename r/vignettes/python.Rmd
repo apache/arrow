@@ -1,8 +1,11 @@
 ---
-title: "Apache Arrow in Python and R with reticulate"
+title: "Apache Arrow in Python and R"
+description: > 
+  Learn how to use arrow and reticulate to efficiently transfer data 
+  between R and Python without making unnecessary copies
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Apache Arrow in Python and R with reticulate}
+  %\VignetteIndexEntry{Apache Arrow in Python and R}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

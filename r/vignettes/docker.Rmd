@@ -1,12 +1,13 @@
 ---
 title: "Using Docker with Arrow"
+description: >
+  A guide for Arrow developers wanting to using Docker
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Using Docker with Arrow}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
-
 
 Arrow is compatible with a huge number of combinations of OSs, OS versions, 
 compilers, R versions, and other variables.  Sometimes these combinations of 

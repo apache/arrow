@@ -1,5 +1,8 @@
 ---
 title: "Arrow Developer Environment"
+description: >
+  Learn how to configure your environment to allow you to contribute
+  to the Arrow R package
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Arrow Developer Environment}

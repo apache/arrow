@@ -1,5 +1,7 @@
 ---
 title: "Understanding Arrow installation"
+description: >
+  A low-level description of Arrow installation intended for developers
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Understanding Arrow installation}

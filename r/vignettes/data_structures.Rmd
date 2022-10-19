@@ -1,0 +1,62 @@
+---
+title: "Data structures"
+description: > 
+  Learn about Scalar, Array, Table, and Dataset objects in Arrow 
+  (among others), how they relate to each other, as well as their 
+  relationships to familiar R objects like data frames and vectors 
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Data structures}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+## Access to Arrow messages, buffers, and streams
+
+The `arrow` package also provides many lower-level bindings to the C++ library, which enable you
+to access and manipulate Arrow objects. You can use these to build connectors
+to other applications and services that use Arrow. One example is Spark: the
+[`sparklyr`](https://spark.rstudio.com/) package has support for using Arrow to
+move data to and from Spark, yielding [significant performance
+gains](https://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
+
+# Object hierarchy
+
+## Metadata objects
+
+Arrow defines the following classes for representing metadata:
+
+| Class      | Description                                        | How to create an instance        |
+| ---------- | -------------------------------------------------- | -------------------------------- |
+| `DataType` | attribute controlling how values are represented   | functions in `help("data-type")` |
+| `Field`    | a character string name and a `DataType`           | `field(name, type)`              |
+| `Schema`   | list of `Field`s                                   | `schema(...)`                    |
+
+## Data objects
+
+Arrow defines the following classes for representing zero-dimensional (scalar),
+one-dimensional (array/vector-like), and two-dimensional (tabular/data
+frame-like) data:
+
+| Dim | Class          | Description                               | How to create an instance                                                                             |
+| --- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------|
+| 0   | `Scalar`       | single value and its `DataType`           | `Scalar$create(value, type)`                                                                          |
+| 1   | `Array`        | vector of values and its `DataType`       | `Array$create(vector, type)`                                                                          | 
+| 1   | `ChunkedArray` | vectors of values and their `DataType`    | `ChunkedArray$create(..., type)` or alias `chunked_array(..., type)`                                  |
+| 2   | `RecordBatch`  | list of `Array`s with a `Schema`          | `RecordBatch$create(...)` or alias `record_batch(...)`                                                |
+| 2   | `Table`        | list of `ChunkedArray` with a `Schema`    | `Table$create(...)`, alias `arrow_table(...)`, or `arrow::read_*(file, as_data_frame = FALSE)`        |
+| 2   | `Dataset`      | list of `Table`s  with the same `Schema`  | `Dataset$create(sources, schema)` or alias `open_dataset(sources, schema)`                            |
+
+Each of these is defined as an `R6` class in the `arrow` R package and
+corresponds to a class of the same name in the Arrow C++ library. The `arrow`
+package provides a variety of `R6` and S3 methods for interacting with instances
+of these classes.
+
+For convenience, the `arrow` package also defines several synthetic classes that
+do not exist in the C++ library, including:
+
+* `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
+* `ArrowTabular`: inherited by `RecordBatch` and `Table`
+* `ArrowObject`: inherited by all Arrow objects
+

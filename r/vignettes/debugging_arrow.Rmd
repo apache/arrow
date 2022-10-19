@@ -1,5 +1,7 @@
 ---
 title: "Debugging Arrow"
+description: >
+  Tools and strategies to help Arrow developers with debugging
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Debugging Arrow}

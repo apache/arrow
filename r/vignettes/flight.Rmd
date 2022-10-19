@@ -1,5 +1,7 @@
 ---
 title: "Connecting to Arrow Flight Servers"
+description: >
+  Learn how to stream Arrow data over a network using an Arrow Flight server 
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Connecting to Arrow Flight Servers}

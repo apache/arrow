@@ -1,8 +1,11 @@
 ---
-title: "Working with Arrow Datasets and dplyr"
+title: "Working with Arrow Datasets"
+description: >
+  Learn how to use Arrow Datasets to read, write, and analyze 
+  multi-file larger-than-memory data
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Working with Arrow Datasets and dplyr}
+  %\VignetteIndexEntry{Working with Arrow Datasets}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

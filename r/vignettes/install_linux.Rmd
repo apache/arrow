@@ -1,8 +1,11 @@
 ---
-title: "Installing the Arrow Package on Linux"
+title: "Installing Arrow on Linux"
+description: >
+  Installing Arrow on Linux usually "just works", but occasionally poses
+  problems. Learn how to handle installation problems if and when they arise
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Installing the Arrow Package on Linux}
+  %\VignetteIndexEntry{Installing Arrow on Linux}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
