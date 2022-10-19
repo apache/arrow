@@ -32,7 +32,7 @@ register_bindings_type <- function() {
 #' @param to [DataType] to cast to; for [Table] and [RecordBatch],
 #' it should be a [Schema].
 #' @param safe logical: only allow the type conversion if no data is lost
-#' (truncation, overflow, etc.). Default is `TRUE`
+#' (truncation, overflow, etc.). Default is `TRUE`.
 #' @param ... specific `CastOptions` to set
 #' @return An [Expression]
 #'
@@ -43,8 +43,9 @@ register_bindings_type <- function() {
 #'   mutate(cyl = cast(cyl, string()))
 #' }
 #' @keywords internal
-#' @seealso [Arrow C++ documentation](https://arrow.apache.org/docs/cpp/compute.html) for the list of
-#' supported CastOptions.
+#' @seealso [`data-type`] for a list of [DataType] to be used with `to`.
+#' @seealso [Arrow C++ CastOptions documentation](https://arrow.apache.org/docs/cpp/api/compute.html?highlight=castoptions#arrow%3A%3Acompute%3A%3ACastOptions)
+#' for the list of supported CastOptions.
 cast <- function(x, to, safe = TRUE, ...) {
   x$cast(to, safe = safe, ...)
 }
