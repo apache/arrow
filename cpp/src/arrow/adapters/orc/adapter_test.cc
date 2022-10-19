@@ -224,7 +224,6 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
   return Table::Make(schema, cv);
 }
 
-
 void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_tables,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize,
@@ -262,9 +261,10 @@ void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
 
-void AssertBatchWriteReadEqual(const std::vector<std::shared_ptr<RecordBatch>>& input_batches,
-                               const std::shared_ptr<Table>& expected_output_table,
-                               const int64_t max_size = kDefaultSmallMemStreamSize) {
+void AssertBatchWriteReadEqual(
+    const std::vector<std::shared_ptr<RecordBatch>>& input_batches,
+    const std::shared_ptr<Table>& expected_output_table,
+    const int64_t max_size = kDefaultSmallMemStreamSize) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
   auto write_options = adapters::orc::WriteOptions();
@@ -294,15 +294,14 @@ void AssertBatchWriteReadEqual(const std::vector<std::shared_ptr<RecordBatch>>& 
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
 
-
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize,
                                std::vector<int>* opt_selected_read_indices = nullptr) {
-    std::vector<std::shared_ptr<Table>> input_tables;
-    input_tables.push_back(input_table);
-    AssertTableWriteReadEqual(input_tables, expected_output_table, max_size,
-                              opt_selected_read_indices);
+  std::vector<std::shared_ptr<Table>> input_tables;
+  input_tables.push_back(input_table);
+  AssertTableWriteReadEqual(input_tables, expected_output_table, max_size,
+                            opt_selected_read_indices);
 }
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
