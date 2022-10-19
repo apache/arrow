@@ -738,14 +738,16 @@ class Target(Serializable):
     (currently only an email address where the notification should be sent).
     """
 
-    def __init__(self, head, branch, remote, version, email=None):
+    def __init__(self, head, branch, remote, version, r_version, email=None):
         self.head = head
         self.email = email
         self.branch = branch
         self.remote = remote
         self.github_repo = "/".join(_parse_github_user_repo(remote))
         self.version = version
+        self.r_version = r_version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
+        self.no_rc_r_version = re.sub(r'-rc\d+\Z', '', r_version)
         # TODO(ARROW-17552): Remove "master" from default_branch after
         #                    migration to "main".
         self.default_branch = ['main', 'master']
@@ -791,8 +793,39 @@ class Target(Serializable):
         if email is None:
             email = repo.user_email
 
+        version_dev_match = re.match(r".*\.dev(\d+)$", version)
+        if version_dev_match:
+            with open(f"{repo.path}/r/DESCRIPTION") as description_file:
+                description = description_file.read()
+                r_version_pattern = re.compile(r"^Version:\s*(.*)$",
+                                               re.MULTILINE)
+                r_version = re.findall(r_version_pattern, description)[0]
+            if r_version:
+                version_dev = int(version_dev_match[1])
+                # "1_0000_00_00 +" is for generating a greater version
+                # than YYYYMMDD. For example, 1_0000_00_01
+                # (version_dev == 1 case) is greater than 2022_10_16.
+                #
+                # Why do we need a greater version than YYYYMMDD? It's
+                # for keeping backward compatibility. We used
+                # MAJOR.MINOR.PATCH.YYYYMMDD as our nightly package
+                # version. (See also ARROW-16403). If we use "9000 +
+                # version_dev" here, a developer that used
+                # 9.0.0.20221016 can't upgrade to the later nightly
+                # package unless we release 10.0.0. Because 9.0.0.9234
+                # or something is less than 9.0.0.20221016.
+                r_version_dev = 1_0000_00_00 + version_dev
+                # version: 10.0.0.dev234
+                # r_version: 9.0.0.9000
+                # -> 9.0.0.100000234
+                r_version = re.sub(r"\.9000\Z", f".{r_version_dev}", r_version)
+            else:
+                r_version = version
+        else:
+            r_version = version
+
         return cls(head=head, email=email, branch=branch, remote=remote,
-                   version=version)
+                   version=version, r_version=r_version)
 
     def is_default_branch(self):
         # TODO(ARROW-17552): Switch the condition to "is" instead of "in"
@@ -1105,7 +1138,10 @@ class Job(Serializable):
             'version': target.version,
             'no_rc_version': target.no_rc_version,
             'no_rc_semver_version': target.no_rc_semver_version,
-            'no_rc_snapshot_version': target.no_rc_snapshot_version}
+            'no_rc_snapshot_version': target.no_rc_snapshot_version,
+            'r_version': target.r_version,
+            'no_rc_r_version': target.no_rc_r_version,
+        }
         for task_name, task in task_definitions.items():
             task = task.copy()
             artifacts = task.pop('artifacts', None) or []  # because of yaml
@@ -1260,6 +1296,7 @@ class Config(dict):
             branch='master',
             remote='https://github.com/apache/arrow',
             version='1.0.0dev123',
+            r_version='0.13.0.100000123',
             email='dummy@example.ltd'
         )
         job = Job.from_config(config=self,
