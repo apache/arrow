@@ -671,7 +671,7 @@ EnumParser<Enum> GetEnumParser(const std::vector<std::string>& options) {
     parse_map[options[i]] = static_cast<Enum>(i + 1);
   }
   return [parse_map = std::move(parse_map)](std::string_view enum_val) -> Result<Enum> {
-    auto maybe_parsed = parse_map.find(std::string(enum_val));
+    auto it = parse_map.find(std::string(enum_val));
     if (maybe_parsed == parse_map.end()) {
       return Status::NotImplemented("The value ", enum_val,
                                     " is not an expected enum value");
