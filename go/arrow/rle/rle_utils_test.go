@@ -30,9 +30,9 @@ import (
 
 func TestFindPhysicalOffset(t *testing.T) {
 	tests := []struct {
-		vals []int32
-		find int
-		exp  int
+		vals   []int32
+		offset int
+		exp    int
 	}{
 		{[]int32{1}, 0, 0},
 		{[]int32{1, 2, 3}, 0, 0},
@@ -49,9 +49,13 @@ func TestFindPhysicalOffset(t *testing.T) {
 		{[]int32{2, 4, 6}, 10000, 3},
 	}
 
+	rleType := arrow.RunLengthEncodedOf(arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32)
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%v find %d", tt.vals, tt.find), func(t *testing.T) {
-			assert.Equal(t, tt.exp, rle.FindPhysicalOffset(tt.vals, tt.find))
+		t.Run(fmt.Sprintf("%v find %d", tt.vals, tt.offset), func(t *testing.T) {
+			child := array.NewData(arrow.PrimitiveTypes.Int32, len(tt.vals), []*memory.Buffer{nil, memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(tt.vals))}, nil, 0, 0)
+			arr := array.NewData(rleType, -1, nil, []arrow.ArrayData{child}, 0, tt.offset)
+
+			assert.Equal(t, tt.exp, rle.FindPhysicalOffset(arr))
 		})
 	}
 }
