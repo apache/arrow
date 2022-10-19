@@ -34,11 +34,12 @@ collect.Dataset <- function(x, as_data_frame = TRUE, ...) {
 }
 collect.RecordBatchReader <- collect.Dataset
 
-compute.arrow_dplyr_query <- function(x, ...) {
+compute.ArrowTabular <- function(x, ...) x
+compute.Dataset <- compute.RecordBatchReader <- function(x, ...) {
   # TODO: should all of this logic move down into as_arrow_table()?
   # Is there a reason compute() and as_arrow_table() should differ?
   tryCatch(
-    out <- as_arrow_table(x),
+    as_arrow_table(x),
     # n = 4 because we want the error to show up as being from collect()
     # and not augment_io_error_msg()
     error = function(e, call = caller_env(n = 4)) {
@@ -49,14 +50,15 @@ compute.arrow_dplyr_query <- function(x, ...) {
       augment_io_error_msg(e, call, schema = schema())
     }
   )
+}
+compute.arrow_dplyr_query <- function(x, ...) {
+  out <- compute.Dataset(x)
   set_group_attributes(
     out,
     dplyr::group_vars(x),
     dplyr::group_by_drop_default(x)
   )
 }
-compute.ArrowTabular <- function(x, ...) x
-compute.Dataset <- compute.RecordBatchReader <- compute.arrow_dplyr_query
 
 pull.Dataset <- function(.data,
                          var = -1,
