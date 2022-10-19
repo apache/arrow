@@ -4472,6 +4472,23 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
         assert result[0] == expected
 
 
+def test_timestamp_as_object_pytz_offset():
+    # ARROW-16547 to_pandas with timestamp_as_object=True and FixedOffset
+    pytz = pytest.importorskip("pytz")
+    import datetime
+    timezone = pytz.FixedOffset(120)
+    dt = timezone.localize(datetime.datetime(2022, 5, 12, 16, 57))
+
+    timestamps = pa.array([dt])
+    names = ["timestamp_col"]
+    table = pa.Table.from_arrays([timestamps], names=names)
+
+    expected = table.to_pandas()
+    result = table.to_pandas(timestamp_as_object=True)
+    # Not checking equality in dtype as the result is an object
+    tm.assert_frame_equal(expected, result, check_dtype=False)
+
+
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
 
