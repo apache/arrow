@@ -3060,6 +3060,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
                      partitioning=None, basename_template=None,
                      use_threads=None, file_visitor=None,
                      existing_data_behavior=None,
+                     create_dir=True,
                      **kwargs):
     """Wrapper around dataset.write_dataset (when use_legacy_dataset=False) or
     parquet.write_table (when use_legacy_dataset=True) for writing a Table to
@@ -3161,6 +3162,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
         the entire directory will be deleted.  This allows you to overwrite
         old partitions completely.
         This option is only supported for use_legacy_dataset=False.
+    create_dir : bool, default True
+        If False, directories will not be created.  This can be useful for
+        filesystems that do not require directories.
     **kwargs : dict,
         When use_legacy_dataset=False, used as additional kwargs for
         `dataset.write_dataset` function (passed to
@@ -3284,7 +3288,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             file_visitor=file_visitor,
             basename_template=basename_template,
             existing_data_behavior=existing_data_behavior,
-            max_rows_per_group=row_group_size)
+            max_rows_per_group=row_group_size, create_dir=create_dir)
         return
 
     # warnings and errors when using legacy implementation
