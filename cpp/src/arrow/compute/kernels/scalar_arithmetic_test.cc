@@ -1492,43 +1492,6 @@ TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
   }
 }
 
-TYPED_TEST(TestUnaryArithmeticFloating, Exp) {
-//   using CType = typename TestFixture::CType;
-
-//   auto min = std::numeric_limits<CType>::lowest();
-//   auto max = std::numeric_limits<CType>::max();
-
-//   // Empty arrays
-this->SetOverflowCheck(false);
-  this->AssertUnaryOp(Exp, "[]", "[]");
-//   // // Array with nulls
-//   // this->AssertUnaryOp(Exp, "[null]", "[null]");
-//   // this->AssertUnaryOp(Exp, this->MakeNullScalar(), this->MakeNullScalar());
-//   // this->AssertUnaryOp(Exp, "[1.3, null, -10.80]", "[-1.3, null, 10.80]");
-//   // // Arrays with zeros
-//   // this->AssertUnaryOp(Exp, "[0.0, 0.0, -0.0]", "[-0.0, -0.0, 0.0]");
-//   // this->AssertUnaryOp(Exp, 0.0F, -0.0F);
-//   // this->AssertUnaryOp(Exp, -0.0F, 0.0F);
-//   // // Ordinary arrays (positive inputs)
-//   // this->AssertUnaryOp(Exp, "[1.3, 10.80, 12748.001]", "[-1.3, -10.80, -12748.001]");
-//   // this->AssertUnaryOp(Exp, 1.3F, -1.3F);
-//   // this->AssertUnaryOp(Exp, this->MakeScalar(1.3F), this->MakeScalar(-1.3F));
-//   // // Ordinary arrays (negative inputs)
-//   // this->AssertUnaryOp(Exp, "[-1.3, -10.80, -12748.001]", "[1.3, 10.80, 12748.001]");
-//   // this->AssertUnaryOp(Exp, -1.3F, 1.3F);
-//   // this->AssertUnaryOp(Exp, MakeArray(-1.3F), "[1.3]");
-//   // // Arrays with infinites
-//   // this->AssertUnaryOp(Exp, "[Inf, -Inf]", "[-Inf, Inf]");
-//   // // Arrays with NaNs
-//   // this->SetNansEqual(true);
-//   // this->AssertUnaryOp(Exp, "[NaN]", "[NaN]");
-//   // this->AssertUnaryOp(Exp, "[NaN]", "[-NaN]");
-//   // this->AssertUnaryOp(Exp, "[-NaN]", "[NaN]");
-//   // Min/max
-//   this->AssertUnaryOp(Exp, min, max);
-//   this->AssertUnaryOp(Exp, max, min);
-}
-
 class TestUnaryArithmeticDecimal : public TestArithmeticDecimal {};
 
 TEST_F(TestUnaryArithmeticDecimal, AbsoluteValue) {
@@ -1553,6 +1516,65 @@ TEST_F(TestUnaryArithmeticDecimal, AbsoluteValue) {
       CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")},
                   DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"));
     }
+  }
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, Exp) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  auto exp = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Exp(arg, ctx);
+  };
+  // Empty arrays
+  this->AssertUnaryOp(exp, "[]", "[]");
+  // Array with nulls
+  this->AssertUnaryOp(exp, "[null]", "[null]");
+  this->AssertUnaryOp(exp, this->MakeNullScalar(), this->MakeNullScalar());
+  this->AssertUnaryOp(exp, "[-1.0, null, 10.0]",
+                      "[0.36787944117144233, null, 22026.465794806718]");
+  // Ordinary arrays (positive, negative, fractional, and zero inputs)
+  this->AssertUnaryOp(
+      exp, "[-10.0, 0, 0.5, 1.0]",
+      "[0.000045399929762484854,1.0,1.6487212707001282,2.718281828459045]");
+  this->AssertUnaryOp(exp, 1.3F, 3.6692964926535487F);
+  this->AssertUnaryOp(exp, this->MakeScalar(1.3F), this->MakeScalar(3.6692964926535487F));
+  // Arrays with infinites
+  this->AssertUnaryOp(exp, "[-Inf, Inf]", "[0, Inf]");
+  // Arrays with NaNs
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(exp, "[NaN]", "[NaN]");
+  this->AssertUnaryOp(exp, "[NaN]", "[NaN]");
+  this->AssertUnaryOp(exp, "[NaN]", "[NaN]");
+  // Min/max
+  this->AssertUnaryOp(exp, min, 0.0);
+  this->AssertUnaryOp(exp, max, std::numeric_limits<double_t>::infinity());
+}
+
+TEST_F(TestUnaryArithmeticDecimal, Exp) {
+  auto max128 = Decimal128::GetMaxValue(38);
+  auto max256 = Decimal256::GetMaxValue(76);
+  const auto func = "exp";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(float64(), "[]"));
+    CheckScalar(
+        func, {ArrayFromJSON(ty, R"(["-1.00", "10.00", null])")},
+        ArrayFromJSON(float64(), "[0.36787944117144233, 22026.465794806718, null]"));
+  }
+  CheckScalar(func, {std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0))},
+              ScalarFromJSON(float64(), "Inf"));
+  CheckScalar(func, {std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+              ScalarFromJSON(float64(), "0"));
+  CheckScalar(func, {std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0))},
+              ScalarFromJSON(float64(), "Inf"));
+  CheckScalar(func, {std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+              ScalarFromJSON(float64(), "0"));
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(float64(), "[]"));
+    CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "0", "-42E2", null])")},
+                ArrayFromJSON(float64(), "[Inf, 1.0, 0.0, null]"));
   }
 }
 

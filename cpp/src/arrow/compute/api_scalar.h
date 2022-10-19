@@ -614,12 +614,10 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 /// If the exponent value is null the result will be null.
 ///
 /// \param[in] arg the base
-/// \param[in] options arithmetic options (enable/disable overflow checking), optional
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise Euler's number raised to the power of exponent
 ARROW_EXPORT
-Result<Datum> Exp(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
-                    ExecContext* ctx = NULLPTR);
+Result<Datum> Exp(const Datum& arg, ExecContext* ctx = NULLPTR);
 
 /// \brief Left shift the left array by the right array. Array values must be the
 /// same length. If either operand is null, the result will be null.

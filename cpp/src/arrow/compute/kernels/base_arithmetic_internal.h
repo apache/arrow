@@ -487,13 +487,15 @@ struct NegateChecked {
 
 struct Exp {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg exp, Status*) {
+  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg exp,
+                                                         Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return std::exp(exp);
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp, Status*) {
+  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg exp,
+                                                        Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return exp.Exp();
   }
