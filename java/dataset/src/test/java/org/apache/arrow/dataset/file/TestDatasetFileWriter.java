@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.TestDataset;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
+import org.apache.arrow.dataset.scanner.ArrowScannerReader;
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.dataset.scanner.Scanner;
@@ -65,13 +66,14 @@ public class TestDatasetFileWriter extends TestDataset {
     ScanOptions options = new ScanOptions(new String[0], 100);
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
+    final ArrowScannerReader reader = new ArrowScannerReader(scanner, rootAllocator());
     final File writtenFolder = TMP.newFolder();
     final String writtenParquet = writtenFolder.toURI().toString();
     try {
-      DatasetFileWriter.write(rootAllocator(), scanner, FileFormat.PARQUET, writtenParquet);
+      DatasetFileWriter.write(rootAllocator(), reader, FileFormat.PARQUET, writtenParquet);
       assertParquetFileEquals(sampleParquet, Objects.requireNonNull(writtenFolder.listFiles())[0].toURI().toString());
     } finally {
-      AutoCloseables.close(factory, scanner, dataset);
+      AutoCloseables.close(factory, scanner, reader, dataset);
     }
   }
 
@@ -85,10 +87,11 @@ public class TestDatasetFileWriter extends TestDataset {
     ScanOptions options = new ScanOptions(new String[0], 100);
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
+    final ArrowScannerReader reader = new ArrowScannerReader(scanner, rootAllocator());
     final File writtenFolder = TMP.newFolder();
     final String writtenParquet = writtenFolder.toURI().toString();
     try {
-      DatasetFileWriter.write(rootAllocator(), scanner, FileFormat.PARQUET, writtenParquet, new String[]{"id", "name"}, 100, "dat_{i}");
+      DatasetFileWriter.write(rootAllocator(), reader, FileFormat.PARQUET, writtenParquet, new String[]{"id", "name"}, 100, "dat_{i}");
       final Set<String> expectedOutputFiles = new HashSet<>(
           Arrays.asList("id=1/name=a/dat_0", "id=2/name=b/dat_0", "id=3/name=c/dat_0", "id=2/name=d/dat_0"));
       final Set<String> outputFiles = FileUtils.listFiles(writtenFolder, null, true)
@@ -99,7 +102,7 @@ public class TestDatasetFileWriter extends TestDataset {
           .collect(Collectors.toSet());
       Assert.assertEquals(expectedOutputFiles, outputFiles);
     } finally {
-      AutoCloseables.close(factory, scanner, dataset);
+      AutoCloseables.close(factory, scanner, reader, dataset);
     }
   }
 

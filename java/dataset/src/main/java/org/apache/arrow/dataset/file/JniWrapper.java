@@ -49,7 +49,7 @@ public class JniWrapper {
    * Write all record batches in a {@link NativeRecordBatchIterator} into files. This internally
    * depends on C++ write API: FileSystemDataset::Write.
    *
-   * @param schema_address the schema address
+   * @param stream_address the ArrowArrayStream address
    * @param fileFormat target file format (ID)
    * @param uri target file uri
    * @param partitionColumns columns used to partition output files
@@ -57,8 +57,11 @@ public class JniWrapper {
    * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
    *                         ID around all written files.
    */
-  public native void writeFromScannerToFile(long stream_address, long schema_address,
-                                            long fileFormat, String uri, String[] partitionColumns, int maxPartitions,
+  public native void writeFromScannerToFile(long stream_address,
+                                            long fileFormat,
+                                            String uri,
+                                            String[] partitionColumns,
+                                            int maxPartitions,
                                             String baseNameTemplate);
 
 }

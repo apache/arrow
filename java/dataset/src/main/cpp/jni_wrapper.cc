@@ -541,7 +541,7 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
  */
 JNIEXPORT void JNICALL
 Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
-    JNIEnv* env, jobject, jlong c_arrow_array_stream_address, jlong c_schema_address,
+    JNIEnv* env, jobject, jlong c_arrow_array_stream_address,
     jlong file_format_id, jstring uri, jobjectArray partition_columns,
     jint max_partitions, jstring base_name_template) {
   JNI_METHOD_START
@@ -551,6 +551,9 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
   }
 
   auto* arrow_stream = reinterpret_cast<ArrowArrayStream*>(c_arrow_array_stream_address);
+  struct ArrowSchema c_schema;
+  arrow_stream->get_schema(arrow_stream, &c_schema);
+
   std::shared_ptr<arrow::RecordBatchReader> reader =
       JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream));
   // Release the ArrowArrayStream
@@ -561,7 +564,7 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
   auto scanner = scanner_builder->Finish().ValueOrDie();
 
   std::shared_ptr<arrow::Schema> schema = JniGetOrThrow(
-      arrow::ImportSchema(reinterpret_cast<struct ArrowSchema*>(c_schema_address)));
+      arrow::ImportSchema(&c_schema));
 
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
       JniGetOrThrow(GetFileFormat(file_format_id));

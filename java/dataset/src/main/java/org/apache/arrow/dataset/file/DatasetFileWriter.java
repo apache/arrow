@@ -20,6 +20,7 @@ package org.apache.arrow.dataset.file;
 import org.apache.arrow.c.ArrowArrayStream;
 import org.apache.arrow.c.ArrowSchema;
 import org.apache.arrow.c.Data;
+import org.apache.arrow.dataset.scanner.ArrowScannerReader;
 import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.memory.BufferAllocator;
@@ -38,7 +39,7 @@ public class DatasetFileWriter {
   /**
    * Scan over an input {@link Scanner} then write all record batches to file.
    *
-   * @param scanner the source scanner for writing
+   * @param reader the datasource for writing
    * @param format target file format
    * @param uri target file uri
    * @param maxPartitions maximum partitions to be included in written files
@@ -46,47 +47,29 @@ public class DatasetFileWriter {
    * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
    *                         ID around all written files.
    */
-  public static void write(BufferAllocator allocator, Scanner scanner, FileFormat format, String uri,
+  public static void write(BufferAllocator allocator, ArrowReader reader, FileFormat format, String uri,
                            String[] partitionColumns, int maxPartitions, String baseNameTemplate) {
-    ArrowSchema arrowSchema = ArrowSchema.allocateNew(allocator);
-    Data.exportSchema(allocator, scanner.schema(), null, arrowSchema);
     RuntimeException throwableWrapper = null;
     try {
-      Iterator<? extends ScanTask> taskIterators = scanner.scan().iterator();
-      while (taskIterators.hasNext()) {
-        ArrowReader currentReader = taskIterators.next().execute();
-        ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator);
-        Data.exportArrayStream(allocator, currentReader, stream);
-        JniWrapper.get().writeFromScannerToFile(stream.memoryAddress(), arrowSchema.memoryAddress(),
-            format.id(), uri, partitionColumns, maxPartitions, baseNameTemplate);
-        currentReader.close();
-        stream.close();
-      }
-
+      ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator);
+      Data.exportArrayStream(allocator, reader, stream);
+      JniWrapper.get().writeFromScannerToFile(stream.memoryAddress(),
+          format.id(), uri, partitionColumns, maxPartitions, baseNameTemplate);
+      stream.close();
     } catch (Throwable t) {
       throwableWrapper = new RuntimeException(t);
       throw throwableWrapper;
-    } finally {
-      try {
-        scanner.close();
-        arrowSchema.release();
-        arrowSchema.close();
-      } catch (Exception e) {
-        if (throwableWrapper != null) {
-          throwableWrapper.addSuppressed(e);
-        }
-      }
     }
   }
 
   /**
    * Scan over an input {@link Scanner} then write all record batches to file, with default partitioning settings.
    *
-   * @param scanner the source scanner for writing
+   * @param reader the datasource for writing
    * @param format target file format
    * @param uri target file uri
    */
-  public static void write(BufferAllocator allocator, Scanner scanner, FileFormat format, String uri) {
-    write(allocator, scanner, format, uri, new String[0], 1024, "dat_{i}");
+  public static void write(BufferAllocator allocator, ArrowReader reader, FileFormat format, String uri) {
+    write(allocator, reader, format, uri, new String[0], 1024, "dat_{i}");
   }
 }
