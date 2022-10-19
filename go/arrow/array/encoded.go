@@ -163,16 +163,20 @@ type RunLengthEncodedBuilder struct {
 	builder
 
 	dt      arrow.DataType
-	runEnds *Int32Builder
+	runEnds Builder
 	values  Builder
 }
 
-func NewRunLengthEncodedBuilder(mem memory.Allocator, typ arrow.DataType) *RunLengthEncodedBuilder {
+func NewRunLengthEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataType) *RunLengthEncodedBuilder {
+	dt := arrow.RunLengthEncodedOf(runEnds, encoded)
+	if !dt.ValidRunEndsType(runEnds) {
+		panic("arrow/rle: invalid runEnds type for run length encoded array")
+	}
 	return &RunLengthEncodedBuilder{
 		builder: builder{refCount: 1, mem: mem},
-		dt:      arrow.RunLengthEncodedOf(typ),
-		runEnds: NewInt32Builder(mem),
-		values:  NewBuilder(mem, typ),
+		dt:      dt,
+		runEnds: NewBuilder(mem, runEnds),
+		values:  NewBuilder(mem, encoded),
 	}
 }
 
@@ -202,7 +206,14 @@ func (b *RunLengthEncodedBuilder) finishRun() {
 		return
 	}
 
-	b.runEnds.Append(int32(b.length))
+	switch bldr := b.runEnds.(type) {
+	case *Int16Builder:
+		bldr.Append(int16(b.length))
+	case *Int32Builder:
+		bldr.Append(int32(b.length))
+	case *Int64Builder:
+		bldr.Append(int64(b.length))
+	}
 }
 
 func (b *RunLengthEncodedBuilder) ValueBuilder() Builder { return b.values }
@@ -251,12 +262,12 @@ func (b *RunLengthEncodedBuilder) newData() (data *Data) {
 	b.finishRun()
 	values := b.values.NewArray()
 	defer values.Release()
-	runEnds := b.runEnds.NewInt32Array()
+	runEnds := b.runEnds.NewArray()
 	defer runEnds.Release()
 
 	data = NewData(
 		b.dt, b.length, []*memory.Buffer{nil},
-		[]arrow.ArrayData{runEnds.data, values.Data()}, 0, 0)
+		[]arrow.ArrayData{runEnds.Data(), values.Data()}, 0, 0)
 	b.reset()
 	return
 }

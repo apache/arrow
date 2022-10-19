@@ -212,7 +212,7 @@ func TestRunLengthEncodedBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	bldr := array.NewBuilder(mem, arrow.RunLengthEncodedOf(arrow.BinaryTypes.String))
+	bldr := array.NewBuilder(mem, arrow.RunLengthEncodedOf(arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String))
 	defer bldr.Release()
 
 	assert.IsType(t, (*array.RunLengthEncodedBuilder)(nil), bldr)
@@ -238,7 +238,8 @@ func TestRunLengthEncodedBuilder(t *testing.T) {
 
 	assert.EqualValues(t, 501, rleArray.Len())
 	assert.EqualValues(t, 6, rleArray.GetPhysicalLength())
-	assert.Equal(t, []int32{100, 200, 300, 400, 500, 501}, rleArray.RunEnds())
+	assert.Equal(t, arrow.INT16, rleArray.RunEndsArr().DataType().ID())
+	assert.Equal(t, []int16{100, 200, 300, 400, 500, 501}, rleArray.RunEndsArr().(*array.Int16).Int16Values())
 
 	strValues := rleArray.Values().(*array.String)
 	assert.Equal(t, "Hello", strValues.Value(0))
