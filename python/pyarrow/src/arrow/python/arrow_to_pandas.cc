@@ -1076,13 +1076,15 @@ struct ObjectWriterVisitor {
       RETURN_NOT_OK(ConvertTimezoneNaive(value, &naive_datetime));
 
       // convert the timezone naive datetime object to timezone aware
-      // first: replacing timezone with timezone.utc
+      // two step conversion of the datetime mimics Python's code:
+      // dt.replace(tzinfo=datetime.timezone.utc).astimezone(tzinfo)
+      // first step: replacing timezone with timezone.utc (replace method)
       OwnedRef args(PyTuple_New(0));
       OwnedRef keywords(PyDict_New());
       PyDict_SetItemString(keywords.obj(), "tzinfo", PyDateTime_TimeZone_UTC);
       OwnedRef naive_datetime_replace(PyObject_GetAttrString(naive_datetime, "replace"));
       OwnedRef datetime_utc(PyObject_Call(naive_datetime_replace.obj(), args.obj(), keywords.obj()));
-      // second: adjust the datetime to tzinfo timezone
+      // second step: adjust the datetime to tzinfo timezone (astimezone method)
       OwnedRef astimezone(PyObject_GetAttrString(datetime_utc.obj(), "astimezone"));
       *out = PyObject_CallOneArg(astimezone.obj(), tzinfo.obj());
 
