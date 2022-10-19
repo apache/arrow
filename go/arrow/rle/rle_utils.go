@@ -23,14 +23,79 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 )
 
-func FindPhysicalOffset(runEnds []int32, logicalOffset int) int {
-	return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int32(logicalOffset) })
+func FindPhysicalOffset(arr arrow.ArrayData) int {
+	data := arr.Children()[0]
+	logicalOffset := arr.Offset()
+
+	switch data.DataType().ID() {
+	case arrow.INT16:
+		runEnds := arrow.Int16Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		runEnds = runEnds[data.Offset() : data.Offset()+data.Len()]
+		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int16(logicalOffset) })
+	case arrow.INT32:
+		runEnds := arrow.Int32Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		runEnds = runEnds[data.Offset() : data.Offset()+data.Len()]
+		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int32(logicalOffset) })
+	case arrow.INT64:
+		runEnds := arrow.Int64Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		runEnds = runEnds[data.Offset() : data.Offset()+data.Len()]
+		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int64(logicalOffset) })
+	default:
+		panic("only int16, int32, and int64 are allowed for the run-ends")
+	}
+}
+
+func GetPhysicalLength(arr arrow.ArrayData) int {
+	if arr.Len() == 0 {
+		return 0
+	}
+
+	data := arr.Children()[0]
+	physicalOffset := FindPhysicalOffset(arr)
+	start, length := data.Offset()+physicalOffset, data.Len()-physicalOffset
+	offset := arr.Offset() + arr.Len() - 1
+
+	switch data.DataType().ID() {
+	case arrow.INT16:
+		runEnds := arrow.Int16Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		runEnds = runEnds[start : start+length]
+		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int16(offset) }) + 1
+	case arrow.INT32:
+		runEnds := arrow.Int32Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		runEnds = runEnds[start : start+length]
+		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int32(offset) }) + 1
+	case arrow.INT64:
+		runEnds := arrow.Int64Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		runEnds = runEnds[start : start+length]
+		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int64(offset) }) + 1
+	default:
+		panic("arrow/rle: can only get rle.PhysicalLength for int16/int32/int64 run ends array")
+	}
+}
+
+func getRunEnds(arr arrow.ArrayData) func(int64) int64 {
+	switch arr.DataType().ID() {
+	case arrow.INT16:
+		runEnds := arrow.Int16Traits.CastFromBytes(arr.Buffers()[1].Bytes())
+		runEnds = runEnds[arr.Offset() : arr.Offset()+arr.Len()]
+		return func(i int64) int64 { return int64(runEnds[i]) }
+	case arrow.INT32:
+		runEnds := arrow.Int32Traits.CastFromBytes(arr.Buffers()[1].Bytes())
+		runEnds = runEnds[arr.Offset() : arr.Offset()+arr.Len()]
+		return func(i int64) int64 { return int64(runEnds[i]) }
+	case arrow.INT64:
+		runEnds := arrow.Int64Traits.CastFromBytes(arr.Buffers()[1].Bytes())
+		runEnds = runEnds[arr.Offset() : arr.Offset()+arr.Len()]
+		return func(i int64) int64 { return int64(runEnds[i]) }
+	default:
+		panic("only int16, int32, and int64 are allowed for the run-ends")
+	}
 }
 
 type MergedRuns struct {
 	inputs       [2]arrow.Array
 	runIndex     [2]int64
-	inputRunEnds [2][]int32
+	inputRunEnds [2]func(int64) int64
 	runEnds      [2]int64
 	logicalLen   int
 	logicalPos   int
@@ -38,17 +103,24 @@ type MergedRuns struct {
 }
 
 func NewMergedRuns(inputs [2]arrow.Array) *MergedRuns {
+	if len(inputs) == 0 {
+		return &MergedRuns{logicalLen: 0}
+	}
+
 	mr := &MergedRuns{inputs: inputs, logicalLen: inputs[0].Len()}
 	for i, in := range inputs {
 		if in.DataType().ID() != arrow.RUN_LENGTH_ENCODED {
 			panic("arrow/rle: NewMergedRuns can only be called with RunLengthEncoded arrays")
 		}
-		runEnds := arrow.Int32Traits.CastFromBytes(in.Data().Children()[0].Buffers()[1].Bytes())
-		mr.inputRunEnds[i] = runEnds
+		if in.Len() != mr.logicalLen {
+			panic("arrow/rle: can only merge runs of RLE arrays of the same length")
+		}
+
+		mr.inputRunEnds[i] = getRunEnds(in.Data().Children()[0])
 		// initialize the runIndex at the physical offset - 1 so the first
 		// call to Next will increment it to the correct initial offset
 		// since the initial state is logicalPos == 0 and mergedEnd == 0
-		mr.runIndex[i] = int64(FindPhysicalOffset(runEnds, in.Data().Offset())) - 1
+		mr.runIndex[i] = int64(FindPhysicalOffset(in.Data())) - 1
 	}
 
 	return mr
@@ -81,7 +153,7 @@ func (mr *MergedRuns) findMergedRun() {
 	mr.mergedEnd = int64(math.MaxInt64)
 	for i, in := range mr.inputs {
 		// logical indices of the end of the run we are currently in each input
-		mr.runEnds[i] = int64(mr.inputRunEnds[i][mr.runIndex[i]] - int32(in.Data().Offset()))
+		mr.runEnds[i] = int64(mr.inputRunEnds[i](mr.runIndex[i]) - int64(in.Data().Offset()))
 		// the logical length may end in the middle of a run, in case the array was sliced
 		if mr.logicalLen < int(mr.runEnds[i]) {
 			mr.runEnds[i] = int64(mr.logicalLen)
