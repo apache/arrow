@@ -111,15 +111,20 @@ StreamingReader
       // Set aside a RecordBatch pointer for re-use while streaming
       std::shared_ptr<RecordBatch> batch;
 
-      // Attempt to read the first RecordBatch
-      arrow::Status status = reader->ReadNext(&batch);
+      while (true) {
+          // Attempt to read the first RecordBatch
+          arrow::Status status = reader->ReadNext(&batch);
 
-      if (!status.ok()) {
-        // Handle read error
-      }
+          if (!status.ok()) {
+            // Handle read error
+          }
 
-      if (batch == NULL) {
-        // Handle end of file
+          if (batch == NULL) {
+            // Handle end of file
+            break;
+          }
+
+          // Do something with the batch
       }
    }
 
