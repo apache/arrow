@@ -2396,8 +2396,9 @@ cdef class Scanner(_Weakrefable):
             record batches are overflowing memory then this method can be
             called to reduce their size.
         batch_readahead : int, default 16
-            The number of batches to read ahead in a file. Increasing this number
-            will increase RAM usage but could also improve IO utilization.
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase RAM usage
+            but could also improve IO utilization.
         fragment_readahead : int, default 4
             The number of files to read ahead. Increasing this number will increase
             RAM usage but could also improve IO utilization.
@@ -2482,8 +2483,9 @@ cdef class Scanner(_Weakrefable):
             record batches are overflowing memory then this method can be
             called to reduce their size.
         batch_readahead : int, default 16
-            The number of batches to read ahead in a file. Increasing this number
-            will increase RAM usage but could also improve IO utilization.
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase RAM usage
+            but could also improve IO utilization.
         fragment_scan_options : FragmentScanOptions, default None
             Options specific to a particular scan and fragment type, which
             can change between different scans of the same dataset.
