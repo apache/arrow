@@ -1,11 +1,11 @@
 ---
-title: "Writing Arrow Bindings"
+title: "Writing dplyr bindings"
 description: > 
-  Learn how to write bindings that allow Arrow to mirror the behavior
-  of native R functions within dplyr pipelines
+  Learn how to write bindings that allow `arrow` to mirror the behavior
+  of native R functions within `dplyr` pipelines
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Writing Arrow Bindings}
+  %\VignetteIndexEntry{Writing dplyr bindings}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

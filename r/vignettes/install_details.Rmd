@@ -1,10 +1,10 @@
 ---
-title: "Understanding Arrow installation"
+title: "Installation details"
 description: >
-  A low-level description of Arrow installation intended for developers
+  A low-level description of `arrow` installation intended for developers
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Understanding Arrow installation}
+  %\VignetteIndexEntry{Installation details}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

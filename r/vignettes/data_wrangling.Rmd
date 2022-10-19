@@ -1,10 +1,10 @@
 ---
-title: "Using dplyr with arrow"
+title: "Data analysis with dplyr syntax"
 description: >
-  Learn how to use the dplyr backend supplied by arrow 
+  Learn how to use the `dplyr` backend supplied by `arrow` 
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Using dplyr with arrow}
+  %\VignetteIndexEntry{Data analysis with dplyr syntax}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

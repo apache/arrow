@@ -103,8 +103,8 @@ navbar:
       href: reference/index.html
 
 articles:
-  - title: Using the Arrow package
-    navbar: Using the Arrow package
+  - title: Using the package
+    navbar: Using the package
     contents:
       - read_write
       - data_wrangling
@@ -118,6 +118,7 @@ articles:
     contents:
       - data_structures
       - data_types
+      - package_conventions
 
   - title: Installation
     navbar: Installation
@@ -125,14 +126,14 @@ articles:
       - install_linux
       - install_nightly
 
-  - title: Arrow developer guides
+  - title: Developer guides
     contents:
       - developer_overview
       - developer_environment
       - developer_workflow
       - debugging_arrow
       - docker
-      - writing_arrow_bindings
+      - writing_bindings
       - install_details
 
 reference:

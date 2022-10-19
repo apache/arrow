@@ -1,7 +1,7 @@
 ---
 title: "Data structures"
 description: > 
-  Learn about Scalar, Array, Table, and Dataset objects in Arrow 
+  Learn about Scalar, Array, Table, and Dataset objects in `arrow` 
   (among others), how they relate to each other, as well as their 
   relationships to familiar R objects like data frames and vectors 
 output: rmarkdown::html_vignette

@@ -1,7 +1,7 @@
 ---
 title: "Installing development versions"
 description: >
-  Learn how to install nightly builds of Arrow 
+  Learn how to install nightly builds of `arrow` 
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Installing development versions}

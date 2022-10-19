@@ -1,10 +1,10 @@
 ---
-title: "Arrow Developer Workflow"
+title: "Developer workflows"
 description: >
-  Learn about the workflows and conventions followed by Arrow developers
+  Learn about the workflows and conventions followed by `arrow` developers
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Arrow Developer Workflow}
+  %\VignetteIndexEntry{Developer workflows}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

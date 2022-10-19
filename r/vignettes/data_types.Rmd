@@ -1,10 +1,11 @@
 ---
-title: "Data types in Arrow and R"
+title: "Data types"
 description: >
-  Learn about Arrow data types and how these types map onto data types in R 
+  Learn about fundamental data types in Apache Arrow and how those 
+  types are mapped onto corresponding data types in R 
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Data types in Arrow and R}
+  %\VignetteIndexEntry{Data types}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

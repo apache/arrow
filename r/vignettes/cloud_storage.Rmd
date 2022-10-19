@@ -1,11 +1,11 @@
 ---
-title: "Working with Cloud Storage (S3, GCS)"
+title: "Working with cloud storage (S3, GCS)"
 description: >
   Learn how to work with data sets stored in an 
   Amazon S3 bucket or on Google Cloud Storage 
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Working with Cloud Storage (S3, GCS)}
+  %\VignetteIndexEntry{Working with cloud storage (S3, GCS)}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

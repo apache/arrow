@@ -1,11 +1,11 @@
 ---
-title: "Working with Arrow Datasets"
+title: "Working with multi-file data sets"
 description: >
-  Learn how to use Arrow Datasets to read, write, and analyze 
+  Learn how to use Datasets to read, write, and analyze 
   multi-file larger-than-memory data
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Working with Arrow Datasets}
+  %\VignetteIndexEntry{Working with multi-file data sets}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

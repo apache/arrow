@@ -1,10 +1,10 @@
 ---
-title: "Debugging Arrow"
+title: "Debugging strategies"
 description: >
-  Tools and strategies to help Arrow developers with debugging
+  Tools and strategies to help `arrow` developers with debugging
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Debugging Arrow}
+  %\VignetteIndexEntry{Debugging strategies}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
