@@ -709,6 +709,8 @@ test_that("Dataset write max rows per files", {
 
 test_that("Dataset min_rows_per_group", {
   skip_if_not_available("parquet")
+  skip_if_not(CanRunWithCapturedR())
+
   rb1 <- record_batch(
     c1 = c(1, 2, 3, 4),
     c2 = c("a", "b", "e", "a")
@@ -758,6 +760,8 @@ test_that("Dataset min_rows_per_group", {
 
 test_that("Dataset write max rows per group", {
   skip_if_not_available("parquet")
+  skip_if_not(CanRunWithCapturedR())
+
   num_of_records <- 30
   max_rows_per_group <- 18
   df <- tibble::tibble(
