@@ -1718,9 +1718,8 @@ const FunctionDoc pow_doc{
     {"base", "exponent"}};
 
 const FunctionDoc exp_doc{
-    "Computes Euler's number raised to the specified power, element-wise",
-    ("Negative integer power returns an error. However, integer overflow\n"
-     "wraps around. If exponent is null the result will be null."),
+    "Compute Euler's number raised to the specified power, element-wise",
+    ("If exponent is null the result will be null."),
     {"exponent"}};
 
 const FunctionDoc pow_checked_doc{

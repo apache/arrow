@@ -1239,7 +1239,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
 
   // Float types
   for (std::string name :
-       {"atan", "sign", "floor", "ceil", "trunc", "round", "round_to_multiple"}) {
+       {"atan", "sign", "floor", "ceil", "trunc", "round", "round_to_multiple", "exp"}) {
     for (const auto& ty : {float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
       CheckDispatchBest(name, {dictionary(int8(), ty)}, {ty});
@@ -1279,7 +1279,7 @@ TEST(TestUnaryArithmetic, Null) {
     }
   }
 
-  for (std::string name : {"atan", "bit_wise_not", "ceil", "floor", "round",
+  for (std::string name : {"atan", "bit_wise_not", "ceil", "exp", "floor", "round",
                            "round_to_multiple", "sign", "trunc"}) {
     AssertNullToNull(name);
   }
@@ -1490,6 +1490,43 @@ TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
     this->AssertUnaryOp(AbsoluteValue, min, max);
     this->AssertUnaryOp(AbsoluteValue, max, max);
   }
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, Exp) {
+//   using CType = typename TestFixture::CType;
+
+//   auto min = std::numeric_limits<CType>::lowest();
+//   auto max = std::numeric_limits<CType>::max();
+
+//   // Empty arrays
+this->SetOverflowCheck(false);
+  this->AssertUnaryOp(Exp, "[]", "[]");
+//   // // Array with nulls
+//   // this->AssertUnaryOp(Exp, "[null]", "[null]");
+//   // this->AssertUnaryOp(Exp, this->MakeNullScalar(), this->MakeNullScalar());
+//   // this->AssertUnaryOp(Exp, "[1.3, null, -10.80]", "[-1.3, null, 10.80]");
+//   // // Arrays with zeros
+//   // this->AssertUnaryOp(Exp, "[0.0, 0.0, -0.0]", "[-0.0, -0.0, 0.0]");
+//   // this->AssertUnaryOp(Exp, 0.0F, -0.0F);
+//   // this->AssertUnaryOp(Exp, -0.0F, 0.0F);
+//   // // Ordinary arrays (positive inputs)
+//   // this->AssertUnaryOp(Exp, "[1.3, 10.80, 12748.001]", "[-1.3, -10.80, -12748.001]");
+//   // this->AssertUnaryOp(Exp, 1.3F, -1.3F);
+//   // this->AssertUnaryOp(Exp, this->MakeScalar(1.3F), this->MakeScalar(-1.3F));
+//   // // Ordinary arrays (negative inputs)
+//   // this->AssertUnaryOp(Exp, "[-1.3, -10.80, -12748.001]", "[1.3, 10.80, 12748.001]");
+//   // this->AssertUnaryOp(Exp, -1.3F, 1.3F);
+//   // this->AssertUnaryOp(Exp, MakeArray(-1.3F), "[1.3]");
+//   // // Arrays with infinites
+//   // this->AssertUnaryOp(Exp, "[Inf, -Inf]", "[-Inf, Inf]");
+//   // // Arrays with NaNs
+//   // this->SetNansEqual(true);
+//   // this->AssertUnaryOp(Exp, "[NaN]", "[NaN]");
+//   // this->AssertUnaryOp(Exp, "[NaN]", "[-NaN]");
+//   // this->AssertUnaryOp(Exp, "[-NaN]", "[NaN]");
+//   // Min/max
+//   this->AssertUnaryOp(Exp, min, max);
+//   this->AssertUnaryOp(Exp, max, min);
 }
 
 class TestUnaryArithmeticDecimal : public TestArithmeticDecimal {};
