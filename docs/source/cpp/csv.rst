@@ -25,7 +25,7 @@ Reading and Writing CSV files
 =============================
 
 Arrow provides a fast CSV reader allowing ingestion of external data
-as Arrow Tables or streamed as Arrow RecordBatches.
+to create Arrow Tables or a stream of Arrow RecordBatches.
 
 .. seealso::
    :ref:`CSV reader/writer API reference <cpp-api-csv>`.
