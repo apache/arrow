@@ -262,7 +262,7 @@ void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
 
-void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<RecordBatch>>& input_batches,
+void AssertBatchWriteReadEqual(const std::vector<std::shared_ptr<RecordBatch>>& input_batches,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
@@ -297,11 +297,12 @@ void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<RecordBatch>>& 
 
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
-                               const int64_t max_size = kDefaultSmallMemStreamSize) {
+                               const int64_t max_size = kDefaultSmallMemStreamSize,
+                               std::vector<int>* opt_selected_read_indices = nullptr) {
     std::vector<std::shared_ptr<Table>> input_tables;
     input_tables.push_back(input_table);
-    AssertTableWriteReadEqual(input_tables, expected_output_table, max_size);
-  AssertTableWriteReadEqual(input_tables, expected_output_table, max_size);
+    AssertTableWriteReadEqual(input_tables, expected_output_table, max_size,
+                              opt_selected_read_indices);
 }
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
@@ -873,7 +874,7 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntFieldRecordBatch) {
   auto expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
   std::shared_ptr<Table> expected_output_table =
       Table::Make(input_schema, {expected_output_chunked_array});
-  AssertTableWriteReadEqual(input_batches, expected_output_table,
+  AssertBatchWriteReadEqual(input_batches, expected_output_table,
                             kDefaultSmallMemStreamSize * 100);
 }
 }  // namespace arrow
