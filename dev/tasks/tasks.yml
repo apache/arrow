@@ -1492,7 +1492,7 @@ tasks:
                                                                      ("3.7", "latest", "latest", False),
                                                                      ("3.8", "latest", "latest", False),
                                                                      ("3.8", "nightly", "nightly", False),
-                                                                     ("3.9", "master", "nightly", False)] %}
+                                                                     ("3.9", "upstream_devel", "nightly", False)] %}
   test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1512,7 +1512,7 @@ tasks:
       image: conda-python-pandas
 {% endfor %}
 
-{% for dask_version in ["latest", "master"] %}
+{% for dask_version in ["latest", "upstream_devel"] %}
   test-conda-python-3.9-dask-{{ dask_version }}:
     ci: github
     template: docker-tests/github.linux.yml
