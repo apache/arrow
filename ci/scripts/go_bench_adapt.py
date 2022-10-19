@@ -30,7 +30,6 @@ log.setLevel(logging.DEBUG)
 
 ARROW_ROOT = Path(__file__).parent.parent.parent.resolve()
 SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
-REF_NAME = os.environ.get("CONBENCH_REF_NAME")
 
 class GoAdapter(BenchmarkAdapter):
     result_file = "bench_stats.json"
@@ -78,7 +77,7 @@ class GoAdapter(BenchmarkAdapter):
                         "name": pieces[0],
                         "params": '/'.join(pieces[1:]),
                     },
-                    run_reason=f'commit to {REF_NAME}',
+                    run_reason=f'commit',
                 )
                 parsed.run_name = f"{parsed.run_reason}: {parsed.github['commit']}"
                 parsed_results.append(parsed)
