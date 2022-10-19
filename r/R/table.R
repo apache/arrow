@@ -341,3 +341,9 @@ as_arrow_table.arrow_dplyr_query <- function(x, ...) {
 as_arrow_table.Schema <- function(x, ...) {
   Table__from_schema(x)
 }
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.Dataset <- function(x, ...) {
+  Scanner$create(x)$ToTable()
+}
