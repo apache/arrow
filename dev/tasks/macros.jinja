@@ -269,7 +269,7 @@ on:
       rm -f apache-arrow*.rb.bak
 {% endmacro %}
 
-{%- macro github_change_r_pkg_version(is_fork, version = '\\2.\'\"$(date +%Y%m%d)\"\'' ) -%}
+{%- macro github_change_r_pkg_version(is_fork, version) -%}
   - name: Modify version
     shell: bash
     run: |
@@ -339,12 +339,16 @@ on:
     # tree not available in git-bash on windows
     run: |
       ls -R repo
-  - name: Add dev repo to .Rprofile
+  - name: Add repos to .Rprofile
     shell: Rscript {0}
     run: |
-      str <- paste0("options(arrow.dev_repo ='file://", getwd(), "/repo' )")
-      print(str)
       profile_path <- file.path(getwd(), ".Rprofile")
+      repo <- paste0("file://", getwd(), "/repo")
+      str <- paste0("options(arrow.repo = '", repo, "' )")
+      print(str)
+      write(str, file = profile_path, append = TRUE)
+      str <- paste0("options(arrow.dev_repo = '", repo, "' )")
+      print(str)
       write(str, file = profile_path, append = TRUE)
       # Set envvar for later steps by appending to $GITHUB_ENV
       write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)

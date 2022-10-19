@@ -72,11 +72,18 @@ fi
 if [[ -n "$DEVTOOLSET_VERSION" ]]; then
   $PACKAGE_MANAGER install -y centos-release-scl
   $PACKAGE_MANAGER install -y "devtoolset-$DEVTOOLSET_VERSION"
-  
-  # Only add make var if not set
-  if ! grep -Fq "CXX17=" ~/.R/Makevars &> /dev/null; then
+
+  # Enable devtoolset here so that `which gcc` finds the right compiler below
+  source /opt/rh/devtoolset-${DEVTOOLSET_VERSION}/enable
+
+  # Build images which require the devtoolset don't have CXX17 variables
+  # set as the system compiler doesn't support C++17
+  if [ ! "`{R_BIN} CMD config CXX17`" ]; then
     mkdir -p ~/.R
-    echo "CXX17=g++ -std=gnu++17 -g -O2 -fpic" >> ~/.R/Makevars 
+    echo "CC = $(which gcc) -fPIC" >> ~/.R/Makevars
+    echo "CXX17 = $(which g++) -fPIC" >> ~/.R/Makevars
+    echo "CXX17STD = -std=c++17" >> ~/.R/Makevars
+    echo "CXX17FLAGS = ${CXX11FLAGS}" >> ~/.R/Makevars
   fi
 fi
 
