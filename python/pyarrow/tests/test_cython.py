@@ -141,6 +141,7 @@ def test_cython_api(tmpdir):
         """.format(mod_name='pyarrow_cython_example',
                    library_dirs=pa.get_library_dirs())
 
+        var = None
         if sys.platform == 'win32':
             if not hasattr(os, 'add_dll_directory'):
                 # Python 3.8 onwards don't check extension module DLLs on path
@@ -148,9 +149,11 @@ def test_cython_api(tmpdir):
                 delim, var = ';', 'PATH'
         else:
             delim, var = ':', 'LD_LIBRARY_PATH'
-        subprocess_env[var] = delim.join(
-            pa.get_library_dirs() + [subprocess_env.get(var, '')]
-        )
+
+        if var:
+            subprocess_env[var] = delim.join(
+                pa.get_library_dirs() + [subprocess_env.get(var, '')]
+            )
         subprocess.check_call([sys.executable, '-c', code],
                               stdout=subprocess.PIPE,
                               env=subprocess_env)
