@@ -17,7 +17,12 @@
 package kernels
 
 import (
+	"fmt"
+
 	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/scalar"
 )
 
 var (
@@ -62,3 +67,41 @@ const (
 	CmpLT
 	CmpLE
 )
+
+type simpleBinaryKernel interface {
+	Call(*exec.KernelCtx, *exec.ArraySpan, *exec.ArraySpan, *exec.ExecResult) error
+	CallScalarLeft(*exec.KernelCtx, scalar.Scalar, *exec.ArraySpan, *exec.ExecResult) error
+}
+
+type commutativeBinaryKernel[T simpleBinaryKernel] struct{}
+
+func (commutativeBinaryKernel[T]) CallScalarRight(ctx *exec.KernelCtx, left *exec.ArraySpan, right scalar.Scalar, out *exec.ExecResult) error {
+	var t T
+	return t.CallScalarLeft(ctx, right, left, out)
+}
+
+type SimpleBinaryKernel interface {
+	simpleBinaryKernel
+	CallScalarRight(*exec.KernelCtx, *exec.ArraySpan, scalar.Scalar, *exec.ExecResult) error
+}
+
+func SimpleBinary[K SimpleBinaryKernel](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	if batch.Len == 0 {
+		return nil
+	}
+
+	var k K
+	if batch.Values[0].IsArray() {
+		if batch.Values[1].IsArray() {
+			return k.Call(ctx, &batch.Values[0].Array, &batch.Values[1].Array, out)
+		}
+		return k.CallScalarRight(ctx, &batch.Values[0].Array, batch.Values[1].Scalar, out)
+	}
+
+	if batch.Values[1].IsArray() {
+		return k.CallScalarLeft(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
+	}
+
+	debug.Assert(false, "should be unreachable")
+	return fmt.Errorf("%w: should be unreachable", arrow.ErrInvalid)
+}

@@ -22,4 +22,6 @@ package bitutil
 func init() {
 	bitAndOp.opAligned = alignedBitAndGo
 	bitOrOp.opAligned = alignedBitOrGo
+	bitAndNotOp.opAligned = alignedBitAndNotGo
+	bitXorOp.opAligned = alignedBitXorGo
 }
