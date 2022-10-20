@@ -4479,12 +4479,11 @@ def test_timestamp_as_object_pytz_offset():
     timezone = pytz.FixedOffset(120)
     dt = timezone.localize(datetime.datetime(2022, 5, 12, 16, 57))
 
-    table = pa.table({"timestamp_col": pa.array([dt])})
-
-    expected = table.to_pandas()
+    timestamps = pa.array([dt])
+    names = ["timestamp_col"]
+    table = pa.Table.from_arrays([timestamps], names=names)
     result = table.to_pandas(timestamp_as_object=True)
-    # Not checking equality in dtype as the result is an object
-    tm.assert_frame_equal(expected, result, check_dtype=False)
+    assert result == [dt]
 
 
 def test_threaded_pandas_import():
