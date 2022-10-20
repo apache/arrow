@@ -235,6 +235,7 @@ reference:
       - install_arrow
       - install_pyarrow
       - create_package_with_all_dependencies
+      - use_run_with_captured_r
 
 repo:
   jira_projects: [ARROW]
