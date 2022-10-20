@@ -58,7 +58,7 @@ on:
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
-      python-version: 3.11-dev
+      python-version: 3.8
   - name: Install Archery
     shell: bash
     run: pip install -e arrow/dev/archery[all]
@@ -68,7 +68,7 @@ on:
   - name: Set up Python
     uses: actions/setup-python@v4
     with:
-      python-version: 3.11-dev
+      python-version: 3.8
   - name: Checkout Crossbow
     uses: actions/checkout@v3
     with:
@@ -134,7 +134,7 @@ on:
 {%- macro azure_upload_releases(pattern) -%}
   - task: UsePythonVersion@0
     inputs:
-      versionSpec: '3.11'
+      versionSpec: '3.8'
   - script: pip install -e arrow/dev/archery[crossbow-upload]
     displayName: Install Crossbow
   - bash: |
