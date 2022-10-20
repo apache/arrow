@@ -742,16 +742,7 @@ Result<std::optional<int64_t>> ParquetFileFragment::TryCountRows(
     compute::Expression predicate) {
   DCHECK_NE(metadata_, nullptr);
   if (ExpressionHasFieldRefs(predicate)) {
-#if defined(__GNUC__) && (__GNUC__ < 5)
-    // ARROW-12694: with GCC 4.9 (RTools 35) we sometimes segfault here if we move(result)
-    auto result = TestRowGroups(std::move(predicate));
-    if (!result.ok()) {
-      return result.status();
-    }
-    auto expressions = result.ValueUnsafe();
-#else
     ARROW_ASSIGN_OR_RAISE(auto expressions, TestRowGroups(std::move(predicate)));
-#endif
     int64_t rows = 0;
     for (size_t i = 0; i < row_groups_->size(); i++) {
       // If the row group is entirely excluded, exclude it from the row count

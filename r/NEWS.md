@@ -19,6 +19,71 @@
 
 # arrow 9.0.0.9000
 
+## Arrow dplyr queries
+
+Several new functions can be used in queries:
+
+* `dplyr::across()` can be used to apply the same computation across multiple
+  columns, and the `where()` selection helper is supported in `across()`;
+* `add_filename()` can be used to get the filename a row came from (only
+  available when querying `?Dataset`);
+* Added five functions in the `slice_*` family: `dplyr::slice_min()`,
+  `dplyr::slice_max()`, `dplyr::slice_head()`, `dplyr::slice_tail()`, and
+  `dplyr::slice_sample()`.
+
+The package now has documentation that lists all `dplyr` methods and R function
+mappings that are supported on Arrow data, along with notes about any
+differences in functionality between queries evaluated in R versus in Acero, the
+Arrow query engine. See `?acero`.
+
+A few new features and bugfixes were implemented for joins:
+
+* Extension arrays are now supported in joins, allowing, for example, joining
+  datasets that contain [geoarrow](https://paleolimbot.github.io/geoarrow/) data.
+* The `keep` argument is now supported, allowing separate columns for the left
+  and right hand side join keys in join output. Full joins now coalesce the
+  join keys (when `keep = FALSE`), avoiding the issue where the join keys would
+  be all `NA` for rows in the right hand side without any matches on the left.
+
+A few breaking changes that improve the consistency of the API:
+
+* Calling `dplyr::pull()` will return a `?ChunkedArray` instead of an R vector.
+* Calling `dplyr::compute()` on a query that is grouped
+  returns a `?Table`, instead of a query object.
+
+Finally, long-running queries can now be cancelled and will abort their
+computation immediately.
+
+## Arrays and tables
+
+`as_arrow_array()` can now take `blob::blob` and `?vctrs::list_of`, which
+convert to binary and list arrays, respectively. Also fixed an issue where
+`as_arrow_array()` ignored type argument when passed a `StructArray`.
+
+The `unique()` function works on `?Table`, `?RecordBatch`, `?Dataset`, and
+`?RecordBatchReader`.
+
+## Reading and writing
+
+`write_feather()` can take `compression = FALSE` to choose writing uncompressed files.
+
+Also, a breaking change for IPC files in `write_dataset()`: passing
+`"ipc"` or  `"feather"` to `format` will now write files with `.arrow`
+extension instead of `.ipc` or `.feather`.
+
+## Installation
+
+As of version 10.0.0, `arrow` requires C++17 to build. This means that:
+
+* On Windows, you need `R >= 4.0`. Version 9.0.0 was the last version to support
+  R 3.6.
+* On CentOS 7, you can build the latest version of `arrow`,
+  but you first need to install a newer compiler than the default system compiler,
+  gcc 4.8. See `vignette("install", package = "arrow")` for guidance.
+  Note that you only need the newer compiler to build `arrow`:
+  installing a binary package, as from RStudio Package Manager,
+  or loading a package you've already installed works fine with the system defaults.
+
 # arrow 9.0.0
 
 ## Arrow dplyr queries

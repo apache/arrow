@@ -18,7 +18,7 @@
 #' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
 #' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dbl map_dfr map_int map_lgl keep imap imap_chr
-#' @importFrom purrr flatten reduce
+#' @importFrom purrr flatten reduce walk
 #' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos quo
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec

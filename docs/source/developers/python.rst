@@ -198,7 +198,7 @@ dependencies for Arrow C++ and PyArrow as pre-built binaries, which can make
 Arrow development easier and faster.
 
 Let's create a conda environment with all the C++ build and Python dependencies
-from conda-forge, targeting development for Python 3.9:
+from conda-forge, targeting development for Python 3.10:
 
 On Linux and macOS:
 
@@ -210,7 +210,7 @@ On Linux and macOS:
           --file arrow/ci/conda_env_python.txt \
           --file arrow/ci/conda_env_gandiva.txt \
           compilers \
-          python=3.9 \
+          python=3.10 \
           pandas
 
 As of January 2019, the ``compilers`` package is needed on many Linux
@@ -495,23 +495,20 @@ First, starting from a fresh clone of Apache Arrow:
          --file arrow\ci\conda_env_cpp.txt ^
          --file arrow\ci\conda_env_python.txt ^
          --file arrow\ci\conda_env_gandiva.txt ^
-         python=3.9
+         python=3.10
    $ conda activate pyarrow-dev
 
 Now, we build and install Arrow C++ libraries.
 
-We set a number of environment variables:
-
-- the path of the installation directory of the Arrow C++ libraries as
-  ``ARROW_HOME``
-- add the path of installed DLL libraries to ``PATH``
-- and the CMake generator to be used as ``PYARROW_CMAKE_GENERATOR``
+We set the path of the installation directory of the Arrow C++ libraries as
+``ARROW_HOME``. When using a conda environment, Arrow C++ is installed
+in the environment directory, which path is saved in the
+`CONDA_PREFIX <https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html#environment-variables-that-affect-the-build-process>`_
+environment variable.
 
 .. code-block::
 
-   $ set ARROW_HOME=%cd%\arrow-dist
-   $ set PATH=%ARROW_HOME%\bin;%PATH%
-   $ set PYARROW_CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+   $ set ARROW_HOME=%CONDA_PREFIX%\Library
 
 Let's configure, build and install the Arrow C++ libraries:
 
@@ -519,7 +516,7 @@ Let's configure, build and install the Arrow C++ libraries:
 
    $ mkdir arrow\cpp\build
    $ pushd arrow\cpp\build
-   $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
+   $ cmake -G "Ninja" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_UNITY_BUILD=ON ^
          -DARROW_COMPUTE=ON ^
@@ -535,7 +532,7 @@ Let's configure, build and install the Arrow C++ libraries:
          -DARROW_WITH_ZLIB=ON ^
          -DARROW_WITH_ZSTD=ON ^
          ..
-   $ cmake --build . --target INSTALL --config Release
+   $ cmake --build . --target install --config Release
    $ popd
 
 Now, we can build pyarrow:
@@ -572,10 +569,6 @@ Then run the unit tests with:
    the Python extension. This is recommended for development as it allows the
    C++ libraries to be re-built separately.
 
-   As a consequence however, ``python setup.py install`` will also not install
-   the Arrow C++ libraries. Therefore, to use ``pyarrow`` in python, ``PATH``
-   must contain the directory with the Arrow .dll-files.
-
    If you want to bundle the Arrow C++ libraries with ``pyarrow``, add
    the ``--bundle-arrow-cpp`` option when building:
 
@@ -586,55 +579,9 @@ Then run the unit tests with:
    Important: If you combine ``--bundle-arrow-cpp`` with ``--inplace`` the
    Arrow C++ libraries get copied to the source tree and are not cleared
    by ``python setup.py clean``. They remain in place and will take precedence
-   over any later Arrow C++ libraries contained in ``PATH``. This can lead to
+   over any later Arrow C++ libraries contained in ``CONDA_PREFIX``. This can lead to
    incompatibilities when ``pyarrow`` is later built without
    ``--bundle-arrow-cpp``.
-
-Running C++ unit tests for Python integration
----------------------------------------------
-
-Running C++ unit tests should not be necessary for most developers. If you do
-want to run them, you need to pass ``-DARROW_BUILD_TESTS=ON`` during
-configuration of the Arrow C++ library build:
-
-.. code-block::
-
-   $ mkdir arrow\cpp\build
-   $ pushd arrow\cpp\build
-   $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
-         -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-         -DARROW_BUILD_TESTS=ON ^
-         -DARROW_COMPUTE=ON ^
-         -DARROW_CSV=ON ^
-         -DARROW_CXXFLAGS="/WX /MP" ^
-         -DARROW_DATASET=ON ^
-         -DARROW_FILESYSTEM=ON ^
-         -DARROW_HDFS=ON ^
-         -DARROW_JSON=ON ^
-         -DARROW_PARQUET=ON ^
-         ..
-   $ cmake --build . --target INSTALL --config Release
-   $ popd
-
-Getting ``arrow-python-test.exe`` (C++ unit tests for python integration) to
-run is a bit tricky because your ``%PYTHONHOME%`` must be configured to point
-to the active conda environment:
-
-.. code-block::
-
-   $ set PYTHONHOME=%CONDA_PREFIX%
-   $ pushd arrow\cpp\build\release\Release
-   $ arrow-python-test.exe
-   $ popd
-
-To run all tests of the Arrow C++ library, you can also run ``ctest``:
-
-.. code-block::
-
-   $ set PYTHONHOME=%CONDA_PREFIX%
-   $ pushd arrow\cpp\build
-   $ ctest
-   $ popd
 
 Caveats
 -------
