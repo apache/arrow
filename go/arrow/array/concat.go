@@ -538,54 +538,26 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 			values[i] = NewSliceData(d.Children()[1], int64(off), int64(off+plen))
 			defer values[i].Release()
 
-			physicalLength, overflow = addOvf32(physicalLength, int32(plen))
+			physicalLength, overflow = addOvf(physicalLength, int(plen))
 			if overflow {
 				return nil, fmt.Errorf("%w: run length encoded array length must fit into a 32-bit signed integer",
 					arrow.ErrInvalid)
 			}
 		}
 
-		runEndsBuffers := gatherFixedBuffers(runs, 1, arrow.Int32SizeBytes)
-		outRunEndsLen := int(physicalLength) * arrow.Int32SizeBytes
+		runEndsByteWidth := runs[0].DataType().(arrow.FixedWidthDataType).Bytes()
+		runEndsBuffers := gatherFixedBuffers(runs, 1, runEndsByteWidth)
+		outRunEndsLen := int(physicalLength) * runEndsByteWidth
 		outRunEndsBuf := memory.NewResizableBuffer(mem)
 		outRunEndsBuf.Resize(outRunEndsLen)
 		defer outRunEndsBuf.Release()
 
-		outRunEnds := arrow.Int32Traits.CastFromBytes(outRunEndsBuf.Bytes())
-		// for now we will not attempt to optimize by checking if we
-		// can fold the end and beginning of each array we're concatenating
-		// into a single run
-		pos := 0
-		for i, buf := range runEndsBuffers {
-			if buf.Len() == 0 {
-				continue
-			}
-			src := arrow.Int32Traits.CastFromBytes(buf.Bytes())
-			if pos == 0 {
-				pos += copy(outRunEnds, src)
-				continue
-			}
-
-			lastEnd := outRunEnds[pos-1]
-			// we can check the last runEnd in the src and add it to the
-			// last value that we're adjusting them all by to see if we
-			// are going to overflow
-			if int64(lastEnd)+int64(src[len(src)-1]-int32(data[i].Offset())) > math.MaxInt32 {
-				return nil, fmt.Errorf("%w: overflow in run-length-encoded run ends concat", arrow.ErrInvalid)
-			}
-
-			// adjust all of the run ends by first normalizing them (e - data[i].offset)
-			// then adding the previous value we ended on. Since the offset
-			// is a logical length offset it should be accurate to just subtract
-			// it from each value.
-			for j, e := range src {
-				outRunEnds[pos+j] = lastEnd + (e - int32(data[i].Offset()))
-			}
-			pos += len(src)
+		if err := updateRunEnds(runEndsByteWidth, data, runEndsBuffers, outRunEndsBuf); err != nil {
+			return nil, err
 		}
 
 		out.childData = make([]arrow.ArrayData, 2)
-		out.childData[0] = NewData(arrow.PrimitiveTypes.Int32, int(physicalLength),
+		out.childData[0] = NewData(data[0].Children()[0].DataType(), int(physicalLength),
 			[]*memory.Buffer{nil, outRunEndsBuf}, nil, 0, 0)
 
 		var err error
@@ -648,4 +620,124 @@ func concatBitmaps(bitmaps []bitmap, mem memory.Allocator) (*memory.Buffer, erro
 		offset += bm.rng.len
 	}
 	return out, nil
+}
+
+func updateRunEnds(byteWidth int, inputData []arrow.ArrayData, inputBuffers []*memory.Buffer, outputBuffer *memory.Buffer) error {
+	switch byteWidth {
+	case 2:
+		out := arrow.Int16Traits.CastFromBytes(outputBuffer.Bytes())
+		return updateRunsInt16(inputData, inputBuffers, out)
+	case 4:
+		out := arrow.Int32Traits.CastFromBytes(outputBuffer.Bytes())
+		return updateRunsInt32(inputData, inputBuffers, out)
+	case 8:
+		out := arrow.Int64Traits.CastFromBytes(outputBuffer.Bytes())
+		return updateRunsInt64(inputData, inputBuffers, out)
+	}
+	return fmt.Errorf("%w: invalid dataType for RLE runEnds", arrow.ErrInvalid)
+}
+
+func updateRunsInt16(inputData []arrow.ArrayData, inputBuffers []*memory.Buffer, output []int16) error {
+	// for now we will not attempt to optimize by checking if we
+	// can fold the end and beginning of each array we're concatenating
+	// into a single run
+	pos := 0
+	for i, buf := range inputBuffers {
+		if buf.Len() == 0 {
+			continue
+		}
+		src := arrow.Int16Traits.CastFromBytes(buf.Bytes())
+		if pos == 0 {
+			pos += copy(output, src)
+			continue
+		}
+
+		lastEnd := output[pos-1]
+		// we can check the last runEnd in the src and add it to the
+		// last value that we're adjusting them all by to see if we
+		// are going to overflow
+		if int64(lastEnd)+int64(int(src[len(src)-1])-inputData[i].Offset()) > math.MaxInt16 {
+			return fmt.Errorf("%w: overflow in run-length-encoded run ends concat", arrow.ErrInvalid)
+		}
+
+		// adjust all of the run ends by first normalizing them (e - data[i].offset)
+		// then adding the previous value we ended on. Since the offset
+		// is a logical length offset it should be accurate to just subtract
+		// it from each value.
+		for j, e := range src {
+			output[pos+j] = lastEnd + int16(int(e)-inputData[i].Offset())
+		}
+		pos += len(src)
+	}
+	return nil
+}
+
+func updateRunsInt32(inputData []arrow.ArrayData, inputBuffers []*memory.Buffer, output []int32) error {
+	// for now we will not attempt to optimize by checking if we
+	// can fold the end and beginning of each array we're concatenating
+	// into a single run
+	pos := 0
+	for i, buf := range inputBuffers {
+		if buf.Len() == 0 {
+			continue
+		}
+		src := arrow.Int32Traits.CastFromBytes(buf.Bytes())
+		if pos == 0 {
+			pos += copy(output, src)
+			continue
+		}
+
+		lastEnd := output[pos-1]
+		// we can check the last runEnd in the src and add it to the
+		// last value that we're adjusting them all by to see if we
+		// are going to overflow
+		if int64(lastEnd)+int64(int(src[len(src)-1])-inputData[i].Offset()) > math.MaxInt32 {
+			return fmt.Errorf("%w: overflow in run-length-encoded run ends concat", arrow.ErrInvalid)
+		}
+
+		// adjust all of the run ends by first normalizing them (e - data[i].offset)
+		// then adding the previous value we ended on. Since the offset
+		// is a logical length offset it should be accurate to just subtract
+		// it from each value.
+		for j, e := range src {
+			output[pos+j] = lastEnd + int32(int(e)-inputData[i].Offset())
+		}
+		pos += len(src)
+	}
+	return nil
+}
+
+func updateRunsInt64(inputData []arrow.ArrayData, inputBuffers []*memory.Buffer, output []int64) error {
+	// for now we will not attempt to optimize by checking if we
+	// can fold the end and beginning of each array we're concatenating
+	// into a single run
+	pos := 0
+	for i, buf := range inputBuffers {
+		if buf.Len() == 0 {
+			continue
+		}
+		src := arrow.Int64Traits.CastFromBytes(buf.Bytes())
+		if pos == 0 {
+			pos += copy(output, src)
+			continue
+		}
+
+		lastEnd := output[pos-1]
+		// we can check the last runEnd in the src and add it to the
+		// last value that we're adjusting them all by to see if we
+		// are going to overflow
+		if uint64(lastEnd)+uint64(int(src[len(src)-1])-inputData[i].Offset()) > math.MaxInt64 {
+			return fmt.Errorf("%w: overflow in run-length-encoded run ends concat", arrow.ErrInvalid)
+		}
+
+		// adjust all of the run ends by first normalizing them (e - data[i].offset)
+		// then adding the previous value we ended on. Since the offset
+		// is a logical length offset it should be accurate to just subtract
+		// it from each value.
+		for j, e := range src {
+			output[pos+j] = lastEnd + e - int64(inputData[i].Offset())
+		}
+		pos += len(src)
+	}
+	return nil
 }
