@@ -90,7 +90,7 @@ public class TestDatasetFileWriter extends TestDataset {
          final Dataset dataset = factory.finish();
          final Scanner scanner = dataset.newScan(options);
          final ArrowScannerReader reader = new ArrowScannerReader(scanner, rootAllocator());
-         ) {
+    ) {
       DatasetFileWriter.write(rootAllocator(), reader, FileFormat.PARQUET, writtenParquet, new String[]{"id", "name"}, 100, "data_{i}");
       final Set<String> expectedOutputFiles = new HashSet<>(
           Arrays.asList("id=1/name=a/data_0", "id=2/name=b/data_0", "id=3/name=c/data_0", "id=2/name=d/data_0"));
@@ -107,44 +107,34 @@ public class TestDatasetFileWriter extends TestDataset {
   private void assertParquetFileEquals(String expectedURI, String actualURI) throws Exception {
     final FileSystemDatasetFactory expectedFactory = new FileSystemDatasetFactory(
         rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, expectedURI);
-    List<ArrowRecordBatch> expectedBatches = collectResultFromFactory(expectedFactory,
-        new ScanOptions(new String[0], 100));
     final FileSystemDatasetFactory actualFactory = new FileSystemDatasetFactory(
         rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, actualURI);
+    List<ArrowRecordBatch> expectedBatches = collectResultFromFactory(expectedFactory,
+        new ScanOptions(new String[0], 100));
     List<ArrowRecordBatch> actualBatches = collectResultFromFactory(actualFactory,
         new ScanOptions(new String[0], 100));
-    // fast-fail by comparing metadata
-    Assert.assertEquals(expectedBatches.toString(), actualBatches.toString());
-    // compare ArrowRecordBatches
-    VectorSchemaRoot expectVsr = VectorSchemaRoot.create(expectedFactory.inspect(), rootAllocator());
-    VectorLoader expectLoader = new VectorLoader(expectVsr);
-    for(ArrowRecordBatch batch: expectedBatches) {
-      expectLoader.load(batch);
-    }
+    try (
+        VectorSchemaRoot expectVsr = VectorSchemaRoot.create(expectedFactory.inspect(), rootAllocator());
+        VectorSchemaRoot actualVsr = VectorSchemaRoot.create(actualFactory.inspect(), rootAllocator())) {
 
-    VectorSchemaRoot actualVsr = VectorSchemaRoot.create(actualFactory.inspect(), rootAllocator());
-    VectorLoader actualLoader = new VectorLoader(actualVsr);
-    for(ArrowRecordBatch batch: actualBatches) {
-      actualLoader.load(batch);
+      // fast-fail by comparing metadata
+      Assert.assertEquals(expectedBatches.toString(), actualBatches.toString());
+      // compare ArrowRecordBatches
+      Assert.assertEquals(expectedBatches.size(), actualBatches.size());
+      VectorLoader expectLoader = new VectorLoader(expectVsr);
+      VectorLoader actualLoader = new VectorLoader(actualVsr);
+      for (int i = 0; i < expectedBatches.size(); i++) {
+        expectLoader.load(expectedBatches.get(i));
+        actualLoader.load(actualBatches.get(i));
+        for (int j = 0; j < expectVsr.getFieldVectors().size(); j++) {
+          FieldVector vector = expectVsr.getFieldVectors().get(i);
+          FieldVector otherVector = actualVsr.getFieldVectors().get(i);
+          Assert.assertTrue(VectorEqualsVisitor.vectorEquals(vector, otherVector));
+        }
+      }
+    } finally {
+      AutoCloseables.close(expectedBatches, actualBatches);
     }
-
-    for (int i = 0; i < expectVsr.getFieldVectors().size(); i++) {
-      FieldVector vector = expectVsr.getFieldVectors().get(i);
-      FieldVector otherVector = actualVsr.getFieldVectors().get(i);
-      Assert.assertTrue(VectorEqualsVisitor.vectorEquals(vector, otherVector));
-    }
-
-    // Assert.assertTrue(expectVsr.equals(actualVsr));
-    AutoCloseables.close(expectedBatches, actualBatches);
-    AutoCloseables.close(expectVsr, actualVsr);
-  }
-
-  private String serialize(List<ArrowRecordBatch> batches) throws IOException {
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    for (ArrowRecordBatch batch : batches) {
-      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), batch);
-    }
-    return Arrays.toString(out.toByteArray());
   }
 }
 

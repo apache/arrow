@@ -555,8 +555,8 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
       JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream));
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
       arrow::dataset::ScannerBuilder::FromRecordBatchReader(reader);
-  scanner_builder->Pool(arrow::default_memory_pool());
-  auto scanner = scanner_builder->Finish().ValueOrDie();
+  JniAssertOkOrThrow(scanner_builder->Pool(arrow::default_memory_pool()));
+  auto scanner = JniGetOrThrow(scanner_builder->Finish());
 
   std::shared_ptr<arrow::Schema> schema = reader->schema();
 

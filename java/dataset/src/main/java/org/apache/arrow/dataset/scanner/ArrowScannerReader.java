@@ -96,7 +96,13 @@ public class ArrowScannerReader extends ArrowReader {
 
   @Override
   protected void closeReadSource() throws IOException {
-    // no-op
+    try {
+      currentTask.close();
+      currentReader.close();
+      scanner.close();
+    } catch (Exception e) {
+      throw new IOException(e);
+    }
   }
 
   @Override
