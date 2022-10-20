@@ -18,12 +18,6 @@
 name: Python
 
 on:
-  push:
-    paths:
-      - '.github/workflows/python.yml'
-      - 'ci/**'
-      - 'cpp/**'
-      - 'python/**'
   pull_request:
     paths:
       - '.github/workflows/python.yml'

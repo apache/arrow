@@ -18,12 +18,6 @@
 name: Archery & Crossbow
 
 on:
-  push:
-    paths:
-      - '.github/workflows/archery.yml'
-      - 'dev/archery/**'
-      - 'dev/tasks/**'
-      - 'docker-compose.yml'
   pull_request:
     paths:
       - '.github/workflows/archery.yml'
