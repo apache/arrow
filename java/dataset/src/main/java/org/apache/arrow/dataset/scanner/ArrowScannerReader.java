@@ -17,11 +17,9 @@
 
 package org.apache.arrow.dataset.scanner;
 
-import org.apache.arrow.c.ArrowArray;
-import org.apache.arrow.c.CDataDictionaryProvider;
-import org.apache.arrow.c.Data;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -45,8 +43,6 @@ public class ArrowScannerReader extends ArrowReader {
     if (taskIterator.hasNext()) {
       currentTask = taskIterator.next();
       currentReader = currentTask.execute();
-    } else {
-      currentReader = null;
     }
   }
 
@@ -63,14 +59,14 @@ public class ArrowScannerReader extends ArrowReader {
   @Override
   public boolean loadNextBatch() throws IOException {
     if (currentReader == null) return false;
-    Boolean result = currentReader.loadNextBatch();
+    boolean result = currentReader.loadNextBatch();
 
     if (!result) {
       try {
         currentTask.close();
         currentReader.close();
       } catch (Exception e) {
-        throw new RuntimeException(e);
+        throw new IOException(e);
       }
 
       while (!result) {
@@ -84,35 +80,18 @@ public class ArrowScannerReader extends ArrowReader {
       }
     }
 
-    // Load the currentReader#VectorSchemaRoot to ArrowArray
-    VectorSchemaRoot vsr = currentReader.getVectorSchemaRoot();
-    ArrowArray array = ArrowArray.allocateNew(allocator);
-    Data.exportVectorSchemaRoot(allocator, vsr, currentReader, array);
-
-    // Load the ArrowArray into ArrowScannerReader#VectorSchemaRoot
-    CDataDictionaryProvider provider = new CDataDictionaryProvider();
-    Data.importIntoVectorSchemaRoot(allocator,
-        array, this.getVectorSchemaRoot(), provider);
-    array.close();
-    provider.close();
+    VectorLoader loader = new VectorLoader(this.getVectorSchemaRoot());
+    VectorUnloader unloader =
+        new VectorUnloader(currentReader.getVectorSchemaRoot());
+    try(ArrowRecordBatch recordBatch = unloader.getRecordBatch()) {
+      loader.load(recordBatch);
+    }
     return true;
   }
 
   @Override
   public long bytesRead() {
     return 0L;
-  }
-
-  @Override
-  public void close() throws IOException {
-    try {
-      super.close(true);
-      currentTask.close();
-      currentReader.close();
-      scanner.close();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
   }
 
   @Override

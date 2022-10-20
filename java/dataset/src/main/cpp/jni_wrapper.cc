@@ -31,8 +31,6 @@
 #include "org_apache_arrow_dataset_jni_JniWrapper.h"
 #include "org_apache_arrow_dataset_jni_NativeMemoryPool.h"
 
-#include <iostream>
-
 namespace {
 
 jclass illegal_access_exception_class;
@@ -180,7 +178,7 @@ class DisposableScannerAdaptor {
   }
 };
 
-std::shared_ptr<arrow::Schema> SchemaFromColumnNames(
+arrow::Result<std::shared_ptr<arrow::Schema>> SchemaFromColumnNames(
     const std::shared_ptr<arrow::Schema>& input,
     const std::vector<std::string>& column_names) {
   std::vector<std::shared_ptr<arrow::Field>> columns;
@@ -188,6 +186,8 @@ std::shared_ptr<arrow::Schema> SchemaFromColumnNames(
     auto maybe_field = ref.GetOne(*input);
     if (maybe_field.ok()) {
       columns.push_back(std::move(maybe_field).ValueOrDie());
+    } else {
+      return arrow::Status::Invalid("The provided column name is not in arrow schema");
     }
   }
 
@@ -551,20 +551,14 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
   }
 
   auto* arrow_stream = reinterpret_cast<ArrowArrayStream*>(c_arrow_array_stream_address);
-  struct ArrowSchema c_schema;
-  arrow_stream->get_schema(arrow_stream, &c_schema);
-
   std::shared_ptr<arrow::RecordBatchReader> reader =
       JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream));
-  // Release the ArrowArrayStream
-  ArrowArrayStreamRelease(arrow_stream);
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
       arrow::dataset::ScannerBuilder::FromRecordBatchReader(reader);
   scanner_builder->Pool(arrow::default_memory_pool());
   auto scanner = scanner_builder->Finish().ValueOrDie();
 
-  std::shared_ptr<arrow::Schema> schema = JniGetOrThrow(
-      arrow::ImportSchema(&c_schema));
+  std::shared_ptr<arrow::Schema> schema = reader->schema();
 
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
       JniGetOrThrow(GetFileFormat(file_format_id));
@@ -579,7 +573,7 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
   options.base_dir = output_path;
   options.basename_template = JStringToCString(env, base_name_template);
   options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
-      SchemaFromColumnNames(schema, partition_column_vector));
+      SchemaFromColumnNames(schema, partition_column_vector).ValueOrDie());
   options.max_partitions = max_partitions;
   JniAssertOkOrThrow(arrow::dataset::FileSystemDataset::Write(options, scanner));
   JNI_METHOD_END()

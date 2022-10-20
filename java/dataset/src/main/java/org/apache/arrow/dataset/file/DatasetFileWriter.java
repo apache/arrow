@@ -37,7 +37,7 @@ import java.util.Iterator;
 public class DatasetFileWriter {
 
   /**
-   * Scan over an input {@link Scanner} then write all record batches to file.
+   * Write a ArrowReader accepting Scanner into files.
    *
    * @param reader the datasource for writing
    * @param format target file format
@@ -49,27 +49,21 @@ public class DatasetFileWriter {
    */
   public static void write(BufferAllocator allocator, ArrowReader reader, FileFormat format, String uri,
                            String[] partitionColumns, int maxPartitions, String baseNameTemplate) {
-    RuntimeException throwableWrapper = null;
-    try {
-      ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator);
+    try (final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
       Data.exportArrayStream(allocator, reader, stream);
       JniWrapper.get().writeFromScannerToFile(stream.memoryAddress(),
           format.id(), uri, partitionColumns, maxPartitions, baseNameTemplate);
-      stream.close();
-    } catch (Throwable t) {
-      throwableWrapper = new RuntimeException(t);
-      throw throwableWrapper;
     }
   }
 
   /**
-   * Scan over an input {@link Scanner} then write all record batches to file, with default partitioning settings.
+   * Write a ArrowReader accepting Scanner into files, with default partitioning settings.
    *
    * @param reader the datasource for writing
    * @param format target file format
    * @param uri target file uri
    */
   public static void write(BufferAllocator allocator, ArrowReader reader, FileFormat format, String uri) {
-    write(allocator, reader, format, uri, new String[0], 1024, "dat_{i}");
+    write(allocator, reader, format, uri, new String[0], 1024, "data_{i}");
   }
 }
