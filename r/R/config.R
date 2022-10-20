@@ -47,10 +47,17 @@ set_io_thread_count <- function(num_threads) {
   invisible(current_io_thread_count)
 }
 
+#' Manage experimental R code evaluation from within Arrow
+#'
+#' @export
 use_run_with_captured_r <- function() {
   UseRunWithCapturedR()
 }
 
+#' @rdname use_run_with_captured_r
+#' @param run_with_captured_r Use TRUE to enable R code evaluation from within
+#'   arrow
+#' @export
 set_use_run_with_captured_r <- function(run_with_captured_r = TRUE) {
   current <- UseRunWithCapturedR()
   SetUseRunWithCapturedR(run_with_captured_r)
