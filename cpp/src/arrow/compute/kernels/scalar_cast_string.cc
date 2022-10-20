@@ -25,6 +25,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/utf8_internal.h"
@@ -413,8 +414,7 @@ void AddNumberToStringCasts(CastFunction* func) {
 template <typename OutType>
 void AddDecimalToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
-  for (const arrow::Type::type& in_tid : std::vector<arrow::Type::type>{
-           arrow::Decimal128Type::type_id, arrow::Decimal256Type::type_id}) {
+  for (const auto& in_tid : std::vector<Type::type>{Type::DECIMAL128, Type::DECIMAL256}) {
     DCHECK_OK(
         func->AddKernel(in_tid, {in_tid}, out_ty,
                         GenerateDecimal<DecimalToStringCastFunctor, OutType>(in_tid),
