@@ -459,8 +459,17 @@ class ConcatenateImpl {
   }
 
   Status Visit(const ExtensionType& e) {
-    // XXX can we just concatenate their storage?
-    return Status::NotImplemented("concatenation of ", e);
+    ArrayDataVector storage_data(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      auto storage = in_[i]->Copy();
+      storage->type = e.storage_type();
+      storage_data[i] = storage;
+    }
+    std::shared_ptr<ArrayData> out_storage;
+    RETURN_NOT_OK(ConcatenateImpl(storage_data, pool_).Concatenate(&out_storage));
+    out_storage->type = in_[0]->type;
+    *out_ = *out_storage;
+    return Status::OK();
   }
 
  private:
