@@ -485,7 +485,7 @@ const (
 )
 
 type ArithmeticOptions struct {
-	CheckOverflow bool `compute:"check_overflow"`
+	NoCheckOverflow bool `compute:"check_overflow"`
 }
 
 func (ArithmeticOptions) TypeName() string { return "ArithmeticOptions" }

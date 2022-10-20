@@ -35,7 +35,6 @@ var (
 	}
 	intTypes      = append(unsignedIntTypes, signedIntTypes...)
 	floatingTypes = []arrow.DataType{
-		arrow.FixedWidthTypes.Float16,
 		arrow.PrimitiveTypes.Float32,
 		arrow.PrimitiveTypes.Float64,
 	}

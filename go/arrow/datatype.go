@@ -291,6 +291,16 @@ func IsUnsignedInteger(t Type) bool {
 	return false
 }
 
+// IsFloating is a helper that returns true if the type ID provided is
+// one of Float16, Float32, or Float64
+func IsFloating(t Type) bool {
+	switch t {
+	case FLOAT16, FLOAT32, FLOAT64:
+		return true
+	}
+	return false
+}
+
 // IsPrimitive returns true if the provided type ID represents a fixed width
 // primitive type.
 func IsPrimitive(t Type) bool {
