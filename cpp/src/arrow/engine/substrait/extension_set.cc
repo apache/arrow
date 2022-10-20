@@ -665,7 +665,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 template <typename Enum>
 class EnumParser {
  public:
-  EnumParser(const std::vector<std::string>& options) {
+  explicit EnumParser(const std::vector<std::string>& options) {
     for (std::size_t i = 0; i < options.size(); i++) {
       parse_map_[options[i]] = static_cast<Enum>(i + 1);
       reverse_map_[static_cast<Enum>(i + 1)] = options[i];

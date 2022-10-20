@@ -137,14 +137,14 @@ namespace {
 
 // FIXME Is there some way to get these from the cmake files?
 constexpr uint32_t kSubstraitMajorVersion = 0;
-constexpr uint32_t kSubstraitMinorVersion = 19;
+constexpr uint32_t kSubstraitMinorVersion = 20;
 constexpr uint32_t kSubstraitPatchVersion = 0;
 
 std::unique_ptr<substrait::Version> CreateVersion() {
   auto version = std::make_unique<substrait::Version>();
-  version->set_major(kSubstraitMajorVersion);
-  version->set_minor(kSubstraitMinorVersion);
-  version->set_patch(kSubstraitPatchVersion);
+  version->set_major_number(kSubstraitMajorVersion);
+  version->set_minor_number(kSubstraitMinorVersion);
+  version->set_patch_number(kSubstraitPatchVersion);
   version->set_producer("Acero " + GetBuildInfo().version_string);
   return version;
 }

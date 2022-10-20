@@ -149,8 +149,8 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
-  if (plan.version().major() < kMinimumMajorVersion &&
-      plan.version().minor() < kMinimumMinorVersion) {
+  if (plan.version().major_number() < kMinimumMajorVersion &&
+      plan.version().minor_number() < kMinimumMinorVersion) {
     return Status::Invalid("Can only parse plans with a version >= ",
                            kMinimumMajorVersion, ".", kMinimumMinorVersion);
   }

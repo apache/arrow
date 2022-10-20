@@ -849,7 +849,7 @@ TEST(Substrait, RelWithHint) {
 
 TEST(Substrait, ExtensionSetFromPlan) {
   std::string substrait_json = R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [
       {"rel": {
         "read": {
@@ -999,7 +999,7 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
 
 TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   std::string substrait_json = R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [],
     "extension_uris": [
       {
@@ -1050,7 +1050,7 @@ Result<std::string> GetSubstraitJSON() {
   auto file_path = file_name->ToString();
 
   std::string substrait_json = R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [
       {"rel": {
         "read": {
@@ -1182,7 +1182,7 @@ TEST(Substrait, GetRecordBatchReader) {
 
 TEST(Substrait, InvalidPlan) {
   std::string substrait_json = R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [
     ]
   })";
@@ -1195,7 +1195,7 @@ TEST(Substrait, InvalidPlan) {
 
 TEST(Substrait, InvalidMinimumVersion) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
-    "version": { "major": 0, "minor": 18, "patch": 0 },
+    "version": { "major_number": 0, "minor_number": 18, "patch_number": 0 },
     "relations": [{
       "rel": {
         "read": {
@@ -1220,7 +1220,7 @@ TEST(Substrait, InvalidMinimumVersion) {
 
 TEST(Substrait, JoinPlanBasic) {
   std::string substrait_json = R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1366,7 +1366,7 @@ TEST(Substrait, JoinPlanBasic) {
 
 TEST(Substrait, JoinPlanInvalidKeyCmp) {
   std::string substrait_json = R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1485,7 +1485,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
 TEST(Substrait, JoinPlanInvalidExpression) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1555,7 +1555,7 @@ TEST(Substrait, JoinPlanInvalidExpression) {
 
 TEST(Substrait, JoinPlanInvalidKeys) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1630,7 +1630,7 @@ TEST(Substrait, JoinPlanInvalidKeys) {
 TEST(Substrait, AggregateBasic) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1726,7 +1726,7 @@ TEST(Substrait, AggregateBasic) {
 TEST(Substrait, AggregateInvalidRel) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1753,7 +1753,7 @@ TEST(Substrait, AggregateInvalidRel) {
 TEST(Substrait, AggregateInvalidFunction) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1817,7 +1817,7 @@ TEST(Substrait, AggregateInvalidFunction) {
 TEST(Substrait, AggregateInvalidAggFuncArgs) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1891,7 +1891,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
 TEST(Substrait, AggregateWithFilter) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1965,7 +1965,7 @@ TEST(Substrait, AggregateWithFilter) {
 TEST(Substrait, AggregateBadPhase) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -2260,15 +2260,6 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
 }
 
-/// \brief Create a NamedTableProvider that provides `table` regardless of the name
-NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
-  return [table = std::move(table)](const std::vector<std::string>&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
-}
-
 TEST(SubstraitRoundTrip, ProjectRel) {
   compute::ExecContext exec_context;
   auto dummy_schema =
@@ -2285,7 +2276,7 @@ TEST(SubstraitRoundTrip, ProjectRel) {
   ])"});
 
   std::string substrait_json = R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "project": {
@@ -2400,7 +2391,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "project": {
@@ -2515,7 +2506,7 @@ TEST(SubstraitRoundTrip, ReadRelWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "read": {
@@ -2579,7 +2570,7 @@ TEST(SubstraitRoundTrip, FilterRelWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "filter": {
@@ -2700,7 +2691,7 @@ TEST(SubstraitRoundTrip, JoinRel) {
   ])"});
 
   std::string substrait_json = R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -2850,7 +2841,7 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
-  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -2999,7 +2990,7 @@ TEST(SubstraitRoundTrip, AggregateRel) {
   ])"});
 
   std::string substrait_json = R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -3109,7 +3100,7 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
 
   // TODO: fixme https://issues.apache.org/jira/browse/ARROW-17484
   std::string substrait_json = R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -3210,7 +3201,7 @@ TEST(Substrait, IsthmusPlan) {
   // This is a plan generated from Isthmus
   // isthmus -c "CREATE TABLE T1(foo int)" "SELECT foo + 1 FROM T1"
   std::string substrait_json = R"({
-    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "extensionUris": [{
       "extensionUriAnchor": 1,
       "uri": "/functions_arithmetic.yaml"
@@ -3419,10 +3410,6 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
                   }
                 },
                 "arguments": [{
-                  "enum": {
-                    "unspecified": {}
-                  }
-                }, {
                   "value": {
                     "selection": {
                       "directReference": {
@@ -3522,7 +3509,6 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
                     "functionReference": 2,
                     "outputType": {"i32": {}},
                     "arguments": [
-                      {"enum": {"unspecified": {}}},
                       {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
                       {"value": {"literal": {"fp64": 10}}}
                     ]
@@ -3611,7 +3597,6 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
                     "functionReference": 2,
                     "outputType": {"i32": {}},
                     "arguments": [
-                      {"enum": {"unspecified": {}}},
                       {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
                       {"value": {"literal": {"fp64": 10}}}
                     ]

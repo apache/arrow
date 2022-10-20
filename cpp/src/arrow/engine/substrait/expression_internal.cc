@@ -56,15 +56,7 @@ Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
                  SubstraitCall* call, const ExtensionSet& ext_set,
                  const ConversionOptions& conversion_options) {
   if (arg.has_enum_()) {
-    const substrait::FunctionArgument::Enum& enum_val = arg.enum_();
-    switch (enum_val.enum_kind_case()) {
-      case substrait::FunctionArgument::Enum::EnumKindCase::kSpecified:
-        call->SetEnumArg(idx, enum_val.specified());
-        break;
-      default:
-        return Status::Invalid("Unrecognized enum kind case: ",
-                               enum_val.enum_kind_case());
-    }
+    call->SetEnumArg(idx, arg.enum_());
   } else if (arg.has_value()) {
     ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
                           FromProto(arg.value(), ext_set, conversion_options));
@@ -943,10 +935,8 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
   for (int i = 0; i < call.size(); i++) {
     substrait::FunctionArgument* arg = scalar_fn->add_arguments();
     if (call.HasEnumArg(i)) {
-      auto enum_val = std::make_unique<substrait::FunctionArgument::Enum>();
-      ARROW_ASSIGN_OR_RAISE(std::string_view enum_arg, call.GetEnumArg(i));
-      enum_val->set_specified(std::string(enum_arg));
-      arg->set_allocated_enum_(enum_val.release());
+      ARROW_ASSIGN_OR_RAISE(std::string_view enum_val, call.GetEnumArg(i));
+      arg->set_enum_(std::string(enum_val));
     } else if (call.HasValueArg(i)) {
       ARROW_ASSIGN_OR_RAISE(compute::Expression value_arg, call.GetValueArg(i));
       ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression> value_expr,

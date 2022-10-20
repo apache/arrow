@@ -88,9 +88,7 @@ Result<std::unique_ptr<substrait::ProjectRel>> CreateProject(
     } else {
       // If it doesn't have a type then it's an enum
       const std::string& enum_value = arguments[arg_index];
-      auto enum_ = std::make_unique<substrait::FunctionArgument::Enum>();
-      enum_->set_specified(enum_value);
-      argument->set_allocated_enum_(enum_.release());
+      argument->set_enum_(enum_value);
     }
     arg_index++;
   }
@@ -155,9 +153,9 @@ Result<std::unique_ptr<substrait::AggregateRel>> CreateAgg(Id function_id,
 
 std::unique_ptr<substrait::Version> CreateTestVersion() {
   auto version = std::make_unique<substrait::Version>();
-  version->set_major(std::numeric_limits<uint32_t>::max());
-  version->set_minor(std::numeric_limits<uint32_t>::max());
-  version->set_patch(std::numeric_limits<uint32_t>::max());
+  version->set_major_number(std::numeric_limits<uint32_t>::max());
+  version->set_minor_number(std::numeric_limits<uint32_t>::max());
+  version->set_patch_number(std::numeric_limits<uint32_t>::max());
   version->set_producer("Arrow unit test");
   return version;
 }
