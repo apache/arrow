@@ -396,18 +396,14 @@ func transferBitmap(mode transferMode, src []byte, srcOffset, length int, dst []
 		rdr := NewBitmapWordReader(src, srcOffset, length)
 		wr := NewBitmapWordWriter(dst, dstOffset, length)
 
-		var modify func(in uint64) uint64
-		switch mode {
-		case transferCopy:
-			modify = func(in uint64) uint64 { return in }
-		case transferInvert:
-			modify = func(in uint64) uint64 { return ^in }
-		}
-
 		nwords := rdr.Words()
 		for nwords > 0 {
 			nwords--
-			wr.PutNextWord(modify(rdr.NextWord()))
+			if mode == transferInvert {
+				wr.PutNextWord(^rdr.NextWord())
+			} else {
+				wr.PutNextWord(rdr.NextWord())
+			}
 		}
 		nbytes := rdr.TrailingBytes()
 		for nbytes > 0 {
