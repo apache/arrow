@@ -18,17 +18,6 @@
 name: C++
 
 on:
-  push:
-    paths:
-      - '.github/workflows/cpp.yml'
-      - 'ci/docker/**'
-      - 'ci/scripts/cpp_*'
-      - 'ci/scripts/install_gcs_testbench.sh'
-      - 'ci/scripts/install_minio.sh'
-      - 'ci/scripts/msys2_*'
-      - 'ci/scripts/util_*'
-      - 'cpp/**'
-      - 'format/Flight.proto'
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'

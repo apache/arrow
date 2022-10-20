@@ -18,11 +18,6 @@
 name: Dev PR
 
 on:
-  # TODO: Enable this when eps1lon/actions-label-merge-conflict is available.
-  # push:
-  #   branches:
-  #     - master
-  #     - main
   pull_request_target:
     types:
       - opened
