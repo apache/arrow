@@ -93,7 +93,6 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: "10.13"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_install_archery()|indent }}
       - name: Install dependencies
         run: |
           brew install --overwrite git
