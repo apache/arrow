@@ -100,27 +100,28 @@ func (r *RunEndEncoded) LogicalRunEndsArray(mem memory.Allocator) arrow.Array {
 		return MakeFromData(data)
 	}
 
-	bldr := NewBuilder(mem, r.ends.DataType())
+	bldr := NewBuilder(mem, r.data.childData[0].DataType())
 	defer bldr.Release()
 	bldr.Resize(physLength)
-	switch b := bldr.(type) {
-	case *Int16Builder:
-		for _, v := range r.ends.(*Int16).Int16Values()[physOffset:] {
+
+	switch e := r.ends.(type) {
+	case *Int16:
+		for _, v := range e.Int16Values()[physOffset:] {
 			v -= int16(r.data.offset)
 			v = int16(utils.MinInt(int(v), r.data.length))
-			b.Append(v)
+			bldr.(*Int16Builder).Append(v)
 		}
-	case *Int32Builder:
-		for _, v := range r.ends.(*Int32).Int32Values()[physOffset:] {
+	case *Int32:
+		for _, v := range e.Int32Values()[physOffset:] {
 			v -= int32(r.data.offset)
 			v = int32(utils.MinInt(int(v), r.data.length))
-			b.Append(v)
+			bldr.(*Int32Builder).Append(v)
 		}
-	case *Int64Builder:
-		for _, v := range r.ends.(*Int64).Int64Values()[physOffset:] {
+	case *Int64:
+		for _, v := range e.Int64Values()[physOffset:] {
 			v -= int64(r.data.offset)
 			v = int64(utils.MinInt(int(v), r.data.length))
-			b.Append(v)
+			bldr.(*Int64Builder).Append(v)
 		}
 	}
 

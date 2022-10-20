@@ -817,7 +817,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		if children[0].Type.ID() != arrow.INT32 {
 			return nil, fmt.Errorf("%w: arrow/ipc: RLE run_ends field must be int32 type", arrow.ErrInvalid)
 		}
-		return arrow.RunLengthEncodedOf(children[1].Type), nil
+		return arrow.RunLengthEncodedOf(children[0].Type, children[1].Type), nil
 
 	default:
 		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))

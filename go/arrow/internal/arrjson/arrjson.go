@@ -506,7 +506,7 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 			err = fmt.Errorf("%w: RLE values array should be nullable, but is not", arrow.ErrInvalid)
 			return
 		}
-		arrowType = arrow.RunLengthEncodedOf(children[1].arrowType)
+		arrowType = arrow.RunLengthEncodedOf(children[0].arrowType, children[1].arrowType)
 	}
 
 	if arrowType == nil {
