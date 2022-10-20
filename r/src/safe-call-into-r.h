@@ -35,7 +35,7 @@
 // when this feature is not provided. This also checks that there
 // is not already an event loop registered (via MainRThread::Executor()),
 // because only one of these can exist at any given time.
-bool CanRunWithCapturedR();
+bool UseRunWithCapturedR();
 
 // The MainRThread class keeps track of the thread on which it is safe
 // to call the R API to facilitate its safe use (or erroring
@@ -53,6 +53,7 @@ class MainRThread {
   void Initialize() {
     thread_id_ = std::this_thread::get_id();
     initialized_ = true;
+    use_run_with_captured_r_ = false;
     ResetError();
   }
 
@@ -62,6 +63,10 @@ class MainRThread {
     initialized_ = false;
     DisableSignalStopSource();
   }
+
+  bool UseRunWithCapturedR() { return use_run_with_captured_r_ && executor_ == nullptr; }
+
+  void SetUseRunWithCapturedR(bool value) { use_run_with_captured_r_ = value; }
 
   // Check if the current thread is the main R thread
   bool IsMainThread() { return initialized_ && std::this_thread::get_id() == thread_id_; }
@@ -134,6 +139,7 @@ class MainRThread {
  private:
   bool initialized_;
   std::thread::id thread_id_;
+  bool use_run_with_captured_r_;
   arrow::Status status_;
   arrow::internal::Executor* executor_;
   arrow::StopSource* stop_source_;
@@ -274,10 +280,6 @@ static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun,
 // return a Future<>.
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
-  if (!CanRunWithCapturedR()) {
-    return arrow::Status::NotImplemented("RunWithCapturedR() without UnwindProtect");
-  }
-
   if (MainRThread::GetInstance().Executor() != nullptr) {
     return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
   }
@@ -307,7 +309,7 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
 template <typename T>
 arrow::Result<T> RunWithCapturedRIfPossible(
     std::function<arrow::Result<T>()> make_arrow_call) {
-  if (CanRunWithCapturedR()) {
+  if (UseRunWithCapturedR()) {
     // Note that the use of the io_context here is arbitrary (i.e. we could use
     // any construct that launches a background thread).
     const auto& io_context = arrow::io::default_io_context();

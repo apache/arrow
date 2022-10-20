@@ -89,6 +89,8 @@ test_that("slice_min/max, ungrouped", {
 })
 
 test_that("slice_sample, ungrouped", {
+  skip_if_not(use_run_with_captured_r())
+
   tab <- arrow_table(tbl)
   expect_error(
     tab %>% slice_sample(replace = TRUE),

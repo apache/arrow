@@ -312,7 +312,7 @@ test_that("Table can roundtrip extension types", {
 
 test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
   skip_if_not_available("dataset")
-  skip_if_not(CanRunWithCapturedR())
+  skip_if_not(use_run_with_captured_r())
 
   tf <- tempfile()
   on.exit(unlink(tf, recursive = TRUE))

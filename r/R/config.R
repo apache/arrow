@@ -46,3 +46,13 @@ set_io_thread_count <- function(num_threads) {
   SetIOThreadPoolCapacity(as.integer(num_threads))
   invisible(current_io_thread_count)
 }
+
+use_run_with_captured_r <- function() {
+  UseRunWithCapturedR()
+}
+
+set_use_run_with_captured_r <- function(run_with_captured_r = TRUE) {
+  current <- UseRunWithCapturedR()
+  SetUseRunWithCapturedR(run_with_captured_r)
+  invisible(current)
+}

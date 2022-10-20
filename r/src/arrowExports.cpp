@@ -4717,10 +4717,19 @@ BEGIN_CPP11
 END_CPP11
 }
 // safe-call-into-r-impl.cpp
-bool CanRunWithCapturedR();
-extern "C" SEXP _arrow_CanRunWithCapturedR(){
+bool UseRunWithCapturedR();
+extern "C" SEXP _arrow_UseRunWithCapturedR(){
 BEGIN_CPP11
-	return cpp11::as_sexp(CanRunWithCapturedR());
+	return cpp11::as_sexp(UseRunWithCapturedR());
+END_CPP11
+}
+// safe-call-into-r-impl.cpp
+void SetUseRunWithCapturedR(bool value);
+extern "C" SEXP _arrow_SetUseRunWithCapturedR(SEXP value_sexp){
+BEGIN_CPP11
+	arrow::r::Input<bool>::type value(value_sexp);
+	SetUseRunWithCapturedR(value);
+	return R_NilValue;
 END_CPP11
 }
 // safe-call-into-r-impl.cpp
@@ -5739,7 +5748,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_InitializeMainRThread", (DL_FUNC) &_arrow_InitializeMainRThread, 0}, 
 		{ "_arrow_DeinitializeMainRThread", (DL_FUNC) &_arrow_DeinitializeMainRThread, 0}, 
 		{ "_arrow_SetEnableSignalStopSource", (DL_FUNC) &_arrow_SetEnableSignalStopSource, 1}, 
-		{ "_arrow_CanRunWithCapturedR", (DL_FUNC) &_arrow_CanRunWithCapturedR, 0}, 
+		{ "_arrow_UseRunWithCapturedR", (DL_FUNC) &_arrow_UseRunWithCapturedR, 0}, 
+		{ "_arrow_SetUseRunWithCapturedR", (DL_FUNC) &_arrow_SetUseRunWithCapturedR, 1}, 
 		{ "_arrow_TestSafeCallIntoR", (DL_FUNC) &_arrow_TestSafeCallIntoR, 2}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 

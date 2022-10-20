@@ -45,11 +45,18 @@ bool SetEnableSignalStopSource(bool enabled) {
 }
 
 // [[arrow::export]]
-bool CanRunWithCapturedR() {
+bool UseRunWithCapturedR() {
+  return MainRThread::GetInstance().UseRunWithCapturedR();
+}
+
+// [[arrow::export]]
+void SetUseRunWithCapturedR(bool value) {
 #if defined(HAS_UNWIND_PROTECT)
-  return MainRThread::GetInstance().Executor() == nullptr;
+  MainRThread::GetInstance().SetUseRunWithCapturedR(value);
 #else
-  return false;
+  if (value) {
+    stop("Can't use RunWithCapturedR on an R version without UnwindProtect");
+  }
 #endif
 }
 

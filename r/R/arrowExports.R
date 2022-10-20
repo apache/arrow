@@ -1848,8 +1848,12 @@ SetEnableSignalStopSource <- function(enabled) {
   .Call(`_arrow_SetEnableSignalStopSource`, enabled)
 }
 
-CanRunWithCapturedR <- function() {
-  .Call(`_arrow_CanRunWithCapturedR`)
+UseRunWithCapturedR <- function() {
+  .Call(`_arrow_UseRunWithCapturedR`)
+}
+
+SetUseRunWithCapturedR <- function(value) {
+  invisible(.Call(`_arrow_SetUseRunWithCapturedR`, value))
 }
 
 TestSafeCallIntoR <- function(r_fun_that_returns_a_string, opt) {

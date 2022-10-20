@@ -80,7 +80,7 @@ test_that("arrow_scalar_function() works with auto_convert = TRUE", {
 })
 
 test_that("register_scalar_function() adds a compute function to the registry", {
-  skip_if_not(CanRunWithCapturedR())
+  skip_if_not(use_run_with_captured_r())
   # TODO(ARROW-17178): User-defined function-friendly ExecPlan execution has
   # occasional valgrind errors
   skip_on_linux_devel()
@@ -115,7 +115,7 @@ test_that("register_scalar_function() adds a compute function to the registry", 
 })
 
 test_that("arrow_scalar_function() with bad return type errors", {
-  skip_if_not(CanRunWithCapturedR())
+  skip_if_not(use_run_with_captured_r())
 
   register_scalar_function(
     "times_32_bad_return_type_array",
@@ -145,7 +145,7 @@ test_that("arrow_scalar_function() with bad return type errors", {
 })
 
 test_that("register_scalar_function() can register multiple kernels", {
-  skip_if_not(CanRunWithCapturedR())
+  skip_if_not(use_run_with_captured_r())
 
   register_scalar_function(
     "times_32",
@@ -205,7 +205,7 @@ test_that("register_scalar_function() errors for unsupported specifications", {
 })
 
 test_that("user-defined functions work during multi-threaded execution", {
-  skip_if_not(CanRunWithCapturedR())
+  skip_if_not(use_run_with_captured_r())
   skip_if_not_available("dataset")
   # Skip on linux devel because:
   # TODO(ARROW-17283): Snappy has a UBSan issue that is fixed in the dev version
@@ -261,7 +261,7 @@ test_that("user-defined functions work during multi-threaded execution", {
 
 test_that("nested exec plans can contain user-defined functions", {
   skip_if_not_available("dataset")
-  skip_if_not(CanRunWithCapturedR())
+  skip_if_not(use_run_with_captured_r())
 
   register_scalar_function(
     "times_32",
@@ -299,7 +299,7 @@ test_that("nested exec plans can contain user-defined functions", {
 
 test_that("head() on exec plan containing user-defined functions", {
   skip_if_not_available("dataset")
-  skip_if_not(CanRunWithCapturedR())
+  skip_if_not(use_run_with_captured_r())
 
   register_scalar_function(
     "times_32",

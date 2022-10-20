@@ -296,7 +296,7 @@ test_that("more informative error when reading a CSV with headers and schema", {
 })
 
 test_that("read_csv_arrow() and write_csv_arrow() accept connection objects", {
-  skip_if_not(CanRunWithCapturedR())
+  skip_if_not(use_run_with_captured_r())
 
   tf <- tempfile()
   on.exit(unlink(tf))
