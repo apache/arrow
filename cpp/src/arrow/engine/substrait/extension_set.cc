@@ -710,13 +710,13 @@ static std::vector<std::string> kOverflowOptions = {"SILENT", "SATURATE", "ERROR
 static EnumParser<OverflowBehavior> kOverflowParser(kOverflowOptions);
 
 template <typename Enum>
-Result<std::optional<Enum>> ParseOption(const SubstraitCall& call,
-                                        std::string_view option_name,
-                                        const EnumParser<Enum>& parser,
-                                        const std::vector<Enum>& implemented_options) {
+Result<Enum> ParseOptionOrElse(const SubstraitCall& call, std::string_view option_name,
+                               const EnumParser<Enum>& parser,
+                               const std::vector<Enum>& implemented_options,
+                               Enum fallback) {
   std::optional<std::vector<std::string> const*> enum_arg = call.GetOption(option_name);
   if (!enum_arg.has_value()) {
-    return std::nullopt;
+    return fallback;
   }
   std::vector<std::string> const* prefs = *enum_arg;
   for (const std::string& pref : *prefs) {
@@ -758,15 +758,12 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessOverflowableArithmetic
     const std::string& function_name) {
   return [function_name](const SubstraitCall& call) -> Result<compute::Expression> {
     ARROW_ASSIGN_OR_RAISE(
-        std::optional<OverflowBehavior> maybe_overflow_behavior,
-        ParseOption(call, "overflow", kOverflowParser,
-                    {OverflowBehavior::kSilent, OverflowBehavior::kError}));
+        OverflowBehavior overflow_behavior,
+        ParseOptionOrElse(call, "overflow", kOverflowParser,
+                          {OverflowBehavior::kSilent, OverflowBehavior::kError},
+                          OverflowBehavior::kSilent));
     ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
                           GetValueArgs(call, 0));
-    OverflowBehavior overflow_behavior = OverflowBehavior::kSilent;
-    if (maybe_overflow_behavior) {
-      overflow_behavior = *maybe_overflow_behavior;
-    }
     if (overflow_behavior == OverflowBehavior::kSilent) {
       return arrow::compute::call(function_name, std::move(value_args));
     } else if (overflow_behavior == OverflowBehavior::kError) {
