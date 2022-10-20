@@ -52,6 +52,47 @@ Additional features include:
 -   Toolkit for building connectors to other applications
     and services that use Arrow
 
+## Installation
+
+Most R users will probably want to install the latest release of `arrow` 
+from CRAN:
+
+``` r
+install.packages("arrow")
+```
+
+Alternatively, if you are using conda you can install `arrow` from conda-forge:
+
+``` shell
+conda install -c conda-forge --strict-channel-priority r-arrow
+```
+
+In most cases installing the latest release should "just work" without 
+requiring any additional system dependencies, especially if you are using 
+Window or a Mac. For those users, CRAN hosts binary packages that contain 
+the Arrow C++ library upon which the `arrow` package relies, and no 
+additional steps should be required.
+
+There are some special cases to note:
+
+- On Linux the installation process can sometimes be more involved because 
+CRAN does not host binaries for Linux. For more information please see 
+`vignette("install_linux", package = "arrow")`.
+
+- If you are compiling `arrow` from source, please note that as of version 
+10.0.0, `arrow` requires C++17 to build. This has implications on Windows and
+CentOS 7. For Windows users it means you need to be running an R version of 
+4.0 or later. On CentOS 7, it means you need to install a newer compiler 
+than the default system compiler gcc 4.8. See 
+`vignette("install_details", package = "arrow")` for guidance. Not that 
+this does not affect users who are installing a binary version of the package.
+
+- Development versions of `arrow` are released nightly. Most users will not 
+need to install nightly builds, but if you do please see 
+`vignette("install_nightly", package = "arrow")` for more information.
+
+
+
 ## Getting help
 
 The Arrow for R [cheatsheet](https://github.com/apache/arrow/blob/-/r/cheatsheet/arrow-cheatsheet.pdf) and [Cookbook](https://arrow.apache.org/cookbook/r/index.html) are additional resources for getting started with `arrow`.

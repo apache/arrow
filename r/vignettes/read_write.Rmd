@@ -70,3 +70,47 @@ of these functions, see `vignette("dataset", package = "arrow")`.
 All these functions can read and write files in the local filesystem or
 in Amazon S3 (by passing S3 URIs beginning with `s3://`). For more
 details, see `vignette("fs", package = "arrow")`
+
+
+
+## FROM OLD GETTING STARTED
+
+`arrow` provides some simple functions for using the Arrow C++ library to read and write files.
+These functions are designed to drop into your normal R workflow
+without requiring any knowledge of the Arrow C++ library
+and use naming conventions and arguments that follow popular R packages, particularly `readr`.
+The readers return `data.frame`s
+(or if you use the `tibble` package, they will act like `tbl_df`s),
+and the writers take `data.frame`s.
+
+Importantly, `arrow` provides basic read and write support for the [Apache
+Parquet](https://parquet.apache.org/) columnar data file format.
+
+```r
+library(arrow)
+df <- read_parquet("path/to/file.parquet")
+```
+
+Just as you can read, you can write Parquet files:
+
+```r
+write_parquet(df, "path/to/different_file.parquet")
+```
+
+The `arrow` package also includes a faster and more robust implementation of the
+[Feather](https://github.com/wesm/feather) file format, providing `read_feather()` and
+`write_feather()`. This implementation depends
+on the same underlying C++ library as the Python version does,
+resulting in more reliable and consistent behavior across the two languages, as
+well as [improved performance](https://wesmckinney.com/blog/feather-arrow-future/).
+`arrow` also by default writes the Feather V2 format
+([the Arrow IPC file format](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format)),
+which supports a wider range of data types, as well as compression.
+
+For CSV and line-delimited JSON, there are `read_csv_arrow()` and `read_json_arrow()`, respectively.
+While `read_csv_arrow()` currently has fewer parsing options for dealing with
+every CSV format variation in the wild, for the files it can read, it is
+often significantly faster than other R CSV readers, such as
+`base::read.csv`, `readr::read_csv`, and `data.table::fread`.
+
+
