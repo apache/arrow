@@ -462,4 +462,4 @@ guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
 ## Other installation issues
 
-There are a number of scripts that are triggered when the arrow R package is installed. For package users who are not interacting with the underlying code, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host). However, knowing about these scripts can help package developers troubleshoot if things go wrong in them or things go wrong in an install.  See [the installation vignette](./install.html#how-dependencies-are-resolved) for more information.
+There are a number of scripts that are triggered when the arrow R package is installed. For package users who are not interacting with the underlying code, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host). However, knowing about these scripts can help package developers troubleshoot if things go wrong in them or things go wrong in an install.  See [the article on R package installation](./install_details.html) for more information.
