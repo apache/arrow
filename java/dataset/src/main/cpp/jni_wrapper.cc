@@ -187,7 +187,7 @@ arrow::Result<std::shared_ptr<arrow::Schema>> SchemaFromColumnNames(
     if (maybe_field.ok()) {
       columns.push_back(std::move(maybe_field).ValueOrDie());
     } else {
-      return arrow::Status::Invalid("The provided column name is not in arrow schema");
+      return arrow::Status::Invalid("Partition column '", ref.ToString(), "' is not in dataset schema");
     }
   }
 

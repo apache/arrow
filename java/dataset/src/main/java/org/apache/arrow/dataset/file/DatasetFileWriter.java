@@ -18,17 +18,9 @@
 package org.apache.arrow.dataset.file;
 
 import org.apache.arrow.c.ArrowArrayStream;
-import org.apache.arrow.c.ArrowSchema;
 import org.apache.arrow.c.Data;
-import org.apache.arrow.dataset.scanner.ArrowScannerReader;
-import org.apache.arrow.dataset.scanner.ScanTask;
-import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ipc.ArrowReader;
-import org.apache.arrow.vector.util.SchemaUtility;
-
-import java.util.Iterator;
 
 /**
  * JNI-based utility to write datasets into files. It internally depends on C++ static method
@@ -37,7 +29,7 @@ import java.util.Iterator;
 public class DatasetFileWriter {
 
   /**
-   * Write a ArrowReader accepting Scanner into files.
+   * Write the contents of an ArrowReader as a dataset.
    *
    * @param reader the datasource for writing
    * @param format target file format
@@ -57,7 +49,7 @@ public class DatasetFileWriter {
   }
 
   /**
-   * Write a ArrowReader accepting Scanner into files, with default partitioning settings.
+   * Write the contents of an ArrowReader as a dataset, with default partitioning settings.
    *
    * @param reader the datasource for writing
    * @param format target file format
