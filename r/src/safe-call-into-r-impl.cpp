@@ -45,9 +45,7 @@ bool SetEnableSignalStopSource(bool enabled) {
 }
 
 // [[arrow::export]]
-bool UseRunWithCapturedR() {
-  return MainRThread::GetInstance().UseRunWithCapturedR();
-}
+bool UseRunWithCapturedR() { return MainRThread::GetInstance().UseRunWithCapturedR(); }
 
 // [[arrow::export]]
 void SetUseRunWithCapturedR(bool value) {
