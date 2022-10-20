@@ -163,26 +163,34 @@ func TestPrimitiveMatcher(t *testing.T) {
 
 func TestRLEMatcher(t *testing.T) {
 	tests := []struct {
-		enc     exec.TypeMatcher
-		match   arrow.DataType
-		nomatch arrow.DataType
+		runEnds        exec.TypeMatcher
+		enc            exec.TypeMatcher
+		matchRunEnds   arrow.DataType
+		nomatchRunEnds arrow.DataType
+		matchEnc       arrow.DataType
+		nomatchEnc     arrow.DataType
 	}{
-		{exec.Integer(), arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String},
-		{exec.BinaryLike(), arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32},
-		{exec.SameTypeID(arrow.STRUCT), arrow.StructOf(arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int16}), arrow.PrimitiveTypes.Int8},
+		{exec.Integer(), exec.Integer(), arrow.PrimitiveTypes.Int16, arrow.FixedWidthTypes.Float16, arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String},
+		{exec.SameTypeID(arrow.INT32), exec.BinaryLike(), arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int64, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32},
+		{exec.SameTypeID(arrow.INT64), exec.SameTypeID(arrow.STRUCT), arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int32, arrow.StructOf(arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int16}), arrow.PrimitiveTypes.Int8},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.enc.String(), func(t *testing.T) {
-			matcher := exec.RunLengthEncoded(tt.enc)
-			assert.False(t, matcher.Matches(tt.match))
-			assert.True(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.match)))
-			assert.False(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.nomatch)))
+			matcher := exec.RunLengthEncoded(tt.runEnds, tt.enc)
+			assert.False(t, matcher.Matches(tt.matchEnc))
+			assert.True(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.matchRunEnds, tt.matchEnc)))
+			assert.False(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.matchRunEnds, tt.nomatchEnc)))
+			assert.False(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.nomatchRunEnds, tt.matchEnc)))
+			assert.False(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.nomatchRunEnds, tt.nomatchEnc)))
+
 			assert.Equal(t, "run_length_encoded("+tt.enc.String()+")", matcher.String())
 
-			assert.True(t, matcher.Equals(exec.RunLengthEncoded(tt.enc)))
+			assert.True(t, matcher.Equals(exec.RunLengthEncoded(tt.runEnds, tt.enc)))
 			assert.False(t, matcher.Equals(exec.Primitive()))
-			assert.False(t, matcher.Equals(exec.RunLengthEncoded(exec.SameTypeID(tt.nomatch.ID()))))
+			assert.False(t, matcher.Equals(exec.RunLengthEncoded(exec.SameTypeID(tt.nomatchRunEnds.ID()), exec.SameTypeID(tt.nomatchEnc.ID()))))
+			assert.False(t, matcher.Equals(exec.RunLengthEncoded(exec.SameTypeID(tt.matchRunEnds.ID()), exec.SameTypeID(tt.nomatchEnc.ID()))))
+			assert.False(t, matcher.Equals(exec.RunLengthEncoded(exec.SameTypeID(tt.nomatchRunEnds.ID()), exec.SameTypeID(tt.matchEnc.ID()))))
 		})
 	}
 }

@@ -243,6 +243,7 @@ func (primitiveMatcher) Equals(other TypeMatcher) bool {
 func Primitive() TypeMatcher { return primitiveMatcher{} }
 
 type rleMatcher struct {
+	runEndsMatcher TypeMatcher
 	encodedMatcher TypeMatcher
 }
 
@@ -251,7 +252,8 @@ func (r rleMatcher) Matches(typ arrow.DataType) bool {
 		return false
 	}
 
-	return r.encodedMatcher.Matches(typ.(*arrow.RunLengthEncodedType).Encoded())
+	dt := typ.(*arrow.RunLengthEncodedType)
+	return r.runEndsMatcher.Matches(dt.RunEnds()) && r.encodedMatcher.Matches(dt.Encoded())
 }
 
 func (r rleMatcher) Equals(other TypeMatcher) bool {
@@ -259,7 +261,7 @@ func (r rleMatcher) Equals(other TypeMatcher) bool {
 	if !ok {
 		return false
 	}
-	return r.encodedMatcher.Equals(o.encodedMatcher)
+	return r.runEndsMatcher.Equals(o.runEndsMatcher) && r.encodedMatcher.Equals(o.encodedMatcher)
 }
 
 func (r rleMatcher) String() string {
@@ -268,8 +270,10 @@ func (r rleMatcher) String() string {
 
 // RunLengthEncoded returns a matcher which matches a RunLengthEncoded
 // type whose encoded type is matched by the passed in matcher.
-func RunLengthEncoded(encodedMatcher TypeMatcher) TypeMatcher {
-	return rleMatcher{encodedMatcher: encodedMatcher}
+func RunLengthEncoded(runEndsMatcher, encodedMatcher TypeMatcher) TypeMatcher {
+	return rleMatcher{
+		runEndsMatcher: runEndsMatcher,
+		encodedMatcher: encodedMatcher}
 }
 
 // InputKind is an enum representing the type of Input matching
