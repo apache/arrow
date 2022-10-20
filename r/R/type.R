@@ -24,10 +24,13 @@
 #'
 #' @section Methods:
 #'
-#' TODO
+#' - `$ToString()`: String representation of the DataType
+#' - `$Equals(other)`: Is the DataType equal to `other`
+#' - `$fields()`: The children fields associated with this type
 #'
 #' @rdname DataType
 #' @name DataType
+#' @seealso [`data-type`]
 DataType <- R6Class("DataType",
   inherit = ArrowObject,
   public = list(
