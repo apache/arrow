@@ -2431,7 +2431,6 @@ std::vector<std::shared_ptr<DataType>> g_unsigned_int_types;
 std::vector<std::shared_ptr<DataType>> g_int_types;
 std::vector<std::shared_ptr<DataType>> g_floating_types;
 std::vector<std::shared_ptr<DataType>> g_numeric_types;
-std::vector<std::shared_ptr<DataType>> g_decimal_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
 std::vector<std::shared_ptr<DataType>> g_interval_types;
@@ -2489,19 +2488,6 @@ void InitStaticData() {
   g_primitive_types = {null(), boolean(), date32(), date64()};
   Extend(g_numeric_types, &g_primitive_types);
   Extend(g_base_binary_types, &g_primitive_types);
-
-  // Listing possible decimal types. Todo: find a better way? (qhoang)
-  for (int precision = 1; precision < arrow::Decimal128::kMaxPrecision; precision++) {
-    for (int scale = -precision + 1; scale < precision; scale++) {
-      g_decimal_types.push_back(arrow::decimal128(precision, scale));
-    }
-  }
-
-  for (int precision = 1; precision < arrow::Decimal256::kMaxPrecision; precision++) {
-    for (int scale = -precision + 1; scale < precision; scale++) {
-      g_decimal_types.push_back(arrow::decimal256(precision, scale));
-    }
-  }
 }
 
 }  // namespace
@@ -2544,11 +2530,6 @@ const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes() {
 const std::vector<std::shared_ptr<DataType>>& NumericTypes() {
   std::call_once(static_data_initialized, InitStaticData);
   return g_numeric_types;
-}
-
-const std::vector<std::shared_ptr<DataType>>& AllDecimalTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_decimal_types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {

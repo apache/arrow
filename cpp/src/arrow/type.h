@@ -2134,9 +2134,6 @@ const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
 /// \brief Number types without boolean - integer and floating point types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& NumericTypes();
-/// \brief Decimal types
-ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& AllDecimalTypes();
 /// \brief Binary and string-like types (except fixed-size binary)
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();

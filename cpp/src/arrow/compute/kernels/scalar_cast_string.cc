@@ -413,10 +413,11 @@ void AddNumberToStringCasts(CastFunction* func) {
 template <typename OutType>
 void AddDecimalToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
-  for (const std::shared_ptr<DataType>& in_ty : AllDecimalTypes()) {
+  for (const arrow::Type::type& in_tid : std::vector<arrow::Type::type>{
+           arrow::Decimal128Type::type_id, arrow::Decimal256Type::type_id}) {
     DCHECK_OK(
-        func->AddKernel(in_ty->id(), {in_ty}, out_ty,
-                        GenerateDecimal<DecimalToStringCastFunctor, OutType>(*in_ty),
+        func->AddKernel(in_tid, {in_tid}, out_ty,
+                        GenerateDecimal<DecimalToStringCastFunctor, OutType>(in_tid),
                         NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 }
