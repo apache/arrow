@@ -52,8 +52,8 @@ Id NormalizeFunctionName(Id id) {
 
 }  // namespace
 
-Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
-                 SubstraitCall* call, const ExtensionSet& ext_set,
+Status DecodeArg(const substrait::FunctionArgument& arg, int idx, SubstraitCall* call,
+                 const ExtensionSet& ext_set,
                  const ConversionOptions& conversion_options) {
   if (arg.has_enum_()) {
     call->SetEnumArg(idx, arg.enum_());
@@ -89,8 +89,8 @@ Result<SubstraitCall> DecodeScalarFunction(
                         FromProto(scalar_fn.output_type(), ext_set, conversion_options));
   SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second);
   for (int i = 0; i < scalar_fn.arguments_size(); i++) {
-    ARROW_RETURN_NOT_OK(DecodeArg(scalar_fn.arguments(i), static_cast<uint32_t>(i), &call,
-                                  ext_set, conversion_options));
+    ARROW_RETURN_NOT_OK(
+        DecodeArg(scalar_fn.arguments(i), i, &call, ext_set, conversion_options));
   }
   for (const auto& opt : scalar_fn.options()) {
     ARROW_RETURN_NOT_OK(DecodeOption(opt, &call));
