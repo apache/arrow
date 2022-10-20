@@ -83,8 +83,8 @@ Status DecodeOption(const substrait::FunctionOption& opt, SubstraitCall* call) {
     return Status::Invalid("Invalid Substrait plan.  The option ", opt.name(),
                            " is specified but does not list any choices");
   }
-  for (int i = 0; i < opt.preference_size(); i++) {
-    prefs.push_back(opt.preference(i));
+  for (const auto& preference : opt.preference()) {
+    prefs.push_back(preference);
   }
   call->SetOption(opt.name(), prefs);
   return Status::OK();
@@ -100,8 +100,8 @@ Result<SubstraitCall> DecodeScalarFunction(
     ARROW_RETURN_NOT_OK(DecodeArg(scalar_fn.arguments(i), static_cast<uint32_t>(i), &call,
                                   ext_set, conversion_options));
   }
-  for (int i = 0; i < scalar_fn.options_size(); i++) {
-    ARROW_RETURN_NOT_OK(DecodeOption(scalar_fn.options(i), &call));
+  for (const auto& opt : scalar_fn.options()) {
+    ARROW_RETURN_NOT_OK(DecodeOption(opt, &call));
   }
   return std::move(call);
 }
