@@ -837,6 +837,7 @@ TEST(Substrait, RelWithHint) {
 
 TEST(Substrait, ExtensionSetFromPlan) {
   std::string substrait_json = R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [
       {"rel": {
         "read": {
@@ -986,6 +987,7 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
 
 TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   std::string substrait_json = R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [],
     "extension_uris": [
       {
@@ -1036,6 +1038,7 @@ Result<std::string> GetSubstraitJSON() {
   auto file_path = file_name->ToString();
 
   std::string substrait_json = R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [
       {"rel": {
         "read": {
@@ -1167,6 +1170,7 @@ TEST(Substrait, GetRecordBatchReader) {
 
 TEST(Substrait, InvalidPlan) {
   std::string substrait_json = R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [
     ]
   })";
@@ -1177,8 +1181,34 @@ TEST(Substrait, InvalidPlan) {
   });
 }
 
+TEST(Substrait, InvalidMinimumVersion) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major": 0, "minor": 18, "patch": 0 },
+    "relations": [{
+      "rel": {
+        "read": {
+          "base_schema": {
+            "names": ["A"],
+            "struct": {
+              "types": [{
+                "i32": {}
+              }]
+            }
+          },
+          "named_table": { "names": ["x"] }
+        }
+      }
+    }],
+    "extensionUris": [],
+    "extensions": [],
+  })"));
+
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
 TEST(Substrait, JoinPlanBasic) {
   std::string substrait_json = R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1324,6 +1354,7 @@ TEST(Substrait, JoinPlanBasic) {
 
 TEST(Substrait, JoinPlanInvalidKeyCmp) {
   std::string substrait_json = R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1442,6 +1473,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
 TEST(Substrait, JoinPlanInvalidExpression) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1511,6 +1543,7 @@ TEST(Substrait, JoinPlanInvalidExpression) {
 
 TEST(Substrait, JoinPlanInvalidKeys) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1585,6 +1618,7 @@ TEST(Substrait, JoinPlanInvalidKeys) {
 TEST(Substrait, AggregateBasic) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1680,6 +1714,7 @@ TEST(Substrait, AggregateBasic) {
 TEST(Substrait, AggregateInvalidRel) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1706,6 +1741,7 @@ TEST(Substrait, AggregateInvalidRel) {
 TEST(Substrait, AggregateInvalidFunction) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1769,6 +1805,7 @@ TEST(Substrait, AggregateInvalidFunction) {
 TEST(Substrait, AggregateInvalidAggFuncArgs) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1810,7 +1847,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
           "measures": [{
             "measure": {
               "functionReference": 0,
-              "args": [],
+              "arguments": [],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
               "invocation": "AGGREGATION_INVOCATION_ALL",
@@ -1842,6 +1879,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
 TEST(Substrait, AggregateWithFilter) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1883,7 +1921,7 @@ TEST(Substrait, AggregateWithFilter) {
           "measures": [{
             "measure": {
               "functionReference": 0,
-              "args": [],
+              "arguments": [],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
               "invocation": "AGGREGATION_INVOCATION_ALL",
@@ -1915,6 +1953,7 @@ TEST(Substrait, AggregateWithFilter) {
 TEST(Substrait, AggregateBadPhase) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1956,7 +1995,7 @@ TEST(Substrait, AggregateBadPhase) {
           "measures": [{
             "measure": {
               "functionReference": 0,
-              "args": [],
+              "arguments": [],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
               "invocation": "AGGREGATION_INVOCATION_DISTINCT",
@@ -1985,7 +2024,7 @@ TEST(Substrait, AggregateBadPhase) {
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
-TEST(Substrait, BasicPlanRoundTripping) {
+TEST(SubstraitRoundTrip, BasicPlan) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2099,7 +2138,7 @@ TEST(Substrait, BasicPlanRoundTripping) {
   }
 }
 
-TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
+TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2215,7 +2254,7 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
 }
 
-TEST(Substrait, ProjectRel) {
+TEST(SubstraitRoundTrip, ProjectRel) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2234,6 +2273,7 @@ TEST(Substrait, ProjectRel) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "project": {
@@ -2332,7 +2372,7 @@ TEST(Substrait, ProjectRel) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, ProjectRelOnFunctionWithEmit) {
+TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2351,6 +2391,7 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "project": {
@@ -2453,7 +2494,7 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, ReadRelWithEmit) {
+TEST(SubstraitRoundTrip, ReadRelWithEmit) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2468,6 +2509,7 @@ TEST(Substrait, ReadRelWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "read": {
@@ -2514,7 +2556,7 @@ TEST(Substrait, ReadRelWithEmit) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, FilterRelWithEmit) {
+TEST(SubstraitRoundTrip, FilterRelWithEmit) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2534,6 +2576,7 @@ TEST(Substrait, FilterRelWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "filter": {
@@ -2634,7 +2677,7 @@ TEST(Substrait, FilterRelWithEmit) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, JoinRelEndToEnd) {
+TEST(SubstraitRoundTrip, JoinRel) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2657,6 +2700,7 @@ TEST(Substrait, JoinRelEndToEnd) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -2786,7 +2830,7 @@ TEST(Substrait, JoinRelEndToEnd) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, JoinRelWithEmit) {
+TEST(SubstraitRoundTrip, JoinRelWithEmit) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2809,6 +2853,7 @@ TEST(Substrait, JoinRelWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major": 9999, "minor": 9999, "patch": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -2940,7 +2985,7 @@ TEST(Substrait, JoinRelWithEmit) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, AggregateRel) {
+TEST(SubstraitRoundTrip, AggregateRel) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2960,6 +3005,7 @@ TEST(Substrait, AggregateRel) {
   ])"});
 
   std::string substrait_json = R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -3051,7 +3097,7 @@ TEST(Substrait, AggregateRel) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, AggregateRelEmit) {
+TEST(SubstraitRoundTrip, AggregateRelEmit) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -3072,6 +3118,7 @@ TEST(Substrait, AggregateRelEmit) {
 
   // TODO: fixme https://issues.apache.org/jira/browse/ARROW-17484
   std::string substrait_json = R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -3171,10 +3218,8 @@ TEST(Substrait, AggregateRelEmit) {
 TEST(Substrait, IsthmusPlan) {
   // This is a plan generated from Isthmus
   // isthmus -c "CREATE TABLE T1(foo int)" "SELECT foo + 1 FROM T1"
-  //
-  // The plan had to be modified slightly to introduce the missing enum
-  // argument that isthmus did not put there.
   std::string substrait_json = R"({
+    "version": { "major": 9999, "minor": 9999, "patch": 9999 },
     "extensionUris": [{
       "extensionUriAnchor": 1,
       "uri": "/functions_arithmetic.yaml"
@@ -3183,7 +3228,7 @@ TEST(Substrait, IsthmusPlan) {
       "extensionFunction": {
         "extensionUriReference": 1,
         "functionAnchor": 0,
-        "name": "add:opt_i32_i32"
+        "name": "add:i32_i32"
       }
     }],
     "relations": [{
@@ -3222,7 +3267,6 @@ TEST(Substrait, IsthmusPlan) {
             "expressions": [{
               "scalarFunction": {
                 "functionReference": 0,
-                "args": [],
                 "outputType": {
                   "i32": {
                     "typeVariationReference": 0,
@@ -3230,10 +3274,6 @@ TEST(Substrait, IsthmusPlan) {
                   }
                 },
                 "arguments": [{
-                  "enum": {
-                    "unspecified": {}
-                  }
-                }, {
                   "value": {
                     "selection": {
                       "directReference": {
@@ -3300,7 +3340,7 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
         "extensionFunction": {
           "extensionUriReference": 1,
           "functionAnchor": 0,
-          "name": "add:opt_i32_i32"
+          "name": "add:i32_i32"
         }
     }],
     "relations": [{
@@ -3379,7 +3419,6 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
             },{
               "scalarFunction": {
                 "functionReference": 0,
-                "args": [],
                 "outputType": {
                   "i32": {
                     "typeVariationReference": 0,
@@ -3387,10 +3426,6 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
                   }
                 },
                 "arguments": [{
-                  "enum": {
-                    "unspecified": {}
-                  }
-                }, {
                   "value": {
                     "selection": {
                       "directReference": {
@@ -3490,7 +3525,6 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
                     "functionReference": 2,
                     "outputType": {"i32": {}},
                     "arguments": [
-                      {"enum": {"unspecified": {}}},
                       {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
                       {"value": {"literal": {"fp64": 10}}}
                     ]
@@ -3579,7 +3613,6 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
                     "functionReference": 2,
                     "outputType": {"i32": {}},
                     "arguments": [
-                      {"enum": {"unspecified": {}}},
                       {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
                       {"value": {"literal": {"fp64": 10}}}
                     ]
