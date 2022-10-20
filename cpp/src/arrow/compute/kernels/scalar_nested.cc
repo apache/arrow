@@ -109,6 +109,13 @@ struct ListSlice {
           "Setting `step` to anything other than 1 is not supported; got step=",
           opts.step);
     }
+    if (opts.stop == -1) {
+      // TODO: Support slicing to arbitrary end
+      // For variable size list, this would be the largest difference in offsets
+      // For fixed size list, this would be the fixed size.
+      return Status::NotImplemented(
+          "Setting `stop==-1` to signify slicing to end, not yet implemented.");
+    }
 
     const ArraySpan& list_ = batch[0].array;
     const Type* list_type = checked_cast<const Type*>(list_.type);

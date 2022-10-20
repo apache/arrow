@@ -2986,6 +2986,8 @@ def test_list_slice_bad_parameters():
         pc.list_slice(arr, -1)  # negative start?
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 2, 1)  # start > stop?
+
+    # TODO: start==stop -> empty lists
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 0, 0)  # start == stop?
 
@@ -2993,6 +2995,11 @@ def test_list_slice_bad_parameters():
     msg = "Setting `step` to anything other than 1 is not supported; got step=2"
     with pytest.raises(NotImplementedError, match=msg):
         pc.list_slice(arr, 0, 1, step=2)
+
+    # TODO: support stop == -1; slice to end
+    msg = "Setting `stop==-1` to signify slicing to end, not yet implemented."
+    with pytest.raises(NotImplementedError, match=msg):
+        pc.list_slice(arr, 0, -1)
 
 
 def test_list_slice_non_nulls():
