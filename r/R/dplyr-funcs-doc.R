@@ -83,7 +83,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 244 compute
+#' In addition to these functions, you can call any of Arrow's 243 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R

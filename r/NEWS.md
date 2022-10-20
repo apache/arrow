@@ -21,37 +21,43 @@
 
 ## Arrow dplyr queries
 
-Several new functions can be used in queries: 
+Several new functions can be used in queries:
 
-* `dplyr::across()` can be used to apply the same computation across multiple 
-  columns;
-* `add_filename()` can be used to get the filename a row came from (only 
+* `dplyr::across()` can be used to apply the same computation across multiple
+  columns, and the `where()` selection helper is supported in `across()`;
+* `add_filename()` can be used to get the filename a row came from (only
   available when querying `?Dataset`);
-* Added five functions in the `slice_*` family: `dplyr::slice_min()`, 
+* Added five functions in the `slice_*` family: `dplyr::slice_min()`,
   `dplyr::slice_max()`, `dplyr::slice_head()`, `dplyr::slice_tail()`, and
   `dplyr::slice_sample()`.
 
-For a full list of functions available in queries see `?acero`.
+The package now has documentation that lists all `dplyr` methods and R function
+mappings that are supported on Arrow data, along with notes about any
+differences in functionality between queries evaluated in R versus in Acero, the
+Arrow query engine. See `?acero`.
 
-A few new features and bugfixes were implemented for joins.
-Extension arrays are now supported in joins, allowing, for example, joining 
-datasets that contain [geoarrow](https://paleolimbot.github.io/geoarrow/) data.
-The `keep` argument is now supported, allowing separate columns for the left
-and right hand side join keys in join output. Full joins now coalesce the 
-join keys (when `keep = FALSE`), avoiding the issue where the join keys would 
-be all `NA` for rows in the right hand side without any matches on the left.
+A few new features and bugfixes were implemented for joins:
 
-A few breaking changes: Calling `dplyr::pull()` will return a `?ChunkedArray` 
-instead of an R vector. Calling `dplyr::compute()` on a query that is grouped 
-returns a `?Table`, instead of a query object.
+* Extension arrays are now supported in joins, allowing, for example, joining
+  datasets that contain [geoarrow](https://paleolimbot.github.io/geoarrow/) data.
+* The `keep` argument is now supported, allowing separate columns for the left
+  and right hand side join keys in join output. Full joins now coalesce the
+  join keys (when `keep = FALSE`), avoiding the issue where the join keys would
+  be all `NA` for rows in the right hand side without any matches on the left.
 
-Finally, long-running queries can now be cancelled and will abort their 
+A few breaking changes that improve the consistency of the API:
+
+* Calling `dplyr::pull()` will return a `?ChunkedArray` instead of an R vector.
+* Calling `dplyr::compute()` on a query that is grouped
+  returns a `?Table`, instead of a query object.
+
+Finally, long-running queries can now be cancelled and will abort their
 computation immediately.
 
 ## Arrays and tables
 
 `as_arrow_array()` can now take `blob::blob` and `?vctrs::list_of`, which
-convert to binary and list arrays, respectively. Also fixed an issue where 
+convert to binary and list arrays, respectively. Also fixed an issue where
 `as_arrow_array()` ignored type argument when passed a `StructArray`.
 
 The `unique()` function works on `?Table`, `?RecordBatch`, `?Dataset`, and
@@ -59,7 +65,7 @@ The `unique()` function works on `?Table`, `?RecordBatch`, `?Dataset`, and
 
 ## Reading and writing
 
-`write_feather()` can take `FALSE` to choose writing uncompressed files.
+`write_feather()` can take `compression = FALSE` to choose writing uncompressed files.
 
 Also, a breaking change for IPC files in `write_dataset()`: passing
 `"ipc"` or  `"feather"` to `format` will now write files with `.arrow`
