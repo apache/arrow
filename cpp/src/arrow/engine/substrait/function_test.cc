@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -155,13 +156,13 @@ void CheckErrorTestCases(const std::vector<FunctionTestCase>& error_cases) {
   }
 }
 
-void CheckNonYetImplementedTestCases(const std::vector<FunctionTestCase>& invalid_cases) {
-  for (const FunctionTestCase& test_case : invalid_cases) {
-    ARROW_SCOPED_TRACE("func=", test_case.function_id.uri, "#",
-                       test_case.function_id.name);
-    std::shared_ptr<Table> output_table;
-    ASSERT_RAISES(NotImplemented, PlanFromTestCase(test_case, &output_table));
-  }
+template <typename ErrorMatcher>
+void CheckNonYetImplementedTestCase(const FunctionTestCase& test_case,
+                                    ErrorMatcher error_matcher) {
+  ARROW_SCOPED_TRACE("func=", test_case.function_id.uri, "#", test_case.function_id.name);
+  std::shared_ptr<Table> output_table;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, error_matcher,
+                                  PlanFromTestCase(test_case, &output_table));
 }
 
 static const std::unordered_map<std::string, std::vector<std::string>> kNoOptions;
@@ -438,21 +439,26 @@ TEST(FunctionMapping, ErrorCases) {
 }
 
 TEST(FunctionMapping, UnrecognizedOptions) {
-  const std::vector<FunctionTestCase> error_test_cases = {
-      // TODO(ARROW-18050) Should reject a call that contains unrecognized options
-      /*{{kSubstraitArithmeticFunctionsUri, "add"},
-       {"127", "10"},
-       {{"new_option", {"BLAH"}}},
-       {int8(), int8()},
-       "",
-       int8()},*/
+  CheckNonYetImplementedTestCase(
       {{kSubstraitArithmeticFunctionsUri, "add"},
        {"-119", "10"},
        {{"overflow", {"NEW_OVERFLOW_TYPE", "SILENT"}}},
        {int8(), int8()},
        "",
-       int8()}};
-  CheckNonYetImplementedTestCases(error_test_cases);
+       int8()},
+      ::testing::HasSubstr("The value NEW_OVERFLOW_TYPE is not an expected enum value"));
+  CheckNonYetImplementedTestCase(
+      {{kSubstraitArithmeticFunctionsUri, "add"},
+       {"-119", "10"},
+       {{"overflow", {"SATURATE"}}},
+       {int8(), int8()},
+       "",
+       int8()},
+      ::testing::HasSubstr(
+          "During a call to a function with id " +
+          std::string(kSubstraitArithmeticFunctionsUri) +
+          "#add the plan requested the option overflow to be one of [SATURATE] but the "
+          "only supported options are [SILENT, ERROR]"));
 }
 
 // For each aggregate test case we take in three values.  We compute the

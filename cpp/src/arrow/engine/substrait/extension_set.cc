@@ -25,6 +25,7 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 namespace engine {
@@ -662,34 +663,51 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 };
 
 template <typename Enum>
-using EnumParser = std::function<Result<Enum>(std::string_view)>;
-
-template <typename Enum>
-EnumParser<Enum> GetEnumParser(const std::vector<std::string>& options) {
-  std::unordered_map<std::string, Enum> parse_map;
-  for (std::size_t i = 0; i < options.size(); i++) {
-    parse_map[options[i]] = static_cast<Enum>(i + 1);
+class EnumParser {
+ public:
+  EnumParser(const std::vector<std::string>& options) {
+    for (std::size_t i = 0; i < options.size(); i++) {
+      parse_map_[options[i]] = static_cast<Enum>(i + 1);
+      reverse_map_[static_cast<Enum>(i + 1)] = options[i];
+    }
   }
-  return [parse_map = std::move(parse_map)](std::string_view enum_val) -> Result<Enum> {
-    auto it = parse_map.find(std::string(enum_val));
-    if (maybe_parsed == parse_map.end()) {
+
+  Result<Enum> Parse(std::string_view enum_val) const {
+    auto it = parse_map_.find(std::string(enum_val));
+    if (it == parse_map_.end()) {
       return Status::NotImplemented("The value ", enum_val,
                                     " is not an expected enum value");
     }
-    return maybe_parsed->second;
-  };
-}
+    return it->second;
+  }
+
+  std::string ImplementedOptionsAsString(
+      const std::vector<Enum>& implemented_opts) const {
+    std::vector<std::string_view> opt_strs;
+    for (const Enum& implemented_opt : implemented_opts) {
+      auto it = reverse_map_.find(implemented_opt);
+      if (it == reverse_map_.end()) {
+        opt_strs.emplace_back("Unknown");
+      } else {
+        opt_strs.emplace_back(it->second);
+      }
+    }
+    return arrow::internal::JoinStrings(opt_strs, ", ");
+  }
+
+ private:
+  std::unordered_map<std::string, Enum> parse_map_;
+  std::unordered_map<Enum, std::string> reverse_map_;
+};
 
 enum class TemporalComponent { kUnspecified = 0, kYear, kMonth, kDay, kSecond };
 static std::vector<std::string> kTemporalComponentOptions = {"YEAR", "MONTH", "DAY",
                                                              "SECOND"};
-static EnumParser<TemporalComponent> kTemporalComponentParser =
-    GetEnumParser<TemporalComponent>(kTemporalComponentOptions);
+static EnumParser<TemporalComponent> kTemporalComponentParser(kTemporalComponentOptions);
 
 enum class OverflowBehavior { kUnspecified = 0, kSilent, kSaturate, kError };
 static std::vector<std::string> kOverflowOptions = {"SILENT", "SATURATE", "ERROR"};
-static EnumParser<OverflowBehavior> kOverflowParser =
-    GetEnumParser<OverflowBehavior>(kOverflowOptions);
+static EnumParser<OverflowBehavior> kOverflowParser(kOverflowOptions);
 
 template <typename Enum>
 Result<std::optional<Enum>> ParseOption(const SubstraitCall& call,
@@ -702,26 +720,28 @@ Result<std::optional<Enum>> ParseOption(const SubstraitCall& call,
   }
   std::vector<std::string> const* prefs = *enum_arg;
   for (const std::string& pref : *prefs) {
-    ARROW_ASSIGN_OR_RAISE(Enum parsed, parser(pref));
+    ARROW_ASSIGN_OR_RAISE(Enum parsed, parser.Parse(pref));
     for (Enum implemented_opt : implemented_options) {
       if (implemented_opt == parsed) {
         return parsed;
       }
     }
   }
+
   // Prepare error message
-  return Status::NotImplemented("During a call to a function with id ", call.id().uri,
-                                "#", call.id().name, " the plan requested the option ",
-                                option_name, " to be one of [",
-                                arrow::internal::JoinStrings(*prefs),
-                                "] but none of those option values are supported");
+  return Status::NotImplemented(
+      "During a call to a function with id ", call.id().uri, "#", call.id().name,
+      " the plan requested the option ", option_name, " to be one of [",
+      arrow::internal::JoinStrings(*prefs, ", "),
+      "] but the only supported options are [",
+      parser.ImplementedOptionsAsString(implemented_options), "]");
 }
 
 template <typename Enum>
 Result<Enum> ParseEnumArg(const SubstraitCall& call, int arg_index,
                           const EnumParser<Enum>& parser) {
   ARROW_ASSIGN_OR_RAISE(std::string_view enum_val, call.GetEnumArg(arg_index));
-  return parser(enum_val);
+  return parser.Parse(enum_val);
 }
 
 Result<std::vector<compute::Expression>> GetValueArgs(const SubstraitCall& call,
