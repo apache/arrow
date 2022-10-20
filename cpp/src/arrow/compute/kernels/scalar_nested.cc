@@ -121,6 +121,7 @@ struct ListSlice {
     const Type* list_type = checked_cast<const Type*>(list_.type);
     const auto value_type = list_type->value_type();
 
+    // construct builder
     std::unique_ptr<ArrayBuilder> builder;
     if (opts.return_fixed_size_list) {
       RETURN_NOT_OK(MakeBuilder(
@@ -128,7 +129,11 @@ struct ListSlice {
           fixed_size_list(value_type, static_cast<int32_t>(opts.stop - opts.start)),
           &builder));
     } else {
-      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), list(value_type), &builder));
+      if constexpr (std::is_same_v<Type, LargeListType>) {
+        RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), large_list(value_type), &builder));
+      } else {
+        RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), list(value_type), &builder));
+      }
     }
     RETURN_NOT_OK(builder->Reserve(list_.length - 1));
 
@@ -148,7 +153,11 @@ struct ListSlice {
         RETURN_NOT_OK(
             BuildArrayFromListType<FixedSizeListBuilder>(batch, opts, *builder));
       } else {
-        RETURN_NOT_OK(BuildArrayFromListType<ListBuilder>(batch, opts, *builder));
+        if (std::is_same_v<Type, LargeListType>) {
+          RETURN_NOT_OK(BuildArrayFromListType<LargeListBuilder>(batch, opts, *builder));
+        } else {
+          RETURN_NOT_OK(BuildArrayFromListType<ListBuilder>(batch, opts, *builder));
+        }
       }
     }
 
@@ -243,9 +252,12 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
   if (return_fixed_size_list) {
     return TypeHolder(
         fixed_size_list(list_type->value_type(), static_cast<int32_t>(stop - start)));
-
   } else {
-    return list(list_type->value_type());
+    // Returning large list if that's what we got in and didn't ask for fixed size
+    if (list_type->id() == Type::LARGE_LIST) {
+      return TypeHolder(large_list(list_type->value_type()));
+    }
+    return TypeHolder(list(list_type->value_type()));
   }
 }
 

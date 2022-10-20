@@ -2975,6 +2975,8 @@ def test_list_slice_output_variable(start, stop, expected, value_type, list_type
             pc.list_slice(arr, start, stop, return_fixed_size_list=False)
     else:
         result = pc.list_slice(arr, start, stop, return_fixed_size_list=False)
+        # Gets same list type (ListArray vs LargeList)
+        assert result.type == list_type(value_type())
         pylist = result.cast(pa.list_(pa.int8())).to_pylist()
         assert pylist == expected
 
