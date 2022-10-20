@@ -17,10 +17,6 @@
 
 {% import 'macros.jinja' as macros with context %}
 
-# This allows us to set a custom version via param:
-# crossbow submit --param custom_version=8.5.3 r-binary-packages
-# if the param is unset defaults to the usual Ymd naming scheme
-{% set package_version = custom_version|replace("Unset", "\\2.\'\"$(date +%Y%m%d)\"\'") %}
 {% set is_fork = macros.is_fork %}
 
 {{ macros.github_header() }}
@@ -35,7 +31,7 @@ jobs:
       pkg_version: {{ '${{ steps.save-version.outputs.pkg_version }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_change_r_pkg_version(is_fork, package_version)|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, arrow.no_rc_r_version)|indent }}
       - name: Save Version
         id: save-version
         shell: bash
@@ -281,7 +277,7 @@ jobs:
           {{  macros.github_test_r_src_pkg()|indent(8) }}
           '
       - name: Upload binary artifact
-        if:  matrix.config.devtoolset
+        if: matrix.config.devtoolset
         uses: actions/upload-artifact@v3
         with:
           name: r-pkg_centos7

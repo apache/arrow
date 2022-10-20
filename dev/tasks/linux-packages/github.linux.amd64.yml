@@ -44,7 +44,6 @@ jobs:
           rake version:update
           rake docker:pull || :
           rake --trace {{ task_namespace }}:build BUILD_DIR=build
-          sudo rm -rf */*/build
           popd
         env:
           APT_TARGETS: {{ target }}
@@ -103,5 +102,5 @@ jobs:
           ARROW_VERSION: {{ arrow.version }}
           YUM_TARGETS: {{ target }}
 
-      {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/**/*{}") %}
+      {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/*/*/repositories/**/*{}") %}
       {{ macros.github_upload_releases(patterns)|indent }}
