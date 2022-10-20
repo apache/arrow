@@ -344,7 +344,7 @@ cast_options <- function(safe = TRUE, ...) {
 #' @return `NULL`, invisibly
 #' @export
 #'
-#' @examplesIf arrow_with_dataset() && identical(Sys.getenv("NOT_CRAN"), "true")
+#' @examplesIf arrow_with_dataset() && use_run_with_captured_r() && identical(Sys.getenv("NOT_CRAN"), "true")
 #' library(dplyr, warn.conflicts = FALSE)
 #'
 #' some_model <- lm(mpg ~ disp + cyl, data = mtcars)
