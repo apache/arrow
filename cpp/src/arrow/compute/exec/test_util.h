@@ -110,6 +110,11 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
                                     int num_batches = 10, int batch_size = 4);
 
 ARROW_TESTING_EXPORT
+Result<BatchesWithSchema> MakeIntegerBatches(
+    const std::vector<std::function<int64_t(int)>>& gens,
+    const std::shared_ptr<Schema>& schema, int num_batches, int batch_size);
+
+ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,
                                         const std::vector<std::string_view>& json_strings,
                                         int multiplicity = 1);

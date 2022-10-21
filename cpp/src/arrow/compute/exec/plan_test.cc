@@ -24,6 +24,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/test_nodes.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/io/util_internal.h"
@@ -1479,6 +1480,35 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
   for (const auto& batch : batches) {
     ASSERT_LE(batch.length, ExecPlan::kMaxBatchSize);
   }
+}
+
+TEST(ExecPlanExecution, BackpressureDemo) {
+  RegisterConcatNode(default_exec_factory_registry());
+
+  std::shared_ptr<Schema> schema_one = schema({field("a", int32()), field("b", int32())});
+  std::shared_ptr<Schema> schema_two = schema({field("c", int32())});
+  std::shared_ptr<Schema> schema_three =
+      schema({field("d", int32()), field("e", int32())});
+
+  BatchesWithSchema one = MakeRandomBatches(schema_one, /*num_batches=*/100);
+  BatchesWithSchema two = MakeRandomBatches(schema_two, /*num_batches=*/100);
+  BatchesWithSchema three = MakeRandomBatches(schema_three, /*num_batches=*/100);
+
+  compute::Declaration src_one = {
+      "source", SourceNodeOptions(one.schema, MakeNoisyDelayedGen(one, "0:fast", 0.01))};
+  compute::Declaration src_two = {
+      "source", SourceNodeOptions(two.schema, MakeNoisyDelayedGen(two, "1:slow", 0.1))};
+  compute::Declaration src_three = {
+      "source",
+      SourceNodeOptions(three.schema, MakeNoisyDelayedGen(three, "2:fast", 0.01))};
+
+  compute::Declaration concat = {
+      "concat", {src_one, src_two, src_three}, ConcatNodeOptions()};
+
+  ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
+                       DeclarationToBatches(concat));
+
+  ASSERT_EQ(one.batches.size(), batches.size());
 }
 
 }  // namespace compute

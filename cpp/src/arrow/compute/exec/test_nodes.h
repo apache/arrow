@@ -1,0 +1,40 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include <string>
+
+#include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/test_util.h"
+
+namespace arrow {
+namespace compute {
+
+struct ConcatNodeOptions : public ExecNodeOptions {
+  // Pause the concat node's inputs if we have this many batches queued
+  int pause_if_above = 8;
+  // Restart the concat node's inputs once the queue drops below this amount
+  int resume_if_below = 4;
+};
+
+void RegisterConcatNode(ExecFactoryRegistry* registry);
+
+AsyncGenerator<std::optional<ExecBatch>> MakeNoisyDelayedGen(BatchesWithSchema src,
+                                                             std::string label,
+                                                             double delay_sec);
+
+}  // namespace compute
+}  // namespace arrow

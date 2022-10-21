@@ -27,6 +27,7 @@
 #include "arrow/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/test_nodes.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/row_encoder.h"
@@ -1019,6 +1020,41 @@ TRACED_TEST(AsofJoinTest, TestUnorderedOnKey, {
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 })
+
+TEST(AsofJoinTest, BackpressureDemo) {
+  auto l_schema = schema({field("time", int32()), field("key", int32()),
+                          field("l_value", int32())});
+  auto r0_schema = schema({field("time", int32()), field("key", int32()),
+                           field("r0_value", int32())});
+  auto r1_schema = schema({field("time", int32()), field("key", int32()),
+                           field("r1_value", int32())});
+
+  auto make_integer_batches = [](const std::shared_ptr<Schema>& schema, int shift) {
+      constexpr int num_batches = 10, batch_size = 1;
+      return MakeIntegerBatches(
+          {[](int row) -> int64_t { return row; },
+           [](int row) -> int64_t { return row / num_batches; },
+           [shift](int row) -> int64_t { return row * 10 + shift; }},
+          schema, num_batches, batch_size); };
+  ASSERT_OK_AND_ASSIGN(auto l_batches, make_integer_batches(l_schema, 0));
+  ASSERT_OK_AND_ASSIGN(auto r0_batches, make_integer_batches(r0_schema, 1));
+  ASSERT_OK_AND_ASSIGN(auto r1_batches, make_integer_batches(r1_schema, 2));
+
+  compute::Declaration l_src = {"source", SourceNodeOptions(
+      l_batches.schema, MakeNoisyDelayedGen(l_batches, "0:fast", 0.01))};
+  compute::Declaration r0_src = {"source", SourceNodeOptions(
+      r0_batches.schema, MakeNoisyDelayedGen(r0_batches, "1:slow", 0.1))};
+  compute::Declaration r1_src = {"source", SourceNodeOptions(
+      r1_batches.schema, MakeNoisyDelayedGen(r1_batches, "2:fast", 0.1))};
+
+  compute::Declaration asofjoin = {
+      "asofjoin", {l_src, r0_src, r1_src}, AsofJoinNodeOptions("time", {"key"}, 1000)};
+
+  ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
+                       DeclarationToBatches(asofjoin));
+
+  ASSERT_EQ(l_batches.batches.size(), batches.size());
+}
 
 }  // namespace compute
 }  // namespace arrow
