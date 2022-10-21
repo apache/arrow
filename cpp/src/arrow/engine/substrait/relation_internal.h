@@ -32,7 +32,7 @@ namespace arrow {
 namespace engine {
 
 /// Information resulting from converting a Substrait relation.
-struct DeclarationInfo {
+struct ARROW_ENGINE_EXPORT DeclarationInfo {
   /// The compute declaration produced thus far.
   compute::Declaration declaration;
 

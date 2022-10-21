@@ -609,6 +609,36 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                          std::move(aggregate_schema));
     }
 
+    case substrait::Rel::RelTypeCase::kExtensionLeaf: {
+      const auto& ext = rel.extension_leaf();
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_leaf_decl,
+          conversion_options.extension_provider->MakeRel({}, ext.detail(), ext_set));
+      return ProcessEmit(ext, std::move(ext_leaf_decl), ext_leaf_decl.output_schema);
+    }
+    case substrait::Rel::RelTypeCase::kExtensionSingle: {
+      const auto& ext = rel.extension_single();
+      ARROW_ASSIGN_OR_RAISE(DeclarationInfo input,
+                            FromProto(ext.input(), ext_set, conversion_options));
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_single_decl,
+          conversion_options.extension_provider->MakeRel({input}, ext.detail(), ext_set));
+      return ProcessEmit(ext, std::move(ext_single_decl), ext_single_decl.output_schema);
+    }
+    case substrait::Rel::RelTypeCase::kExtensionMulti: {
+      const auto& ext = rel.extension_multi();
+      std::vector<DeclarationInfo> inputs;
+      for (const auto& input : ext.inputs()) {
+        ARROW_ASSIGN_OR_RAISE(auto input_info,
+                              FromProto(input, ext_set, conversion_options));
+        inputs.push_back(std::move(input_info));
+      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_multi_decl,
+          conversion_options.extension_provider->MakeRel(inputs, ext.detail(), ext_set));
+      return ProcessEmit(ext, std::move(ext_multi_decl), ext_multi_decl.output_schema);
+    }
+
     default:
       break;
   }

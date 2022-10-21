@@ -15,18 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This API is EXPERIMENTAL.
+#include <vector>
 
-#pragma once
+#include "arrow/compute/exec.h"
+#include "arrow/compute/exec/options.h"
+#include "arrow/type.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace engine {
+namespace compute {
+namespace asofjoin {
 
-class ExtensionIdRegistry;
-class ExtensionSet;
+using AsofJoinKeys = AsofJoinNodeOptions::Keys;
 
-struct ConversionOptions;
-struct DeclarationInfo;
+ARROW_EXPORT Result<std::shared_ptr<Schema>> MakeOutputSchema(
+    const std::vector<std::shared_ptr<Schema>>& input_schema,
+    const std::vector<AsofJoinKeys>& input_keys);
 
-}  // namespace engine
+}  // namespace asofjoin
+}  // namespace compute
 }  // namespace arrow
