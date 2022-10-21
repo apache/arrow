@@ -380,7 +380,7 @@ class Repo:
                               'ARCHERY_DEFAULT_BRANCH environment variable is '
                               'not set. Git repository does not contain a '
                               '\'refs/remotes/origin/HEAD\'reference. Setting '
-                              'the default branch name to' +
+                              'the default branch name to ' +
                               default_branch_name, RuntimeWarning)
 
         return default_branch_name
