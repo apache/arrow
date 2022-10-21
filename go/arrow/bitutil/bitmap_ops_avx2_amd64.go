@@ -36,3 +36,17 @@ func _bitmap_aligned_or_avx2(left, right, out unsafe.Pointer, length int64)
 func bitmapAlignedOrAVX2(left, right, out []byte) {
 	_bitmap_aligned_or_avx2(unsafe.Pointer(&left[0]), unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), int64(len(out)))
 }
+
+//go:noescape
+func _bitmap_aligned_and_not_avx2(left, right, out unsafe.Pointer, length int64)
+
+func bitmapAlignedAndNotAVX2(left, right, out []byte) {
+	_bitmap_aligned_and_not_avx2(unsafe.Pointer(&left[0]), unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), int64(len(out)))
+}
+
+//go:noescape
+func _bitmap_aligned_xor_avx2(left, right, out unsafe.Pointer, length int64)
+
+func bitmapAlignedXorAVX2(left, right, out []byte) {
+	_bitmap_aligned_xor_avx2(unsafe.Pointer(&left[0]), unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), int64(len(out)))
+}

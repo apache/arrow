@@ -652,18 +652,9 @@ endif()
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
-                                              "4.9")
-    # There is a bug in GCC < 4.9 with Snappy 1.1.9, so revert to 1.1.8 "SNAPPY_OLD" for those (ARROW-14661)
-    set_urls(SNAPPY_SOURCE_URL
-             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
-             "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz")
-    set(ARROW_SNAPPY_BUILD_SHA256_CHECKSUM ${ARROW_SNAPPY_OLD_BUILD_SHA256_CHECKSUM})
-  else()
-    set_urls(SNAPPY_SOURCE_URL
-             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-             "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
-  endif()
+  set_urls(SNAPPY_SOURCE_URL
+           "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_SUBSTRAIT_URL})
@@ -3909,7 +3900,7 @@ macro(build_grpc)
        gRPC::grpc
        gRPC::grpcpp_for_bundling
        gRPC::upb)
-  if(ABS_VENDORED)
+  if(ABSL_VENDORED)
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ${GRPC_GPR_ABSL_LIBRARIES})
   endif()
 endmacro()
@@ -4584,10 +4575,6 @@ endif()
 
 macro(build_awssdk)
   message(STATUS "Building AWS C++ SDK from source")
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
-                                              "4.9")
-    message(FATAL_ERROR "AWS C++ SDK requires gcc >= 4.9")
-  endif()
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
   set(AWSSDK_LIB_DIR "lib")

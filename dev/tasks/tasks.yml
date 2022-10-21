@@ -957,17 +957,17 @@ tasks:
     params:
       custom_version: Unset
     artifacts:
-      - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
-      - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
-      - r-lib__libarrow__bin__ubuntu-18.04__arrow-[0-9\.]+\.zip
-      - r-lib__libarrow__bin__ubuntu-22.04__arrow-[0-9\.]+\.zip
-      - r-pkg__bin__windows__contrib__4.1__arrow_[0-9\.]+\.zip
-      - r-pkg__bin__windows__contrib__4.2__arrow_[0-9\.]+\.zip
-      - r-pkg__bin__macosx__contrib__4.1__arrow_[0-9\.]+\.tgz
-      - r-pkg__bin__macosx__contrib__4.2__arrow_[0-9\.]+\.tgz
-      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.1__arrow_[0-9\.]+\.tgz
-      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.2__arrow_[0-9\.]+\.tgz
-      - r-pkg__src__contrib__arrow_[0-9\.]+\.tar\.gz
+      - r-lib__libarrow__bin__windows__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__centos-7__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__ubuntu-18.04__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__ubuntu-22.04__arrow-{no_rc_r_version}\.zip
+      - r-pkg__bin__windows__contrib__4.1__arrow_{no_rc_r_version}\.zip
+      - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip
+      - r-pkg__bin__macosx__contrib__4.1__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__contrib__4.2__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.1__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.2__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
 
   ########################### Release verification ############################

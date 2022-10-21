@@ -61,7 +61,7 @@ pushd ${source_dir}/arrow
 TAGS="assert,test"
 if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     if [[ "${MSYSTEM}" = "MINGW64" ]]; then
-        export PATH=${MINGW_PREFIX}/bin:$PATH
+        export PATH=${MINGW_PREFIX}\\bin:${MINGW_PREFIX}\\lib:$PATH
     fi
     TAGS="${TAGS},ccalloc"
 fi

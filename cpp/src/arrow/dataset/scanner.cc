@@ -789,7 +789,19 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
                                                    const Schema& dataset_schema) {
   std::vector<compute::Expression> exprs(names.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
-    exprs[i] = compute::field_ref(names[i]);
+    // If name isn't in schema, try finding it by dotted path.
+    if (dataset_schema.GetFieldByName(names[i]) == nullptr) {
+      auto name = names[i];
+      if (name.rfind(".", 0) != 0) {
+        name = "." + name;
+      }
+      ARROW_ASSIGN_OR_RAISE(auto field_ref, FieldRef::FromDotPath(name));
+      // safe as we know there is at least 1 dot.
+      names[i] = name.substr(name.rfind(".") + 1);
+      exprs[i] = compute::field_ref(field_ref);
+    } else {
+      exprs[i] = compute::field_ref(names[i]);
+    }
   }
   auto fields = dataset_schema.fields();
   for (const auto& aug_field : kAugmentedFields) {

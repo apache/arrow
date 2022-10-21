@@ -95,12 +95,12 @@ class ComposeConfig:
         """
         yaml = YAML()
         with config_path.open() as fp:
-            config = yaml.load(fp)
+            self.raw_config = yaml.load(fp)
 
-        services = config['services'].keys()
-        self.hierarchy = dict(flatten(config.get('x-hierarchy', {})))
-        self.limit_presets = config.get('x-limit-presets', {})
-        self.with_gpus = config.get('x-with-gpus', [])
+        services = self.raw_config['services'].keys()
+        self.hierarchy = dict(flatten(self.raw_config.get('x-hierarchy', {})))
+        self.limit_presets = self.raw_config.get('x-limit-presets', {})
+        self.with_gpus = self.raw_config.get('x-with-gpus', [])
         nodes = self.hierarchy.keys()
         errors = []
 
@@ -417,3 +417,22 @@ class DockerCompose(Command):
 
     def images(self):
         return sorted(self.config.hierarchy.keys())
+
+    def info(self, key_name, filters=None, prefix=' '):
+        output = []
+        for key, value in key_name.items():
+            if hasattr(value, 'items'):
+                temp_filters = filters
+                if key == filters or filters is None:
+                    output.append(f'{prefix} {key}')
+                    # Keep showing this specific key
+                    # as parent matched filter
+                    temp_filters = None
+                output.extend(self.info(value, temp_filters, prefix + "  "))
+            else:
+                if key == filters or filters is None:
+                    output.append(
+                        f'{prefix} {key}: ' +
+                        f'{value if value is not None else "<inherited>"}'
+                    )
+        return output
