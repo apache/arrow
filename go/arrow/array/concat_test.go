@@ -749,30 +749,30 @@ func TestConcatRunLengthEncodedOverflow(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	arrs := make([]arrow.Array, 0)
-	bldr := array.NewRunLengthEncodedBuilder(mem, arrow.BinaryTypes.String)
+	bldr := array.NewRunLengthEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
 	defer bldr.Release()
 	valBldr := bldr.ValueBuilder().(*array.StringBuilder)
 
-	bldr.Append(1 << 29)
+	bldr.Append(1 << 13)
 	valBldr.Append("Hello")
 
-	bldr.Append(1 << 29)
+	bldr.Append(1 << 13)
 	valBldr.Append("World")
 	arrs = append(arrs, bldr.NewArray())
 
-	bldr.Append(1 << 29)
+	bldr.Append(1 << 13)
 	valBldr.Append("Goku")
-	bldr.Append(1 << 29)
+	bldr.Append(1 << 13)
 	valBldr.Append("Gohan")
-	bldr.Append(1 << 29)
+	bldr.Append(1 << 13)
 	valBldr.Append("Goten")
 	arrs = append(arrs, bldr.NewArray())
 
 	bldr.AppendNull()
 	bldr.ContinueRun(99)
-	bldr.Append(1 << 29)
+	bldr.Append(1 << 13)
 	valBldr.Append("Vegeta")
-	bldr.Append(1 << 29)
+	bldr.Append(1 << 13)
 	valBldr.Append("Trunks")
 	arrs = append(arrs, bldr.NewArray())
 
