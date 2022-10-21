@@ -83,6 +83,7 @@ jobs:
           CONBENCH_URL: https://conbench.ursa.dev
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
           CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
+          CONBENCH_REF: ${{ github.ref_name }}
         run: |
           pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python ci/scripts/go_bench_adapt.py
@@ -173,7 +174,7 @@ jobs:
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
-    steps:      
+    steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -184,7 +185,7 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
           cache: true
-          cache-dependency-path: go/go.sum          
+          cache-dependency-path: go/go.sum
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
       - name: Build
@@ -192,7 +193,7 @@ jobs:
         run: ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: ci/scripts/go_test.sh $(pwd)      
+        run: ci/scripts/go_test.sh $(pwd)
 
   macos:
     name: AMD64 macOS 11 Go ${{ matrix.go }}
@@ -208,7 +209,7 @@ jobs:
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
-    steps:      
+    steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -239,7 +240,8 @@ jobs:
         env:
           CONBENCH_URL: 'https://conbench.ursa.dev'
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
-          CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}          
+          CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
+          CONBENCH_REF: ${{ github.ref_name }}
         run: |
           pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python ci/scripts/go_bench_adapt.py
@@ -261,7 +263,7 @@ jobs:
             staticcheck: latest
     env:
       ARROW_GO_TESTCGO: "1"
-    steps:      
+    steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -341,4 +343,3 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/go_test.sh $(pwd)
-      

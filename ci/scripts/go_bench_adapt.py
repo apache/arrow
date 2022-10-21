@@ -30,6 +30,7 @@ log.setLevel(logging.DEBUG)
 
 ARROW_ROOT = Path(__file__).parent.parent.parent.resolve()
 SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
+RUN_REASON = "commit" if os.environ.get("CONBENCH_REF") == "master" else "branch"
 
 class GoAdapter(BenchmarkAdapter):
     result_file = "bench_stats.json"
@@ -42,7 +43,7 @@ class GoAdapter(BenchmarkAdapter):
         with open(self.result_file, "r") as f:
             raw_results = json.load(f)
 
-        run_id = uuid.uuid4().hex        
+        run_id = uuid.uuid4().hex
         parsed_results = []
         for suite in raw_results[0]["Suites"]:
             batch_id = uuid.uuid4().hex
@@ -54,9 +55,9 @@ class GoAdapter(BenchmarkAdapter):
 
                 name = benchmark["Name"].removeprefix('Benchmark')
                 ncpu = name[name.rfind('-')+1:]
-                pieces = name[:-(len(ncpu)+1)].split('/')                
+                pieces = name[:-(len(ncpu)+1)].split('/')
 
-                parsed = BenchmarkResult(                    
+                parsed = BenchmarkResult(
                     run_id=run_id,
                     batch_id=batch_id,
                     stats={
@@ -77,7 +78,7 @@ class GoAdapter(BenchmarkAdapter):
                         "name": pieces[0],
                         "params": '/'.join(pieces[1:]),
                     },
-                    run_reason=f'commit',
+                    run_reason=RUN_REASON,
                 )
                 parsed.run_name = f"{parsed.run_reason}: {parsed.github['commit']}"
                 parsed_results.append(parsed)
