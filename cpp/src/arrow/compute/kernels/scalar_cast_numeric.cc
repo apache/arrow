@@ -22,6 +22,8 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/scalar.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/value_parsing.h"
@@ -286,7 +288,8 @@ struct ParseString {
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I, enable_if_base_binary<I>> {
+struct CastFunctor<
+    O, I, enable_if_t<!is_decimal_type<O>::value && is_base_binary_type<I>::value>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return applicator::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
   }
@@ -568,6 +571,47 @@ struct CastFunctor<O, I,
 };
 
 // ----------------------------------------------------------------------
+// String to decimal
+
+struct StringToDecimal {
+  template <typename OutValue, typename StringType>
+  OutValue Call(KernelContext*, StringType val, Status* st) const {
+    OutValue out;
+    int32_t precision;
+    int32_t scale;
+    auto r = OutValue::FromString(val.data(), &out, &precision, &scale);
+
+    if (ARROW_PREDICT_TRUE(r.ok())) {
+      *st = r;
+      return out;
+    }
+
+    if (!allow_truncate_) {
+      *st = r;
+    }
+    return {};  // Zero
+  }
+
+  int32_t out_scale_, out_precision_;
+  bool allow_truncate_;
+};
+
+template <typename O, typename I>
+struct CastFunctor<
+    O, I, enable_if_t<is_decimal_type<O>::value && is_base_binary_type<I>::value>> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+    const auto& out_type = checked_cast<const O&>(*out->type());
+    const auto out_scale = out_type.scale();
+    const auto out_precision = out_type.precision();
+
+    applicator::ScalarUnaryNotNullStateful<O, I, StringToDecimal> kernel(
+        StringToDecimal{out_scale, out_precision, options.allow_decimal_truncate});
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+// ----------------------------------------------------------------------
 // Decimal to real
 
 struct DecimalToReal {
@@ -681,6 +725,12 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }
 
+  // Cast from other strings
+  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryBase<CastFunctor, Decimal128Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+
   // Cast from other decimal
   auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
   // We resolve the output type of this kernel from the CastOptions
@@ -707,6 +757,12 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
   // Cast from integer
   for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
     auto exec = GenerateInteger<CastFunctor, Decimal256Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+
+  // Cast from other strings
+  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryBase<CastFunctor, Decimal256Type>(in_ty->id());
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }
 
