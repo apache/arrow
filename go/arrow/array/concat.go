@@ -587,12 +587,6 @@ func addOvf(x, y int) (int, bool) {
 	return sum, ((x&y)|((x|y)&^sum))>>(bits.UintSize-2) == 1
 }
 
-// like addOvf but explicitly for int32
-func addOvf32(x, y int32) (int32, bool) {
-	sum := x + y
-	return sum, ((x&y)|((x|y)&^sum))>>30 == 1
-}
-
 // concatenate bitmaps together and return a buffer with the combined bitmaps
 func concatBitmaps(bitmaps []bitmap, mem memory.Allocator) (*memory.Buffer, error) {
 	var (
