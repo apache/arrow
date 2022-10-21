@@ -86,7 +86,7 @@ jobs:
         run: |
           set -e
           # make brew java available to cmake
-          if [ "${{ matrix.platform.arch }}" = "aarch_64" ]; then
+          if [ {{ '"${{ matrix.platform.arch }}"' }} = "aarch_64" ]; then
             export JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home
           fi
           arrow/ci/scripts/java_jni_macos_build.sh \
