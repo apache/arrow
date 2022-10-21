@@ -188,6 +188,18 @@ jobs:
           arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/java-dist
+          arrow/ci/scripts/java_full_build.sh \
+            $GITHUB_WORKSPACE/arrow \
+            $GITHUB_WORKSPACE/arrow/java-dist/x86_64
+          arrow/ci/scripts/java_full_build.sh \
+            $GITHUB_WORKSPACE/arrow \
+            $GITHUB_WORKSPACE/arrow/java-dist/aarch_64
       {{ macros.github_upload_releases(["arrow/java-dist/*.jar",
                                         "arrow/java-dist/*.pom",
-                                        "arrow/java-dist/*.zip"])|indent }}
+                                        "arrow/java-dist/*.zip",
+                                        "arrow/java-dist/x86_64/*.jar",
+                                        "arrow/java-dist/x86_64/*.pom",
+                                        "arrow/java-dist/x86_64/*.zip",
+                                        "arrow/java-dist/aarch_64/*.jar",
+                                        "arrow/java-dist/aarch_64/*.pom",
+                                        "arrow/java-dist/aarch_64/*.zip"])|indent }}
