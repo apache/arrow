@@ -37,6 +37,10 @@ func FindPhysicalOffset(arr arrow.ArrayData) int {
 	data := arr.Children()[0]
 	logicalOffset := arr.Offset()
 
+	if data.Len() == 0 {
+		return 0
+	}
+
 	switch data.DataType().ID() {
 	case arrow.INT16:
 		runEnds := arrow.Int16Traits.CastFromBytes(data.Buffers()[1].Bytes())
