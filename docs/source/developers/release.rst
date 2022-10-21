@@ -61,12 +61,11 @@ generated properly.
         mvn clean install -Papache-release
 
     - Have the build requirements for cpp and c_glib installed.
-    - Set the JIRA_USERNAME and JIRA_PASSWORD environment variables
-    - Set the ARROW_GITHUB_API_TOKEN environment variable to automatically create the verify release Pull Request.
+    - Set the ``JIRA_USERNAME`` and ``JIRA_PASSWORD`` environment variables
+    - Set the ``CROSSBOW_GITHUB_TOKEN`` environment variable to automatically create the verify release Pull Request.
     - Install ``en_US.UTF-8`` locale. You can confirm available locales by ``locale -a``.
     - Install Python 3 as python
     - Create dev/release/.env from dev/release/.env.example. See the comments in dev/release/.env.example how to set each variable.
-    - Request to the Apache INFRA group to be aadded to `Bintray members <https://bintray.com/apache/>`_.
     - Setup :ref:`Crossbow<Crossbow>` as defined.
     - Have Docker and docker-compose installed.
 
