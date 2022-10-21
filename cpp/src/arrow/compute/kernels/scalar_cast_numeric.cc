@@ -576,19 +576,33 @@ struct CastFunctor<O, I,
 struct StringToDecimal {
   template <typename OutValue, typename StringType>
   OutValue Call(KernelContext*, StringType val, Status* st) const {
-    OutValue out;
-    int32_t precision;
-    int32_t scale;
-    auto r = OutValue::FromString(val.data(), &out, &precision, &scale);
+    OutValue parsed_out;
+    int32_t parsed_precision;
+    int32_t parsed_scale;
+    auto r_parse = OutValue::FromString(std::string_view(val.data(), val.size()),
+                                        &parsed_out, &parsed_precision, &parsed_scale);
 
-    if (ARROW_PREDICT_TRUE(r.ok())) {
-      *st = r;
-      return out;
+    if (ARROW_PREDICT_TRUE(r_parse.ok())) {
+      if (allow_truncate_) {
+        return (parsed_scale < out_scale_)
+                   ? parsed_out.IncreaseScaleBy(out_scale_ - parsed_scale)
+                   : parsed_out.ReduceScaleBy(parsed_scale - out_scale_, false);
+      }
+
+      auto maybe_rescaled = parsed_out.Rescale(parsed_scale, out_scale_);
+      if (!maybe_rescaled.ok()) {
+        *st = maybe_rescaled.status();
+        return {};  // Zero
+      }
+      if (maybe_rescaled->FitsInPrecision(out_precision_)) {
+        return maybe_rescaled.MoveValueUnsafe();
+      } else {
+        *st = Status::Invalid("Decimal value does not fit in precision ", out_precision_);
+        return {};  // Zero
+      }
     }
 
-    if (!allow_truncate_) {
-      *st = r;
-    }
+    *st = r_parse;
     return {};  // Zero
   }
 
