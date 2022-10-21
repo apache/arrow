@@ -28,6 +28,8 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build C++ libraries
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           archery docker run \
             -e ARROW_JAVA_BUILD=OFF \

@@ -37,6 +37,9 @@ ARG java=1.8.0
 RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
 ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
 
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 # For ci/scripts/{cpp,java}_*.sh
 ENV ARROW_HOME=/tmp/local \
     ARROW_JAVA_CDATA=ON \
