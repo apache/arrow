@@ -25,7 +25,10 @@ group_by.arrow_dplyr_query <- function(.data,
                                        .drop = dplyr::group_by_drop_default(.data)) {
   if (!missing(add)) {
     .Deprecated(
-      msg = paste("The `add` argument of `group_by()` is deprecated. Please use the `.add` argument instead.")
+      msg = paste(
+        "The `add` argument of `group_by()` is deprecated.",
+        "Please use the `.add` argument instead."
+      )
     )
     .add <- add
   }
