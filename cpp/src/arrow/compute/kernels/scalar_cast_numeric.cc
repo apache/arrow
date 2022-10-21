@@ -22,8 +22,6 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/scalar.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/value_parsing.h"
