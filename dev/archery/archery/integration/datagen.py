@@ -203,7 +203,7 @@ class RunEndsField(IntegerField):
 
     def generate_range(self, size, lower, upper, name=None,
                        include_extremes=False):
-        #values = np.random.randint(lower, upper, size=size, dtype=np.int64)
+        # values = np.random.randint(lower, upper, size=size, dtype=np.int64)
         rng = np.random.default_rng()
         values = rng.choice(TEST_INT_MAX, size=size, replace=False)
         values = sorted(values)
@@ -213,7 +213,6 @@ class RunEndsField(IntegerField):
         if name is None:
             name = self.name
         return PrimitiveColumn(name, size, is_valid, values)
-
 
 
 class DateField(IntegerField):
@@ -1168,6 +1167,7 @@ class RunLengthEncodedColumn(Column):
     def _get_children(self):
         return [self.run_ends.get_json(), self.values.get_json()]
 
+
 class SparseUnionColumn(Column):
 
     def __init__(self, name, count, type_ids, field_values):
@@ -1530,7 +1530,6 @@ def generate_rle_case():
         RunLengthEncodedField('rle', get_field('values', 'int32'))]
     batch_sizes = [0, 7, 10]
     return _generate_file("rle", fields, batch_sizes)
-
 
 
 def generate_nested_large_offsets_case():
