@@ -21,16 +21,20 @@
 add_arrow_compute_test(scalar_test
                        SOURCES
                        scalar_arithmetic_test.cc
-                       scalar_boolean_test.cc
-                       scalar_cast_test.cc
                        scalar_compare_test.cc
                        scalar_if_else_test.cc
-                       scalar_nested_test.cc
                        scalar_random_test.cc
                        scalar_set_lookup_test.cc
+                       scalar_validity_test.cc
+                       test_util.cc)
+
+add_arrow_compute_test(scalar_types_test
+                       SOURCES
+                       scalar_boolean_test.cc
+                       scalar_cast_test.cc
+                       scalar_nested_test.cc
                        scalar_string_test.cc
                        scalar_temporal_test.cc
-                       scalar_validity_test.cc
                        test_util.cc)
 
 add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
