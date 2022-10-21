@@ -1361,7 +1361,6 @@ services:
       cache_from:
         - ${REPO}:r-rhub-fedora-clang-devel-latest
       args:
-        <<: *sccache
         base: rhub/fedora-clang-devel-san
         r_dev: ${ARROW_R_DEV}
         devtoolset_version: ${DEVTOOLSET_VERSION}
@@ -1370,6 +1369,7 @@ services:
         r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
     environment:
+      <<: *sccache
       LIBARROW_DOWNLOAD: "false"
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
