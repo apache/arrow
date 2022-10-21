@@ -65,7 +65,7 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install Archery
         shell: bash
-        run: pip install -e arrow/dev/archery[all]
+        run: python3 -m pip install -e arrow/dev/archery[all]
       - name: Install dependencies
         run: |
           # brew numpy install fails on gh runner macos-11
