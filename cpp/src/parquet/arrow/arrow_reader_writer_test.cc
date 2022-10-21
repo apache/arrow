@@ -2307,7 +2307,7 @@ void TestGetRecordBatchReader(
 
   // Read the whole file, one batch at a time.
   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
-  ASSERT_OK_AND_ASSIGN(rb_reader, reader->GetRecordBatchReader(std::vector<int>{0, 1}));
+  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0, 1}, &rb_reader));
   std::shared_ptr<::arrow::RecordBatch> actual_batch, expected_batch;
   ::arrow::TableBatchReader table_reader(*table);
   table_reader.set_chunksize(batch_size);
@@ -2322,7 +2322,7 @@ void TestGetRecordBatchReader(
   ASSERT_EQ(nullptr, actual_batch);
 
   // ARROW-6005: Read just the second row group
-  ASSERT_OK_AND_ASSIGN(rb_reader, reader->GetRecordBatchReader(std::vector<int>{1}));
+  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({1}, &rb_reader));
   std::shared_ptr<Table> second_rowgroup = table->Slice(num_rows / 2);
   ::arrow::TableBatchReader second_table_reader(*second_rowgroup);
   second_table_reader.set_chunksize(batch_size);
@@ -2369,9 +2369,7 @@ TEST(TestArrowReadWrite, WaitCoalescedReads) {
   ASSERT_OK(reader->parquet_reader()->WhenBuffered({0}, {0, 1, 2, 3, 4}).status());
 
   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
-  ASSERT_OK_AND_ASSIGN(
-      rb_reader,
-      reader->GetRecordBatchReader(std::vector<int>{0}, std::vector<int>{0, 1, 2, 3, 4}));
+  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0}, {0, 1, 2, 3, 4}, &rb_reader));
 
   std::shared_ptr<::arrow::RecordBatch> actual_batch;
   ASSERT_OK(rb_reader->ReadNext(&actual_batch));
@@ -2399,8 +2397,7 @@ TEST(TestArrowReadWrite, GetRecordBatchReaderNoColumns) {
   ASSERT_OK(builder.properties(properties)->Build(&reader));
 
   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
-  ASSERT_OK_AND_ASSIGN(
-      rb_reader, reader->GetRecordBatchReader(std::vector<int>{0}, std::vector<int>{}));
+  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0}, {}, &rb_reader));
 
   std::shared_ptr<::arrow::RecordBatch> actual_batch;
   ASSERT_OK(rb_reader->ReadNext(&actual_batch));
@@ -3892,7 +3889,7 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
   ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
   std::shared_ptr<::arrow::RecordBatchReader> batch_reader;
-  ASSERT_OK_AND_ASSIGN(batch_reader, arrow_reader->GetRecordBatchReader());
+  ASSERT_OK_NO_THROW(arrow_reader->GetRecordBatchReader(&batch_reader));
   ASSERT_OK_AND_ASSIGN(auto batched_table,
                        ::arrow::Table::FromRecordBatchReader(batch_reader.get()));
 
@@ -4474,7 +4471,7 @@ TEST_F(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
   ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), properties,
                              &parquet_reader));
-  ASSERT_OK_AND_ASSIGN(rb_reader, parquet_reader->GetRecordBatchReader());
+  ASSERT_OK(parquet_reader->GetRecordBatchReader(&rb_reader));
 
   auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
   std::vector<std::string> column_names = {

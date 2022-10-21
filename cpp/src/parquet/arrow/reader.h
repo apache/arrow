@@ -160,6 +160,10 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status ReadSchemaField(
       int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
+  /// \brief Return a RecordBatchReader of all row groups and columns.
+  virtual ::arrow::Status GetRecordBatchReader(
+      std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+
   /// \brief Return a RecordBatchReader of row groups selected from row_group_indices.
   ///
   /// Note that the ordering in row_group_indices matters. FileReaders must outlive
@@ -169,10 +173,6 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
-
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use result variants instead.")
-  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// \brief Return a RecordBatchReader of row groups selected from
   /// row_group_indices, whose columns are selected by column_indices.
@@ -186,21 +186,24 @@ class PARQUET_EXPORT FileReader {
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
 
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use result variants instead.")
-  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                       const std::vector<int>& column_indices,
-                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
-
   /// \brief Return a RecordBatchReader of row groups selected from
   /// row_group_indices, whose columns are selected by column_indices.
   ///
-  /// \param row_group_indices indices of which row groups to include.
-  /// \param column_indices indices of columns to include.
+  /// Note that the ordering in row_group_indices and column_indices
+  /// matter. FileReaders must outlive their RecordBatchReaders.
   ///
-  /// \since 11.0.0
-  ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader(
-      const std::optional<std::vector<int>>& row_group_indices = std::nullopt,
-      const std::optional<std::vector<int>>& column_indices = std::nullopt);
+  /// \param row_group_indices which row groups to read (order determines read order).
+  /// \param column_indices which columns to read (order determines output schema).
+  /// \param[out] out record batch stream from parquet data.
+  ///
+  /// \returns error Status if either row_group_indices or column_indices
+  ///     contains an invalid index
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       const std::vector<int>& column_indices,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
+  ::arrow::Status GetRecordBatchReader(std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// \brief Return a generator of record batches.
   ///
