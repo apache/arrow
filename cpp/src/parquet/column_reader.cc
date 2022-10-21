@@ -40,6 +40,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/crc32.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
@@ -400,10 +401,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     if (properties_.use_page_checksum_verification() &&
         page_type == PageType::DATA_PAGE && current_page_header_.__isset.crc) {
       // verify crc
-      boost::crc_32_type checksum;
-      checksum.process_bytes(page_buffer->data(), compressed_len);
-      auto count_crc = static_cast<int32_t>(checksum.checksum());
-      if (count_crc != current_page_header_.crc) {
+      uint32_t checksum = ::arrow::internal::crc32(/* prev */ 0, page_buffer->data(), compressed_len);
+      if (static_cast<int32_t>(checksum) != current_page_header_.crc) {
         throw ParquetException("could not verify page integrity, CRC checksum verification failed");
       }
     }

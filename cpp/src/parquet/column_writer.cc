@@ -26,8 +26,6 @@
 #include <utility>
 #include <vector>
 
-#include <boost/crc.hpp>
-
 #include "arrow/array.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api.h"
@@ -39,6 +37,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/crc32.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
@@ -384,9 +383,8 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
     if (use_page_checksum_verification_ && page.type() == PageType::DATA_PAGE) {
-      boost::crc_32_type checksum;
-      checksum.process_bytes(output_data_buffer, output_data_len);
-      page_header.__set_crc(static_cast<int32_t>(checksum.checksum()));
+      uint32_t crc32 = ::arrow::internal::crc32(/* prev */ 0, output_data_buffer, output_data_len);
+      page_header.__set_crc(static_cast<int32_t>(crc32));
     }
 
     if (page.type() == PageType::DATA_PAGE) {
@@ -518,8 +516,6 @@ class SerializedPageWriter : public PageWriter {
         throw ParquetException("Unknown module type in UpdateEncryption");
     }
   }
-
-  // TODO(mapleFU): add write crc32 flag.
 
   std::shared_ptr<ArrowOutputStream> sink_;
   ColumnChunkMetaDataBuilder* metadata_;
