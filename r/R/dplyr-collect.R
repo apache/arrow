@@ -50,25 +50,30 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data <- as_adq(.data)
   var <- vars_pull(names(.data), !!enquo(var))
   .data$selected_columns <- set_names(.data$selected_columns[var], var)
-  dplyr::collect(.data)[[1]]
+  dplyr::compute(.data)[[1]]
 }
-pull.Dataset <- pull.ArrowTabular <- pull.RecordBatchReader <- pull.arrow_dplyr_query
+pull.Dataset <- pull.RecordBatchReader <- pull.arrow_dplyr_query
+
+pull.ArrowTabular <- function(x, var = -1) {
+  x[[vars_pull(names(x), !!enquo(var))]]
+}
 
 restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
   # After calling collect(), make sure these features are carried over
 
-  if (length(query$group_by_vars) > 0) {
-    # Preserve groupings, if present
+  if (length(dplyr::group_vars(query))) {
     if (is.data.frame(df)) {
-      df <- dplyr::grouped_df(
+      # Preserve groupings, if present
+      df <- dplyr::group_by(
         df,
-        dplyr::group_vars(query),
-        drop = dplyr::group_by_drop_default(query)
+        !!!syms(dplyr::group_vars(query)),
+        .drop = dplyr::group_by_drop_default(query),
+        .add = FALSE
       )
     } else {
       # This is a Table, via compute() or collect(as_data_frame = FALSE)
-      df$metadata$r$attributes$.group_vars <- query$group_by_vars
+      df$metadata$r$attributes$.group_vars <- dplyr::group_vars(query)
     }
   }
   df
@@ -110,6 +115,12 @@ implicit_schema <- function(.data) {
   # want to go one level up (where we may have called implicit_schema() before)
   .data <- ensure_group_vars(.data)
   old_schm <- .data$.data$schema
+
+  if (is.null(.data$aggregations) && is.null(.data$join) && !needs_projection(.data$selected_columns, old_schm)) {
+    # Just use the schema we have
+    return(old_schm)
+  }
+
   # Add in any augmented fields that may exist in the query but not in the
   # real data, in case we have FieldRefs to them
   old_schm[["__filename"]] <- string()
@@ -122,15 +133,26 @@ implicit_schema <- function(.data) {
       # Add cols from right side, except for semi/anti joins
       right_cols <- .data$join$right_data$selected_columns
       left_cols <- .data$selected_columns
-      right_fields <- map(
-        right_cols[setdiff(names(right_cols), .data$join$by)],
-        ~ .$type(.data$join$right_data$.data$schema)
-      )
-      # get right table and left table column names excluding the join key
-      right_cols_ex_by <- right_cols[setdiff(names(right_cols), .data$join$by)]
-      left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
-      # find the common column names in left and right tables
-      common_cols <- intersect(names(right_cols_ex_by), names(left_cols_ex_by))
+
+      # If keep = TRUE, we want to keep the key columns in the RHS. Otherwise,
+      # they will be dropped. Also, if the join is a full join, then we are
+      # temporarily keeping the key columns so we can coalesce them after.
+      if (.data$join$keep || .data$join$type == JoinType$FULL_OUTER) {
+        # find the common column names in left and right tables
+        common_cols <- intersect(names(right_cols), names(left_cols))
+        right_fields <- map(right_cols, ~ .$type(.data$join$right_data$.data$schema))
+      } else {
+        right_fields <- map(
+          right_cols[setdiff(names(right_cols), .data$join$by)],
+          ~ .$type(.data$join$right_data$.data$schema)
+        )
+        # get right table and left table column projections excluding the join key(s)
+        right_cols_ex_by <- right_cols[setdiff(names(right_cols), .data$join$by)]
+        left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
+        # find the common column names in left and right tables
+        common_cols <- intersect(names(right_cols_ex_by), names(left_cols_ex_by))
+      }
+
       # adding suffixes to the common columns in left and right tables
       left_fields <- add_suffix(new_fields, common_cols, .data$join$suffix[[1]])
       right_fields <- add_suffix(right_fields, common_cols, .data$join$suffix[[2]])

@@ -106,12 +106,12 @@ cdef class IpcReadOptions(_Weakrefable):
 
     Parameters
     ----------
-    use_threads : bool
-        Whether to use the global CPU thread pool to parallelize any
-        computational tasks like decompression.
     ensure_native_endian : bool
         Whether to convert incoming data to platform-native endianness.
         Default is true.
+    use_threads : bool
+        Whether to use the global CPU thread pool to parallelize any
+        computational tasks like decompression.
     included_fields : list
         If empty (the default), return all deserialized fields.
         If non-empty, the values are the indices of fields to read on
@@ -243,9 +243,14 @@ cdef class IpcWriteOptions(_Weakrefable):
         if value is None:
             self.c_options.codec.reset()
         elif isinstance(value, str):
+            codec_type = _ensure_compression(value)
+            if codec_type != CCompressionType_ZSTD and codec_type != CCompressionType_LZ4_FRAME:
+                raise ValueError("Compression type must be lz4, zstd or None")
             self.c_options.codec = shared_ptr[CCodec](GetResultValue(
-                CCodec.Create(_ensure_compression(value))).release())
+                CCodec.Create(codec_type)).release())
         elif isinstance(value, Codec):
+            if value.name != "lz4" and value.name != "zstd":
+                raise ValueError("Compression type must be lz4, zstd or None")
             self.c_options.codec = (<Codec>value).wrapped
         else:
             raise TypeError(
@@ -654,15 +659,6 @@ cdef class RecordBatchReader(_Weakrefable):
             c_schema = self.reader.get().schema()
 
         return pyarrow_wrap_schema(c_schema)
-
-    def get_next_batch(self):
-        """DEPRECATED: return the next record batch.
-
-        Use read_next_batch instead."""
-        import warnings
-        warnings.warn('Please use read_next_batch instead of '
-                      'get_next_batch', FutureWarning)
-        return self.read_next_batch()
 
     def read_next_batch(self):
         """

@@ -42,22 +42,22 @@ namespace arrow {
 
 using internal::checked_pointer_cast;
 
-constexpr int kDefaultSmallMemStreamSize = 16384 * 5;  // 80KB
-constexpr int kDefaultMemStreamSize = 10 * 1024 * 1024;
+constexpr size_t kDefaultSmallMemStreamSize = 16384 * 5;  // 80KB
+constexpr size_t kDefaultMemStreamSize = 10 * 1024 * 1024;
 constexpr int64_t kNanoMax = std::numeric_limits<int64_t>::max();
 constexpr int64_t kNanoMin = std::numeric_limits<int64_t>::lowest();
-const int64_t kMicroMax = std::floor(kNanoMax / 1000);
-const int64_t kMicroMin = std::ceil(kNanoMin / 1000);
-const int64_t kMilliMax = std::floor(kMicroMax / 1000);
-const int64_t kMilliMin = std::ceil(kMicroMin / 1000);
-const int64_t kSecondMax = std::floor(kMilliMax / 1000);
-const int64_t kSecondMin = std::ceil(kMilliMin / 1000);
+const int64_t kMicroMax = static_cast<int64_t>(std::floor(kNanoMax / 1000));
+const int64_t kMicroMin = static_cast<int64_t>(std::ceil(kNanoMin / 1000));
+const int64_t kMilliMax = static_cast<int64_t>(std::floor(kMicroMax / 1000));
+const int64_t kMilliMin = static_cast<int64_t>(std::ceil(kMicroMin / 1000));
+const int64_t kSecondMax = static_cast<int64_t>(std::floor(kMilliMax / 1000));
+const int64_t kSecondMin = static_cast<int64_t>(std::ceil(kMilliMin / 1000));
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
 class MemoryOutputStream : public liborc::OutputStream {
  public:
-  explicit MemoryOutputStream(ssize_t capacity)
+  explicit MemoryOutputStream(size_t capacity)
       : data_(capacity), name_("MemoryOutputStream"), length_(0) {}
 
   uint64_t getLength() const override { return length_; }
@@ -86,12 +86,13 @@ class MemoryOutputStream : public liborc::OutputStream {
 std::shared_ptr<Buffer> GenerateFixedDifferenceBuffer(int32_t fixed_length,
                                                       int64_t length) {
   BufferBuilder builder;
-  int32_t offsets[length];
+  std::vector<int32_t> offsets;
+  offsets.resize(length);
   ARROW_EXPECT_OK(builder.Resize(4 * length));
-  for (int32_t i = 0; i < length; i++) {
-    offsets[i] = fixed_length * i;
+  for (int64_t i = 0; i < length; i++) {
+    offsets[i] = static_cast<int32_t>(fixed_length * i);
   }
-  ARROW_EXPECT_OK(builder.Append(offsets, 4 * length));
+  ARROW_EXPECT_OK(builder.Append(offsets.data(), 4 * length));
   std::shared_ptr<Buffer> buffer;
   ARROW_EXPECT_OK(builder.Finish(&buffer));
   return buffer;
@@ -225,7 +226,8 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
 
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
-                               const int64_t max_size = kDefaultSmallMemStreamSize) {
+                               const int64_t max_size = kDefaultSmallMemStreamSize,
+                               std::vector<int>* opt_selected_read_indices = nullptr) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
   auto write_options = adapters::orc::WriteOptions();
@@ -249,7 +251,11 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   ASSERT_EQ(reader->GetCompression(), write_options.compression);
   ASSERT_EQ(reader->GetCompressionSize(), write_options.compression_block_size);
   ASSERT_EQ(reader->GetRowIndexStride(), write_options.row_index_stride);
-  EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
+  EXPECT_OK_AND_ASSIGN(auto actual_output_table,
+                       opt_selected_read_indices == nullptr
+                           ? reader->Read()
+                           : reader->Read(*opt_selected_read_indices));
+  ASSERT_OK(actual_output_table->ValidateFull());
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
 
@@ -450,6 +456,37 @@ TEST_F(TestORCWriterTrivialNoConversion, writeChunkless) {
   std::shared_ptr<Table> table = TableFromJSON(table_schema, {});
   AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize / 16);
 }
+TEST_F(TestORCWriterTrivialNoConversion, writeTrivialChunkAndSelectField) {
+  std::shared_ptr<Table> table = TableFromJSON(table_schema, {R"([])"});
+  std::shared_ptr<Schema> schema_selected =
+      schema({field("int8", int8()), field("int32", int32())});
+  std::shared_ptr<Table> table_selected = TableFromJSON(schema_selected, {R"([])"});
+  std::vector<int> selected_indices = {1, 3};
+  AssertTableWriteReadEqual(table, table_selected, kDefaultSmallMemStreamSize / 16,
+                            &selected_indices);
+}
+TEST_F(TestORCWriterTrivialNoConversion, writeFilledChunkAndSelectField) {
+  std::vector<int> selected_indices = {1, 7};
+  random::RandomArrayGenerator rand(kRandomSeed);
+  std::shared_ptr<Schema> local_schema = schema({
+      field("bool", boolean()),
+      field("int32", int32()),
+      field("int64", int64()),
+      field("float", float32()),
+      field("struct", struct_({field("a", utf8()), field("b", int64())})),
+      field("double", float64()),
+      field("date32", date32()),
+      field("ts3", timestamp(TimeUnit::NANO)),
+      field("string", utf8()),
+      field("binary", binary()),
+  });
+  auto batch = rand.BatchOf(local_schema->fields(), 100);
+  std::shared_ptr<Table> table = Table::Make(local_schema, batch->columns());
+  EXPECT_OK_AND_ASSIGN(auto table_selected, table->SelectColumns(selected_indices));
+  AssertTableWriteReadEqual(table, table_selected, kDefaultSmallMemStreamSize,
+                            &selected_indices);
+}
+
 class TestORCWriterTrivialWithConversion : public ::testing::Test {
  public:
   TestORCWriterTrivialWithConversion() {

@@ -291,6 +291,41 @@ func VisitBitBlocksShort(bitmap []byte, offset, length int64, visitValid func(po
 	return nil
 }
 
+func VisitTwoBitBlocks(leftBitmap, rightBitmap []byte, leftOffset, rightOffset int64, len int64, visitValid func(pos int64), visitNull func()) {
+	if leftBitmap == nil || rightBitmap == nil {
+		// at most one is present
+		if leftBitmap == nil {
+			VisitBitBlocks(rightBitmap, rightOffset, len, visitValid, visitNull)
+		} else {
+			VisitBitBlocks(leftBitmap, leftOffset, len, visitValid, visitNull)
+		}
+		return
+	}
+
+	bitCounter := NewBinaryBitBlockCounter(leftBitmap, rightBitmap, leftOffset, rightOffset, len)
+	var pos int64
+	for pos < len {
+		block := bitCounter.NextAndWord()
+		if block.AllSet() {
+			for i := 0; i < int(block.Len); i, pos = i+1, pos+1 {
+				visitValid(pos)
+			}
+		} else if block.NoneSet() {
+			for i := 0; i < int(block.Len); i, pos = i+1, pos+1 {
+				visitNull()
+			}
+		} else {
+			for i := 0; i < int(block.Len); i, pos = i+1, pos+1 {
+				if bitutil.BitIsSet(leftBitmap, int(leftOffset+pos)) && bitutil.BitIsSet(rightBitmap, int(rightOffset+pos)) {
+					visitValid(pos)
+				} else {
+					visitNull()
+				}
+			}
+		}
+	}
+}
+
 type bitOp struct {
 	bit  func(bool, bool) bool
 	word func(uint64, uint64) uint64

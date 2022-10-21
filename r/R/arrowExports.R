@@ -452,8 +452,8 @@ ExecNode_Aggregate <- function(input, options, key_names) {
   .Call(`_arrow_ExecNode_Aggregate`, input, options, key_names)
 }
 
-ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
-  .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
+ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
+  .Call(`_arrow_ExecNode_Join`, input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
 }
 
 ExecNode_Union <- function(input, right_data) {
@@ -1876,8 +1876,12 @@ Scalar__ApproxEquals <- function(lhs, rhs) {
   .Call(`_arrow_Scalar__ApproxEquals`, lhs, rhs)
 }
 
-schema_ <- function(fields) {
-  .Call(`_arrow_schema_`, fields)
+Schema__from_fields <- function(fields) {
+  .Call(`_arrow_Schema__from_fields`, fields)
+}
+
+Schema__from_list <- function(field_list) {
+  .Call(`_arrow_Schema__from_list`, field_list)
 }
 
 Schema__ToString <- function(s) {
@@ -2024,6 +2028,10 @@ Table__from_record_batches <- function(batches, schema_sxp) {
   .Call(`_arrow_Table__from_record_batches`, batches, schema_sxp)
 }
 
+Table__from_schema <- function(schema_sxp) {
+  .Call(`_arrow_Table__from_schema`, schema_sxp)
+}
+
 Table__ReferencedBufferSize <- function(table) {
   .Call(`_arrow_Table__ReferencedBufferSize`, table)
 }
@@ -2051,3 +2059,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

@@ -73,7 +73,13 @@ expect_feather_roundtrip <- function(write_fun) {
 test_that("feather read/write round trip", {
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 1))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2))
+  expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2, compression = TRUE))
+  expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2, compression = "uncompressed"))
+  expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2, compression = FALSE))
   expect_feather_roundtrip(function(x, f) write_ipc_file(x, f))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = TRUE))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "uncompressed"))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = FALSE))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, chunk_size = 32))
   expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, chunk_size = 32))
   if (codec_is_available("lz4")) {

@@ -168,7 +168,8 @@ test_that("strptime", {
       mutate(
         x = strptime(x, format = "%m-%d-%Y")
       ) %>%
-      pull(),
+      pull() %>%
+      as.vector(),
     # R's strptime returns POSIXlt (list type)
     as.POSIXct(tstamp),
     ignore_attr = "tzone"
@@ -1896,7 +1897,7 @@ test_that("`as.Date()` and `as_date()`", {
         )
       ) %>%
       collect(),
-    regexp = "consider using the lubridate specialised parsing functions"
+    regexp = "Consider using the lubridate specialised parsing functions"
   )
 
   # record batch test
@@ -1910,7 +1911,7 @@ test_that("`as.Date()` and `as_date()`", {
         )
       ) %>%
       collect(),
-    regexp = "consider using the lubridate specialised parsing functions"
+    regexp = "Consider using the lubridate specialised parsing functions"
   )
 
   # strptime does not support a partial format - Arrow returns NA, while

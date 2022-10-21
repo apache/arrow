@@ -89,15 +89,22 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
 
     if (value.is_scalar()) {
       *os << "Scalar[" << value.scalar()->ToString() << "]\n";
-      continue;
+    } else if (value.is_array() || value.is_chunked_array()) {
+      PrettyPrintOptions options;
+      options.skip_new_lines = true;
+      if (value.is_array()) {
+        auto array = value.make_array();
+        *os << "Array";
+        ARROW_CHECK_OK(PrettyPrint(*array, options, os));
+      } else {
+        auto array = value.chunked_array();
+        *os << "Chunked Array";
+        ARROW_CHECK_OK(PrettyPrint(*array, options, os));
+      }
+      *os << "\n";
+    } else {
+      ARROW_DCHECK(false);
     }
-
-    auto array = value.make_array();
-    PrettyPrintOptions options;
-    options.skip_new_lines = true;
-    *os << "Array";
-    ARROW_CHECK_OK(PrettyPrint(*array, options, os));
-    *os << "\n";
   }
 }
 
@@ -118,8 +125,15 @@ std::string ExecBatch::ToString() const {
 ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
   ExecBatch out = *this;
   for (auto& value : out.values) {
-    if (value.is_scalar()) continue;
-    value = value.array()->Slice(offset, length);
+    if (value.is_scalar()) {
+      // keep value as is
+    } else if (value.is_array()) {
+      value = value.array()->Slice(offset, length);
+    } else if (value.is_chunked_array()) {
+      value = value.chunked_array()->Slice(offset, length);
+    } else {
+      ARROW_DCHECK(false);
+    }
   }
   out.length = std::min(length, this->length - offset);
   return out;
@@ -156,6 +170,9 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
 
 Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     std::shared_ptr<Schema> schema, MemoryPool* pool) const {
+  if (static_cast<size_t>(schema->num_fields()) > values.size()) {
+    return Status::Invalid("ExecBatch::ToTRecordBatch mismatching schema size");
+  }
   ArrayVector columns(schema->num_fields());
 
   for (size_t i = 0; i < columns.size(); ++i) {
@@ -163,8 +180,13 @@ Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     if (value.is_array()) {
       columns[i] = value.make_array();
       continue;
+    } else if (value.is_scalar()) {
+      ARROW_ASSIGN_OR_RAISE(columns[i],
+                            MakeArrayFromScalar(*value.scalar(), length, pool));
+    } else {
+      return Status::TypeError("ExecBatch::ToRecordBatch value ", i, " with unsupported ",
+                               "value kind ", ::arrow::ToString(value.kind()));
     }
-    ARROW_ASSIGN_OR_RAISE(columns[i], MakeArrayFromScalar(*value.scalar(), length, pool));
   }
 
   return RecordBatch::Make(std::move(schema), length, std::move(columns));

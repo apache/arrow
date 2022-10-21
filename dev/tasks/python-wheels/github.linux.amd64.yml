@@ -21,7 +21,7 @@
 
 jobs:
   build:
-    name: "Build wheel for Manylinux {{ manylinux_version }}"
+    name: "Build wheel for manylinux {{ manylinux_version }}"
     runs-on: ubuntu-latest
     env:
       # archery uses these environment variables
@@ -37,12 +37,87 @@ jobs:
         shell: bash
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
 
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheel
+          path: arrow/python/repaired_wheels/*.whl
+
       # TODO(kszucs): auditwheel show
       - name: Test wheel
         shell: bash
         run: |
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
+
+      - name: Test wheel on AlmaLinux 8
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.8'
+        env:
+          ALMALINUX: "8"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            almalinux-verify-rc
+
+      - name: Test wheel on Ubuntu 18.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.8'
+        env:
+          UBUNTU: "18.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
+      - name: Test wheel on Ubuntu 18.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.8'
+        env:
+          UBUNTU: "18.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
+      - name: Test wheel on Ubuntu 20.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.8'
+        env:
+          UBUNTU: "20.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
+      - name: Test wheel on Ubuntu 22.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.10'
+        env:
+          UBUNTU: "22.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}

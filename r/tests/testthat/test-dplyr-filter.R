@@ -289,7 +289,7 @@ test_that("filter environment scope", {
     tbl
   )
   isShortString <- function(x) nchar(x) < 10
-  skip("TODO: 14071")
+  skip("TODO: ARROW-14071")
   compare_dplyr_binding(
     .input %>%
       select(-fct) %>%
@@ -413,6 +413,26 @@ test_that("filter() with namespaced functions", {
   compare_dplyr_binding(
     .input %>%
       filter(dbl > 2, stringr::str_length(verses) > 25) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter() with across()", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(if_any(ends_with("l"), ~ is.na(.))) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(
+        false == FALSE,
+        if_all(everything(), ~ !is.na(.)),
+        int > 2
+      ) %>%
       collect(),
     tbl
   )

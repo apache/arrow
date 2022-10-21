@@ -17,10 +17,6 @@
 
 {% import 'macros.jinja' as macros with context %}
 
-# This allows us to set a custom version via param:
-# crossbow submit --param custom_version=8.5.3 r-binary-packages
-# if the param is unset defaults to the usual Ymd naming scheme
-{% set package_version = custom_version|replace("Unset", "\\2.\'\"$(date +%Y%m%d)\"\'") %}
 {% set is_fork = macros.is_fork %}
 
 {{ macros.github_header() }}
@@ -35,12 +31,12 @@ jobs:
       pkg_version: {{ '${{ steps.save-version.outputs.pkg_version }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_change_r_pkg_version(is_fork, package_version)|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, arrow.no_rc_r_version)|indent }}
       - name: Save Version
         id: save-version
         shell: bash
         run: |
-          echo "::set-output name=pkg_version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)"
+          echo "pkg_version=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)" >> $GITHUB_OUTPUT
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -70,8 +66,7 @@ jobs:
         config:
           - { os: ubuntu, version: "18.04" }
           - { os: ubuntu, version: "22.04" }
-          # TODO(ARROW-17594): re-enable this with the devtoolset for C++17
-          #- { os: centos, version: "7" }
+          - { os: centos, version: "7" }
     env:
       UBUNTU: {{ '${{ matrix.config.version }}' }}
     steps:
@@ -153,7 +148,6 @@ jobs:
         with:
           r-version: {{ '${{ matrix.r_version.r }}' }}
           rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
-          Ncpus: 2
       - name: Setup R Self-Hosted
         if: contains(matrix.platform.runs_on, 'self-hosted')
         run: |
@@ -165,7 +159,7 @@ jobs:
           rig default {{ '${{ matrix.r_version.r }}' }}$rig_arch
 
           rig system setup-user-lib
-          rig system add-pak 
+          rig system add-pak
       {{ macros.github_setup_local_r_repo(false, true)|indent }}
       - name: Prepare Dependency Installation
 
@@ -217,14 +211,14 @@ jobs:
 
           # encode contrib.url for artifact name
           cmd <- paste0(
-            "::set-output name=path::",
+            "path=",
             gsub(
               "/", "__",
               contrib.url("", type = "binary")
             ),
             "\n"
           )
-          cat(cmd)
+          cat(cmd, file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
@@ -255,12 +249,7 @@ jobs:
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
           - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
           - {image: "rstudio/r-base:4.1-bionic"} # ubuntu-18.04
-          # TODO(ARROW-17594): re-enable this with the devtoolset for C++17
-          #- {image: "rstudio/r-base:4.2-centos7"}
-          # Even with devtoolset-8, binaries fail because glibc is older than
-          # what we build with on ubuntu-18.04 (uncomment to see the error)
-          # TODO(ARROW-16976): build binaries with older glibc
-          # - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
+          - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
     steps:
       # Get the arrow checkout just for the docker config scripts
       # Don't need submodules for this (hence false arg to macro): they fail on
@@ -282,16 +271,42 @@ jobs:
           ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
-          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
-          if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
-            # enable the devtoolset version to use it
-            source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
-          fi
           Rscript -e '
           {{  macros.github_test_r_src_pkg()|indent(8) }}
           '
+      - name: Upload binary artifact
+        if: matrix.config.devtoolset
+        uses: actions/upload-artifact@v3
+        with:
+          name: r-pkg_centos7
+          path: arrow_*
+  test-centos-binary:
+    needs: test-linux-binary
+    runs-on: ubuntu-latest
+    container: "rstudio/r-base:4.2-centos7"
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: r-pkg_centos7
+      - name: Install DTS Package
+        shell: Rscript {0}
+        run: |
+          pkg <- list.files(pattern = "arrow_*")
+          if(length(pkg) > 1) {
+            pkg <- pkg[[1]]
+            warning("Multiple packages found! Using first one.")
+          }
+
+          # Install dependencies from RSPM
+          install.packages("arrow", repos = "https://packagemanager.rstudio.com/all/__linux__/centos7/latest")
+          remove.packages("arrow")
+
+          install.packages(pkg)
+          library(arrow)
+          read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+          print(arrow_info())
 
   test-source:
     needs: source
@@ -309,12 +324,15 @@ jobs:
           curl -s \
             https://raw.githubusercontent.com/{{ arrow.github_repo }}/{{ arrow.head }}/ci/scripts/install_sccache.sh | \
             bash -s unknown-linux-musl /usr/local/bin
-      - run: sudo apt update && sudo apt install libcurl4-openssl-dev
       - name: Prepare PKG_CONFIG_PATH for Homebrew
         run: |
           # zstd is installed by Homebrew on GitHub Actions.
           echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
             >> "$GITHUB_ENV"
+      - name: Install R package system dependencies
+        run: |
+          sudo apt update && sudo apt install libcurl4-openssl-dev
+          echo "MAKEFLAGS=-j$(nproc)" >> $GITHUB_ENV
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary

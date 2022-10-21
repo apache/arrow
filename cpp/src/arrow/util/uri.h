@@ -45,6 +45,9 @@ class ARROW_EXPORT Uri {
   /// explicit scheme.
   std::string scheme() const;
 
+  /// Convenience function that returns true if the scheme() is "file"
+  bool is_file_scheme() const;
+
   /// Whether the URI has an explicit host name.  This may return true if
   /// the URI has an empty host (e.g. "file:///tmp/foo"), while it returns
   /// false is the URI has not host component at all (e.g. "file:/tmp/foo").

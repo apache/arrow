@@ -836,19 +836,6 @@ cdef class DictionaryScalar(Scalar):
         """
         return self.value.as_py() if self.is_valid else None
 
-    @property
-    def index_value(self):
-        warnings.warn("`index_value` property is deprecated as of 1.0.0"
-                      "please use the `index` property instead",
-                      FutureWarning)
-        return self.index
-
-    @property
-    def dictionary_value(self):
-        warnings.warn("`dictionary_value` property is deprecated as of 1.0.0, "
-                      "please use the `value` property instead", FutureWarning)
-        return self.value
-
 
 cdef class UnionScalar(Scalar):
     """
