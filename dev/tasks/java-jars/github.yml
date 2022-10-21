@@ -28,6 +28,8 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build C++ libraries
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           archery docker run \
             -e ARROW_JAVA_BUILD=OFF \
@@ -47,90 +49,66 @@ jobs:
         run: archery docker push java-jni-manylinux-2014
     {% endif %}
 
-  build-cpp-macos-x86_64:
-    name: Build C++ libraries macOS x86_64
-    runs-on: macos-latest
+  build-cpp-macos:
+    {% set arch = '${{ matrix.platform.arch }}' %}
+    name: Build C++ libraries macOS {{ arch }}
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runs_on: 'macos-latest', arch: "x86_64"}
+          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "aarch_64" }
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.13"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_install_archery()|indent }}
+      - name: Install Archery
+        shell: bash
+        run: pip install -e arrow/dev/archery[all]
       - name: Install dependencies
         run: |
-          brew install --overwrite git
-          brew bundle --file=arrow/cpp/Brewfile
+          # brew numpy install fails on gh runner macos-11
+          # and is not required for this build
+          sed -i -e '/brew "numpy"/d' arrow/cpp/Brewfile
+          brew bundle --file=arrow/cpp/Brewfil
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have
           # Homebrew's aws-sdk-cpp, our build mix Homebrew's
           # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
           # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
           brew uninstall aws-sdk-cpp
-      - name: Setup ccache
-        run: |
-          arrow/ci/scripts/ccache_setup.sh
+          brew install openjdk@11
+          brew install sccache
       - name: Build C++ libraries
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           set -e
+          # make brew java available to cmake
+          if [ "${{ matrix.platform.arch }}" = "aarch_64" ]; then
+            export JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home
+          fi
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
             $GITHUB_WORKSPACE/arrow/java-dist
       - name: Compress into single artifact to keep directory structure
         run: |
-          mkdir -p arrow/java-dist/x86_64
-          mv arrow/java-dist/*.* arrow/java-dist/x86_64/
-          tar -cvzf arrow-shared-libs-macos-x86_64.tar.gz arrow/java-dist/
+          mkdir -p arrow/java-dist/{{ arch }}
+          mv arrow/java-dist/*.* arrow/java-dist/{{ arch }}/
+          tar -cvzf arrow-shared-libs-macos-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: macos-shared-lib-x86_64
-          path: arrow-shared-libs-macos-x86_64.tar.gz
-
-  build-cpp-macos-arm64:
-    name: Build C++ libraries macOS arm64
-    runs-on: ["self-hosted", "macOS", "arm64"]
-    env:
-      MACOSX_DEPLOYMENT_TARGET: "10.13"
-    steps:
-      {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_install_archery()|indent }}
-      - name: Install dependencies
-        run: |
-          brew install --overwrite git
-          brew bundle --file=arrow/cpp/Brewfile
-          # We want to link aws-sdk-cpp statically but Homebrew's
-          # aws-sdk-cpp provides only shared library. If we have
-          # Homebrew's aws-sdk-cpp, our build mix Homebrew's
-          # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
-          # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
-          brew uninstall aws-sdk-cpp
-      - name: Setup ccache
-        run: |
-          arrow/ci/scripts/ccache_setup.sh
-      - name: Build C++ libraries
-        run: |
-          set -e
-          arrow/ci/scripts/java_jni_macos_build.sh \
-            $GITHUB_WORKSPACE/arrow \
-            $GITHUB_WORKSPACE/arrow/cpp-build \
-            $GITHUB_WORKSPACE/arrow/java-dist
-      - name: Compress into single artifact to keep directory structure
-        run: |
-          mkdir -p arrow/java-dist/aarch_64
-          mv arrow/java-dist/*.* arrow/java-dist/aarch_64/
-          tar -cvzf arrow-shared-libs-macos-arm64.tar.gz arrow/java-dist/
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: macos-shared-lib-arm64
-          path: arrow-shared-libs-macos-arm64.tar.gz
+          name: macos-shared-lib-{{ arch }}
+          path: arrow-shared-libs-macos-{{ arch }}.tar.gz
 
   build-cpp-windows:
     name: Build C++ libraries Windows
     runs-on: windows-2019
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_install_archery()|indent }}
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
@@ -139,8 +117,13 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: arrow/ci/scripts/download_tz_database.sh
+      - name: Install sccache
+        shell: bash
+        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
       - name: Build C++ libraries
         shell: cmd
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           REM For ORC
@@ -159,33 +142,21 @@ jobs:
     name: Build jar files
     runs-on: macos-latest
     needs:
+      - build-cpp-macos
       - build-cpp-ubuntu
-      - build-cpp-macos-x86_64
-      - build-cpp-macos-arm64
       - build-cpp-windows
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
-      - name: Download Linux C++ Libraries
-        uses: actions/download-artifact@v2
+      - name: Download Libraries
+        uses: actions/download-artifact@v3
         with:
-          name: ubuntu-shared-lib
-      - name: Download macOS x86_64 C++ libraries
-        uses: actions/download-artifact@v2
-        with:
-          name: macos-shared-lib-x86_64
-      - name: Download Windows C++ libraries
-        uses: actions/download-artifact@v2
-        with:
-          name: windows-shared-lib
-      - name: Download macOS arm64 C++ libraries
-        uses: actions/download-artifact@v2
-        with:
-          name: macos-shared-lib-arm64
-      - name: Descompress artifacts
+          path: artifacts
+      - name: Decompress artifacts
         run: |
+          mv artifacts/*/*.tar.gz .
           tar -xvzf arrow-shared-libs-linux.tar.gz
           tar -xvzf arrow-shared-libs-macos-x86_64.tar.gz
-          tar -xvzf arrow-shared-libs-macos-arm64.tar.gz
+          tar -xvzf arrow-shared-libs-macos-aarch_64.tar.gz
           tar -xvzf arrow-shared-libs-windows.tar.gz
       - name: Test that shared libraries exist
         run: |
