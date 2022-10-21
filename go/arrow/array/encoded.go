@@ -162,9 +162,10 @@ func arrayRunEndEncodedApproxEqual(l, r *RunEndEncoded, opt equalOption) bool {
 type RunLengthEncodedBuilder struct {
 	builder
 
-	dt      arrow.DataType
-	runEnds Builder
-	values  Builder
+	dt        arrow.DataType
+	runEnds   Builder
+	values    Builder
+	maxRunEnd uint64
 }
 
 func NewRunLengthEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataType) *RunLengthEncodedBuilder {
@@ -172,11 +173,22 @@ func NewRunLengthEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.Dat
 	if !dt.ValidRunEndsType(runEnds) {
 		panic("arrow/rle: invalid runEnds type for run length encoded array")
 	}
+
+	var maxEnd uint64
+	switch runEnds.ID() {
+	case arrow.INT16:
+		maxEnd = math.MaxInt16
+	case arrow.INT32:
+		maxEnd = math.MaxInt32
+	case arrow.INT64:
+		maxEnd = math.MaxInt64
+	}
 	return &RunLengthEncodedBuilder{
-		builder: builder{refCount: 1, mem: mem},
-		dt:      dt,
-		runEnds: NewBuilder(mem, runEnds),
-		values:  NewBuilder(mem, encoded),
+		builder:   builder{refCount: 1, mem: mem},
+		dt:        dt,
+		runEnds:   NewBuilder(mem, runEnds),
+		values:    NewBuilder(mem, encoded),
+		maxRunEnd: maxEnd,
 	}
 }
 
@@ -193,9 +205,9 @@ func (b *RunLengthEncodedBuilder) Release() {
 	}
 }
 
-func (b *RunLengthEncodedBuilder) addLength(n uint32) {
-	if b.length+int(n) > math.MaxInt32 {
-		panic(fmt.Errorf("%w: run-length encoded array length must fit in a 32-bit signed integer", arrow.ErrInvalid))
+func (b *RunLengthEncodedBuilder) addLength(n uint64) {
+	if uint64(b.length)+n > b.maxRunEnd {
+		panic(fmt.Errorf("%w: %s array length must fit be less than %d", arrow.ErrInvalid, b.dt, b.maxRunEnd))
 	}
 
 	b.length += int(n)
@@ -217,11 +229,11 @@ func (b *RunLengthEncodedBuilder) finishRun() {
 }
 
 func (b *RunLengthEncodedBuilder) ValueBuilder() Builder { return b.values }
-func (b *RunLengthEncodedBuilder) Append(n uint32) {
+func (b *RunLengthEncodedBuilder) Append(n uint64) {
 	b.finishRun()
 	b.addLength(n)
 }
-func (b *RunLengthEncodedBuilder) ContinueRun(n uint32) {
+func (b *RunLengthEncodedBuilder) ContinueRun(n uint64) {
 	b.addLength(n)
 }
 func (b *RunLengthEncodedBuilder) AppendNull() {

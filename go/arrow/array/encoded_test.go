@@ -249,3 +249,25 @@ func TestRunLengthEncodedBuilder(t *testing.T) {
 	assert.Equal(t, "RLE", strValues.Value(4))
 	assert.True(t, strValues.IsNull(5))
 }
+
+func TestRLEBuilderOverflow(t *testing.T) {
+	for _, typ := range []arrow.DataType{arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int64} {
+		t.Run("run_ends="+typ.String(), func(t *testing.T) {
+
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer mem.AssertSize(t, 0)
+
+			bldr := array.NewRunLengthEncodedBuilder(mem, typ, arrow.BinaryTypes.String)
+			defer bldr.Release()
+
+			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+			assert.Panics(t, func() {
+				valBldr.Append("Foo")
+
+				maxVal := uint64(1<<typ.(arrow.FixedWidthDataType).BitWidth()) - 1
+
+				bldr.Append(uint64(maxVal))
+			})
+		})
+	}
+}
