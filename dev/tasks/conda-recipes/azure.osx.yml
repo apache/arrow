@@ -75,7 +75,9 @@ jobs:
       fi
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
-
+    env:
+    {{ macros.azure_set_sccache_envvars()|indent(4) }} 
+  
   - script: |
      sudo mv /usr/local/conda_mangled/* /usr/local/
     displayName: Unmangle homebrew

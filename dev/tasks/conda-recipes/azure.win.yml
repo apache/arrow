@@ -61,6 +61,7 @@ jobs:
       displayName: Build Arrow recipe
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:
+      {{ macros.azure_set_sccache_envvars()|indent(6) }} 
         PYTHONUNBUFFERED: 1
 
     - script: |
