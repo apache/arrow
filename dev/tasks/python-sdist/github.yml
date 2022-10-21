@@ -35,7 +35,7 @@ jobs:
           {% endif %}
         env:
           PYARROW_VERSION: {{ arrow.no_rc_version }}
-
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
       - name: Test sdist
         run: archery docker run ubuntu-python-sdist-test
         env:

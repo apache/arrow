@@ -33,4 +33,7 @@ COPY python/requirements-build.txt \
      /arrow/python/requirements-build.txt
 RUN pip3 install --requirement /arrow/python/requirements-build.txt
 
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 ENV PYTHON=/usr/bin/python3
