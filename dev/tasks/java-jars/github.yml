@@ -71,7 +71,7 @@ jobs:
           # brew numpy install fails on gh runner macos-11
           # and is not required for this build
           sed -i -e '/brew "numpy"/d' arrow/cpp/Brewfile
-          brew bundle --file=arrow/cpp/Brewfil
+          brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have
           # Homebrew's aws-sdk-cpp, our build mix Homebrew's
