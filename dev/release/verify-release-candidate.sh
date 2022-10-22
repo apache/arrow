@@ -1067,7 +1067,8 @@ test_macos_wheels() {
   # the interpreter should be installed from python.org:
   #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
   if [ "$(uname -m)" = "arm64" ]; then
-    for pyver in "3.9 3.10"; do
+    for pyver in 3.9 3.10; do
+      show_header "Testing Python ${pyver} universal2 wheel"
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
 
       # create and activate a virtualenv for testing as arm64
