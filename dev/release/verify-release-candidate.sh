@@ -213,6 +213,7 @@ test_apt() {
         ;;
     esac
     if ! docker run --rm -v "${ARROW_DIR}":/arrow:delegated \
+           --security-opt="seccomp=unconfined" \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
