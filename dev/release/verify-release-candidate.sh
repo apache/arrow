@@ -1068,11 +1068,11 @@ test_macos_wheels() {
   #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
   if [ "$(uname -m)" = "arm64" ]; then
     for pyver in 3.9 3.10; do
-      show_header "Testing Python ${pyver} universal2 wheel"
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
 
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
+        show_header "Testing Python ${pyver} universal2 wheel on ${arch}"
         VENV_ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
         # install pyarrow's universal2 wheel
         pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
