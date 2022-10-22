@@ -38,7 +38,7 @@ Table into an R \code{data.frame}.
 \item \code{\link[dplyr:mutate-joins]{inner_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
 \item \code{\link[dplyr:mutate-joins]{left_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
 \item \code{\link[dplyr:mutate]{mutate()}}: window functions (e.g. things that require aggregation within groups) not currently supported
-\item \code{\link[dplyr:pull]{pull()}}: returns an Arrow \link{ChunkedArray}, not an R vector
+\item \code{\link[dplyr:pull]{pull()}}: the \code{name} argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow \link{ChunkedArray} in a future release. Provide \code{as_vector = TRUE/FALSE} to control this behavior, or set \code{options(arrow.pull_as_vector)} globally.
 \item \code{\link[dplyr:relocate]{relocate()}}
 \item \code{\link[dplyr:rename]{rename()}}
 \item \code{\link[dplyr:rename]{rename_with()}}
