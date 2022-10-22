@@ -135,6 +135,7 @@ articles:
       - docker
       - writing_bindings
       - install_details
+      - data_object_layout
 
 reference:
   - title: Multi-file datasets

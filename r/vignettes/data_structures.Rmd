@@ -11,17 +11,32 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+This vignette describes the various data and metadata object types supplied by `arrow`, and documents how these objects are structured. 
 
-## Access to Arrow messages, buffers, and streams
+```{r include=FALSE}
+library(arrow, warn.conflicts = FALSE)
+```
 
-The `arrow` package also provides many lower-level bindings to the C++ library, which enable you
-to access and manipulate Arrow objects. You can use these to build connectors
-to other applications and services that use Arrow. One example is Spark: the
-[`sparklyr`](https://spark.rstudio.com/) package has support for using Arrow to
-move data to and from Spark, yielding [significant performance
-gains](https://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
+## Data objects
 
-# Object hierarchy
+A critical component of Apache Arrow is its in-memory columnar format, a standardized, language-agnostic specification for representing structured, table-like datasets in-memory. In the `arrow` R package, the `Table` class is used to store these objects. Tables are roughly analogous to data frames: both are rectangular, **two-dimensional** objects in which columns are permitted to be of different types. Internally, a Table is represented as a list of `ChunkedArray` objects, one per column. `ChunkedArray` objects are **one-dimensional**, like R vectors. Each element of a `ChunkedArray` is a single `Scalar` value that is deemed to be **zero-dimensional**. The table below shows the different classes of data object specified by `arrow`: `Scalar` is the only zero-dimensional class, `Array` and `ChunkedArray` objects are both one-dimensional, while `RecordBatch`, `Table`, and `Dataset` objects are all two-dimensional:
+
+
+| Dim | Class          | How to create an instance                     | Convenience function                          |
+| --- | -------------- | ----------------------------------------------| --------------------------------------------- |
+| 0   | `Scalar`       | `Scalar$create(value, type)`                  |                                               |
+| 1   | `Array`        | `Array$create(vector, type)`                  |                                               |
+| 1   | `ChunkedArray` | `ChunkedArray$create(..., type)`              | `chunked_array(..., type)`                    |
+| 2   | `RecordBatch`  | `RecordBatch$create(...)`                     | `record_batch(...)`                           |
+| 2   | `Table`        | `Table$create(...)`                           | `arrow_table(...)`                            |
+| 2   | `Dataset`      | `Dataset$create(sources, schema)`             | `open_dataset(sources, schema)`               |
+  
+
+Later in the vignette we'll look at each of these in more detail. For the moment, we simply note that each of these is defined as an `R6` class in the `arrow` R package and corresponds to a class of the same name in the Arrow C++ library. Also note that for convenience, the `arrow` package also defines several synthetic classes that do not exist in the C++ library, including:
+
+* `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
+* `ArrowTabular`: inherited by `RecordBatch` and `Table`
+* `ArrowObject`: inherited by all Arrow objects
 
 ## Metadata objects
 
@@ -33,30 +48,168 @@ Arrow defines the following classes for representing metadata:
 | `Field`    | a character string name and a `DataType`           | `field(name, type)`              |
 | `Schema`   | list of `Field`s                                   | `schema(...)`                    |
 
-## Data objects
 
-Arrow defines the following classes for representing zero-dimensional (scalar),
-one-dimensional (array/vector-like), and two-dimensional (tabular/data
-frame-like) data:
+## Scalars
 
-| Dim | Class          | Description                               | How to create an instance                                                                             |
-| --- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------|
-| 0   | `Scalar`       | single value and its `DataType`           | `Scalar$create(value, type)`                                                                          |
-| 1   | `Array`        | vector of values and its `DataType`       | `Array$create(vector, type)`                                                                          | 
-| 1   | `ChunkedArray` | vectors of values and their `DataType`    | `ChunkedArray$create(..., type)` or alias `chunked_array(..., type)`                                  |
-| 2   | `RecordBatch`  | list of `Array`s with a `Schema`          | `RecordBatch$create(...)` or alias `record_batch(...)`                                                |
-| 2   | `Table`        | list of `ChunkedArray` with a `Schema`    | `Table$create(...)`, alias `arrow_table(...)`, or `arrow::read_*(file, as_data_frame = FALSE)`        |
-| 2   | `Dataset`      | list of `Table`s  with the same `Schema`  | `Dataset$create(sources, schema)` or alias `open_dataset(sources, schema)`                            |
+A Scalar object is simply a single value that can be of any type. It might be an integer, a string, a timestamp, or any of the different data types that Arrow supports. Most users of the `arrow` R package are unlikely to create Scalars directly, but should there be a need you can do this by calling the `Scalar$create()` method:
 
-Each of these is defined as an `R6` class in the `arrow` R package and
-corresponds to a class of the same name in the Arrow C++ library. The `arrow`
-package provides a variety of `R6` and S3 methods for interacting with instances
-of these classes.
+```{r}
+Scalar$create("hello")
+```
 
-For convenience, the `arrow` package also defines several synthetic classes that
-do not exist in the C++ library, including:
+To learn more about the different data types that can be represented as a Scalar value, see `vignette("data_types", package = "arrow")`.
 
-* `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
-* `ArrowTabular`: inherited by `RecordBatch` and `Table`
-* `ArrowObject`: inherited by all Arrow objects
+## Arrays
+
+Array objects are ordered sets of Scalar values, and in that sense are roughly analogous to R vectors, but with some important differences discussed later. As with Scalars most users will not need to create Arrays directly, but if the need arises there is an `Array$create()` method that allows you to create new Arrays:
+
+```{r}
+integer_array <- Array$create(c(1L, NA, 2L, 4L, 8L))
+integer_array
+```
+
+```{r}
+string_array <- Array$create(c("hello", "amazing", "and", "cruel", "world"))
+string_array
+```
+
+An Array can be subset using square brackets as shown below:
+
+```{r}
+string_array[4:5]
+```
+
+To learn more about the internal structure of Arrays, see `vignette("data_object_layout", package = "arrow")`. The [Arrow specification](https://arrow.apache.org/docs/format/Columnar.html) may also be valuable.
+
+
+## Chunked Arrays
+
+In practice, most users of the `arrow` R package are likely to use Chunked Arrays rather than simple Arrays. Under the hood, a Chunked Array is a collection of one or more Arrays that can be indexed _as if_ they were a single Array. The reasons that Arrow provides this functionality are described in `vignette("data_object_layout", package = "arrow")` but for the present purposes it is sufficient to notice that Chunked Arrays behave like Arrays in regular data analysis.
+
+To illustrate, let's use the `chunked_array()` function:
+
+```{r}
+chunked_string_array <- chunked_array(
+  string_array,
+  c("I", "love", "you")
+)
+```
+
+The `chunked_array()` function is just a wrapper around the functionality that `ChunkedArray$create()` provides. Let's take a look at the object:
+
+```{r}
+chunked_string_array
+```
+
+The double bracketing in this output is intended to highlight the fact that Chunked Arrays are wrappers around one or more Arrays. However, although comprised of multiple distinct Arrays, a Chunked Array can be indexed as if they were a single vector-like object. This is illustrated below:
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("./array_indexing.png")
+```
+
+Let's go back to the `chunked_string_array` data to illustrate this: 
+
+```{r}
+chunked_string_array[4:7]
+```
+
+An important thing to note about chunked arrays is that "chunking" is not semantically meaningful. It is an implementation detail only: users should never treat the chunk as a meaningful unit. Writing the data to disk, for example, often results in the data being organised into different chunks. Two arrays that have the same values in different chunking arrangements are deemed equivalent. For example, here's the same four values as `chunked_string_array[4:7]` all grouped into a single chunk:
+
+```{r}
+cruel_world <- chunked_array(c("cruel", "world", "I", "love"))
+cruel_world
+```
+
+When we test for equality using `==` the results are shown element-wise. All four elements are the same, so the result is a (chunked) array of four `true` values:
+
+```{r}
+cruel_world == chunked_string_array[4:7]
+```
+
+The intention is that users should be able to interact with chunked arrays as if they were ordinary one-dimensional data structures without ever having to think much about their list-like nature. Chunked arrays exist as an abstraction to allow this to happen. 
+
+## Record Batches
+
+The `arrow` package specifies three kinds of rectangular data structures: record batches, tables, and datasets. Record batches are the simplest, but users are most likely to interact with tables and datasets.
+
+A record batch is table-like data structure comprised of named arrays. The arrays can be of different types but they must all be the same length. Each array is referred to as one of the "fields" or "columns" of the record batch. You can create record batches using the `record_batch()` function, or alternatively, but calling the `RecordBatch$create()` method. The `record_batch()` function is flexible and can accept inputs in several formats: you can pass it a data frame, one or more named vectors, an input stream, or even a raw vector containing appropriate binary data. 
+
+```{r}
+rb <- record_batch(
+  strs = string_array, 
+  ints = integer_array,
+  dbls = c(1.1, 3.2, 0.2, NA, 11)
+)
+rb
+```
+
+This is a record batch containing 5 rows and 3 columns. 
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("./record_batch.png")
+```
+
+The `arrow` package supplies a `$` method for record batch objects, and it behaves the same way you'd expect for a data frame. If you want to look at a particular column in a record batch, you can refer to it by name:
+
+```{r}
+rb$strs
+```
+
+You can use double brackets `[[` to refer to columns by position. The `rb`$ints` array is the 2nd column in our record batch so we can extract it with this:
+
+```{r}
+rb[[2]]
+```
+
+There is also `[` method that allows you to extract subsets of a record batch in the same way you would for a data frame. The command `rb`[1:3, 1:2]` extracts the first 3 rows and the first 2 columns:
+
+```{r}
+rb[1:3, 1:2]
+```
+
+
+## Tables
+
+To deal with situations where a rectangular data set can grow over time (as more data are added), we need a tabular data structure that is similar to a record batch with one exception: instead of storing each column as an array, we now want to store it as a chunked array. This is what the `Table` class in **arrow** does. Schematically, here's what the data structure for a table looks like:
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("./table.png")
+```
+
+Tables have a huge advantage over record batches: they can be concatenated. You can't append one record batch to another because arrays are immutable: you can't append one array to the end of another array. But because tables are built from chunked arrays, concatenation can be accomplished by updating the chunked arrays to include pointers to the newly-arrived arrays as well as the previously-existing arrays. 
+
+To illustrate, suppose we have a second set of data that arrives as a record batch: 
+```{r}
+new_rb <- record_batch(
+  strs = c("I", "love", "you"), 
+  ints = c(5L, 0L, 0L),
+  dbls = c(7.1, -0.1, 2)
+)
+```
+
+We can create tables for each record batch: 
+
+```{r}
+df_table_0 <- arrow_table(rb)
+df_table_1 <- arrow_table(new_rb)
+```
+
+We now have the two fragments of the data set represented as tables. The difference between the table version and the record batch version is that the columns are all represented as chunked arrays. Each array from the original record batch is now one chunk in the corresponding chunked array in the table:
+
+```{r}
+rb$strs
+df_table_0$strs
+```
+
+It's the same underlying data -- and indeed the same immutable array is referenced by both -- just enclosed by a new, flexible chunked array wrapper. However, it is this wrapper that allows us to concatenate tables:
+
+```{r}
+df <- concat_tables(
+  df_table_0,
+  df_table_1
+)
+df
+```
+
+This is successful and the result will behave exactly like a two dimensional object with `$`, `[[`, and `[` operators that behave as you expect them to. Because tables are built from chunked arrays, and chunked arrays are an abstraction layer designed to ensure that the distinct arrays can be treated as if they were one contiguous vector, Arrow tables inherit all those features. You can subset tables with `$`, `[[`, and `[` the same way you can for record batches. 
 

@@ -9,7 +9,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-Apache Arrow is a software development platform for building high performance applications that process and transport large data sets. It is designed to improve the performance of data analysis methods, and to increase the efficiency of moving data from one system or programming language to another. 
+Apache Arrow is a software development platform for building high performance applications that process and transport large data sets. It is designed to improve the performance of data analysis methods, and to increase the efficiency of moving data from one system or programming language to another.
 
 The `arrow` package provides a standard way to use Apache Arrow in R. It provides a low-level interface to the [Arrow C++ library](https://arrow.apache.org/docs/cpp), and some higher-level tools for working with it in a way designed to feel natural to R users. This vignette provides an overview of how the pieces fit together, and it describes the conventions that the classes and methods follow in R.
 
@@ -210,6 +210,15 @@ sw_table_python
 It is important to recognize that when this transfer takes place, only the C++ pointer (i.e., metadata referring to the underlying data object stored by the Arrow C++ library) is copied. The data values themselves in the same place within memory. The consequence of this is that it is much faster to pass an Arrow Table from R to Python than to copy a data frame in R to a Pandas DataFrame in Python. 
 
 To learn more about passing Arrow data between R and Python, see `vignette("python", package = "arrow")`.
+
+## Access to Arrow messages, buffers, and streams
+
+The `arrow` package also provides many lower-level bindings to the C++ library, which enable you
+to access and manipulate Arrow objects. You can use these to build connectors
+to other applications and services that use Arrow. One example is Spark: the
+[`sparklyr`](https://spark.rstudio.com/) package has support for using Arrow to
+move data to and from Spark, yielding [significant performance
+gains](https://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
 
 ## Contributing to `arrow`
 
