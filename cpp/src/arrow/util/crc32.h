@@ -24,7 +24,7 @@ namespace arrow {
 namespace internal {
 
 ARROW_EXPORT
-uint32_t crc32(uint32_t prev, const void *data, size_t length);
+uint32_t crc32(uint32_t prev, const void* data, size_t length);
 
-}
-}
+}  // namespace internal
+}  // namespace arrow
