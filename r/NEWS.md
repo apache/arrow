@@ -45,11 +45,14 @@ A few new features and bugfixes were implemented for joins:
   join keys (when `keep = FALSE`), avoiding the issue where the join keys would
   be all `NA` for rows in the right hand side without any matches on the left.
 
-A few breaking changes that improve the consistency of the API:
+Some changes to improve the consistency of the API:
 
-* Calling `dplyr::pull()` will return a `?ChunkedArray` instead of an R vector.
-* Calling `dplyr::compute()` on a query that is grouped
-  returns a `?Table`, instead of a query object.
+* In a future release, calling `dplyr::pull()` will return a `?ChunkedArray`
+  instead of an R vector by default. The current default behavior is deprecated.
+  To update to the new behavior now, specify `pull(as_vector = FALSE)` or set
+  `options(arrow.pull_as_vector = FALSE)` globally.
+* Calling `dplyr::compute()` on a query that is grouped returns a `?Table`
+  instead of a query object.
 
 Finally, long-running queries can now be cancelled and will abort their
 computation immediately.

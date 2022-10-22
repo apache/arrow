@@ -46,16 +46,51 @@ compute.arrow_dplyr_query <- function(x, ...) dplyr::collect(x, as_data_frame = 
 compute.ArrowTabular <- function(x, ...) x
 compute.Dataset <- compute.RecordBatchReader <- compute.arrow_dplyr_query
 
-pull.arrow_dplyr_query <- function(.data, var = -1) {
+pull.Dataset <- function(.data,
+                         var = -1,
+                         ...,
+                         as_vector = getOption("arrow.pull_as_vector")) {
   .data <- as_adq(.data)
   var <- vars_pull(names(.data), !!enquo(var))
   .data$selected_columns <- set_names(.data$selected_columns[var], var)
-  dplyr::compute(.data)[[1]]
+  out <- dplyr::compute(.data)[[1]]
+  handle_pull_as_vector(out, as_vector)
 }
-pull.Dataset <- pull.RecordBatchReader <- pull.arrow_dplyr_query
+pull.RecordBatchReader <- pull.arrow_dplyr_query <- pull.Dataset
 
-pull.ArrowTabular <- function(x, var = -1) {
-  x[[vars_pull(names(x), !!enquo(var))]]
+pull.ArrowTabular <- function(x,
+                              var = -1,
+                              ...,
+                              as_vector = getOption("arrow.pull_as_vector")) {
+  out <- x[[vars_pull(names(x), !!enquo(var))]]
+  handle_pull_as_vector(out, as_vector)
+}
+
+handle_pull_as_vector <- function(out, as_vector) {
+  if (is.null(as_vector)) {
+    warn(
+      c(
+        paste(
+          "Default behavior of `pull()` on Arrow data is changing. Current",
+          "behavior of returning an R vector is deprecated, and in a future",
+          "release, it will return an Arrow `ChunkedArray`. To control this:"
+        ),
+        i = paste(
+          "Specify `as_vector = TRUE` (the current default) or",
+          "`FALSE` (what it will change to) in `pull()`"
+        ),
+        i = "Or, set `options(arrow.pull_as_vector)` globally"
+      ),
+      .frequency = "regularly",
+      .frequency_id = "arrow.pull_as_vector",
+      class = "lifecycle_warning_deprecated"
+    )
+    as_vector <- TRUE
+  }
+  if (as_vector) {
+    out <- as.vector(out)
+  }
+  out
 }
 
 restore_dplyr_features <- function(df, query) {
