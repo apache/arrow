@@ -638,7 +638,7 @@ func BenchmarkRead(b *testing.B) {
 		return buf.Bytes()
 	}
 
-	for _, rows := range []int{10, 1e2, 1e3, 1e4, 1e5} {
+	for _, rows := range []int{10, 1e2, 1e3, 1e4} {
 		for _, cols := range []int{1, 10, 100, 1000} {
 			raw := gen(rows, cols)
 			for _, chunks := range []int{-1, 0, 10, 100, 1000} {
