@@ -286,8 +286,7 @@ struct ParseString {
 };
 
 template <typename O, typename I>
-struct CastFunctor<
-    O, I, enable_if_t<!is_decimal_type<O>::value && is_base_binary_type<I>::value>> {
+struct CastFunctor<O, I, enable_if_base_binary<I>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return applicator::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
   }
@@ -608,20 +607,27 @@ struct StringToDecimal {
   bool allow_truncate_;
 };
 
-template <typename O, typename I>
-struct CastFunctor<
-    O, I, enable_if_t<is_decimal_type<O>::value && is_base_binary_type<I>::value>> {
+template <typename ARROW_TYPE, typename I>
+struct DecimalCastFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
-    const auto& out_type = checked_cast<const O&>(*out->type());
+    const auto& out_type = checked_cast<const ARROW_TYPE&>(*out->type());
     const auto out_scale = out_type.scale();
     const auto out_precision = out_type.precision();
 
-    applicator::ScalarUnaryNotNullStateful<O, I, StringToDecimal> kernel(
+    applicator::ScalarUnaryNotNullStateful<ARROW_TYPE, I, StringToDecimal> kernel(
         StringToDecimal{out_scale, out_precision, options.allow_decimal_truncate});
     return kernel.Exec(ctx, batch, out);
   }
 };
+
+template <typename I>
+struct CastFunctor<Decimal128Type, I, enable_if_t<is_base_binary_type<I>::value>>
+    : public DecimalCastFunctor<Decimal128Type, I> {};
+
+template <typename I>
+struct CastFunctor<Decimal256Type, I, enable_if_t<is_base_binary_type<I>::value>>
+    : public DecimalCastFunctor<Decimal256Type, I> {};
 
 // ----------------------------------------------------------------------
 // Decimal to real
