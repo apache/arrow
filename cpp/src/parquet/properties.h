@@ -95,9 +95,7 @@ class PARQUET_EXPORT ReaderProperties {
     return file_decryption_properties_;
   }
 
-  bool use_page_checksum_verification() const {
-    return use_page_checksum_verification_;
-  }
+  bool use_page_checksum_verification() const { return use_page_checksum_verification_; }
   void set_use_page_checksum_verification(bool check_crc) {
     use_page_checksum_verification_ = check_crc;
   }
@@ -472,8 +470,9 @@ class PARQUET_EXPORT WriterProperties {
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
-          pagesize_, version_, created_by_, page_write_checksum_enabled_, std::move(file_encryption_properties_),
-          default_column_properties_, column_properties, data_page_version_));
+          pagesize_, version_, created_by_, page_write_checksum_enabled_,
+          std::move(file_encryption_properties_), default_column_properties_,
+          column_properties, data_page_version_));
     }
 
    private:
@@ -582,8 +581,7 @@ class PARQUET_EXPORT WriterProperties {
   explicit WriterProperties(
       MemoryPool* pool, int64_t dictionary_pagesize_limit, int64_t write_batch_size,
       int64_t max_row_group_length, int64_t pagesize, ParquetVersion::type version,
-      const std::string& created_by,
-      bool page_write_checksum_enabled,
+      const std::string& created_by, bool page_write_checksum_enabled,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,

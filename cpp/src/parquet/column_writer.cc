@@ -37,8 +37,8 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/crc32.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/crc32.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
@@ -383,7 +383,8 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
     if (use_page_checksum_verification_ && page.type() == PageType::DATA_PAGE) {
-      uint32_t crc32 = ::arrow::internal::crc32(/* prev */ 0, output_data_buffer, output_data_len);
+      uint32_t crc32 =
+          ::arrow::internal::crc32(/* prev */ 0, output_data_buffer, output_data_len);
       page_header.__set_crc(static_cast<int32_t>(crc32));
     }
 
@@ -560,9 +561,9 @@ class BufferedPageWriter : public PageWriter {
       : final_sink_(std::move(sink)), metadata_(metadata), has_dictionary_pages_(false) {
     in_memory_sink_ = CreateOutputStream(pool);
     pager_ = std::make_unique<SerializedPageWriter>(
-        in_memory_sink_, codec, compression_level, metadata,
-                                 row_group_ordinal, current_column_ordinal, use_page_checksum_verification, pool,
-                                 std::move(meta_encryptor), std::move(data_encryptor));
+        in_memory_sink_, codec, compression_level, metadata, row_group_ordinal,
+        current_column_ordinal, use_page_checksum_verification, pool,
+        std::move(meta_encryptor), std::move(data_encryptor));
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -615,18 +616,19 @@ std::unique_ptr<PageWriter> PageWriter::Open(
     std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
     int compression_level, ColumnChunkMetaDataBuilder* metadata,
     int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
-    bool buffered_row_group, bool page_write_checksum_enabled, std::shared_ptr<Encryptor> meta_encryptor,
+    bool buffered_row_group, bool page_write_checksum_enabled,
+    std::shared_ptr<Encryptor> meta_encryptor,
     std::shared_ptr<Encryptor> data_encryptor) {
   if (buffered_row_group) {
-    return std::unique_ptr<PageWriter>(
-        new BufferedPageWriter(std::move(sink), codec, compression_level, metadata,
-                               row_group_ordinal, column_chunk_ordinal, page_write_checksum_enabled, pool,
-                               std::move(meta_encryptor), std::move(data_encryptor)));
+    return std::unique_ptr<PageWriter>(new BufferedPageWriter(
+        std::move(sink), codec, compression_level, metadata, row_group_ordinal,
+        column_chunk_ordinal, page_write_checksum_enabled, pool,
+        std::move(meta_encryptor), std::move(data_encryptor)));
   } else {
-    return std::unique_ptr<PageWriter>(
-        new SerializedPageWriter(std::move(sink), codec, compression_level, metadata,
-                                 row_group_ordinal, column_chunk_ordinal, page_write_checksum_enabled, pool,
-                                 std::move(meta_encryptor), std::move(data_encryptor)));
+    return std::unique_ptr<PageWriter>(new SerializedPageWriter(
+        std::move(sink), codec, compression_level, metadata, row_group_ordinal,
+        column_chunk_ordinal, page_write_checksum_enabled, pool,
+        std::move(meta_encryptor), std::move(data_encryptor)));
   }
 }
 

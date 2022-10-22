@@ -28,8 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include <boost/crc.hpp>
-
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
@@ -401,9 +399,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     if (properties_.use_page_checksum_verification() &&
         page_type == PageType::DATA_PAGE && current_page_header_.__isset.crc) {
       // verify crc
-      uint32_t checksum = ::arrow::internal::crc32(/* prev */ 0, page_buffer->data(), compressed_len);
+      uint32_t checksum =
+          ::arrow::internal::crc32(/* prev */ 0, page_buffer->data(), compressed_len);
       if (static_cast<int32_t>(checksum) != current_page_header_.crc) {
-        throw ParquetException("could not verify page integrity, CRC checksum verification failed");
+        throw ParquetException(
+            "could not verify page integrity, CRC checksum verification failed");
       }
     }
 
