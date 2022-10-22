@@ -58,7 +58,7 @@ Note the output: individual columns in an Arrow Table are represented as Chunked
 
 Tables are the primary way to represent rectangular data in-memory using Arrow, but they are not the only rectangular data structure used by the Arrow C++ library: there are also Datasets which are used for data stored on-disk rather than in-memory, and Record Batches which are fundamental building blocks but not typically used in data analysis. 
 
-To learn more about the different data structures in `arrow`, see `vignette("data_structures", package = "arrow")`.
+To learn more about the different data object classes in `arrow`, see `vignette("data_objects", package = "arrow")`.
 
 ## Converting Tables to data frames
 

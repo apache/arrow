@@ -9,7 +9,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-This vignette describes the internal structure of Arrow data objects. Users of the `arrow` R package will not generally need to understand the internal structure of Arrow data objects. We include it here to help orient those R users and Arrow developers who wish to understand the [Arrow specification](https://arrow.apache.org/docs/format/Columnar.html). This section is intended mostly for developers and is not necessary knowledge for using the package. 
+This vignette describes the internal structure of Arrow data objects. Users of the `arrow` R package will not generally need to understand the internal structure of Arrow data objects. We include it here to help orient those R users and Arrow developers who wish to understand the [Arrow specification](https://arrow.apache.org/docs/format/Columnar.html). This vignette provides a deeper dive into some of the topics described in `vignette("data_objects", package = "arrow")`, and is intended mostly for developers. It is not necessary knowledge for using the `arrow` package. 
 
 
 ```{r include=FALSE}

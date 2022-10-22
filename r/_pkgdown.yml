@@ -116,8 +116,9 @@ articles:
   - title: Arrow concepts
     navbar: Arrow concepts
     contents:
-      - data_structures
+      - data_objects
       - data_types
+      - metadata
       - package_conventions
 
   - title: Installation

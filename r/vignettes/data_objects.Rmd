@@ -1,12 +1,12 @@
 ---
-title: "Data structures"
+title: "Data objects"
 description: > 
   Learn about Scalar, Array, Table, and Dataset objects in `arrow` 
   (among others), how they relate to each other, as well as their 
   relationships to familiar R objects like data frames and vectors 
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Data structures}
+  %\VignetteIndexEntry{Data objects}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -41,6 +41,8 @@ In addition to these data objects, `arrow` defines the following classes for rep
 - A `Schema` is a list of `Field` objects used to describe the structure of a tabular data object; where
 - A `Field` specifies a character string name and a `DataType`; and
 - A `DataType` is an attribute controlling how values are represented
+
+To learn more about the metadata classes, see `vignette("metadata", package = "arrow")`.
 
 ## Scalars
 
