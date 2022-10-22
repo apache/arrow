@@ -677,10 +677,6 @@ static uint32_t swap(uint32_t x)
 
 
 /* compute CRC32 */
-#ifdef HAVE_DECLARE_OPTIMIZE
-uint32_t crc32(uint32_t prev, const void *data, size_t length)
-   __attribute__((pure, optimize("-O3")));
-#endif
 uint32_t crc32(uint32_t prev, const void *data, size_t length)
 {
  uint32_t crc = ~prev;
