@@ -33,6 +33,8 @@ using internal::checked_cast;
 
 namespace engine {
 
+using namespace ::substrait;
+
 Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan) {
   plan->clear_extension_uris();
 

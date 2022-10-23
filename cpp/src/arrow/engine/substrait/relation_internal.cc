@@ -43,6 +43,8 @@ using internal::UriFromAbsolutePath;
 
 namespace engine {
 
+using namespace ::substrait;
+
 struct EmitInfo {
   std::vector<compute::Expression> expressions;
   std::shared_ptr<Schema> schema;

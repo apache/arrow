@@ -37,6 +37,8 @@ using internal::checked_cast;
 
 namespace engine {
 
+using namespace ::substrait;
+
 namespace {
 
 Id NormalizeFunctionName(Id id) {

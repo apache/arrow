@@ -28,6 +28,8 @@
 namespace arrow {
 namespace engine {
 
+using namespace ::substrait;
+
 class DefaultExtensionProvider : public ExtensionProvider {
  public:
   Result<DeclarationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
