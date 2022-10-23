@@ -83,5 +83,8 @@ cd openssl-3.0.5
 ./config --prefix=/usr/local/openssl --openssldir=/usr/local/openssl
 make
 make install
-# The command below is needed when building Arrow, you may need to rexport
-export OPENSSL_ROOT_DIR=/usr/local/openssl
+# The command below is needed when building Arrow with Gandiva, so that
+# the CentOS7 default Openssl version 1.0 is not used, but the newer
+# version of Openssl that as just been installed is used by CMake
+echo 'export OPENSSL_ROOT_DIR=/usr/local/openssl' >> ~/.bash_profile
+source  ~/.bash_profile
