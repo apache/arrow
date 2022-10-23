@@ -124,12 +124,66 @@ R uses a single character type to represent strings whereas Arrow has two types.
 The default behaviour is to translate R character vectors to the utf8/string type, and to translate both Arrow types to R character vectors:
 
 ```{r}
-hello <- chunked_array(c("hello", "cruel", "world"))
-hello
-as.vector(hello)
+strings <- chunked_array(c("oh", "well", "whatever"))
+strings
+as.vector(strings)
 ```
 
-## Date/time types
+## Date types
+
+In R, dates are typically represented using the Date class. Internally a Date object is a numeric type whose value counts the number of days since the beginning of the unix epoch (1 January 1970). Arrow supplies two data types that can be used to represent dates: the date32 type and the date64 type. The date32 type is similar to the Date class in R: internally it stores a 32-bit integer that counts the number of days since 1 January 1970. The default in `arrow` is to translate R Date objects to Arrow date32 types:
+
+```{r}
+nirvana_album_dates <- as.Date(c("1989-06-15", "1991-09-24", "1993-09-13"))
+nirvana_album_dates
+nirvana_32 <- chunked_array(nirvana_album_dates, type = date32()) # default
+nirvana_32
+```
+
+Arrow also supplies a higher-precision date64 type, in which the date is represented as a 64-bit integer that encodes the number of *milliseconds* since 1970-01-01 00:00 UTC:
+
+```{r}
+nirvana_64 <- chunked_array(nirvana_album_dates, type = date64())
+nirvana_64
+```
+
+The translation from Arrow to R differs. Internally the date32 type is very similar to an R Date, so these objects are translated to R as Dates:
+
+```{r}
+class(as.vector(nirvana_32))
+```
+
+However, because date64 types are specified to millisecond-level precision, they are translated to R as POSIXct times to avoid the possibility of losing relevant information:
+
+```{r}
+class(as.vector(nirvana_64))
+```
+
+## Temporal/timestamp types
+
+In R there are two classes used to represent date and time information, POSIXct and POSIXlt. Arrow only has one: the timestamp type. Arrow timestamps are loosely analogous to the POSIXct class. Internally, a POSIXct object represents the date with as a numeric variable that stores the number of seconds since 1970-01-01 00:00 UTC. Internally, an Arrow timestamp is a 64-bit integer counting the number of milliseconds since 1970-01-01 00:00 UTC.
+
+Arrow and R both support timezone information, but display it differently in the printed object. In R, local time is printed with the timezone name adjacent to it:
+
+```{r}
+sydney_newyear <- as.POSIXct("2000-01-01 00:01", tz = "Australia/Sydney")
+sydney_newyear
+```
+
+When translated to Arrow, this POSIXct object becomes an Arrow timestamp object. When printed, however, the temporal instant is always displayed in UTC rather than local time:
+
+```{r}
+sydney_newyear_arrow <- chunked_array(sydney_newyear, type = timestamp())
+sydney_newyear_arrow
+```
+
+The timezone information is not lost, however, which we can easily see by translating the `sydney_newyear_arrow` object back to an R POSIXct object:
+
+```{r}
+as.vector(sydney_newyear_arrow)
+```
+
+For POSIXlt objects the behaviour is different. Internally a POSIXlt object is a list specifying the "local time" in terms of a variety of human-relevant fields. There is no analogous class to this in Arrow, so the default behaviour is to translate it to an Arrow list.
 
 ## Duration types
 
