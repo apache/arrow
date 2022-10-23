@@ -84,8 +84,25 @@ Using the same schematic notation as before, this is the structure of the object
 knitr::include_graphics("./array_layout_string.png")
 ```
 
+To understand the role of the offset buffer, it helps to note the format of the data buffer for a string array: it concatenates all strings end to end in one contiguous section of memory. For the `string_array` object, the contents of the data buffer would look like one long utf8-encoded string:
 
-**TODO: finish this**
+```
+helloamazingandcruelworld
+```
+
+Because individual strings can be of variable length, the role of the offset buffer is to specify where the boundaries between the slots are. The second slot in our array is the string `"amazing"`. If the positions in the data array are indexed like this
+
+|  h |  e |  l |  l |  o |  a |  m |  a |  z |  i |  n |  g |  a |  n |  d | ... |
+| -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | --- |
+|  0 |  1 |  2 |  3 |  4 |  5 |  6 |  7 |  8 |  9 | 10 | 11 | 12 | 13 | 14 | ... |
+
+then we can see that the string of interest begins at position 5 and ends at position 11. The offset buffer consists integers that store these break point locations. For `string_array` it might look like this:
+
+```
+0 5 12 15 20 25
+```
+
+The difference between the `utf8()` data type and the `large_utf8()` data type is that these the `utf8()` data type stores these as 32-bit integers whereas the `large_utf8()` type stores them as 64-bit integers.
 
 ## Chunked arrays
 
