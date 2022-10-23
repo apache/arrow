@@ -43,6 +43,7 @@ def _write_dummy_data_to_disk(tmpdir, file_name, table):
 def test_run_serialized_query(tmpdir):
     substrait_query = """
     {
+        "version": { "major": 9999 },
         "relations": [
         {"rel": {
             "read": {
@@ -116,6 +117,7 @@ def test_invalid_plan():
 def test_binary_conversion_with_json_options(tmpdir):
     substrait_query = """
     {
+        "version": { "major": 9999 },
         "relations": [
         {"rel": {
             "read": {
@@ -195,6 +197,7 @@ def test_named_table():
 
     substrait_query = """
     {
+        "version": { "major": 9999 },
         "relations": [
         {"rel": {
             "read": {
@@ -236,6 +239,7 @@ def test_named_table_invalid_table_name():
 
     substrait_query = """
     {
+        "version": { "major": 9999 },
         "relations": [
         {"rel": {
             "read": {
@@ -277,6 +281,7 @@ def test_named_table_empty_names():
 
     substrait_query = """
     {
+        "version": { "major": 9999 },
         "relations": [
         {"rel": {
             "read": {

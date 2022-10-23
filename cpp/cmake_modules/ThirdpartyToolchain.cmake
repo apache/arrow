@@ -666,6 +666,13 @@ else()
   endif()
 endif()
 
+# Remove these two lines once https://github.com/substrait-io/substrait/pull/342 merges
+set(ENV{ARROW_SUBSTRAIT_URL}
+    "https://github.com/substrait-io/substrait/archive/e59008b6b202f8af06c2266991161b1e45cb056a.tar.gz"
+)
+set(ARROW_SUBSTRAIT_BUILD_SHA256_CHECKSUM
+    "f64629cb377fcc62c9d3e8fe69fa6a4cf326f34d756e03db84843c5cce8d04cd")
+
 if(DEFINED ENV{ARROW_SUBSTRAIT_URL})
   set(SUBSTRAIT_SOURCE_URL "$ENV{ARROW_SUBSTRAIT_URL}")
 else()

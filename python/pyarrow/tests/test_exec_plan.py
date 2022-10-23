@@ -254,6 +254,9 @@ def test_filter_table(use_datasets):
 
 
 def test_filter_table_ordering():
+    pytest.skip(
+        "This is not the correct way to get an ordered filter." +
+        "Depends on proper ordered filtering")
     table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a'] * 4})
     table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b'] * 4})
     table = pa.concat_tables([table1, table2])

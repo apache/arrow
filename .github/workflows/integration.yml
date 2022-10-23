@@ -18,17 +18,6 @@
 name: Integration
 
 on:
-  push:
-    paths:
-      - '.github/workflows/integration.yml'
-      - 'ci/**'
-      - 'dev/archery/**'
-      - 'go/**'
-      - 'integration/**'
-      - 'js/**'
-      - 'cpp/**'
-      - 'java/**'
-      - 'format/**'
   pull_request:
     paths:
       - '.github/workflows/integration.yml'

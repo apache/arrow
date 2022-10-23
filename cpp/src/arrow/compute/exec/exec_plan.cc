@@ -48,8 +48,22 @@ namespace compute {
 
 namespace {
 
+std::unique_ptr<FunctionRegistry> kUninitializedFunctionRegistry =
+    FunctionRegistry::Make();
+class UninitializedExecutor : public ::arrow::internal::Executor {
+  int GetCapacity() override { return 0; }
+  Status SpawnReal(arrow::internal::TaskHints hints, FnOnce<void()> task, StopToken,
+                   StopCallback&&) override {
+    return Status::Invalid("Executor must not be used until plan has started");
+  }
+};
+UninitializedExecutor kUninitializedExecutor;
+
+ExecContext kUninitializedExecContext = ExecContext(
+    default_memory_pool(), &kUninitializedExecutor, kUninitializedFunctionRegistry.get());
+
 struct ExecPlanImpl : public ExecPlan {
-  explicit ExecPlanImpl(ExecContext* exec_context,
+  explicit ExecPlanImpl(ExecContext exec_context,
                         std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
       : ExecPlan(exec_context), metadata_(std::move(metadata)) {}
 
@@ -88,8 +102,8 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status ScheduleTask(std::function<Status()> fn) {
-    auto executor = exec_context_->executor();
-    if (!executor) return fn();
+    auto executor = exec_context_.executor();
+    DCHECK_NE(nullptr, executor);
     // Adds a task which submits fn to the executor and tracks its progress.  If we're
     // aborted then the task is ignored and fn is not executed.
     async_scheduler_->AddSimpleTask(
@@ -126,7 +140,10 @@ struct ExecPlanImpl : public ExecPlan {
     return Status::OK();
   }
 
-  Status StartProducing() {
+  Status StartProducing(::arrow::internal::Executor* executor) {
+    DCHECK_NE(nullptr, executor);
+    exec_context_ =
+        ExecContext(exec_context_.memory_pool(), executor, exec_context_.func_registry());
     START_COMPUTE_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
 #ifdef ARROW_WITH_OPENTELEMETRY
     if (HasMetadata()) {
@@ -155,12 +172,8 @@ struct ExecPlanImpl : public ExecPlan {
     });
 
     task_scheduler_->RegisterEnd();
-    int num_threads = 1;
-    bool sync_execution = true;
-    if (auto executor = exec_context()->executor()) {
-      num_threads = executor->GetCapacity();
-      sync_execution = false;
-    }
+    int num_threads = executor->GetCapacity();
+    bool sync_execution = num_threads == 1;
     RETURN_NOT_OK(task_scheduler_->StartScheduling(
         0 /* thread_index */,
         [this](std::function<Status(size_t)> fn) -> Status {
@@ -356,7 +369,9 @@ std::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
 const uint32_t ExecPlan::kMaxBatchSize;
 
 Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
-    ExecContext* ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
+    MemoryPool* memory_pool, FunctionRegistry* function_registry,
+    std::shared_ptr<const KeyValueMetadata> metadata) {
+  ExecContext ctx(memory_pool, &kUninitializedExecutor, function_registry);
   return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx, metadata});
 }
 
@@ -397,7 +412,9 @@ util::AsyncTaskScheduler* ExecPlan::async_scheduler() {
 
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
-Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
+Status ExecPlan::StartProducing(::arrow::internal::Executor* executor) {
+  return ToDerived(this)->StartProducing(executor);
+}
 
 void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
 
@@ -561,12 +578,11 @@ Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
                                                        ExecContext* exec_context) {
   std::shared_ptr<std::shared_ptr<Table>> output_table =
       std::make_shared<std::shared_ptr<Table>>();
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
-                        ExecPlan::Make(exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make());
   Declaration with_sink = Declaration::Sequence(
       {declaration, {"table_sink", TableSinkNodeOptions(output_table.get())}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
-  ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
+  ARROW_RETURN_NOT_OK(exec_plan->StartProducing(exec_context->executor()));
   return exec_plan->finished().Then([exec_plan, output_table] { return *output_table; });
 }
 
@@ -591,12 +607,11 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
 Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(Declaration declaration,
                                                              ExecContext* exec_context) {
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
-                        ExecPlan::Make(exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make());
   Declaration with_sink =
       Declaration::Sequence({declaration, {"sink", SinkNodeOptions(&sink_gen)}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
-  ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
+  ARROW_RETURN_NOT_OK(exec_plan->StartProducing(exec_context->executor()));
   auto collected_fut = CollectAsyncGenerator(sink_gen);
   return AllFinished({exec_plan->finished(), Future<>(collected_fut)})
       .Then([collected_fut, exec_plan]() -> Result<std::vector<ExecBatch>> {

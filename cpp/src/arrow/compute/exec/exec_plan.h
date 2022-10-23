@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/exec.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
@@ -49,11 +50,12 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   virtual ~ExecPlan() = default;
 
-  ExecContext* exec_context() const { return exec_context_; }
+  ExecContext* exec_context() { return &exec_context_; }
 
   /// Make an empty exec plan
   static Result<std::shared_ptr<ExecPlan>> Make(
-      ExecContext* = default_exec_context(),
+      MemoryPool* memory_pool = default_memory_pool(),
+      FunctionRegistry* function_registry = NULLPTR,
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
@@ -134,7 +136,8 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   ///
   /// Nodes are started in reverse topological order, such that any node
   /// is started before all of its inputs.
-  Status StartProducing();
+  Status StartProducing(
+      ::arrow::internal::Executor* executor = ::arrow::internal::GetCpuThreadPool());
 
   /// \brief Stop producing on all nodes
   ///
@@ -167,9 +170,9 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   std::string ToString() const;
 
  protected:
-  ExecContext* exec_context_;
+  ExecContext exec_context_;
   bool use_legacy_batching_ = false;
-  explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
+  explicit ExecPlan(ExecContext exec_context) : exec_context_(exec_context) {}
 };
 
 class ARROW_EXPORT ExecNode {

@@ -218,8 +218,7 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches,
                     const AsofJoinNodeOptions join_options) {
-  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
   Declaration join{"asofjoin", join_options};
 
@@ -235,7 +234,8 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                 .AddToPlan(plan.get()));
 
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+  ASSERT_FINISHES_OK_AND_ASSIGN(
+      auto res, StartAndCollect(plan.get(), sink_gen, /*use_threads=*/false));
   for (auto batch : res) {
     ASSERT_EQ(exp_batches.schema->num_fields(), batch.values.size());
   }
@@ -265,8 +265,7 @@ void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
                        const AsofJoinNodeOptions& join_options,
                        const std::string& expected_error_str,
                        bool fail_on_plan_creation = false) {
-  ExecContext exec_ctx;
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
   Declaration join{"asofjoin", join_options};
   join.inputs.emplace_back(Declaration{
@@ -278,9 +277,9 @@ void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
     AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                   .AddToPlan(plan.get()));
-    EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                                 ::testing::HasSubstr(expected_error_str),
-                                                 StartAndCollect(plan.get(), sink_gen));
+    EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr(expected_error_str),
+        StartAndCollect(plan.get(), sink_gen, /*use_threads=*/false));
   } else {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_error_str),
                                     join.AddToPlan(plan.get()));

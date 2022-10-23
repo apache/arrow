@@ -130,7 +130,7 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
     keys[i] = FieldRef(key_names[i]);
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(ctx));
+  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make());
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   RETURN_NOT_OK(
       Declaration::Sequence(
@@ -143,7 +143,7 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
           .AddToPlan(plan.get()));
 
   RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
+  RETURN_NOT_OK(plan->StartProducing(ctx->executor()));
 
   auto collected_fut = CollectAsyncGenerator(sink_gen);
 

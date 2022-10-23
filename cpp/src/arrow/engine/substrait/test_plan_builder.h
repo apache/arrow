@@ -27,6 +27,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -55,6 +56,7 @@ namespace internal {
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,
     const std::vector<std::string>& arguments,
+    const std::unordered_map<std::string, std::vector<std::string>>& options,
     const std::vector<std::shared_ptr<DataType>>& data_types,
     const DataType& output_type);
 

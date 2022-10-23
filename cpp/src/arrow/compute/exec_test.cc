@@ -47,7 +47,11 @@
 
 namespace arrow {
 
+using internal::BitmapEquals;
 using internal::checked_cast;
+using internal::CopyBitmap;
+using internal::CountSetBits;
+using internal::ThreadPool;
 
 namespace compute {
 namespace detail {
@@ -124,24 +128,23 @@ TEST(ExecContext, BasicWorkings) {
     ASSERT_EQ(GetFunctionRegistry(), ctx.func_registry());
     ASSERT_EQ(default_memory_pool(), ctx.memory_pool());
     ASSERT_EQ(std::numeric_limits<int64_t>::max(), ctx.exec_chunksize());
-
-    ASSERT_TRUE(ctx.use_threads());
+    ASSERT_EQ(::arrow::internal::GetCpuThreadPool(), ctx.executor());
     ASSERT_EQ(arrow::internal::CpuInfo::GetInstance(), ctx.cpu_info());
   }
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ThreadPool> thread_pool, ThreadPool::Make(1));
 
   // Now, let's customize all the things
   LoggingMemoryPool my_pool(default_memory_pool());
   std::unique_ptr<FunctionRegistry> custom_reg = FunctionRegistry::Make();
-  ExecContext ctx(&my_pool, /*executor=*/nullptr, custom_reg.get());
+  ExecContext ctx(&my_pool, /*executor=*/thread_pool.get(), custom_reg.get());
 
   ASSERT_EQ(custom_reg.get(), ctx.func_registry());
   ASSERT_EQ(&my_pool, ctx.memory_pool());
+  DCHECK_EQ(thread_pool.get(), ctx.executor());
 
   ctx.set_exec_chunksize(1 << 20);
   ASSERT_EQ(1 << 20, ctx.exec_chunksize());
-
-  ctx.set_use_threads(false);
-  ASSERT_FALSE(ctx.use_threads());
 }
 
 TEST(SelectionVector, Basics) {

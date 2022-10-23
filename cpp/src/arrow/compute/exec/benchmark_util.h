@@ -29,13 +29,11 @@ namespace arrow {
 
 namespace compute {
 
-Status BenchmarkNodeOverhead(benchmark::State& state, arrow::compute::ExecContext ctx,
-                             int32_t num_batches, int32_t batch_size,
-                             arrow::compute::BatchesWithSchema data,
+Status BenchmarkNodeOverhead(benchmark::State& state, int32_t num_batches,
+                             int32_t batch_size, arrow::compute::BatchesWithSchema data,
                              std::vector<arrow::compute::Declaration>& node_declarations);
 
 Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
-                                     arrow::compute::ExecContext ctx,
                                      arrow::compute::Expression expr, int32_t num_batches,
                                      int32_t batch_size,
                                      arrow::compute::BatchesWithSchema data,

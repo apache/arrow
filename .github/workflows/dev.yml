@@ -19,7 +19,6 @@ name: Dev
 
 on:
   # always trigger
-  push:
   pull_request:
 
 concurrency:

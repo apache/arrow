@@ -322,6 +322,7 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
   ASSERT_EQ(0, batches[0]->column(0)->null_count());
   auto dataset = std::make_shared<InMemoryDataset>(dataset_schema, batches);
   ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK(scanner_builder->UseThreads(true));
   ASSERT_OK(scanner_builder->Project(
       {compute::call("add", {compute::field_ref("a"), compute::literal(1)})},
       {"a_plus_one"}));
@@ -335,6 +336,7 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
   auto expected_schema = schema({field("a_plus_one", int64())});
   AssertSchemaEqual(*expected_schema, *written_dataset->schema());
   ASSERT_OK_AND_ASSIGN(scanner_builder, written_dataset->NewScan());
+  ASSERT_OK(scanner_builder->UseThreads(true));
   ASSERT_OK_AND_ASSIGN(scanner, scanner_builder->Finish());
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
   auto col = table->column(0);

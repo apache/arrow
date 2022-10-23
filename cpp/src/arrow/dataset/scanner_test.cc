@@ -1211,6 +1211,9 @@ TEST_P(TestScanner, CountRows) {
   const auto items_per_batch = GetParam().items_per_batch;
   const auto num_batches = GetParam().num_batches;
   const auto num_datasets = GetParam().num_child_datasets;
+  if (!GetParam().use_threads) {
+    GTEST_SKIP() << "CountRows requires threads";
+  }
   SetSchema({field("i32", int32()), field("f64", float64())});
   ArrayVector arrays(2);
   ArrayFromVector<Int32Type>(Iota<int32_t>(static_cast<int32_t>(items_per_batch)),
@@ -1295,6 +1298,9 @@ class ScanOnlyFragment : public InMemoryFragment {
 
 // Ensure the pipeline does not break on an empty batch
 TEST_P(TestScanner, CountRowsEmpty) {
+  if (!GetParam().use_threads) {
+    GTEST_SKIP() << "CountRows requires threads";
+  }
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto empty_batch = ConstantArrayGenerator::Zeroes(0, schema_);
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
@@ -1323,6 +1329,9 @@ class CountFailFragment : public InMemoryFragment {
   Future<std::optional<int64_t>> count;
 };
 TEST_P(TestScanner, CountRowsFailure) {
+  if (!GetParam().use_threads) {
+    GTEST_SKIP() << "CountRows requires threads";
+  }
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   RecordBatchVector batches = {batch};
@@ -1342,6 +1351,9 @@ TEST_P(TestScanner, CountRowsFailure) {
 }
 
 TEST_P(TestScanner, CountRowsWithMetadata) {
+  if (!GetParam().use_threads) {
+    GTEST_SKIP() << "CountRows requires threads";
+  }
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   RecordBatchVector batches = {batch, batch, batch, batch};
@@ -1871,28 +1883,6 @@ class TestBackpressure : public ::testing::Test {
   std::vector<std::shared_ptr<ControlledFragment>> controlled_fragments_;
 };
 
-TEST_F(TestBackpressure, ScanBatchesUnordered) {
-  // By forcing the plan to run on a single thread we know that the backpressure signal
-  // will make it down before we try and read the next item which gives us much more exact
-  // backpressure numbers
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, ::arrow::internal::ThreadPool::Make(1));
-  std::shared_ptr<Scanner> scanner = MakeScanner(thread_pool.get());
-  auto initial_scan_fut = DeferNotOk(thread_pool->Submit(
-      [&] { return scanner->ScanBatchesUnorderedAsync(thread_pool.get()); }));
-  ASSERT_FINISHES_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
-                                initial_scan_fut);
-  GetCpuThreadPool()->WaitForIdle();
-  // By this point the plan will have been created and started and filled up to max
-  // backpressure.  The exact measurement of "max backpressure" is a little hard to pin
-  // down but it is deterministic since we're only using one thread.
-  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
-  DeliverAdditionalBatches();
-  SleepABit();
-
-  ASSERT_LE(TotalBatchesRead(), kMaxBatchesRead);
-  Finish(std::move(gen));
-}
-
 TEST_F(TestBackpressure, ScanBatchesOrdered) {
   ASSERT_OK_AND_ASSIGN(auto thread_pool, ::arrow::internal::ThreadPool::Make(1));
   std::shared_ptr<Scanner> scanner = MakeScanner(nullptr);
@@ -2124,14 +2114,11 @@ TEST(ScanOptions, TestMaterializedFields) {
 
 namespace {
 struct TestPlan {
-  explicit TestPlan(compute::ExecContext* ctx = compute::default_exec_context())
-      : plan(compute::ExecPlan::Make(ctx).ValueOrDie()) {
-    internal::Initialize();
-  }
+  TestPlan() : plan(compute::ExecPlan::Make().ValueOrDie()) { internal::Initialize(); }
 
   Future<std::vector<compute::ExecBatch>> Run() {
     RETURN_NOT_OK(plan->Validate());
-    RETURN_NOT_OK(plan->StartProducing());
+    RETURN_NOT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
 
     auto collected_fut = CollectAsyncGenerator(sink_gen);
 
@@ -2499,7 +2486,7 @@ TEST(ScanNode, MinimalEndToEnd) {
   // predicate pushdown, a projection to skip materialization of unnecessary columns,
   // ...)
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(&exec_context));
+                       compute::ExecPlan::Make());
 
   std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
       TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
@@ -2559,7 +2546,7 @@ TEST(ScanNode, MinimalEndToEnd) {
       schema({field("a * 2", int32())}), std::move(sink_gen), exec_context.memory_pool());
 
   // start the ExecPlan
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
 
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
@@ -2586,9 +2573,6 @@ TEST(ScanNode, MinimalEndToEnd) {
 TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // NB: This test is here for didactic purposes
 
-  // Specify a MemoryPool and ThreadPool for the ExecPlan
-  compute::ExecContext exec_context(default_memory_pool(), GetCpuThreadPool());
-
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();
 
@@ -2597,7 +2581,7 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // predicate pushdown, a projection to skip materialization of unnecessary columns,
   // ...)
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(&exec_context));
+                       compute::ExecPlan::Make());
 
   std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
       TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
@@ -2658,12 +2642,11 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   ASSERT_THAT(plan->sinks(), ElementsAre(sink));
 
   // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<RecordBatchReader> sink_reader =
-      compute::MakeGeneratorReader(schema({field("a*2 sum", int64())}),
-                                   std::move(sink_gen), exec_context.memory_pool());
+  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      schema({field("a*2 sum", int64())}), std::move(sink_gen), default_memory_pool());
 
   // start the ExecPlan
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(::arrow::internal::GetCpuThreadPool()));
 
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
@@ -2681,9 +2664,6 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
 TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // NB: This test is here for didactic purposes
 
-  // Specify a MemoryPool and ThreadPool for the ExecPlan
-  compute::ExecContext exec_context(default_memory_pool(), GetCpuThreadPool());
-
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();
 
@@ -2692,7 +2672,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // predicate pushdown, a projection to skip materialization of unnecessary columns,
   // ...)
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(&exec_context));
+                       compute::ExecPlan::Make());
 
   std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
       TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
@@ -2753,10 +2733,10 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
       schema({field("sum(a * 2)", int64()), field("b", boolean())}), std::move(sink_gen),
-      exec_context.memory_pool());
+      default_memory_pool());
 
   // start the ExecPlan
-  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->StartProducing(GetCpuThreadPool()));
 
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
