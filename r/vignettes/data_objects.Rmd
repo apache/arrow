@@ -11,7 +11,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-This vignette describes the various data and metadata object types supplied by `arrow`, and documents how these objects are structured. 
+This vignette describes the various data object types supplied by `arrow`, and documents how these objects are structured. 
 
 ```{r include=FALSE}
 library(arrow, warn.conflicts = FALSE)
@@ -204,7 +204,7 @@ knitr::include_graphics("./table.png")
 
 
 
-## Further Reading 
+## Further reading 
 
 - To learn more about the internal structure of Arrays, see `vignette("data_object_layout", package = "arrow")`
 - To learn more about the different data types that can be represented in Arrow, see `vignette("data_types", package = "arrow")`

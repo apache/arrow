@@ -339,3 +339,11 @@ to string when translated to R if they are not already strings.
 with a `ptype` attribute set to what an empty Array of the value type converts to. 
 
 
+
+## Further reading 
+
+- To learn more how data types are specified through `schema()` metadata, see `vignette("metadata", package = "arrow")`.
+- For additional details on data types, see `help("data-type", package = "arrow")`.
+
+
+

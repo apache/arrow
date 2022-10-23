@@ -15,7 +15,7 @@ The `arrow` package provides a standard way to use Apache Arrow in R. It provide
 
 ## Package conventions
 
-The `arrow` R package builds on top of the Arrow C++ library, and C++ is an object oriented language. As a consequence, the core logic of the Arrow C++ library is encapsulated in classes and methods. In the `arrow` R package these are implemented as [`R6`](https://r6.r-lib.org) classes that all adopt "UpperCamelCase" naming conventions. Some examples of these include:
+The `arrow` R package builds on top of the Arrow C++ library, and C++ is an object oriented language. As a consequence, the core logic of the Arrow C++ library is encapsulated in classes and methods. In the `arrow` R package these are implemented as [`R6`](https://r6.r-lib.org) classes that all adopt "TitleCase" naming conventions. Some examples of these include:
 
 - Two-dimensional, tabular data structures such as `Table`, `RecordBatch`, and `Dataset`
 - One-dimensional, vector-like data structures such as `Array` and `ChunkedArray`
