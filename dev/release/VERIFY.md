@@ -51,6 +51,7 @@ You can install them by the followings on CentOS 7:
 
 ```console
 % sudo yum install -y gobject-introspection-devel git curl
+% cd /etc/pki/rpm-gpg
 % curl -O http://springdale.princeton.edu/data/springdale/7/x86_64/os/RPM-GPG-KEY-springdale
 % cd /etc/yum.repos.d
 % cat << EOF > Springdale-SCL.repo
@@ -61,13 +62,13 @@ gpgcheck=1
 enabled=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-springdale
 EOF
-% source scl_source enable devtoolset-9
+% source scl_source enable devtoolset-11
 % source scl_source enable llvm-toolset-13.0
 % git clone https://github.com/sstephenson/rbenv.git ~/.rbenv
 % git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build
 % echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
 % echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
-% exec ${SHELL} --login
+% source ~/.bash_profile
 % sudo yum install -y gcc make patch openssl-devel readline-devel zlib-devel
 % rbenv install 3.1.2
 % rbenv global 3.1.2
