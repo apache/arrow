@@ -47,21 +47,22 @@ yum -y install \
   java-11-openjdk-devel \
   libcurl-devel \
   libicu-devel \
+  libtool \
   llvm-toolset-13.0-* \
   maven \
   ncurses-devel \
   ninja-build \
-  openssl-devel \
-  rh-nodejs12 \
+  perl-core \
   rh-python36 \
   sqlite-devel \
+  tar \
   vala-devel \
   wget \
-  which
+  which \
+  zlib-devel
   
 source scl_source enable devtoolset-11
 source scl_source enable llvm-toolset-13.0
-npm install -g yarn
 git clone https://github.com/sstephenson/rbenv.git ~/.rbenv
 echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
 echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
@@ -74,6 +75,13 @@ alternatives --install /usr/local/bin/cmake cmake /usr/bin/cmake3 20 \
 --slave /usr/local/bin/cpack cpack /usr/bin/cpack3 \
 --slave /usr/local/bin/ccmake ccmake /usr/bin/ccmake3 \
 --family cmake
-scl enable rh-nodejs12 bash
 scl enable rh-python36 bash
 python -m pip install -U pip
+wget https://www.openssl.org/source/openssl-3.0.5.tar.gz
+tar -xf openssl-3.0.5.tar.gz
+cd openssl-3.0.5
+./config --prefix=/usr/local/openssl --openssldir=/usr/local/openssl
+make
+make install
+# The command below is needed when building Arrow, you may need to rexport
+export OPENSSL_ROOT_DIR=/usr/local/openssl
