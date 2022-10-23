@@ -47,11 +47,11 @@ class DefaultExtensionProvider : public ExtensionProvider {
       const std::vector<DeclarationInfo>& inputs,
       const arrow::substrait::AsOfJoinRel& as_of_join_rel, const ExtensionSet& ext_set) {
     if (inputs.size() < 2) {
-      return Status::Invalid("::substrait::AsOfJoinNode too few input tables: ",
+      return Status::Invalid("substrait::AsOfJoinNode too few input tables: ",
                              inputs.size());
     }
     if (static_cast<size_t>(as_of_join_rel.input_keys_size()) != inputs.size()) {
-      return Status::Invalid("::substrait::AsOfJoinNode mismatched number of inputs");
+      return Status::Invalid("substrait::AsOfJoinNode mismatched number of inputs");
     }
 
     size_t n_input = inputs.size(), i = 0;
@@ -59,12 +59,12 @@ class DefaultExtensionProvider : public ExtensionProvider {
     for (const auto& keys : as_of_join_rel.input_keys()) {
       // on-key
       if (!keys.has_on()) {
-        return Status::Invalid("::substrait::AsOfJoinNode missing on-key for input ", i);
+        return Status::Invalid("substrait::AsOfJoinNode missing on-key for input ", i);
       }
       ARROW_ASSIGN_OR_RAISE(auto on_key_expr, FromProto(keys.on(), ext_set, {}));
       if (on_key_expr.field_ref() == NULLPTR) {
         return Status::NotImplemented(
-            "::substrait::AsOfJoinNode non-field-ref on-key for input ", i);
+            "substrait::AsOfJoinNode non-field-ref on-key for input ", i);
       }
       const FieldRef& on_key = *on_key_expr.field_ref();
 
@@ -74,7 +74,7 @@ class DefaultExtensionProvider : public ExtensionProvider {
         ARROW_ASSIGN_OR_RAISE(auto by_key_expr, FromProto(by_item, ext_set, {}));
         if (by_key_expr.field_ref() == NULLPTR) {
           return Status::NotImplemented(
-              "::substrait::AsOfJoinNode non-field-ref by-key for input ", i);
+              "substrait::AsOfJoinNode non-field-ref by-key for input ", i);
         }
         by_key.push_back(*by_key_expr.field_ref());
       }

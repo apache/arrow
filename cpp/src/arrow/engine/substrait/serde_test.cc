@@ -2216,25 +2216,6 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
 }
 
-/// \brief Create a NamedTableProvider that provides `table` regardless of the name
-NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
-  return [table = std::move(table)](const std::vector<std::string>&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
-}
-
-NamedTableProvider ProvideMadeTable(
-    std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)> make) {
-  return [make](const std::vector<std::string>& names) -> Result<compute::Declaration> {
-    ARROW_ASSIGN_OR_RAISE(auto table, make(names));
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
-}
-
 TEST(Substrait, ProjectRel) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
@@ -3297,6 +3278,16 @@ TEST(Substrait, IsthmusPlan) {
   auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
   CheckRoundTripResult(std::move(test_schema), std::move(expected_table),
                        *compute::default_exec_context(), buf, {}, conversion_options);
+}
+
+NamedTableProvider ProvideMadeTable(
+    std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)> make) {
+  return [make](const std::vector<std::string>& names) -> Result<compute::Declaration> {
+    ARROW_ASSIGN_OR_RAISE(auto table, make(names));
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
 }
 
 TEST(Substrait, PlanWithExtension) {

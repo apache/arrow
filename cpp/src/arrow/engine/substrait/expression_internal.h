@@ -33,24 +33,25 @@ namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<compute::Expression> FromProto(const ::substrait::Expression&, const ExtensionSet&,
+Result<compute::Expression> FromProto(const substrait::Expression&, const ExtensionSet&,
                                       const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
-Result<std::unique_ptr<::substrait::Expression>> ToProto(const compute::Expression&,
-                                                         ExtensionSet*,
-                                                         const ConversionOptions&);
+Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression&,
+                                                       ExtensionSet*,
+                                                       const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
-Result<Datum> FromProto(const ::substrait::Expression::Literal&, const ExtensionSet&,
+Result<Datum> FromProto(const substrait::Expression::Literal&, const ExtensionSet&,
                         const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
-Result<std::unique_ptr<::substrait::Expression::Literal>> ToProto(
-    const Datum&, ExtensionSet*, const ConversionOptions&);
+Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(const Datum&,
+                                                                ExtensionSet*,
+                                                                const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
-Result<SubstraitCall> FromProto(const ::substrait::AggregateFunction&, bool is_hash,
+Result<SubstraitCall> FromProto(const substrait::AggregateFunction&, bool is_hash,
                                 const ExtensionSet&, const ConversionOptions&);
 
 }  // namespace engine
