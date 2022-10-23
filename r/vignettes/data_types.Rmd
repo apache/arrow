@@ -129,6 +129,30 @@ strings
 as.vector(strings)
 ```
 
+## Factor/dictionary types
+
+The analog of R factors in Arrow is the dictionary type. Factors translate to dictionaries and vice versa. To illustrate this, let's create a small factor object in R:
+
+```{r}
+fct <- factor(c("cat", "dog", "pig", "dog"))
+fct
+```
+
+When translated to Arrow, this is the dictionary that results:
+
+```{r}
+dict <- chunked_array(fct, type = dictionary())
+dict
+```
+
+When translated back to R, we recover the original factor:
+
+```{r}
+as.vector(dict)
+```
+
+Arrow dictionaries are slightly more flexible than R factors: values in a dictionary do not necessarily have to be strings, but labels in a factor do. As a consequence, non-string values in an Arrow dictionary are coerced to strings when translated to R.
+
 ## Date types
 
 In R, dates are typically represented using the Date class. Internally a Date object is a numeric type whose value counts the number of days since the beginning of the unix epoch (1 January 1970). Arrow supplies two data types that can be used to represent dates: the date32 type and the date64 type. The date32 type is similar to the Date class in R: internally it stores a 32-bit integer that counts the number of days since 1 January 1970. The default in `arrow` is to translate R Date objects to Arrow date32 types:
@@ -204,15 +228,30 @@ chunked_array(time_of_day, type = time64(unit = "us"))
 chunked_array(time_of_day, type = time64(unit = "ns"))
 ```
 
-All versions of time32 and time64 objects in Arrow translate to hms times in R.
+All versions of time32 and time64 objects in Arrow translate to hms times in R. 
 
 ## Duration types
 
+Lengths of time are represented as difftime objects in R. The analogous data type in Arrow is the duration type. A duration type is stored as a 64 bit integer, which can represent the number of seconds (the default, `unit = "s"`), milliseconds (`unit = "ms"`), microseconds (`unit = "us"`), or nanoseconds (`unit = "ns"`). To illustrate this we'll create a difftime in R corresponding to 278 seconds:
+
+```{r}
+len <- as.difftime(278, unit = "secs")
+len
+```
+
+The translation to Arrow looks like this:
+
+```{r}
+chunked_array(len, type = duration(unit = "s")) # default
+chunked_array(len, type = duration(unit = "ns"))
+```
+
+Regardless of the underlying unit, duration objects in Arrow translate to difftime objects in R. 
 
 
 ## List of default translations
 
-The discussion above covers the most common cases. The two tables in this section provide a more complete list of how `arrow` translates between R data types and Arrow data types.
+The discussion above covers the most common cases. The two tables in this section provide a more complete list of how `arrow` translates between R data types and Arrow data types. In these table, entries with a `-` are not currently implemented.
 
 ### Translations from R to Arrow
 
@@ -246,9 +285,6 @@ exists in base R
 to Arrow list type (which is a "list of" some type).
 
 ### Translations from Arrow to R
-
-In this table, entries with a `-` are not currently implemented.
-
 
 | Original Arrow type | R type after translation     |
 |---------------------|------------------------------|
