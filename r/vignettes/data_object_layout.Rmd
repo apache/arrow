@@ -32,7 +32,7 @@ integer_array
 We can inspect the `integer_array$type` attribute to see that the values in the Array are stored as signed 32 bit integers. When laid out in memory by the Arrow C++ library, an integer array consists of two pieces of metadata and two buffers that store the data. The metadata specify the length of the array and a count of the number of null values, both stored as 64-bit integers. These metadata can be viewed from R using `integer_array$length()` and `integer_array$null_count` respectively. The number of buffers associated with an array depends on the exact type of data being stored. For an integer array there are two: a "validity bitmap buffer" and a "data value buffer". Schematically we could depict the array as follows:
 
 ```{r, echo=FALSE, out.width="100%"}
-knitr::include_graphics("./array_layout.png")
+knitr::include_graphics("./array_layout_integer.png")
 ```
 
 This image shows the array as a rectangle subdivided into two parts, one for the metadata and the other for the buffers. Underneath the rectangle we've unpacked the contents of the buffers for you, showing the contents of the two buffers in the area enclosed in a dotted line. At the very bottom of the figure, you can see the contents of specific bytes.
@@ -71,12 +71,19 @@ Each integer occupies 4 bytes, as per the requirements of a 32-bit signed intege
 
 ## Offset buffer
 
-Some types of Arrow array include a third buffer known as the offset buffer. This is most frequently encountered in the context of string arrays.
+Some types of Arrow array include a third buffer known as the offset buffer. This is most frequently encountered in the context of string arrays, such as this one:
 
 ```{r}
 string_array <- Array$create(c("hello", "amazing", "and", "cruel", "world")) 
 string_array
 ```
+
+Using the same schematic notation as before, this is the structure of the object. It has the same metadata as before but as shown below, there are now three buffers:
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("./array_layout_string.png")
+```
+
 
 **TODO: finish this**
 
