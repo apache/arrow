@@ -3384,7 +3384,7 @@ TEST(Substrait, PlanWithExtension) {
             ],
             "detail": {
               "@type": "/arrow.substrait.AsOfJoinRel",
-              "input_keys" : [
+              "keys" : [
                 {
                   "on": {
                     "selection": {
