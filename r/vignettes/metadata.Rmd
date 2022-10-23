@@ -24,6 +24,36 @@ The `arrow` package defines the following classes for representing metadata:
 - A `Field` specifies a character string name and a `DataType`; and
 - A `DataType` is an attribute controlling how values are represented
 
+Consider this:
+
+```{r}
+df <- data.frame(x = 1:3, y = c("a", "b", "c"))
+tb <- arrow_table(df)
+tb$schema
+```
+
+The schema that has been automatically inferred could also be manually created:
+
+```{r}
+schema(
+  field(name = "x", type = int32()),
+  field(name = "y", type = utf8())
+)
+```
+
+The `schema()` function allows the following shorthand to define fields:
+
+```{r}
+schema(x = int32(), y = utf8())
+```
+
+Sometimes it is important to specify the schema manually, particularly if you want fine grained control over the Arrow data types:
+
+```{r}
+arrow_table(df, schema = schema(x = int64(), y = utf8()))
+arrow_table(df, schema = schema(x = float64(), y = utf8()))
+```
+
 
 ## R object attributes
 
@@ -48,6 +78,9 @@ tb$metadata$new_key <- "new value"
 
 Metadata attached to a Schema is preserved when writing the Table to Feather or Parquet. When reading those files into R, or when calling `as.data.frame()` on a Table or RecordBatch, the column attributes are restored to the columns of the resulting `data.frame`. This means that custom data types, including `haven::labelled`, `vctrs` annotations, and others, are preserved when doing a round-trip through Arrow.
 
-Note that the attributes stored in `$metadata$r` are only understood by R. If you write a `data.frame` with `haven` columns to a Feather file and read that in Pandas, the `haven` metadata won't be recognized there. Similarly, Pandas writes its own custom metadata, which the R package does not consume. You are free, however, to define custom metadata conventions for your application and assign any (string) values you want to other metadata keys. For more details, see the documentation for `schema()`.
+Note that the attributes stored in `$metadata$r` are only understood by R. If you write a `data.frame` with `haven` columns to a Feather file and read that in Pandas, the `haven` metadata won't be recognized there. Similarly, Pandas writes its own custom metadata, which the R package does not consume. You are free, however, to define custom metadata conventions for your application and assign any (string) values you want to other metadata keys. 
 
+## Further reading
 
+- To learn more about `arrow` metadata, see the documentation for `schema()`.
+- To learn more about data types, see `vignette("data_types", package = "arrow")`.
