@@ -43,7 +43,7 @@ using internal::UriFromAbsolutePath;
 
 namespace engine {
 
-using namespace ::substrait;
+namespace substrait = ::substrait;
 
 struct EmitInfo {
   std::vector<compute::Expression> expressions;

@@ -42,7 +42,7 @@
 namespace arrow {
 namespace engine {
 
-using namespace ::substrait;
+namespace substrait = ::substrait;
 
 Status ParseFromBufferImpl(const Buffer& buf, const std::string& full_name,
                            google::protobuf::Message* message) {

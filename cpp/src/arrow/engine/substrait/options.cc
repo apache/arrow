@@ -28,7 +28,7 @@
 namespace arrow {
 namespace engine {
 
-using namespace ::substrait;
+namespace substrait = ::substrait;
 
 class DefaultExtensionProvider : public ExtensionProvider {
  public:

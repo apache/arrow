@@ -31,7 +31,7 @@
 namespace arrow {
 namespace engine {
 
-using namespace ::substrait;
+namespace substrait = ::substrait;
 
 /// Information resulting from converting a Substrait relation.
 struct ARROW_ENGINE_EXPORT DeclarationInfo {

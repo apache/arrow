@@ -37,7 +37,7 @@ using internal::checked_cast;
 
 namespace engine {
 
-using namespace ::substrait;
+namespace substrait = ::substrait;
 
 namespace {
 

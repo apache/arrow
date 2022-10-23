@@ -31,7 +31,7 @@
 namespace arrow {
 namespace engine {
 
-using namespace ::substrait;
+namespace substrait = ::substrait;
 
 ARROW_ENGINE_EXPORT
 Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const substrait::Type&,

@@ -32,7 +32,7 @@
 namespace arrow {
 namespace engine {
 
-using namespace ::substrait;
+namespace substrait = ::substrait;
 
 ARROW_ENGINE_EXPORT
 Result<compute::Expression> FromProto(const substrait::Expression&, const ExtensionSet&,
