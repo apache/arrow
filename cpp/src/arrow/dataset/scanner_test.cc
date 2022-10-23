@@ -2157,7 +2157,10 @@ struct TestPlan {
         .Then([collected_fut]() -> Result<std::vector<compute::ExecBatch>> {
           ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
           return ::arrow::internal::MapVector(
-              [](std::optional<compute::ExecBatch> batch) { return std::move(*batch); },
+              [](std::optional<compute::ExecBatch> batch) {
+                return ARROW_PREDICT_TRUE(batch) ? std::move(*batch)
+                                                 : compute::ExecBatch();
+              },
               std::move(collected));
         });
   }
