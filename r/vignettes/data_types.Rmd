@@ -119,6 +119,16 @@ Though not natively used in R, decimal types can be useful in situations where i
 
 ## String/character types
 
+R uses a single character type to represent strings whereas Arrow has two types. In the Arrow C++ library these types are referred to as strings and large_strings, but to avoid ambiguity in the `arrow` R package they are defined using the `utf8()` and `large_utf8()` data type functions. The distinction between these two Arrow types is unlikely to be important for R users, though the difference is discussed in `vignette("data_object_layout", package = "arrow")`. 
+
+The default behaviour is to translate R character vectors to the utf8/string type, and to translate both Arrow types to R character vectors:
+
+```{r}
+hello <- chunked_array(c("hello", "cruel", "world"))
+hello
+as.vector(hello)
+```
+
 ## Date/time types
 
 ## Duration types

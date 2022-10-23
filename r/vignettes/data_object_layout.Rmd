@@ -29,7 +29,7 @@ integer_array <- Array$create(c(1L, NA, 2L, 4L, 8L))
 integer_array
 ```
 
-We can inspect the `integer_array$type` attribute to see that the values in the Array are stored as signed 32 bit integers. When laid out in memory by the Arrow C++ library, an integer array consists of two pieces of metadata and two buffers that store the data. The metadata specify the length of the array and a count of the number of null values, both stored as 64-bit integers. These metadata can be viewed from R using `integer_array$length()` and `integer_array$null_count` respectively. The number of buffers associated with an array depends on the exact type of data being stored. For an integer array there are two: te "validity bitmap buffer" and a "data value buffer". Schematically we could depict the array as follows:
+We can inspect the `integer_array$type` attribute to see that the values in the Array are stored as signed 32 bit integers. When laid out in memory by the Arrow C++ library, an integer array consists of two pieces of metadata and two buffers that store the data. The metadata specify the length of the array and a count of the number of null values, both stored as 64-bit integers. These metadata can be viewed from R using `integer_array$length()` and `integer_array$null_count` respectively. The number of buffers associated with an array depends on the exact type of data being stored. For an integer array there are two: a "validity bitmap buffer" and a "data value buffer". Schematically we could depict the array as follows:
 
 ```{r, echo=FALSE, out.width="100%"}
 knitr::include_graphics("./array_layout.png")
@@ -69,6 +69,16 @@ The data buffer, like the validity bitmap, is padded out to a length of 64 bytes
 
 Each integer occupies 4 bytes, as per the requirements of a 32-bit signed integer. Notice that the bytes associate with the missing value are left unspecified: space is allocated for the value but those bytes are not filled. 
 
+## Offset buffer
+
+Some types of Arrow array include a third buffer known as the offset buffer. This is most frequently encountered in the context of string arrays.
+
+```{r}
+string_array <- Array$create(c("hello", "amazing", "and", "cruel", "world")) 
+string_array
+```
+
+**TODO: finish this**
 
 ## Chunked arrays
 
