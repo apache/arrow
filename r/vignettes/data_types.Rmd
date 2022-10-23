@@ -34,29 +34,94 @@ Some of these differences are purely cosmetic: integers in R are in fact 32-bit 
 
 When the `arrow` package converts between R data and Arrow data, it will first check to see if a Schema has been provided -- see `schema()` for more information -- and if none is available it will attempt to guess the appropriate type by following the default mappings. A complete listing of these mappings is provided at the end of the vignette, but the most common cases are depicted in the illustration below:
 
-
 ```{r, echo=FALSE, out.width="100%"}
 knitr::include_graphics("./data_types.png")
 ```
 
 In this image, black boxes refer to R data types and light blue boxes refer to Arrow data types. Directional arrows specify conversions (e.g., the bidirectional arrow between the logical R type and the boolean Arrow type means that R logicals convert to Arrow booleans and vice versa). Solid lines indicate that the this conversion rule is always the default; dashed lines mean that it only sometimes applies (the rules and special cases are described below). 
 
+## Logical/boolean types
 
-## Data types in Arrow and R
+Arrow and R both use three-valued logic. In R, logical values can be `TRUE` or `FALSE`, with `NA` used to represent missing data. In Arrow, the corresponding boolean type can take values `true`, `false`, or `null`, as shown below:
 
+```{r}
+chunked_array(c(TRUE, FALSE, NA), type = boolean()) # default
+```
 
-### Logical/boolean types
+It is not strictly necessary to set `type = boolean()` in this example because the default behavior in `arrow` is to translate R logical vectors to Arrow booleans and vice versa. However, for the sake of clarity we will specify the data types explicitly throughout this vignette. We will likewise use `chunked_array()` to create Arrow data from R objects and `as.vector()` to create R data from Arrow objects, but similar results are obtained if we use other methods. 
 
-### Integer types
+## Integer types
 
-### Float and decimal types
+Base R natively supports only one type of integer, using 32 bits to represent signed numbers between -2147483648 and 2147483647, though R can also support 64 bit integers via the [`bit64`](https://cran.r-project.org/package=bit64) package. Arrow inherits signed and unsigned integer types from C++ in 8-bit, 16-bit, 32-bit, and 64-bit versions:
 
-### String/character types
+| Description     | Data Type Function | Smallest Value       |        Largest Value |
+| --------------- | -----------------: | -------------------: | -------------------: |
+| 8 bit unsigned  | `uint8()`          | 0                    |                  255 |
+| 16 bit unsigned | `uint16()`         | 0                    |                65535 |
+| 32 bit unsigned | `uint32()`         | 0                    |           4294967295 |
+| 64 bit unsigned | `uint64()`         | 0                    | 18446744073709551615 |
+| 8 bit signed    | `int8()`           | -128                 |                  127 |
+| 16 bit signed   | `int16()`          | -32768               |                32767 |
+| 32 bit signed   | `int32()`          | -2147483648          |           2147483647 |
+| 64 bit signed   | `int64()`          | -9223372036854775808 |  9223372036854775807 |
 
-### Date/time types
+By default, `arrow` translates R integers to the int32 type in Arrow, but you can override this by explicitly specifying another integer type:
 
-### Duration types
+```{r}
+chunked_array(c(10L, 3L, 200L), type = int32()) # default
+chunked_array(c(10L, 3L, 200L), type = int64())
+```
 
+If the value in R does not fall within the permissible range for the corresponding Arrow type, `arrow` throws an error:
+
+```{r, error=TRUE}
+chunked_array(c(10L, 3L, 200L), type = int8())
+```
+
+When translating from Arrow to R, integer types alway translate to R integers unless one of the following exceptions applies:
+
+- If the value of an Arrow uint32 or uint64 falls outside the range allowed for R integers, the result will be a numeric vector in R 
+- If the value of an Arrow int64 variable falls outside the range allowed for R integers, the result will be a `bit64::integer64` vector in R
+- If the user sets `options(arrow.int64_downcast = FALSE)`, the Arrow int64 type always yields a `bit64::integer64` vector in R regardless of the value
+
+## Floating point numeric types
+
+R has one double-precision (64-bit) numeric type, which translates to the Arrow 64-bit floating point type by default. Arrow supports both single-precision (32-bit) and double-precision (64-bit) floating point numbers, specified using the `float32()` and `float64()` data type functions. Both of these are translated to doubles in R. Examples are shown below:
+
+```{r}
+chunked_array(c(0.1, 0.2, 0.3), type = float64()) # default
+chunked_array(c(0.1, 0.2, 0.3), type = float32())
+
+arrow_double <- chunked_array(c(0.1, 0.2, 0.3), type = float64())
+as.vector(arrow_double)
+```
+
+Note that the Arrow specification also permits half-precision (16-bit) floating point numbers, but these have not yet been implemented. 
+
+## Fixed point decimal types
+
+Arrow also contains `decimal()` data types, in which numeric values are specified in decimal format rather than binary. Decimals in Arrow come in two varieties, a 128-bit version and a 256-bit version, but in most cases users should be able to use the more general `decimal()` data type function rather than the specific `decimal128()` and `decimal256()` functions. 
+
+The decimal types in Arrow are fixed-precision numbers (rather than floating-point), which means it is necessary to explicitly specify the `precision` and `scale` arguments:
+
+- `precision` specifies the number of significant digits to store.
+- `scale` specifies the number of digits that should be stored after the decimal point. If you set `scale = 2`, exactly two digits will be stored after the decimal point. If you set `scale = 0`, values will be rounded to the nearest whole number. Negative scales are also permitted (handy when dealing with extremely large numbers), so `scale = -2` stores the value to the nearest 100.
+
+Because R does not have any way to create decimal types natively, the example below is a little circuitous. First we create some floating point numbers as Chunked Arrays, and then explicitly cast these to decimal types within Arrow. This is possible because Chunked Array objects possess a `cast()` method:
+
+```{r}
+arrow_floating <- chunked_array(c(.01, .1, 1, 10, 100))
+arrow_decimals <- arrow_floating$cast(decimal(precision = 5, scale = 2))
+arrow_decimals
+```
+
+Though not natively used in R, decimal types can be useful in situations where it is especially important to avoid problems that arise in floating point arithmetic.
+
+## String/character types
+
+## Date/time types
+
+## Duration types
 
 
 
