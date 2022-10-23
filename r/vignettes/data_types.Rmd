@@ -185,6 +185,27 @@ as.vector(sydney_newyear_arrow)
 
 For POSIXlt objects the behaviour is different. Internally a POSIXlt object is a list specifying the "local time" in terms of a variety of human-relevant fields. There is no analogous class to this in Arrow, so the default behaviour is to translate it to an Arrow list.
 
+## Time of day types
+
+Base R does not have a class to represent the time of day independent of the date (i.e., it is not possible to specify "3pm" without referring to a specific day), but it can be done with the help of the [`hms`](https://hms.tidyverse.org/) package. Internally, hms objects are always stored as the number of seconds since 00:00:00. 
+
+Arrow has two data types for this purposes. For time32 types, data are stored as a 32-bit integer that is interpreted either as the number of seconds or the number of milliseconds since 00:00:00. Note the difference between the following:
+
+```{r}
+time_of_day <- hms::hms(56, 34, 12)
+chunked_array(time_of_day, type = time32(unit = "s"))
+chunked_array(time_of_day, type = time32(unit = "ms"))
+```
+
+A time64 object is similar, but stores the time of day using a 64-bit integer and can represent the time at higher precision. It is possible to choose microseconds (`unit = "us"`) or nanoseconds (`unit = "ns"`), as shown below:
+
+```{r}
+chunked_array(time_of_day, type = time64(unit = "us"))
+chunked_array(time_of_day, type = time64(unit = "ns"))
+```
+
+All versions of time32 and time64 objects in Arrow translate to hms times in R.
+
 ## Duration types
 
 
