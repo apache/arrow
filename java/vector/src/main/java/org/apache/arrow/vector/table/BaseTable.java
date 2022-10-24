@@ -258,7 +258,7 @@ public abstract class BaseTable implements AutoCloseable {
         return entry.getValue();
       }
     }
-    throw new IllegalStateException(String.format("No vector named '%s' is present in the table", columnName));
+    throw new IllegalArgumentException(String.format("No vector named '%s' is present in the table", columnName));
   }
 
   /**

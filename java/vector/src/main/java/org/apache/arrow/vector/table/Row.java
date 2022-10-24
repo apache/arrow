@@ -179,7 +179,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an object representing the value in the ExtensionTypeVector at the currentRow and vectorIndex. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if the type is incorrect.
    */
   public Object getExtensionType(int vectorIndex) {
@@ -189,7 +189,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an object representing the value in the named ExtensionTypeVector at the currentRow. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type.
    *
    * @param columnName The name of the vector providing the result
@@ -201,7 +201,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a Map from the column of the given vectorIndex at the current row. An IllegalStateException is
+   * Returns a Map from the column of the given vectorIndex at the current row. An IllegalArgumentException is
    * thrown if the column is not present in the Row and a ClassCastException is thrown if
    * it has a different type.
    */
@@ -211,7 +211,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a Map from the column of the given name at the current row. An IllegalStateException is
+   * Returns a Map from the column of the given name at the current row. An IllegalArgumentException is
    * thrown if the column is not present in the Row and a ClassCastException is thrown if
    * it has a different type
    */
@@ -222,7 +222,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an Object from the column at vectorIndex at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public Object getStruct(int vectorIndex) {
@@ -232,7 +232,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an Object from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public Object getStruct(String columnName) {
@@ -242,7 +242,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an Object from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public Object getUnion(int vectorIndex) {
@@ -252,7 +252,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an Object from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public Object getUnion(String columnName) {
@@ -262,7 +262,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an Object from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public Object getDenseUnion(String columnName) {
@@ -272,7 +272,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an Object from the column with the given vectorIndex at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public Object getDenseUnion(int vectorIndex) {
@@ -281,7 +281,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a List from the column of the given name at the current row. An IllegalStateException
+   * Returns a List from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present in the Row and a ClassCastException is thrown
    * if it has a different type
    */
@@ -292,7 +292,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a List from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present and a ClassCastException is
+   * IllegalArgumentException is thrown if the column is not present and a ClassCastException is
    * thrown if it has a different type
    */
   public List<?> getList(int columnIndex) {
@@ -301,7 +301,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns an int from the column of the given name at the current row. An IllegalStateException
+   * Returns an int from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present in the Row and a ClassCastException is thrown
    * if it has a different type
    */
@@ -312,7 +312,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an int from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present and a ClassCastException is
+   * IllegalArgumentException is thrown if the column is not present and a ClassCastException is
    * thrown if it has a different type
    */
   public int getInt(int columnIndex) {
@@ -322,7 +322,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public void getInt(String columnName, NullableIntHolder holder) {
@@ -332,7 +332,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present and a ClassCastException is
+   * IllegalArgumentException is thrown if the column is not present and a ClassCastException is
    * thrown if it has a different type
    */
   public void getInt(int columnIndex, NullableIntHolder holder) {
@@ -341,7 +341,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns an int from the column of the given name at the current row. An IllegalStateException
+   * Returns an int from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present in the Row and a ClassCastException is thrown
    * if it has a different type
    */
@@ -352,7 +352,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an int from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present and a ClassCastException is
+   * IllegalArgumentException is thrown if the column is not present and a ClassCastException is
    * thrown if it has a different type
    */
   public int getUInt4(int columnIndex) {
@@ -362,7 +362,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value at the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public void getUInt4(String columnName, NullableUInt4Holder holder) {
@@ -372,7 +372,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value at the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present and a ClassCastException is
+   * IllegalArgumentException is thrown if the column is not present and a ClassCastException is
    * thrown if it has a different type
    */
   public void getUInt4(int columnIndex, NullableUInt4Holder holder) {
@@ -381,7 +381,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a short from the column of the given name at the current row. An IllegalStateException
+   * Returns a short from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -392,7 +392,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a short from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public short getSmallInt(int columnIndex) {
@@ -402,7 +402,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getSmallInt(String columnName, NullableSmallIntHolder holder) {
@@ -412,7 +412,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getSmallInt(int columnIndex, NullableSmallIntHolder holder) {
@@ -421,7 +421,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a char from the column of the given name at the current row. An IllegalStateException
+   * Returns a char from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -432,7 +432,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a char from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public char getUInt2(int columnIndex) {
@@ -442,7 +442,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getUInt2(String columnName, NullableUInt2Holder holder) {
@@ -452,7 +452,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getUInt2(int columnIndex, NullableUInt2Holder holder) {
@@ -461,7 +461,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a byte from the column of the given name at the current row. An IllegalStateException
+   * Returns a byte from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -472,7 +472,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a byte from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public byte getTinyInt(int columnIndex) {
@@ -482,7 +482,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTinyInt(String columnName, NullableTinyIntHolder holder) {
@@ -492,7 +492,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column at the given index and current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTinyInt(int columnIndex, NullableTinyIntHolder holder) {
@@ -501,7 +501,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a byte from the column of the given name at the current row. An IllegalStateException
+   * Returns a byte from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -512,7 +512,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a byte from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public byte getUInt1(int columnIndex) {
@@ -522,7 +522,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getUInt1(String columnName, NullableUInt1Holder holder) {
@@ -532,7 +532,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getUInt1(int columnIndex, NullableUInt1Holder holder) {
@@ -541,7 +541,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -552,7 +552,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getBigInt(int columnIndex) {
@@ -562,7 +562,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getBigInt(String columnName, NullableBigIntHolder holder) {
@@ -572,7 +572,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getBigInt(int columnIndex, NullableBigIntHolder holder) {
@@ -581,7 +581,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -592,7 +592,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getUInt8(int columnIndex) {
@@ -602,7 +602,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getUInt8(String columnName, NullableUInt8Holder holder) {
@@ -612,7 +612,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getUInt8(int columnIndex, NullableUInt8Holder holder) {
@@ -621,7 +621,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a float from the column of the given name at the current row. An IllegalStateException
+   * Returns a float from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -632,7 +632,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a float from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public float getFloat4(int columnIndex) {
@@ -642,7 +642,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getFloat4(String columnName, NullableFloat4Holder holder) {
@@ -652,7 +652,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getFloat4(int columnIndex, NullableFloat4Holder holder) {
@@ -661,7 +661,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a double from the column of the given name at the current row. An IllegalStateException
+   * Returns a double from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -672,7 +672,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a double from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public double getFloat8(int columnIndex) {
@@ -682,7 +682,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row.
-   * An IllegalStateException is thrown if the column is not present, and a ClassCastException is thrown
+   * An IllegalArgumentException is thrown if the column is not present, and a ClassCastException is thrown
    * if it is present but has a different type
    */
   public void getFloat8(String columnName, NullableFloat8Holder holder) {
@@ -692,7 +692,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getFloat8(int columnIndex, NullableFloat8Holder holder) {
@@ -702,7 +702,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an int from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public int getBit(String columnName) {
@@ -712,7 +712,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an int from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public int getBit(int columnIndex) {
@@ -722,7 +722,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getBit(String columnName, NullableBitHolder holder) {
@@ -732,7 +732,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getBit(int columnIndex, NullableBitHolder holder) {
@@ -741,7 +741,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -752,7 +752,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getTimeNano(int columnIndex) {
@@ -762,7 +762,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given name at the current row.
-   * An IllegalStateException is thrown if the column is not present, and a ClassCastException is thrown
+   * An IllegalArgumentException is thrown if the column is not present, and a ClassCastException is thrown
    * if it is present but has a different type
    */
   public void getTimeNano(String columnName, NullableTimeNanoHolder holder) {
@@ -772,7 +772,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value in the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type.
    */
   public void getTimeNano(int columnIndex, NullableTimeNanoHolder holder) {
@@ -781,7 +781,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type.
    */
@@ -792,7 +792,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type.
    */
   public long getTimeMicro(int columnIndex) {
@@ -802,7 +802,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row.
-   * An IllegalStateException is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * An IllegalArgumentException is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type.
    */
   public void getTimeMicro(String columnName, NullableTimeMicroHolder holder) {
@@ -812,7 +812,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type.
    */
   public void getTimeMicro(int columnIndex, NullableTimeMicroHolder holder) {
@@ -821,7 +821,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns an int from the column of the given name at the current row. An IllegalStateException
+   * Returns an int from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type.
    */
@@ -832,7 +832,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an int from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type.
    */
   public int getTimeMilli(int columnIndex) {
@@ -842,7 +842,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row.
-   * An IllegalStateException is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * An IllegalArgumentException is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type.
    */
   public void getTimeMilli(String columnName, NullableTimeMilliHolder holder) {
@@ -852,7 +852,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type.
    */
   public void getTimeMilli(int columnIndex, NullableTimeMilliHolder holder) {
@@ -861,7 +861,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a LocalDateTime from the column of the given name at the current row. An IllegalStateException
+   * Returns a LocalDateTime from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type.
    */
@@ -872,7 +872,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a LocalDateTime from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type.
    */
   public LocalDateTime getTimeMilliObj(int columnIndex) {
@@ -881,7 +881,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns an int from the column of the given name at the current row. An IllegalStateException
+   * Returns an int from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type.
    */
@@ -892,7 +892,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an int from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type.
    */
   public int getTimeSec(int columnIndex) {
@@ -902,7 +902,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row.
-   * An IllegalStateException is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * An IllegalArgumentException is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type.
    */
   public void getTimeSec(String columnName, NullableTimeSecHolder holder) {
@@ -912,7 +912,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type.
    */
   public void getTimeSec(int columnIndex, NullableTimeSecHolder holder) {
@@ -921,7 +921,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type.
    */
@@ -932,7 +932,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getTimeStampSec(int columnIndex) {
@@ -942,7 +942,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row.
-   * An IllegalStateException is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * An IllegalArgumentException is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
   public void getTimeStampSec(String columnName, NullableTimeStampSecHolder holder) {
@@ -952,7 +952,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTimeStampSec(int columnIndex, NullableTimeStampSecHolder holder) {
@@ -961,7 +961,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a LocalDateTime from the column of the given name at the current row. An IllegalStateException
+   * Returns a LocalDateTime from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -972,7 +972,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a LocalDateTime from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public LocalDateTime getTimeStampSecObj(int columnIndex) {
@@ -982,7 +982,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row.
-   * An IllegalStateException is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * An IllegalArgumentException is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
   public long getTimeStampSecTZ(String columnName) {
@@ -992,7 +992,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getTimeStampSecTZ(int columnIndex) {
@@ -1002,7 +1002,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row.
-   * An IllegalStateException is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * An IllegalArgumentException is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
   public void getTimeStampSecTZ(String columnName, NullableTimeStampSecTZHolder holder) {
@@ -1012,7 +1012,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row.
-   * An IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * An IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTimeStampSecTZ(int columnIndex, NullableTimeStampSecTZHolder holder) {
@@ -1021,7 +1021,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1032,7 +1032,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getTimeStampNano(int columnIndex) {
@@ -1041,7 +1041,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Updates the holder with the value from the column of the given name at the current row. An IllegalStateException
+   * Updates the holder with the value from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1052,7 +1052,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTimeStampNano(int columnIndex, NullableTimeStampNanoHolder holder) {
@@ -1062,7 +1062,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a LocalDateTime from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public LocalDateTime getTimeStampNanoObj(String columnName) {
@@ -1072,7 +1072,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a LocalDateTime from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public LocalDateTime getTimeStampNanoObj(int columnIndex) {
@@ -1081,7 +1081,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1092,7 +1092,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getTimeStampNanoTZ(int columnIndex) {
@@ -1101,7 +1101,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Updates the holder with the value from the column of the given name at the current row. An IllegalStateException
+   * Updates the holder with the value from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1112,7 +1112,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTimeStampNanoTZ(int columnIndex, NullableTimeStampNanoTZHolder holder) {
@@ -1121,7 +1121,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1132,7 +1132,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getTimeStampMilli(int columnIndex) {
@@ -1141,7 +1141,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Updates the holder with the value from the column of the given name at the current row. An IllegalStateException
+   * Updates the holder with the value from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1152,7 +1152,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTimeStampMilli(int columnIndex, NullableTimeStampMilliHolder holder) {
@@ -1162,7 +1162,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a LocalDateTime from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public LocalDateTime getTimeStampMilliObj(String columnName) {
@@ -1172,7 +1172,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a LocalDateTime from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public LocalDateTime getTimeStampMilliObj(int columnIndex) {
@@ -1181,7 +1181,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1192,7 +1192,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getTimeStampMilliTZ(int columnIndex) {
@@ -1201,7 +1201,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Updates the holder with the value from the column of the given name at the current row. An IllegalStateException
+   * Updates the holder with the value from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different types
    */
@@ -1212,7 +1212,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTimeStampMilliTZ(int columnIndex, NullableTimeStampMilliTZHolder holder) {
@@ -1221,7 +1221,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1232,7 +1232,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getTimeStampMicro(int columnIndex) {
@@ -1241,7 +1241,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Updates the holder with the value from the column of the given name at the current row. An IllegalStateException
+   * Updates the holder with the value from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1252,7 +1252,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTimeStampMicro(int columnIndex, NullableTimeStampMicroHolder holder) {
@@ -1262,7 +1262,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a LocalDateTime from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public LocalDateTime getTimeStampMicroObj(String columnName) {
@@ -1272,7 +1272,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a LocalDateTime from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public LocalDateTime getTimeStampMicroObj(int columnIndex) {
@@ -1281,7 +1281,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a long from the column of the given name at the current row. An IllegalStateException
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1292,7 +1292,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a long from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public long getTimeStampMicroTZ(int columnIndex) {
@@ -1301,7 +1301,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Updates the holder with the value from the column of the given name at the current row. An IllegalStateException
+   * Updates the holder with the value from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1312,7 +1312,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getTimeStampMicroTZ(int columnIndex, NullableTimeStampMicroTZHolder holder) {
@@ -1322,7 +1322,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a Duration from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public Duration getDurationObj(String columnName) {
@@ -1332,7 +1332,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a Duration from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public Duration getDurationObj(int columnIndex) {
@@ -1342,7 +1342,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an ArrowBuf from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public ArrowBuf getDuration(String columnName) {
@@ -1352,7 +1352,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an ArrowBuf from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public ArrowBuf getDuration(int columnIndex) {
@@ -1362,7 +1362,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getDuration(String columnName, NullableDurationHolder holder) {
@@ -1372,7 +1372,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getDuration(int columnIndex, NullableDurationHolder holder) {
@@ -1382,7 +1382,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a PeriodDuration from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public PeriodDuration getIntervalMonthDayNanoObj(String columnName) {
@@ -1392,7 +1392,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a PeriodDuration from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public PeriodDuration getIntervalMonthDayNanoObj(int columnIndex) {
@@ -1402,7 +1402,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an ArrowBuf from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public ArrowBuf getIntervalMonthDayNano(String columnName) {
@@ -1412,7 +1412,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an ArrowBuf from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public ArrowBuf getIntervalMonthDayNano(int columnIndex) {
@@ -1422,7 +1422,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getIntervalMonthDayNano(
@@ -1433,7 +1433,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getIntervalMonthDayNano(int columnIndex, NullableIntervalMonthDayNanoHolder holder) {
@@ -1443,7 +1443,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an ArrowBuf from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public ArrowBuf getIntervalDay(String columnName) {
@@ -1453,7 +1453,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an ArrowBuf from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public ArrowBuf getIntervalDay(int columnIndex) {
@@ -1463,7 +1463,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getIntervalDay(String columnName, NullableIntervalDayHolder holder) {
@@ -1473,7 +1473,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getIntervalDay(int columnIndex, NullableIntervalDayHolder holder) {
@@ -1483,7 +1483,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a Duration from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public Duration getIntervalDayObj(int columnIndex) {
@@ -1493,7 +1493,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a Duration from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public Duration getIntervalDayObj(String columnName) {
@@ -1502,7 +1502,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a Period from the column of the given name at the current row. An IllegalStateException
+   * Returns a Period from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1513,7 +1513,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a Period from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public Period getIntervalYearObj(int columnIndex) {
@@ -1522,7 +1522,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns an int from the column of the given name at the current row. An IllegalStateException
+   * Returns an int from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1533,7 +1533,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an int from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public int getIntervalYear(int columnIndex) {
@@ -1543,7 +1543,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getIntervalYear(String columnName, NullableIntervalYearHolder holder) {
@@ -1553,7 +1553,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the holder with the value from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getIntervalYear(int columnIndex, NullableIntervalYearHolder holder) {
@@ -1563,7 +1563,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the value of the holder with data from vector at the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getDecimal(int columnIndex, NullableDecimalHolder holder) {
@@ -1573,7 +1573,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Updates the value of the holder with data from the vector with given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public void getDecimal(String columnName, NullableDecimalHolder holder) {
@@ -1583,7 +1583,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a BigDecimal from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public BigDecimal getDecimalObj(String columnName) {
@@ -1593,7 +1593,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a BigDecimal from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public BigDecimal getDecimalObj(int columnIndex) {
@@ -1603,7 +1603,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an ArrowBuf from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public ArrowBuf getDecimal(String columnName) {
@@ -1613,7 +1613,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns an ArrowBuf from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public ArrowBuf getDecimal(int columnIndex) {
@@ -1622,7 +1622,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a byte[] from the column of the given name at the current row. An IllegalStateException
+   * Returns a byte[] from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1633,7 +1633,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a byte[] from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public byte[] getVarBinary(int columnIndex) {
@@ -1642,7 +1642,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a byte[] from the column of the given name at the current row. An IllegalStateException
+   * Returns a byte[] from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1653,7 +1653,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a byte[] from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public byte[] getFixedSizeBinary(int columnIndex) {
@@ -1662,7 +1662,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a byte[] from the column of the given name at the current row. An IllegalStateException
+   * Returns a byte[] from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
    */
@@ -1673,7 +1673,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a byte[] from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present, and a ClassCastException
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
    */
   public byte[] getLargeVarBinary(int columnIndex) {
@@ -1682,7 +1682,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a String from the column of the given name at the current row. An IllegalStateException
+   * Returns a String from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present in the Row and a ClassCastException is thrown
    * if it has a different type
    *
@@ -1695,7 +1695,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a String from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    *
    * @param columnIndex the index of the FieldVector holding the value
@@ -1706,7 +1706,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a byte[] from the column of the given name at the current row. An IllegalStateException
+   * Returns a byte[] from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present in the Row and a ClassCastException is thrown
    * if it has a different type
    *
@@ -1719,7 +1719,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a byte[] from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    *
    * @param columnIndex the index of the FieldVector holding the value
@@ -1730,7 +1730,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a String from the column of the given name at the current row. An IllegalStateException
+   * Returns a String from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present in the Row and a ClassCastException is thrown
    * if it has a different type
    *
@@ -1744,7 +1744,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a String from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public String getLargeVarCharObj(int columnIndex) {
@@ -1753,7 +1753,7 @@ public class Row implements Iterator<Row> {
   }
 
   /**
-   * Returns a byte[] from the column of the given name at the current row. An IllegalStateException
+   * Returns a byte[] from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present in the Row and a ClassCastException is thrown
    * if it has a different type
    *
@@ -1767,7 +1767,7 @@ public class Row implements Iterator<Row> {
 
   /**
    * Returns a byte[] from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
+   * IllegalArgumentException is thrown if the column is not present in the Row and a
    * ClassCastException is thrown if it has a different type
    */
   public byte[] getLargeVarChar(int columnIndex) {
