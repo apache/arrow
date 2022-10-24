@@ -36,7 +36,13 @@ jobs:
             -e ARROW_JAVA_TEST=OFF \
             java-jni-manylinux-2014
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
+        run: |
+          mkdir -p /tmp/arrow/java-dist/x86_64
+          cp arrow/java-dist/*.* /tmp/arrow/java-dist/x86_64/
+          pushd /tmp/
+          tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/x86_64/
+          popd
+          mv /tmp/arrow-shared-libs-linux.tar.gz .
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -161,11 +167,11 @@ jobs:
       - name: Test that shared libraries exist
         run: |
           set -x
-          test -f arrow/java-dist/libarrow_orc_jni.so
-          test -f arrow/java-dist/libarrow_cdata_jni.so
-          test -f arrow/java-dist/libgandiva_jni.so
-          test -f arrow/java-dist/libarrow_dataset_jni.so
-          test -f arrow/java-dist/libplasma_java.so
+          test -f arrow/java-dist/x86_64/libarrow_orc_jni.so
+          test -f arrow/java-dist/x86_64/libarrow_cdata_jni.so
+          test -f arrow/java-dist/x86_64/libgandiva_jni.so
+          test -f arrow/java-dist/x86_64/libarrow_dataset_jni.so
+          test -f arrow/java-dist/x86_64/libplasma_java.so
           test -f arrow/java-dist/x86_64/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/x86_64/libplasma_java.dylib
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.dylib
