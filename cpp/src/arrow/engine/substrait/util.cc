@@ -67,11 +67,11 @@ class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
 /// bindings for consuming a Substrait plan.
 class SubstraitExecutor {
  public:
-  explicit SubstraitExecutor(std::shared_ptr<compute::ExecPlan>& plan,
+  explicit SubstraitExecutor(std::shared_ptr<compute::ExecPlan> plan,
                              compute::ExecContext* exec_context,
                              const ConversionOptions& conversion_options = {},
                              bool handle_backpressure = false)
-      : plan_(plan),
+      : plan_(std::move(plan)),
         plan_started_(false),
         exec_context_(exec_context),
         conversion_options_(conversion_options),
@@ -146,25 +146,19 @@ class SubstraitExecutor {
 }  // namespace
 
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry,
+    const Buffer& substrait_buffer, const bool handle_backpressure,
+    std::shared_ptr<compute::ExecPlan> plan, compute::ExecContext* exec_context,
+    const ExtensionIdRegistry* registry, 
     compute::FunctionRegistry* func_registry,
     const ConversionOptions& conversion_options) {
-  compute::ExecContext exec_context(arrow::default_memory_pool(),
+  if (!exec_context) {
+    exec_context = new compute::ExecContext(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool(), func_registry);
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
-  SubstraitExecutor executor(plan, &exec_context, conversion_options);
-  RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
-  ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
-  // check closing here, not in destructor, to expose error to caller
-  RETURN_NOT_OK(executor.Close());
-  return sink_reader;
-}
-
-Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlanWithBackPressure(
-    std::shared_ptr<compute::ExecPlan>& plan, compute::ExecContext* exec_context,
-    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry,
-    const ConversionOptions& conversion_options) {
-  SubstraitExecutor executor(plan, exec_context, conversion_options, true);
+  }
+  if (plan == nullptr) {
+    ARROW_ASSIGN_OR_RAISE(plan, compute::ExecPlan::Make(exec_context));
+  }
+  SubstraitExecutor executor(std::move(plan), exec_context, conversion_options, handle_backpressure);
   RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   // check closing here, not in destructor, to expose error to caller

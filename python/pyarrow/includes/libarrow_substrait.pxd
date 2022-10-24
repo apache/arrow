@@ -19,6 +19,8 @@
 
 from libcpp.vector cimport vector as std_vector
 
+from libcpp cimport bool as c_bool
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
@@ -50,7 +52,12 @@ cdef extern from "arrow/engine/substrait/extension_set.h" \
 
 cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
     CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(
-        const CBuffer& substrait_buffer, const ExtensionIdRegistry* registry,
-        CFunctionRegistry* func_registry, const CConversionOptions& conversion_options)
+        const CBuffer& substrait_buffer,
+        const c_bool handle_backpressure,
+        shared_ptr[CExecPlan] plan,
+        CExecContext* c_exec_context,
+        const ExtensionIdRegistry* registry,
+        CFunctionRegistry* func_registry,
+        const CConversionOptions& conversion_options)
 
     CResult[shared_ptr[CBuffer]] SerializeJsonPlan(const c_string& substrait_json)
