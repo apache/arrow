@@ -27,8 +27,6 @@ tasks. It allows users to read and write data in a variety formats:
 -   Read and write CSV files with excellent speed and efficiency
 -   Read and write multi-file larger-than-memory datasets
 -   Read JSON files
--   Read large CSV and JSON files with excellent speed and
-    efficiency
 
 It provides data analysis tools for both in-memory and larger-than-memory data sets
 
@@ -91,11 +89,11 @@ this does not affect users who are installing a binary version of the package.
 need to install nightly builds, but if you do please see 
 `vignette("install_nightly", package = "arrow")` for more information.
 
+## Arrow resources 
 
+In addition to the official [Arrow R package documentation](https://arrow.apache.org/docs/r/), the [Arrow for R cheatsheet](https://github.com/apache/arrow/blob/-/r/cheatsheet/arrow-cheatsheet.pdf), and the [Apache Arrow R Cookbook](https://arrow.apache.org/cookbook/r/index.html) are useful resources for getting started with `arrow`.
 
 ## Getting help
-
-The Arrow for R [cheatsheet](https://github.com/apache/arrow/blob/-/r/cheatsheet/arrow-cheatsheet.pdf) and [Cookbook](https://arrow.apache.org/cookbook/r/index.html) are additional resources for getting started with `arrow`.
 
 If you encounter a bug, please file an issue with a minimal reproducible
 example on the [Apache Jira issue
@@ -113,6 +111,6 @@ We welcome questions, discussion, and contributions from users of the
 for engaging with the Arrow developer and user communities, please see
 the [Apache Arrow Community](https://arrow.apache.org/community/) page.
 
-All participation in the Apache Arrow project is governed by the Apache
-Software Foundation’s [code of
+Please note that all participation in the Apache Arrow project is 
+governed by the Apache Software Foundation's [code of
 conduct](https://www.apache.org/foundation/policies/conduct.html).
