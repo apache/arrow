@@ -487,8 +487,8 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
-      <<: [*sccache, *ccache]
     environment:
+      <<: [*sccache, *ccache]
       ARROW_BUILD_UTILITIES: "OFF"
       ARROW_COMPUTE: "OFF"
       ARROW_CSV: "OFF"
