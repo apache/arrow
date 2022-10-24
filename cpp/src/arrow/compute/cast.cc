@@ -97,14 +97,14 @@ class CastMetaFunction : public MetaFunction {
     ARROW_ASSIGN_OR_RAISE(auto cast_options, ValidateOptions(options));
     // args[0].type() could be a nullptr so check for that before
     // we do anything with it.
-    if (args[0].type() && args[0].type()->Equals(*cast_options->to_type)) {
+    if (args[0].type() &&
+        args[0].type()->Equals(*cast_options->to_type, /*check_metadata=*/false,
+                               /*check_internal_field_names=*/false)) {
       // Nested types might differ in field names but still be considered equal,
       // so we can only return non-nested types as-is.
       if (!is_nested(args[0].type()->id())) {
         return args[0];
       } else if (args[0].is_array()) {
-        // TODO(ARROW-14999): if types are equal except for field names of list
-        // types, we can also use this code path.
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array,
                               ::arrow::internal::GetArrayView(
                                   args[0].array(), cast_options->to_type.owned_type));
