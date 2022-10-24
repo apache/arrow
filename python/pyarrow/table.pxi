@@ -5282,7 +5282,7 @@ class TableGroupBy:
 list[tuple(str, str, FunctionOptions)]
             List of tuples made of aggregation column names followed
             by function names and optionally aggregation function options.
-            Pass empty list to imitate drop_duplicates pandas function.
+            Pass empty list to get a single row for each group.
 
         Returns
         -------
