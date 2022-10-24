@@ -38,7 +38,7 @@ the latest nightly development version as follows:
 arrow::install_arrow(nightly = TRUE)
 ```
 
-## Install from git repo
+## Install from git repository
 
 An alternative way to obtain a development versions is to install the R package from a git checkout. To do so, type the following at the terminal:
 
