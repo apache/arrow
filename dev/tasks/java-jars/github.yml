@@ -85,9 +85,9 @@ jobs:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           set -e
-          # make brew java available to cmake
+          # make brew Java available to CMake
           if [ {{ '"${{ matrix.platform.arch }}"' }} = "aarch_64" ]; then
-            export JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home
+            export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
           fi
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
