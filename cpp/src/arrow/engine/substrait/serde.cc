@@ -109,7 +109,7 @@ DeclarationFactory MakeConsumingSinkDeclarationFactory(
 }
 
 DeclarationFactory MakeSinkDeclarationFactory(
- const SinkOptionsFactory& sink_options_factory) {
+    const SinkOptionsFactory& sink_options_factory) {
   return [&sink_options_factory](
              compute::Declaration input,
              std::vector<std::string> names) -> Result<compute::Declaration> {
@@ -208,8 +208,8 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const SinkOptionsFactory& sink_options_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
-  return DeserializePlans(buf, MakeSinkDeclarationFactory(sink_options_factory),
-                          registry, ext_set_out, conversion_options);
+  return DeserializePlans(buf, MakeSinkDeclarationFactory(sink_options_factory), registry,
+                          ext_set_out, conversion_options);
 }
 
 namespace {
