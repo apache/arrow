@@ -37,19 +37,20 @@ group_by.arrow_dplyr_query <- function(.data,
   expression_list <- expand_across(.data, quos(...))
   new_groups <- ensure_named_exprs(expression_list)
 
+  # set up group names and check which are new
+  gbp <- dplyr::group_by_prepare(.data, !!!expression_list, .add = .add)
+  existing_groups <- dplyr::group_vars(gbp$data)
+  new_group_names <- setdiff(gbp$group_names, existing_groups)
+
+  names(new_groups) <- new_group_names
+
   if (length(new_groups)) {
     # Add them to the data
     .data <- dplyr::mutate(.data, !!!new_groups)
   }
 
-  if (.add) {
-    gv <- union(dplyr::group_vars(.data), names(new_groups))
-  } else {
-    gv <- names(new_groups)
-  }
-
-  .data$group_by_vars <- gv %||% character()
-  .data$drop_empty_groups <- ifelse(length(gv), .drop, dplyr::group_by_drop_default(.data))
+  .data$group_by_vars <- gbp$group_names
+  .data$drop_empty_groups <- ifelse(length(gbp$group_names), .drop, dplyr::group_by_drop_default(.data))
   .data
 }
 group_by.Dataset <- group_by.ArrowTabular <- group_by.RecordBatchReader <- group_by.arrow_dplyr_query
