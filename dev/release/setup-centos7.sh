@@ -52,7 +52,7 @@ yum -y install \
   ncurses-devel \
   ninja-build \
   perl-core \
-  rh-python36 \
+  rh-python38 \
   sqlite-devel \
   tar \
   vala-devel \
