@@ -63,7 +63,8 @@ using ::arrow::internal::checked_pointer_cast;
 namespace {
 
 constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
-const char* JsonTypeNames(rj::Type json_type) {
+
+const char* JsonTypeName(rj::Type json_type) {
   switch (json_type) {
     case rapidjson::kNullType:
       return "null";
@@ -83,9 +84,10 @@ const char* JsonTypeNames(rj::Type json_type) {
       return "unknown";
   }
 }
+
 Status JSONTypeError(const char* expected_type, rj::Type json_type) {
   return Status::Invalid("Expected ", expected_type, " or null, got JSON type ",
-                         JsonTypeNames(json_type));
+                         JsonTypeName(json_type));
 }
 
 class Converter {
