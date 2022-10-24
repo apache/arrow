@@ -63,11 +63,29 @@ using ::arrow::internal::checked_pointer_cast;
 namespace {
 
 constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
-constexpr std::array<const char*, 7> kJsonTypeNames{"null",  "false",  "true",  "object",
-                                                    "array", "string", "number"};
+const char* JsonTypeNames(rj::Type json_type) {
+  switch (json_type) {
+    case rapidjson::kNullType:
+      return "null";
+    case rapidjson::kFalseType:
+      return "false";
+    case rapidjson::kTrueType:
+      return "true";
+    case rapidjson::kObjectType:
+      return "object";
+    case rapidjson::kArrayType:
+      return "array";
+    case rapidjson::kStringType:
+      return "string";
+    case rapidjson::kNumberType:
+      return "number";
+    default:
+      return "unknown";
+  }
+}
 Status JSONTypeError(const char* expected_type, rj::Type json_type) {
   return Status::Invalid("Expected ", expected_type, " or null, got JSON type ",
-                         kJsonTypeNames[json_type]);
+                         JsonTypeNames(json_type));
 }
 
 class Converter {
