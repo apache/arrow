@@ -92,7 +92,7 @@ You need to set `PKG_CONFIG_PATH` to find libffi on macOS:
 
 Example scripts to install the dependencies to run the verification
 script for verifying the source on CentOS 7, Ubuntu 20.04,  and
-and RHEL 8 rebuilds, Rocky Linux 8 and AlmaLinux 8 are in this folder
+RHEL 8 rebuilds, Rocky Linux 8 and AlmaLinux 8 are in this folder
 and named `setup-centos7.sh`, `setup-ubuntu.sh` and
 `setup-rhel-rebuilds.sh`. These can be adapted to different
 situations. Go and JavaScript are installed by the verification
