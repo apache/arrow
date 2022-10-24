@@ -11,101 +11,125 @@ vignette: >
 
 The `arrow` package provides functions for reading single data files in
 several common formats. By default, calling any of these functions
-returns an R `data.frame`. To return an Arrow `Table`, set argument
+returns an R data frame. To return an Arrow Table, set argument
 `as_data_frame = FALSE`.
 
--   `read_parquet()`: read a file in Parquet format
--   `read_feather()`: read a file in Feather format (the Apache Arrow
-    IPC format)
--   `read_delim_arrow()`: read a delimited text file (default delimiter
-    is comma)
--   `read_csv_arrow()`: read a comma-separated values (CSV) file
--   `read_tsv_arrow()`: read a tab-separated values (TSV) file
--   `read_json_arrow()`: read a JSON data file
+- `read_parquet()`: read a file in Parquet format
+- `read_feather()`: read a file in Feather format (the Apache Arrow IPC format)
+- `read_delim_arrow()`: read a delimited text file (default delimiter is comma)
+- `read_csv_arrow()`: read a comma-separated values (CSV) file
+- `read_tsv_arrow()`: read a tab-separated values (TSV) file
+- `read_json_arrow()`: read a JSON data file
 
 For writing data to single files, the `arrow` package provides the
-functions `write_parquet()`, `write_feather()`, and `write_csv_arrow()`.
-These can be used with R `data.frame` and Arrow `Table` objects.
+following functions, which can be used with both R data frames and 
+Arrow Tables:
 
-For example, let’s write the Star Wars characters data that’s included
-in `dplyr` to a Parquet file, then read it back in. Parquet is a popular
-choice for storing analytic data; it is optimized for reduced file sizes
-and fast read performance, especially for column-based access patterns.
-Parquet is widely supported by many tools and platforms.
+- `write_parquet()`: write a file in Parquet format
+- `write_feather()`: write a file in Feather format
+- `write_csv_arrow()`: write a file in CSV format
 
-First load the `arrow` and `dplyr` packages:
+All these functions can read and write files in the local filesystem or
+to cloud storage. For more on cloud storage support in `arrow`, see
+`vignette("cloud_storage", package = "arrow")`.
 
-``` r
+The `arrow` package also supports reading and writing multi-file datasets,
+which enable analysis and processing of larger-than-memory data, and provide 
+the ability to partition data into smaller chunks without loading the full 
+data into memory. For more information on this topic, see 
+`vignette("dataset", package = "arrow")`.
+
+
+## Parquet format
+
+[Apache Parquet](https://parquet.apache.org/) is a popular
+choice for storing analytics data; it is a binary format that is 
+optimized for reduced file sizes and fast read performance, especially 
+for column-based access patterns. The simplest way to read and write
+Parquet data using `arrow` is with the `read_parquet()` and 
+`write_parquet()` functions. To illustrate this, we'll write the 
+`starwars` data included in `dplyr` to a Parquet file, then read it 
+back in. First load the `arrow` and `dplyr` packages:
+
+```{r}
 library(arrow, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 ```
 
-Then write the `data.frame` named `starwars` to a Parquet file at
-`file_path`:
+Next we'll write the data frame to a Parquet file located at `file_path`:
 
-``` r
+```{r}
 file_path <- tempfile()
 write_parquet(starwars, file_path)
 ```
 
-Then read the Parquet file into an R `data.frame` named `sw`:
+The size of a Parquet file is typically much smaller than the corresponding CSV 
+file would have been. This is in part due to the use of file compression: by default, 
+Parquet files written with the `arrow` package use [Snappy compression](https://google.github.io/snappy/) but other options such as gzip 
+are also supported. See `help("write_parquet", package = "arrow")` for more
+information.
 
-``` r
-sw <- read_parquet(file_path)
+Having written the Parquet file, we now can read it with `read_parquet()`:
+
+```{r}
+read_parquet(file_path)
+```
+
+The default is to return a data frame or tibble. If we want an Arrow Table instead, we would set `as_data_frame = FALSE`:
+
+```{r}
+read_parquet(file_path, as_data_frame = FALSE)
+```
+
+One useful feature of Parquet files is that they store data column-wise, and contain metadata that allow the Parquet readers to skip to the relevant sections of the file. That means it is possible to load only a subset of the columns without reading the complete file. This functionality is supported in `arrow` using the `col_select` argument to `read_parquet()`:
+
+```{r}
+read_parquet(file_path, col_select = c("name", "height", "mass"))
 ```
 
 R object attributes are preserved when writing data to Parquet or
 Feather files and when reading those files back into R. This enables
-round-trip writing and reading of `sf::sf` objects, R `data.frame`s with
-with `haven::labelled` columns, and `data.frame`s with other custom
-attributes.
+round-trip writing and reading of `sf::sf` objects, R data frames with
+with `haven::labelled` columns, and data frame with other custom
+attributes. To learn more about how metadata are handled in `arrow`,
+see `vignette("metadata", package = "arrow")`.
 
-For reading and writing larger files or sets of multiple files, `arrow`
-defines `Dataset` objects and provides the functions `open_dataset()`
-and `write_dataset()`, which enable analysis and processing of
-bigger-than-memory data, including the ability to partition data into
-smaller chunks without loading the full data into memory. For examples
-of these functions, see `vignette("dataset", package = "arrow")`.
+## Feather format
 
-All these functions can read and write files in the local filesystem or
-in Amazon S3 (by passing S3 URIs beginning with `s3://`). For more
-details, see `vignette("fs", package = "arrow")`
+The Feather file format was developed to provide binary columnar 
+serialization for data frames, to make reading and writing data frames 
+efficient, and to make sharing data across data analysis languages easy.
+It is closely associated with the Apache Arrow project, and development
+of the original [Feather](https://github.com/wesm/feather) project has 
+now been moved into the Arrow project itself, and you can find the 
+detailed specification of version 2 of the Feather format -- officially 
+referred to as [the IPC file format](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format) --
+on the Arrow specification page. 
 
+The `write_feather()` function writes version 2 Feather files by default, and supports multiple kinds of file compression. Basic use is shown below:
 
-
-## FROM OLD GETTING STARTED
-
-`arrow` provides some simple functions for using the Arrow C++ library to read and write files.
-These functions are designed to drop into your normal R workflow
-without requiring any knowledge of the Arrow C++ library
-and use naming conventions and arguments that follow popular R packages, particularly `readr`.
-The readers return `data.frame`s
-(or if you use the `tibble` package, they will act like `tbl_df`s),
-and the writers take `data.frame`s.
-
-Importantly, `arrow` provides basic read and write support for the [Apache
-Parquet](https://parquet.apache.org/) columnar data file format.
-
-```r
-library(arrow)
-df <- read_parquet("path/to/file.parquet")
+```{r}
+file_path <- tempfile()
+write_feather(starwars, file_path)
 ```
 
-Just as you can read, you can write Parquet files:
+The `read_feather()` function provides a familiar interface for reading feather files:
 
-```r
-write_parquet(df, "path/to/different_file.parquet")
+```{r}
+read_feather(file_path)
 ```
 
-The `arrow` package also includes a faster and more robust implementation of the
-[Feather](https://github.com/wesm/feather) file format, providing `read_feather()` and
-`write_feather()`. This implementation depends
-on the same underlying C++ library as the Python version does,
-resulting in more reliable and consistent behavior across the two languages, as
-well as [improved performance](https://wesmckinney.com/blog/feather-arrow-future/).
-`arrow` also by default writes the Feather V2 format
-([the Arrow IPC file format](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format)),
-which supports a wider range of data types, as well as compression.
+Like the Parquet reader, the Feather reader supports reading a only subset of columns, and can produce Arrow Table output:
+
+```{r}
+read_feather(
+  file = file_path, 
+  col_select = c("name", "height", "mass"), 
+  as_data_frame = FALSE
+)
+```
+
+## CSV format
 
 For CSV and line-delimited JSON, there are `read_csv_arrow()` and `read_json_arrow()`, respectively.
 While `read_csv_arrow()` currently has fewer parsing options for dealing with
@@ -113,4 +137,9 @@ every CSV format variation in the wild, for the files it can read, it is
 often significantly faster than other R CSV readers, such as
 `base::read.csv`, `readr::read_csv`, and `data.table::fread`.
 
+
+## Further reading
+
+- To learn more about cloud storage, see `vignette("cloud_storage", package = "arrow")`.
+- To learn more about multi-file datasets, see `vignette("dataset", package = "arrow")`.
 
