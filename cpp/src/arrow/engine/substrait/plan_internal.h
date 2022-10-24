@@ -33,6 +33,8 @@
 namespace arrow {
 namespace engine {
 
+namespace substrait = ::substrait;
+
 /// \brief Replaces the extension information of a Substrait Plan message with the given
 /// extension set, such that the anchors defined therein can be used in the rest of the
 /// plan.

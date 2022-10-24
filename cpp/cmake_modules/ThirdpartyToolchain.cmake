@@ -657,6 +657,13 @@ else()
            "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
 endif()
 
+# Remove these two lines once https://github.com/substrait-io/substrait/pull/342 merges
+set(ENV{ARROW_SUBSTRAIT_URL}
+    "https://github.com/substrait-io/substrait/archive/e59008b6b202f8af06c2266991161b1e45cb056a.tar.gz"
+)
+set(ARROW_SUBSTRAIT_BUILD_SHA256_CHECKSUM
+    "f64629cb377fcc62c9d3e8fe69fa6a4cf326f34d756e03db84843c5cce8d04cd")
+
 if(DEFINED ENV{ARROW_SUBSTRAIT_URL})
   set(SUBSTRAIT_SOURCE_URL "$ENV{ARROW_SUBSTRAIT_URL}")
 else()
@@ -1738,6 +1745,10 @@ macro(build_substrait)
   # Note: not all protos in Substrait actually matter to plan
   # consumption. No need to build the ones we don't need.
   set(SUBSTRAIT_PROTOS algebra extensions/extensions plan type)
+  set(ARROW_SUBSTRAIT_PROTOS extension_rels)
+  set(ARROW_SUBSTRAIT_PROTOS_DIR "${CMAKE_SOURCE_DIR}/proto")
+  message("SOURCE DIR IS ${SOURCE_DIR} AND ${CMAKE_SOURCE_DIR} AND ${ARROW_SUBSTRAIT_PROTOS_DIR}"
+  )
 
   externalproject_add(substrait_ep
                       ${EP_COMMON_OPTIONS}
@@ -1788,6 +1799,29 @@ macro(build_substrait)
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
 
     list(APPEND SUBSTRAIT_SOURCES "${SUBSTRAIT_PROTO_GEN}.cc")
+  endforeach()
+  message("SOURCE DIR2 IS ${SOURCE_DIR} AND ${CMAKE_SOURCE_DIR} AND ${ARROW_SUBSTRAIT_PROTOS_DIR}"
+  )
+  foreach(ARROW_SUBSTRAIT_PROTO ${ARROW_SUBSTRAIT_PROTOS})
+    set(ARROW_SUBSTRAIT_PROTO_GEN
+        "${SUBSTRAIT_CPP_DIR}/substrait/${ARROW_SUBSTRAIT_PROTO}.pb")
+    foreach(EXT h cc)
+      set_source_files_properties("${ARROW_SUBSTRAIT_PROTO_GEN}.${EXT}"
+                                  PROPERTIES COMPILE_OPTIONS
+                                             "${SUBSTRAIT_SUPPRESSED_FLAGS}"
+                                             GENERATED TRUE
+                                             SKIP_UNITY_BUILD_INCLUSION TRUE)
+      list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${ARROW_SUBSTRAIT_PROTO_GEN}.${EXT}")
+    endforeach()
+    add_custom_command(OUTPUT "${ARROW_SUBSTRAIT_PROTO_GEN}.cc"
+                              "${ARROW_SUBSTRAIT_PROTO_GEN}.h"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
+                               "-I${ARROW_SUBSTRAIT_PROTOS_DIR}"
+                               "--cpp_out=${SUBSTRAIT_CPP_DIR}"
+                               "${ARROW_SUBSTRAIT_PROTOS_DIR}/substrait/${ARROW_SUBSTRAIT_PROTO}.proto"
+                       DEPENDS ${PROTO_DEPENDS} substrait_ep)
+
+    list(APPEND SUBSTRAIT_SOURCES "${ARROW_SUBSTRAIT_PROTO_GEN}.cc")
   endforeach()
 
   add_custom_target(substrait_gen ALL DEPENDS ${SUBSTRAIT_PROTO_GEN_ALL})

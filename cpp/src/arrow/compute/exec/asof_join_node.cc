@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/compute/exec/asof_join_node.h"
+
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -997,17 +999,16 @@ class AsofJoinNode : public ExecNode {
   }
 
   static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
-      const std::vector<ExecNode*>& inputs,
+      const std::vector<std::shared_ptr<Schema>> input_schema,
       const std::vector<col_index_t>& indices_of_on_key,
       const std::vector<std::vector<col_index_t>>& indices_of_by_key) {
     std::vector<std::shared_ptr<arrow::Field>> fields;
 
-    size_t n_by = indices_of_by_key[0].size();
+    size_t n_by = indices_of_by_key.size() == 0 ? 0 : indices_of_by_key[0].size();
     const DataType* on_key_type = NULLPTR;
     std::vector<const DataType*> by_key_type(n_by, NULLPTR);
     // Take all non-key, non-time RHS fields
-    for (size_t j = 0; j < inputs.size(); ++j) {
-      const auto& input_schema = inputs[j]->output_schema();
+    for (size_t j = 0; j < input_schema.size(); ++j) {
       const auto& on_field_ix = indices_of_on_key[j];
       const auto& by_field_ix = indices_of_by_key[j];
 
@@ -1015,10 +1016,10 @@ class AsofJoinNode : public ExecNode {
         return Status::Invalid("Missing join key on table ", j);
       }
 
-      const auto& on_field = input_schema->fields()[on_field_ix];
+      const auto& on_field = input_schema[j]->fields()[on_field_ix];
       std::vector<const Field*> by_field(n_by);
       for (size_t k = 0; k < n_by; k++) {
-        by_field[k] = input_schema->fields()[by_field_ix[k]].get();
+        by_field[k] = input_schema[j]->fields()[by_field_ix[k]].get();
       }
 
       if (on_key_type == NULLPTR) {
@@ -1038,8 +1039,8 @@ class AsofJoinNode : public ExecNode {
         }
       }
 
-      for (int i = 0; i < input_schema->num_fields(); ++i) {
-        const auto field = input_schema->field(i);
+      for (int i = 0; i < input_schema[j]->num_fields(); ++i) {
+        const auto field = input_schema[j]->field(i);
         if (i == on_field_ix) {
           ARROW_RETURN_NOT_OK(is_valid_on_field(field));
           // Only add on field from the left table
@@ -1076,6 +1077,56 @@ class AsofJoinNode : public ExecNode {
     return match.indices()[0];
   }
 
+  static Result<size_t> GetByKeySize(
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys) {
+    size_t n_by = 0;
+    for (size_t i = 0; i < input_keys.size(); ++i) {
+      const auto& by_key = input_keys[i].by_key;
+      if (i == 0) {
+        n_by = by_key.size();
+      } else if (n_by != by_key.size()) {
+        return Status::Invalid("inconsistent size of by-key across inputs");
+      }
+    }
+    return n_by;
+  }
+
+  static Result<std::vector<col_index_t>> GetIndicesOfOnKey(
+      const std::vector<std::shared_ptr<Schema>>& input_schema,
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys) {
+    if (input_schema.size() != input_keys.size()) {
+      return Status::Invalid("mismatching number of input schema and keys");
+    }
+    size_t n_input = input_schema.size();
+    std::vector<col_index_t> indices_of_on_key(n_input);
+    for (size_t i = 0; i < n_input; ++i) {
+      const auto& on_key = input_keys[i].on_key;
+      ARROW_ASSIGN_OR_RAISE(indices_of_on_key[i],
+                            FindColIndex(*input_schema[i], on_key, "on"));
+    }
+    return indices_of_on_key;
+  }
+
+  static Result<std::vector<std::vector<col_index_t>>> GetIndicesOfByKey(
+      const std::vector<std::shared_ptr<Schema>>& input_schema,
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys) {
+    if (input_schema.size() != input_keys.size()) {
+      return Status::Invalid("mismatching number of input schema and keys");
+    }
+    ARROW_ASSIGN_OR_RAISE(size_t n_by, GetByKeySize(input_keys));
+    size_t n_input = input_schema.size();
+    std::vector<std::vector<col_index_t>> indices_of_by_key(
+        n_input, std::vector<col_index_t>(n_by));
+    for (size_t i = 0; i < n_input; ++i) {
+      for (size_t k = 0; k < n_by; k++) {
+        const auto& by_key = input_keys[i].by_key;
+        ARROW_ASSIGN_OR_RAISE(indices_of_by_key[i][k],
+                              FindColIndex(*input_schema[i], by_key[k], "by"));
+      }
+    }
+    return indices_of_by_key;
+  }
+
   static arrow::Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                        const ExecNodeOptions& options) {
     DCHECK_GE(inputs.size(), 2) << "Must have at least two inputs";
@@ -1086,24 +1137,21 @@ class AsofJoinNode : public ExecNode {
                              join_options.tolerance);
     }
 
-    size_t n_input = inputs.size(), n_by = join_options.by_key.size();
+    ARROW_ASSIGN_OR_RAISE(size_t n_by, GetByKeySize(join_options.input_keys));
+    size_t n_input = inputs.size();
     std::vector<std::string> input_labels(n_input);
-    std::vector<col_index_t> indices_of_on_key(n_input);
-    std::vector<std::vector<col_index_t>> indices_of_by_key(
-        n_input, std::vector<col_index_t>(n_by));
+    std::vector<std::shared_ptr<Schema>> input_schema(n_input);
     for (size_t i = 0; i < n_input; ++i) {
       input_labels[i] = i == 0 ? "left" : "right_" + ToChars(i);
-      const Schema& input_schema = *inputs[i]->output_schema();
-      ARROW_ASSIGN_OR_RAISE(indices_of_on_key[i],
-                            FindColIndex(input_schema, join_options.on_key, "on"));
-      for (size_t k = 0; k < n_by; k++) {
-        ARROW_ASSIGN_OR_RAISE(indices_of_by_key[i][k],
-                              FindColIndex(input_schema, join_options.by_key[k], "by"));
-      }
+      input_schema[i] = inputs[i]->output_schema();
     }
-
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> output_schema,
-                          MakeOutputSchema(inputs, indices_of_on_key, indices_of_by_key));
+    ARROW_ASSIGN_OR_RAISE(std::vector<col_index_t> indices_of_on_key,
+                          GetIndicesOfOnKey(input_schema, join_options.input_keys));
+    ARROW_ASSIGN_OR_RAISE(std::vector<std::vector<col_index_t>> indices_of_by_key,
+                          GetIndicesOfByKey(input_schema, join_options.input_keys));
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<Schema> output_schema,
+        MakeOutputSchema(input_schema, indices_of_on_key, indices_of_by_key));
 
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
     for (size_t i = 0; i < n_input; i++) {
@@ -1212,6 +1260,21 @@ void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("asofjoin", AsofJoinNode::Make));
 }
 }  // namespace internal
+
+namespace asofjoin {
+
+Result<std::shared_ptr<Schema>> MakeOutputSchema(
+    const std::vector<std::shared_ptr<Schema>>& input_schema,
+    const std::vector<AsofJoinKeys>& input_keys) {
+  ARROW_ASSIGN_OR_RAISE(std::vector<col_index_t> indices_of_on_key,
+                        AsofJoinNode::GetIndicesOfOnKey(input_schema, input_keys));
+  ARROW_ASSIGN_OR_RAISE(std::vector<std::vector<col_index_t>> indices_of_by_key,
+                        AsofJoinNode::GetIndicesOfByKey(input_schema, input_keys));
+  return AsofJoinNode::MakeOutputSchema(input_schema, indices_of_on_key,
+                                        indices_of_by_key);
+}
+
+}  // namespace asofjoin
 
 }  // namespace compute
 }  // namespace arrow

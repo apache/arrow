@@ -68,6 +68,8 @@ using internal::ToChars;
 
 namespace engine {
 
+namespace substrait = ::substrait;
+
 namespace {
 
 Id NormalizeFunctionName(Id id) {

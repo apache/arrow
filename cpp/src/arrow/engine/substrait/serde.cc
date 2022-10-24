@@ -47,6 +47,8 @@
 namespace arrow {
 namespace engine {
 
+namespace substrait = ::substrait;
+
 Status ParseFromBufferImpl(const Buffer& buf, const std::string& full_name,
                            google::protobuf::Message* message) {
   google::protobuf::io::ArrayInputStream buf_stream{buf.data(),

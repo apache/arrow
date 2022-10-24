@@ -36,6 +36,8 @@
 
 namespace arrow {
 namespace engine {
+
+namespace substrait = ::substrait;
 namespace internal {
 
 static const ConversionOptions kPlanBuilderConversionOptions;

@@ -33,6 +33,8 @@
 namespace arrow {
 namespace engine {
 
+namespace substrait = ::substrait;
+
 ARROW_ENGINE_EXPORT
 Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const substrait::Type&,
                                                              const ExtensionSet&,

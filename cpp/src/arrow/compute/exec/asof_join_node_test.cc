@@ -142,6 +142,15 @@ void BuildZeroBaseBinaryArray(std::shared_ptr<Array>& empty, int64_t length) {
   ASSERT_OK(builder.Finish(&empty));
 }
 
+AsofJoinNodeOptions GetRepeatedOptions(size_t repeat, FieldRef on_key,
+                                       std::vector<FieldRef> by_key, int64_t tolerance) {
+  std::vector<AsofJoinNodeOptions::Keys> input_keys(repeat);
+  for (size_t i = 0; i < repeat; i++) {
+    input_keys[i] = {on_key, by_key};
+  }
+  return AsofJoinNodeOptions(input_keys, tolerance);
+}
+
 // mutates by copying from_key into to_key and changing from_key to zero
 Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string from_key,
                                       std::string to_key, bool replace_key = false,
@@ -248,7 +257,7 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
       const BatchesWithSchema& r1_batches, const BatchesWithSchema& exp_batches, \
       const FieldRef time, by_key_type key, const int64_t tolerance) {           \
     CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches,               \
-                   AsofJoinNodeOptions(time, {key}, tolerance));                 \
+                   GetRepeatedOptions(3, time, {key}, tolerance));               \
   }
 
 EXPAND_BY_KEY_TYPE(CHECK_RUN_OUTPUT)
@@ -300,7 +309,7 @@ void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema, int64_t tolerance,
                           const std::string& expected_error_str) {
   DoRunInvalidPlanTest(l_schema, r_schema,
-                       AsofJoinNodeOptions("time", {"key"}, tolerance),
+                       GetRepeatedOptions(2, "time", {"key"}, tolerance),
                        expected_error_str);
 }
 
@@ -323,27 +332,27 @@ void DoRunMissingKeysTest(const std::shared_ptr<Schema>& l_schema,
 void DoRunMissingOnKeyTest(const std::shared_ptr<Schema>& l_schema,
                            const std::shared_ptr<Schema>& r_schema) {
   DoRunInvalidPlanTest(l_schema, r_schema,
-                       AsofJoinNodeOptions("invalid_time", {"key"}, 0),
+                       GetRepeatedOptions(2, "invalid_time", {"key"}, 0),
                        "Bad join key on table : No match");
 }
 
 void DoRunMissingByKeyTest(const std::shared_ptr<Schema>& l_schema,
                            const std::shared_ptr<Schema>& r_schema) {
   DoRunInvalidPlanTest(l_schema, r_schema,
-                       AsofJoinNodeOptions("time", {"invalid_key"}, 0),
+                       GetRepeatedOptions(2, "time", {"invalid_key"}, 0),
                        "Bad join key on table : No match");
 }
 
 void DoRunNestedOnKeyTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema) {
-  DoRunInvalidPlanTest(l_schema, r_schema, AsofJoinNodeOptions({0, "time"}, {"key"}, 0),
+  DoRunInvalidPlanTest(l_schema, r_schema, GetRepeatedOptions(2, {0, "time"}, {"key"}, 0),
                        "Bad join key on table : No match");
 }
 
 void DoRunNestedByKeyTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema) {
   DoRunInvalidPlanTest(l_schema, r_schema,
-                       AsofJoinNodeOptions("time", {FieldRef{0, 1}}, 0),
+                       GetRepeatedOptions(2, "time", {FieldRef{0, 1}}, 0),
                        "Bad join key on table : No match");
 }
 
@@ -404,7 +413,7 @@ void DoRunUnorderedPlanTest(bool l_unordered, bool r_unordered,
                             const std::shared_ptr<Schema>& l_schema,
                             const std::shared_ptr<Schema>& r_schema) {
   DoRunUnorderedPlanTest(l_unordered, r_unordered, l_schema, r_schema,
-                         AsofJoinNodeOptions("time", {"key"}, 1000),
+                         GetRepeatedOptions(2, "time", {"key"}, 1000),
                          "out-of-order on-key values");
 }
 
@@ -501,7 +510,7 @@ struct BasicTest {
       ASSERT_OK_AND_ASSIGN(exp_nokey_batches,
                            MutateByKey(exp_nokey_batches, "key", "key2", true, true));
       CheckRunOutput(l_batches, r0_batches, r1_batches, exp_nokey_batches,
-                     AsofJoinNodeOptions("time", {"key2"}, tolerance));
+                     GetRepeatedOptions(3, "time", {"key2"}, tolerance));
     });
   }
   static void DoMutateNullKey(BasicTest& basic_tests) { basic_tests.RunMutateNullKey(); }
@@ -514,7 +523,7 @@ struct BasicTest {
       ASSERT_OK_AND_ASSIGN(r1_batches,
                            MutateByKey(r1_batches, "key", "key", false, false, true));
       CheckRunOutput(l_batches, r0_batches, r1_batches, exp_emptykey_batches,
-                     AsofJoinNodeOptions("time", {}, tolerance));
+                     GetRepeatedOptions(3, "time", {}, tolerance));
     });
   }
   static void DoMutateEmptyKey(BasicTest& basic_tests) {

@@ -23,6 +23,7 @@ set(ARROW_SUBSTRAIT_SRCS
     substrait/expression_internal.cc
     substrait/extension_set.cc
     substrait/extension_types.cc
+    substrait/options.cc
     substrait/plan_internal.cc
     substrait/relation_internal.cc
     substrait/serde.cc
