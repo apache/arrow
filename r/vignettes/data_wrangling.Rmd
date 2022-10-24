@@ -69,7 +69,7 @@ Note, however, that window functions such as `ntile()` are not yet supported.
 
 ## Two-table dplyr verbs
 
-Additionally, equality joins (e.g. `left_join()`, `inner_join()`) are supported for joining multiple tables.
+Equality joins (e.g. `left_join()`, `inner_join()`) are supported for joining multiple tables. This is illustrated below:
 
 ```{r}
 jedi <- data.frame(
@@ -85,11 +85,11 @@ sw |>
 
 ## Expressions within dplyr verbs
 
-Inside `dplyr` verbs, Arrow offers support for many functions and operators, with common functions mapped to their base R and tidyverse equivalents. The [changelog](https://arrow.apache.org/docs/r/news/index.html) lists many of them. If there are additional functions you would like to see implemented, please file an issue as described in the [Getting help](#getting-help) section below.
+Inside `dplyr` verbs, Arrow offers support for many functions and operators, with common functions mapped to their base R and tidyverse equivalents. The [changelog](https://arrow.apache.org/docs/r/news/index.html) lists many of them. If there are additional functions you would like to see implemented, please file an issue as described in the [Getting help](https://arrow.apache.org/docs/r/#getting-help) guidelines.
 
 ## Registering custom bindings
 
-The `arrow` package makes it possible for users to supply bindings for custom functions in some situations using `register_scalar_function()`.  
+The `arrow` package makes it possible for users to supply bindings for custom functions in some situations using `register_scalar_function()`. To operate correctly, the to-be-registered function must have `context` as its first argument, as required by the query engine. For example, suppose we wanted to implement a function that converts a string to snake case (a greatly simplified version of `janitor::make_clean_names()`). The function could be written as follows:
 
 ```{r}
 to_snake_name <- function(context, string) {
@@ -99,7 +99,11 @@ to_snake_name <- function(context, string) {
     stringr::str_to_lower() |> 
     stringi::stri_trans_general(id = "Latin-ASCII")
 }
+```
 
+To call this within an `arrow`/`dplyr` pipeline, it needs to be registered:
+
+```{r}
 register_scalar_function(
   name = "to_snake_name",
   fun = to_snake_name,
@@ -107,12 +111,17 @@ register_scalar_function(
   out_type = utf8(),
   auto_convert = TRUE
 )
+```
 
+In this expression, the `name` argument specifies the name by which it will be recognized in the context of the `arrow`/`dplyr` pipeline and `fun` is the function itself. The `in_type` and `out_type` arguments are used to specify the expected data type for the input and output, and `auto_convert` specifies whether `arrow` should automatically convert any R inputs to their Arrow equivalents. 
+
+Once registered, the following works:
+
+```{r}
 sw |> 
   transmute(name, snake_name = to_snake_name(name)) |>
   collect()
 ```
-
 
 To learn more, see `help("register_scalar_function", package = "arrow")`. 
 
