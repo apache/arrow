@@ -177,7 +177,7 @@ func benchReadTable(b *testing.B, name string, tbl arrow.Table, nbytes int64) {
 		b.SetBytes(nbytes)
 
 		for i := 0; i < b.N; i++ {
-			pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()), nil, nil)
+			pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
 			if err != nil {
 				b.Error(err)
 			}

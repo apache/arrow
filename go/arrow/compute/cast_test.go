@@ -34,7 +34,6 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
-	"github.com/klauspost/cpuid/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -2731,26 +2730,6 @@ func TestCasts(t *testing.T) {
 }
 
 const rngseed = 0x94378165
-
-var (
-	CpuCacheSizes = [...]int{ // defaults
-		32 * 1024,   // level 1: 32K
-		256 * 1024,  // level 2: 256K
-		3072 * 1024, // level 3: 3M
-	}
-)
-
-func init() {
-	if cpuid.CPU.Cache.L1D != -1 {
-		CpuCacheSizes[0] = cpuid.CPU.Cache.L1D
-	}
-	if cpuid.CPU.Cache.L2 != -1 {
-		CpuCacheSizes[1] = cpuid.CPU.Cache.L2
-	}
-	if cpuid.CPU.Cache.L3 != -1 {
-		CpuCacheSizes[2] = cpuid.CPU.Cache.L3
-	}
-}
 
 func benchmarkNumericCast(b *testing.B, fromType, toType arrow.DataType, opts compute.CastOptions, size, min, max int64, nullprob float64) {
 	rng := gen.NewRandomArrayGenerator(rngseed, memory.DefaultAllocator)

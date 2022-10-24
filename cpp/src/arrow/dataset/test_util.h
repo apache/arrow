@@ -157,7 +157,7 @@ class DatasetFixtureMixin : public ::testing::Test {
     std::shared_ptr<RecordBatch> lhs;
     ASSERT_OK(expected->ReadNext(&lhs));
     EXPECT_NE(lhs, nullptr);
-    AssertBatchesEqual(*lhs, batch);
+    AssertBatchesEqual(*lhs, batch, true);
   }
 
   /// \brief Ensure that record batches found in reader are equals to the

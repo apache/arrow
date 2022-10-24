@@ -91,6 +91,17 @@ test_that("pull", {
   )
 })
 
+test_that("pull() shows a deprecation warning if the option isn't set", {
+  expect_warning(
+    vec <- tbl %>%
+      arrow_table() %>%
+      pull(as_vector = NULL),
+    "Current behavior of returning an R vector is deprecated"
+  )
+  # And the default is the old behavior, an R vector
+  expect_identical(vec, pull(tbl))
+})
+
 test_that("collect(as_data_frame=FALSE)", {
   batch <- record_batch(tbl)
 
@@ -583,9 +594,9 @@ test_that("needs_projection unit tests", {
 
 test_that("compute() on a grouped query returns a Table with groups in metadata", {
   tab1 <- tbl %>%
-      arrow_table() %>%
-      group_by(int) %>%
-      compute()
+    arrow_table() %>%
+    group_by(int) %>%
+    compute()
   expect_r6_class(tab1, "Table")
   expect_equal(
     as.data.frame(tab1),

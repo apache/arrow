@@ -69,7 +69,7 @@ def _alltypes_example(size=100):
         # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
         # us, ns
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]'),
+                              dtype='datetime64[ms]').astype("datetime64[ns]"),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
@@ -1016,7 +1016,7 @@ class TestConvertDateTimeLikeTypes:
                 '2007-07-13T01:23:34.123',
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
+                dtype='datetime64[ms]').astype("datetime64[ns]")
         })
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
@@ -2718,7 +2718,7 @@ class TestConvertMisc:
         cases.append(boolean_objects)
 
         cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
-                               dtype='datetime64[ms]')
+                               dtype='datetime64[ms]').astype("datetime64[ns]")
                      .reshape(N, K).copy())
 
         strided_mask = (random_numbers > 0).astype(bool)[:, 0]

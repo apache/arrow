@@ -59,6 +59,12 @@ sink : str, pyarrow.NativeFile, or file-like Python object
     Either a file path, or a writable file object.
 schema : pyarrow.Schema
     The Arrow schema for data to be written to the file.
+use_legacy_format : bool, default None
+    Deprecated in favor of setting options. Cannot be provided with
+    options.
+
+    If None, False will be used unless this default is overridden by
+    setting the environment variable ARROW_PRE_0_15_IPC_FORMAT=1
 options : pyarrow.ipc.IpcWriteOptions
     Options for IPC serialization.
 
@@ -66,13 +72,7 @@ options : pyarrow.ipc.IpcWriteOptions
     be used unless overridden by setting the environment variable
     ARROW_PRE_0_15_IPC_FORMAT=1, and the V5 metadata version will be
     used unless overridden by setting the environment variable
-    ARROW_PRE_1_0_METADATA_VERSION=1.
-use_legacy_format : bool, default None
-    Deprecated in favor of setting options. Cannot be provided with
-    options.
-
-    If None, False will be used unless this default is overridden by
-    setting the environment variable ARROW_PRE_0_15_IPC_FORMAT=1"""
+    ARROW_PRE_1_0_METADATA_VERSION=1."""
 
 
 class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):

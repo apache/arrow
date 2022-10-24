@@ -99,6 +99,17 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 		return
 	}
 
+	// cast arguments if necessary
+	for i, arg := range args {
+		if !arrow.TypeEqual(inTypes[i], arg.(ArrayLikeDatum).Type()) {
+			args[i], err = CastDatum(ctx, arg, SafeCastOptions(inTypes[i]))
+			if err != nil {
+				return nil, err
+			}
+			defer args[i].Release()
+		}
+	}
+
 	kctx := &exec.KernelCtx{Ctx: ctx, Kernel: k}
 	init := k.GetInitFn()
 	kinitArgs := exec.KernelInitArgs{Kernel: k, Inputs: inTypes, Options: opts}

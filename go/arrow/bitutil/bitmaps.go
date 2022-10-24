@@ -18,6 +18,7 @@ package bitutil
 
 import (
 	"bytes"
+	"errors"
 	"math/bits"
 	"unsafe"
 
@@ -374,9 +375,14 @@ func (bm *BitmapWordWriter) PutNextTrailingByte(b byte, validBits int) {
 	}
 }
 
-// CopyBitmap copies the bitmap indicated by src, starting at bit offset srcOffset,
-// and copying length bits into dst, starting at bit offset dstOffset.
-func CopyBitmap(src []byte, srcOffset, length int, dst []byte, dstOffset int) {
+type transferMode int8
+
+const (
+	transferCopy transferMode = iota
+	transferInvert
+)
+
+func transferBitmap(mode transferMode, src []byte, srcOffset, length int, dst []byte, dstOffset int) {
 	if length == 0 {
 		// if there's nothing to write, end early.
 		return
@@ -393,12 +399,19 @@ func CopyBitmap(src []byte, srcOffset, length int, dst []byte, dstOffset int) {
 		nwords := rdr.Words()
 		for nwords > 0 {
 			nwords--
-			wr.PutNextWord(rdr.NextWord())
+			if mode == transferInvert {
+				wr.PutNextWord(^rdr.NextWord())
+			} else {
+				wr.PutNextWord(rdr.NextWord())
+			}
 		}
 		nbytes := rdr.TrailingBytes()
 		for nbytes > 0 {
 			nbytes--
 			bt, validBits := rdr.NextTrailingByte()
+			if mode == transferInvert {
+				bt = ^bt
+			}
 			wr.PutNextTrailingByte(bt, validBits)
 		}
 		return
@@ -417,12 +430,31 @@ func CopyBitmap(src []byte, srcOffset, length int, dst []byte, dstOffset int) {
 	// - high 5 bits: old bits from last byte of dest buffer
 	trailingBits := nbytes*8 - length
 	trailMask := byte(uint(1)<<(8-trailingBits)) - 1
-
-	copy(dst, src[:nbytes-1])
-	lastData := src[nbytes-1]
+	var lastData byte
+	if mode == transferInvert {
+		for i, b := range src[:nbytes-1] {
+			dst[i] = ^b
+		}
+		lastData = ^src[nbytes-1]
+	} else {
+		copy(dst, src[:nbytes-1])
+		lastData = src[nbytes-1]
+	}
 
 	dst[nbytes-1] &= ^trailMask
 	dst[nbytes-1] |= lastData & trailMask
+}
+
+// CopyBitmap copies the bitmap indicated by src, starting at bit offset srcOffset,
+// and copying length bits into dst, starting at bit offset dstOffset.
+func CopyBitmap(src []byte, srcOffset, length int, dst []byte, dstOffset int) {
+	transferBitmap(transferCopy, src, srcOffset, length, dst, dstOffset)
+}
+
+// InvertBitmap copies a bit range of a bitmap, inverting it as it copies
+// over into the destination.
+func InvertBitmap(src []byte, srcOffset, length int, dst []byte, dstOffset int) {
+	transferBitmap(transferInvert, src, srcOffset, length, dst, dstOffset)
 }
 
 type bitOp struct {
@@ -439,6 +471,14 @@ var (
 	bitOrOp = bitOp{
 		opWord: func(l, r uint64) uint64 { return l | r },
 		opByte: func(l, r byte) byte { return l | r },
+	}
+	bitAndNotOp = bitOp{
+		opWord: func(l, r uint64) uint64 { return l &^ r },
+		opByte: func(l, r byte) byte { return l &^ r },
+	}
+	bitXorOp = bitOp{
+		opWord: func(l, r uint64) uint64 { return l ^ r },
+		opByte: func(l, r byte) byte { return l ^ r },
 	}
 )
 
@@ -532,6 +572,22 @@ func BitmapOrAlloc(mem memory.Allocator, left, right []byte, lOffset, rOffset in
 	return BitmapOpAlloc(mem, bitOrOp, left, right, lOffset, rOffset, length, outOffset)
 }
 
+func BitmapAndNot(left, right []byte, lOffset, rOffset int64, out []byte, outOffset int64, length int64) {
+	BitmapOp(bitAndNotOp, left, right, lOffset, rOffset, out, outOffset, length)
+}
+
+func BitmapAndNotAlloc(mem memory.Allocator, left, right []byte, lOffset, rOffset int64, length, outOffset int64) *memory.Buffer {
+	return BitmapOpAlloc(mem, bitAndNotOp, left, right, lOffset, rOffset, length, outOffset)
+}
+
+func BitmapXor(left, right []byte, lOffset, rOffset int64, out []byte, outOffset int64, length int64) {
+	BitmapOp(bitXorOp, left, right, lOffset, rOffset, out, outOffset, length)
+}
+
+func BitmapXorAlloc(mem memory.Allocator, left, right []byte, lOffset, rOffset int64, length, outOffset int64) *memory.Buffer {
+	return BitmapOpAlloc(mem, bitXorOp, left, right, lOffset, rOffset, length, outOffset)
+}
+
 func BitmapEquals(left, right []byte, lOffset, rOffset int64, length int64) bool {
 	if lOffset%8 == 0 && rOffset%8 == 0 {
 		// byte aligned, fast path, can use bytes.Equal (memcmp)
@@ -583,4 +639,109 @@ type OptionalBitIndexer struct {
 
 func (b *OptionalBitIndexer) GetBit(i int) bool {
 	return b.Bitmap == nil || BitIsSet(b.Bitmap, b.Offset+i)
+}
+
+type Bitmap struct {
+	Data        []byte
+	Offset, Len int64
+}
+
+func bitLength(bitmaps []Bitmap) (int64, error) {
+	for _, b := range bitmaps[1:] {
+		if b.Len != bitmaps[0].Len {
+			return -1, errors.New("bitmaps must be same length")
+		}
+	}
+	return bitmaps[0].Len, nil
+}
+
+func runVisitWordsAndWriteLoop(bitLen int64, rdrs []*BitmapWordReader, wrs []*BitmapWordWriter, visitor func(in, out []uint64)) {
+	const bitWidth int64 = int64(uint64SizeBits)
+
+	visited := make([]uint64, len(rdrs))
+	output := make([]uint64, len(wrs))
+
+	// every reader will have same number of words, since they are same
+	// length'ed. This will be inefficient in some cases. When there's
+	// offsets beyond the Word boundary, every word would have to be
+	// created from 2 adjoining words
+	nwords := int64(rdrs[0].Words())
+	bitLen -= nwords * bitWidth
+	for nwords > 0 {
+		nwords--
+		for i := range visited {
+			visited[i] = rdrs[i].NextWord()
+		}
+		visitor(visited, output)
+		for i := range output {
+			wrs[i].PutNextWord(output[i])
+		}
+	}
+
+	// every reader will have the same number of trailing bytes, because
+	// we already confirmed they have the same length. Because
+	// offsets beyond the Word boundary can cause adjoining words, the
+	// tailing portion could be more than one word remaining full/partial
+	// words to write.
+	if bitLen == 0 {
+		return
+	}
+
+	// convert the word visitor to a bytevisitor
+	byteVisitor := func(in, out []byte) {
+		for i, w := range in {
+			visited[i] = uint64(w)
+		}
+		visitor(visited, output)
+		for i, w := range output {
+			out[i] = byte(w)
+		}
+	}
+
+	visitedBytes := make([]byte, len(rdrs))
+	outputBytes := make([]byte, len(wrs))
+	nbytes := rdrs[0].trailingBytes
+	for nbytes > 0 {
+		nbytes--
+		memory.Set(visitedBytes, 0)
+		memory.Set(outputBytes, 0)
+
+		var validBits int
+		for i := range rdrs {
+			visitedBytes[i], validBits = rdrs[i].NextTrailingByte()
+		}
+		byteVisitor(visitedBytes, outputBytes)
+		for i, w := range outputBytes {
+			wrs[i].PutNextTrailingByte(w, validBits)
+		}
+	}
+}
+
+// VisitWordsAndWrite visits words of bits from each input bitmap and
+// collects outputs to a slice of output Bitmaps.
+//
+// All bitmaps must have identical lengths. The first bit in a visited
+// bitmap may be offset within the first visited word, but words will
+// otherwise contain densely packed bits loaded from the bitmap. That
+// offset within the first word is returned.
+//
+// NOTE: this function is efficient on 3+ sufficiently large bitmaps.
+// It also has a large prolog/epilog overhead and should be used
+// carefully in other cases. For 2 or fewer bitmaps, and/or smaller
+// bitmaps, try BitmapReader and or other utilities.
+func VisitWordsAndWrite(args []Bitmap, out []Bitmap, visitor func(in, out []uint64)) error {
+	bitLen, err := bitLength(args)
+	if err != nil {
+		return err
+	}
+
+	rdrs, wrs := make([]*BitmapWordReader, len(args)), make([]*BitmapWordWriter, len(out))
+	for i, in := range args {
+		rdrs[i] = NewBitmapWordReader(in.Data, int(in.Offset), int(in.Len))
+	}
+	for i, o := range out {
+		wrs[i] = NewBitmapWordWriter(o.Data, int(o.Offset), int(o.Len))
+	}
+	runVisitWordsAndWriteLoop(bitLen, rdrs, wrs, visitor)
+	return nil
 }

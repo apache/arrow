@@ -81,7 +81,8 @@ tar xvf docs.tar.gz
 rm -f docs.tar.gz
 git checkout docs/c_glib/index.html
 if [ "$is_major_release" = "yes" ] ; then
-  mv docs_temp docs/${previous_version}
+  previous_series=${previous_version%.*}
+  mv docs_temp docs/${previous_series}
 fi
 git add docs
 git commit -m "[Website] Update documentations for ${version}"
