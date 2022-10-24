@@ -24,7 +24,6 @@ The Gandiva Expression Compiler
 ===============================
 
 Gandiva is a runtime expression compiler that uses `LLVM`_ to generate
-efficient native code for projections and filters on Arrow record batches.
 efficient native code for compute on Arrow record batches.
 Gandiva only handles projections and filters; for other transformations, see
 :ref:`Compute Functions <compute-cpp>`.
@@ -119,7 +118,7 @@ a vector of arrays, which can be passed along with the output schema to
 Evaluating filters
 ------------------
 
-For filters, :func:`Filter::Evaluate` produces :class:`SelectionVector`,
+:func:`Filter::Evaluate` produces :class:`SelectionVector`,
 a vector of row indices that matched the filter condition. The selection vector
 is a wrapper around an arrow integer array, parameterized by bitwidth. When 
 creating the selection vector (you must initialize it *before* passing to 
