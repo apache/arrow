@@ -588,7 +588,7 @@ func castNumberToNumberUnsafe(in, out *exec.ArraySpan) {
 	castNumericUnsafe(in.Type.ID(), out.Type.ID(), in.Buffers[1].Buf[inputOffset:], out.Buffers[1].Buf[outputOffset:], int(in.Len))
 }
 
-func maxDecimalDigitsForInt(id arrow.Type) (int32, error) {
+func MaxDecimalDigitsForInt(id arrow.Type) (int32, error) {
 	switch id {
 	case arrow.INT8, arrow.UINT8:
 		return 3, nil
@@ -616,6 +616,58 @@ func resolveToFirstType(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataTyp
 }
 
 var OutputFirstType = exec.NewComputedOutputType(resolveToFirstType)
+
+func resolveDecimalBinaryOpOutput(types []arrow.DataType, resolver func(prec1, scale1, prec2, scale2 int32) (prec, scale int32)) (arrow.DataType, error) {
+	leftType, rightType := types[0].(arrow.DecimalType), types[1].(arrow.DecimalType)
+	debug.Assert(leftType.ID() == rightType.ID(), "decimal binary ops should have casted to the same type")
+
+	prec, scale := resolver(leftType.GetPrecision(), leftType.GetScale(),
+		rightType.GetPrecision(), rightType.GetScale())
+
+	return arrow.NewDecimalType(leftType.ID(), prec, scale)
+}
+
+func resolveDecimalAddOrSubtractType(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
+	return resolveDecimalBinaryOpOutput(args,
+		func(prec1, scale1, prec2, scale2 int32) (prec int32, scale int32) {
+			debug.Assert(scale1 == scale2, "decimal operations should use the same scale")
+			scale = scale1
+			prec = exec.Max(prec1-scale1, prec2-scale2) + scale + 1
+			return
+		})
+}
+
+func resolveDecimalMultiplyOutput(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
+	return resolveDecimalBinaryOpOutput(args,
+		func(prec1, scale1, prec2, scale2 int32) (prec int32, scale int32) {
+			scale = scale1 + scale2
+			prec = prec1 + prec2 + 1
+			return
+		})
+}
+
+func resolveDecimalDivideOutput(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
+	return resolveDecimalBinaryOpOutput(args,
+		func(prec1, scale1, prec2, scale2 int32) (prec int32, scale int32) {
+			debug.Assert(scale1 >= scale2, "when dividing decimal values numerator scale should be greater/equal to denom scale")
+			scale = scale1 - scale2
+			prec = prec1
+			return
+		})
+}
+
+func resolveTemporalOutput(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
+	debug.Assert(args[0].ID() == args[1].ID(), "should only be used on the same types")
+	leftType, rightType := args[0].(*arrow.TimestampType), args[1].(*arrow.TimestampType)
+	debug.Assert(leftType.Unit == rightType.Unit, "should match units")
+
+	if (leftType.TimeZone == "" || rightType.TimeZone == "") && (leftType.TimeZone != rightType.TimeZone) {
+		return nil, fmt.Errorf("%w: subtraction of zoned and non-zoned times is ambiguous (%s, %s)",
+			arrow.ErrInvalid, leftType.TimeZone, rightType.TimeZone)
+	}
+
+	return &arrow.DurationType{Unit: rightType.Unit}, nil
+}
 
 type validityBuilder struct {
 	mem    memory.Allocator

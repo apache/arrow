@@ -19,6 +19,8 @@ package kernels
 import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
 )
 
 // scalar kernel that ignores (assumed all-null inputs) and returns null
@@ -32,6 +34,21 @@ func NullExecKernel(nargs int) exec.ScalarKernel {
 		in[i] = exec.NewIDInput(arrow.NULL)
 	}
 	return exec.NewScalarKernel(in, exec.NewOutputType(arrow.Null), NullToNullExec, nil)
+}
+
+func GetDecimalBinaryKernels(op ArithmeticOp) []exec.ScalarKernel {
+	var outType exec.OutputType
+	switch op {
+	case OpAdd, OpSub, OpAddChecked, OpSubChecked:
+		outType = exec.NewComputedOutputType(resolveDecimalAddOrSubtractType)
+	}
+
+	in128, in256 := exec.NewIDInput(arrow.DECIMAL128), exec.NewIDInput(arrow.DECIMAL256)
+	exec128, exec256 := getArithmeticBinaryDecimal[decimal128.Num](op), getArithmeticBinaryDecimal[decimal256.Num](op)
+	return []exec.ScalarKernel{
+		exec.NewScalarKernel([]exec.InputType{in128, in128}, outType, exec128, nil),
+		exec.NewScalarKernel([]exec.InputType{in256, in256}, outType, exec256, nil),
+	}
 }
 
 func GetArithmeticKernels(op ArithmeticOp) []exec.ScalarKernel {

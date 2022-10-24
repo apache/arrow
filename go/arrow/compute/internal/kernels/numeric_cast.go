@@ -218,7 +218,7 @@ func CastIntegerToDecimal[OutT exec.DecimalTypes, Arg0 exec.IntTypes | exec.Uint
 		return fmt.Errorf("%w: scale must be non-negative", arrow.ErrInvalid)
 	}
 
-	minPrecision, err := maxDecimalDigitsForInt(batch.Values[0].Type().ID())
+	minPrecision, err := MaxDecimalDigitsForInt(batch.Values[0].Type().ID())
 	if err != nil {
 		return err
 	}

@@ -31,6 +31,10 @@ type arithmeticFunction struct {
 	promote decimalPromotion
 }
 
+func (fn *arithmeticFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	return execInternal(ctx, fn, opts, -1, args...)
+}
+
 func (fn *arithmeticFunction) checkDecimals(vals ...arrow.DataType) error {
 	if !hasDecimal(vals...) {
 		return nil
@@ -83,7 +87,7 @@ var (
 
 func RegisterScalarArithmetic(reg FunctionRegistry) {
 	addFn := &arithmeticFunction{*NewScalarFunction("add_unchecked", Binary(), addDoc), decPromoteAdd}
-	for _, k := range kernels.GetArithmeticKernels(kernels.OpAdd) {
+	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpAdd), kernels.GetDecimalBinaryKernels(kernels.OpAdd)...) {
 		if err := addFn.AddKernel(k); err != nil {
 			panic(err)
 		}
@@ -92,7 +96,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	reg.AddFunction(addFn, false)
 
 	addCheckedFn := &arithmeticFunction{*NewScalarFunction("add", Binary(), addDoc), decPromoteAdd}
-	for _, k := range kernels.GetArithmeticKernels(kernels.OpAddChecked) {
+	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpAddChecked), kernels.GetDecimalBinaryKernels(kernels.OpAddChecked)...) {
 		if err := addCheckedFn.AddKernel(k); err != nil {
 			panic(err)
 		}
@@ -101,7 +105,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	reg.AddFunction(addCheckedFn, false)
 
 	subFn := &arithmeticFunction{*NewScalarFunction("sub_unchecked", Binary(), addDoc), decPromoteAdd}
-	for _, k := range kernels.GetArithmeticKernels(kernels.OpSub) {
+	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpSub), kernels.GetDecimalBinaryKernels(kernels.OpSub)...) {
 		if err := subFn.AddKernel(k); err != nil {
 			panic(err)
 		}
@@ -110,7 +114,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	reg.AddFunction(subFn, false)
 
 	subCheckedFn := &arithmeticFunction{*NewScalarFunction("sub", Binary(), addDoc), decPromoteAdd}
-	for _, k := range kernels.GetArithmeticKernels(kernels.OpSubChecked) {
+	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpSubChecked), kernels.GetDecimalBinaryKernels(kernels.OpSubChecked)...) {
 		if err := subCheckedFn.AddKernel(k); err != nil {
 			panic(err)
 		}

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/bits"
 
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
@@ -82,6 +83,29 @@ func (n Num) Negate() Num {
 		}
 	}
 	return n
+}
+
+func (n Num) Add(rhs Num) Num {
+	var carry uint64
+	for i, v := range n.arr {
+		n.arr[i], carry = bits.Add64(v, rhs.arr[i], carry)
+	}
+	return n
+}
+
+func (n Num) Sub(rhs Num) Num {
+	return n.Add(rhs.Negate())
+}
+
+func (n Num) Mul(rhs Num) Num {
+	b := n.BigInt()
+	return FromBigInt(b.Mul(b, rhs.BigInt()))
+}
+
+func (n Num) Div(rhs Num) (res, rem Num) {
+	b := n.BigInt()
+	out, remainder := b.QuoRem(b, rhs.BigInt(), &big.Int{})
+	return FromBigInt(out), FromBigInt(remainder)
 }
 
 func FromFloat32(v float32, prec, scale int32) (Num, error) {

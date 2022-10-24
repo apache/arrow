@@ -27,6 +27,8 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/gen"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
@@ -321,6 +323,7 @@ func TestBinaryArithmetic(t *testing.T) {
 	suite.Run(t, &BinaryArithmeticSuite[float32]{min: -math.MaxFloat32, max: math.MaxFloat32})
 	suite.Run(t, &BinaryArithmeticSuite[float64]{min: -math.MaxFloat64, max: math.MaxFloat64})
 	suite.Run(t, new(Float16BinaryFuncTestSuite))
+	suite.Run(t, new(DecimalBinaryArithmeticSuite))
 }
 
 func TestBinaryArithmeticDispatchBest(t *testing.T) {
@@ -361,6 +364,247 @@ func TestBinaryArithmeticDispatchBest(t *testing.T) {
 			})
 		}
 	}
+}
+
+type DecimalArithmeticSuite struct {
+	suite.Suite
+
+	BinaryFuncTestSuite
+}
+
+func (*DecimalArithmeticSuite) positiveScales() []arrow.DataType {
+	return []arrow.DataType{
+		&arrow.Decimal128Type{Precision: 4, Scale: 2},
+		&arrow.Decimal256Type{Precision: 4, Scale: 2},
+		&arrow.Decimal128Type{Precision: 38, Scale: 2},
+		&arrow.Decimal256Type{Precision: 76, Scale: 2},
+	}
+}
+
+func (*DecimalArithmeticSuite) negativeScales() []arrow.DataType {
+	return []arrow.DataType{
+		&arrow.Decimal128Type{Precision: 2, Scale: -2},
+		&arrow.Decimal256Type{Precision: 2, Scale: -2},
+	}
+}
+
+func (ds *DecimalArithmeticSuite) checkDecimalToFloat(fn string, args []compute.Datum) {
+	// validate that fn(*decimals) is the same as
+	// fn([cast(x, float64) x for x in decimals])
+
+	newArgs := make([]compute.Datum, len(args))
+	for i, arg := range args {
+		if arrow.IsDecimal(arg.(compute.ArrayLikeDatum).Type().ID()) {
+			casted, err := compute.CastDatum(ds.ctx, arg, compute.NewCastOptions(arrow.PrimitiveTypes.Float64, true))
+			ds.Require().NoError(err)
+			defer casted.Release()
+			newArgs[i] = casted
+		} else {
+			newArgs[i] = arg
+		}
+	}
+
+	expected, err := compute.CallFunction(ds.ctx, fn, nil, newArgs...)
+	ds.Require().NoError(err)
+	defer expected.Release()
+	actual, err := compute.CallFunction(ds.ctx, fn, nil, args...)
+	ds.Require().NoError(err)
+	defer actual.Release()
+
+	assertDatumsEqual(ds.T(), expected, actual)
+}
+
+func (ds *DecimalArithmeticSuite) checkFail(fn string, args []compute.Datum, substr string, opts compute.FunctionOptions) {
+	_, err := compute.CallFunction(ds.ctx, fn, opts, args...)
+	ds.ErrorIs(err, arrow.ErrInvalid)
+	ds.ErrorContains(err, substr)
+}
+
+type DecimalBinaryArithmeticSuite struct {
+	DecimalArithmeticSuite
+}
+
+func (ds *DecimalBinaryArithmeticSuite) TestDispatchBest() {
+	// decimal, floating point
+	for _, fn := range []string{"add", "sub"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				&arrow.Decimal128Type{Precision: 1, Scale: 0},
+				arrow.PrimitiveTypes.Float32}, []arrow.DataType{
+				arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float32})
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				&arrow.Decimal256Type{Precision: 1, Scale: 0}, arrow.PrimitiveTypes.Float64},
+				[]arrow.DataType{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64})
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				arrow.PrimitiveTypes.Float32, &arrow.Decimal256Type{Precision: 1, Scale: 0}},
+				[]arrow.DataType{arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float32})
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				arrow.PrimitiveTypes.Float64, &arrow.Decimal128Type{Precision: 1, Scale: 0}},
+				[]arrow.DataType{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64})
+		}
+	}
+
+	// decimal, decimal => decimal
+	// decimal, integer => decimal
+	for _, fn := range []string{"add", "sub"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				arrow.PrimitiveTypes.Int64, &arrow.Decimal128Type{Precision: 1, Scale: 0}},
+				[]arrow.DataType{&arrow.Decimal128Type{Precision: 19, Scale: 0},
+					&arrow.Decimal128Type{Precision: 1, Scale: 0}})
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				&arrow.Decimal128Type{Precision: 1, Scale: 0}, arrow.PrimitiveTypes.Int64},
+				[]arrow.DataType{&arrow.Decimal128Type{Precision: 1, Scale: 0},
+					&arrow.Decimal128Type{Precision: 19, Scale: 0}})
+
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				&arrow.Decimal128Type{Precision: 2, Scale: 1}, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
+				[]arrow.DataType{&arrow.Decimal128Type{Precision: 2, Scale: 1},
+					&arrow.Decimal128Type{Precision: 2, Scale: 1}})
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				&arrow.Decimal256Type{Precision: 2, Scale: 1}, &arrow.Decimal256Type{Precision: 2, Scale: 1}},
+				[]arrow.DataType{&arrow.Decimal256Type{Precision: 2, Scale: 1},
+					&arrow.Decimal256Type{Precision: 2, Scale: 1}})
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				&arrow.Decimal128Type{Precision: 2, Scale: 1}, &arrow.Decimal256Type{Precision: 2, Scale: 1}},
+				[]arrow.DataType{&arrow.Decimal256Type{Precision: 2, Scale: 1},
+					&arrow.Decimal256Type{Precision: 2, Scale: 1}})
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				&arrow.Decimal256Type{Precision: 2, Scale: 1}, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
+				[]arrow.DataType{&arrow.Decimal256Type{Precision: 2, Scale: 1},
+					&arrow.Decimal256Type{Precision: 2, Scale: 1}})
+
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				&arrow.Decimal128Type{Precision: 2, Scale: 0}, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
+				[]arrow.DataType{&arrow.Decimal128Type{Precision: 3, Scale: 1},
+					&arrow.Decimal128Type{Precision: 2, Scale: 1}})
+			CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+				&arrow.Decimal128Type{Precision: 2, Scale: 1}, &arrow.Decimal128Type{Precision: 2, Scale: 0}},
+				[]arrow.DataType{&arrow.Decimal128Type{Precision: 2, Scale: 1},
+					&arrow.Decimal128Type{Precision: 3, Scale: 1}})
+		}
+	}
+}
+
+func (ds *DecimalBinaryArithmeticSuite) TestAddSubtractDec128() {
+	left, _, _ := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 30, Scale: 3},
+		strings.NewReader(`["1.000", "-123456789012345678901234567.890", "98765432109876543210.987", "-999999999999999999999999999.999"]`))
+	defer left.Release()
+	right, _, _ := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 20, Scale: 9},
+		strings.NewReader(`["-1.000000000", "12345678901.234567890", "98765.432101234", "-99999999999.999999999"]`))
+	defer right.Release()
+	added, _, _ := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 37, Scale: 9},
+		strings.NewReader(`["0.000000000", "-123456789012345666555555666.655432110", "98765432109876641976.419101234", "-1000000000000000099999999999.998999999"]`))
+	defer added.Release()
+	subtracted, _, _ := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 37, Scale: 9},
+		strings.NewReader(`["2.000000000", "-123456789012345691246913469.124567890", "98765432109876444445.554898766", "-999999999999999899999999999.999000001"]`))
+	defer subtracted.Release()
+
+	leftDatum, rightDatum := &compute.ArrayDatum{Value: left.Data()}, &compute.ArrayDatum{Value: right.Data()}
+	checkScalarBinary(ds.T(), "add", leftDatum, rightDatum, &compute.ArrayDatum{Value: added.Data()}, nil)
+	checkScalarBinary(ds.T(), "sub", leftDatum, rightDatum, &compute.ArrayDatum{Value: subtracted.Data()}, nil)
+}
+
+func (ds *DecimalBinaryArithmeticSuite) TestAddSubtractDec256() {
+	left, _, _ := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 30, Scale: 20},
+		strings.NewReader(`[
+			"-1.00000000000000000001",
+			"1234567890.12345678900000000000",
+			"-9876543210.09876543210987654321",
+			"9999999999.99999999999999999999"
+		  ]`))
+	defer left.Release()
+	right, _, _ := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 30, Scale: 10},
+		strings.NewReader(`[
+			"1.0000000000",
+			"-1234567890.1234567890",
+			"6789.5432101234",
+			"99999999999999999999.9999999999"
+		  ]`))
+	defer right.Release()
+	added, _, _ := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 41, Scale: 20},
+		strings.NewReader(`[
+			"-0.00000000000000000001",
+			"0.00000000000000000000",
+			"-9876536420.55555530870987654321",
+			"100000000009999999999.99999999989999999999"
+		  ]`))
+	defer added.Release()
+	subtracted, _, _ := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 41, Scale: 20},
+		strings.NewReader(`[
+			"-2.00000000000000000001",
+			"2469135780.24691357800000000000",
+			"-9876549999.641975555509876543212",
+			"-99999999989999999999.99999999990000000001"
+		  ]`))
+	defer subtracted.Release()
+
+	leftDatum, rightDatum := &compute.ArrayDatum{Value: left.Data()}, &compute.ArrayDatum{Value: right.Data()}
+	checkScalarBinary(ds.T(), "add", leftDatum, rightDatum, &compute.ArrayDatum{Value: added.Data()}, nil)
+	checkScalarBinary(ds.T(), "sub", leftDatum, rightDatum, &compute.ArrayDatum{Value: subtracted.Data()}, nil)
+}
+
+func (ds *DecimalBinaryArithmeticSuite) TestAddSubScalars() {
+	ds.Run("scalar_array", func() {
+		left := scalar.NewDecimal128Scalar(decimal128.New(0, 123456), &arrow.Decimal128Type{Precision: 6, Scale: 1})
+		right, _, _ := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 10, Scale: 3},
+			strings.NewReader(`["1.234", "1234.000", "-9876.543", "666.888"]`))
+		defer right.Release()
+		added, _, _ := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 11, Scale: 3},
+			strings.NewReader(`["12346.834", "13579.600", "2469.057", "13012.488"]`))
+		defer added.Release()
+		leftSubRight, _, _ := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 11, Scale: 3},
+			strings.NewReader(`["12344.366", "11111.600", "22222.143", "11678.712"]`))
+		defer leftSubRight.Release()
+		rightSubLeft, _, _ := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 11, Scale: 3},
+			strings.NewReader(`["-12344.366", "-11111.600", "-22222.143", "-11678.712"]`))
+		defer rightSubLeft.Release()
+
+		rightDatum := &compute.ArrayDatum{right.Data()}
+		addedDatum := &compute.ArrayDatum{added.Data()}
+		checkScalarBinary(ds.T(), "add", compute.NewDatum(left), rightDatum, addedDatum, nil)
+		checkScalarBinary(ds.T(), "add", rightDatum, compute.NewDatum(left), addedDatum, nil)
+		checkScalarBinary(ds.T(), "sub", compute.NewDatum(left), rightDatum, &compute.ArrayDatum{leftSubRight.Data()}, nil)
+		checkScalarBinary(ds.T(), "sub", rightDatum, compute.NewDatum(left), &compute.ArrayDatum{rightSubLeft.Data()}, nil)
+	})
+
+	ds.Run("scalar_scalar", func() {
+		left := scalar.NewDecimal256Scalar(decimal256.FromU64(666), &arrow.Decimal256Type{Precision: 3})
+		right := scalar.NewDecimal256Scalar(decimal256.FromU64(888), &arrow.Decimal256Type{Precision: 3})
+		added := scalar.NewDecimal256Scalar(decimal256.FromU64(1554), &arrow.Decimal256Type{Precision: 4})
+		subtracted := scalar.NewDecimal256Scalar(decimal256.FromI64(-222), &arrow.Decimal256Type{Precision: 4})
+		checkScalarBinary(ds.T(), "add", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(added), nil)
+		checkScalarBinary(ds.T(), "sub", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(subtracted), nil)
+	})
+
+	ds.Run("dec128_dec256", func() {
+		left := scalar.NewDecimal128Scalar(decimal128.FromU64(666), &arrow.Decimal128Type{Precision: 3})
+		right := scalar.NewDecimal256Scalar(decimal256.FromU64(888), &arrow.Decimal256Type{Precision: 3})
+		added := scalar.NewDecimal256Scalar(decimal256.FromU64(1554), &arrow.Decimal256Type{Precision: 4})
+		checkScalarBinary(ds.T(), "add", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(added), nil)
+		checkScalarBinary(ds.T(), "add", compute.NewDatum(right), compute.NewDatum(left), compute.NewDatum(added), nil)
+	})
+
+	ds.Run("decimal_float", func() {
+		left := scalar.NewDecimal128Scalar(decimal128.FromU64(666), &arrow.Decimal128Type{Precision: 3})
+		right := scalar.MakeScalar(float64(888))
+		added := scalar.MakeScalar(float64(1554))
+		checkScalarBinary(ds.T(), "add", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(added), nil)
+		checkScalarBinary(ds.T(), "add", compute.NewDatum(right), compute.NewDatum(left), compute.NewDatum(added), nil)
+	})
+
+	ds.Run("decimal_integer", func() {
+		left := scalar.NewDecimal128Scalar(decimal128.FromU64(666), &arrow.Decimal128Type{Precision: 3})
+		right := scalar.MakeScalar(int64(888))
+		added := scalar.NewDecimal128Scalar(decimal128.FromU64(1554), &arrow.Decimal128Type{Precision: 20})
+		subtracted := scalar.NewDecimal128Scalar(decimal128.FromI64(-222), &arrow.Decimal128Type{Precision: 20})
+		checkScalarBinary(ds.T(), "add", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(added), nil)
+		checkScalarBinary(ds.T(), "sub", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(subtracted), nil)
+	})
 }
 
 const seed = 0x94378165
