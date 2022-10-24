@@ -36,7 +36,10 @@ jobs:
             -e ARROW_JAVA_TEST=OFF \
             java-jni-manylinux-2014
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
+        run: |
+          mkdir -p arrow/java-dist/x86_64
+          mv arrow/java-dist/*.* arrow/java-dist/x86_64/
+          tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/x86_64/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -68,9 +71,6 @@ jobs:
         run: python3 -m pip install -e arrow/dev/archery[all]
       - name: Install dependencies
         run: |
-          # brew numpy install fails on gh runner macos-11
-          # and is not required for this build
-          sed -i -e '/brew "numpy"/d' arrow/cpp/Brewfile
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have
@@ -131,7 +131,10 @@ jobs:
           bash -c "arrow/ci/scripts/java_jni_windows_build.sh $(pwd)/arrow $(pwd)/arrow/cpp-build $(pwd)/arrow/java-dist"
       - name: Compress into single artifact to keep directory structure
         shell: bash
-        run: tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/
+        run: |
+          mkdir -p arrow/java-dist/x86_64
+          mv arrow/java-dist/*.* arrow/java-dist/x86_64/
+          tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/x86_64/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -176,9 +179,9 @@ jobs:
           test -f arrow/java-dist/aarch_64/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/aarch_64/libgandiva_jni.dylib
           test -f arrow/java-dist/aarch_64/libarrow_orc_jni.dylib
-          test -f arrow/java-dist/arrow_cdata_jni.dll
-          test -f arrow/java-dist/arrow_dataset_jni.dll
-          test -f arrow/java-dist/arrow_orc_jni.dll
+          test -f arrow/java-dist/x86_64/arrow_cdata_jni.dll
+          test -f arrow/java-dist/x86_64/arrow_dataset_jni.dll
+          test -f arrow/java-dist/x86_64/arrow_orc_jni.dll
       - name: Build bundled jar
         run: |
           set -e
@@ -188,16 +191,7 @@ jobs:
           arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/java-dist
-          arrow/ci/scripts/java_full_build.sh \
-            $GITHUB_WORKSPACE/arrow \
-            $GITHUB_WORKSPACE/arrow/java-dist/x86_64
-          arrow/ci/scripts/java_full_build.sh \
-            $GITHUB_WORKSPACE/arrow \
-            $GITHUB_WORKSPACE/arrow/java-dist/aarch_64
-      {{ macros.github_upload_releases(["arrow/java-dist/*.jar",
-                                        "arrow/java-dist/*.pom",
-                                        "arrow/java-dist/*.zip",
-                                        "arrow/java-dist/x86_64/*.jar",
+      {{ macros.github_upload_releases(["arrow/java-dist/x86_64/*.jar",
                                         "arrow/java-dist/x86_64/*.pom",
                                         "arrow/java-dist/x86_64/*.zip",
                                         "arrow/java-dist/aarch_64/*.jar",
