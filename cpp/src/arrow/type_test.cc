@@ -1444,7 +1444,7 @@ TEST(TestListType, Equals) {
   ListType list_type(vt);
   ListType list_type_named(inner_field);
 
-  ASSERT_TRUE(list_type.Equals(list_type_named));
+  AssertTypeEqual(list_type, list_type_named);
   ASSERT_FALSE(
       list_type.Equals(list_type_named, false, /*check_internal_field_names*/ true));
 }
