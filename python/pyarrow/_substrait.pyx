@@ -17,6 +17,7 @@
 
 # cython: language_level = 3
 from cython.operator cimport dereference as deref
+from libcpp cimport bool as c_bool
 from libcpp.vector cimport vector as std_vector
 
 from pyarrow import Buffer, py_buffer
@@ -24,6 +25,9 @@ from pyarrow.lib import frombytes, tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
+
+from pyarrow._dataset import InMemoryDataset
+import warnings
 
 
 cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector[c_string]& names):
@@ -48,7 +52,7 @@ cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector
                         no_c_inputs, c_input_node_opts)
 
 
-def run_query(plan, table_provider=None):
+def run_query(plan, table_provider=None, handle_backpressure=False, output_type=RecordBatchReader, use_threads=False):
     """
     Execute a Substrait plan and read the results as a RecordBatchReader.
 
@@ -60,6 +64,15 @@ def run_query(plan, table_provider=None):
         A function to resolve any NamedTable relation to a table.
         The function will receive a single argument which will be a list
         of strings representing the table name and should return a pyarrow.Table.
+    handle_backpressure: bool, default True
+        Enables if set True or disables handling backpressure.
+    output_type : RecordBatchReader or Table or InMemoryDataset
+        In which format the output should be provided.
+        If the backpressure is handled, the output_type should be set only to
+        Table or InMemoryDataset. When backpressure is not set, it can be set
+        to Table or InMemoryDataset or RecordBatchReader.
+    use_threads : bool, default True
+        Whenever to use multithreading or not.
 
     Returns
     -------
@@ -123,6 +136,10 @@ def run_query(plan, table_provider=None):
         shared_ptr[CBuffer] c_buf_plan
         function[CNamedTableProvider] c_named_table_provider
         CConversionOptions c_conversion_options
+        shared_ptr[CExecContext] c_exec_context
+        CExecutor *c_executor
+        shared_ptr[CExecPlan] c_exec_plan
+        c_bool c_handle_backpressure
 
     if isinstance(plan, bytes):
         c_buf_plan = pyarrow_unwrap_buffer(py_buffer(plan))
@@ -139,15 +156,48 @@ def run_query(plan, table_provider=None):
         c_conversion_options.named_table_provider = BindFunction[CNamedTableProvider](
             &_create_named_table_provider, named_table_args)
 
+    if use_threads:
+        c_executor = GetCpuThreadPool()
+    else:
+        c_executor = NULL
+
+    c_exec_context = make_shared[CExecContext](
+        c_default_memory_pool(), c_executor)
+    c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
+    c_handle_backpressure = handle_backpressure
+
     with nogil:
         c_res_reader = ExecuteSerializedPlan(
-            deref(c_buf_plan), default_extension_id_registry(), GetFunctionRegistry(), c_conversion_options)
+            deref(c_buf_plan),
+            c_handle_backpressure,
+            c_exec_plan,
+            c_exec_context.get(),
+            default_extension_id_registry(),
+            GetFunctionRegistry(),
+            c_conversion_options)
 
     c_reader = GetResultValue(c_res_reader)
 
+    if handle_backpressure:
+        if output_type == RecordBatchReader:
+            warnings.warn(
+                "backpressure handling enabled, output type \
+                can be only set to Table or InMemoryDataset. \
+                Setting output to Table.", UserWarning)
+        output_type = Table
+
     reader = RecordBatchReader.__new__(RecordBatchReader)
     reader.reader = c_reader
-    return reader
+    if output_type == RecordBatchReader:
+        output = reader
+    elif output_type == Table:
+        output = reader.read_all()
+    elif output_type == InMemoryDataset:
+        output = InMemoryDataset(reader.read_all())
+    else:
+        raise TypeError("Unsupported output type")
+
+    return output
 
 
 def _parse_json_plan(plan):
