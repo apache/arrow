@@ -175,7 +175,7 @@ class BaseTableTest {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
       assertNotNull(t.getVector(INT_VECTOR_NAME_1));
-      assertThrows(IllegalStateException.class,
+      assertThrows(IllegalArgumentException.class,
           () -> t.getVector("wrong name"));
     }
   }
@@ -196,7 +196,7 @@ class BaseTableTest {
           assertEquals(original.getObject(i), copy.getObject(i));
         }
       }
-      assertThrows(IllegalStateException.class,
+      assertThrows(IllegalArgumentException.class,
           () -> t.getVector("wrong name"));
     }
   }
@@ -216,7 +216,7 @@ class BaseTableTest {
           assertEquals(original.getObject(i), copy.getObject(i));
         }
       }
-      assertThrows(IllegalStateException.class,
+      assertThrows(IllegalArgumentException.class,
           () -> t.getVector("wrong name"));
     }
   }
