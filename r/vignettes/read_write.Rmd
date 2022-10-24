@@ -81,7 +81,7 @@ The default is to return a data frame or tibble. If we want an Arrow Table inste
 read_parquet(file_path, as_data_frame = FALSE)
 ```
 
-One useful feature of Parquet files is that they store data column-wise, and contain metadata that allow the Parquet readers to skip to the relevant sections of the file. That means it is possible to load only a subset of the columns without reading the complete file. This functionality is supported in `arrow` using the `col_select` argument to `read_parquet()`:
+One useful feature of Parquet files is that they store data column-wise, and contain metadata that allow file readers to skip to the relevant sections of the file. That means it is possible to load only a subset of the columns without reading the complete file. The `col_select` argument to `read_parquet()` supports this functionality is supported in `arrow`:
 
 ```{r}
 read_parquet(file_path, col_select = c("name", "height", "mass"))
@@ -131,12 +131,40 @@ read_feather(
 
 ## CSV format
 
-For CSV and line-delimited JSON, there are `read_csv_arrow()` and `read_json_arrow()`, respectively.
-While `read_csv_arrow()` currently has fewer parsing options for dealing with
-every CSV format variation in the wild, for the files it can read, it is
-often significantly faster than other R CSV readers, such as
-`base::read.csv`, `readr::read_csv`, and `data.table::fread`.
+The read/write capabilities of the `arrow` package also include support for 
+CSV and other text-delimited files. The `read_csv_arrow()`, `read_tsv_arrow()`, 
+and `read_delim_arrow()` functions all use the Arrow C++ CSV reader to read 
+data files, where the Arrow C++ options have been mapped to arguments in a 
+way that mirrors the conventions used in `readr::read_delim()`, with a 
+`col_select` argument inspired by `vroom::vroom()`. 
 
+Although `read_csv_arrow()` currently has fewer parsing options for dealing 
+with every CSV format variation in the wild than other CSV readers available
+in R, for those files that it can read, it is often significantly faster than 
+other R CSV readers, such as `base::read.csv`, `readr::read_csv`, and
+`data.table::fread`.
+
+A simple example of writing and reading a CSV file with `arrow` is shown below:
+
+```{r}
+file_path <- tempfile()
+write_csv_arrow(mtcars, file_path)
+read_csv_arrow(file_path, col_select = starts_with("d"))
+```
+
+## JSON format
+
+The `arrow` package supports reading (but not writing) of tabular data from line-delimited JSON, using the `read_json_arrow()` function. A minimal example is shown below:
+
+```{r}
+file_path <- tempfile()
+writeLines('
+    { "hello": 3.5, "world": false, "yo": "thing" }
+    { "hello": 3.25, "world": null }
+    { "hello": 0.0, "world": true, "yo": null }
+  ', file_path, useBytes = TRUE)
+read_json_arrow(file_path)
+```
 
 ## Further reading
 
