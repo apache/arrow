@@ -25,8 +25,8 @@
 #include <string_view>
 #include <vector>
 
-#include "arrow/compute/type_fwd.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/type_fwd.h"
@@ -140,7 +140,6 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
 
-
 /// TODO: add documentation
 
 using SinkOptionsFactory = std::function<std::shared_ptr<compute::SinkNodeOptions>()>;
@@ -152,7 +151,7 @@ using SinkOptionsFactory = std::function<std::shared_ptr<compute::SinkNodeOption
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
 /// message
-/// \param[in] sink_options_factory factory function for generating sink node options 
+/// \param[in] sink_options_factory factory function for generating sink node options
 /// of a node collecting the batches produced by each toplevel Substrait relation
 /// \param[in] registry an extension-id-registry to use, or null for the default one.
 /// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait

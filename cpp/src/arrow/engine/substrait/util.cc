@@ -67,13 +67,15 @@ class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
 /// bindings for consuming a Substrait plan.
 class SubstraitExecutor {
  public:
-  explicit SubstraitExecutor(std::shared_ptr<compute::ExecPlan> plan,
-                             compute::ExecContext exec_context,
-                             const ConversionOptions& conversion_options = {})
-      : plan_(std::move(plan)),
+  explicit SubstraitExecutor(std::shared_ptr<compute::ExecPlan>& plan,
+                             compute::ExecContext* exec_context,
+                             const ConversionOptions& conversion_options = {},
+                             bool handle_backpressure = false)
+      : plan_(plan),
         plan_started_(false),
         exec_context_(exec_context),
-        conversion_options_(conversion_options) {}
+        conversion_options_(conversion_options),
+        handle_backpressure_(handle_backpressure) {}
 
   ~SubstraitExecutor() { ARROW_UNUSED(this->Close()); }
 
@@ -84,9 +86,15 @@ class SubstraitExecutor {
     RETURN_NOT_OK(plan_->Validate());
     plan_started_ = true;
     RETURN_NOT_OK(plan_->StartProducing());
-    //auto schema = sink_consumer_->schema();
-    std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-        std::move(output_schema_), std::move(sink_gen_), exec_context_.memory_pool());
+    std::shared_ptr<RecordBatchReader> sink_reader;
+    if (handle_backpressure_) {
+      sink_reader = compute::MakeGeneratorReader(
+          std::move(output_schema_), std::move(sink_gen_), exec_context_->memory_pool());
+    } else {
+      output_schema_ = sink_consumer_->schema();
+      sink_reader = compute::MakeGeneratorReader(
+          std::move(output_schema_), std::move(generator_), exec_context_->memory_pool());
+    }
     return std::move(sink_reader);
   }
 
@@ -99,32 +107,40 @@ class SubstraitExecutor {
     if (substrait_buffer.size() == 0) {
       return Status::Invalid("Empty substrait plan is passed.");
     }
-    // sink_consumer_ = std::make_shared<SubstraitSinkConsumer>(generator_.producer());
-    // std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
-    //   return sink_consumer_;
-    // };
-  
-    sink_node_options_ = std::make_shared<compute::SinkNodeOptions>(compute::SinkNodeOptions{&sink_gen_, {}, nullptr, &output_schema_});
-    std::function<std::shared_ptr<compute::SinkNodeOptions>()> sink_factory = [&] {
-      return sink_node_options_;
-    };
-    ARROW_ASSIGN_OR_RAISE(
-        declarations_, engine::DeserializePlans(substrait_buffer, sink_factory,
-                                                registry, nullptr, conversion_options_));
+
+    if (handle_backpressure_) {
+      sink_node_options_ = std::make_shared<compute::SinkNodeOptions>(
+          compute::SinkNodeOptions{&sink_gen_, {}, nullptr, &output_schema_});
+      std::function<std::shared_ptr<compute::SinkNodeOptions>()> sink_factory = [&] {
+        return sink_node_options_;
+      };
+      ARROW_ASSIGN_OR_RAISE(declarations_, engine::DeserializePlans(
+                                               substrait_buffer, sink_factory, registry,
+                                               nullptr, conversion_options_));
+    } else {
+      sink_consumer_ = std::make_shared<SubstraitSinkConsumer>(generator_.producer());
+      std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
+        return sink_consumer_;
+      };
+      ARROW_ASSIGN_OR_RAISE(declarations_, engine::DeserializePlans(
+                                               substrait_buffer, consumer_factory,
+                                               registry, nullptr, conversion_options_));
+    }
     return Status::OK();
   }
 
  private:
-  //arrow::PushGenerator<std::optional<compute::ExecBatch>> generator_;
+  arrow::PushGenerator<std::optional<compute::ExecBatch>> generator_;
   std::shared_ptr<Schema> output_schema_;
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen_;
   std::shared_ptr<compute::SinkNodeOptions> sink_node_options_;
   std::vector<compute::Declaration> declarations_;
   std::shared_ptr<compute::ExecPlan> plan_;
   bool plan_started_;
-  compute::ExecContext exec_context_;
+  compute::ExecContext* exec_context_;
   std::shared_ptr<SubstraitSinkConsumer> sink_consumer_;
   const ConversionOptions& conversion_options_;
+  bool handle_backpressure_;
 };
 
 }  // namespace
@@ -136,20 +152,19 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
   compute::ExecContext exec_context(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool(), func_registry);
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
-  SubstraitExecutor executor(std::move(plan), exec_context, conversion_options);
+  SubstraitExecutor executor(plan, &exec_context, conversion_options);
   RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   // check closing here, not in destructor, to expose error to caller
   RETURN_NOT_OK(executor.Close());
-  return std::move(sink_reader);
+  return sink_reader;
 }
 
-Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    std::shared_ptr<compute::ExecPlan> plan,
-    compute::ExecContext exec_context,
+Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlanWithBackPressure(
+    std::shared_ptr<compute::ExecPlan>& plan, compute::ExecContext* exec_context,
     const Buffer& substrait_buffer, const ExtensionIdRegistry* registry,
     const ConversionOptions& conversion_options) {
-  SubstraitExecutor executor(std::move(plan), exec_context, conversion_options);
+  SubstraitExecutor executor(plan, exec_context, conversion_options, true);
   RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   // check closing here, not in destructor, to expose error to caller

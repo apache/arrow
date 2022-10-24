@@ -126,10 +126,9 @@ class SinkNode : public ExecNode {
 
     const auto& sink_options = checked_cast<const SinkNodeOptions&>(options);
     RETURN_NOT_OK(ValidateOptions(sink_options));
-    return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator,
-                                       sink_options.backpressure,
-                                       sink_options.backpressure_monitor,
-                                       sink_options.output_schema);
+    return plan->EmplaceNode<SinkNode>(
+        plan, std::move(inputs), sink_options.generator, sink_options.backpressure,
+        sink_options.backpressure_monitor, sink_options.output_schema);
   }
 
   const char* kind_name() const override { return "SinkNode"; }
@@ -140,7 +139,7 @@ class SinkNode : public ExecNode {
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
-    if(output_schema_) {
+    if (output_schema_) {
       *output_schema_ = inputs_[0]->output_schema();
     }
     return Status::OK();
