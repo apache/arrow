@@ -122,10 +122,9 @@ jobs:
           KEEP: ${{ github.event.inputs.keep || 14 }}
         run: |
           for i in `ls -t repo/org/apache/arrow`; do
-            find repo/org/apache/arrow/$i -mindepth 1 -maxdepth 1 -type d -print0 \
-            | xargs -0 ls -t -d \
+            ls -tp repo/org/apache/arrow/$i \
             | tail -n +$((KEEP + 1)) \
-            | xargs rm -rf
+            | xargs -I {} rm -rf repo/org/apache/arrow/$i/{}
           done
       - name: Show repo contents
         run: tree repo
