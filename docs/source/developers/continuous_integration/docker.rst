@@ -103,7 +103,7 @@ Note that it doesn't pull the conda-python-pandas image and disable the cache
 when building it.
 
 ``PANDAS`` is a :ref:`build parameter <docker-build-parameters>`, see the
-defaults in the .env file.
+defaults in the ``.env`` file.
 
 **To entirely skip building the image:**
 
