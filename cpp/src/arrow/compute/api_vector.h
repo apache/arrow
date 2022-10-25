@@ -269,6 +269,19 @@ Result<Datum> Filter(const Datum& values, const Datum& filter,
                      const FilterOptions& options = FilterOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
 
+/// \brief Find the intersection of two arrays
+///
+/// Return the sorted, unique values that are in both of the input arrays.
+///
+/// \param[in] array1
+/// \param[in] array2
+/// \return Array with intersected values
+ARROW_EXPORT
+Result<Datum> Intersect(
+    const Datum& array1,
+    const Datum& array2,
+    ExecContext* ctx = NULLPTR);
+
 namespace internal {
 
 // These internal functions are implemented in kernels/vector_selection.cc

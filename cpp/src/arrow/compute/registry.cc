@@ -297,6 +297,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterVectorReplace(registry.get());
   RegisterVectorSelection(registry.get());
   RegisterVectorSort(registry.get());
+  RegisterVectorIntersect(registry.get());
 
   RegisterVectorOptions(registry.get());
 

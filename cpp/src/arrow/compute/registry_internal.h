@@ -49,6 +49,7 @@ void RegisterVectorNested(FunctionRegistry* registry);
 void RegisterVectorReplace(FunctionRegistry* registry);
 void RegisterVectorSelection(FunctionRegistry* registry);
 void RegisterVectorSort(FunctionRegistry* registry);
+void RegisterVectorIntersect(FunctionRegistry* registry);
 
 void RegisterVectorOptions(FunctionRegistry* registry);
 
