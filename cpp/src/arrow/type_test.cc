@@ -1244,6 +1244,12 @@ TEST(TestMapType, Basics) {
           "some_entries",
           struct_({field("some_key", kt, false), field("some_value", mt)}), false)));
   AssertTypeEqual(mt3, *mt5);
+  ASSERT_FALSE(
+      mt3.Equals(mt5, /*check_metadata=*/false, /*check_internal_field_names=*/true));
+
+  // nullability of value type matters in comparisons
+  MapType map_type_non_nullable(kt, field("value", it, /*nullable=*/false));
+  AssertTypeNotEqual(map_type, map_type_non_nullable);
 }
 
 TEST(TestFixedSizeListType, Basics) {
@@ -1428,15 +1434,17 @@ TEST(TestListType, Equals) {
   auto t1 = list(utf8());
   auto t2 = list(utf8());
   auto t3 = list(binary());
-  auto t4 = large_list(binary());
-  auto t5 = large_list(binary());
-  auto t6 = large_list(float64());
+  auto t4 = list(field("item", utf8(), /*nullable=*/false));
+  auto tl1 = large_list(binary());
+  auto tl2 = large_list(binary());
+  auto tl3 = large_list(float64());
 
   AssertTypeEqual(*t1, *t2);
   AssertTypeNotEqual(*t1, *t3);
-  AssertTypeNotEqual(*t3, *t4);
-  AssertTypeEqual(*t4, *t5);
-  AssertTypeNotEqual(*t5, *t6);
+  AssertTypeNotEqual(*t1, *t4);
+  AssertTypeNotEqual(*t3, *tl1);
+  AssertTypeEqual(*tl1, *tl2);
+  AssertTypeNotEqual(*tl2, *tl3);
 
   std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
   std::shared_ptr<Field> inner_field = std::make_shared<Field>("non_default_name", vt);

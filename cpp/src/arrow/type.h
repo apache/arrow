@@ -138,15 +138,21 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   /// Types that are logically convertible from one to another (e.g. List<UInt8>
   /// and Binary) are NOT equal.
   ///
-  /// \param[in] check_internal_field_names if true, will check whether the field names
-  /// within ListType or MapType are the same.
+  /// \param[in] other the DataType to compare with.
+  /// \param[in] check_metadata whether to compare KeyValueMetadata for child
+  /// fields.
+  /// \param[in] check_internal_field_names whether to consider list or map types
+  /// with differing field names as unequal.
   bool Equals(const DataType& other, bool check_metadata = false,
               bool check_internal_field_names = false) const;
 
   /// \brief Return whether the types are equal
   ///
-  /// \param[in] check_internal_field_names if true, will check whether the field names
-  /// within ListType or MapType are the same.
+  /// \param[in] other the DataType to compare with.
+  /// \param[in] check_metadata whether to compare KeyValueMetadata for child
+  /// fields.
+  /// \param[in] check_internal_field_names whether to consider list or map types
+  /// with differing field names as unequal.
   bool Equals(const std::shared_ptr<DataType>& other, bool check_metadata = false,
               bool check_internal_field_names = false) const;
 

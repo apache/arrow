@@ -635,6 +635,7 @@ class TypeEqualsVisitor {
     std::shared_ptr<Field> right_field = checked_cast<const T&>(right_).field(0);
     bool equal_names =
         !check_internal_field_names_ || (left_field->name() == right_field->name());
+    // TODO: check field metadata?
     result_ = equal_names && (left_field->nullable() == right_field->nullable()) &&
               left_field->type()->Equals(*right_field->type(), check_metadata_,
                                          check_internal_field_names_);
@@ -653,6 +654,13 @@ class TypeEqualsVisitor {
       result_ = false;
       return Status::OK();
     }
+    if (check_internal_field_names_ &&
+        (left.key_field()->name() != right.key_field()->name() ||
+         left.value_field()->name() != right.value_field()->name())) {
+      result_ = false;
+      return Status::OK();
+    }
+    // TODO: check metadata?
     result_ = left.key_type()->Equals(*right.key_type(), check_metadata_,
                                       check_internal_field_names_) &&
               left.item_type()->Equals(*right.item_type(), check_metadata_,
