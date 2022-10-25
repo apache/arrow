@@ -634,3 +634,18 @@ def test_orc_writer_with_null_arrays(tempdir):
     table = pa.table({"int64": a, "utf8": b})
     with pytest.raises(pa.ArrowNotImplementedError):
         orc.write_table(table, path)
+
+
+def test_read_orc_column_order(tempdir):
+    from pyarrow import orc
+
+    table = pa.table({"a": [1, 2, 3], "b": ["a", "b", "c"]})
+    path = str(tempdir / 'test.orc')
+    orc.write_table(table, path)
+    result = orc.read_table(path, columns=['b', 'a'])
+
+    expected_schema = pa.schema([
+        ("b", pa.string()),
+        ("a", pa.int64()),
+    ])
+    assert result.schema == expected_schema
