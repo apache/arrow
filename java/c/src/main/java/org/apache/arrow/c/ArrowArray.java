@@ -28,6 +28,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.MemoryUtil;
+import org.apache.arrow.util.VisibleForTesting;
 
 /**
  * C Data Interface ArrowArray.
@@ -147,6 +148,11 @@ public class ArrowArray implements BaseStruct {
       data.close();
       data = null;
     }
+  }
+
+  @VisibleForTesting
+  boolean isClosed() {
+    return data == null;
   }
 
   private ByteBuffer directBuffer() {
