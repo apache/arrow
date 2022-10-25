@@ -46,7 +46,7 @@ function setup_miniconda() {
   conda info -a
 
   conda config --set show_channel_urls True
-  conda config --add channels https://repo.anaconda.io/pkgs/free
+  conda config --add channels https://repo.anaconda.com/pkgs/free
   conda config --add channels conda-forge
 
   conda create -y -n pyarrow-$PYTHON -c conda-forge \
