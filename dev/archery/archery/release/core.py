@@ -367,18 +367,18 @@ class Release:
         default_branch_name = os.getenv("ARCHERY_DEFAULT_BRANCH")
 
         if default_branch_name is None:
-            try:
-                # Set up repo object
-                arrow = ArrowSources.find()
-                repo = Repo(arrow.path)
-                origin = repo.remotes["origin"]
-                origin_refs = origin.refs
+            # Set up repo object
+            arrow = ArrowSources.find()
+            repo = Repo(arrow.path)
+            origin = repo.remotes["origin"]
+            origin_refs = origin.refs
 
+            try:
                 # Get git.RemoteReference object to origin/HEAD
+                # If the reference does not exist, a KeyError will be thrown
                 origin_head = origin_refs["HEAD"]
 
-                # Get git.RemoteReference object to origin/main or
-                # origin/master
+                # Get git.RemoteReference object to origin/default-branch-name
                 origin_head_reference = origin_head.reference
 
                 # Get string value of remote head reference, should return
@@ -389,6 +389,7 @@ class Release:
                 # The last token is the default branch name
                 default_branch_name = origin_head_name_tokenized[-1]
             except KeyError:
+                # Use a hard-coded default value to set default_branch_name
                 # TODO: ARROW-18011 to track changing the hard coded default
                 # value from "master" to "main".
                 default_branch_name = "master"
