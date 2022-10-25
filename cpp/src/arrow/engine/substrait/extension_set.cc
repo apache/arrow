@@ -885,7 +885,7 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     for (const auto& function_name : {"ln", "log10", "log2", "logb", "log1p"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitLogarithmicFunctionsUri, function_name},
-                                  DecodeOptionlessOverflowableArithmetic(function_name)));
+                                  DecodeOptionlessUncheckedArithmetic(function_name)));
     }
 
     // Mappings for rounding functions
