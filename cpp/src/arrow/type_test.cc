@@ -1212,6 +1212,8 @@ TEST(TestLargeListType, Basics) {
 }
 
 TEST(TestMapType, Basics) {
+  auto md = key_value_metadata({"foo"}, {"foo value"});
+
   std::shared_ptr<DataType> kt = std::make_shared<StringType>();
   std::shared_ptr<DataType> it = std::make_shared<UInt8Type>();
 
@@ -1244,12 +1246,46 @@ TEST(TestMapType, Basics) {
           "some_entries",
           struct_({field("some_key", kt, false), field("some_value", mt)}), false)));
   AssertTypeEqual(mt3, *mt5);
+  // ...unless we explicitly ask about them.
   ASSERT_FALSE(
       mt3.Equals(mt5, /*check_metadata=*/false, /*check_internal_field_names=*/true));
 
   // nullability of value type matters in comparisons
   MapType map_type_non_nullable(kt, field("value", it, /*nullable=*/false));
   AssertTypeNotEqual(map_type, map_type_non_nullable);
+}
+
+TEST(TestMapType, Metadata) {
+  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md3 = key_value_metadata({"foo"}, {"foo value"});
+
+  auto t1 = map(utf8(), field("value", int32(), md1));
+  auto t2 = map(utf8(), field("value", int32(), md2));
+  auto t3 = map(utf8(), field("value", int32(), md3));
+  auto t4 =
+      std::make_shared<MapType>(field("key", utf8(), md1), field("value", int32(), md2));
+  ASSERT_OK_AND_ASSIGN(auto t5,
+                       MapType::Make(field("some_entries",
+                                           struct_({field("some_key", utf8(), false),
+                                                    field("some_value", int32(), md2)}),
+                                           false, md2)));
+
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeEqual(*t1, *t2, /*check_metadata=*/true);
+  ASSERT_TRUE(
+      t1->Equals(t2, /*check_metadata=*/true, /*check_internal_field_names=*/true));
+
+  AssertTypeEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t3, /*check_metadata=*/true);
+  ASSERT_FALSE(
+      t1->Equals(t3, /*check_metadata=*/true, /*check_internal_field_names=*/true));
+
+  AssertTypeEqual(*t1, *t4);
+  AssertTypeNotEqual(*t1, *t4, /*check_metadata=*/true);
+
+  AssertTypeEqual(*t1, *t5);
+  AssertTypeNotEqual(*t1, *t5, /*check_metadata=*/true);
 }
 
 TEST(TestFixedSizeListType, Basics) {
@@ -1475,10 +1511,14 @@ TEST(TestListType, Metadata) {
   auto t5 = list(f5);
 
   AssertTypeEqual(*t1, *t2);
-  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
+  AssertTypeEqual(*t1, *t2, /*check_metadata =*/true);
+  ASSERT_TRUE(
+      t1->Equals(t2, /*check_metadata =*/true, /*check_internal_field_names*/ true));
 
   AssertTypeEqual(*t1, *t3);
   AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+  ASSERT_FALSE(
+      t1->Equals(t3, /*check_metadata =*/true, /*check_internal_field_names*/ true));
 
   AssertTypeEqual(*t1, *t4);
   AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);

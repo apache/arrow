@@ -527,6 +527,12 @@ def test_list_type():
     assert ty == ty_named
     assert not ty.equals(ty_named, check_internal_field_names=True)
 
+    # metadata doesn't matter by default
+    ty_metadata = pa.list_(
+        pa.field("item", pa.int64(), metadata={"hello": "world"}))
+    assert ty == ty_metadata
+    assert not ty.equals(ty_metadata, check_metadata=True)
+
     with pytest.raises(TypeError):
         pa.list_(None)
 
@@ -559,6 +565,12 @@ def test_map_type():
                        pa.field("y", pa.int32()))
     assert ty == ty_named
     assert not ty.equals(ty_named, check_internal_field_names=True)
+
+    # metadata doesn't matter by default
+    ty_metadata = pa.map_(pa.utf8(), pa.field(
+        "value", pa.int32(), metadata={"hello": "world"}))
+    assert ty == ty_metadata
+    assert not ty.equals(ty_metadata, check_metadata=True)
 
     with pytest.raises(TypeError):
         pa.map_(None)
