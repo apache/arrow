@@ -1168,8 +1168,7 @@ TEST(Substrait, GetRecordBatchReader) {
   test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
                                          compute::FunctionRegistry* func_registry) {
     ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
-    ASSERT_OK_AND_ASSIGN(auto reader,
-                         ExecuteSerializedPlan(*buf, false));
+    ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf, false));
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
     // Note: assuming the binary.parquet file contains fixed amount of records
     // in case of a test failure, re-evalaute the content in the file

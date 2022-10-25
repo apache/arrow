@@ -148,17 +148,18 @@ class SubstraitExecutor {
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const bool handle_backpressure,
     std::shared_ptr<compute::ExecPlan> plan, compute::ExecContext* exec_context,
-    const ExtensionIdRegistry* registry, 
-    compute::FunctionRegistry* func_registry,
+    const ExtensionIdRegistry* registry, compute::FunctionRegistry* func_registry,
     const ConversionOptions& conversion_options) {
   if (!exec_context) {
-    exec_context = new compute::ExecContext(arrow::default_memory_pool(),
-                                    ::arrow::internal::GetCpuThreadPool(), func_registry);
+    exec_context =
+        new compute::ExecContext(arrow::default_memory_pool(),
+                                 ::arrow::internal::GetCpuThreadPool(), func_registry);
   }
   if (plan == nullptr) {
     ARROW_ASSIGN_OR_RAISE(plan, compute::ExecPlan::Make(exec_context));
   }
-  SubstraitExecutor executor(std::move(plan), exec_context, conversion_options, handle_backpressure);
+  SubstraitExecutor executor(std::move(plan), exec_context, conversion_options,
+                             handle_backpressure);
   RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
   // check closing here, not in destructor, to expose error to caller
