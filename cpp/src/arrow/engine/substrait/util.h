@@ -34,7 +34,7 @@ using PythonTableProvider =
 
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const bool handle_backpressure = false,
-    std::shared_ptr<compute::ExecPlan> plan = NULLPTR, 
+    std::shared_ptr<compute::ExecPlan> plan = NULLPTR,
     compute::ExecContext* exec_context = NULLPTR,
     const ExtensionIdRegistry* registry = NULLPTR,
     compute::FunctionRegistry* func_registry = NULLPTR,
