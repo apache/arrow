@@ -310,7 +310,6 @@ endmacro()
 # Thirdparty versions, environment variables, source URLs
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
-include_directories(SYSTEM "${THIRDPARTY_DIR}/flatbuffers/include")
 
 add_library(arrow::flatbuffers INTERFACE IMPORTED)
 if(CMAKE_VERSION VERSION_LESS 3.11)
