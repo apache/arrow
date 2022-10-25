@@ -518,6 +518,15 @@ def test_list_type():
     assert ty.value_type == pa.int64()
     assert ty.value_field == pa.field("item", pa.int64(), nullable=True)
 
+    # nullability matters in comparison
+    ty_non_nullable = pa.list_(pa.field("item", pa.int64(), nullable=False))
+    assert ty != ty_non_nullable
+
+    # field names don't matter by default
+    ty_named = pa.list_(pa.field("element", pa.int64()))
+    assert ty == ty_named
+    assert not ty.equals(ty_named, check_internal_field_names=True)
+
     with pytest.raises(TypeError):
         pa.list_(None)
 
@@ -539,6 +548,17 @@ def test_map_type():
     assert ty.key_field == pa.field("key", pa.utf8(), nullable=False)
     assert ty.item_type == pa.int32()
     assert ty.item_field == pa.field("value", pa.int32(), nullable=True)
+
+    # nullability matters in comparison
+    ty_non_nullable = pa.map_(pa.utf8(), pa.field(
+        "value", pa.int32(), nullable=False))
+    assert ty != ty_non_nullable
+
+    # field names don't matter by default
+    ty_named = pa.map_(pa.field("x", pa.utf8(), nullable=False),
+                       pa.field("y", pa.int32()))
+    assert ty == ty_named
+    assert not ty.equals(ty_named, check_internal_field_names=True)
 
     with pytest.raises(TypeError):
         pa.map_(None)
