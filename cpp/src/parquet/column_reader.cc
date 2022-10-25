@@ -1339,29 +1339,31 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // Throw away levels from start_levels_position to levels_position_.
   // Will update levels_position_, levels_written_, and levels_capacity_
   // accordingly and move the levels to left to fill in the gap.
-  // It will shrink the size of the buffer.
+  // It will resize the buffer without releasing the memory allocation.
   void ThrowAwayLevels(int64_t start_levels_position) {
     ARROW_DCHECK_LE(levels_position_, levels_written_);
     ARROW_DCHECK_LE(start_levels_position, levels_position_);
     ARROW_DCHECK_GT(this->max_def_level_, 0);
+    ARROW_DCHECK_NE(def_levels_, nullptr);
 
     int64_t gap = levels_position_ - start_levels_position;
     if (gap == 0) return;
 
     int64_t levels_remaining = levels_written_ - gap;
+    int64_t destination = levels_position_ - gap;
 
-    int16_t* def_data = def_levels();
-    std::copy(def_data + levels_position_, def_data + levels_written_,
-              def_data + levels_position_ - gap);
-    PARQUET_THROW_NOT_OK(
-        def_levels_->Resize(levels_remaining * sizeof(int16_t), /*shrink_to_fit=*/false));
+    auto left_shift = [=](::arrow::ResizableBuffer* buffer) {
+      int16_t* data = reinterpret_cast<int16_t*>(buffer->mutable_data());
+      std::copy(data + levels_position_, data + levels_written_, data + destination);
+      PARQUET_THROW_NOT_OK(buffer->Resize(levels_remaining * sizeof(int16_t),
+                                          /*shrink_to_fit=*/false));
+    };
+
+    left_shift(def_levels_.get());
 
     if (this->max_rep_level_ > 0) {
-      int16_t* rep_data = rep_levels();
-      std::copy(rep_data + levels_position_, rep_data + levels_written_,
-                rep_data + levels_position_ - gap);
-      PARQUET_THROW_NOT_OK(rep_levels_->Resize(levels_remaining * sizeof(int16_t),
-                                               /*shrink_to_fit=*/false));
+      ARROW_DCHECK_NE(rep_levels_, nullptr);
+      left_shift(rep_levels_.get());
     }
 
     levels_written_ -= gap;
@@ -1426,7 +1428,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t values_seen = 0;
     int64_t skipped_records = DelimitRecords(num_records, &values_seen);
     if (ReadAndThrowAwayValues(values_seen) != values_seen) {
-      throw ParquetException("Could not read and throw away requested values");
+      std::stringstream ss;
+      ss << "Could not read and throw away " << values_seen << " values";
+      throw ParquetException(ss.str());
     }
     // Mark those levels and values as consumed in the the underlying page.
     // This must be done before we throw away levels since it updates
