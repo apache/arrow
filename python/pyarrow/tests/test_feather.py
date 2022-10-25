@@ -838,3 +838,20 @@ def test_preserve_index_pandas(version):
         expected = df
 
     _check_pandas_roundtrip(df, expected, version=version)
+
+
+@pytest.mark.pandas
+def test_feather_datetime_resolution_arrow_to_pandas(datadir):
+    # ARROW-17192 - ensure timestamp_as_object=True (together with other
+    # **kwargs) can be passed in read_feather to to_pandas.
+
+    from datetime import datetime
+    df = pd.DataFrame({"date": [
+        datetime.fromisoformat("1654-01-01"),
+        datetime.fromisoformat("1920-01-01"), ],
+    })
+    df.to_feather(datadir / "test_resolution.feather")
+    result = read_feather(datadir / "test_resolution.feather",
+                          timestamp_as_object=True)
+    assert df['date'][0] == result['date'][0]
+    assert df['date'][1] == result['date'][1]

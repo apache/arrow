@@ -204,7 +204,8 @@ def write_feather(df, dest, compression=None, compression_level=None,
         raise
 
 
-def read_feather(source, columns=None, use_threads=True, memory_map=False):
+def read_feather(source, columns=None, use_threads=True,
+                 memory_map=False, **kwargs):
     """
     Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
     feather.read_table.
@@ -222,6 +223,8 @@ def read_feather(source, columns=None, use_threads=True, memory_map=False):
         reading from Feather format.
     memory_map : boolean, default False
         Use memory mapping when opening file on disk, when source is a str.
+    **kwargs
+        Additional keyword arguments passed on to `pyarrow.Table.to_pandas`.
 
     Returns
     -------
@@ -230,7 +233,7 @@ def read_feather(source, columns=None, use_threads=True, memory_map=False):
     _check_pandas_version()
     return (read_table(
         source, columns=columns, memory_map=memory_map,
-        use_threads=use_threads).to_pandas(use_threads=use_threads))
+        use_threads=use_threads).to_pandas(use_threads=use_threads, **kwargs))
 
 
 def read_table(source, columns=None, memory_map=False, use_threads=True):
