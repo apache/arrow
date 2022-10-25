@@ -981,10 +981,15 @@ services:
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
-  # doesn't exit properly on fail
   python-wheel-windows-test:
-    image: python:${PYTHON}-windowsservercore-1809
+    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2017-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    build:
+      args:
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/python-wheel-windows-test-vs2017.dockerfile
     volumes:
+      - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
       - type: bind
         source: .
         target: "C:/arrow"
