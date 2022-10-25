@@ -201,7 +201,7 @@ struct StructFieldFunctor {
     // Specific struct handling
     if (current->type()->id() == Type::STRUCT) {
       ARROW_ASSIGN_OR_RAISE(current, ApplyFieldRef(ctx, options.field_ref, current));
-      out->value = current->data();
+      out->value = std::move(current->data());
       return Status::OK();
     }
 
@@ -214,6 +214,12 @@ struct StructFieldFunctor {
     for (const auto& index : options.field_ref.field_path()->indices()) {
       RETURN_NOT_OK(CheckIndex(index, *current->type()));
       switch (current->type()->id()) {
+        case Type::STRUCT: {
+          const auto& struct_array = checked_cast<const StructArray&>(*current);
+          ARROW_ASSIGN_OR_RAISE(
+              current, struct_array.GetFlattenedField(index, ctx->memory_pool()));
+          break;
+        }
         case Type::DENSE_UNION: {
           // We implement this here instead of in DenseUnionArray since it's
           // easiest to do via Take(), but DenseUnionArray can't rely on
@@ -236,7 +242,8 @@ struct StructFieldFunctor {
               ArrayData(int32(), union_array.length(),
                         {std::move(take_bitmap), union_array.value_offsets()},
                         kUnknownNullCount, union_array.offset()));
-          // Do not slice the child since the indices are relative to the unsliced array.
+          // Do not slice the child since the indices are relative to the unsliced
+          // array.
           ARROW_ASSIGN_OR_RAISE(
               Datum result,
               CallFunction("take", {union_array.field(index), std::move(take_indices)}));
@@ -262,18 +269,25 @@ struct StructFieldFunctor {
   static Result<std::shared_ptr<Array>> ApplyFieldRef(KernelContext* ctx,
                                                       const FieldRef& field_ref,
                                                       std::shared_ptr<Array> current) {
+    if (current->type_id() != Type::STRUCT) {
+      return Status::Invalid("Not a StructArray: ", current->ToString(),
+                             "\nMaybe a bad FieldRef? ", field_ref.ToString());
+    }
+
     if (field_ref.IsName()) {
       const auto& array = checked_cast<const StructArray&>(*current);
       current = array.GetFieldByName(*field_ref.name());
       if (current == nullptr) {
         return Status::Invalid("Field not found in struct: '", *field_ref.name(), "'");
       }
-    } else if (field_ref.nested_refs() == nullptr) {
+    } else if (field_ref.IsFieldPath()) {
       for (const auto& idx : field_ref.field_path()->indices()) {
+        ARROW_RETURN_NOT_OK(CheckIndex(idx, *current->type()));
         const auto& array = checked_cast<const StructArray&>(*current);
         ARROW_ASSIGN_OR_RAISE(current, array.GetFlattenedField(idx, ctx->memory_pool()));
       }
     } else {
+      DCHECK(field_ref.IsNested());
       for (const auto& ref : *field_ref.nested_refs()) {
         ARROW_ASSIGN_OR_RAISE(current, ApplyFieldRef(ctx, ref, current));
       }
@@ -298,25 +312,35 @@ struct StructFieldFunctor {
   }
 };
 
+Result<const DataType*> RecursiveResolveStructFieldType(const FieldRef& field_ref,
+                                                        const DataType* type) {
+  if (field_ref.IsName()) {
+    for (const auto& ref : field_ref.FindAll(*type)) {
+      for (const auto& index : ref.indices()) {
+        RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
+        type = type->field(index)->type().get();
+      }
+    }
+  } else if (field_ref.IsFieldPath()) {
+    for (const auto& index : field_ref.field_path()->indices()) {
+      RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
+      type = type->field(index)->type().get();
+    }
+  } else {
+    DCHECK(field_ref.IsNested());
+    for (const auto& ref : *field_ref.nested_refs()) {
+      ARROW_ASSIGN_OR_RAISE(type, RecursiveResolveStructFieldType(ref, type));
+    }
+  }
+  return type;
+}
+
 Result<TypeHolder> ResolveStructFieldType(KernelContext* ctx,
                                           const std::vector<TypeHolder>& types) {
   const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
   const DataType* type = types.front().type;
-  if (options.field_ref.IsName() || options.field_ref.IsNested()) {
-    for (const auto& ref : options.field_ref.FindAll(*type)) {
-      for (const auto& index : ref.indices()) {
-        type = type->field(index)->type().get();
-      }
-    }
-    return type;
-  } else {
-    DCHECK(options.field_ref.IsFieldPath());
-    for (const auto& index : options.field_ref.field_path()->indices()) {
-      RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
-      type = type->field(index)->type().get();
-    }
-    return type;
-  }
+  ARROW_ASSIGN_OR_RAISE(type, RecursiveResolveStructFieldType(options.field_ref, type));
+  return type;
 }
 
 void AddStructFieldKernels(ScalarFunction* func) {
