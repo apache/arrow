@@ -134,15 +134,23 @@ Tradeoffs
 ---------
 
 The choice between using :class:`~arrow::csv::TableReader` or
-:class:`~arrow::csv::StreamingReader` will depend on your use case but two
-tradeoffs are worth pointing out:
+:class:`~arrow::csv::StreamingReader` will ultimately depend on the use case
+but there are a few tradeoffs to be aware of:
 
-1. When reading the entire contents of a CSV, :class:`~arrow::csv::TableReader`
-   will tend to be more performant than :class:`~arrow::csv::StreamingReader`
-   because it makes better use of available cores.
-2. :class:`~arrow::csv::StreamingReader` performs type inference off the first
-   block that's read in, after which point the types are frozen. Either set
-   :member:`ReadOptions::block_size` to a large enough value or use
+1. **Memory usage:** :class:`~arrow::csv::TableReader` loads all of the data into memory at once
+   and, depending on the amount of data, may require considerably more memory
+   than :class:`~arrow::csv::StreamingReader` which only loads one
+   :class:`~arrow::RecordBatch` at a time. This is likely to be the most
+   significant tradeoff for users.
+2. **Speed:** When reading the entire contents of a CSV, :class:`~arrow::csv::TableReader`
+   will tend to be faster than :class:`~arrow::csv::StreamingReader` because it
+   makes better use of available cores.
+3. **Flexibility:** :class:`~arrow::csv::StreamingReader` might be considered
+   less flexible than :class:`~arrow::csv::TableReader` because it performs type
+   inference only on the first block that's read in, after which point the types
+   are frozen and any data in subsequent blocks not matching those types will
+   cause an error. Note that this can be remedied either by setting
+   :member:`ReadOptions::block_size` to a large enough value or by using
    :member:`ConvertOptions::column_types` to set the desired data types
    explicitly.
 
