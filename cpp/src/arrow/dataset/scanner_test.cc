@@ -2211,12 +2211,13 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
 
       // ... and with the last-in-fragment flag
       batches.back().values.emplace_back(batch_index == frag_batch_count - 1);
-      
-      EXPECT_OK_AND_ASSIGN(auto filename_string, MakeScalar(utf8(), fragments[frag_ndx]->ToString()));
+
+      EXPECT_OK_AND_ASSIGN(auto filename_string,
+                           MakeScalar(utf8(), fragments[frag_ndx]->ToString()));
       EXPECT_OK_AND_ASSIGN(auto filename_array,
-                                    MakeArrayFromScalar(*(filename_string.get()), 1));
-      auto filename_dict = Datum{DictionaryScalar::Make(MakeScalar<int32_t>(0),
-                                                  std::move(filename_array))};
+                           MakeArrayFromScalar(*(filename_string.get()), 1));
+      auto filename_dict = Datum{
+          DictionaryScalar::Make(MakeScalar<int32_t>(0), std::move(filename_array))};
       batches.back().values.emplace_back(filename_dict);
 
       // each batch carries a guarantee inherited from its Fragment's partition expression

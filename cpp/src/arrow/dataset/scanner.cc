@@ -112,7 +112,7 @@ const FieldVector kAugmentedFields{
     field("__fragment_index", int32()),
     field("__batch_index", int32()),
     field("__last_in_fragment", boolean()),
-    field("__filename", dictionary(int32(),utf8())),
+    field("__filename", dictionary(int32(), utf8())),
 };
 
 Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
@@ -980,11 +980,12 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         batch->values.emplace_back(partial.record_batch.index);
         batch->values.emplace_back(partial.record_batch.last);
 
-        ARROW_ASSIGN_OR_RAISE(auto filename_string, MakeScalar(utf8(), partial.fragment.value->ToString()));
+        ARROW_ASSIGN_OR_RAISE(auto filename_string,
+                              MakeScalar(utf8(), partial.fragment.value->ToString()));
         ARROW_ASSIGN_OR_RAISE(auto filename_array,
-                                      MakeArrayFromScalar(*(filename_string.get()), 1));
-        auto filename_dict = Datum{DictionaryScalar::Make(MakeScalar<int32_t>(0),
-                                                   std::move(filename_array))};
+                              MakeArrayFromScalar(*(filename_string.get()), 1));
+        auto filename_dict = Datum{
+            DictionaryScalar::Make(MakeScalar<int32_t>(0), std::move(filename_array))};
         batch->values.emplace_back(filename_dict);
         return batch;
       });
