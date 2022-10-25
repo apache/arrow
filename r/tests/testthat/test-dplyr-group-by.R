@@ -305,3 +305,12 @@ test_that("Can use across() within group_by()", {
     tbl
   )
 })
+
+test_that("ARROW-18131 - correctly handles .data pronoun in group_by()", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(.data$lgl) %>%
+      collect(),
+    tbl
+  )
+})

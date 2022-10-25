@@ -5282,6 +5282,7 @@ class TableGroupBy:
 list[tuple(str, str, FunctionOptions)]
             List of tuples made of aggregation column names followed
             by function names and optionally aggregation function options.
+            Pass empty list to get a single row for each group.
 
         Returns
         -------
@@ -5301,6 +5302,11 @@ list[tuple(str, str, FunctionOptions)]
         keys: string
         ----
         values_sum: [[3,7,5]]
+        keys: [["a","b","c"]]
+        >>> t.group_by("keys").aggregate([])
+        pyarrow.Table
+        keys: string
+        ----
         keys: [["a","b","c"]]
         """
         columns = [a[0] for a in aggregations]
