@@ -21,6 +21,8 @@ import (
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"golang.org/x/exp/constraints"
 )
@@ -118,6 +120,63 @@ func getGoArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.
 	return nil
 }
 
+type decOps[T decimal128.Num | decimal256.Num] struct {
+	Add func(T, T) T
+	Sub func(T, T) T
+	Div func(T, T) T
+	Mul func(T, T) T
+}
+
+var dec128Ops = decOps[decimal128.Num]{
+	Add: func(a, b decimal128.Num) decimal128.Num { return a.Add(b) },
+	Sub: func(a, b decimal128.Num) decimal128.Num { return a.Sub(b) },
+	Mul: func(a, b decimal128.Num) decimal128.Num { return a.Mul(b) },
+	Div: func(a, b decimal128.Num) decimal128.Num {
+		a, _ = a.Div(b)
+		return a
+	},
+}
+
+var dec256Ops = decOps[decimal256.Num]{
+	Add: func(a, b decimal256.Num) decimal256.Num { return a.Add(b) },
+	Sub: func(a, b decimal256.Num) decimal256.Num { return a.Sub(b) },
+	Mul: func(a, b decimal256.Num) decimal256.Num { return a.Mul(b) },
+	Div: func(a, b decimal256.Num) decimal256.Num {
+		a, _ = a.Div(b)
+		return a
+	},
+}
+
+func getArithmeticBinaryOpDecimalImpl[T decimal128.Num | decimal256.Num](op ArithmeticOp, fns decOps[T]) exec.ArrayKernelExec {
+	if op >= OpAddChecked {
+		op -= OpAddChecked // decimal128/256 checked is the same as unchecked
+	}
+
+	switch op {
+	case OpAdd:
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, arg0, arg1 T, _ *error) T {
+			return fns.Add(arg0, arg1)
+		})
+	case OpSub:
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, arg0, arg1 T, _ *error) T {
+			return fns.Sub(arg0, arg1)
+		})
+	}
+	debug.Assert(false, "unimplemented arithemtic op")
+	return nil
+}
+
+func getArithmeticBinaryDecimal[T decimal128.Num | decimal256.Num](op ArithmeticOp) exec.ArrayKernelExec {
+	var def T
+	switch any(def).(type) {
+	case decimal128.Num:
+		return getArithmeticBinaryOpDecimalImpl(op, dec128Ops)
+	case decimal256.Num:
+		return getArithmeticBinaryOpDecimalImpl(op, dec256Ops)
+	}
+	panic("should never get here")
+}
+
 func ArithmeticExec(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
 	switch ty {
 	case arrow.INT8:
@@ -132,7 +191,7 @@ func ArithmeticExec(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
 		return getArithmeticBinaryOpIntegral[int32](op)
 	case arrow.UINT32:
 		return getArithmeticBinaryOpIntegral[uint32](op)
-	case arrow.INT64:
+	case arrow.INT64, arrow.TIMESTAMP:
 		return getArithmeticBinaryOpIntegral[int64](op)
 	case arrow.UINT64:
 		return getArithmeticBinaryOpIntegral[uint64](op)
@@ -143,5 +202,4 @@ func ArithmeticExec(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
 	}
 	debug.Assert(false, "invalid arithmetic type")
 	return nil
-
 }

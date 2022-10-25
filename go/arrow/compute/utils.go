@@ -17,12 +17,14 @@
 package compute
 
 import (
+	"fmt"
 	"io"
 	"math"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/kernels"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/xerrors"
@@ -246,5 +248,69 @@ const (
 )
 
 func castBinaryDecimalArgs(promote decimalPromotion, vals ...arrow.DataType) error {
-	return arrow.ErrNotImplemented
+	left, right := vals[0], vals[1]
+	debug.Assert(arrow.IsDecimal(left.ID()) || arrow.IsDecimal(right.ID()), "at least one of the types should be decimal")
+
+	// decimal + float = float
+	if arrow.IsFloating(left.ID()) {
+		vals[1] = vals[0]
+		return nil
+	} else if arrow.IsFloating(right.ID()) {
+		vals[0] = vals[1]
+		return nil
+	}
+
+	var prec1, scale1, prec2, scale2 int32
+	var err error
+	// decimal + integer = decimal
+	if arrow.IsDecimal(left.ID()) {
+		dec := left.(arrow.DecimalType)
+		prec1, scale1 = dec.GetPrecision(), dec.GetScale()
+	} else {
+		debug.Assert(arrow.IsInteger(left.ID()), "floats were already handled, this should be an int")
+		if prec1, err = kernels.MaxDecimalDigitsForInt(left.ID()); err != nil {
+			return err
+		}
+	}
+	if arrow.IsDecimal(right.ID()) {
+		dec := right.(arrow.DecimalType)
+		prec2, scale2 = dec.GetPrecision(), dec.GetScale()
+	} else {
+		debug.Assert(arrow.IsInteger(right.ID()), "float already handled, should be ints")
+		if prec2, err = kernels.MaxDecimalDigitsForInt(right.ID()); err != nil {
+			return err
+		}
+	}
+
+	if scale1 < 0 || scale2 < 0 {
+		return fmt.Errorf("%w: decimals with negative scales not supported", arrow.ErrNotImplemented)
+	}
+
+	// decimal128 + decimal256 = decimal256
+	castedID := arrow.DECIMAL128
+	if left.ID() == arrow.DECIMAL256 || right.ID() == arrow.DECIMAL256 {
+		castedID = arrow.DECIMAL256
+	}
+
+	// decimal promotion rules compatible with amazon redshift
+	// https://docs.aws.amazon.com/redshift/latest/dg/r_numeric_computations201.html
+	var leftScaleup, rightScaleup int32
+
+	switch promote {
+	case decPromoteAdd:
+		leftScaleup = exec.Max(scale1, scale2) - scale1
+		rightScaleup = exec.Max(scale1, scale2) - scale2
+	case decPromoteMultiply:
+	case decPromoteDivide:
+		leftScaleup = exec.Max(4, scale1+prec2-scale2+1) + scale2 - scale1
+	default:
+		debug.Assert(false, fmt.Sprintf("invalid DecimalPromotion value %d", promote))
+	}
+
+	vals[0], err = arrow.NewDecimalType(castedID, prec1+leftScaleup, scale1+leftScaleup)
+	if err != nil {
+		return err
+	}
+	vals[1], err = arrow.NewDecimalType(castedID, prec2+rightScaleup, scale2+rightScaleup)
+	return err
 }

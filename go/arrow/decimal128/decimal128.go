@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/bits"
 
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
@@ -99,6 +100,33 @@ func (n Num) Negate() Num {
 		n.hi += 1
 	}
 	return n
+}
+
+func (n Num) Add(rhs Num) Num {
+	n.hi += rhs.hi
+	var carry uint64
+	n.lo, carry = bits.Add64(n.lo, rhs.lo, 0)
+	n.hi += int64(carry)
+	return n
+}
+
+func (n Num) Sub(rhs Num) Num {
+	n.hi -= rhs.hi
+	var borrow uint64
+	n.lo, borrow = bits.Sub64(n.lo, rhs.lo, 0)
+	n.hi -= int64(borrow)
+	return n
+}
+
+func (n Num) Mul(rhs Num) Num {
+	b := n.BigInt()
+	return FromBigInt(b.Mul(b, rhs.BigInt()))
+}
+
+func (n Num) Div(rhs Num) (res, rem Num) {
+	b := n.BigInt()
+	out, remainder := b.QuoRem(b, rhs.BigInt(), &big.Int{})
+	return FromBigInt(out), FromBigInt(remainder)
 }
 
 func scalePositiveFloat64(v float64, prec, scale int32) (float64, error) {
@@ -367,7 +395,6 @@ var (
 		FromU64(10000000000000000),
 		FromU64(100000000000000000),
 		FromU64(1000000000000000000),
-		FromU64(10000000000000000000),
 		New(0, 10000000000000000000),
 		New(5, 7766279631452241920),
 		New(54, 3875820019684212736),
