@@ -10,111 +10,47 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-Apache Arrow lets you work efficiently with large, multi-file datasets.
-The arrow R package provides a [dplyr](https://dplyr.tidyverse.org/) interface to Arrow Datasets,
-and other tools for interactive exploration of Arrow data.
-
-This vignette introduces Datasets and shows how to use dplyr to analyze them.
-
-## Example: NYC taxi data
-
-The [New York City taxi trip record data](https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
-is widely used in big data exercises and competitions.
-For demonstration purposes, we have hosted a Parquet-formatted version
-of about ten years of the trip data in a public Amazon S3 bucket.
-
-The total file size is around 37 gigabytes, even in the efficient Parquet file
-format. That's bigger than memory on most people's computers, so you can't just
-read it all in and stack it into a single data frame.
-
-In Windows and macOS binary packages, S3 support is included.
-On Linux, when installing from source, S3 support is not enabled by default,
-and it has additional system requirements.
-See `vignette("install", package = "arrow")` for details.
-To see if your arrow installation has S3 support, run:
-
-```{r}
-arrow::arrow_with_s3()
-```
-
-Even with S3 support enabled, network speed will be a bottleneck unless your
-machine is located in the same AWS region as the data. So, for this vignette,
-we assume that the NYC taxi dataset has been downloaded locally in an "nyc-taxi"
-directory.
-
-### Retrieving data from a public Amazon S3 bucket
-
-If your arrow build has S3 support, you can sync the data locally with:
-
-```{r, eval = FALSE}
-arrow::copy_files("s3://voltrondata-labs-datasets/nyc-taxi", "nyc-taxi")
-# Alternatively, with GCS:
-arrow::copy_files("gs://voltrondata-labs-datasets/nyc-taxi", "nyc-taxi")
-```
-
-If your arrow build doesn't have S3 support, you can download the files
-with the additional code shown below.  Since these are large files, 
-you may need to increase R's download timeout from the default of 60 seconds, e.g.
-`options(timeout = 300)`.
-
-```{r, eval = FALSE}
-bucket <- "https://voltrondata-labs-datasets.s3.us-east-2.amazonaws.com"
-for (year in 2009:2022) {
-  if (year == 2022) {
-    # We only have through Feb 2022 there
-    months <- 1:2
-  } else {
-    months <- 1:12
-  }
-  for (month in months) {
-    dataset_path <- file.path("nyc-taxi", paste0("year=", year), paste0("month=", month))
-    dir.create(dataset_path, recursive = TRUE)
-    try(download.file(
-      paste(bucket, dataset_path, "part-0.parquet", sep = "/"),
-      file.path(dataset_path, "part-0.parquet"),
-      mode = "wb"
-    ), silent = TRUE)
-  }
-}
-```
-
-Note that these download steps in the vignette are not executed: if you want to run
-with live data, you'll have to do it yourself separately.
-Given the size, if you're running this locally and don't have a fast connection,
-feel free to grab only a year or two of data.
-
-If you don't have the taxi data downloaded, the vignette will still run and will
-yield previously cached output for reference. To be explicit about which version
-is running, let's check whether you're running with live data:
-
-```{r}
-dir.exists("nyc-taxi")
-```
-
-## Opening the dataset
-
-Because dplyr is not necessary for many Arrow workflows,
-it is an optional (`Suggests`) dependency. So, to work with Datasets,
-you need to load both arrow and dplyr.
+Apache Arrow lets you work efficiently with multi-file data sets even when that data set is too large to be loaded into memory. With the help of Arrow Dataset objects you can analyze this kind of data using familiar  [`dplyr`](https://dplyr.tidyverse.org/) syntax. This vignette introduces Datasets and shows you how to analyze them with `dplyr` and `arrow`: we'll start by ensuring both packages are loaded
 
 ```{r}
 library(arrow, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 ```
 
-The first step is to create a Dataset object, pointing at the directory of data.
+## Example: NYC taxi data
+
+The primary motivation for multi-file Datasets is to allow users to analyze extremely large datasets. As an example, consider the [New York City taxi trip record data](https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page) that is widely used in big data exercises and competitions. To demonstrate the capabilities of Apache Arrow we host a Parquet-formatted version this data in a public Amazon S3 bucket: in its full form, our version of the data set is one very large table with about 1.7 billion rows and 24 columns, where each row corresponds to a single taxi ride sometime between 2009 and 2022. A [data dictionary](https://arrow-user2022.netlify.app/packages-and-data.html#data) for this version of the NYC taxi data is also available. 
+
+This data set is comprised of 158 distinct Parquet files, each corresponding to a month of data. A single file is typically around 400-500MB in size, and the full data set is about 70GB in size. It is not a small data set -- it is slow to download and does not fit in memory on a typical machine 🙂  -- so we also host a "tiny" version of the NYC taxi data that is formatted in exactly the same way but includes only one out of every thousand entries in the original data set (i.e., individual files are <1MB in size, and the "tiny" data set is only 70MB) 
+
+If you have Amazon S3 and/or Google Cloud Storage support enabled in `arrow` (true for most users; see links at the end of this vignette), you can connect to the "tiny taxi data" with either of the following commands:
+
+```r
+bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi-tiny")
+bucket <- gs_bucket("voltrondata-labs-datasets/nyc-taxi-tiny", anonymous = TRUE)
+```
+
+If you want to use the full data set, simply replace `nyc-taxi-tiny` with `nyc-taxi`. Apart from the cost in time, bandwidth usage, and CPU cycles (more on that later), there is no difference in the two versions: you can test your code using the tiny taxi data and then check how it scales using the full data set.
+
+To make a local copy of the data set stored in the `bucket` to a folder called `"nyc-taxi"`, use the `copy_files()` function:
+
+```r
+copy_files(from = bucket, to = "nyc-taxi")
+```
+
+For the purposes of this vignette, we assume that the NYC taxi dataset (either the full data or the tiny version) has been downloaded locally and exists in an `"nyc-taxi"` directory. 
+
+## Opening a dataset
+
+The first step in the process is to create a Dataset object that points at the data directory:
 
 ```{r, eval = file.exists("nyc-taxi")}
 ds <- open_dataset("nyc-taxi")
 ```
 
-The file format for `open_dataset()` is controlled by the `format` parameter, 
-which has a default value of `"parquet"`.  If you had a directory
-of Arrow format files, you could instead specify `format = "arrow"` in the call.
+By default `open_dataset()` looks for Parquet files, but you can override this using the `format` argument. For example if our data were encoded as CSV files we could set `format = "csv"` to connect to the data. Besides Parquet, the Arrow Dataset interface supports several file formats including: 
 
-Other supported formats include: 
-
-* `"feather"` or `"ipc"` (aliases for `"arrow"`, as Feather v2 is the Arrow file format)
+* `"feather"` or `"ipc"` (aliases for `"arrow"`; as Feather version 2 is the Arrow file format)
 * `"csv"` (comma-delimited files) and `"tsv"` (tab-delimited files)
 * `"text"` (generic text-delimited files - use the `delimiter` argument to specify which to use)
 
@@ -126,7 +62,9 @@ For text files, you can pass the following parsing options to `open_dataset()`:
 * `escape_backslash`
 * `skip_empty_rows`
 
-For more information on the usage of these parameters, see `?read_delim_arrow()`.
+For more information parsing delimited text files, see the help documentation for `read_delim_arrow()`.
+
+It is important to note that when we create a Dataset object like `ds`, the data values are not loaded into memory. Instead, what happens is that Arrow scans the data directory looking for data files and construct an object that contains relevant metadata. In particular, it constructs a Schema from the data to ensure that later `arrow` commands know the structure of the data: see `vignette("metadata", package = "arrow")` for more information. 
 
 `open_dataset()` was able to automatically infer column values for `year` and `month`
 --which are not present in the data files--based on the directory structure. The 
@@ -189,7 +127,7 @@ month: int32
 ")
 ```
 
-## Querying the dataset
+## Querying a Dataset
 
 Up to this point, you haven't loaded any data. You've walked directories to find
 files, you've parsed file paths to identify partitions, and you've read the
@@ -301,7 +239,7 @@ rows match the filter. Relatedly, since Parquet files contain row groups with
 statistics on the data within, there may be entire chunks of data you can
 avoid scanning because they have no rows where `total_amount > 100`.
 
-### Processing data in batches
+## Batch processing (experimental!)
 
 Sometimes you want to run R code on the entire dataset, but that dataset is much
 larger than memory. You can use `map_batches` on a dataset query to process
@@ -551,4 +489,11 @@ Most file formats have magic numbers which are written at the end.  This means a
 partial file write can safely be detected and discarded.  The CSV file format does
 not have any such concept and a partially written CSV file may be detected as valid.
 
+## Futher reading
+
+- To learn more about support for cloud storage, see `vignette("cloud_storage", package = "arrow")`.
+- To learn more about using `dplyr` with `arrow`, see `vignette("data_wrangling", package = "arrow")`.
+- To learn more about read/write capabilities of `arrow`, see `vignette("read_write", package = "arrow")`.
+- For Linux users who may need to manually enable S3 or GCS support, see `vignette("install_linux", package = "arrow")`.
+- To learn more about schemas and other metadata, see `vignette("metadata", package = "arrow")`.
 
