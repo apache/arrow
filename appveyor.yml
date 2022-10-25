@@ -48,11 +48,7 @@ environment:
     PYTHON: "3.10"
 
 before_build:
-  - call ci\scripts\ccache_setup.sh
   - call ci\appveyor-cpp-setup.bat
-
-cache:
-  - C:\Users\Appveyor\ccache
 
 build_script:
   - call ci\appveyor-cpp-build.bat
