@@ -153,7 +153,7 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
             ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
             return ::arrow::internal::MapVector(
                 [](std::optional<ExecBatch> batch) {
-                  return ARROW_PREDICT_TRUE(batch) ? std::move(*batch) : ExecBatch();
+                  return batch.value_or(ExecBatch());
                 },
                 std::move(collected));
           });

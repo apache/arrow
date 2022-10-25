@@ -2158,8 +2158,7 @@ struct TestPlan {
           ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
           return ::arrow::internal::MapVector(
               [](std::optional<compute::ExecBatch> batch) {
-                return ARROW_PREDICT_TRUE(batch) ? std::move(*batch)
-                                                 : compute::ExecBatch();
+                return batch.value_or(compute::ExecBatch());
               },
               std::move(collected));
         });
