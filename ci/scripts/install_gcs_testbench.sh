@@ -24,6 +24,8 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 
+exit 0
+
 case "$(uname -m)" in
   aarch64|arm64|x86_64)
     : # OK
