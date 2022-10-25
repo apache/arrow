@@ -129,7 +129,7 @@ endif()
 if(NOT DEFINED ARROW_ARMV8_ARCH)
   set(ARROW_ARMV8_ARCH
       "armv8-a"
-      CACHE STRING "Arm64 arch and extensions: armv8-a, armv8-a or armv8-a+crc+crypto")
+      CACHE STRING "Arm64 arch and extensions")
 endif()
 include(SetupCxxFlags)
 

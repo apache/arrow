@@ -185,6 +185,10 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "AVX2"
                        "AVX512"
                        "NEON"
+                       "SVE" # size agnostic SVE
+                       "SVE128" # fixed size SVE
+                       "SVE256" # "
+                       "SVE512" # "
                        "DEFAULT")
 
   define_option_string(ARROW_RUNTIME_SIMD_LEVEL
@@ -205,7 +209,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "Arm64 arch and extensions"
                        "armv8-a" # Default
                        "armv8-a"
-                       "armv8-a+crc+crypto")
+                       "armv8-a+sve")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 
