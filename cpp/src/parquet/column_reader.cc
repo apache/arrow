@@ -403,7 +403,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Decrypt it if we need to
     if (crypto_ctx_.data_decryptor != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
-          compressed_len - crypto_ctx_.data_decryptor->CiphertextSizeDelta(), false));
+          compressed_len - crypto_ctx_.data_decryptor->CiphertextSizeDelta(),
+          /*shrink_to_fit=*/false));
       compressed_len = crypto_ctx_.data_decryptor->Decrypt(
           page_buffer->data(), compressed_len, decryption_buffer_->mutable_data());
 
@@ -505,7 +506,8 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
 
   // Grow the uncompressed buffer if we need to.
   if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
-    PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
+    PARQUET_THROW_NOT_OK(
+        decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
   }
 
   if (levels_byte_len > 0) {
@@ -1351,14 +1353,15 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int16_t* def_data = def_levels();
     std::copy(def_data + levels_position_, def_data + levels_written_,
               def_data + levels_position_ - gap);
-    PARQUET_THROW_NOT_OK(def_levels_->Resize(levels_remaining * sizeof(int16_t), false));
+    PARQUET_THROW_NOT_OK(
+        def_levels_->Resize(levels_remaining * sizeof(int16_t), /*shrink_to_fit=*/false));
 
     if (this->max_rep_level_ > 0) {
       int16_t* rep_data = rep_levels();
       std::copy(rep_data + levels_position_, rep_data + levels_written_,
                 rep_data + levels_position_ - gap);
-      PARQUET_THROW_NOT_OK(
-          rep_levels_->Resize(levels_remaining * sizeof(int16_t), false));
+      PARQUET_THROW_NOT_OK(rep_levels_->Resize(levels_remaining * sizeof(int16_t),
+                                               /*shrink_to_fit=*/false));
     }
 
     levels_written_ -= gap;
@@ -1383,8 +1386,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // First we need to figure out how many present/not-null values there are.
     std::shared_ptr<::arrow::ResizableBuffer> valid_bits;
     valid_bits = AllocateBuffer(this->pool_);
-    PARQUET_THROW_NOT_OK(
-        valid_bits->Resize(bit_util::BytesForBits(skipped_records), true));
+    PARQUET_THROW_NOT_OK(valid_bits->Resize(bit_util::BytesForBits(skipped_records),
+                                            /*shrink_to_fit=*/true));
     ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = skipped_records;
     validity_io.valid_bits = valid_bits->mutable_data();
@@ -1552,7 +1555,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   std::shared_ptr<ResizableBuffer> ReleaseValues() override {
     if (uses_values_) {
       auto result = values_;
-      PARQUET_THROW_NOT_OK(result->Resize(bytes_for_values(values_written_), true));
+      PARQUET_THROW_NOT_OK(
+          result->Resize(bytes_for_values(values_written_), /*shrink_to_fit=*/true));
       values_ = AllocateBuffer(this->pool_);
       values_capacity_ = 0;
       return result;
@@ -1564,7 +1568,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   std::shared_ptr<ResizableBuffer> ReleaseIsValid() override {
     if (leaf_info_.HasNullableValues()) {
       auto result = valid_bits_;
-      PARQUET_THROW_NOT_OK(result->Resize(bit_util::BytesForBits(values_written_), true));
+      PARQUET_THROW_NOT_OK(result->Resize(bit_util::BytesForBits(values_written_),
+                                          /*shrink_to_fit=*/true));
       valid_bits_ = AllocateBuffer(this->pool_);
       return result;
     } else {
@@ -1652,9 +1657,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         if (MultiplyWithOverflow(new_levels_capacity, kItemSize, &capacity_in_bytes)) {
           throw ParquetException("Allocation size too large (corrupt file?)");
         }
-        PARQUET_THROW_NOT_OK(def_levels_->Resize(capacity_in_bytes, false));
+        PARQUET_THROW_NOT_OK(
+            def_levels_->Resize(capacity_in_bytes, /*shrink_to_fit=*/false));
         if (this->max_rep_level_ > 0) {
-          PARQUET_THROW_NOT_OK(rep_levels_->Resize(capacity_in_bytes, false));
+          PARQUET_THROW_NOT_OK(
+              rep_levels_->Resize(capacity_in_bytes, /*shrink_to_fit=*/false));
         }
         levels_capacity_ = new_levels_capacity;
       }
@@ -1668,8 +1675,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       // XXX(wesm): A hack to avoid memory allocation when reading directly
       // into builder classes
       if (uses_values_) {
-        PARQUET_THROW_NOT_OK(
-            values_->Resize(bytes_for_values(new_values_capacity), false));
+        PARQUET_THROW_NOT_OK(values_->Resize(bytes_for_values(new_values_capacity),
+                                             /*shrink_to_fit=*/false));
       }
       values_capacity_ = new_values_capacity;
     }
@@ -1677,7 +1684,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       int64_t valid_bytes_new = bit_util::BytesForBits(values_capacity_);
       if (valid_bits_->size() < valid_bytes_new) {
         int64_t valid_bytes_old = bit_util::BytesForBits(values_written_);
-        PARQUET_THROW_NOT_OK(valid_bits_->Resize(valid_bytes_new, false));
+        PARQUET_THROW_NOT_OK(
+            valid_bits_->Resize(valid_bytes_new, /*shrink_to_fit=*/false));
 
         // Avoid valgrind warnings
         memset(valid_bits_->mutable_data() + valid_bytes_old, 0,
@@ -1810,9 +1818,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     if (values_written_ > 0) {
       // Resize to 0, but do not shrink to fit
       if (uses_values_) {
-        PARQUET_THROW_NOT_OK(values_->Resize(0, false));
+        PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
       }
-      PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, false));
+      PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, /*shrink_to_fit=*/false));
       values_written_ = 0;
       values_capacity_ = 0;
       null_count_ = 0;
