@@ -721,7 +721,7 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessUncheckedArithmetic(
     const std::string& function_name) {
   return [function_name](const SubstraitCall& call) -> Result<compute::Expression> {
     ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
-                          GetValueArgs(call, 1));
+                          GetValueArgs(call, 0));
     return arrow::compute::call(function_name, std::move(value_args));
   };
 }
