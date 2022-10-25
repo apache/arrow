@@ -928,6 +928,14 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
     this->exposed_encoding_ = encoding;
   }
 
+  // Allocate enough scratch space to accommodate skipping 16-bit levels or any
+  // value type for batch_size.
+  void InitScratchForSkip(int64_t batch_size);
+
+  // Scrtach space for reading and throwig away rep/def levels and values when
+  // skipping.
+  std::shared_ptr<ResizableBuffer> scratch_for_skip_;
+
  private:
   // Read dictionary indices. Similar to ReadValues but decode data to dictionary indices.
   // This function is called only by ReadBatchWithDictionary().
@@ -1139,6 +1147,14 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
 }
 
 template <typename DType>
+void TypedColumnReaderImpl<DType>::InitScratchForSkip(int64_t batch_size) {
+  ARROW_DCHECK_EQ(this->scratch_for_skip_, nullptr);
+  int value_size = type_traits<DType::type_num>::value_byte_size;
+  this->scratch_for_skip_ = AllocateBuffer(
+      this->pool_, batch_size * std::max<int>(sizeof(int16_t), value_size));
+}
+
+template <typename DType>
 int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
   int64_t values_to_skip = num_values_to_skip;
   while (HasNext() && values_to_skip > 0) {
@@ -1152,20 +1168,16 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
       // Jump to the right offset in the Page
       int64_t batch_size = 1024;  // ReadBatch with a smaller memory footprint
       int64_t values_read = 0;
-
-      // This will be enough scratch space to accommodate 16-bit levels or any
-      // value type
-      int value_size = type_traits<DType::type_num>::value_byte_size;
-      std::shared_ptr<ResizableBuffer> scratch = AllocateBuffer(
-          this->pool_, batch_size * std::max<int>(sizeof(int16_t), value_size));
-
+      if (this->scratch_for_skip_ == nullptr) {
+        InitScratchForSkip(batch_size);
+      }
       do {
         batch_size = std::min(batch_size, values_to_skip);
-        values_read =
-            ReadBatch(static_cast<int>(batch_size),
-                      reinterpret_cast<int16_t*>(scratch->mutable_data()),
-                      reinterpret_cast<int16_t*>(scratch->mutable_data()),
-                      reinterpret_cast<T*>(scratch->mutable_data()), &values_read);
+        values_read = ReadBatch(
+            static_cast<int>(batch_size),
+            reinterpret_cast<int16_t*>(this->scratch_for_skip_->mutable_data()),
+            reinterpret_cast<int16_t*>(this->scratch_for_skip_->mutable_data()),
+            reinterpret_cast<T*>(this->scratch_for_skip_->mutable_data()), &values_read);
         values_to_skip -= values_read;
       } while (values_read > 0 && values_to_skip > 0);
     }
