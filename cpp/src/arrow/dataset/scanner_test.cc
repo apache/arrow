@@ -2211,7 +2211,13 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
 
       // ... and with the last-in-fragment flag
       batches.back().values.emplace_back(batch_index == frag_batch_count - 1);
-      batches.back().values.emplace_back(fragments[frag_ndx]->ToString());
+      
+      EXPECT_OK_AND_ASSIGN(auto filename_string, MakeScalar(utf8(), fragments[frag_ndx]->ToString()));
+      EXPECT_OK_AND_ASSIGN(auto filename_array,
+                                    MakeArrayFromScalar(*(filename_string.get()), 1));
+      auto filename_dict = Datum{DictionaryScalar::Make(MakeScalar<int32_t>(0),
+                                                  std::move(filename_array))};
+      batches.back().values.emplace_back(filename_dict);
 
       // each batch carries a guarantee inherited from its Fragment's partition expression
       batches.back().guarantee = fragments[frag_ndx]->partition_expression();
@@ -2324,7 +2330,7 @@ TEST(ScanNode, Schema) {
   fields.push_back(field("__fragment_index", int32()));
   fields.push_back(field("__batch_index", int32()));
   fields.push_back(field("__last_in_fragment", boolean()));
-  fields.push_back(field("__filename", utf8()));
+  fields.push_back(field("__filename", dictionary(int32(), utf8())));
   // output_schema is *always* the full augmented dataset schema, regardless of
   // projection (but some columns *may* be placeholder null Scalars if not projected)
   AssertSchemaEqual(Schema(fields), *scan->output_schema());
