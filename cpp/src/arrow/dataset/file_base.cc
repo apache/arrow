@@ -345,7 +345,14 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     }
     backpressure_control_ = backpressure_control;
     scheduler_throttle_ = util::AsyncTaskScheduler::MakeThrottle(1);
-    scheduler_ = util::AsyncTaskScheduler::Make(scheduler_throttle_.get());
+    scheduler_finished_ = util::AsyncTaskScheduler::Make(
+        [&](util::AsyncTaskScheduler* scheduler) {
+          scheduler_ = scheduler;
+          scheduler->AddSimpleTask([&] { return finished_; });
+          dataset_writer_->Start(scheduler);
+          return Status::OK();
+        },
+        scheduler_throttle_.get());
     return Status::OK();
   }
 
@@ -362,8 +369,8 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
       // make sure it happens after all the write calls.
       return Future<>::MakeFinished();
     });
-    scheduler_->End();
-    return scheduler_->OnFinished();
+    finished_.MarkFinished();
+    return scheduler_finished_;
   }
 
  private:
@@ -393,7 +400,9 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   std::shared_ptr<const KeyValueMetadata> custom_metadata_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
-  std::unique_ptr<util::AsyncTaskScheduler> scheduler_;
+  util::AsyncTaskScheduler* scheduler_;
+  Future<> scheduler_finished_;
+  Future<> finished_ = Future<>::Make();
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> scheduler_throttle_;
   std::shared_ptr<Schema> schema_ = nullptr;
   compute::BackpressureControl* backpressure_control_;
@@ -454,8 +463,8 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
     return Status::Invalid("Must provide partitioning");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto dataset_writer, internal::DatasetWriter::Make(
-                                                 write_options, plan->async_scheduler()));
+  ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
+                        internal::DatasetWriter::Make(write_options));
 
   std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
       std::make_shared<DatasetWritingSinkNodeConsumer>(
@@ -479,13 +488,18 @@ class TeeNode : public compute::MapNode {
           FileSystemDatasetWriteOptions write_options)
       : MapNode(plan, std::move(inputs), std::move(output_schema)),
         dataset_writer_(std::move(dataset_writer)),
-        write_options_(std::move(write_options)) {
+        write_options_(std::move(write_options)) {}
+
+  Status StartProducing() override {
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> serial_throttle =
         util::AsyncTaskScheduler::MakeThrottle(1);
     util::AsyncTaskScheduler::Throttle* serial_throttle_view = serial_throttle.get();
     serial_scheduler_ = plan_->async_scheduler()->MakeSubScheduler(
+        [&](util::AsyncTaskScheduler* scheduler) { return Status::OK(); },
         [owned_throttle = std::move(serial_throttle)](Status) { return Status::OK(); },
         serial_throttle_view);
+    dataset_writer_->Start(plan_->async_scheduler());
+    return MapNode::StartProducing();
   }
 
   static Result<compute::ExecNode*> Make(compute::ExecPlan* plan,
@@ -498,9 +512,8 @@ class TeeNode : public compute::MapNode {
     const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
     const std::shared_ptr<Schema> schema = inputs[0]->output_schema();
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto dataset_writer,
-        internal::DatasetWriter::Make(write_options, plan->async_scheduler()));
+    ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
+                          internal::DatasetWriter::Make(write_options));
 
     return plan->EmplaceNode<TeeNode>(plan, std::move(inputs), std::move(schema),
                                       std::move(dataset_writer),
@@ -519,7 +532,6 @@ class TeeNode : public compute::MapNode {
       MapNode::Finish(std::move(writer_finish_st));
       return;
     }
-    serial_scheduler_.reset();
     MapNode::Finish(Status::OK());
   }
 
@@ -532,21 +544,22 @@ class TeeNode : public compute::MapNode {
 
   Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
                         compute::Expression guarantee) {
-    return WriteBatch(batch, guarantee, write_options_,
-                      [this](std::shared_ptr<RecordBatch> next_batch,
-                             const PartitionPathFormat& destination) {
-                        serial_scheduler_->AddSimpleTask([this, next_batch, destination] {
-                          util::tracing::Span span;
-                          Future<> has_room = dataset_writer_->WriteRecordBatch(
-                              next_batch, destination.directory, destination.filename);
-                          if (!has_room.is_finished()) {
-                            this->Pause();
-                            return has_room.Then([this] { this->Resume(); });
-                          }
-                          return has_room;
-                        });
-                        return Status::OK();
-                      });
+    return WriteBatch(
+        batch, guarantee, write_options_,
+        [this](std::shared_ptr<RecordBatch> next_batch,
+               const PartitionPathFormat& destination) {
+          serial_scheduler_->Get()->AddSimpleTask([this, next_batch, destination] {
+            util::tracing::Span span;
+            Future<> has_room = dataset_writer_->WriteRecordBatch(
+                next_batch, destination.directory, destination.filename);
+            if (!has_room.is_finished()) {
+              this->Pause();
+              return has_room.Then([this] { this->Resume(); });
+            }
+            return has_room;
+          });
+          return Status::OK();
+        });
   }
 
   void InputReceived(compute::ExecNode* input, compute::ExecBatch batch) override {
@@ -581,7 +594,7 @@ class TeeNode : public compute::MapNode {
   // We use a serial scheduler to submit tasks to the dataset writer.  The dataset writer
   // only returns an unfinished future when it needs backpressure.  Using a serial
   // scheduler here ensures we pause while we wait for backpressure to clear
-  std::shared_ptr<util::AsyncTaskScheduler> serial_scheduler_;
+  std::unique_ptr<util::AsyncTaskScheduler::Holder> serial_scheduler_;
   int32_t backpressure_counter_ = 0;
 };
 

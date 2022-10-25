@@ -17,17 +17,18 @@
 
 #pragma once
 
+#include <atomic>
 #include <functional>
+#include <memory>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/mutex.h"
 #include "arrow/util/thread_pool.h"
-
-#include <memory>
 
 namespace arrow {
 
@@ -55,18 +56,15 @@ namespace util {
 /// which register work to be completed.  The high level job can then wait for all work
 /// to be completed before cleaning up.
 ///
-/// A task scheduler must eventually be ended when all tasks have been added.  Once the
-/// scheduler has been ended it is an error to add further tasks.  Note, it is not an
-/// error to add additional tasks after a scheduler has aborted (though these tasks
-/// will be ignored and never submitted).  The scheduler has a future which will complete
-/// once the scheduler has been ended AND all remaining tasks have finished executing.
-/// Ending a scheduler will NOT cause the scheduler to flush existing tasks.
+/// A task scheduler starts with an initial task.  That task, and all subsequent tasks
+/// are free to add subtasks.  Once all submitted tasks finsih the scheduler will
+/// finish.  Note, it is not an error to add additional tasks after a scheduler has
+/// aborted. These tasks will be ignored and never submitted.  The scheduler has a future
+/// which will complete all submitted tasks have finished executing.  Once all tasks have
+/// been finsihed the scheduler should no longer be used in any capacity.
 ///
 /// Task failure (either the synchronous portion or the asynchronous portion) will cause
 /// the scheduler to enter an aborted state.  The first such failure will be reported in
-/// the final task future.
-///
-/// The scheduler can also be manually aborted.  A cancellation status will be reported as
 /// the final task future.
 ///
 /// It is also possible to limit the number of concurrent tasks the scheduler will
@@ -88,10 +86,9 @@ class ARROW_EXPORT AsyncTaskScheduler {
  public:
   /// Destructor for AsyncTaskScheduler
   ///
-  /// If a scheduler is not in the ended state when it is destroyed then it
-  /// will abort with an error and enter the ended state.
-  ///
-  /// The destructor will block until all submitted tasks have finished.
+  /// The lifetime of the task scheduled is managed automatically.  The scheduler
+  /// will remain valid while any tasks are running (and can always be safely accessed)
+  /// within tasks) and will be destroyed as soon as all tasks have finsihed.
   virtual ~AsyncTaskScheduler() = default;
   /// An interface for a task
   ///
@@ -171,14 +168,11 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// If the scheduler is in an aborted state this call will return false and the task
   /// will never be run.  This is harmless and does not need to be guarded against.
   ///
-  /// If the scheduler is in an ended state then this call will cause an program abort.
-  /// This represents a logic error in the program and should be avoidable.
-  ///
   /// If there are no limits on the number of concurrent tasks then the submit function
   /// will be run immediately.
   ///
   /// Otherwise, if there is a throttle, and it is full, then this task will be inserted
-  /// into the scheduler's queue and submitted when there is space.
+  /// into the scheduler's queue and submitted later when there is space.
   ///
   /// The return value for this call can usually be ignored.  There is little harm in
   /// attempting to add tasks to an aborted scheduler.  It is only included for callers
@@ -206,20 +200,16 @@ class ARROW_EXPORT AsyncTaskScheduler {
   bool AddAsyncGenerator(std::function<Future<T>()> generator,
                          std::function<Status(const T&)> visitor,
                          FnOnce<Status(Status)> finish_callback) {
-    std::shared_ptr<AsyncTaskScheduler> generator_scheduler =
-        MakeSubScheduler(std::move(finish_callback));
     struct State {
       State(std::function<Future<T>()> generator, std::function<Status(const T&)> visitor,
-            std::shared_ptr<AsyncTaskScheduler> scheduler)
+            AsyncTaskScheduler* scheduler)
           : generator(std::move(generator)),
             visitor(std::move(visitor)),
-            scheduler(std::move(scheduler)) {}
+            scheduler(scheduler) {}
       std::function<Future<T>()> generator;
       std::function<Status(const T&)> visitor;
-      std::shared_ptr<AsyncTaskScheduler> scheduler;
+      AsyncTaskScheduler* scheduler;
     };
-    std::unique_ptr<State> state_holder = std::make_unique<State>(
-        std::move(generator), std::move(visitor), generator_scheduler);
     struct SubmitTask : public Task {
       explicit SubmitTask(std::unique_ptr<State> state_holder)
           : state_holder(std::move(state_holder)) {}
@@ -271,8 +261,16 @@ class ARROW_EXPORT AsyncTaskScheduler {
       }
       std::unique_ptr<State> state_holder;
     };
-    return generator_scheduler->AddTask(
-        std::make_unique<SubmitTask>(std::move(state_holder)));
+    MakeSubScheduler(
+        [&](AsyncTaskScheduler* generator_scheduler) {
+          std::unique_ptr<State> state_holder = std::make_unique<State>(
+              std::move(generator), std::move(visitor), generator_scheduler);
+          generator_scheduler->AddTask(
+              std::make_unique<SubmitTask>(std::move(state_holder)));
+          return Status::OK();
+        },
+        std::move(finish_callback));
+    return true;
   }
 
   template <typename Callable>
@@ -288,19 +286,16 @@ class ARROW_EXPORT AsyncTaskScheduler {
   bool AddSimpleTask(Callable callable) {
     return AddTask(std::make_unique<SimpleTask<Callable>>(std::move(callable)));
   }
-  /// Signal that tasks are done being added
-  ///
-  /// If the scheduler is in an aborted state then this call will have no effect
-  /// except (if there are no running tasks) potentially finishing the scheduler.
-  ///
-  /// Otherwise, this will transition the scheduler into the ended state.  Once all
-  /// remaining tasks have finished the OnFinished future will be marked completed.
-  ///
-  /// Once the scheduler is in an ended state then adding tasks is invalid and any
-  /// attempt to do so will cause an abort.
-  virtual void End() = 0;
-  /// A future that will be finished after End is called and all tasks have completed
-  virtual Future<> OnFinished() const = 0;
+
+  class Holder {
+   public:
+    Holder() = default;
+    virtual ~Holder() = default;
+    ARROW_DEFAULT_MOVE_AND_ASSIGN(Holder);
+    ARROW_DISALLOW_COPY_AND_ASSIGN(Holder);
+    virtual void Reset() = 0;
+    virtual AsyncTaskScheduler* Get() = 0;
+  };
 
   /// Create a sub-scheduler for tracking a subset of tasks
   ///
@@ -312,38 +307,69 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// alive for all of the read tasks for each file. A sub-scheduler can be used to do
   /// this.
   ///
-  /// The parent scheduler may be ended before all of its sub-schedulers
-  /// are ended.
+  /// This method returns a control that can be used to manage the lifetime of the
+  /// sub-scheduler.  Callers are free to ignore this return value and the sub-scheduler
+  /// will end when it runs out of tasks.  However, there are times when the full set of
+  /// tasks is not known in advance.  For example, when writing a dataset to a file we
+  /// create a sub-scheduler for the file.  We do not know how many batches will be
+  /// written to a file and there may be long gaps when we have no batches to write to the
+  /// file (and thus no tasks in the scheduler).  In this case a reference to the
+  /// holder can be used to keep the sub-scheduler alive.
+  ///
+  /// Eagerly resetting the returned holder is always optional.  The returned holder will
+  /// not keep the sub-scheduler alive longer than the parent scheduler.  Once the parent
+  /// and child scheduler have run out of tasks the sub-scheduler will be destroyed (the
+  /// holder will be invalidated and can still safely be destroyed after this).
+  ///
+  /// To summarize:
+  ///
+  ///   Ignored holder: The sub-scheduler will end as soon as the initial task (and all
+  ///                   subsequent child tasks) finish.  Use this if you know all the work
+  ///                   that needs to be done up front.
+  ///   Holder kept "forever": The sub-scheduler will be destroyed when the parent
+  ///                   scheduler is destroyed.  Do this for a "peer" scheduler whose
+  ///                   lifetime is the same as the parent but has a special queue or
+  ///                   throttle.
+  ///   Holder eagerly reset: The sub-scheduler will be destroyed as soon as it runs out
+  ///                   of tasks after the holder is reset.  This is done in the file
+  ///                   writing example above when we realize we have finished with a file
+  ///                   because we hit the max rows limit (which might happen well before
+  ///                   the plan ends) so that we can close the file once all remaining
+  ///                   write tasks wrap up.
   ///
   /// If either the parent scheduler or the sub-scheduler encounter an error
   /// then they will both enter an aborted state (this is a shared state).
-  /// Finish callbacks will always be run and only when the sub-scheduler
-  /// has been ended and all ongoing tasks completed.
+  /// Finish callbacks will always be run only when the sub-scheduler's tasks
+  /// have all been completed.
   ///
   /// The parent scheduler will not complete until the sub-scheduler's
   /// tasks (and finish callback) have all executed.
   ///
   /// A sub-scheduler can share the same throttle as its parent but it
-  /// can also have its own unique throttle.
-  virtual std::shared_ptr<AsyncTaskScheduler> MakeSubScheduler(
+  /// can also have its own unique throttle or no throttle
+  virtual std::unique_ptr<Holder> MakeSubScheduler(
+      FnOnce<Status(AsyncTaskScheduler*)> initial_task,
       FnOnce<Status(Status)> finish_callback, Throttle* throttle = NULLPTR,
       std::unique_ptr<Queue> queue = NULLPTR) = 0;
 
   /// Construct a scheduler
   ///
+  /// \param initial_task The initial task which is responsible for adding
+  ///        the first subtasks to the scheduler.
   /// \param throttle A throttle to control how many tasks will be submitted at one time.
   ///        The default (nullptr) will always submit tasks when they are added.
   /// \param queue A queue to control task order.  Only used if throttle != nullptr.
   ///        The default (nullptr) will use a FIFO queue if there is a throttle.
-  static std::unique_ptr<AsyncTaskScheduler> Make(Throttle* throttle = NULLPTR,
-                                                  std::unique_ptr<Queue> queue = NULLPTR);
-
-  /// Check to see if the scheduler is currently ended
-  ///
-  /// This method is primarily for testing purposes and won't normally need to be
-  /// called to use the scheduler.  Note that a return value of false is not conclusive as
-  /// the scheduler may end immediately after the call.
-  virtual bool IsEnded() = 0;
+  /// \param stop_token An optional stop token that will allow cancellation of the
+  ///        scheduler.  This will be checked before each task is submitted and, in the
+  ///        event of a cancellation, the scheduler will enter an aborted state. This is
+  ///        a graceful cancellation and submitted tasks will still complete.
+  /// \return A future that will be completed when the initial task and all subtasks have
+  ///         finished.
+  static Future<> Make(FnOnce<Status(AsyncTaskScheduler*)> initial_task,
+                       Throttle* throttle = NULLPTR,
+                       std::unique_ptr<Queue> queue = NULLPTR,
+                       StopToken stop_token = StopToken::Unstoppable());
 };
 
 }  // namespace util

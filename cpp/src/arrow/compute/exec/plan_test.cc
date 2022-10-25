@@ -665,20 +665,9 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
                     SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
                    {"consuming_sink", ConsumingSinkNodeOptions(consumer)}})
                   .AddToPlan(plan.get()));
-    ASSERT_OK_AND_ASSIGN(
-        auto source,
-        MakeExecNode("source", plan.get(), {},
-                     SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
-    ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
-                           ConsumingSinkNodeOptions(consumer)));
-    // If we fail at init we see it during StartProducing.  Other
-    // failures are not seen until we start running.
-    if (std::dynamic_pointer_cast<InitErrorConsumer>(consumer)) {
-      ASSERT_RAISES(Invalid, plan->StartProducing());
-    } else {
-      ASSERT_OK(plan->StartProducing());
-      ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
-    }
+    // Since the source node is not parallel the entire plan is run during StartProducing
+    ASSERT_RAISES(Invalid, plan->StartProducing());
+    ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
   }
 }
 
