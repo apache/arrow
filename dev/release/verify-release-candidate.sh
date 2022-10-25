@@ -24,7 +24,7 @@
 # - JDK >=7
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
-# - Go >= 1.15
+# - Go >= 1.17
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -859,11 +859,12 @@ test_go() {
   maybe_setup_go || exit 1
   maybe_setup_conda compilers go=1.17 || exit 1
 
-  pushd go/arrow
+  pushd go
   go get -v ./...
-  go test ./...
+  go test ./...  
+  go install ./...  
   go clean -modcache
-  popd
+  popd  
 }
 
 # Run integration tests
