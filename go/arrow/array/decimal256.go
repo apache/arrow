@@ -273,13 +273,13 @@ func (b *Decimal256Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 		b.Append(val)
 	case string:
-		out, err := decimal256.FromString(v, b.dtype.Scale)
+		out, err := decimal256.FromString(v, b.dtype.Precision, b.dtype.Scale)
 		if err != nil {
 			return err
 		}
 		b.Append(out)
 	case json.Number:
-		out, err := decimal256.FromString(v.String(), b.dtype.Scale)
+		out, err := decimal256.FromString(v.String(), b.dtype.Precision, b.dtype.Scale)
 		if err != nil {
 			return err
 		}

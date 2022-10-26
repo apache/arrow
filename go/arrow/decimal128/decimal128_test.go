@@ -423,7 +423,7 @@ func TestFromString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s_%d", tt.s, tt.expectedScale), func(t *testing.T) {
-			n, err := decimal128.FromString(tt.s, tt.expectedScale)
+			n, err := decimal128.FromString(tt.s, 8, tt.expectedScale)
 			assert.NoError(t, err)
 
 			ex := decimal128.FromI64(tt.expected)
@@ -436,7 +436,7 @@ func TestInvalidNonNegScaleFromString(t *testing.T) {
 	tests := []string{"1e39", "-1e39", "9e39", "-9e39", "9.9e40", "-9.9e40"}
 	for _, tt := range tests {
 		t.Run(tt, func(t *testing.T) {
-			_, err := decimal128.FromString(tt, 0)
+			_, err := decimal128.FromString(tt, 38, 0)
 			assert.Error(t, err)
 		})
 	}

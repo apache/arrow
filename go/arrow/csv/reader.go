@@ -458,11 +458,11 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		}
 	case *arrow.Decimal128Type:
 		return func(str string) {
-			r.parseDecimal128(bldr, str, dt.Scale)
+			r.parseDecimal128(bldr, str, dt.Precision, dt.Scale)
 		}
 	case *arrow.Decimal256Type:
 		return func(str string) {
-			r.parseDecimal256(bldr, str, dt.Scale)
+			r.parseDecimal256(bldr, str, dt.Precision, dt.Scale)
 		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
@@ -691,13 +691,13 @@ func (r *Reader) parseTime32(field array.Builder, str string, unit arrow.TimeUni
 	field.(*array.Time32Builder).Append(val)
 }
 
-func (r *Reader) parseDecimal128(field array.Builder, str string, scale int32) {
+func (r *Reader) parseDecimal128(field array.Builder, str string, prec, scale int32) {
 	if r.isNull(str) {
 		field.AppendNull()
 		return
 	}
 
-	val, err := decimal128.FromString(str, scale)
+	val, err := decimal128.FromString(str, prec, scale)
 	if err != nil && r.err == nil {
 		r.err = err
 		field.AppendNull()
@@ -706,13 +706,13 @@ func (r *Reader) parseDecimal128(field array.Builder, str string, scale int32) {
 	field.(*array.Decimal128Builder).Append(val)
 }
 
-func (r *Reader) parseDecimal256(field array.Builder, str string, scale int32) {
+func (r *Reader) parseDecimal256(field array.Builder, str string, prec, scale int32) {
 	if r.isNull(str) {
 		field.AppendNull()
 		return
 	}
 
-	val, err := decimal256.FromString(str, scale)
+	val, err := decimal256.FromString(str, prec, scale)
 	if err != nil && r.err == nil {
 		r.err = err
 		field.AppendNull()

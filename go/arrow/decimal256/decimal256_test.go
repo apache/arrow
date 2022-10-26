@@ -254,7 +254,7 @@ func TestFromString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s_%d", tt.s, tt.expectedScale), func(t *testing.T) {
-			n, err := decimal256.FromString(tt.s, tt.expectedScale)
+			n, err := decimal256.FromString(tt.s, 8, tt.expectedScale)
 			assert.NoError(t, err)
 
 			ex := decimal256.FromI64(tt.expected)
