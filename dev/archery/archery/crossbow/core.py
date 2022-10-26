@@ -28,6 +28,7 @@ import uuid
 from io import StringIO
 from pathlib import Path
 from datetime import date
+import warnings
 
 import jinja2
 from ruamel.yaml import YAML
@@ -133,7 +134,7 @@ def _render_jinja_template(searchpath, template, params):
 
 # configurations for setting up branch skipping
 # - appveyor has a feature to skip builds without an appveyor.yml
-# - travis reads from the master branch and applies the rules
+# - travis reads from the default branch and applies the rules
 # - circle requires the configuration to be present on all branch, even ones
 #   that are configured to be skipped
 # - azure skips branches without azure-pipelines.yml by default
@@ -361,6 +362,29 @@ class Repo:
         return pygit2.Signature(self.user_name, self.user_email,
                                 int(time.time()))
 
+    @property
+    def default_branch_name(self):
+        default_branch_name = os.getenv("ARCHERY_DEFAULT_BRANCH")
+
+        if default_branch_name is None:
+            try:
+                ref_obj = self.repo.references["refs/remotes/origin/HEAD"]
+                target_name = ref_obj.target
+                target_name_tokenized = target_name.split("/")
+                default_branch_name = target_name_tokenized[-1]
+            except KeyError:
+                # TODO: ARROW-18011 to track changing the hard coded default
+                # value from "master" to "main".
+                default_branch_name = "master"
+                warnings.warn('Unable to determine default branch name: '
+                              'ARCHERY_DEFAULT_BRANCH environment variable is '
+                              'not set. Git repository does not contain a '
+                              '\'refs/remotes/origin/HEAD\'reference. Setting '
+                              'the default branch name to ' +
+                              default_branch_name, RuntimeWarning)
+
+        return default_branch_name
+
     def create_tree(self, files):
         builder = self.repo.TreeBuilder()
 
@@ -382,7 +406,7 @@ class Repo:
         if parents is None:
             # by default use the main branch as the base of the new branch
             # required to reuse github actions cache across crossbow tasks
-            commit, _ = self.repo.resolve_refish("master")
+            commit, _ = self.repo.resolve_refish(self.default_branch_name)
             parents = [commit.id]
         tree_id = self.create_tree(files)
 
@@ -546,8 +570,10 @@ class Repo:
                         'Unsupported upload method {}'.format(method)
                     )
 
-    def github_pr(self, title, head=None, base="master", body=None,
+    def github_pr(self, title, head=None, base=None, body=None,
                   github_token=None, create=False):
+        # Default value for base is the default_branch_name
+        base = self.default_branch_name if base is None else base
         github_token = github_token or self.github_token
         repo = self.as_github_repo(github_token=github_token)
         if create:
@@ -1289,11 +1315,15 @@ class Config(dict):
                     'is: `{}`'.format(task_name, str(e))
                 )
 
+        # Get the default branch name from the repository
+        arrow_source_dir = ArrowSources.find()
+        repo = Repo(arrow_source_dir.path)
+
         # validate that the defined tasks are renderable, in order to to that
         # define the required object with dummy data
         target = Target(
             head='e279a7e06e61c14868ca7d71dea795420aea6539',
-            branch='master',
+            branch=repo.default_branch_name,
             remote='https://github.com/apache/arrow',
             version='1.0.0dev123',
             r_version='0.13.0.100000123',
