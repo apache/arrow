@@ -18,7 +18,6 @@
 package org.apache.arrow.dataset.file;
 
 import java.io.File;
-
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -40,7 +39,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.commons.io.FileUtils;
-
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -87,7 +85,9 @@ public class TestDatasetFileWriter extends TestDataset {
          final Scanner scanner = dataset.newScan(options);
          final ArrowScannerReader reader = new ArrowScannerReader(scanner, rootAllocator());
     ) {
-      DatasetFileWriter.write(rootAllocator(), reader, FileFormat.PARQUET, writtenParquet, new String[]{"id", "name"}, 100, "data_{i}");
+      DatasetFileWriter.write(rootAllocator(), reader,
+          FileFormat.PARQUET, writtenParquet, new String[]{"id", "name"},
+          100, "data_{i}");
       final Set<String> expectedOutputFiles = new HashSet<>(
           Arrays.asList("id=1/name=a/data_0", "id=2/name=b/data_0", "id=3/name=c/data_0", "id=2/name=d/data_0"));
       final Set<String> outputFiles = FileUtils.listFiles(writtenFolder, null, true)

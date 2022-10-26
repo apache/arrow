@@ -17,6 +17,9 @@
 
 package org.apache.arrow.dataset.scanner;
 
+import java.io.IOException;
+import java.util.Iterator;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorUnloader;
@@ -25,9 +28,10 @@ import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import java.io.IOException;
-import java.util.Iterator;
-
+/**
+ * An implementation of {@link ArrowReader} that reads
+ * the dataset from {@link Scanner}.
+ */
 public class ArrowScannerReader extends ArrowReader {
   private final Scanner scanner;
 
@@ -58,7 +62,9 @@ public class ArrowScannerReader extends ArrowReader {
 
   @Override
   public boolean loadNextBatch() throws IOException {
-    if (currentReader == null) return false;
+    if (currentReader == null) {
+      return false;
+    }
     boolean result = currentReader.loadNextBatch();
 
     if (!result) {
@@ -83,7 +89,7 @@ public class ArrowScannerReader extends ArrowReader {
     VectorLoader loader = new VectorLoader(this.getVectorSchemaRoot());
     VectorUnloader unloader =
         new VectorUnloader(currentReader.getVectorSchemaRoot());
-    try(ArrowRecordBatch recordBatch = unloader.getRecordBatch()) {
+    try (ArrowRecordBatch recordBatch = unloader.getRecordBatch()) {
       loader.load(recordBatch);
     }
     return true;
