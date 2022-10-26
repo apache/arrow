@@ -278,7 +278,8 @@ class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
  public:
   explicit StructFieldOptions(std::vector<int> indices);
   explicit StructFieldOptions(std::initializer_list<int>);
-  explicit StructFieldOptions(FieldRef field_ref);
+  explicit StructFieldOptions(FieldRef field_ref,
+                              std::vector<int> indices = std::vector<int>());
   StructFieldOptions();
   static constexpr char const kTypeName[] = "StructFieldOptions";
 
