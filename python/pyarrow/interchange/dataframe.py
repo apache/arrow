@@ -15,10 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import chunk
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Optional,
+    Sequence,
+    Tuple,
+    TypedDict,
+)
+
 import pyarrow as pa
+import warnings
 
 from column import PandasColumn
 from dataframe_protocol import DataFrame as DataFrameXchg
+
 
 class PyArrowTableXchg(DataFrameXchg):
     """
@@ -50,40 +63,53 @@ class PyArrowTableXchg(DataFrameXchg):
         return PyArrowTableXchg(self._df, nan_as_null, allow_copy)
 
     @property
-    def metadata(self) -> dict[str, Index]:
-        # `index` isn't a regular column, and the protocol doesn't support row
-        # labels - so we export it as Pandas-specific metadata here.
-        pass
+    def metadata(self) -> dict[str, Any]:
+        # The metadata for the data frame, as a dictionary with string keys.
+        # Add schema metadata here (pandas metadata, ot custom metadata)
+        schema_metadata = {k.decode('utf8'): v.decode('utf8') for k, v in self.schema.metadata.items()}
+        return schema_metadata
 
     def num_columns(self) -> int:
-        pass
+        return self.num_columns
 
     def num_rows(self) -> int:
-        pass
+        return self.num_rows
 
     def num_chunks(self) -> int:
-        pass
+        return self.column(0).num_chunks
 
-    def column_names(self) -> Index:
-        pass
+    def column_names(self) -> Iterable[str]:
+        return self.column_names
 
     def get_column(self, i: int) -> PyArrowColumn:
-        pass
+        return self.column(i)
 
     def get_column_by_name(self, name: str) -> PyArrowColumn:
-        pass
+        return self.column(name)
 
-    def get_columns(self) -> list[PyArrowColumn]:
-        pass
+    def get_columns(self) -> Iterable[PyArrowColumn]:
+        return self.columns
 
-    def select_columns(self, indices) -> PyArrowTableFrameXchg:
-        pass
+    def select_columns(self, indices: Sequence[int]) -> PyArrowTableFrameXchg:
+        return self.select(indices)
 
-    def select_columns_by_name(self, names) -> PyArrowTableFrameXchg:
-        pass
+    def select_columns_by_name(self, names: Sequence[str]) -> PyArrowTableFrameXchg:
+        return self.select(names)
 
-    def get_chunks(self, n_chunks=None):
+    def get_chunks(self, n_chunks: Optional[int] = None) -> Iterable[PyArrowTableFrameXchg]:
         """
         Return an iterator yielding the chunks.
         """
-        pass
+        if n_chunks:
+            if n_chunks%self.num_chunks == 0:
+                chunk_size = self.num_rows//n_chunks
+                if self.num_rows%n_chunks != 0:
+                    warnings.warn("Converting dataframe into smaller chunks")
+                batches = self.to_batches(max_chunksize = chunk_size)
+            else:
+                warnings.warn("``n_chunks`` must be a multiple of ``self.num_chunks()``")
+        else:
+            batches = self.to_batches()
+        
+        iterator_tables = [pa.Table.from_batches([batch]) for batch in batches]
+        return iterator_tables
