@@ -469,11 +469,9 @@ services:
     # Usage:
     #   docker-compose build cuda-cpp
     #   docker-compose run --rm cuda-cpp
-    # Also need to edit the host docker configuration as follows:
-    #   https://github.com/docker/compose/issues/6691#issuecomment-561504928
     # Parameters:
     #   ARCH: amd64
-    #   CUDA: 9.1, 10.0, 10.1
+    #   CUDA: <depends on your nvidia driver, should match system CUDA>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
     build:
       context: .
@@ -788,7 +786,7 @@ services:
     #   docker-compose run --rm cuda-python
     # Parameters:
     #   ARCH: amd64
-    #   CUDA: 8.0, 10.0, ...
+    #   CUDA: <depends on your nvidia driver, should match system CUDA>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
