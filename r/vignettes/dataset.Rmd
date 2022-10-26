@@ -23,14 +23,14 @@ The primary motivation for multi-file Datasets is to allow users to analyze extr
 
 This data set is comprised of 158 distinct Parquet files, each corresponding to a month of data. A single file is typically around 400-500MB in size, and the full data set is about 70GB in size. It is not a small data set -- it is slow to download and does not fit in memory on a typical machine 🙂  -- so we also host a "tiny" version of the NYC taxi data that is formatted in exactly the same way but includes only one out of every thousand entries in the original data set (i.e., individual files are <1MB in size, and the "tiny" data set is only 70MB) 
 
-If you have Amazon S3 and/or Google Cloud Storage support enabled in `arrow` (true for most users; see links at the end of this vignette), you can connect to the "tiny taxi data" with either of the following commands:
+If you have Amazon S3 and/or Google Cloud Storage support enabled in `arrow` (true for most users; see links at the end of this vignette if you need to troubleshoot this), you can connect to the "tiny taxi data" with either of the following commands:
 
 ```r
 bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi-tiny")
 bucket <- gs_bucket("voltrondata-labs-datasets/nyc-taxi-tiny", anonymous = TRUE)
 ```
 
-If you want to use the full data set, simply replace `nyc-taxi-tiny` with `nyc-taxi`. Apart from the cost in time, bandwidth usage, and CPU cycles (more on that later), there is no difference in the two versions: you can test your code using the tiny taxi data and then check how it scales using the full data set.
+If you want to use the full data set, replace `nyc-taxi-tiny` with `nyc-taxi` in the code above. Apart from size -- and with it the cost in time, bandwidth usage, and CPU cycles -- there is no difference in the two versions of the data: you can test your code using the tiny taxi data and then check how it scales using the full data set.
 
 To make a local copy of the data set stored in the `bucket` to a folder called `"nyc-taxi"`, use the `copy_files()` function:
 
@@ -40,7 +40,7 @@ copy_files(from = bucket, to = "nyc-taxi")
 
 For the purposes of this vignette, we assume that the NYC taxi dataset (either the full data or the tiny version) has been downloaded locally and exists in an `"nyc-taxi"` directory. 
 
-## Opening a dataset
+## Opening Datasets
 
 The first step in the process is to create a Dataset object that points at the data directory:
 
@@ -48,13 +48,18 @@ The first step in the process is to create a Dataset object that points at the d
 ds <- open_dataset("nyc-taxi")
 ```
 
-By default `open_dataset()` looks for Parquet files, but you can override this using the `format` argument. For example if our data were encoded as CSV files we could set `format = "csv"` to connect to the data. Besides Parquet, the Arrow Dataset interface supports several file formats including: 
+It is important to note that when we do this, the data values are not loaded into memory. Instead, Arrow scans the data directory to find relevant files, parses the file paths looking for a "Hive-style partitioning" (see below), and reads headers of the data files to construct a Schema that contains metadata describing the structure of the data. For more information about Schemas see `vignette("metadata", package = "arrow")`.
 
+Two questions naturally follow from this: what kind of files does `open_dataset()` look for, and what structure does it expect to find in the file paths? Let's start by looking at the file types.
+
+By default `open_dataset()` looks for Parquet files but you can override this using the `format` argument. For example if the data were encoded as CSV files we could set `format = "csv"` to connect to the data. The Arrow Dataset interface supports several file formats including: 
+
+* `"parquet"` (the default)
 * `"feather"` or `"ipc"` (aliases for `"arrow"`; as Feather version 2 is the Arrow file format)
 * `"csv"` (comma-delimited files) and `"tsv"` (tab-delimited files)
 * `"text"` (generic text-delimited files - use the `delimiter` argument to specify which to use)
 
-For text files, you can pass the following parsing options to `open_dataset()`:
+In the case of text files, you can pass the following parsing options to `open_dataset()` to ensure that files are read correctly:
 
 * `delim`
 * `quote`
@@ -62,13 +67,9 @@ For text files, you can pass the following parsing options to `open_dataset()`:
 * `escape_backslash`
 * `skip_empty_rows`
 
-For more information parsing delimited text files, see the help documentation for `read_delim_arrow()`.
+For more information on these arguments and on parsing delimited text files generally, see the help documentation for `read_delim_arrow()`.
 
-It is important to note that when we create a Dataset object like `ds`, the data values are not loaded into memory. Instead, what happens is that Arrow scans the data directory looking for data files and construct an object that contains relevant metadata. In particular, it constructs a Schema from the data to ensure that later `arrow` commands know the structure of the data: see `vignette("metadata", package = "arrow")` for more information. 
-
-`open_dataset()` was able to automatically infer column values for `year` and `month`
---which are not present in the data files--based on the directory structure. The 
-[Hive](https://hive.apache.org/)-style partitioning structure is self-describing, with file paths like
+Next, what information does `open_dataset()` expect to find in the file paths? By default, the Dataset interface looks for  [Hive](https://hive.apache.org/)-style partitioning structure in which folders are named using a "key=value" convention, and data files in a folder contain the subset of the data for which the key has the relevant value. For example, in the NYC taxi data file paths look like this:
 
 ```
 year=2009/month=1/part-0.parquet
@@ -76,8 +77,9 @@ year=2009/month=2/part-0.parquet
 ...
 ```
 
-But sometimes the directory partitioning isn't self describing; that is, it doesn't
-contain field names. For example, if instead we had file paths like
+From this, `open_dataset()` infers that the first listed Parquet file contains the data for January 2009. In that sense, a hive-style partitioning is self-describing: the folder names state explicitly how the Dataset has been split across files.
+
+Sometimes the directory partitioning isn't self describing; that is, it doesn't contain field names. For example, suppose the NYC taxi data used file paths like these:
 
 ```
 2009/01/part-0.parquet
@@ -85,14 +87,13 @@ contain field names. For example, if instead we had file paths like
 ...
 ```
 
-then `open_dataset()` would need some hints as to how to use the file paths. In this
-case, you could provide `c("year", "month")` to the `partitioning` argument, 
-saying that the first path segment gives the value for `year`, and the second 
-segment is `month`. Every row in `2009/01/part-0.parquet` has a value of 2009 for `year`
-and 1 for `month`, even though those columns may not be present in the file.
+In that case, `open_dataset()` would need some hints as to how to use the file paths. In this case, you could provide `c("year", "month")` to the `partitioning` argument, saying that the first path segment gives the value for `year`, and the second segment is `month`. Every row in `2009/01/part-0.parquet` has a value of 2009 for `year` and 1 for `month`, even though those columns may not be present in the file. In other words, we would open the data like this:
 
-In either case, when you look at the dataset, you can see that in addition to the columns present
-in every file, there are also columns `year` and `month` even though they are not present in the files themselves.
+```r
+ds <- open_dataset("nyc-taxi", partitioning = c("year", "month"))
+```
+
+Either way, when you look at the Dataset, you can see that in addition to the columns present in every file, there are also columns `year` and `month`. These columns are not present in the files themselves: they are inferred from the partitioning structure.
 
 ```{r, eval = file.exists("nyc-taxi")}
 ds
@@ -127,46 +128,21 @@ month: int32
 ")
 ```
 
-## Querying a Dataset
+## Querying Datasets
 
-Up to this point, you haven't loaded any data. You've walked directories to find
-files, you've parsed file paths to identify partitions, and you've read the
-headers of the Parquet files to inspect their schemas so that you can make sure
-they all are as expected.
-
-In the current release, arrow supports the dplyr verbs:
-
- * `mutate()` and `transmute()`,
- * `select()`, `rename()`, and `relocate()`,
- * `filter()`,
- * `arrange()`,
- * `union()` and `union_all()`,
- * `left_join()`, `right_join()`, `full_join()`, `inner_join()`, and `anti_join()`,
- * `group_by()` and `summarise()`.
-
-At any point in a chain, you can use `collect()` to pull the selected subset of
-the data into an in-memory R data frame. 
-
-Suppose you attempt to call unsupported dplyr verbs or unimplemented functions
-in your query on an Arrow Dataset. In that case, the arrow package raises an error. However,
-for dplyr queries on Arrow Table objects (which are already in memory), the
-package automatically calls `collect()` before processing that dplyr verb.
-
-Here's an example: suppose that you are curious about tipping behavior among the
-longest taxi rides. Let's find the median tip percentage for rides with
-fares greater than $100 in 2015, broken down by the number of passengers:
+Now that we have a Dataset object that refers to out data, we can construct `dplyr`-style queries. This is possible because `arrow` supplies a back end that allows users to manipulate tabular Arrow data using `dplyr` verbs. Here's an example: suppose you are curious about tipping behavior in the longest taxi rides. Let's find the median tip percentage for rides with fares greater than $100 in 2015, broken down by the number of passengers:
 
 ```{r, eval = file.exists("nyc-taxi")}
-system.time(ds %>%
-  filter(total_amount > 100, year == 2015) %>%
-  select(tip_amount, total_amount, passenger_count) %>%
-  mutate(tip_pct = 100 * tip_amount / total_amount) %>%
-  group_by(passenger_count) %>%
+system.time(ds |>
+  filter(total_amount > 100, year == 2015) |>
+  select(tip_amount, total_amount, passenger_count) |>
+  mutate(tip_pct = 100 * tip_amount / total_amount) |>
+  group_by(passenger_count) |>
   summarise(
     median_tip_pct = median(tip_pct),
     n = n()
-  ) %>%
-  collect() %>%
+  ) |>
+  collect() |>
   print())
 ```
 
@@ -191,19 +167,18 @@ cat("
 ")
 ```
 
-You've just selected a subset out of a dataset with around 2 billion rows, computed
-a new column, and aggregated it in a few seconds on a modern laptop. How does
-this work?
+You've just selected a subset from a Dataset that contains around 2 billion rows, computed a new column, and aggregated it. All within a few seconds on a modern laptop. How does this work? 
 
-First, the dplyr verbs on the dataset record their actions but don't evaluate on
-the data until you run `collect()`.
+There are three reasons `arrow` can accomplish this task so quickly:
+
+First, `arrow` adopts a lazy evaluation approach to queries: when `dplyr` verbs are called on the Dataset, they record their actions but do not evaluate those actions on the data until you run `collect()`. We can see this by taking the same code as before and leaving off the final step:
 
 ```{r, eval = file.exists("nyc-taxi")}
-ds %>%
-  filter(total_amount > 100, year == 2015) %>%
-  select(tip_amount, total_amount, passenger_count) %>%
-  mutate(tip_pct = 100 * tip_amount / total_amount) %>%
-  group_by(passenger_count) %>%
+ds |>
+  filter(total_amount > 100, year == 2015) |>
+  select(tip_amount, total_amount, passenger_count) |>
+  mutate(tip_pct = 100 * tip_amount / total_amount) |>
+  group_by(passenger_count) |>
   summarise(
     median_tip_pct = median(tip_pct),
     n = n()
@@ -221,41 +196,31 @@ See $.data for the source Arrow object
 ")
 ```
 
-This code returns an output instantly and shows the manipulations you've made, without
-loading data from the files. Because the evaluation of these queries is deferred,
-you can build up a query that selects down to a small subset without generating
-intermediate datasets that would potentially be large.
+This version of the code returns an output instantly and shows the manipulations you've made, without loading data from the files. Because the evaluation of these queries is deferred, you can build up a query that selects down to a small subset without generating intermediate data sets that could potentially be large. 
 
-Second, all work is pushed down to the individual data files,
-and depending on the file format, chunks of data within the files. As a result,
-you can select a subset of data from a much larger dataset by collecting the
-smaller slices from each file—you don't have to load the whole dataset in 
-memory to slice from it.
+Second, all work is pushed down to the individual data files, and depending on the file format, chunks of data within files. As a result, you can select a subset of data from a much larger data set by collecting the smaller slices from each file: you don't have to load the whole data set in memory to slice from it.
 
-Third, because of partitioning, you can ignore some files entirely.
-In this example, by filtering `year == 2015`, all files corresponding to other years
-are immediately excluded: you don't have to load them in order to find that no
-rows match the filter. Relatedly, since Parquet files contain row groups with
-statistics on the data within, there may be entire chunks of data you can
-avoid scanning because they have no rows where `total_amount > 100`.
+Third, because of partitioning, you can ignore some files entirely. In this example, by filtering `year == 2015`, all files corresponding to other years are immediately excluded: you don't have to load them in order to find that no rows match the filter. For Parquet files -- which contain row groups with statistics on the data contained within groups -- there may be entire chunks of data you can avoid scanning because they have no rows where `total_amount > 100`.
 
-## Batch processing (experimental!)
+One final thing to note about querying Datasets. Suppose you attempt to call unsupported `dplyr` verbs or unimplemented functions in your query on an Arrow Dataset. In that case, the `arrow` package raises an error. However, for `dplyr` queries on Arrow Table objects (which are already in-memory), the package automatically calls `collect()` before processing that `dplyr` verb. To learn more about the `dplyr` backend, see `vignette("data_wrangling", package = "arrow")`.
 
-Sometimes you want to run R code on the entire dataset, but that dataset is much
-larger than memory. You can use `map_batches` on a dataset query to process
+## Batch processing (experimental)
+
+Sometimes you want to run R code on the entire Dataset, but that Dataset is much
+larger than memory. You can use `map_batches` on a Dataset query to process
 it batch-by-batch.
 
 **Note**: `map_batches` is experimental and not recommended for production use.
 
-As an example, to randomly sample a dataset, use `map_batches` to sample a 
+As an example, to randomly sample a Dataset, use `map_batches` to sample a 
 percentage of rows from each batch:
 
 ```{r, eval = file.exists("nyc-taxi")}
-sampled_data <- ds %>%
-  filter(year == 2015) %>%
-  select(tip_amount, total_amount, passenger_count) %>%
-  map_batches(~ as_record_batch(sample_frac(as.data.frame(.), 1e-4))) %>%
-  mutate(tip_pct = tip_amount / total_amount) %>%
+sampled_data <- ds |>
+  filter(year == 2015) |>
+  select(tip_amount, total_amount, passenger_count) |>
+  map_batches(~ as_record_batch(sample_frac(as.data.frame(.), 1e-4))) |>
+  mutate(tip_pct = tip_amount / total_amount) |>
   collect()
 
 str(sampled_data)
@@ -271,27 +236,27 @@ tibble [10,918 × 4] (S3: tbl_df/tbl/data.frame)
 ")
 ```
 
-This function can also be used to aggregate summary statistics over a dataset by
+This function can also be used to aggregate summary statistics over a Dataset by
 computing partial results for each batch and then aggregating those partial
 results. Extending the example above, you could fit a model to the sample data
-and then use `map_batches` to compute the MSE on the full dataset.
+and then use `map_batches` to compute the MSE on the full Dataset.
 
 ```{r, eval = file.exists("nyc-taxi")}
 model <- lm(tip_pct ~ total_amount + passenger_count, data = sampled_data)
 
-ds %>%
-  filter(year == 2015) %>%
-  select(tip_amount, total_amount, passenger_count) %>%
-  mutate(tip_pct = tip_amount / total_amount) %>%
+ds |>
+  filter(year == 2015) |>
+  select(tip_amount, total_amount, passenger_count) |>
+  mutate(tip_pct = tip_amount / total_amount) |>
   map_batches(function(batch) {
-    batch %>%
-      as.data.frame() %>%
-      mutate(pred_tip_pct = predict(model, newdata = .)) %>%
-      filter(!is.nan(tip_pct)) %>%
-      summarize(sse_partial = sum((pred_tip_pct - tip_pct)^2), n_partial = n()) %>%
+    batch |>
+      as.data.frame() |>
+      mutate(pred_tip_pct = predict(model, newdata = .)) |>
+      filter(!is.nan(tip_pct)) |>
+      summarize(sse_partial = sum((pred_tip_pct - tip_pct)^2), n_partial = n()) |>
       as_record_batch()
-  }) %>%
-  summarize(mse = sum(sse_partial) / sum(n_partial)) %>%
+  }) |>
+  summarize(mse = sum(sse_partial) / sum(n_partial)) |>
   pull(mse)
 ```
 
@@ -301,7 +266,7 @@ cat("
 ")
 ```
 
-## More dataset options
+## Dataset options
 
 There are a few ways you can control the Dataset creation to adapt to special use cases.
 
@@ -331,7 +296,7 @@ result to be.
 
 Similarly, you can provide a Schema in the `partitioning` argument of `open_dataset()`
 in order to declare the types of the virtual columns that define the partitions.
-This would be useful, in the taxi dataset example, if you wanted to keep
+This would be useful, in the NYC taxi data example, if you wanted to keep
 `month` as a string instead of an integer.
 
 ### Work with multiple data sources
@@ -340,13 +305,14 @@ Another feature of Datasets is that they can be composed of multiple data source
 That is, you may have a directory of partitioned Parquet files in one location,
 and in another directory, files that haven't been partitioned.
 Or, you could point to an S3 bucket of Parquet data and a directory
-of CSVs on the local file system and query them together as a single dataset.
-To create a multi-source dataset, provide a list of datasets to `open_dataset()`
-instead of a file path, or simply concatenate them like `big_dataset <- c(ds1, ds2)`.
+of CSVs on the local file system and query them together as a single Dataset.
+To create a multi-source Dataset, provide a list of Datasets to `open_dataset()`
+instead of a file path, or concatenate them with a command like 
+`big_dataset <- c(ds1, ds2)`.
 
-## Writing datasets
+## Writing Datasets
 
-As you can see, querying a large dataset can be made quite fast by storage in an
+As you can see, querying a large Dataset can be made quite fast by storage in an
 efficient binary columnar format like Parquet or Feather and partitioning based on
 columns commonly used for filtering. However, data isn't always stored that way.
 Sometimes you might start with one giant CSV. The first step in analyzing data 
@@ -378,8 +344,8 @@ One natural way to express the columns you want to partition on is to use the
 `group_by()` method:
 
 ```r
-ds %>%
-  group_by(payment_type) %>%
+ds |>
+  group_by(payment_type) |>
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
@@ -414,44 +380,44 @@ and you just want to drop the rest and have a smaller working set.
 For this, you can `filter()` them out when writing:
 
 ```r
-ds %>%
-  filter(payment_type == "Cash") %>%
+ds |>
+  filter(payment_type == "Cash") |>
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
-The other thing you can do when writing datasets is select a subset of columns 
+The other thing you can do when writing Datasets is select a subset of columns 
 or reorder them. Suppose you never care about `vendor_id`, and being a string column,
 it can take up a lot of space when you read it in, so let's drop it:
 
 ```r
-ds %>%
-  group_by(payment_type) %>%
-  select(-vendor_id) %>%
+ds |>
+  group_by(payment_type) |>
+  select(-vendor_id) |>
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
 Note that while you can select a subset of columns,
-you cannot currently rename columns when writing a dataset.
+you cannot currently rename columns when writing a Dataset.
 
 ## Partitioning performance considerations
 
-Partitioning datasets has two aspects that affect performance: it increases the number of
+Partitioning Datasets has two aspects that affect performance: it increases the number of
 files and it creates a directory structure around the files. Both of these have benefits
-as well as costs. Depending on the configuration and the size of your dataset, the costs 
+as well as costs. Depending on the configuration and the size of your Dataset, the costs 
 can outweigh the benefits. 
 
-Because partitions split up the dataset into multiple files, partitioned datasets can be 
-read and written with parallelism. However, each additional file adds a little overhead in 
-processing for filesystem interaction. It also increases the overall dataset size since 
+Because partitions split up the Dataset into multiple files, partitioned Datasets can be 
+read and written with parallelism. However, each additional file adds a little overhead in
+processing for filesystem interaction. It also increases the overall Dataset size since 
 each file has some shared metadata. For example, each parquet file contains the schema and
 group-level statistics. The number of partitions is a floor for the number of files. If 
-you partition a dataset by date with a year of data, you will have at least 365 files. If 
+you partition a Dataset by date with a year of data, you will have at least 365 files. If 
 you further partition by another dimension with 1,000 unique values, you will have up to 
 365,000 files. This fine of partitioning often leads to small files that mostly consist of
 metadata.
 
-Partitioned datasets create nested folder structures, and those allow us to prune which 
-files are loaded in a scan. However, this adds overhead to discovering files in the dataset,
+Partitioned Datasets create nested folder structures, and those allow us to prune which 
+files are loaded in a scan. However, this adds overhead to discovering files in the Dataset,
 as we'll need to recursively "list directory" to find the data files. Too fine
 partitions can cause problems here: Partitioning a dataset by date for a years worth
 of data will require 365 list calls to find all the files; adding another column with 
@@ -472,7 +438,7 @@ of file size. Arrow's file writer provides sensible defaults for group sizing in
 
 ## Transactions / ACID guarantees
 
-The dataset API offers no transaction support or any ACID guarantees.  This affects
+The Dataset API offers no transaction support or any ACID guarantees.  This affects
 both reading and writing.  Concurrent reads are fine.  Concurrent writes or writes
 concurring with reads may have unexpected behavior.  Various approaches can be used
 to avoid operating on the same files such as using a unique basename template for
@@ -491,9 +457,9 @@ not have any such concept and a partially written CSV file may be detected as va
 
 ## Futher reading
 
-- To learn more about support for cloud storage, see `vignette("cloud_storage", package = "arrow")`.
-- To learn more about using `dplyr` with `arrow`, see `vignette("data_wrangling", package = "arrow")`.
-- To learn more about read/write capabilities of `arrow`, see `vignette("read_write", package = "arrow")`.
-- For Linux users who may need to manually enable S3 or GCS support, see `vignette("install_linux", package = "arrow")`.
-- To learn more about schemas and other metadata, see `vignette("metadata", package = "arrow")`.
+- To learn about cloud storage, see `vignette("cloud_storage", package = "arrow")`.
+- To learn about `dplyr` with `arrow`, see `vignette("data_wrangling", package = "arrow")`.
+- To learn about reading and writing data, see `vignette("read_write", package = "arrow")`.
+- To manually enable cloud support on Linux, see `vignette("install_linux", package = "arrow")`.
+- To learn about schemas and metadata, see `vignette("metadata", package = "arrow")`.
 
