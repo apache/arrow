@@ -4472,7 +4472,7 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
         assert result[0] == expected
 
 
-def test_timestamp_as_object_pytz_offset():
+def test_timestamp_as_object_fixed_offset():
     # ARROW-16547 to_pandas with timestamp_as_object=True and FixedOffset
     pytz = pytest.importorskip("pytz")
     import datetime
