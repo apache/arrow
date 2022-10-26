@@ -637,7 +637,9 @@ test_that("scalar aggregates with many batches (ARROW-16904)", {
   )
 })
 
-test_that("map_batches", {
+test_that("streaming map_batches into an ExecPlan", {
+  skip_if_not(CanRunWithCapturedR())
+
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
   # summarize returns arrow_dplyr_query, which gets collected into a tibble

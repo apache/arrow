@@ -202,10 +202,6 @@ tail_from_batches <- function(batches, n) {
 #' `map_batches()` in a dplyr pipeline and do additional dplyr methods on the
 #' stream of data in Arrow after it.
 #'
-#' Note that, unlike the core dplyr methods that are implemented in the Arrow
-#' query engine, `map_batches()` is not lazy: it starts evaluating on the data
-#' when you call it, even if you send its result to another pipeline function.
-#'
 #' This is experimental and not recommended for production use. It is also
 #' single-threaded and runs in R not C++, so it won't be as fast as core
 #' Arrow methods.
@@ -224,7 +220,7 @@ tail_from_batches <- function(batches, n) {
 #' @param .data.frame Deprecated argument, ignored
 #' @return An `arrow_dplyr_query`.
 #' @export
-map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = FALSE, .data.frame = NULL) {
+map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = TRUE, .data.frame = NULL) {
   if (!is.null(.data.frame)) {
     warning(
       "The .data.frame argument is deprecated. ",
@@ -277,9 +273,6 @@ map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = FALSE, .data.frame 
   }
 
   reader_out <- as_record_batch_reader(fun, schema = .schema)
-
-  # TODO(ARROW-17178) because there are some restrictions on evaluating
-  # reader_out in some ExecPlans, the default .lazy is FALSE for now.
   if (!.lazy) {
     reader_out <- RecordBatchReader$create(
       batches = reader_out$batches(),
