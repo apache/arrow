@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/apache/arrow/go/v10/parquet/file"
-	"github.com/apache/arrow/go/v10/parquet/schema"
+	"github.com/apache/arrow/go/v11/parquet/file"
+	"github.com/apache/arrow/go/v11/parquet/schema"
 	"github.com/docopt/docopt-go"
 )
 

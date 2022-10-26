@@ -17,16 +17,20 @@
 
 package org.apache.arrow.vector.table;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
@@ -94,6 +98,36 @@ public class Table extends BaseTable implements Iterable<Row> {
     this(vsr.getFieldVectors(), vsr.getRowCount());
     vsr.clear();
   }
+
+  /**
+   * Returns a deep copy of this table.
+   */
+  public Table copy() {
+    List<FieldVector> vectorCopies = new ArrayList<>();
+    for (int i = 0; i < getVectorCount(); i++) {
+      vectorCopies.add(getVectorCopy(i));
+    }
+    DictionaryProvider providerCopy = null;
+    if (dictionaryProvider != null) {
+      Set<Long> ids = dictionaryProvider.getDictionaryIds();
+      Dictionary[] dictionaryCopies = new Dictionary[ids.size()];
+      int i = 0;
+      for (Long id : ids) {
+        Dictionary src = dictionaryProvider.lookup(id);
+        FieldVector srcVector = src.getVector();
+        FieldVector destVector = srcVector.getField().createVector(srcVector.getAllocator());
+        destVector.copyFromSafe(0, srcVector.getValueCount(), srcVector); // TODO: Remove safe copy for perf
+        DictionaryEncoding srcEncoding = src.getEncoding();
+        Dictionary dest = new Dictionary(destVector,
+            new DictionaryEncoding(srcEncoding.getId(), srcEncoding.isOrdered(), srcEncoding.getIndexType()));
+        dictionaryCopies[i] = dest;
+        i++;
+      }
+      providerCopy = new DictionaryProvider.MapDictionaryProvider(dictionaryCopies);
+    }
+    return new Table(vectorCopies, (int) getRowCount(), providerCopy);
+  }
+
 
   /**
    * Returns a new Table created by adding the given vector to the vectors in this Table.

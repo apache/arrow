@@ -26,10 +26,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/csv"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/csv"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -638,7 +638,7 @@ func BenchmarkRead(b *testing.B) {
 		return buf.Bytes()
 	}
 
-	for _, rows := range []int{10, 1e2, 1e3, 1e4, 1e5} {
+	for _, rows := range []int{10, 1e2, 1e3, 1e4} {
 		for _, cols := range []int{1, 10, 100, 1000} {
 			raw := gen(rows, cols)
 			for _, chunks := range []int{-1, 0, 10, 100, 1000} {

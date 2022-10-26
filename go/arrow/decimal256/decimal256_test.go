@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow/decimal256"
+	"github.com/apache/arrow/go/v11/arrow/decimal256"
 	"github.com/stretchr/testify/assert"
 )
 

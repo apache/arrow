@@ -25,11 +25,17 @@ func init() {
 	if cpu.X86.HasAVX2 {
 		bitAndOp.opAligned = bitmapAlignedAndAVX2
 		bitOrOp.opAligned = bitmapAlignedOrAVX2
+		bitAndNotOp.opAligned = bitmapAlignedAndNotAVX2
+		bitXorOp.opAligned = bitmapAlignedXorAVX2
 	} else if cpu.X86.HasSSE42 {
 		bitAndOp.opAligned = bitmapAlignedAndSSE4
 		bitOrOp.opAligned = bitmapAlignedOrSSE4
+		bitAndNotOp.opAligned = bitmapAlignedAndNotSSE4
+		bitXorOp.opAligned = bitmapAlignedXorSSE4
 	} else {
 		bitAndOp.opAligned = alignedBitAndGo
 		bitOrOp.opAligned = alignedBitOrGo
+		bitAndNotOp.opAligned = alignedBitAndNotGo
+		bitXorOp.opAligned = alignedBitXorGo
 	}
 }

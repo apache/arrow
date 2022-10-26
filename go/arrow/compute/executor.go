@@ -23,14 +23,14 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v10/arrow/internal"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/arrow/scalar"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/internal"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow/scalar"
 )
 
 // ExecCtx holds simple contextual information for execution
@@ -242,7 +242,7 @@ func propagateNulls(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ArraySp
 	}
 
 	var (
-		arrsWithNulls = make([]*exec.ArraySpan, 0)
+		arrsWithNulls = make([]*exec.ArraySpan, 0, len(batch.Values))
 		isAllNull     bool
 		prealloc      bool = out.Buffers[0].Buf != nil
 	)
@@ -596,6 +596,7 @@ func (s *scalarExecutor) executeSpans(data chan<- Datum) (err error) {
 			resultOffset = nextOffset
 		}
 		if err != nil {
+			prealloc.Release()
 			return
 		}
 

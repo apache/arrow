@@ -3900,7 +3900,7 @@ macro(build_grpc)
        gRPC::grpc
        gRPC::grpcpp_for_bundling
        gRPC::upb)
-  if(ABS_VENDORED)
+  if(ABSL_VENDORED)
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ${GRPC_GPR_ABSL_LIBRARIES})
   endif()
 endmacro()

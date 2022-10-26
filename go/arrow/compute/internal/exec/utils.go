@@ -23,12 +23,12 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/decimal128"
-	"github.com/apache/arrow/go/v10/arrow/decimal256"
-	"github.com/apache/arrow/go/v10/arrow/float16"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/decimal256"
+	"github.com/apache/arrow/go/v11/arrow/float16"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
@@ -135,6 +135,13 @@ func Min[T constraints.Ordered](a, b T) T {
 	return b
 }
 
+func Max[T constraints.Ordered](a, b T) T {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // OptionsInit should be used in the case where a KernelState is simply
 // represented with a specific type by value (instead of pointer).
 // This will initialize the KernelState as a value-copied instance of
@@ -165,11 +172,24 @@ var typMap = map[reflect.Type]arrow.DataType{
 	reflect.TypeOf(arrow.Date32(0)): arrow.FixedWidthTypes.Date32,
 	reflect.TypeOf(arrow.Date64(0)): arrow.FixedWidthTypes.Date64,
 	reflect.TypeOf(true):            arrow.FixedWidthTypes.Boolean,
+	reflect.TypeOf(float16.Num{}):   arrow.FixedWidthTypes.Float16,
 }
 
-func GetDataType[T NumericTypes | bool | string]() arrow.DataType {
+// GetDataType returns the appropriate arrow.DataType for the given type T
+// only for non-parametric types. This uses a map and reflection internally
+// so don't call this in a tight loop, instead call this once and then use
+// a closure with the result.
+func GetDataType[T NumericTypes | bool | string | float16.Num]() arrow.DataType {
 	var z T
 	return typMap[reflect.TypeOf(z)]
+}
+
+// GetType returns the appropriate arrow.Type type T, only for non-parameteric
+// types. This uses a map and reflection internally so don't call this in
+// a tight loop, instead call it once and then use a closure with the result.
+func GetType[T NumericTypes | bool | string]() arrow.Type {
+	var z T
+	return typMap[reflect.TypeOf(z)].ID()
 }
 
 type arrayBuilder[T NumericTypes] interface {

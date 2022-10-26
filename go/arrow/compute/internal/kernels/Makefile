@@ -36,7 +36,8 @@ ALL_SOURCES := $(shell find . -path ./_lib -prune -o -name '*.go' -name '*.s' -n
 .PHONEY: assembly
 
 INTEL_SOURCES := \
-	cast_numeric_avx2_amd64.s cast_numeric_sse4_amd64.s constant_factor_avx2_amd64.s constant_factor_sse4_amd64.s
+	cast_numeric_avx2_amd64.s cast_numeric_sse4_amd64.s constant_factor_avx2_amd64.s \
+	constant_factor_sse4_amd64.s base_arithmetic_avx2_amd64.s base_arithmetic_sse4_amd64.s
 
 #
 # ARROW-15336: DO NOT add the assembly target for Arm64 (ARM_SOURCES) until c2goasm added the Arm64 support.
@@ -53,6 +54,15 @@ _lib/cast_numeric_sse4_amd64.s: _lib/cast_numeric.cc
 	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_SSE4) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
 _lib/cast_numeric_neon.s: _lib/cast_numeric.cc
+	$(CXX) -std=c++17 -S $(C_FLAGS_NEON) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
+
+_lib/base_arithmetic_avx2_amd64.s: _lib/base_arithmetic.cc
+	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_AVX2) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
+
+_lib/base_arithmetic_sse4_amd64.s: _lib/base_arithmetic.cc
+	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_SSE4) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
+
+_lib/base_arithmetic_neon.s: _lib/base_arithmetic.cc
 	$(CXX) -std=c++17 -S $(C_FLAGS_NEON) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
 _lib/constant_factor_avx2_amd64.s: _lib/constant_factor.c
@@ -74,6 +84,12 @@ constant_factor_avx2_amd64.s: _lib/constant_factor_avx2_amd64.s
 	$(C2GOASM) -a -f $^ $@
 
 constant_factor_sse4_amd64.s: _lib/constant_factor_sse4_amd64.s
+	$(C2GOASM) -a -f $^ $@
+
+base_arithmetic_avx2_amd64.s: _lib/base_arithmetic_avx2_amd64.s
+	$(C2GOASM) -a -f $^ $@
+
+base_arithmetic_sse4_amd64.s: _lib/base_arithmetic_sse4_amd64.s
 	$(C2GOASM) -a -f $^ $@
 
 clean:
