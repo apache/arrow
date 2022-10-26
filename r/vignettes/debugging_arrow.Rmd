@@ -109,7 +109,7 @@ thread apply all bt
 This will generate a large amount of output, but this information is useful when
 identifying the cause of the issue.
 
-## Resources
+## Further reading
 
 The following resources provide detailed guides to debugging R code:
 
