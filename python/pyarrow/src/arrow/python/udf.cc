@@ -20,6 +20,9 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/python/common.h"
 
+// TODO REMOVE
+#include <iostream>
+
 namespace arrow {
 
 using compute::ExecResult;
@@ -179,10 +182,13 @@ struct PythonScalarUdfAggregatorImpl : public ScalarUdfAggregator {
   }
 
   Status ConsumeBatch(compute::KernelContext* ctx, const compute::ExecSpan& batch) {
+    std::cout << "ConsumeBatch" << std::endl;
     const int num_args = batch.num_values();
     this->batch_length = batch.length;
     ScalarAggregateUdfContext udf_context{ctx->memory_pool(), batch.length};
     // TODO: think about guaranteeing DRY (following logic already used in ScalarUDFs)
+    std::cout << "Num Args : " << num_args << std::endl;
+    std::cout << "Batch length : " << this->batch_length << std::endl;
     OwnedRef arg_tuple(PyTuple_New(num_args));
     RETURN_NOT_OK(CheckPyError());
     for (int arg_id = 0; arg_id < num_args; arg_id++) {
@@ -196,41 +202,49 @@ struct PythonScalarUdfAggregatorImpl : public ScalarUdfAggregator {
         PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
       }
     }
+    std::cout << "Args set " << std::endl;
     consume_cb(consume_function->obj(), udf_context, arg_tuple.obj());
+    std::cout << "Function executed" << std::endl;
     RETURN_NOT_OK(CheckPyError());
     return Status::OK();
   }
   
   Status Consume(compute::KernelContext* ctx, const compute::ExecSpan& batch) override {
-    RETURN_NOT_OK(ConsumeBatch(ctx, batch));
-    return Status::OK();
+    return SafeCallIntoPython([&]() -> Status { return ConsumeBatch(ctx, batch); });
   }
 
   Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) override {
     ScalarAggregateUdfContext udf_context{ctx->memory_pool(), this->batch_length};
-    merge_cb(merge_function->obj(), udf_context);
-    return Status::OK();
+    return SafeCallIntoPython([&]() -> Status { 
+      merge_cb(merge_function->obj(), udf_context);
+      return Status::OK();
+    });
   };
 
   Status Finalize(compute::KernelContext* ctx, arrow::Datum* out) override {
-    ScalarAggregateUdfContext udf_context{ctx->memory_pool(), this->batch_length};
-    OwnedRef result(finalize_cb(finalize_function->obj(), udf_context));
-    RETURN_NOT_OK(CheckPyError());
-    // unwrapping the output for expected output type
-    if (is_array(result.obj())) {
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> val, unwrap_array(result.obj()));
-      if (!output_type->Equals(*val->type())) {
-        return Status::TypeError("Expected output datatype ", output_type->ToString(),
-                                 ", but function returned datatype ",
-                                 val->type()->ToString());
-      }
-      out = std::move(new Datum(std::move(val)));
-      return Status::OK();
-    } else {
-      return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,
-                               " (expected Array)");
-    }
-    return Status::OK();
+    return SafeCallIntoPython([&]() -> Status { 
+        ScalarAggregateUdfContext udf_context{ctx->memory_pool(), this->batch_length};
+        OwnedRef result(finalize_cb(finalize_function->obj(), udf_context));
+        std::cout << "Finalize Python Call finished in C++" << std::endl;
+        RETURN_NOT_OK(CheckPyError());
+        std::cout << "CheckPyError done" << std::endl;
+        // unwrapping the output for expected output type
+        if (is_array(result.obj())) {
+          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> val, unwrap_array(result.obj()));
+          if (!output_type->Equals(*val->type())) {
+            return Status::TypeError("Expected output datatype ", output_type->ToString(),
+                                    ", but function returned datatype ",
+                                    val->type()->ToString());
+          }
+          std::cout << "Finalize called to C++ : " << val->ToString() << std::endl;
+          *out = Datum(std::move(val));
+          std::cout << "Final value set" << std::endl;
+          return Status::OK();
+        } else {
+          return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,
+                                  " (expected Array)");
+        }
+      });
   };
 
 private:
@@ -252,6 +266,7 @@ Status RegisterScalarAggregateFunction(PyObject* consume_function,
                                                   PyObject* finalize_function,
                                                   ScalarAggregateFinalizeUdfWrapperCallback finalize_wrapper,
                                                   const ScalarUdfOptions& options) {
+  std::cout << "RegisterScalarAggregateFunction" << std::endl;
   if (!PyCallable_Check(consume_function) || !PyCallable_Check(merge_function) || !PyCallable_Check(finalize_function)) {
     return Status::TypeError("Expected a callable Python object.");
   }

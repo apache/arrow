@@ -27,6 +27,12 @@ cdef class ScalarUdfContext(_Weakrefable):
 
     cdef void init(self, const CScalarUdfContext& c_context)
 
+cdef class ScalarAggregateUdfContext(_Weakrefable):
+    cdef:
+        CScalarAggregateUdfContext c_context
+
+    cdef void init(self, const CScalarAggregateUdfContext& c_context)
+
 cdef class FunctionOptions(_Weakrefable):
     cdef:
         shared_ptr[CFunctionOptions] wrapped

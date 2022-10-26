@@ -504,3 +504,58 @@ def test_input_lifetime(unary_func_fixture):
     # Calling a UDF should not have kept `v` alive longer than required
     v = None
     assert proxy_pool.bytes_allocated() == 0
+
+
+def test_aggregate_udf():
+    
+    class SimpleCount:
+        
+        def __init__(self):
+            self._count = 0
+            
+        def consume(self, ctx, x):
+            if isinstance(x, pa.Array):
+                self._count = self._count + len(x)
+            elif isinstance(x, pa.Scalar):
+                self._count = self._count + 1
+                
+        def merge(self, ctx):
+            pass
+        
+        def finalize(self, ctx):
+            return pa.scalar(self._count)
+    
+    
+    def consume(ctx, x):
+        if isinstance(x, pa.Array):
+            print("consume: array: ", len(x) + 1)
+        elif isinstance(x, pa.Scalar):
+            print(1)
+                
+    def merge(ctx):
+        print("call merge")
+        pass
+    
+    def finalize(ctx):
+        print("call finalize")
+        return pa.array([10])
+    
+    func_name = "simple_count"
+    unary_doc = {"summary": "count function",
+                 "description": "test agg count function"}
+    simple_count = SimpleCount()
+    pc.register_scalar_aggregate_function(consume,
+                                          merge,
+                                          finalize,
+                                func_name,
+                                unary_doc,
+                                {"array": pa.int64()},
+                                pa.int64())
+    
+    print(pc.get_function(func_name))
+    
+    pc.call_function(func_name, [pa.array([10, 20])])
+    
+    
+    
+    

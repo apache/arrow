@@ -2761,11 +2761,21 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
 
 ctypedef PyObject* CallbackUdf(object user_function, const CScalarUdfContext& context, object inputs)
 
+ctypedef PyObject* CallbackAggConsumeUdf(object consume_function, const CScalarAggregateUdfContext& context, object inputs)
+
+ctypedef void CallbackAggMergeUdf(object merge_function, const CScalarAggregateUdfContext& context)
+
+ctypedef PyObject* CallbackAggFinalizeUdf(object finalize_function, const CScalarAggregateUdfContext& context)
+
 cdef extern from "arrow/python/udf.h" namespace "arrow::py":
     cdef cppclass CScalarUdfContext" arrow::py::ScalarUdfContext":
         CMemoryPool *pool
         int64_t batch_length
 
+    cdef cppclass CScalarAggregateUdfContext" arrow::py::ScalarAggregateUdfContext":
+        CMemoryPool *pool
+        int64_t batch_length
+    
     cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions":
         c_string func_name
         CArity arity
@@ -2775,3 +2785,11 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
 
     CStatus RegisterScalarFunction(PyObject* function,
                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options)
+
+    CStatus RegisterScalarAggregateFunction(PyObject* consume_function,
+                                                  function[CallbackAggConsumeUdf] consume_wrapper,
+                                                  PyObject* merge_function,
+                                                  function[CallbackAggMergeUdf] merge_wrapper,
+                                                  PyObject* finalize_function,
+                                                  function[CallbackAggFinalizeUdf] finalize_wrapper,
+                                                  const CScalarUdfOptions& options)
