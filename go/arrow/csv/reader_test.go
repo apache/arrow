@@ -629,12 +629,12 @@ func TestReadCSVDecimalCols(t *testing.T) {
 	data := `dec128,dec256
 12.3,0.00123
 1.23e-8,-1.23e-3
--1.23E+4,1.23e+5
+-1.23E+3,1.23e+5
 `
 
 	r := csv.NewReader(strings.NewReader(data), arrow.NewSchema([]arrow.Field{
 		{Name: "dec128", Type: &arrow.Decimal128Type{Precision: 14, Scale: 10}, Nullable: true},
-		{Name: "dec256", Type: &arrow.Decimal256Type{Precision: 6, Scale: 5}, Nullable: true},
+		{Name: "dec256", Type: &arrow.Decimal256Type{Precision: 11, Scale: 5}, Nullable: true},
 	}, nil), csv.WithChunk(-1), csv.WithHeader(true), csv.WithComma(','), csv.WithNullReader(true, "null", "#NA"))
 	defer r.Release()
 
@@ -654,7 +654,7 @@ func TestReadCSVDecimalCols(t *testing.T) {
 	dec128Bldr := bldr.Field(0).(*array.Decimal128Builder)
 	dec128Bldr.Append(decimal128.New(0, 123000000000))
 	dec128Bldr.Append(decimal128.New(0, 123))
-	dec128Bldr.Append(decimal128.FromI64(-123000000000000))
+	dec128Bldr.Append(decimal128.FromI64(-12300000000000))
 
 	dec256Bldr := bldr.Field(1).(*array.Decimal256Builder)
 	dec256Bldr.Append(decimal256.FromU64(123))
