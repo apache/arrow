@@ -23,8 +23,8 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v10/arrow/decimal128"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
 )
 
 const (
