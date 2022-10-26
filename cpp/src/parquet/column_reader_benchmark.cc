@@ -7,17 +7,23 @@
 
 namespace parquet {
 
+using benchmark::DoNotOptimize;
 using parquet::Repetition;
 using parquet::test::MakePages;
 using schema::NodePtr;
 
 namespace benchmark {
 
+// Benchmarks Skip and ReadBatch API for ColumnReader with the following
+// paramenters in order:
+// - def_level: set to 0 for REQUIRED, 1 for OPTIONAL/REPEATED.
+// - rep_level: set to 1 for REPEATED, 0 otherwise.
+// - is_skip: set to 0 for benchmarking ReadBatch and 1 for Skip.
+// - batch_size: sets how many values to read at each call.
 static void BM_Skip(::benchmark::State& state) {
   internal::LevelInfo level_info;
   level_info.def_level = state.range(0);
   level_info.rep_level = state.range(1);
-  // If true, tests skip, otherwise tests read.
   const int skip = state.range(2);
   const int batch_size = state.range(3);
 
@@ -58,11 +64,12 @@ static void BM_Skip(::benchmark::State& state) {
     state.ResumeTiming();
     while (values_count != 0) {
       if (skip == 1) {
-        values_count = reader->Skip(batch_size);
+        DoNotOptimize(values_count = reader->Skip(batch_size));
       } else {
         int64_t values_read = 0;
-        values_count = reader->ReadBatch(batch_size, read_defs.data(), read_reps.data(),
-                                         read_values.data(), &values_read);
+        DoNotOptimize(values_count = reader->ReadBatch(
+                                     batch_size, read_defs.data(), read_reps.data(),
+                                     read_values.data(), &values_read));
       }
     }
   }
