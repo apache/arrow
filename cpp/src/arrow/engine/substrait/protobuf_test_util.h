@@ -17,13 +17,7 @@
 
 #pragma once
 
-#include <memory>
-#include <string>
-#include <utility>
-
 #include <gtest/gtest.h>
-
-#include <google/protobuf/stubs/common.h>
 
 namespace arrow {
 namespace engine {

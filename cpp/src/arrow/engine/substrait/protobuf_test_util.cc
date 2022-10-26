@@ -17,6 +17,8 @@
 
 #include "arrow/engine/substrait/protobuf_test_util.h"
 
+#include <google/protobuf/stubs/common.h>
+
 namespace arrow {
 namespace engine {
 
