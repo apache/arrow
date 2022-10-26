@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from column import PyArrowColumn
-from dataframe_protocol import (
+from pyarrow.interchange.column import PyArrowColumn
+from pyarrow.interchange.dataframe_protocol import (
     Buffer,
     Column,
     ColumnNullType,
@@ -28,11 +28,14 @@ import pyarrow as pa
 
 def from_dataframe(df, allow_copy=True) -> pd.DataFrame:
     """
-    Build a ``pd.DataFrame`` from any DataFrame supporting the interchange protocol.
+    Build a ``pd.DataFrame`` from any DataFrame supporting the interchange
+    protocol.
+
     Parameters
     ----------
     df : DataFrameXchg
-        Object supporting the interchange protocol, i.e. `__dataframe__` method.
+        Object supporting the interchange protocol, i.e. `__dataframe__`
+        method.
     allow_copy : bool, default: True
         Whether to allow copying the memory to perform the conversion
         (if false then zero-copy approach is requested).
@@ -55,7 +58,8 @@ def _from_dataframe(df: DataFrameXchg, allow_copy=True):
     Parameters
     ----------
     df : DataFrameXchg
-        Object supporting the interchange protocol, i.e. `__dataframe__` method.
+        Object supporting the interchange protocol, i.e. `__dataframe__`
+        method.
     allow_copy : bool, default: True
         Whether to allow copying the memory to perform the conversion
         (if false then zero-copy approach is requested).
@@ -76,8 +80,8 @@ def protocol_df_chunk_to_pandas(df: DataFrameXchg) -> pd.DataFrame:
     -------
     pd.DataFrame
     """
-    # We need a dict of columns here, with each column being a NumPy array (at
-    # least for now, deal with non-NumPy dtypes later).
+    # We need a dict of columns here, with each column being a NumPy array
+    # (at least for now, deal with non-NumPy dtypes later).
     columns: dict[str, Any] = {}
     buffers = []  # hold on to buffers, keeps memory alive
     for name in df.column_names():
@@ -198,8 +202,8 @@ def buffer_to_ndarray(
     np.ndarray
     Notes
     -----
-    The returned array doesn't own the memory. The caller of this function is
-    responsible for keeping the memory owner object alive as long as
+    The returned array doesn't own the memory. The caller of this function
+    is responsible for keeping the memory owner object alive as long as
     the returned NumPy array is being used.
     """
     pass
@@ -240,11 +244,12 @@ def set_nulls(
     col : Column
         Column object that describes the `data`.
     validity : tuple(Buffer, dtype) or None
-        The return value of ``col.buffers()``. We do not access the ``col.buffers()``
-        here to not take the ownership of the memory of buffer objects.
+        The return value of ``col.buffers()``. We do not access the
+        ``col.buffers()`` here to not take the ownership of the memory
+        of buffer objects.
     allow_modify_inplace : bool, default: True
-        Whether to modify the `data` inplace when zero-copy is possible (True) or always
-        modify a copy of the `data` (False).
+        Whether to modify the `data` inplace when zero-copy is possible
+        (True) or always modify a copy of the `data` (False).
     Returns
     -------
     np.ndarray or pd.Series

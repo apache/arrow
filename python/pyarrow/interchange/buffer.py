@@ -15,11 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from dataframe_protocol import (
+from pyarrow.interchange.dataframe_protocol import (
     Buffer,
     DlpackDeviceType,
 )
 import numpy as np
+
 
 class PyArrowBuffer(Buffer):
     """
@@ -52,21 +53,21 @@ class PyArrowBuffer(Buffer):
         """
         pass
 
-    def __dlpack_device__(self) -> tuple[DlpackDeviceType, int | None]:
-        """
-        Device type and device ID for where the data in the buffer resides.
-        """
-        pass
+    # def __dlpack_device__(self) -> tuple[DlpackDeviceType, int | None]:
+    #     """
+    #     Device type and device ID for where the data in the buffer resides.
+    #     """
+    #     pass
 
     def __repr__(self) -> str:
         return (
-            "PyArrowBuffer("
-            + str(
+            "PyArrowBuffer(" +
+            str(
                 {
                     "bufsize": self.bufsize,
                     "ptr": self.ptr,
                     "device": self.__dlpack_device__()[0].name,
                 }
-            )
-            + ")"
+            ) +
+            ")"
         )

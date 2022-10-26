@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import chunk
+from __future__ import annotations
 from typing import (
     Any,
     Dict,
@@ -29,11 +29,11 @@ from typing import (
 import pyarrow as pa
 import warnings
 
-from column import PandasColumn
-from dataframe_protocol import DataFrame as DataFrameXchg
+from pyarrow.interchange.column import PyArrowColumn
+from pyarrow.interchange.dataframe_protocol import DataFrame as DataFrameXchg
 
 
-class PyArrowTableXchg(DataFrameXchg):
+class TableXchg(DataFrameXchg):
     """
     A data frame class, with only the methods required by the interchange
     protocol defined.
@@ -47,7 +47,7 @@ class PyArrowTableXchg(DataFrameXchg):
     ) -> None:
         """
         Constructor - an instance of this (private) class is returned from
-        `pd.DataFrame.__dataframe__`.
+        `pa.Table.__dataframe__`.
         """
         self._df = df
         # ``nan_as_null`` is a keyword intended for the consumer to tell the
@@ -59,57 +59,63 @@ class PyArrowTableXchg(DataFrameXchg):
 
     def __dataframe__(
         self, nan_as_null: bool = False, allow_copy: bool = True
-    ) -> PyArrowTableXchg:
-        return PyArrowTableXchg(self._df, nan_as_null, allow_copy)
+    ) -> TableXchg:
+        return TableXchg(self._df, nan_as_null, allow_copy)
 
     @property
     def metadata(self) -> dict[str, Any]:
         # The metadata for the data frame, as a dictionary with string keys.
         # Add schema metadata here (pandas metadata, ot custom metadata)
-        schema_metadata = {k.decode('utf8'): v.decode('utf8') for k, v in self.schema.metadata.items()}
+        schema_metadata = {k.decode('utf8'): v.decode('utf8')
+                           for k, v in self._df.schema.metadata.items()}
         return schema_metadata
 
     def num_columns(self) -> int:
-        return self.num_columns
+        return self._df.num_columns
 
     def num_rows(self) -> int:
-        return self.num_rows
+        return self._df.num_rows
 
     def num_chunks(self) -> int:
-        return self.column(0).num_chunks
+        return self._df.column(0).num_chunks
 
     def column_names(self) -> Iterable[str]:
-        return self.column_names
+        return self._df.column_names
 
     def get_column(self, i: int) -> PyArrowColumn:
-        return self.column(i)
+        return self._df.column(i)
 
     def get_column_by_name(self, name: str) -> PyArrowColumn:
-        return self.column(name)
+        return self._df.column(name)
 
     def get_columns(self) -> Iterable[PyArrowColumn]:
-        return self.columns
+        return self._df.columns
 
-    def select_columns(self, indices: Sequence[int]) -> PyArrowTableFrameXchg:
-        return self.select(indices)
+    def select_columns(self, indices: Sequence[int]) -> TableXchg:
+        return TableXchg(
+            self._df.select(indices), self._nan_as_null, self._allow_copy
+        )
 
-    def select_columns_by_name(self, names: Sequence[str]) -> PyArrowTableFrameXchg:
-        return self.select(names)
+    def select_columns_by_name(self, names: Sequence[str]) -> TableXchg:
+        return TableXchg(
+            self._df.select(names), self._nan_as_null, self._allow_copy
+        )
 
-    def get_chunks(self, n_chunks: Optional[int] = None) -> Iterable[PyArrowTableFrameXchg]:
+    def get_chunks(self, n_chunks: Optional[int] = None) -> Iterable[TableXchg]:
         """
         Return an iterator yielding the chunks.
         """
         if n_chunks:
-            if n_chunks%self.num_chunks == 0:
-                chunk_size = self.num_rows//n_chunks
-                if self.num_rows%n_chunks != 0:
+            if n_chunks % self._df.num_chunks == 0:
+                chunk_size = self._df.num_rows // n_chunks
+                if self.num_rows %n_chunks != 0:
                     warnings.warn("Converting dataframe into smaller chunks")
-                batches = self.to_batches(max_chunksize = chunk_size)
+                batches = self._df.to_batches(max_chunksize=chunk_size)
             else:
-                warnings.warn("``n_chunks`` must be a multiple of ``self.num_chunks()``")
+                warnings.warn(
+                    "``n_chunks`` must be a multiple of ``self.num_chunks()``")
         else:
-            batches = self.to_batches()
-        
+            batches = self._df.to_batches()
+
         iterator_tables = [pa.Table.from_batches([batch]) for batch in batches]
         return iterator_tables

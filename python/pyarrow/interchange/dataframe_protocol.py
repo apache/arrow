@@ -125,11 +125,12 @@ class ColumnBuffers(TypedDict):
 class CategoricalDescription(TypedDict):
     # whether the ordering of dictionary indices is semantically meaningful
     is_ordered: bool
-    # whether a dictionary-style mapping of categorical values to other objects exists
+    # whether a dictionary-style mapping of categorical values to other objects
+    # exists
     is_dictionary: bool
     # Python-level only (e.g. ``{int: str}``).
     # None if not a dictionary-style categorical.
-    categories: Optional[Column]
+    # categories: Optional[Column]
 
 
 class Buffer(ABC):
@@ -246,7 +247,8 @@ class Column(ABC):
     @abstractmethod
     def dtype(self) -> Dtype:
         """
-        Dtype description as a tuple ``(kind, bit-width, format string, endianness)``.
+        Dtype description as a tuple ``(kind, bit-width, format string,
+        endianness)``.
         Bit-width : the number of bits as an integer
         Format string : data type description format string in Apache Arrow C
                         Data Interface format.
@@ -285,8 +287,8 @@ class Column(ABC):
                              semantically meaningful.
             - "is_dictionary" : bool, whether a mapping of
                                 categorical values to other objects exists
-            - "categories" : Column representing the (implicit) mapping of indices to
-                             category values (e.g. an array of cat1, cat2, ...).
+            - "categories" : Column representing the (implicit) mapping of indices
+                             to category values (e.g. an array of cat1, cat2, ...).
                              None if not a dictionary-style categorical.
         TBD: are there any other in-memory representations that are needed?
         """

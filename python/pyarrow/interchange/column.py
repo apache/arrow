@@ -15,16 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import Any
+from typing import (Dict, Any)
 
 import pyarrow as pa
 
-from buffer import PyArrowBuffer
-from dataframe_protocol import (
+from pyarrow.interchange.buffer import PyArrowBuffer
+from pyarrow.interchange.dataframe_protocol import (
     Column,
     ColumnBuffers,
     DtypeKind,
 )
+
 
 class PyArrowColumn(Column):
     """
@@ -61,19 +62,20 @@ class PyArrowColumn(Column):
     @property
     def dtype(self) -> tuple[DtypeKind, int, str, str]:
         """
-        Dtype description as a tuple ``(kind, bit-width, format string, endianness)``.
+        Dtype description as a tuple ``(kind, bit-width, format string,
+        endianness)``.
         Bit-width : the number of bits as an integer
-        Format string : data type description format string in Apache Arrow C
-                        Data Interface format.
+        Format string : data type description format string in Apache Arrow
+                        C Data Interface format.
         Endianness : current only native endianness (``=``) is supported
         Notes:
-            - Kind specifiers are aligned with DLPack where possible (hence the
-              jump to 20, leave enough room for future extension)
-            - Masks must be specified as boolean with either bit width 1 (for bit
-              masks) or 8 (for byte masks).
+            - Kind specifiers are aligned with DLPack where possible (hence
+            the jump to 20, leave enough room for future extension)
+            - Masks must be specified as boolean with either bit width 1
+              (for bit masks) or 8 (for byte masks).
             - Dtype width in bits was preferred over bytes
-            - Endianness isn't too useful, but included now in case in the future
-              we need to support non-native endianness
+            - Endianness isn't too useful, but included now in case in the
+              future we need to support non-native endianness
             - Went with Apache Arrow format strings over NumPy format strings
               because they're more complete from a dataframe perspective
             - Format strings are mostly useful for datetime specification, and
@@ -82,8 +84,8 @@ class PyArrowColumn(Column):
               categorical in the data buffer. In case of a separate encoding of
               the categorical (e.g. an integer to string mapping), this can
               be derived from ``self.describe_categorical``.
-            - Data types not included: complex, Arrow-style null, binary, decimal,
-              and nested (list, struct, map, union) dtypes.
+            - Data types not included: complex, Arrow-style null, binary,
+              decimal, and nested (list, struct, map, union) dtypes.
         """
         pass
 
@@ -92,8 +94,9 @@ class PyArrowColumn(Column):
         See `self.dtype` for details.
         """
         # Note: 'c' (complex) not handled yet (not in array spec v1).
-        #       'b', 'B' (bytes), 'S', 'a', (old-style string) 'V' (void) not handled
-        #       datetime and timedelta both map to datetime (is timedelta handled?)
+        #       'b', 'B' (bytes), 'S', 'a', (old-style string) 'V' (void) not
+        #       handled datetime and timedelta both map to datetime
+        #       (is timedelta handled?)
 
         pass
 
@@ -102,16 +105,18 @@ class PyArrowColumn(Column):
         """
         If the dtype is categorical, there are two options:
         - There are only values in the data buffer.
-        - There is a separate non-categorical Column encoding for categorical values.
+        - There is a separate non-categorical Column encoding for categorical
+          values.
         Raises TypeError if the dtype is not categorical
         Content of returned dict:
-            - "is_ordered" : bool, whether the ordering of dictionary indices is
-                             semantically meaningful.
+            - "is_ordered" : bool, whether the ordering of dictionary indices
+                             is semantically meaningful.
             - "is_dictionary" : bool, whether a dictionary-style mapping of
                                 categorical values to other objects exists
-            - "categories" : Column representing the (implicit) mapping of indices to
-                             category values (e.g. an array of cat1, cat2, ...).
-                             None if not a dictionary-style categorical.
+            - "categories" : Column representing the (implicit) mapping of
+                             indices to category values (e.g. an array of
+                             cat1, cat2, ...). None if not a dictionary-style
+                             categorical.
         """
         pass
 
@@ -127,7 +132,7 @@ class PyArrowColumn(Column):
         pass
 
     @property
-    def metadata(self) -> dict[str, pd.Index]:
+    def metadata(self) -> Dict[str, Any]:
         """
         Store specific metadata of the column.
         """
@@ -139,12 +144,12 @@ class PyArrowColumn(Column):
         """
         pass
 
-    def get_chunks(self, n_chunks: int | None = None):
-        """
-        Return an iterator yielding the chunks.
-        See `DataFrame.get_chunks` for details on ``n_chunks``.
-        """
-        pass
+    # def get_chunks(self, n_chunks: int | None = None):
+    #     """
+    #     Return an iterator yielding the chunks.
+    #     See `DataFrame.get_chunks` for details on ``n_chunks``.
+    #     """
+    #     pass
 
     def get_buffers(self) -> ColumnBuffers:
         """
