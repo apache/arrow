@@ -642,10 +642,18 @@ def test_read_orc_column_order(tempdir):
     table = pa.table({"a": [1, 2, 3], "b": ["a", "b", "c"]})
     path = str(tempdir / 'test.orc')
     orc.write_table(table, path)
-    result = orc.read_table(path, columns=['b', 'a'])
 
+    result = orc.read_table(path, columns=['b', 'a'])
     expected_schema = pa.schema([
         ("b", pa.string()),
         ("a", pa.int64()),
+    ])
+    assert result.schema == expected_schema
+
+    # Should not error in case columns=None
+    result = orc.read_table(path)
+    expected_schema = pa.schema([
+        ("a", pa.int64()),
+        ("b", pa.string()),
     ])
     assert result.schema == expected_schema

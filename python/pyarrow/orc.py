@@ -185,7 +185,9 @@ class ORCFile:
         columns = self._select_names(columns)
         table = self.reader.read(columns=columns)
         # follow exact order / selection of names
-        return table.select(columns)
+        if columns:
+            table = table.select(columns)
+        return table
 
 
 _orc_writer_args_docs = """file_version : {"0.11", "0.12"}, default "0.12"
