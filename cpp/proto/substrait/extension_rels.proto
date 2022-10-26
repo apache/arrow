@@ -36,9 +36,11 @@ message AsOfJoinRel {
   // As-Of-Join key
   message AsOfJoinKey {
     // A field reference defining the on-key
+    // The type and units of the referenced field must be the same across all inputs
     .substrait.Expression on = 1;
 
-    // A set of field references defining the by-key
+    // A list of field references defining the by-key
+    // The types corresponding to the referenced fields must be the same across all inputs
     repeated .substrait.Expression by = 2;
   }
 }
