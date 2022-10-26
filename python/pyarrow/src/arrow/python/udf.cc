@@ -268,7 +268,12 @@ Status RegisterScalarAggregateFunction(PyObject* consume_function,
     input_types.emplace_back(in_dtype);
   }
   compute::OutputType output_type(options.output_type);
-  auto udf_data = std::make_shared<PythonScalarUdfAggregatorImpl>(
+
+  auto init = [consume_wrapper, merge_wrapper, finalize_wrapper,
+    consume_function, merge_function, finalize_function, options](
+                  compute::KernelContext* ctx,
+                  const compute::KernelInitArgs& args) -> Result<std::unique_ptr<compute::KernelState>> {
+    return std::make_unique<PythonScalarUdfAggregatorImpl>(
       consume_wrapper,
       merge_wrapper,
       finalize_wrapper, 
@@ -276,27 +281,12 @@ Status RegisterScalarAggregateFunction(PyObject* consume_function,
       std::make_shared<OwnedRefNoGIL>(merge_function),
       std::make_shared<OwnedRefNoGIL>(finalize_function), 
       options.output_type);
-
-  auto init = [aggregate_func](
-                  compute::KernelContext* ctx,
-                  const compute::KernelInitArgs& args) -> Result<std::unique_ptr<compute::KernelState>> {
-    ARROW_ASSIGN_OR_RAISE(auto kernel, aggregate_func->DispatchExact(args.inputs));
-    compute::KernelInitArgs new_args{kernel, args.inputs, args.options};
-    return kernel->init(ctx, new_args);
   };
 
   RETURN_NOT_OK(
       AddAggKernel(compute::KernelSignature::Make(input_types, output_type),
                    init, aggregate_func.get()));
   
-  compute::ScalarKernel kernel(
-      compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
-                                    options.arity.is_varargs),
-      PythonUdfExec);
-  kernel.data = std::move(udf_data);
-
-  kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
-  kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
   auto registry = compute::GetFunctionRegistry();
   RETURN_NOT_OK(registry->AddFunction(std::move(aggregate_func)));
   return Status::OK();
