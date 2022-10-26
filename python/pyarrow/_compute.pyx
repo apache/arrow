@@ -1321,14 +1321,23 @@ class MakeStructOptions(_MakeStructOptions):
 
 
 cdef class _StructFieldOptions(FunctionOptions):
-    def _set_options(self, indices, is_dot_path):
+    def _set_options(self, indices):
         cdef:
             CFieldRef field_ref
+
+        # List[str] converted to dotted path '.a.dotted.path'
+        if isinstance(indices, list) and len(indices):
+            if isinstance(indices[0], str):
+                indices = '.' + '.'.join(indices)
+            elif isinstance(indices[0], bytes):
+                indices = b'.' + b'.'.join(indices)
+
+        # Convert to CFieldRef
         if isinstance(indices, list):
             self.wrapped.reset(new CStructFieldOptions(<vector[int]>indices))
             return
         if isinstance(indices, (bytes, str)):
-            if is_dot_path:
+            if indices.startswith(b'.' if isinstance(indices, bytes) else '.'):
                 field_ref = GetResultValue(
                     CFieldRef.FromDotPath(<c_string>tobytes(indices)))
             else:
@@ -1336,7 +1345,8 @@ cdef class _StructFieldOptions(FunctionOptions):
         elif isinstance(indices, int):
             field_ref = CFieldRef(<int> indices)
         else:
-            raise TypeError('Expected list of integers, single integer or string index')
+            raise TypeError("Expected List[str], List[int], List[bytes] "
+                            f"bytes, str, or int. Got: {type(indices)}")
         self.wrapped.reset(new CStructFieldOptions(field_ref))
 
 
@@ -1346,13 +1356,13 @@ class StructFieldOptions(_StructFieldOptions):
 
     Parameters
     ----------
-    indices : sequence of int
+    indices : List[str], List[bytes], List[int], bytes, str, or int
         List of indices for chained field lookup, for example `[4, 1]`
         will look up the second nested field in the fifth outer field.
     """
 
-    def __init__(self, indices, is_dot_path=False):
-        self._set_options(indices, is_dot_path)
+    def __init__(self, indices):
+        self._set_options(indices)
 
 
 cdef class _ScalarAggregateOptions(FunctionOptions):

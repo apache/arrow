@@ -2691,27 +2691,28 @@ def test_struct_fields_options():
     b = pa.array(["bar", None, ""])
     c = pa.StructArray.from_arrays([a, b], ["a", "b"])
     arr = pa.StructArray.from_arrays([a, c], ["a", "c"])
-    assert pc.struct_field(arr, '.c.b', is_dot_path=True) == b
-    assert pc.struct_field(arr, '.a', is_dot_path=True) == a
+    assert pc.struct_field(arr, '.c.b') == b
+    assert pc.struct_field(arr, b'.c.b') == b
+    assert pc.struct_field(arr, ['c', 'b']) == b
+    assert pc.struct_field(arr, [b'c', b'b']) == b
+    assert pc.struct_field(arr, '.a') == a
+    assert pc.struct_field(arr, ['a']) == a
     assert pc.struct_field(arr, 'a') == a
     assert pc.struct_field(arr, indices=[1, 1]) == b
     assert pc.struct_field(arr, [1, 1]) == b
     assert pc.struct_field(arr, [0]) == a
     assert pc.struct_field(arr, []) == arr
 
-    with pytest.raises(TypeError, match="an integer is required"):
-        pc.struct_field(arr, indices=['a'])
-
     msg = "Field not found in struct: 'foo'"
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.struct_field(arr, 'foo')
 
     with pytest.raises(pa.ArrowInvalid, match="Field not found in struct*"):
-        pc.struct_field(arr, '.c.foo', is_dot_path=True)
+        pc.struct_field(arr, '.c.foo')
 
     # drill into a non-struct array and continue to ask for a field
     with pytest.raises(pa.ArrowInvalid, match="Not a StructArray*"):
-        pc.struct_field(arr, '.a.foo', is_dot_path=True)
+        pc.struct_field(arr, '.a.foo')
 
     # TODO: https://issues.apache.org/jira/browse/ARROW-14853
     # assert pc.struct_field(arr) == arr
