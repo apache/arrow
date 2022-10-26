@@ -173,8 +173,12 @@ update_versions() {
   # "compute" package and the new go.mod file.
   sed -i.bak -E -e \
     "s|arrow/go/v${major_version} v[0-9]+\\.[0-9]+\\.[0-9]+|arrow/go/v${major_version} v${version%%-*}|" \
-    arrow/compute/go.mod
-  
+    arrow/compute/go.mod  
+
+  sed -i.bak -E -e \
+    "s|arrow/go/v[0-9]+ v[0-9]+\\.[0-9]+\\.[0-9]+|arrow/go/v${major_version} v${version%%-*}|" \
+    ../go.work
+
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd

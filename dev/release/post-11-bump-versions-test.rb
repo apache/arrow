@@ -189,6 +189,15 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         ],
       },
+      {
+        path: "go.work",
+        hunks: [
+          [
+            "-replace github.com/apache/arrow/go/v#{@snapshot_major_version} v#{@release_version} => ./go",
+            "+replace github.com/apache/arrow/go/v#{@next_major_version} v#{@next_version} => ./go",
+          ],
+        ],
+      },
     ]
 
     Dir.glob("go/**/{go.mod,*.go,*.go.*}") do |path|
