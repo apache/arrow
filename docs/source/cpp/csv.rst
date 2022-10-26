@@ -142,11 +142,11 @@ but there are a few tradeoffs to be aware of:
    considerably more memory than :class:`~arrow::csv::StreamingReader` which
    only loads one :class:`~arrow::RecordBatch` at a time. This is likely to be
    the most significant tradeoff for users.
-3. **Speed:** When reading the entire contents of a CSV,
+2. **Speed:** When reading the entire contents of a CSV,
    :class:`~arrow::csv::TableReader` will tend to be faster than
    :class:`~arrow::csv::StreamingReader` because it makes better use of
    available cores.
-4. **Flexibility:** :class:`~arrow::csv::StreamingReader` might be considered
+3. **Flexibility:** :class:`~arrow::csv::StreamingReader` might be considered
    less flexible than :class:`~arrow::csv::TableReader` because it performs type
    inference only on the first block that's read in, after which point the types
    are frozen and any data in subsequent blocks that cannot be converted to
