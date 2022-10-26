@@ -145,7 +145,8 @@ but there are a few tradeoffs to be aware of:
 2. **Speed:** When reading the entire contents of a CSV,
    :class:`~arrow::csv::TableReader` will tend to be faster than
    :class:`~arrow::csv::StreamingReader` because it makes better use of
-   available cores.
+   available cores. See :ref:`Performance <cpp-csv-performance>` for more
+   details.
 3. **Flexibility:** :class:`~arrow::csv::StreamingReader` might be considered
    less flexible than :class:`~arrow::csv::TableReader` because it performs type
    inference only on the first block that's read in, after which point the types
