@@ -90,7 +90,7 @@ class SinkNode : public ExecNode {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
            AsyncGenerator<std::optional<ExecBatch>>* generator,
-           BackpressureOptions backpressure,
+           std::shared_ptr<Schema>* schema, BackpressureOptions backpressure,
            BackpressureMonitor** backpressure_monitor_out)
       : ExecNode(plan, std::move(inputs), {"collected"}, {},
                  /*num_outputs=*/0),
@@ -100,6 +100,9 @@ class SinkNode : public ExecNode {
         node_destroyed_(std::make_shared<bool>(false)) {
     if (backpressure_monitor_out) {
       *backpressure_monitor_out = &backpressure_queue_;
+    }
+    if (schema) {
+      *schema = inputs_[0]->output_schema();
     }
     auto node_destroyed_capture = node_destroyed_;
     *generator = [this, node_destroyed_capture]() -> Future<std::optional<ExecBatch>> {
@@ -125,7 +128,7 @@ class SinkNode : public ExecNode {
     const auto& sink_options = checked_cast<const SinkNodeOptions&>(options);
     RETURN_NOT_OK(ValidateOptions(sink_options));
     return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator,
-                                       sink_options.backpressure,
+                                       sink_options.schema, sink_options.backpressure,
                                        sink_options.backpressure_monitor);
   }
 
@@ -404,8 +407,9 @@ static Result<ExecNode*> MakeTableConsumingSinkNode(
 struct OrderBySinkNode final : public SinkNode {
   OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                   std::unique_ptr<OrderByImpl> impl,
-                  AsyncGenerator<std::optional<ExecBatch>>* generator)
-      : SinkNode(plan, std::move(inputs), generator, /*backpressure=*/{},
+                  AsyncGenerator<std::optional<ExecBatch>>* generator,
+                  std::shared_ptr<Schema>* schema)
+      : SinkNode(plan, std::move(inputs), generator, schema, /*backpressure=*/{},
                  /*backpressure_monitor_out=*/nullptr),
         impl_(std::move(impl)) {}
 
@@ -426,7 +430,8 @@ struct OrderBySinkNode final : public SinkNode {
         OrderByImpl::MakeSort(plan->exec_context(), inputs[0]->output_schema(),
                               sink_options.sort_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
-                                              sink_options.generator);
+                                              sink_options.generator,
+                                              sink_options.schema);
   }
 
   static Status ValidateCommonOrderOptions(const SinkNodeOptions& options) {
@@ -458,7 +463,8 @@ struct OrderBySinkNode final : public SinkNode {
         OrderByImpl::MakeSelectK(plan->exec_context(), inputs[0]->output_schema(),
                                  sink_options.select_k_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
-                                              sink_options.generator);
+                                              sink_options.generator,
+                                              sink_options.schema);
   }
 
   static Status ValidateSelectKOptions(const SelectKSinkNodeOptions& options) {

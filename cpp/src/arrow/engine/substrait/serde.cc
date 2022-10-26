@@ -108,6 +108,13 @@ DeclarationFactory MakeConsumingSinkDeclarationFactory(
   };
 }
 
+DeclarationFactory MakeNoSinkDeclarationFactory() {
+  return [](compute::Declaration input,
+            std::vector<std::string> names) -> Result<compute::Declaration> {
+    return input;
+  };
+}
+
 compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
                                                std::vector<std::string> names) {
   int names_size = static_cast<int>(names.size());
@@ -190,6 +197,13 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     const ConversionOptions& conversion_options) {
   return DeserializePlans(buf, MakeConsumingSinkDeclarationFactory(consumer_factory),
                           registry, ext_set_out, conversion_options);
+}
+
+Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf, const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
+    const ConversionOptions& conversion_options) {
+  return DeserializePlans(buf, MakeNoSinkDeclarationFactory(), registry, ext_set_out,
+                          conversion_options);
 }
 
 Result<std::vector<compute::Declaration>> DeserializePlans(

@@ -305,7 +305,6 @@ Result<std::shared_ptr<Table>> Table::FromRecordBatches(
     }
     columns[i] = std::make_shared<ChunkedArray>(column_arrays, schema->field(i)->type());
   }
-
   return Table::Make(std::move(schema), std::move(columns), num_rows);
 }
 

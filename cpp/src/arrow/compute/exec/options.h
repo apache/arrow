@@ -163,9 +163,11 @@ struct ARROW_EXPORT BackpressureOptions {
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
+                           std::shared_ptr<Schema>* schema = NULLPTR,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
+        schema(schema),
         backpressure(std::move(backpressure)),
         backpressure_monitor(backpressure_monitor) {}
 
@@ -175,6 +177,11 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// data from the plan.  If this function is not called frequently enough then the sink
   /// node will start to accumulate data and may apply backpressure.
   std::function<Future<std::optional<ExecBatch>>()>* generator;
+
+  /// \brief A pointer to a schema
+  ///
+  /// This will be set when the plan is created
+  std::shared_ptr<Schema>* schema;
   /// \brief Options to control when to apply backpressure
   ///
   /// This is optional, the default is to never apply backpressure.  If the plan is not
@@ -246,8 +253,9 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
  public:
   explicit OrderBySinkNodeOptions(
       SortOptions sort_options,
-      std::function<Future<std::optional<ExecBatch>>()>* generator)
-      : SinkNodeOptions(generator), sort_options(std::move(sort_options)) {}
+      std::function<Future<std::optional<ExecBatch>>()>* generator,
+      std::shared_ptr<Schema>* schema = NULLPTR)
+      : SinkNodeOptions(generator, schema), sort_options(std::move(sort_options)) {}
 
   SortOptions sort_options;
 };
@@ -436,8 +444,10 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
  public:
   explicit SelectKSinkNodeOptions(
       SelectKOptions select_k_options,
-      std::function<Future<std::optional<ExecBatch>>()>* generator)
-      : SinkNodeOptions(generator), select_k_options(std::move(select_k_options)) {}
+      std::function<Future<std::optional<ExecBatch>>()>* generator,
+      std::shared_ptr<Schema>* schema = NULLPTR)
+      : SinkNodeOptions(generator, schema),
+        select_k_options(std::move(select_k_options)) {}
 
   /// SelectK options
   SelectKOptions select_k_options;

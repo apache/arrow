@@ -130,37 +130,15 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
     keys[i] = FieldRef(key_names[i]);
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make());
-  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-  RETURN_NOT_OK(
-      Declaration::Sequence(
-          {
-              {"source",
-               SourceNodeOptions{input.schema, input.gen(use_threads, /*slow=*/false)}},
-              {"aggregate", AggregateNodeOptions{std::move(aggregates), std::move(keys)}},
-              {"sink", SinkNodeOptions{&sink_gen}},
-          })
-          .AddToPlan(plan.get()));
-
-  RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing(ctx->executor()));
-
-  auto collected_fut = CollectAsyncGenerator(sink_gen);
-
-  auto start_and_collect =
-      AllFinished({plan->finished(), Future<>(collected_fut)})
-          .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
-            ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
-            return ::arrow::internal::MapVector(
-                [](std::optional<ExecBatch> batch) { return std::move(*batch); },
-                std::move(collected));
-          });
-
+  std::shared_ptr<Schema> output_schema;
+  Declaration decl = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{input.schema, input.gen(use_threads, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{std::move(aggregates), std::move(keys)}}});
   ARROW_ASSIGN_OR_RAISE(std::vector<ExecBatch> output_batches,
-                        start_and_collect.MoveResult());
+                        DeclarationToExecBatches(decl, &output_schema, ctx));
 
   ArrayVector out_arrays(aggregates.size() + key_names.size());
-  const auto& output_schema = plan->sources()[0]->outputs()[0]->output_schema();
   for (size_t i = 0; i < out_arrays.size(); ++i) {
     std::vector<std::shared_ptr<Array>> arrays(output_batches.size());
     for (size_t j = 0; j < output_batches.size(); ++j) {

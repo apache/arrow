@@ -75,6 +75,23 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
 
+/// \brief Deserializes a Substrait Plan message to a list of ExecNode declarations
+///
+/// The plan will not contain any sink nodes
+///
+/// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
+/// message
+/// \param[in] registry an extension-id-registry to use, or null for the default one.
+/// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
+/// Plan is returned here.
+/// \param[in] conversion_options options to control how the conversion is to be done.
+/// \return a vector of ExecNode declarations, one for each toplevel relation in the
+/// Substrait Plan
+ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf, const ExtensionIdRegistry* registry = NULLPTR,
+    ExtensionSet* ext_set_out = NULLPTR,
+    const ConversionOptions& conversion_options = {});
+
 /// \brief Deserializes a single-relation Substrait Plan message to an execution plan
 ///
 /// The output of each top-level Substrait relation will be sent to a caller supplied

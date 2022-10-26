@@ -35,7 +35,7 @@ using PythonTableProvider =
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const ExtensionIdRegistry* registry = NULLPTR,
     compute::FunctionRegistry* func_registry = NULLPTR,
-    const ConversionOptions& conversion_options = {});
+    const ConversionOptions& conversion_options = {}, bool use_threads = true);
 
 /// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.

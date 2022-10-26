@@ -40,7 +40,8 @@ def _write_dummy_data_to_disk(tmpdir, file_name, table):
     return path
 
 
-def test_run_serialized_query(tmpdir):
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_run_serialized_query(tmpdir, use_threads):
     substrait_query = """
     {
         "version": { "major": 9999 },
@@ -79,14 +80,15 @@ def test_run_serialized_query(tmpdir):
 
     buf = pa._substrait._parse_json_plan(query)
 
-    reader = substrait.run_query(buf)
+    reader = substrait.run_query(buf, use_threads=use_threads)
     res_tb = reader.read_all()
 
     assert table.select(["foo"]) == res_tb.select(["foo"])
 
 
 @pytest.mark.parametrize("query", (pa.py_buffer(b'buffer'), b"bytes", 1))
-def test_run_query_input_types(tmpdir, query):
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_run_query_input_types(tmpdir, query, use_threads):
 
     # Passing unsupported type, like int, will not segfault.
     if not isinstance(query, (pa.Buffer, bytes)):
@@ -98,10 +100,11 @@ def test_run_query_input_types(tmpdir, query):
     # Otherwise error for invalid query
     msg = "ParseFromZeroCopyStream failed for substrait.Plan"
     with pytest.raises(OSError, match=msg):
-        substrait.run_query(query)
+        substrait.run_query(query, use_threads=use_threads)
 
 
-def test_invalid_plan():
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_invalid_plan(use_threads):
     query = """
     {
         "relations": [
@@ -109,12 +112,13 @@ def test_invalid_plan():
     }
     """
     buf = pa._substrait._parse_json_plan(tobytes(query))
-    exec_message = "Empty substrait plan is passed."
+    exec_message = "Invalid Substrait plan contained no top-level relations"
     with pytest.raises(ArrowInvalid, match=exec_message):
-        substrait.run_query(buf)
+        substrait.run_query(buf, use_threads=use_threads)
 
 
-def test_binary_conversion_with_json_options(tmpdir):
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_binary_conversion_with_json_options(tmpdir, use_threads):
     substrait_query = """
     {
         "version": { "major": 9999 },
@@ -155,7 +159,7 @@ def test_binary_conversion_with_json_options(tmpdir):
         "FILENAME_PLACEHOLDER", pathlib.Path(path).as_uri()))
     buf = pa._substrait._parse_json_plan(tobytes(query))
 
-    reader = substrait.run_query(buf)
+    reader = substrait.run_query(buf, use_threads=use_threads)
     res_tb = reader.read_all()
 
     assert table.select(["bar"]) == res_tb.select(["bar"])
@@ -181,7 +185,8 @@ def test_get_supported_functions():
                         'functions_arithmetic.yaml', 'sum')
 
 
-def test_named_table():
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_named_table(use_threads):
     test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
     test_table_2 = pa.Table.from_pydict({"x": [4, 5, 6]})
 
@@ -221,12 +226,14 @@ def test_named_table():
     """
 
     buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
-    reader = pa.substrait.run_query(buf, table_provider)
+    reader = pa.substrait.run_query(
+        buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
     assert res_tb == test_table_1
 
 
-def test_named_table_invalid_table_name():
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_named_table_invalid_table_name(use_threads):
     test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
 
     def table_provider(names):
@@ -265,10 +272,12 @@ def test_named_table_invalid_table_name():
     buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
     exec_message = "Invalid NamedTable Source"
     with pytest.raises(ArrowInvalid, match=exec_message):
-        substrait.run_query(buf, table_provider)
+        substrait.run_query(
+            buf, table_provider=table_provider, use_threads=use_threads)
 
 
-def test_named_table_empty_names():
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_named_table_empty_names(use_threads):
     test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
 
     def table_provider(names):
@@ -307,4 +316,5 @@ def test_named_table_empty_names():
     buf = pa._substrait._parse_json_plan(tobytes(query))
     exec_message = "names for NamedTable not provided"
     with pytest.raises(ArrowInvalid, match=exec_message):
-        substrait.run_query(buf, table_provider)
+        substrait.run_query(
+            buf, table_provider=table_provider, use_threads=use_threads)
