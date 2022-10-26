@@ -79,9 +79,8 @@ static inline bool vector_equal_with_def_levels(const std::vector<T>& left,
 class TestPrimitiveReader : public ::testing::Test {
  public:
   void InitReader(const ColumnDescriptor* d) {
-    std::unique_ptr<PageReader> pager_;
-    pager_.reset(new test::MockPageReader(pages_));
-    reader_ = ColumnReader::Make(d, std::move(pager_));
+    auto pager = std::make_unique<MockPageReader>(pages_);
+    reader_ = ColumnReader::Make(d, std::move(pager));
   }
 
   void CheckResults() {
@@ -646,7 +645,6 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
   std::vector<int16_t> def_levels = {1, 1, 1, 1, 1, 1};
   std::vector<int16_t> rep_levels = {0, 0, 1, 0, 1, 1};
 
-  std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
       Encoding::PLAIN,
@@ -654,7 +652,7 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
       /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
       level_info_.rep_level);
   pages.push_back(std::move(page));
-  pager.reset(new test::MockPageReader(pages));
+  auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
 
   int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
@@ -674,7 +672,6 @@ TEST_F(RecordReaderTest, SkipRequiredTopLevel) {
 
   std::vector<std::shared_ptr<Page>> pages;
   std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
-  std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
       Encoding::PLAIN,
@@ -682,7 +679,7 @@ TEST_F(RecordReaderTest, SkipRequiredTopLevel) {
       /*indices_size=*/0, /*def_levels=*/{}, level_info_.def_level,
       /*rep_levels=*/{}, level_info_.rep_level);
   pages.push_back(std::move(page));
-  pager.reset(new test::MockPageReader(pages));
+  auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
 
   int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/3);
@@ -710,7 +707,6 @@ TEST_F(RecordReaderTest, SkipOptional) {
   std::vector<int32_t> values = {10, 20, 30, 40, 50, 60};
   std::vector<int16_t> def_levels = {0, 1, 1, 0, 1, 1, 1, 1};
 
-  std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
       Encoding::PLAIN,
@@ -718,7 +714,7 @@ TEST_F(RecordReaderTest, SkipOptional) {
       /*indices_size=*/0, def_levels, level_info_.def_level,
       /*rep_levels=*/{}, level_info_.rep_level);
   pages.push_back(std::move(page));
-  pager.reset(new test::MockPageReader(pages));
+  auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
 
   {
@@ -790,7 +786,6 @@ TEST_F(RecordReaderTest, SkipRepeated) {
   std::vector<int16_t> def_levels = {0, 1, 1, 1, 0, 1, 1, 1};
   std::vector<int16_t> rep_levels = {0, 0, 1, 1, 0, 0, 1, 0};
 
-  std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
       Encoding::PLAIN,
@@ -798,7 +793,7 @@ TEST_F(RecordReaderTest, SkipRepeated) {
       /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
       level_info_.rep_level);
   pages.push_back(std::move(page));
-  pager.reset(new test::MockPageReader(pages));
+  auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
 
   {
@@ -863,7 +858,6 @@ TEST_F(RecordReaderTest, SkipRepeatedConsumeBufferFirst) {
   std::vector<int16_t> def_levels(2048, 1);
   std::vector<int16_t> rep_levels(2048, 0);
 
-  std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
       Encoding::PLAIN,
@@ -871,7 +865,7 @@ TEST_F(RecordReaderTest, SkipRepeatedConsumeBufferFirst) {
       /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
       level_info_.rep_level);
   pages.push_back(std::move(page));
-  pager.reset(new test::MockPageReader(pages));
+  auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
   {
     // Read 1000 records. We will read 1024 levels because that is the minimum
@@ -905,7 +899,6 @@ TEST_F(RecordReaderTest, ReadPartialRecord) {
   Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
 
   std::vector<std::shared_ptr<Page>> pages;
-  std::unique_ptr<PageReader> pager;
 
   // Page 1: {[10], [20, 20, 20 ... } continues to next page.
   {
@@ -937,7 +930,7 @@ TEST_F(RecordReaderTest, ReadPartialRecord) {
     pages.push_back(std::move(page));
   }
 
-  pager.reset(new test::MockPageReader(pages));
+  auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
 
   {
@@ -980,7 +973,6 @@ TEST_F(RecordReaderTest, SkipPartialRecord) {
   Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
 
   std::vector<std::shared_ptr<Page>> pages;
-  std::unique_ptr<PageReader> pager;
 
   // Page 1: {[10], [20, 20, 20 ... } continues to next page.
   {
@@ -1012,7 +1004,7 @@ TEST_F(RecordReaderTest, SkipPartialRecord) {
     pages.push_back(std::move(page));
   }
 
-  pager.reset(new test::MockPageReader(pages));
+  auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
 
   {
@@ -1065,8 +1057,6 @@ TEST(RecordReaderByteArrayTest, SkipByteArray) {
   const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
 
   std::vector<std::shared_ptr<Page>> pages;
-  std::unique_ptr<PageReader> pager;
-
   int levels_per_page = 90;
   int num_pages = 1;
 
@@ -1078,7 +1068,7 @@ TEST(RecordReaderByteArrayTest, SkipByteArray) {
   MakePages<ByteArrayType>(&descr, num_pages, levels_per_page, def_levels, rep_levels,
                            values, buffer, pages, Encoding::PLAIN);
 
-  pager.reset(new test::MockPageReader(pages));
+  auto pager = std::make_unique<MockPageReader>(pages);
 
   std::shared_ptr<internal::RecordReader> record_reader =
       internal::RecordReader::Make(&descr, level_info);
