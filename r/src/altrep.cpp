@@ -18,6 +18,7 @@
 #include "./arrow_types.h"
 
 #include <arrow/array.h>
+#include <arrow/chunk_resolver.h>
 #include <arrow/chunked_array.h>
 #include <arrow/compute/api.h>
 #include <arrow/util/bitmap_reader.h>
@@ -79,35 +80,33 @@ void DeletePointer(std::shared_ptr<T>* ptr) {
 template <typename T>
 using Pointer = cpp11::external_pointer<std::shared_ptr<T>, DeletePointer<T>>;
 
-// the ChunkedArray that is being wrapped by the altrep object
-const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
-  return *Pointer<ChunkedArray>(R_altrep_data1(alt));
-}
+class ArrowAltrepData {
+ public:
+  explicit ArrowAltrepData(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : chunked_array_(chunked_array), resolver_(chunked_array->chunks()) {}
 
-struct ArrayResolve {
-  ArrayResolve(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t i) {
-    for (int idx_chunk = 0; idx_chunk < chunked_array->num_chunks(); idx_chunk++) {
-      std::shared_ptr<Array> chunk = chunked_array->chunk(idx_chunk);
-      auto chunk_size = chunk->length();
-      if (i < chunk_size) {
-        index_ = i;
-        array_ = chunk;
-        position_ = idx_chunk;
-        break;
-      }
+  const std::shared_ptr<ChunkedArray>& chunked_array() { return chunked_array_; }
 
-      i -= chunk_size;
-    }
+  arrow::internal::ChunkLocation locate(int64_t index) {
+    return resolver_.Resolve(index);
   }
 
-  std::shared_ptr<Array> array_;
-  int64_t index_ = 0;
-  int64_t position_ = 0;
+ private:
+  std::shared_ptr<ChunkedArray> chunked_array_;
+  arrow::internal::ChunkResolver resolver_;
 };
+
+// the ChunkedArray that is being wrapped by the altrep object
+const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
+  auto array_data =
+      reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
+  return array_data->chunked_array();
+}
 
 // base class for all altrep vectors
 //
-// data1: the Array as an external pointer.
+// data1: the Array as an external pointer; becomes NULL when
+//        materialization is needed.
 // data2: starts as NULL, and becomes a standard R vector with the same
 //        data if necessary: if materialization is needed, e.g. if we need
 //        to access its data pointer, with DATAPTR().
@@ -117,7 +116,7 @@ struct AltrepVectorBase {
   static SEXP Make(const std::shared_ptr<ChunkedArray>& chunked_array) {
     SEXP alt = R_new_altrep(
         Impl::class_t,
-        Pointer<ChunkedArray>(new std::shared_ptr<ChunkedArray>(chunked_array)),
+        external_pointer<ArrowAltrepData>(new ArrowAltrepData(chunked_array)),
         R_NilValue);
     MARK_NOT_MUTABLE(alt);
 
@@ -128,20 +127,39 @@ struct AltrepVectorBase {
   // standard R vector with the same data as the array.
   static bool IsMaterialized(SEXP alt) { return !Rf_isNull(Impl::Representation(alt)); }
 
-  static R_xlen_t Length(SEXP alt) { return GetChunkedArray(alt)->length(); }
+  static R_xlen_t Length(SEXP alt) {
+    if (IsMaterialized(alt)) {
+      return Rf_xlength(Representation(alt));
+    } else {
+      return GetChunkedArray(alt)->length();
+    }
+  }
 
-  static int No_NA(SEXP alt) { return GetChunkedArray(alt)->null_count() == 0; }
+  static int No_NA(SEXP alt) {
+    if (IsMaterialized(alt)) {
+      return false;
+    }
+
+    return GetChunkedArray(alt)->null_count() == 0;
+  }
 
   static int Is_sorted(SEXP alt) { return UNKNOWN_SORTEDNESS; }
 
   // What gets printed on .Internal(inspect(<the altrep object>))
   static Rboolean Inspect(SEXP alt, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
-    const auto& chunked_array = GetChunkedArray(alt);
-    Rprintf("arrow::ChunkedArray<%p, %s, %d chunks, %d nulls> len=%d\n",
-            chunked_array.get(), chunked_array->type()->ToString().c_str(),
-            chunked_array->num_chunks(), chunked_array->null_count(),
-            chunked_array->length());
+    SEXP data_class_sym = CAR(ATTRIB(ALTREP_CLASS(alt)));
+    const char* class_name = CHAR(PRINTNAME(data_class_sym));
+
+    if (IsMaterialized(alt)) {
+      Rprintf("materialized %s len=%d\n", class_name, Rf_xlength(Representation(alt)));
+    } else {
+      const auto& chunked_array = GetChunkedArray(alt);
+      Rprintf("%s<%p, %s, %d chunks, %d nulls> len=%d\n", class_name, chunked_array.get(),
+              chunked_array->type()->ToString().c_str(), chunked_array->num_chunks(),
+              chunked_array->null_count(), chunked_array->length());
+    }
+
     return TRUE;
   }
 
@@ -183,22 +201,25 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
   // Force materialization. After calling this, the data2 slot of the altrep
   // object contains a standard R vector with the same data, with
-  // R sentinels where the Array has nulls.
-  //
-  // The Array remains available so that it can be used by Length(), Min(), etc ...
+  // R sentinels where the Array has nulls. This method also releases the
+  // reference to the original ChunkedArray.
   static SEXP Materialize(SEXP alt) {
     if (!IsMaterialized(alt)) {
       auto size = Base::Length(alt);
 
-      // create an immutable standard R vector
+      // create a standard R vector
       SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
-      MARK_NOT_MUTABLE(copy);
 
       // copy the data from the array, through Get_region
       Get_region(alt, 0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
 
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
+
+      // we no longer need the original ChunkedArray (keeping it alive uses more
+      // memory than is required, since our methods can now use the
+      // materialized array)
+      R_set_altrep_data1(alt, R_NilValue);
 
       UNPROTECT(1);
     }
@@ -239,25 +260,20 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     }
 
     // Otherwise we have to materialize and hand the pointer to data2
-    //
-    // NOTE: this returns the DATAPTR() of data2 even in the case writeable = TRUE
-    //
-    // which is risky because C(++) clients of this object might
-    // modify data2, and therefore make it diverge from the data of the Array,
-    // but the object was marked as immutable on creation, so doing this is
-    // disregarding the R api.
-    //
-    // Simply stop() when `writeable = TRUE` is too strong, e.g. this fails
-    // identical() which calls DATAPTR() even though DATAPTR_RO() would
-    // be enough
     return DATAPTR(Materialize(alt));
   }
 
   // The value at position i
   static c_type Elt(SEXP alt, R_xlen_t i) {
-    ArrayResolve resolve(GetChunkedArray(alt), i);
-    auto array = resolve.array_;
-    auto j = resolve.index_;
+    if (IsMaterialized(alt)) {
+      return reinterpret_cast<c_type*>(DATAPTR(Representation(alt)))[i];
+    }
+
+    auto altrep_data =
+        reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
+    auto resolve = altrep_data->locate(i);
+    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    auto j = resolve.index_in_chunk;
 
     return array->IsNull(j) ? cpp11::na<c_type>()
                             : array->data()->template GetValues<c_type>(1)[j];
@@ -279,7 +295,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // do a second pass to force the R sentinels for where the
     // array has nulls
     //
-    // This only materialize the region, into buf. Not the entire vector.
+    // This only materializes the region into buf (not the entire vector).
     auto slice = GetChunkedArray(alt)->Slice(i, n);
     R_xlen_t ncopy = slice->length();
 
@@ -318,6 +334,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
   template <bool Min>
   static SEXP MinMax(SEXP alt, Rboolean narm) {
+    if (IsMaterialized(alt)) {
+      return nullptr;
+    }
+
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
     using scalar_type =
         typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
@@ -327,7 +347,13 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     auto n = chunked_array->length();
     auto null_count = chunked_array->null_count();
     if ((na_rm || n == 0) && null_count == n) {
-      return Rf_ScalarReal(Min ? R_PosInf : R_NegInf);
+      if (Min) {
+        Rf_warning("no non-missing arguments to min; returning Inf");
+        return Rf_ScalarReal(R_PosInf);
+      } else {
+        Rf_warning("no non-missing arguments to max; returning -Inf");
+        return Rf_ScalarReal(R_NegInf);
+      }
     }
     if (!na_rm && null_count > 0) {
       return cpp11::as_sexp(cpp11::na<data_type>());
@@ -350,6 +376,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   static SEXP Max(SEXP alt, Rboolean narm) { return MinMax<false>(alt, narm); }
 
   static SEXP Sum(SEXP alt, Rboolean narm) {
+    if (IsMaterialized(alt)) {
+      return nullptr;
+    }
+
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
     const auto& chunked_array = GetChunkedArray(alt);
@@ -388,6 +418,14 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
   using Base = AltrepVectorBase<AltrepFactor>;
   using Base::IsMaterialized;
+
+  static R_xlen_t Length(SEXP alt) {
+    if (IsMaterialized(alt)) {
+      return Rf_xlength(Representation(alt));
+    } else {
+      return GetChunkedArray(alt)->length();
+    }
+  }
 
   // redefining because data2 is a paired list with the representation as the
   // first node: the CAR
@@ -452,7 +490,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     // the chunked array as data1
     SEXP data1 =
-        PROTECT(Pointer<ChunkedArray>(new std::shared_ptr<ChunkedArray>(chunked_array)));
+        PROTECT(external_pointer<ArrowAltrepData>(new ArrowAltrepData(chunked_array)));
 
     // a pairlist with the representation in the first node
     SEXP data2 = PROTECT(Rf_list2(R_NilValue,  // representation, empty at first
@@ -487,7 +525,9 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
-      MARK_NOT_MUTABLE(copy);
+
+      // remove the ChunkedArray reference
+      R_set_altrep_data1(alt, R_NilValue);
 
       UNPROTECT(1);
     }
@@ -522,9 +562,12 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       return INTEGER_ELT(Representation(alt), i);
     }
 
-    ArrayResolve resolve(GetChunkedArray(alt), i);
-    auto array = resolve.array_;
-    auto j = resolve.index_;
+    auto altrep_data =
+        reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
+    auto resolve = altrep_data->locate(i);
+
+    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    auto j = resolve.index_in_chunk;
 
     if (!array->IsNull(j)) {
       const auto& indices =
@@ -532,7 +575,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
       if (WasUnified(alt)) {
         const auto* transpose_data = reinterpret_cast<const int32_t*>(
-            GetArrayTransposed(alt, resolve.position_)->data());
+            GetArrayTransposed(alt, resolve.chunk_index)->data());
 
         switch (indices->type_id()) {
           case Type::UINT8:
@@ -693,11 +736,19 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   using Base::Representation;
   using Base::SetRepresentation;
 
-  // Helper class to convert to R strings
+  static SEXP Make(const std::shared_ptr<ChunkedArray>& chunked_array) {
+    string_viewer().set_strip_out_nuls(GetBoolOption("arrow.skip_nul", false));
+    return Base::Make(chunked_array);
+  }
+
+  // Helper class to convert to R strings. We declare one of these for the
+  // class to avoid having to stack-allocate one for every STRING_ELT call.
   struct RStringViewer {
-    RStringViewer()
-        : strip_out_nuls_(GetBoolOption("arrow.skip_nul", false)),
-          nul_was_stripped_(false) {}
+    RStringViewer() : strip_out_nuls_(false), nul_was_stripped_(false) {}
+
+    void reset_null_was_stripped() { nul_was_stripped_ = false; }
+
+    void set_strip_out_nuls(bool strip_out_nuls) { strip_out_nuls_ = strip_out_nuls; }
 
     // convert the i'th string of the Array to an R string (CHARSXP)
     SEXP Convert(size_t i) {
@@ -777,20 +828,37 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     std::shared_ptr<Array> array_;
     const StringArrayType* string_array_;
     std::string stripped_string_;
-    const bool strip_out_nuls_;
+    bool strip_out_nuls_;
     bool nul_was_stripped_;
     std::string_view view_;
   };
 
-  // Get a single string, as a CHARSXP SEXP from data2.
-  // Materialize if not done so yet, given that it is
-  // likely that there will be another call from R if there is a call (e.g. unique()),
-  // and getting a string from Array is much more costly than from data2.
+  // Get a single string as a CHARSXP SEXP
   static SEXP Elt(SEXP alt, R_xlen_t i) {
-    if (!Base::IsMaterialized(alt)) {
-      Materialize(alt);
+    if (Base::IsMaterialized(alt)) {
+      return STRING_ELT(Representation(alt), i);
     }
-    return STRING_ELT(Representation(alt), i);
+
+    auto altrep_data =
+        reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
+    auto resolve = altrep_data->locate(i);
+    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    auto j = resolve.index_in_chunk;
+
+    SEXP s = NA_STRING;
+    RStringViewer& r_string_viewer = string_viewer();
+    r_string_viewer.SetArray(array);
+    // Note: we don't check GetBoolOption("arrow.skip_nul", false) here
+    // because it is too expensive to do so. We do set this value whenever
+    // an altrep string; however, there is a chance that this value could
+    // be out of date by the time a value in the vector is accessed.
+    r_string_viewer.reset_null_was_stripped();
+    s = r_string_viewer.Convert(j);
+    if (r_string_viewer.nul_was_stripped()) {
+      Rf_warning("Stripping '\\0' (nul) from character vector");
+    }
+
+    return s;
   }
 
   static void* Dataptr(SEXP alt, Rboolean writeable) { return DATAPTR(Materialize(alt)); }
@@ -800,41 +868,35 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       return Representation(alt);
     }
 
-    BEGIN_CPP11
-
     const auto& chunked_array = GetChunkedArray(alt);
     SEXP data2 = PROTECT(Rf_allocVector(STRSXP, chunked_array->length()));
     MARK_NOT_MUTABLE(data2);
 
-    RStringViewer r_string_viewer;
+    R_xlen_t i = 0;
+    RStringViewer& r_string_viewer = string_viewer();
+    r_string_viewer.reset_null_was_stripped();
+    r_string_viewer.set_strip_out_nuls(GetBoolOption("arrow.skip_nul", false));
+    for (const auto& array : chunked_array->chunks()) {
+      r_string_viewer.SetArray(array);
 
-    // r_string_viewer.Convert() might jump so we have to
-    // wrap it in unwind_protect() to:
-    // - correctly destruct the C++ objects
-    // - resume the unwinding
-    cpp11::unwind_protect([&]() {
-      R_xlen_t i = 0;
-      for (const auto& array : chunked_array->chunks()) {
-        r_string_viewer.SetArray(array);
-
-        auto ni = array->length();
-        for (R_xlen_t j = 0; j < ni; j++, i++) {
-          SET_STRING_ELT(data2, i, r_string_viewer.Convert(j));
-        }
+      auto ni = array->length();
+      for (R_xlen_t j = 0; j < ni; j++, i++) {
+        SET_STRING_ELT(data2, i, r_string_viewer.Convert(j));
       }
+    }
 
-      if (r_string_viewer.nul_was_stripped()) {
-        cpp11::warning("Stripping '\\0' (nul) from character vector");
-      }
-    });
+    if (r_string_viewer.nul_was_stripped()) {
+      Rf_warning("Stripping '\\0' (nul) from character vector");
+    }
 
     // only set to data2 if all the values have been converted
     SetRepresentation(alt, data2);
     UNPROTECT(1);  // data2
 
-    return data2;
+    // remove reference to chunked array
+    R_set_altrep_data1(alt, R_NilValue);
 
-    END_CPP11
+    return data2;
   }
 
   static const void* Dataptr_or_null(SEXP alt) {
@@ -846,6 +908,11 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
   static void Set_elt(SEXP alt, R_xlen_t i, SEXP v) {
     Rf_error("ALTSTRING objects of type <arrow::array_string_vector> are immutable");
+  }
+
+  static RStringViewer& string_viewer() {
+    static RStringViewer string_viewer;
+    return string_viewer;
   }
 };
 
@@ -986,7 +1053,7 @@ bool is_arrow_altrep(SEXP x) {
 }
 
 std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) {
-  if (is_arrow_altrep(x)) {
+  if (is_arrow_altrep(x) && R_altrep_data1(x) != R_NilValue) {
     return GetChunkedArray(x);
   }
 
@@ -1019,7 +1086,170 @@ std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) { return nullpt
 #endif
 
 // [[arrow::export]]
-void test_SET_STRING_ELT(SEXP s) { SET_STRING_ELT(s, 0, Rf_mkChar("forbidden")); }
+bool is_arrow_altrep(cpp11::sexp x) { return arrow::r::altrep::is_arrow_altrep(x); }
 
 // [[arrow::export]]
-bool is_arrow_altrep(SEXP x) { return arrow::r::altrep::is_arrow_altrep(x); }
+void test_arrow_altrep_set_string_elt(sexp x, int i, std::string value) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  SET_STRING_ELT(x, i, Rf_mkChar(value.c_str()));
+}
+
+// [[arrow::export]]
+logicals test_arrow_altrep_is_materialized(sexp x) {
+  if (!is_arrow_altrep(x)) {
+    return logicals({NA_LOGICAL});
+  }
+
+  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
+  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
+
+  int result = NA_LOGICAL;
+  if (class_name == "arrow::array_dbl_vector") {
+    result = arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::IsMaterialized(x);
+  } else if (class_name == "arrow::array_int_vector") {
+    result = arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::IsMaterialized(x);
+  } else if (class_name == "arrow::array_string_vector") {
+    result = arrow::r::altrep::AltrepVectorString<arrow::StringType>::IsMaterialized(x);
+  } else if (class_name == "arrow::array_large_string_vector") {
+    result =
+        arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::IsMaterialized(x);
+  } else if (class_name == "arrow::array_factor") {
+    result = arrow::r::altrep::AltrepFactor::IsMaterialized(x);
+  }
+
+  return logicals({result});
+}
+
+// [[arrow::export]]
+bool test_arrow_altrep_force_materialize(sexp x) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  bool already_materialized = as_cpp<bool>(test_arrow_altrep_is_materialized(x));
+  if (already_materialized) {
+    stop("x is already materialized");
+  }
+
+  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
+  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
+
+  if (class_name == "arrow::array_dbl_vector") {
+    arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::Materialize(x);
+  } else if (class_name == "arrow::array_int_vector") {
+    arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::Materialize(x);
+  } else if (class_name == "arrow::array_string_vector") {
+    arrow::r::altrep::AltrepVectorString<arrow::StringType>::Materialize(x);
+  } else if (class_name == "arrow::array_large_string_vector") {
+    arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::Materialize(x);
+  } else if (class_name == "arrow::array_factor") {
+    arrow::r::altrep::AltrepFactor::Materialize(x);
+  } else {
+    return false;
+  }
+
+  return true;
+}
+
+// [[arrow::export]]
+sexp test_arrow_altrep_copy_by_element(sexp x) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  R_xlen_t n = Rf_xlength(x);
+
+  if (TYPEOF(x) == INTSXP) {
+    writable::integers out(Rf_xlength(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = INTEGER_ELT(x, i);
+    }
+    return out;
+  } else if (TYPEOF(x) == REALSXP) {
+    writable::doubles out(Rf_xlength(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = REAL_ELT(x, i);
+    }
+    return out;
+  } else if (TYPEOF(x) == STRSXP) {
+    writable::strings out(Rf_xlength(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = STRING_ELT(x, i);
+    }
+    return out;
+  } else {
+    return R_NilValue;
+  }
+}
+
+// [[arrow::export]]
+sexp test_arrow_altrep_copy_by_region(sexp x, R_xlen_t region_size) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  R_xlen_t n = Rf_xlength(x);
+
+  if (TYPEOF(x) == INTSXP) {
+    writable::integers out(Rf_xlength(x));
+    writable::integers buf_shelter(region_size);
+    int* buf = INTEGER(buf_shelter);
+    for (R_xlen_t i = 0; i < n; i++) {
+      if ((i % region_size) == 0) {
+        INTEGER_GET_REGION(x, i, region_size, buf);
+      }
+      out[i] = buf[i % region_size];
+    }
+    return out;
+  } else if (TYPEOF(x) == REALSXP) {
+    writable::doubles out(Rf_xlength(x));
+    writable::doubles buf_shelter(region_size);
+    double* buf = REAL(buf_shelter);
+    for (R_xlen_t i = 0; i < n; i++) {
+      if ((i % region_size) == 0) {
+        REAL_GET_REGION(x, i, region_size, buf);
+      }
+      out[i] = buf[i % region_size];
+    }
+    return out;
+  } else {
+    return R_NilValue;
+  }
+}
+
+// [[arrow::export]]
+sexp test_arrow_altrep_copy_by_dataptr(sexp x) {
+  if (!is_arrow_altrep(x)) {
+    stop("x is not arrow ALTREP");
+  }
+
+  R_xlen_t n = Rf_xlength(x);
+
+  if (TYPEOF(x) == INTSXP) {
+    writable::integers out(Rf_xlength(x));
+    int* ptr = reinterpret_cast<int*>(DATAPTR(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = ptr[i];
+    }
+    return out;
+  } else if (TYPEOF(x) == REALSXP) {
+    writable::doubles out(Rf_xlength(x));
+    double* ptr = reinterpret_cast<double*>(DATAPTR(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = ptr[i];
+    }
+    return out;
+  } else if (TYPEOF(x) == STRSXP) {
+    writable::strings out(Rf_xlength(x));
+    SEXP* ptr = reinterpret_cast<SEXP*>(DATAPTR(x));
+    for (R_xlen_t i = 0; i < n; i++) {
+      out[i] = ptr[i];
+    }
+    return out;
+  } else {
+    return R_NilValue;
+  }
+}

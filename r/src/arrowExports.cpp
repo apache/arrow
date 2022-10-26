@@ -5,20 +5,63 @@
 #include "./arrow_types.h"
 
 // altrep.cpp
-void test_SET_STRING_ELT(SEXP s);
-extern "C" SEXP _arrow_test_SET_STRING_ELT(SEXP s_sexp){
+bool is_arrow_altrep(cpp11::sexp x);
+extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<SEXP>::type s(s_sexp);
-	test_SET_STRING_ELT(s);
+	arrow::r::Input<cpp11::sexp>::type x(x_sexp);
+	return cpp11::as_sexp(is_arrow_altrep(x));
+END_CPP11
+}
+// altrep.cpp
+void test_arrow_altrep_set_string_elt(sexp x, int i, std::string value);
+extern "C" SEXP _arrow_test_arrow_altrep_set_string_elt(SEXP x_sexp, SEXP i_sexp, SEXP value_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	arrow::r::Input<std::string>::type value(value_sexp);
+	test_arrow_altrep_set_string_elt(x, i, value);
 	return R_NilValue;
 END_CPP11
 }
 // altrep.cpp
-bool is_arrow_altrep(SEXP x);
-extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
+logicals test_arrow_altrep_is_materialized(sexp x);
+extern "C" SEXP _arrow_test_arrow_altrep_is_materialized(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	return cpp11::as_sexp(is_arrow_altrep(x));
+	arrow::r::Input<sexp>::type x(x_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_is_materialized(x));
+END_CPP11
+}
+// altrep.cpp
+bool test_arrow_altrep_force_materialize(sexp x);
+extern "C" SEXP _arrow_test_arrow_altrep_force_materialize(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_force_materialize(x));
+END_CPP11
+}
+// altrep.cpp
+sexp test_arrow_altrep_copy_by_element(sexp x);
+extern "C" SEXP _arrow_test_arrow_altrep_copy_by_element(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_copy_by_element(x));
+END_CPP11
+}
+// altrep.cpp
+sexp test_arrow_altrep_copy_by_region(sexp x, R_xlen_t region_size);
+extern "C" SEXP _arrow_test_arrow_altrep_copy_by_region(SEXP x_sexp, SEXP region_size_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	arrow::r::Input<R_xlen_t>::type region_size(region_size_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_copy_by_region(x, region_size));
+END_CPP11
+}
+// altrep.cpp
+sexp test_arrow_altrep_copy_by_dataptr(sexp x);
+extern "C" SEXP _arrow_test_arrow_altrep_copy_by_dataptr(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_copy_by_dataptr(x));
 END_CPP11
 }
 // array.cpp
@@ -5234,8 +5277,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_gcs_available", (DL_FUNC)& _gcs_available, 0 },
 		{ "_json_available", (DL_FUNC)& _json_available, 0 },
-		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
+		{ "_arrow_test_arrow_altrep_set_string_elt", (DL_FUNC) &_arrow_test_arrow_altrep_set_string_elt, 3}, 
+		{ "_arrow_test_arrow_altrep_is_materialized", (DL_FUNC) &_arrow_test_arrow_altrep_is_materialized, 1}, 
+		{ "_arrow_test_arrow_altrep_force_materialize", (DL_FUNC) &_arrow_test_arrow_altrep_force_materialize, 1}, 
+		{ "_arrow_test_arrow_altrep_copy_by_element", (DL_FUNC) &_arrow_test_arrow_altrep_copy_by_element, 1}, 
+		{ "_arrow_test_arrow_altrep_copy_by_region", (DL_FUNC) &_arrow_test_arrow_altrep_copy_by_region, 2}, 
+		{ "_arrow_test_arrow_altrep_copy_by_dataptr", (DL_FUNC) &_arrow_test_arrow_altrep_copy_by_dataptr, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
