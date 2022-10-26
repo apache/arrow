@@ -1326,7 +1326,7 @@ cdef class _StructFieldOptions(FunctionOptions):
             CFieldRef field_ref
             const CFieldRef* field_ref_ptr
 
-        # List[str] converted to dotted path '.a.dotted.path'
+        # List[str]/List[bytes] converted to '.a.dotted.path'
         if isinstance(indices, list) and len(indices):
             if isinstance(indices[0], str):
                 indices = '.' + '.'.join(indices)
@@ -1351,8 +1351,9 @@ cdef class _StructFieldOptions(FunctionOptions):
         elif isinstance(indices, int):
             field_ref = CFieldRef(<int> indices)
         else:
-            raise TypeError("Expected List[str], List[int], List[bytes] "
-                            f"bytes, str, or int. Got: {type(indices)}")
+            raise TypeError("Expected List[str], List[int], List[bytes], "
+                            "Expression, bytes, str, or int. "
+                            f"Got: {type(indices)}")
         self.wrapped.reset(new CStructFieldOptions(field_ref))
 
 
@@ -1362,7 +1363,7 @@ class StructFieldOptions(_StructFieldOptions):
 
     Parameters
     ----------
-    indices : List[str], List[bytes], List[int], bytes, str, or int
+    indices : List[str], List[bytes], List[int], Expression, bytes, str, or int
         List of indices for chained field lookup, for example `[4, 1]`
         will look up the second nested field in the fifth outer field.
     """
