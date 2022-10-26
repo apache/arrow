@@ -47,6 +47,13 @@ struct ARROW_PYTHON_EXPORT ScalarUdfContext {
   int64_t batch_length;
 };
 
+
+struct ARROW_PYTHON_EXPORT ScalarAggregateUdfContext {
+  MemoryPool* pool;
+  int64_t batch_length;
+};
+
+
 using ScalarUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;
 
@@ -54,6 +61,25 @@ using ScalarUdfWrapperCallback = std::function<PyObject*(
 Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* user_function,
                                                   ScalarUdfWrapperCallback wrapper,
                                                   const ScalarUdfOptions& options);
+
+using ScalarAggregateConsumeUdfWrapperCallback = std::function<void(
+    PyObject* user_consume_func, const ScalarAggregateUdfContext& context, PyObject* inputs)>;
+
+using ScalarAggregateMergeUdfWrapperCallback = std::function<void(
+    PyObject* user_merge_func, const ScalarAggregateUdfContext& context)>;
+
+using ScalarAggregateFinalizeUdfWrapperCallback = std::function<PyObject*(
+    PyObject* user_finalize_func, const ScalarAggregateUdfContext& context)>;
+
+/// \brief register a Scalar Aggregate user-defined-function from Python
+Status ARROW_PYTHON_EXPORT RegisterScalarAggregateFunction(PyObject* consume_function,
+                                                  ScalarAggregateConsumeUdfWrapperCallback consume_wrapper,
+                                                  PyObject* merge_function,
+                                                  ScalarAggregateMergeUdfWrapperCallback merge_wrapper,
+                                                  PyObject* finalize_function,
+                                                  ScalarAggregateFinalizeUdfWrapperCallback finalize_wrapper,
+                                                  const ScalarUdfOptions& options);
+
 
 }  // namespace py
 

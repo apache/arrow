@@ -130,6 +130,7 @@ const cp::FunctionDoc simple_count_doc{
     {"array"},
     "SimpleCountOptions"};
 
+// Need Python interface for this Class
 struct SimpleCountImpl : public ScalarUdfAggregator {
   explicit SimpleCountImpl(SimpleCountOptions options) : options(std::move(options)) {}
 
@@ -162,6 +163,7 @@ struct SimpleCountImpl : public ScalarUdfAggregator {
   int64_t non_nulls = 0;
 };
 
+// TODO: need a Python interface for this function
 arrow::Result<std::unique_ptr<cp::KernelState>> SimpleCountInit(
     cp::KernelContext*, const cp::KernelInitArgs& args) {
   return std::make_unique<SimpleCountImpl>(
@@ -201,7 +203,6 @@ arrow::Status ExecuteAggregate() {
       name, cp::Arity::Unary(), simple_count_doc, &default_count_options);
 
   // Takes any input, outputs int64 scalar
-  cp::InputType any_input;
   ARROW_RETURN_NOT_OK(
       AddAggKernel(cp::KernelSignature::Make({arrow::int64()}, arrow::int64()),
                    SimpleCountInit, func.get()));
