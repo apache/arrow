@@ -14,29 +14,27 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-syntax = "proto3";
 
-package arrow.substrait_ext;
+#include <string>
 
-import "substrait/algebra.proto";
+#include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/test_util.h"
 
-option csharp_namespace = "Arrow.Substrait";
-option go_package = "github.com/apache/arrow/substrait";
-option java_multiple_files = true;
-option java_package = "io.arrow.substrait";
+namespace arrow {
+namespace compute {
 
-// As-Of-Join relation
-message AsOfJoinRel {
-  // One key per input relation, each key describing how to join the corresponding input
-  repeated AsOfJoinKey keys = 1;
-  // As-Of tolerance, in units of the on-key
-  int64 tolerance = 2;
+struct ConcatNodeOptions : public ExecNodeOptions {
+  // Pause the concat node's inputs if we have this many batches queued
+  int pause_if_above = 8;
+  // Restart the concat node's inputs once the queue drops below this amount
+  int resume_if_below = 4;
+};
 
-  // As-Of-Join key
-  message AsOfJoinKey {
-    // A field reference defining the on-key
-    .substrait.Expression on = 1;
-    // A set of field references defining the by-key
-    repeated .substrait.Expression by = 2;
-  }
-}
+void RegisterConcatNode(ExecFactoryRegistry* registry);
+
+AsyncGenerator<std::optional<ExecBatch>> MakeNoisyDelayedGen(BatchesWithSchema src,
+                                                             std::string label,
+                                                             double delay_sec);
+
+}  // namespace compute
+}  // namespace arrow

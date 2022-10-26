@@ -50,13 +50,13 @@ class DefaultExtensionProvider : public ExtensionProvider {
       return Status::Invalid("substrait::AsOfJoinNode too few input tables: ",
                              inputs.size());
     }
-    if (static_cast<size_t>(as_of_join_rel.input_keys_size()) != inputs.size()) {
+    if (static_cast<size_t>(as_of_join_rel.keys_size()) != inputs.size()) {
       return Status::Invalid("substrait::AsOfJoinNode mismatched number of inputs");
     }
 
     size_t n_input = inputs.size(), i = 0;
     std::vector<compute::AsofJoinNodeOptions::Keys> input_keys(n_input);
-    for (const auto& keys : as_of_join_rel.input_keys()) {
+    for (const auto& keys : as_of_join_rel.keys()) {
       // on-key
       if (!keys.has_on()) {
         return Status::Invalid("substrait::AsOfJoinNode missing on-key for input ", i);

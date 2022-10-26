@@ -18,6 +18,7 @@
 #include "arrow/compute/exec/asof_join_node.h"
 
 #include <condition_variable>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -123,6 +124,8 @@ class ConcurrentQueue {
   // 1) the caller logically guarantees that queue is not empty
   // 2) pop/try_pop cannot be called concurrently with this
   const T& UnsyncFront() const { return queue_.front(); }
+
+  size_t UnsyncSize() const { return queue_.size(); }
 
  private:
   std::queue<T> queue_;
@@ -233,6 +236,103 @@ class KeyHasher {
   util::TempVectorStack stack_;
 };
 
+class BackpressureController : public BackpressureControl {
+ public:
+  BackpressureController(ExecNode* node, ExecNode* output,
+                         std::atomic<int32_t>& backpressure_counter)
+      : node_(node), output_(output), backpressure_counter_(backpressure_counter) {}
+
+  void Pause() override { node_->PauseProducing(output_, backpressure_counter_++); }
+  void Resume() override { node_->ResumeProducing(output_, backpressure_counter_++); }
+
+ private:
+  ExecNode* node_;
+  ExecNode* output_;
+  std::atomic<int32_t>& backpressure_counter_;
+};
+
+class BackpressureHandler {
+ private:
+  BackpressureHandler(size_t low_threshold, size_t high_threshold,
+                      std::unique_ptr<BackpressureControl> backpressure_control)
+      : low_threshold_(low_threshold),
+        high_threshold_(high_threshold),
+        backpressure_control_(std::move(backpressure_control)) {}
+
+ public:
+  static Result<BackpressureHandler> Make(
+      size_t low_threshold, size_t high_threshold,
+      std::unique_ptr<BackpressureControl> backpressure_control) {
+    if (low_threshold >= high_threshold) {
+      return Status::Invalid("low threshold (", low_threshold,
+                             ") must be less than high threshold (", high_threshold, ")");
+    }
+    if (backpressure_control == NULLPTR) {
+      return Status::Invalid("null backpressure control parameter");
+    }
+    BackpressureHandler backpressure_handler(low_threshold, high_threshold,
+                                             std::move(backpressure_control));
+    return std::move(backpressure_handler);
+  }
+
+  void Handle(size_t start_level, size_t end_level) {
+    if (start_level < high_threshold_ && end_level >= high_threshold_) {
+      backpressure_control_->Pause();
+    } else if (start_level > low_threshold_ && end_level <= low_threshold_) {
+      backpressure_control_->Resume();
+    }
+  }
+
+ private:
+  size_t low_threshold_;
+  size_t high_threshold_;
+  std::unique_ptr<BackpressureControl> backpressure_control_;
+};
+
+template <typename T>
+class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
+ private:
+  struct DoHandle {
+    explicit DoHandle(BackpressureConcurrentQueue& queue)
+        : queue_(queue), start_size_(queue_.UnsyncSize()) {}
+
+    ~DoHandle() {
+      size_t end_size = queue_.UnsyncSize();
+      queue_.handler_.Handle(start_size_, end_size);
+    }
+
+    BackpressureConcurrentQueue& queue_;
+    size_t start_size_;
+  };
+
+ public:
+  explicit BackpressureConcurrentQueue(BackpressureHandler handler)
+      : handler_(std::move(handler)) {}
+
+  T Pop() {
+    DoHandle do_handle(*this);
+    return ConcurrentQueue<T>::Pop();
+  }
+
+  void Push(const T& item) {
+    DoHandle do_handle(*this);
+    ConcurrentQueue<T>::Push(item);
+  }
+
+  void Clear() {
+    DoHandle do_handle(*this);
+    ConcurrentQueue<T>::Clear();
+  }
+
+  std::optional<T> TryPop() {
+    DoHandle do_handle(*this);
+    return ConcurrentQueue<T>::TryPop();
+  }
+
+ private:
+  BackpressureHandler handler_;
+};
+
 class InputState {
   // InputState correponds to an input
   // Input record batches are queued up in InputState until processed and
@@ -240,10 +340,10 @@ class InputState {
 
  public:
   InputState(bool must_hash, bool may_rehash, KeyHasher* key_hasher,
-             const std::shared_ptr<arrow::Schema>& schema,
+             BackpressureHandler handler, const std::shared_ptr<arrow::Schema>& schema,
              const col_index_t time_col_index,
              const std::vector<col_index_t>& key_col_index)
-      : queue_(),
+      : queue_(std::move(handler)),
         schema_(schema),
         time_col_index_(time_col_index),
         key_col_index_(key_col_index),
@@ -255,6 +355,22 @@ class InputState {
     for (size_t k = 0; k < key_col_index_.size(); k++) {
       key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
     }
+  }
+
+  static Result<std::unique_ptr<InputState>> Make(
+      bool must_hash, bool may_rehash, KeyHasher* key_hasher, ExecNode* node,
+      ExecNode* output, std::atomic<int32_t>& backpressure_counter,
+      const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
+      const std::vector<col_index_t>& key_col_index) {
+    constexpr size_t low_threshold = 4, high_threshold = 8;
+    std::unique_ptr<BackpressureControl> backpressure_control =
+        std::make_unique<BackpressureController>(node, output, backpressure_counter);
+    ARROW_ASSIGN_OR_RAISE(auto handler,
+                          BackpressureHandler::Make(low_threshold, high_threshold,
+                                                    std::move(backpressure_control)));
+    return std::make_unique<InputState>(must_hash, may_rehash, key_hasher,
+                                        std::move(handler), schema, time_col_index,
+                                        key_col_index);
   }
 
   col_index_t InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
@@ -465,7 +581,7 @@ class InputState {
 
  private:
   // Pending record batches. The latest is the front. Batches cannot be empty.
-  ConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
+  BackpressureConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
   // Schema associated with the input
   std::shared_ptr<Schema> schema_;
   // Total number of batches (only int because InputFinished uses int)
@@ -813,7 +929,10 @@ class AsofJoinNode : public ExecNode {
         if (!out_rb) break;
         ++batches_produced_;
         ExecBatch out_b(*out_rb);
-        outputs_[0]->InputReceived(this, std::move(out_b));
+        ErrorIfNotOk(plan_->ScheduleTask([this, out_b = std::move(out_b)]() mutable {
+          outputs_[0]->InputReceived(this, std::move(out_b));
+          return Status::OK();
+        }));
       } else {
         ErrorIfNotOk(result.status());
         return;
@@ -826,7 +945,10 @@ class AsofJoinNode : public ExecNode {
     // It may happen here in cases where InputFinished was called before we were finished
     // producing results (so we didn't know the output size at that time)
     if (state_.at(0)->Finished()) {
-      outputs_[0]->InputFinished(this, batches_produced_);
+      ErrorIfNotOk(plan_->ScheduleTask([this] {
+        outputs_[0]->InputFinished(this, batches_produced_);
+        return Status::OK();
+      }));
       finished_.MarkFinished();
     }
   }
@@ -854,9 +976,12 @@ class AsofJoinNode : public ExecNode {
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
-      state_.push_back(std::make_unique<InputState>(
-          must_hash_, may_rehash_, key_hashers_[i].get(), inputs[i]->output_schema(),
-          indices_of_on_key_[i], indices_of_by_key_[i]));
+      ARROW_ASSIGN_OR_RAISE(
+          auto input_state,
+          InputState::Make(must_hash_, may_rehash_, key_hashers_[i].get(), inputs[i],
+                           this, backpressure_counter_, inputs[i]->output_schema(),
+                           indices_of_on_key_[i], indices_of_by_key_[i]));
+      state_.push_back(std::move(input_state));
     }
 
     col_index_t dst_offset = 0;
@@ -867,8 +992,12 @@ class AsofJoinNode : public ExecNode {
   }
 
   virtual ~AsofJoinNode() {
-    process_.Push(false);  // poison pill
-    process_thread_.join();
+    process_.Push(false);                                          // poison pill
+    if (process_thread_.get_id() != std::this_thread::get_id()) {  // avoid deadlock
+      process_thread_.join();
+    } else {
+      process_thread_.detach();
+    }
   }
 
   const std::vector<col_index_t>& indices_of_on_key() { return indices_of_on_key_; }
@@ -1036,6 +1165,7 @@ class AsofJoinNode : public ExecNode {
     size_t n_by = 0;
     for (size_t i = 0; i < input_keys.size(); ++i) {
       const auto& by_key = input_keys[i].by_key;
+      std::cout << "Input: " << i << " by_key.size()=" << by_key.size() << std::endl;
       if (i == 0) {
         n_by = by_key.size();
       } else if (n_by != by_key.size()) {
@@ -1184,6 +1314,8 @@ class AsofJoinNode : public ExecNode {
   std::mutex gate_;
   OnType tolerance_;
 
+  // Backpressure counter common to all inputs
+  std::atomic<int32_t> backpressure_counter_;
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
   ConcurrentQueue<bool> process_;
@@ -1210,6 +1342,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       must_hash_(must_hash),
       may_rehash_(may_rehash),
       tolerance_(tolerance),
+      backpressure_counter_(0),
       process_(),
       process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
   finished_ = arrow::Future<>::MakeFinished();

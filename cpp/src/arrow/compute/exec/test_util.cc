@@ -234,6 +234,57 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
   return out;
 }
 
+Result<BatchesWithSchema> MakeIntegerBatches(
+    const std::vector<std::function<int64_t(int)>>& gens,
+    const std::shared_ptr<Schema>& schema, int num_batches, int batch_size) {
+  int n_fields = schema->num_fields();
+  if (gens.size() != static_cast<size_t>(n_fields)) {
+    return Status::Invalid("mismatching generator-vector and schema size");
+  }
+  auto memory_pool = default_memory_pool();
+  BatchesWithSchema out;
+  out.schema = schema;
+  int row = 0;
+  for (int i = 0; i < num_batches; i++) {
+    std::vector<Datum> values(n_fields);
+    for (int f = 0; f < n_fields; f++) {
+      std::shared_ptr<Array> array;
+      auto type = schema->field(f)->type();
+
+#define ARROW_TEST_INT_BUILD_CASE(id)                                      \
+  case Type::id: {                                                         \
+    using T = typename TypeIdTraits<Type::id>::Type;                       \
+    using CType = typename TypeTraits<T>::CType;                           \
+    using Builder = typename TypeTraits<T>::BuilderType;                   \
+    ARROW_ASSIGN_OR_RAISE(auto a_builder, MakeBuilder(type, memory_pool)); \
+    Builder& builder = *checked_cast<Builder*>(a_builder.get());           \
+    ARROW_RETURN_NOT_OK(builder.Reserve(batch_size));                      \
+    for (int j = 0; j < batch_size; j++) {                                 \
+      builder.UnsafeAppend(static_cast<CType>(gens[f](row + j)));          \
+    }                                                                      \
+    ARROW_RETURN_NOT_OK(builder.Finish(&array));                           \
+    break;                                                                 \
+  }
+
+      switch (type->id()) {
+        ARROW_TEST_INT_BUILD_CASE(INT8)
+        ARROW_TEST_INT_BUILD_CASE(INT16)
+        ARROW_TEST_INT_BUILD_CASE(INT32)
+        ARROW_TEST_INT_BUILD_CASE(INT64)
+        default:
+          return Status::TypeError("building ", type->ToString());
+      }
+
+#undef ARROW_TEST_INT_BUILD_CASE
+
+      values[f] = Datum(array);
+    }
+    out.batches.push_back(ExecBatch(std::move(values), batch_size));
+    row += batch_size;
+  }
+  return out;
+}
+
 BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,
                                         const std::vector<std::string_view>& json_strings,
                                         int multiplicity) {
