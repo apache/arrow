@@ -1473,6 +1473,20 @@ tasks:
     artifacts:
       - docs.tar.gz
 
+  ############################## CUDA tests #################################
+  
+  test-cuda-cpp:
+    ci: github
+    template: docker-tests/github.cuda.yml
+    params:
+      image: ubuntu-cuda-cpp
+  
+  test-cuda-python:
+    ci: github
+    template: docker-tests/github.cuda.yml
+    params:
+      image: ubuntu-cuda-python
+
   ############################## Fuzz tests #################################
 
   test-build-cpp-fuzz:
