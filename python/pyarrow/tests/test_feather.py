@@ -845,13 +845,19 @@ def test_feather_datetime_resolution_arrow_to_pandas(datadir):
     # ARROW-17192 - ensure timestamp_as_object=True (together with other
     # **kwargs) can be passed in read_feather to to_pandas.
 
+    # file generated with:
+    #   from datetime import datetime
+    #   df = pd.DataFrame({"date": [
+    #       datetime.fromisoformat("1654-01-01"),
+    #       datetime.fromisoformat("1920-01-01"), ],
+    #   })
+    #   df.to_feather(datadir / "test_resolution.feather")
     from datetime import datetime
-    df = pd.DataFrame({"date": [
-        datetime.fromisoformat("1654-01-01"),
-        datetime.fromisoformat("1920-01-01"), ],
-    })
-    df.to_feather(datadir / "test_resolution.feather")
+    expected_0 = datetime.fromisoformat("1654-01-01")
+    expected_1 = datetime.fromisoformat("1920-01-01")
+
     result = read_feather(datadir / "test_resolution.feather",
                           timestamp_as_object=True)
-    assert df['date'][0] == result['date'][0]
-    assert df['date'][1] == result['date'][1]
+
+    assert expected_0 == result['date'][0]
+    assert expected_1 == result['date'][1]
