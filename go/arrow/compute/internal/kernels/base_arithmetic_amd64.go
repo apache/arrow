@@ -30,15 +30,15 @@ func getAvx2ArithmeticBinaryNumeric[T exec.NumericTypes](op ArithmeticOp) binary
 	typ := exec.GetType[T]()
 	return binaryOps[T, T, T]{
 		arrArr: func(_ *exec.KernelCtx, Arg0, Arg1, Out []T) error {
-			arithmeticAvx2(typ, op, exec.GetBytes(Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticAvx2(typ, op, exec.GetBytes(Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Arg0))
 			return nil
 		},
 		arrScalar: func(_ *exec.KernelCtx, Arg0 []T, Arg1 T, Out []T) error {
-			arithmeticArrScalarAvx2(typ, op, exec.GetBytes(Arg0), unsafe.Pointer(&Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticArrScalarAvx2(typ, op, exec.GetBytes(Arg0), unsafe.Pointer(&Arg1), exec.GetBytes(Out), len(Arg0))
 			return nil
 		},
 		scalarArr: func(_ *exec.KernelCtx, Arg0 T, Arg1, Out []T) error {
-			arithmeticScalarArrAvx2(typ, op, unsafe.Pointer(&Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticScalarArrAvx2(typ, op, unsafe.Pointer(&Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Arg1))
 			return nil
 		},
 	}
@@ -48,15 +48,15 @@ func getSSE4ArithmeticBinaryNumeric[T exec.NumericTypes](op ArithmeticOp) binary
 	typ := exec.GetType[T]()
 	return binaryOps[T, T, T]{
 		arrArr: func(_ *exec.KernelCtx, Arg0, Arg1, Out []T) error {
-			arithmeticSSE4(typ, op, exec.GetBytes(Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticSSE4(typ, op, exec.GetBytes(Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Arg0))
 			return nil
 		},
 		arrScalar: func(_ *exec.KernelCtx, Arg0 []T, Arg1 T, Out []T) error {
-			arithmeticArrScalarSSE4(typ, op, exec.GetBytes(Arg0), unsafe.Pointer(&Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticArrScalarSSE4(typ, op, exec.GetBytes(Arg0), unsafe.Pointer(&Arg1), exec.GetBytes(Out), len(Arg0))
 			return nil
 		},
 		scalarArr: func(_ *exec.KernelCtx, Arg0 T, Arg1, Out []T) error {
-			arithmeticScalarArrSSE4(typ, op, unsafe.Pointer(&Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticScalarArrSSE4(typ, op, unsafe.Pointer(&Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Arg1))
 			return nil
 		},
 	}
