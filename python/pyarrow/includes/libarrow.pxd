@@ -2491,6 +2491,7 @@ cdef extern from "arrow/compute/exec/expression.h" \
         c_bool Equals(const CExpression& other) const
         c_string ToString() const
         CResult[CExpression] Bind(const CSchema&)
+        const CFieldRef* field_ref() const
 
     cdef CExpression CMakeScalarExpression \
         "arrow::compute::literal"(shared_ptr[CScalar] value)

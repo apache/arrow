@@ -2691,13 +2691,18 @@ def test_struct_fields_options():
     b = pa.array(["bar", None, ""])
     c = pa.StructArray.from_arrays([a, b], ["a", "b"])
     arr = pa.StructArray.from_arrays([a, c], ["a", "c"])
+
     assert pc.struct_field(arr, '.c.b') == b
     assert pc.struct_field(arr, b'.c.b') == b
     assert pc.struct_field(arr, ['c', 'b']) == b
     assert pc.struct_field(arr, [b'c', b'b']) == b
+    assert pc.struct_field(arr, pc.field(('c', 'b'))) == b
+
     assert pc.struct_field(arr, '.a') == a
     assert pc.struct_field(arr, ['a']) == a
     assert pc.struct_field(arr, 'a') == a
+    assert pc.struct_field(arr, pc.field(('a',))) == a
+
     assert pc.struct_field(arr, indices=[1, 1]) == b
     assert pc.struct_field(arr, [1, 1]) == b
     assert pc.struct_field(arr, [0]) == a

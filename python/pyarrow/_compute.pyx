@@ -1324,6 +1324,7 @@ cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
         cdef:
             CFieldRef field_ref
+            const CFieldRef* field_ref_ptr
 
         # List[str] converted to dotted path '.a.dotted.path'
         if isinstance(indices, list) and len(indices):
@@ -1336,7 +1337,12 @@ cdef class _StructFieldOptions(FunctionOptions):
         if isinstance(indices, list):
             self.wrapped.reset(new CStructFieldOptions(<vector[int]>indices))
             return
-        if isinstance(indices, (bytes, str)):
+        elif isinstance(indices, Expression):
+            field_ref_ptr = (<Expression>indices).unwrap().field_ref()
+            if field_ref_ptr is NULL:
+                raise ValueError("Unable to get CFieldRef from Expression")
+            field_ref = <CFieldRef>deref(field_ref_ptr)
+        elif isinstance(indices, (bytes, str)):
             if indices.startswith(b'.' if isinstance(indices, bytes) else '.'):
                 field_ref = GetResultValue(
                     CFieldRef.FromDotPath(<c_string>tobytes(indices)))
