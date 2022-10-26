@@ -280,16 +280,20 @@ struct StructFieldFunctor {
       if (current == nullptr) {
         return Status::Invalid("Field not found in struct: '", *field_ref.name(), "'");
       }
-    } else if (field_ref.IsFieldPath()) {
-      for (const auto& idx : field_ref.field_path()->indices()) {
+    } else {
+      DCHECK(field_ref.IsFieldPath() || field_ref.IsNested());
+
+      FieldPath field_path;
+      if (field_ref.IsNested()) {
+        ARROW_ASSIGN_OR_RAISE(field_path, field_ref.FindOne(*current->type()));
+      } else {
+        field_path = *field_ref.field_path();
+      }
+
+      for (const auto& idx : field_path.indices()) {
         ARROW_RETURN_NOT_OK(CheckIndex(idx, *current->type()));
         const auto& array = checked_cast<const StructArray&>(*current);
         ARROW_ASSIGN_OR_RAISE(current, array.GetFlattenedField(idx, ctx->memory_pool()));
-      }
-    } else {
-      DCHECK(field_ref.IsNested());
-      for (const auto& ref : *field_ref.nested_refs()) {
-        ARROW_ASSIGN_OR_RAISE(current, ApplyFieldRef(ctx, ref, current));
       }
     }
     return current;

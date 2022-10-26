@@ -2712,11 +2712,11 @@ def test_struct_fields_options():
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.struct_field(arr, 'foo')
 
-    with pytest.raises(pa.ArrowInvalid, match="Field not found in struct*"):
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef*"):
         pc.struct_field(arr, '.c.foo')
 
     # drill into a non-struct array and continue to ask for a field
-    with pytest.raises(pa.ArrowInvalid, match="Not a StructArray*"):
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef*"):
         pc.struct_field(arr, '.a.foo')
 
     # TODO: https://issues.apache.org/jira/browse/ARROW-14853
