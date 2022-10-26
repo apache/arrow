@@ -316,34 +316,33 @@ struct StructFieldFunctor {
   }
 };
 
-Result<const DataType*> RecursiveResolveStructFieldType(const FieldRef& field_ref,
-                                                        const DataType* type) {
+Result<TypeHolder> ResolveStructFieldType(KernelContext* ctx,
+                                          const std::vector<TypeHolder>& types) {
+  const auto& field_ref = OptionsWrapper<StructFieldOptions>::Get(ctx).field_ref;
+  const DataType* type = types.front().type;
+
   if (field_ref.IsName()) {
-    for (const auto& ref : field_ref.FindAll(*type)) {
-      for (const auto& index : ref.indices()) {
+    for (const auto& path : field_ref.FindAll(*type)) {
+      for (const auto& index : path.indices()) {
         RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
         type = type->field(index)->type().get();
       }
     }
-  } else if (field_ref.IsFieldPath()) {
-    for (const auto& index : field_ref.field_path()->indices()) {
+  } else {
+    DCHECK(field_ref.IsFieldPath() || field_ref.IsNested());
+
+    FieldPath field_path;
+    if (field_ref.IsNested()) {
+      ARROW_ASSIGN_OR_RAISE(field_path, field_ref.FindOne(*type));
+    } else {
+      field_path = *field_ref.field_path();
+    }
+
+    for (const auto& index : field_path.indices()) {
       RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
       type = type->field(index)->type().get();
     }
-  } else {
-    DCHECK(field_ref.IsNested());
-    for (const auto& ref : *field_ref.nested_refs()) {
-      ARROW_ASSIGN_OR_RAISE(type, RecursiveResolveStructFieldType(ref, type));
-    }
   }
-  return type;
-}
-
-Result<TypeHolder> ResolveStructFieldType(KernelContext* ctx,
-                                          const std::vector<TypeHolder>& types) {
-  const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
-  const DataType* type = types.front().type;
-  ARROW_ASSIGN_OR_RAISE(type, RecursiveResolveStructFieldType(options.field_ref, type));
   return type;
 }
 

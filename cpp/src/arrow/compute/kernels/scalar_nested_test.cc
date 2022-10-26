@@ -145,12 +145,13 @@ TEST(TestScalarNested, StructField) {
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid4));
   }
   {
@@ -170,12 +171,13 @@ TEST(TestScalarNested, StructField) {
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid4));
 
     // Test edge cases for union representation
@@ -219,12 +221,13 @@ TEST(TestScalarNested, StructField) {
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid4));
   }
   {
