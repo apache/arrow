@@ -51,21 +51,21 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 ARG vcpkg
 ARG glibc=2.18
 COPY ci/vcpkg/*.patch \
-  ci/vcpkg/*linux*.cmake \
-  arrow/ci/vcpkg/
+     ci/vcpkg/*linux*.cmake \
+     arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh \
-  ci/scripts/install_glibc.sh \
-  arrow/ci/scripts/
+     ci/scripts/install_glibc.sh \
+     arrow/ci/scripts/
 ENV VCPKG_ROOT=/opt/vcpkg
 RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
 ENV PATH="${PATH}:${VCPKG_ROOT}"
 
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
-  VCPKG_FORCE_SYSTEM_BINARIES=1 \
-  VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
-  VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
-  VCPKG_FEATURE_FLAGS="manifests"
+    VCPKG_FORCE_SYSTEM_BINARIES=1 \
+    VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
+    VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
+    VCPKG_FEATURE_FLAGS="manifests"
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
 # ssl related fixies as well as we can patch the vcpkg portfile to support
@@ -73,18 +73,18 @@ COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # but we cannot patch those portfiles since vcpkg-tool handles the checkout of
 # previous versions => use bundled S3 build
 RUN vcpkg install \
-  --clean-after-build \
-  --x-install-root=${VCPKG_ROOT}/installed \
-  --x-manifest-root=/arrow/ci/vcpkg \
-  --x-feature=flight \
-  --x-feature=gcs \
-  --x-feature=json \
-  --x-feature=parquet
+        --clean-after-build \
+        --x-install-root=${VCPKG_ROOT}/installed \
+        --x-manifest-root=/arrow/ci/vcpkg \
+        --x-feature=flight \
+        --x-feature=gcs \
+        --x-feature=json \
+        --x-feature=parquet
 
 ARG python=3.8
 ENV PYTHON_VERSION=${python}
 RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
-  echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
+    echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
 
 SHELL ["/bin/bash", "-i", "-c"]
 ENTRYPOINT ["/bin/bash", "-i", "-c"]
