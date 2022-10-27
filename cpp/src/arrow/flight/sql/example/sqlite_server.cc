@@ -807,6 +807,7 @@ arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Cre
     INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1);
     INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1);
     INSERT INTO intTable (keyName, value, foreignId) VALUES (NULL, NULL, NULL);
+    INSERT INTO intTable (keyName, value, foreignId) VALUES ('null', NULL, NULL);
   )"));
 
   return result;

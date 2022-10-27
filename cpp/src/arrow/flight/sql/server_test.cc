@@ -183,11 +183,11 @@ TEST_F(TestFlightSqlServer, TestCommandStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
+  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4, 5])");
   const auto keyname_array =
-      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null])");
-  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null])");
-  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null])");
+      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null, "null"])");
+  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null, null])");
+  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null, null])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -472,11 +472,11 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
            "foreignId", int64(),
            example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map())});
 
-  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
+  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4, 5])");
   const auto keyname_array =
-      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null])");
-  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null])");
-  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null])");
+      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null, "null"])");
+  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null, null])");
+  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null, null])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -514,8 +514,8 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBindin
   ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*expected_table, *table, /*verbose=*/true));
 
   // Set multiple parameters at once
-  record_batch =
-      RecordBatchFromJSON(parameter_schema, R"([ [[0, "%one"]], [[0, "%zero"]] ])");
+  record_batch = RecordBatchFromJSON(
+      parameter_schema, R"([ [[0, "%one"]], [[0, "%zero"]], [[0, "null"]] ])");
   ASSERT_OK(prepared_statement->SetParameters(std::move(record_batch)));
   ASSERT_OK_AND_ASSIGN(flight_info, prepared_statement->Execute());
   ASSERT_OK_AND_ASSIGN(stream, sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -523,14 +523,18 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBindin
   expected_table = TableFromJSON(expected_schema, {R"([
       [1, "one", 1, 1],
       [3, "negative one", -1, 1],
-      [2, "zero", 0, 1]
+      [2, "zero", 0, 1],
+      [5, "null", null, null]
   ])"});
   ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*expected_table, *table, /*verbose=*/true));
 
   // Set a stream of parameters
-  record_batch =
-      RecordBatchFromJSON(parameter_schema, R"([ [[0, "%one"]], [[0, "%zero"]] ])");
-  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({std::move(record_batch)}));
+  ASSERT_OK_AND_ASSIGN(
+      auto reader,
+      RecordBatchReader::Make({
+          RecordBatchFromJSON(parameter_schema, R"([ [[0, "%one"]], [[0, "%zero"]] ])"),
+          RecordBatchFromJSON(parameter_schema, R"([ [[0, "%null%"]] ])"),
+      }));
   ASSERT_OK(prepared_statement->SetParameters(std::move(reader)));
   ASSERT_OK_AND_ASSIGN(flight_info, prepared_statement->Execute());
   ASSERT_OK_AND_ASSIGN(stream, sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -553,25 +557,25 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBindi
   auto record_batch = RecordBatchFromJSON(parameter_schema, R"([ [[2, 999]] ])");
   ASSERT_OK(prepared_statement->SetParameters(std::move(record_batch)));
 
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
   ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
+  ASSERT_OK_AND_EQ(6, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_OK_AND_EQ(1, sql_client->ExecuteUpdate(
                           {}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
   // Set multiple parameters at once
   record_batch = RecordBatchFromJSON(parameter_schema, R"([ [[2, 999]], [[2, 42]] ])");
   ASSERT_OK(prepared_statement->SetParameters(std::move(record_batch)));
   ASSERT_OK_AND_EQ(2, prepared_statement->ExecuteUpdate());
-  ASSERT_OK_AND_EQ(6, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(7, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
   // Set a stream of parameters
   record_batch = RecordBatchFromJSON(parameter_schema, R"([ [[2, 999]], [[2, 42]] ])");
   ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({std::move(record_batch)}));
   ASSERT_OK(prepared_statement->SetParameters(std::move(reader)));
   ASSERT_OK_AND_EQ(2, prepared_statement->ExecuteUpdate());
-  ASSERT_OK_AND_EQ(8, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(9, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
 TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
@@ -580,12 +584,12 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
       sql_client->Prepare(
           {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', 999)"));
 
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
   ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
+  ASSERT_OK_AND_EQ(6, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_OK_AND_EQ(1, sql_client->ExecuteUpdate(
                           {}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
 TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {

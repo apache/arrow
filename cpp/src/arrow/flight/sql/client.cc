@@ -590,9 +590,7 @@ arrow::Result<int64_t> PreparedStatement::ExecuteUpdate(
                                                    descriptor, parameter_binding_.get()));
   } else {
     const std::shared_ptr<Schema> schema = arrow::schema({});
-    auto record_batch = arrow::RecordBatch::Make(schema, 0, ArrayVector{});
-    ARROW_ASSIGN_OR_RAISE(auto params,
-                          RecordBatchReader::Make({std::move(record_batch)}));
+    ARROW_ASSIGN_OR_RAISE(auto params, RecordBatchReader::Make({}, schema));
     ARROW_ASSIGN_OR_RAISE(metadata, BindParameters(client_->impl_.get(), options,
                                                    descriptor, params.get()));
   }
