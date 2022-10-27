@@ -42,8 +42,6 @@ environment:
     ARROW_BUILD_GANDIVA: "ON"
     ARROW_GCS: "ON"
     ARROW_S3: "ON"
-    ARROW_USE_CCACHE: "ON"
-    ARROW_USE_SCCACHE: "OFF"
     GENERATOR: Ninja
     PYTHON: "3.10"
 
@@ -57,4 +55,6 @@ build_script:
 test: off
 
 after_build:
-  - ccache -s
+  # Try to get the info about the cache directory
+  - ccache -s -p
+  - sccache -s -p
