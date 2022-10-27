@@ -838,3 +838,21 @@ def test_preserve_index_pandas(version):
         expected = df
 
     _check_pandas_roundtrip(df, expected, version=version)
+
+
+@pytest.mark.pandas
+def test_read_feather_does_not_mutate_timedelta(tempdir):
+    # ARROW-17893: dataframe with timedelta and a list of dictionary
+    # also with timedelta produces wrong result with read_feather
+    # (to_pandas)
+
+    from datetime import timedelta
+    timedelta_1 = [{"timedelta_1": timedelta(seconds=12, microseconds=1)}]
+    timedelta_2 = timedelta(hours=3, minutes=40, seconds=23)
+    data = {"timedelta_1": timedelta_1, "timedelta_2": timedelta_2,}
+    df = pd.DataFrame(data)
+
+    write_feather(df, tempdir / "timedelta_mutation.feather")
+    result = read_feather(tempdir / "timedelta_mutation.feather")
+
+    assert result["timedelta_2"].item() == timedelta_2
