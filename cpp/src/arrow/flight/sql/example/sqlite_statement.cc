@@ -22,6 +22,9 @@
 #include <sqlite3.h>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/scalar.h"
@@ -192,50 +195,65 @@ Status SqliteStatement::SetParameters(
 
 Status SqliteStatement::Bind(size_t batch_index, int64_t row_index) {
   if (batch_index >= parameters_.size()) {
-    return Status::Invalid("Cannot bind to batch ", batch_index);
+    return Status::IndexError("Cannot bind to batch ", batch_index);
   }
   const RecordBatch& batch = *parameters_[batch_index];
   if (row_index < 0 || row_index >= batch.num_rows()) {
-    return Status::Invalid("Cannot bind to row ", row_index, " in batch ", batch_index);
+    return Status::IndexError("Cannot bind to row ", row_index, " in batch ",
+                              batch_index);
   }
 
   if (sqlite3_clear_bindings(stmt_) != SQLITE_OK) {
     return Status::Invalid("Failed to reset bindings: ", sqlite3_errmsg(db_));
   }
   for (int c = 0; c < batch.num_columns(); ++c) {
-    const std::shared_ptr<Array>& column = batch.column(c);
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, column->GetScalar(row_index));
-    if (scalar->type->id() == Type::DENSE_UNION) {
-      scalar = checked_cast<DenseUnionScalar&>(*scalar).value;
+    Array* column = batch.column(c).get();
+    int64_t column_index = row_index;
+    if (column->type_id() == Type::DENSE_UNION) {
+      // Allow polymorphic bindings via union
+      const auto& u = checked_cast<const DenseUnionArray&>(*column);
+      column_index = u.value_offset(column_index);
+      column = u.field(u.child_id(row_index)).get();
     }
 
     int rc = 0;
-    if (!scalar->is_valid) {
+    if (column->IsNull(column_index)) {
       rc = sqlite3_bind_null(stmt_, c + 1);
       continue;
-    } else {
-      switch (scalar->type->id()) {
-        case Type::INT64: {
-          int64_t value = checked_cast<const Int64Scalar&>(*scalar).value;
-          rc = sqlite3_bind_int64(stmt_, c + 1, value);
-          break;
-        }
-        case Type::FLOAT: {
-          float value = checked_cast<const FloatScalar&>(*scalar).value;
-          rc = sqlite3_bind_double(stmt_, c + 1, value);
-          break;
-        }
-        case Type::STRING: {
-          const std::shared_ptr<Buffer>& buffer =
-              checked_cast<const StringScalar&>(*scalar).value;
-          rc = sqlite3_bind_text(stmt_, c + 1,
-                                 reinterpret_cast<const char*>(buffer->data()),
-                                 static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
-          break;
-        }
-        default:
-          return Status::Invalid("Received unsupported data type: ", *scalar->type);
+    }
+    switch (column->type_id()) {
+      case Type::INT32: {
+        const int32_t value =
+            checked_cast<const Int32Array&>(*column).Value(column_index);
+        rc = sqlite3_bind_int64(stmt_, c + 1, value);
+        break;
       }
+      case Type::INT64: {
+        const int64_t value =
+            checked_cast<const Int64Array&>(*column).Value(column_index);
+        rc = sqlite3_bind_int64(stmt_, c + 1, value);
+        break;
+      }
+      case Type::FLOAT: {
+        const float value = checked_cast<const FloatArray&>(*column).Value(column_index);
+        rc = sqlite3_bind_double(stmt_, c + 1, value);
+        break;
+      }
+      case Type::DOUBLE: {
+        const double value =
+            checked_cast<const DoubleArray&>(*column).Value(column_index);
+        rc = sqlite3_bind_double(stmt_, c + 1, value);
+        break;
+      }
+      case Type::STRING: {
+        const std::string_view value =
+            checked_cast<const StringArray&>(*column).Value(column_index);
+        rc = sqlite3_bind_text(stmt_, c + 1, value.data(), static_cast<int>(value.size()),
+                               SQLITE_TRANSIENT);
+        break;
+      }
+      default:
+        return Status::TypeError("Received unsupported data type: ", *column->type());
     }
     if (rc != SQLITE_OK) {
       return Status::UnknownError("Failed to bind parameter: ", sqlite3_errmsg(db_));

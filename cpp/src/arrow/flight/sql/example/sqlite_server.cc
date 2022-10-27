@@ -101,6 +101,8 @@ Status SetParametersOnSQLiteStatement(SqliteStatement* statement,
         return Status::Invalid("Failed to reset bindings on row ", i, ": ",
                                sqlite3_errmsg(statement->db()));
       }
+      // batch_index is always 0 since we're calling SetParameters
+      // with a single batch at a time
       ARROW_RETURN_NOT_OK(statement->Bind(/*batch_index=*/0, i));
       ARROW_RETURN_NOT_OK(callback());
     }
@@ -334,7 +336,9 @@ class SQLiteFlightSqlServer::Impl {
     // https://www.sqlite.org/cli.html
     // > The ".databases" command shows a list of all databases open
     // > in the current connection. There will always be at least
-    // > 2. The first one is "main", the original database opened.
+    // > 2. The first one is "main", the original database opened. The
+    // > second is "temp", the database used for temporary tables.
+    // For our purposes, return only "main" and ignore other databases.
     const std::shared_ptr<Schema>& schema = SqlSchema::GetCatalogsSchema();
     StringBuilder catalog_name_builder;
     ARROW_RETURN_NOT_OK(catalog_name_builder.Append("main"));

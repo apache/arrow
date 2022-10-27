@@ -62,16 +62,15 @@ class SqliteStatement {
 
   /// \brief Returns the underlying sqlite3_stmt.
   /// \return A sqlite statement.
-  [[nodiscard]] sqlite3_stmt* GetSqlite3Stmt() const;
+  sqlite3_stmt* GetSqlite3Stmt() const;
 
-  [[nodiscard]] sqlite3* db() const { return db_; }
+  sqlite3* db() const { return db_; }
 
   /// \brief Executes an UPDATE, INSERT or DELETE statement.
   /// \return              The number of rows changed by execution.
   arrow::Result<int64_t> ExecuteUpdate();
 
-  [[nodiscard]] const std::vector<std::shared_ptr<arrow::RecordBatch>>& parameters()
-      const {
+  const std::vector<std::shared_ptr<arrow::RecordBatch>>& parameters() const {
     return parameters_;
   }
   Status SetParameters(std::vector<std::shared_ptr<arrow::RecordBatch>> parameters);
