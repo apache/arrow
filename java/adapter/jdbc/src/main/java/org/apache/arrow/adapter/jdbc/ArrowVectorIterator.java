@@ -189,7 +189,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   public void close() {
     if (config.isReuseVectorSchemaRoot()) {
       nextBatch.close();
+      compositeConsumer.close();
     }
-    compositeConsumer.close();
   }
 }
