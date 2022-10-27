@@ -129,7 +129,7 @@ class AlreadyFailedScheduler : public AsyncTaskScheduler {
  private:
   class HolderImpl : public AsyncTaskScheduler::Holder {
    public:
-    HolderImpl(std::unique_ptr<AlreadyFailedScheduler> scheduler)
+    explicit HolderImpl(std::unique_ptr<AlreadyFailedScheduler> scheduler)
         : scheduler_(std::move(scheduler)) {}
     ~HolderImpl() override { scheduler_.reset(); }
     void Reset() override { scheduler_.reset(); }
@@ -407,7 +407,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
   class HolderImpl : public AsyncTaskScheduler::Holder {
    public:
-    HolderImpl(std::weak_ptr<AsyncTaskSchedulerImpl> scheduler)
+    explicit HolderImpl(std::weak_ptr<AsyncTaskSchedulerImpl> scheduler)
         : scheduler_(std::move(scheduler)) {}
     ~HolderImpl() override { EndIfNeeded(); }
     void Reset() override { EndIfNeeded(); }

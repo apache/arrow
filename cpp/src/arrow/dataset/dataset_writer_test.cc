@@ -89,6 +89,13 @@ class DatasetWriterTestFixture : public testing::Test {
         });
   }
 
+  void TearDown() override {
+    if (!test_done_with_tasks_.is_finished()) {
+      test_done_with_tasks_.MarkFinished();
+      ASSERT_FINISHES_OK(scheduler_finished_);
+    }
+  }
+
   void EndWriterChecked(DatasetWriter* writer) {
     ASSERT_OK(writer->Finish());
     test_done_with_tasks_.MarkFinished();
