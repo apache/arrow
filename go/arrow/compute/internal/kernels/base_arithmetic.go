@@ -18,8 +18,8 @@ package kernels
 
 import (
 	"fmt"
-	"math/bits"
 
+	"github.com/JohnCGriffin/overflow"
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v11/arrow/decimal128"
@@ -191,11 +191,11 @@ func SubtractDate32(op ArithmeticOp) exec.ArrayKernelExec {
 	case OpSubChecked:
 		return ScalarBinary(getGoArithmeticBinary(func(a, b arrow.Time32, e *error) (result arrow.Duration) {
 			result = arrow.Duration(a) - arrow.Duration(b)
-			hi, lo := bits.Mul64(uint64(result), secondsPerDay)
-			if hi != 0 {
+			val, ok := overflow.Mul64(int64(result), secondsPerDay)
+			if !ok {
 				*e = errOverflow
 			}
-			return arrow.Duration(lo)
+			return arrow.Duration(val)
 		}))
 	}
 	panic("invalid op for subtractDate32")
@@ -272,7 +272,7 @@ func ArithmeticExec(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
 		return getArithmeticBinaryOpIntegral[int32](op)
 	case arrow.UINT32:
 		return getArithmeticBinaryOpIntegral[uint32](op)
-	case arrow.INT64, arrow.DATE64, arrow.TIMESTAMP, arrow.DURATION:
+	case arrow.INT64, arrow.TIME64, arrow.DATE64, arrow.TIMESTAMP, arrow.DURATION:
 		return getArithmeticBinaryOpIntegral[int64](op)
 	case arrow.UINT64:
 		return getArithmeticBinaryOpIntegral[uint64](op)
