@@ -63,7 +63,7 @@ func getSSE4ArithmeticBinaryNumeric[T exec.NumericTypes](op ArithmeticOp) binary
 }
 
 func getArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
-	if op >= OpAddChecked {
+	if op >= OpAddChecked || op == OpDiv {
 		// integral checked funcs need to use ScalarBinaryNotNull
 		return getGoArithmeticBinaryOpIntegral[T](op)
 	}
@@ -78,6 +78,10 @@ func getArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op Arithmet
 }
 
 func getArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+	if op == OpDiv || op == OpDivChecked {
+		return getGoArithmeticBinaryOpFloating[T](op)
+	}
+
 	if cpu.X86.HasAVX2 {
 		return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
 	} else if cpu.X86.HasSSE42 {

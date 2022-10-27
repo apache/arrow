@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#pragma once
+
 // corresponds to datatype.go's arrow.Type
 enum class arrtype : int {
     NULL,
@@ -40,6 +42,9 @@ enum class arrtype : int {
 #define _LIBCPP_HAS_NO_CHAR8_T
 #define _NOEXCEPT noexcept
 #define _NOEXCEPT_(x) noexcept(x)
+#define _LIBCPP_HIDE_FROM_ABI
+
+using size_t = uint64_t;
 
 // copied from libcxx/include/__type_traits/integral_constant.h
 //===----------------------------------------------------------------------===//
@@ -366,3 +371,338 @@ struct _LIBCPP_TEMPLATE_VIS is_same : _BoolConstant<__is_same(_Tp, _Up)> { };
 template <class _Tp, class _Up>
 inline constexpr bool is_same_v = __is_same(_Tp, _Up);
 #endif
+
+// copied from libcxx/include/__type_traits/conditional.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+template <bool>
+struct _IfImpl;
+
+template <>
+struct _IfImpl<true> {
+  template <class _IfRes, class _ElseRes>
+  using _Select _LIBCPP_NODEBUG = _IfRes;
+};
+
+template <>
+struct _IfImpl<false> {
+  template <class _IfRes, class _ElseRes>
+  using _Select _LIBCPP_NODEBUG = _ElseRes;
+};
+
+template <bool _Cond, class _IfRes, class _ElseRes>
+using _If _LIBCPP_NODEBUG = typename _IfImpl<_Cond>::template _Select<_IfRes, _ElseRes>;
+
+template <bool _Bp, class _If, class _Then>
+    struct _LIBCPP_TEMPLATE_VIS conditional {typedef _If type;};
+template <class _If, class _Then>
+    struct _LIBCPP_TEMPLATE_VIS conditional<false, _If, _Then> {typedef _Then type;};
+
+#if _LIBCPP_STD_VER > 11
+template <bool _Bp, class _IfRes, class _ElseRes>
+using conditional_t = typename conditional<_Bp, _IfRes, _ElseRes>::type;
+#endif
+
+// Helper so we can use "conditional_t" in all language versions.
+template <bool _Bp, class _If, class _Then> using __conditional_t = typename conditional<_Bp, _If, _Then>::type;
+
+// copied from libcxx/include/__type_traits/is_const.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#if __has_builtin(__is_const)
+
+template <class _Tp>
+struct _LIBCPP_TEMPLATE_VIS is_const : _BoolConstant<__is_const(_Tp)> { };
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_const_v = __is_const(_Tp);
+#endif
+
+#else
+
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_const            : public false_type {};
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_const<_Tp const> : public true_type {};
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_const_v = is_const<_Tp>::value;
+#endif
+
+#endif // __has_builtin(__is_const)
+
+// copied from libcxx/include/__type_traits/is_volatile.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#if __has_builtin(__is_volatile)
+
+template <class _Tp>
+struct _LIBCPP_TEMPLATE_VIS is_volatile : _BoolConstant<__is_volatile(_Tp)> { };
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_volatile_v = __is_volatile(_Tp);
+#endif
+
+#else
+
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_volatile               : public false_type {};
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_volatile<_Tp volatile> : public true_type {};
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_volatile_v = is_volatile<_Tp>::value;
+#endif
+
+#endif // __has_builtin(__is_volatile)
+
+// copied from libcxx/include/__type_traits/remove_reference.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#if __has_builtin(__remove_reference_t)
+template <class _Tp>
+struct remove_reference {
+  using type _LIBCPP_NODEBUG = __remove_reference_t(_Tp);
+};
+
+template <class _Tp>
+using __libcpp_remove_reference_t = __remove_reference_t(_Tp);
+#else
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS remove_reference        {typedef _LIBCPP_NODEBUG _Tp type;};
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS remove_reference<_Tp&>  {typedef _LIBCPP_NODEBUG _Tp type;};
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS remove_reference<_Tp&&> {typedef _LIBCPP_NODEBUG _Tp type;};
+
+template <class _Tp>
+using __libcpp_remove_reference_t = typename remove_reference<_Tp>::type;
+#endif // __has_builtin(__remove_reference_t)
+
+#if _LIBCPP_STD_VER > 11
+template <class _Tp> using remove_reference_t = __libcpp_remove_reference_t<_Tp>;
+#endif
+
+// copied from libcxx/include/__type_traits/apply_cv.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+template <class _Tp, class _Up, bool = is_const<__libcpp_remove_reference_t<_Tp> >::value,
+                             bool = is_volatile<__libcpp_remove_reference_t<_Tp> >::value>
+struct __apply_cv
+{
+    typedef _LIBCPP_NODEBUG _Up type;
+};
+
+template <class _Tp, class _Up>
+struct __apply_cv<_Tp, _Up, true, false>
+{
+    typedef _LIBCPP_NODEBUG const _Up type;
+};
+
+template <class _Tp, class _Up>
+struct __apply_cv<_Tp, _Up, false, true>
+{
+    typedef volatile _Up type;
+};
+
+template <class _Tp, class _Up>
+struct __apply_cv<_Tp, _Up, true, true>
+{
+    typedef const volatile _Up type;
+};
+
+template <class _Tp, class _Up>
+struct __apply_cv<_Tp&, _Up, false, false>
+{
+    typedef _Up& type;
+};
+
+template <class _Tp, class _Up>
+struct __apply_cv<_Tp&, _Up, true, false>
+{
+    typedef const _Up& type;
+};
+
+template <class _Tp, class _Up>
+struct __apply_cv<_Tp&, _Up, false, true>
+{
+    typedef volatile _Up& type;
+};
+
+template <class _Tp, class _Up>
+struct __apply_cv<_Tp&, _Up, true, true>
+{
+    typedef const volatile _Up& type;
+};
+
+// copied from libcxx/include/__type_traits/apply_cv.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+struct __nat
+{
+#ifndef _LIBCPP_CXX03_LANG
+    __nat() = delete;
+    __nat(const __nat&) = delete;
+    __nat& operator=(const __nat&) = delete;
+    ~__nat() = delete;
+#endif
+};
+
+// copied from libcxx/include/__type_traits/type_list.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+template <class _Hp, class _Tp>
+struct __type_list
+{
+    typedef _Hp _Head;
+    typedef _Tp _Tail;
+};
+
+template <class _TypeList, size_t _Size, bool = _Size <= sizeof(typename _TypeList::_Head)> struct __find_first;
+
+template <class _Hp, class _Tp, size_t _Size>
+struct __find_first<__type_list<_Hp, _Tp>, _Size, true>
+{
+    typedef _LIBCPP_NODEBUG _Hp type;
+};
+
+template <class _Hp, class _Tp, size_t _Size>
+struct __find_first<__type_list<_Hp, _Tp>, _Size, false>
+{
+    typedef _LIBCPP_NODEBUG typename __find_first<_Tp, _Size>::type type;
+};
+
+// copied from libcxx/include/__type_traits/is_enum.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_enum
+    : public integral_constant<bool, __is_enum(_Tp)> {};
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_enum_v = __is_enum(_Tp);
+#endif
+
+// copied from libcxx/include/__type_traits/make_unsigned.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#if __has_builtin(__make_unsigned)
+
+template <class _Tp>
+using __make_unsigned_t = __make_unsigned(_Tp);
+
+#else
+typedef
+    __type_list<unsigned char,
+    __type_list<unsigned short,
+    __type_list<unsigned int,
+    __type_list<unsigned long,
+    __type_list<unsigned long long,
+#  ifndef _LIBCPP_HAS_NO_INT128
+    __type_list<__uint128_t,
+#  endif
+    __nat
+#  ifndef _LIBCPP_HAS_NO_INT128
+    >
+#  endif
+    > > > > > __unsigned_types;
+
+template <class _Tp, bool = is_integral<_Tp>::value || is_enum<_Tp>::value>
+struct __make_unsigned {};
+
+template <class _Tp>
+struct __make_unsigned<_Tp, true>
+{
+    typedef typename __find_first<__unsigned_types, sizeof(_Tp)>::type type;
+};
+
+template <> struct __make_unsigned<bool,               true> {};
+template <> struct __make_unsigned<  signed short,     true> {typedef unsigned short     type;};
+template <> struct __make_unsigned<unsigned short,     true> {typedef unsigned short     type;};
+template <> struct __make_unsigned<  signed int,       true> {typedef unsigned int       type;};
+template <> struct __make_unsigned<unsigned int,       true> {typedef unsigned int       type;};
+template <> struct __make_unsigned<  signed long,      true> {typedef unsigned long      type;};
+template <> struct __make_unsigned<unsigned long,      true> {typedef unsigned long      type;};
+template <> struct __make_unsigned<  signed long long, true> {typedef unsigned long long type;};
+template <> struct __make_unsigned<unsigned long long, true> {typedef unsigned long long type;};
+#  ifndef _LIBCPP_HAS_NO_INT128
+template <> struct __make_unsigned<__int128_t,         true> {typedef __uint128_t        type;};
+template <> struct __make_unsigned<__uint128_t,        true> {typedef __uint128_t        type;};
+#  endif
+
+template <class _Tp>
+using __make_unsigned_t = typename __apply_cv<_Tp, typename __make_unsigned<__remove_cv_t<_Tp> >::type>::type;
+
+#endif // __has_builtin(__make_unsigned)
+
+template <class _Tp>
+struct make_unsigned {
+  using type _LIBCPP_NODEBUG = __make_unsigned_t<_Tp>;
+};
+
+#if _LIBCPP_STD_VER > 11
+template <class _Tp> using make_unsigned_t = __make_unsigned_t<_Tp>;
+#endif
+
+#ifndef _LIBCPP_CXX03_LANG
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI constexpr
+__make_unsigned_t<_Tp> __to_unsigned_like(_Tp __x) noexcept {
+    return static_cast<__make_unsigned_t<_Tp> >(__x);
+}
+#endif
+
+template <class _Tp, class _Up>
+using __copy_unsigned_t = __conditional_t<is_unsigned<_Tp>::value, __make_unsigned_t<_Up>, _Up>;

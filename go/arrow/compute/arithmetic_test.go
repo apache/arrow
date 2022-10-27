@@ -311,6 +311,64 @@ func (b *BinaryArithmeticSuite[T]) TestSub() {
 	})
 }
 
+func (b *BinaryArithmeticSuite[T]) TestMuliply() {
+	b.Run(b.DataType().String(), func() {
+		for _, overflow := range []bool{false, true} {
+			b.Run(fmt.Sprintf("no_overflow_check=%t", overflow), func() {
+				b.setOverflowCheck(overflow)
+
+				b.assertBinop(compute.Multiply, `[]`, `[]`, `[]`)
+				b.assertBinop(compute.Multiply, `[3, 2, 6]`, `[1, 0, 2]`, `[3, 0, 12]`)
+				// nulls on one side
+				b.assertBinop(compute.Multiply, `[null, 2, null]`, `[4, 5, 6]`, `[null, 10, null]`)
+				b.assertBinop(compute.Multiply, `[4, 5, 6]`, `[null, 2, null]`, `[null, 10, null]`)
+				// nulls on both sides
+				b.assertBinop(compute.Multiply, `[null, 2, 3]`, `[4, 5, null]`, `[null, 10, null]`)
+				// all nulls
+				b.assertBinop(compute.Multiply, `[null]`, `[null]`, `[null]`)
+
+				// scalar on left
+				b.assertBinopScalarValArr(compute.Multiply, 3, `[4, 5]`, `[12, 15]`)
+				b.assertBinopScalarValArr(compute.Multiply, 3, `[null, 5]`, `[null, 15]`)
+				b.assertBinopScalarArr(compute.Multiply, b.makeNullScalar(), `[1, 2]`, `[null, null]`)
+				b.assertBinopScalarArr(compute.Multiply, b.makeNullScalar(), `[null, 2]`, `[null, null]`)
+				// scalar on right
+				b.assertBinopArrScalarVal(compute.Multiply, `[4, 5]`, 3, `[12, 15]`)
+				b.assertBinopArrScalarVal(compute.Multiply, `[null, 5]`, 3, `[null, 15]`)
+				b.assertBinopArrScalar(compute.Multiply, `[1, 2]`, b.makeNullScalar(), `[null, null]`)
+				b.assertBinopArrScalar(compute.Multiply, `[null, 2]`, b.makeNullScalar(), `[null, null]`)
+			})
+		}
+	})
+}
+
+func (b *BinaryArithmeticSuite[T]) TestDiv() {
+	b.Run(b.DataType().String(), func() {
+		for _, overflow := range []bool{false, true} {
+			b.Run(fmt.Sprintf("no_overflow_check=%t", overflow), func() {
+				b.setOverflowCheck(overflow)
+
+				// empty arrays
+				b.assertBinop(compute.Divide, `[]`, `[]`, `[]`)
+				// ordinary arrays
+				b.assertBinop(compute.Divide, `[3, 2, 6]`, `[1, 1, 2]`, `[3, 2, 3]`)
+				// with nulls
+				b.assertBinop(compute.Divide, `[null, 10, 30, null, 20]`, `[1, 5, 2, 5, 10]`, `[null, 2, 15, null, 2]`)
+				if !arrow.IsFloating(b.DataType().ID()) {
+					// scalar divided by array
+					b.assertBinopScalarValArr(compute.Divide, 33, `[null, 1, 3, null, 2]`, `[null, 33, 11, null, 16]`)
+					// array divided by scalar
+					b.assertBinopArrScalarVal(compute.Divide, `[null, 10, 30, null, 2]`, 3, `[null, 3, 10, null, 0]`)
+					// scalar divided by scalar
+					b.assertBinopScalars(compute.Divide, 16, 7, 2)
+				} else {
+					b.assertBinop(compute.Divide, `[3.4, 0.64, 1.28]`, `[1, 2, 4]`, `[3.4, 0.32, 0.32]`)
+				}
+			})
+		}
+	})
+}
+
 func TestBinaryArithmetic(t *testing.T) {
 	suite.Run(t, &BinaryArithmeticSuite[int8]{min: math.MinInt8, max: math.MaxInt8})
 	suite.Run(t, &BinaryArithmeticSuite[uint8]{min: 0, max: math.MaxUint8})
