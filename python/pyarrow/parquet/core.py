@@ -21,6 +21,7 @@ from concurrent import futures
 from contextlib import nullcontext
 from functools import partial, reduce
 
+import inspect
 import json
 from collections.abc import Collection
 import numpy as np
@@ -3163,9 +3164,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
         This option is only supported for use_legacy_dataset=False.
     **kwargs : dict,
         When use_legacy_dataset=False, used as additional kwargs for
-        `dataset.write_dataset` function (passed to
-        `ParquetFileFormat.make_write_options`). See the docstring
-        of `write_table` for the available options.
+        `dataset.write_dataset` function for matching kwargs, and remainder to
+        `ParquetFileFormat.make_write_options`. See the docstring
+        of `write_table` and `dataset.write_dataset` for the available options.
         When use_legacy_dataset=True, used as additional kwargs for
         `parquet.write_table` function (See docstring for `write_table`
         or `ParquetWriter` for more information).
@@ -3237,22 +3238,20 @@ def write_to_dataset(table, root_path, partition_cols=None,
     if not use_legacy_dataset:
         import pyarrow.dataset as ds
 
-        # extract non-file format options
-        schema = kwargs.pop("schema", None)
-        use_threads = kwargs.pop("use_threads", True)
-        chunk_size = kwargs.pop("chunk_size", None)
-        row_group_size = kwargs.pop("row_group_size", None)
-
-        row_group_size = (
-            row_group_size if row_group_size is not None else chunk_size
+        # extract write_dataset specific options
+        # reset assumed to go to make_write_options
+        write_dataset_kwargs = dict()
+        for key in inspect.signature(ds.write_dataset).parameters:
+            if key in kwargs:
+                write_dataset_kwargs[key] = kwargs.pop(key)
+        write_dataset_kwargs['max_rows_per_group'] = kwargs.pop(
+            'row_group_size', kwargs.pop("chunk_size", None)
         )
-
         # raise for unsupported keywords
         msg = (
             "The '{}' argument is not supported with the new dataset "
             "implementation."
         )
-
         if metadata_collector is not None:
             def file_visitor(written_file):
                 metadata_collector.append(written_file.metadata)
@@ -3284,7 +3283,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             file_visitor=file_visitor,
             basename_template=basename_template,
             existing_data_behavior=existing_data_behavior,
-            max_rows_per_group=row_group_size)
+            **write_dataset_kwargs)
         return
 
     # warnings and errors when using legacy implementation
