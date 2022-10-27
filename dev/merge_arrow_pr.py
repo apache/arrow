@@ -110,10 +110,14 @@ def strip_ci_directives(commit_message):
     return _REGEX_CI_DIRECTIVE.sub('', commit_message)
 
 
+def git_default_branch_name():
+    return run_cmd("git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@")
+
+
 def fix_version_from_branch(branch, versions):
     # Note: Assumes this is a sorted (newest->oldest) list of un-released
     # versions
-    if branch == "master":
+    if branch == git_default_branch_name():
         return versions[-1]
     else:
         branch_ver = branch.replace("branch-", "")
