@@ -272,6 +272,16 @@ reference:
       - install_pyarrow
       - create_package_with_all_dependencies
 
+redirects:
+  - ["articles/install.html", "articles/install_linux.html"]
+  - ["articles/fs.html", "articles/cloud_storage.html"]
+  - ["articles/developers/setup.html", "articles/developer_environment.html"]
+  - ["articles/developers/workflow.html", "articles/developer_workflow.html"]
+  - ["articles/developers/debugging.html", "articles/debugging_arrow.html"]
+  - ["articles/developers/docker.html", "articles/docker.html"]
+  - ["articles/developers/install_details.html", "articles/install_details.html"]
+  - ["articles/developers/writing_bindings.html", "articles/writing_bindings.html"]
+
 repo:
   jira_projects: [ARROW]
   url:
