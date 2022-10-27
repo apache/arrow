@@ -639,11 +639,11 @@ class RecordReaderTest : public ::testing::Test {
 TEST_F(RecordReaderTest, BasicReadRepeatedField) {
   Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
 
-  // Records look like: {[10], [20, 20], [30, 30, 30]}
+  // Records look like: {[10], null, [20, 20], null, [30, 30, 30], null}
   std::vector<std::shared_ptr<Page>> pages;
   std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
-  std::vector<int16_t> def_levels = {1, 1, 1, 1, 1, 1};
-  std::vector<int16_t> rep_levels = {0, 0, 1, 0, 1, 1};
+  std::vector<int16_t> def_levels = {1, 0, 1, 1, 0, 1, 1, 1, 0};
+  std::vector<int16_t> rep_levels = {0, 0, 0, 1, 0, 0, 1, 1, 0};
 
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
@@ -655,14 +655,37 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
 
+  // Read [10], null
   int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
-  CheckState(/*values_written=*/3, /*null_count=*/0, /*levels_written=*/6,
-             /*levels_position=*/3);
-  CheckReadValues(/*expected_values=*/{10, 20, 20}, /*expected_defs=*/{1, 1, 1},
-                  /*expected_reps=*/{0, 0, 1});
+  CheckState(/*values_written=*/2, /*null_count=*/1, /*levels_written=*/9,
+             /*levels_position=*/2);
+  CheckReadValues(/*expected_values=*/{10, kNullValue}, /*expected_defs=*/{1, 0},
+                  /*expected_reps=*/{0, 0});
   record_reader_->Reset();
-  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/3,
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/7,
+             /*levels_position=*/0);
+  // Read [20, 20], null, [30, 30, 30]
+  records_read = record_reader_->ReadRecords(/*num_records=*/3);
+  ASSERT_EQ(records_read, 3);
+  CheckState(/*values_written=*/6, /*null_count=*/1, /*levels_written=*/7,
+             /*levels_position=*/6);
+  CheckReadValues(/*expected_values=*/{20, 20, kNullValue, 30, 30, 30},
+                  /*expected_defs=*/{1, 1, 0, 1, 1, 1},
+                  /*expected_reps=*/{0, 1, 0, 0, 1, 1});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
+             /*levels_position=*/0);
+  // Read the last null value and read past the end.
+  records_read = record_reader_->ReadRecords(/*num_records=*/3);
+  ASSERT_EQ(records_read, 1);
+  CheckState(/*values_written=*/1, /*null_count=*/1, /*levels_written=*/1,
+             /*levels_position=*/1);
+  CheckReadValues(/*expected_values=*/{kNullValue},
+                  /*expected_defs=*/{0},
+                  /*expected_reps=*/{0});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
              /*levels_position=*/0);
 }
 
