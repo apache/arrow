@@ -119,14 +119,23 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         path: "docs/source/_static/versions.json",
         hunks: [
           [
-            "-        \"name\": \"11.0 (dev)\",",
-            "+        \"name\": \"12.0 (dev)\",",
-            "-        \"name\": \"10.0 (stable)\",",
-            "+        \"name\": \"11.0 (stable)\",",
+            "-        \"name\": \"#{@release_compatible_version} (dev)\",",
+            "+        \"name\": \"#{@next_compatible_version} (dev)\",",
+            "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
+            "+        \"name\": \"#{@release_compatible_version} (stable)\",",
             "+    {",
-            "+        \"name\": \"10.0\",",
-            "+        \"version\": \"10.0/\"",
+            "+        \"name\": \"#{@previous_compatible_version}\",",
+            "+        \"version\": \"#{@previous_compatible_version}/\"",
             "+    },",
+          ],
+        ],
+      },
+      {
+        path: "go.work",
+        hunks: [
+          [
+            "-replace github.com/apache/arrow/go/v#{@snapshot_major_version} v#{@release_version} => ./go",
+            "+replace github.com/apache/arrow/go/v#{@next_major_version} v#{@next_version} => ./go",
           ],
         ],
       },
@@ -178,23 +187,14 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         path: "r/pkgdown/assets/versions.json",
         hunks: [
           [
-            "-        \"name\": \"10.0.0.9000 (dev)\",",
-            "+        \"name\": \"11.0.0.9000 (dev)\",",
-            "-        \"name\": \"10.0.0 (release)\",",
-            "+        \"name\": \"11.0.0 (release)\",",
+            "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+            "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+            "-        \"name\": \"#{@previous_version} (release)\",",
+            "+        \"name\": \"#{@release_version} (release)\",",
             "+    {",
-            "+        \"name\": \"10.0.0\",",
-            "+        \"version\": \"10.0/\"",
+            "+        \"name\": \"#{@previous_version}\",",
+            "+        \"version\": \"#{@previous_compatible_version}/\"",
             "+    },",
-          ],
-        ],
-      },
-      {
-        path: "go.work",
-        hunks: [
-          [
-            "-replace github.com/apache/arrow/go/v#{@snapshot_major_version} v#{@release_version} => ./go",
-            "+replace github.com/apache/arrow/go/v#{@next_major_version} v#{@next_version} => ./go",
           ],
         ],
       },
