@@ -1918,3 +1918,19 @@ def test_read_csv_reference_cycle():
     with util.disabled_gc():
         wr = inner()
         assert wr() is None
+
+
+@pytest.mark.parametrize("type_factory", (
+    lambda: pa.decimal128(20, 1),
+    lambda: pa.decimal128(38, 15),
+    lambda: pa.decimal256(20, 1),
+    lambda: pa.decimal256(76, 10),
+))
+def test_write_csv_decimal(tmpdir, type_factory):
+    type = type_factory()
+    table = pa.table({"col": pa.array([1, 2]).cast(type)})
+
+    write_csv(table, tmpdir / "out.csv")
+    out = read_csv(tmpdir / "out.csv")
+
+    assert out.column('col').cast(type) == table.column('col')
