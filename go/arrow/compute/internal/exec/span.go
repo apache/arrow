@@ -148,7 +148,7 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 	}
 
 	var (
-		nulls    = int(a.UpdateNullCount())
+		nulls    = int(atomic.LoadInt64(&a.Nulls))
 		length   = int(a.Len)
 		off      = int(a.Offset)
 		dt       = a.Type
