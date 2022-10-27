@@ -27,7 +27,6 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
 
       {{ macros.configure_homebrew_arrow(formula)|indent }}
-      
       - name: Install apache-arrow
         env:
         {{ macros.github_set_sccache_envvars()|indent(8)}}  
