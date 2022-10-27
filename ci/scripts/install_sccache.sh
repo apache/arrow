@@ -41,14 +41,22 @@ SCCACHE_ARCHIVE=sccache.tar.gz
 # Download archive and checksum
 curl -L $SCCACHE_URL --output $SCCACHE_ARCHIVE
 curl -L $SCCACHE_URL.sha256 --output $SCCACHE_ARCHIVE.sha256
+echo "  $SCCACHE_ARCHIVE" >> $SCCACHE_ARCHIVE.sha256
 
-echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --status
+SHA_ARGS="--check --status"
+
+# Busybox sha256sum uses different flags
+if command -v busybox &> /dev/null; then
+  SHA_ARGS="-sc"
+fi
+
+sha256sum $SHA_ARGS $SCCACHE_ARCHIVE.sha256
 
 if [ ! -d $PREFIX ]; then
     mkdir -p $PREFIX
 fi
 
-tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX --wildcards sccache*/sccache* 
+tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX --exclude="sccache*/*E*E*"
 chmod u+x $PREFIX/sccache
 
 if [ "${GITHUB_ACTIONS}" = "true" ]; then
