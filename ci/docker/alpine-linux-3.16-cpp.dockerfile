@@ -28,6 +28,7 @@ RUN apk add \
         ccache \
         clang \
         cmake \
+        curl \
         curl-dev \
         g++ \
         gcc \
