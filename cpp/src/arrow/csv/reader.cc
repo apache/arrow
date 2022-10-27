@@ -545,11 +545,12 @@ class BlockDecodingOperator {
 /////////////////////////////////////////////////////////////////////////
 // Base class for common functionality
 
+template <typename InputType>
 class ReaderMixin {
  public:
-  ReaderMixin(io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-              const ReadOptions& read_options, const ParseOptions& parse_options,
-              const ConvertOptions& convert_options, bool count_rows)
+  ReaderMixin(io::IOContext io_context, InputType input, const ReadOptions& read_options,
+              const ParseOptions& parse_options, const ConvertOptions& convert_options,
+              bool count_rows)
       : io_context_(std::move(io_context)),
         read_options_(read_options),
         parse_options_(parse_options),
@@ -759,14 +760,15 @@ class ReaderMixin {
   std::vector<std::string> column_names_;
   ConversionSchema conversion_schema_;
 
-  std::shared_ptr<io::InputStream> input_;
+  InputType input_;
   std::shared_ptr<TaskGroup> task_group_;
 };
 
 /////////////////////////////////////////////////////////////////////////
 // Base class for one-shot table readers
 
-class BaseTableReader : public ReaderMixin, public csv::TableReader {
+class BaseTableReader : public ReaderMixin<std::shared_ptr<io::InputStream>>,
+                        public csv::TableReader {
  public:
   using ReaderMixin::ReaderMixin;
 
@@ -838,37 +840,20 @@ class BaseTableReader : public ReaderMixin, public csv::TableReader {
 /////////////////////////////////////////////////////////////////////////
 // Base class for streaming readers
 
-class StreamingReaderImpl : public ReaderMixin,
-                            public csv::StreamingReader,
-                            public std::enable_shared_from_this<StreamingReaderImpl> {
+template <typename InputType>
+class StreamingReaderImpl
+    : public ReaderMixin<InputType>,
+      public csv::StreamingReader,
+      public std::enable_shared_from_this<StreamingReaderImpl<InputType>> {
  public:
-  StreamingReaderImpl(io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+  StreamingReaderImpl(io::IOContext io_context, InputType input,
                       const ReadOptions& read_options, const ParseOptions& parse_options,
                       const ConvertOptions& convert_options, bool count_rows)
-      : ReaderMixin(io_context, std::move(input), read_options, parse_options,
-                    convert_options, count_rows),
+      : ReaderMixin<InputType>(io_context, std::move(input), read_options, parse_options,
+                               convert_options, count_rows),
         bytes_decoded_(std::make_shared<std::atomic<int64_t>>(0)) {}
 
-  Future<> Init(Executor* cpu_executor) {
-    ARROW_ASSIGN_OR_RAISE(auto istream_it,
-                          io::MakeInputStreamIterator(input_, read_options_.block_size));
-
-    // TODO Consider exposing readahead as a read option (ARROW-12090)
-    ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it),
-                                                              io_context_.executor()));
-
-    auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor);
-
-    auto buffer_generator = CSVBufferIterator::MakeAsync(std::move(transferred_it));
-
-    int max_readahead = cpu_executor->GetCapacity();
-    auto self = shared_from_this();
-
-    return buffer_generator().Then([self, buffer_generator, max_readahead](
-                                       const std::shared_ptr<Buffer>& first_buffer) {
-      return self->InitAfterFirstBuffer(first_buffer, buffer_generator, max_readahead);
-    });
-  }
+  Future<> Init(Executor* cpu_executor);
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
@@ -887,30 +872,37 @@ class StreamingReaderImpl : public ReaderMixin,
  protected:
   Future<> InitAfterFirstBuffer(const std::shared_ptr<Buffer>& first_buffer,
                                 AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
-                                int max_readahead) {
+                                int max_readahead, Executor* cpu_executor) {
     if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
 
     std::shared_ptr<Buffer> after_header;
-    ARROW_ASSIGN_OR_RAISE(auto header_bytes_consumed,
-                          ProcessHeader(first_buffer, &after_header));
+    ARROW_ASSIGN_OR_RAISE(
+        auto header_bytes_consumed,
+        ReaderMixin<InputType>::ProcessHeader(first_buffer, &after_header));
     bytes_decoded_->fetch_add(header_bytes_consumed);
 
-    auto parser_op =
-        BlockParsingOperator(io_context_, parse_options_, num_csv_cols_, num_rows_seen_);
+    auto parser_op = BlockParsingOperator(
+        ReaderMixin<InputType>::io_context_, ReaderMixin<InputType>::parse_options_,
+        ReaderMixin<InputType>::num_csv_cols_, ReaderMixin<InputType>::num_rows_seen_);
     ARROW_ASSIGN_OR_RAISE(
         auto decoder_op,
-        BlockDecodingOperator::Make(io_context_, convert_options_, conversion_schema_));
+        BlockDecodingOperator::Make(ReaderMixin<InputType>::io_context_,
+                                    ReaderMixin<InputType>::convert_options_,
+                                    ReaderMixin<InputType>::conversion_schema_));
 
     auto block_gen = SerialBlockReader::MakeAsyncIterator(
-        std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
-        read_options_.skip_rows_after_names);
+        std::move(buffer_generator), MakeChunker(ReaderMixin<InputType>::parse_options_),
+        std::move(after_header),
+        ReaderMixin<InputType>::read_options_.skip_rows_after_names);
     auto parsed_block_gen =
-        MakeMappedGenerator(std::move(block_gen), std::move(parser_op));
-    auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
+        MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor);
+    auto preparse_gen =
+        MakeSerialReadaheadGenerator(parsed_block_gen, cpu_executor->GetCapacity());
+    auto rb_gen = MakeMappedGenerator(std::move(preparse_gen), std::move(decoder_op));
 
-    auto self = shared_from_this();
+    auto self = this->shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
       return self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
     });
@@ -929,7 +921,7 @@ class StreamingReaderImpl : public ReaderMixin,
 
     if (block.record_batch->num_rows() == 0) {
       // Keep consuming blocks until the first non empty block is found
-      auto self = shared_from_this();
+      auto self = this->shared_from_this();
       prev_bytes_processed += block.bytes_processed;
       return batch_gen().Then([self, batch_gen, max_readahead,
                                prev_bytes_processed](const DecodedBlock& next_block) {
@@ -939,7 +931,7 @@ class StreamingReaderImpl : public ReaderMixin,
     }
 
     AsyncGenerator<DecodedBlock> readahead_gen;
-    if (read_options_.use_threads) {
+    if (ReaderMixin<InputType>::read_options_.use_threads) {
       readahead_gen = MakeReadaheadGenerator(std::move(batch_gen), max_readahead);
     } else {
       readahead_gen = std::move(batch_gen);
@@ -960,7 +952,8 @@ class StreamingReaderImpl : public ReaderMixin,
     auto unwrapped =
         MakeMappedGenerator(std::move(restarted_gen), std::move(unwrap_and_record_bytes));
 
-    record_batch_gen_ = MakeCancellable(std::move(unwrapped), io_context_.stop_token());
+    record_batch_gen_ = MakeCancellable(std::move(unwrapped),
+                                        ReaderMixin<InputType>::io_context_.stop_token());
     return Status::OK();
   }
 
@@ -969,6 +962,55 @@ class StreamingReaderImpl : public ReaderMixin,
   // bytes which have been decoded and asked for by the caller
   std::shared_ptr<std::atomic<int64_t>> bytes_decoded_;
 };
+
+template <>
+Future<> StreamingReaderImpl<std::shared_ptr<io::InputStream>>::Init(
+    Executor* cpu_executor) {
+  ARROW_ASSIGN_OR_RAISE(auto istream_it,
+                        io::MakeInputStreamIterator(input_, read_options_.block_size));
+
+  // TODO Consider exposing readahead as a read option (ARROW-12090)
+  ARROW_ASSIGN_OR_RAISE(
+      auto bg_it, MakeBackgroundGenerator(std::move(istream_it), io_context_.executor()));
+
+  auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor);
+
+  auto buffer_generator = CSVBufferIterator::MakeAsync(std::move(transferred_it));
+
+  int max_readahead = cpu_executor->GetCapacity();
+  auto self = shared_from_this();
+
+  return buffer_generator().Then([self, buffer_generator, max_readahead, cpu_executor](
+                                     const std::shared_ptr<Buffer>& first_buffer) {
+    return self->InitAfterFirstBuffer(first_buffer, buffer_generator, max_readahead,
+                                      cpu_executor);
+  });
+}
+
+template <>
+Future<> StreamingReaderImpl<std::shared_ptr<io::RandomAccessFile>>::Init(
+    Executor* cpu_executor) {
+  ARROW_ASSIGN_OR_RAISE(
+      AsyncGenerator<std::shared_ptr<Buffer>> ifile_gen,
+      io::MakeRandomAccessFileGenerator(input_, read_options_.block_size));
+
+  // TODO Consider exposing readahead as a read option (ARROW-12090)
+  auto prefetch_gen =
+      MakeReadaheadGenerator(ifile_gen, io_context_.executor()->GetCapacity());
+
+  auto transferred_it = MakeTransferredGenerator(prefetch_gen, cpu_executor);
+
+  auto buffer_generator = CSVBufferIterator::MakeAsync(std::move(transferred_it));
+
+  int max_readahead = cpu_executor->GetCapacity();
+  auto self = shared_from_this();
+
+  return buffer_generator().Then([self, buffer_generator, max_readahead, cpu_executor](
+                                     const std::shared_ptr<Buffer>& first_buffer) {
+    return self->InitAfterFirstBuffer(first_buffer, buffer_generator, max_readahead,
+                                      cpu_executor);
+  });
+}
 
 /////////////////////////////////////////////////////////////////////////
 // Serial TableReader implementation
@@ -1150,15 +1192,16 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
   return reader;
 }
 
+template <typename InputType>
 Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
-    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    Executor* cpu_executor, const ReadOptions& read_options,
-    const ParseOptions& parse_options, const ConvertOptions& convert_options) {
+    io::IOContext io_context, InputType input, Executor* cpu_executor,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
   RETURN_NOT_OK(parse_options.Validate());
   RETURN_NOT_OK(read_options.Validate());
   RETURN_NOT_OK(convert_options.Validate());
-  std::shared_ptr<StreamingReaderImpl> reader;
-  reader = std::make_shared<StreamingReaderImpl>(
+  std::shared_ptr<StreamingReaderImpl<InputType>> reader;
+  reader = std::make_shared<StreamingReaderImpl<InputType>>(
       io_context, input, read_options, parse_options, convert_options,
       /*count_rows=*/!read_options.use_threads || cpu_executor->GetCapacity() == 1);
   return reader->Init(cpu_executor).Then([reader] {
@@ -1169,7 +1212,7 @@ Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
 /////////////////////////////////////////////////////////////////////////
 // Row count implementation
 
-class CSVRowCounter : public ReaderMixin,
+class CSVRowCounter : public ReaderMixin<std::shared_ptr<io::InputStream>>,
                       public std::enable_shared_from_this<CSVRowCounter> {
  public:
   CSVRowCounter(io::IOContext io_context, Executor* cpu_executor,
@@ -1281,6 +1324,14 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
 
 Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    Executor* cpu_executor, const ReadOptions& read_options,
+    const ParseOptions& parse_options, const ConvertOptions& convert_options) {
+  return MakeStreamingReader(io_context, std::move(input), cpu_executor, read_options,
+                             parse_options, convert_options);
+}
+
+Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
+    io::IOContext io_context, std::shared_ptr<io::RandomAccessFile> input,
     Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   return MakeStreamingReader(io_context, std::move(input), cpu_executor, read_options,

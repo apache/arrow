@@ -141,6 +141,47 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
   return Loop(std::move(loop_body));
 }
 
+/// \brief Similar to MapGenerator but applies the map function in a new thread task
+/// This is similar to combining a map generator and transfer generator but the former
+/// would not be able to guarantee the map task runs on a new thread.
+template <typename T, typename ApplyFn,
+          typename Applied = arrow::detail::result_of_t<ApplyFn(const T&)>,
+          typename V = typename EnsureResult<Applied>::type::ValueType>
+AsyncGenerator<V> MakeApplyGenerator(AsyncGenerator<T> source_gen, ApplyFn apply_fun,
+                                     internal::Executor* cpu_exec) {
+  struct State {
+    explicit State(AsyncGenerator<T> source_gen_, ApplyFn apply_fun_,
+                   internal::Executor* cpu_exec_)
+        : source_gen(std::move(source_gen_)),
+          apply_fun(std::move(apply_fun_)),
+          cpu_exec(cpu_exec_),
+          finished(false) {}
+
+    AsyncGenerator<T> source_gen;
+    ApplyFn apply_fun;
+    internal::Executor* cpu_exec;
+    bool finished;
+  };
+
+  auto state =
+      std::make_shared<State>(std::move(source_gen), std::move(apply_fun), cpu_exec);
+  return [state]() {
+    CallbackOptions options;
+    options.executor = state->cpu_exec;
+    options.should_schedule = ShouldSchedule::Always;
+
+    return state->source_gen().Then(
+        [state](const T& next) -> Result<V> {
+          if (IsIterationEnd(next)) {
+            return IterationTraits<V>::End();
+          } else {
+            return state->apply_fun(next);
+          }
+        },
+        {}, options);
+  };
+}
+
 /// \see MakeMappedGenerator
 template <typename T, typename V>
 class MappingGenerator {

@@ -18,6 +18,7 @@
 #include "arrow/dataset/file_csv.h"
 
 #include <algorithm>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -32,6 +33,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/compressed.h"
 #include "arrow/ipc/writer.h"
@@ -190,29 +192,67 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
       GetFragmentScanOptions<CsvFragmentScanOptions>(
           kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
-  ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
-  if (fragment_scan_options->stream_transform_func) {
-    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
-  }
   const auto& path = source.path();
-  ARROW_ASSIGN_OR_RAISE(
-      input, io::BufferedInputStream::Create(reader_options.block_size,
-                                             default_memory_pool(), std::move(input)));
+
+  auto actual_compression = Compression::type::UNCOMPRESSED;
+  // Guess compression from file extension
+  auto extension = fs::internal::GetAbstractPathExtension(path);
+  if (extension == "gz") {
+    actual_compression = Compression::type::GZIP;
+  } else {
+    auto maybe_compression = util::Codec::GetCompressionType(extension);
+    if (maybe_compression.ok()) {
+      ARROW_ASSIGN_OR_RAISE(actual_compression, maybe_compression);
+    }
+  }
+
+  Future<std::shared_ptr<csv::StreamingReader>> reader_fut;
+
+  // If the file is uncompressed we open the reader with a RandomAccessFile which will
+  // be capable of reading the file in parallel.  If the file is compressed we must use an
+  // input stream and will be read sequentially.
+  if (actual_compression == Compression::type::UNCOMPRESSED &&
+      !(fragment_scan_options->stream_transform_func)) {
+    ARROW_ASSIGN_OR_RAISE(auto input, source.Open())
+    reader_fut = DeferNotOk(input->io_context().executor()->Submit(
+        [=]() -> Future<std::shared_ptr<csv::StreamingReader>> {
+          ARROW_ASSIGN_OR_RAISE(auto temp_first_block,
+                                input->ReadAt(0, reader_options.block_size));
+          RETURN_NOT_OK(input->Seek(0));
+          auto first_block = static_cast<std::string_view>(*temp_first_block);
+          const auto& parse_options = format.parse_options;
+          ARROW_ASSIGN_OR_RAISE(
+              auto convert_options,
+              GetConvertOptions(format, scan_options ? scan_options.get() : nullptr,
+                                first_block));
+          return csv::StreamingReader::MakeAsync(
+              io::default_io_context(), std::move(input), cpu_executor, reader_options,
+              parse_options, convert_options);
+        }));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
+    if (fragment_scan_options->stream_transform_func) {
+      ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        input, io::BufferedInputStream::Create(reader_options.block_size,
+                                               default_memory_pool(), std::move(input)));
+    reader_fut = DeferNotOk(input->io_context().executor()->Submit(
+        [=]() -> Future<std::shared_ptr<csv::StreamingReader>> {
+          ARROW_ASSIGN_OR_RAISE(auto first_block, input->Peek(reader_options.block_size));
+          const auto& parse_options = format.parse_options;
+          ARROW_ASSIGN_OR_RAISE(
+              auto convert_options,
+              GetConvertOptions(format, scan_options ? scan_options.get() : nullptr,
+                                first_block));
+          return csv::StreamingReader::MakeAsync(
+              io::default_io_context(), std::move(input), cpu_executor, reader_options,
+              parse_options, convert_options);
+        }));
+  }
 
   // Grab the first block and use it to determine the schema and create a reader.  The
   // input->Peek call blocks so we run the whole thing on the I/O thread pool.
-  auto reader_fut = DeferNotOk(input->io_context().executor()->Submit(
-      [=]() -> Future<std::shared_ptr<csv::StreamingReader>> {
-        ARROW_ASSIGN_OR_RAISE(auto first_block, input->Peek(reader_options.block_size));
-        const auto& parse_options = format.parse_options;
-        ARROW_ASSIGN_OR_RAISE(
-            auto convert_options,
-            GetConvertOptions(format, scan_options ? scan_options.get() : nullptr,
-                              first_block));
-        return csv::StreamingReader::MakeAsync(io::default_io_context(), std::move(input),
-                                               cpu_executor, reader_options,
-                                               parse_options, convert_options);
-      }));
   return reader_fut.Then(
       // Adds the filename to the error
       [=](const std::shared_ptr<csv::StreamingReader>& reader)

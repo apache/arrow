@@ -1748,11 +1748,15 @@ class BaseStreamingCSVRead(BaseTestCSV):
         check_one_batch(reader, {'a': [10], 'b': [11]})
         allocated_after_first_batch = pa.total_allocated_bytes()
         check_one_batch(reader, {'a': [12], 'b': [13]})
-        assert pa.total_allocated_bytes() <= allocated_after_first_batch
+        # the new csv reader could do readahead cpu_count batches
+        assert pa.total_allocated_bytes() <= \
+            allocated_after_first_batch * pa.io_thread_count()
         check_one_batch(reader, {'a': [14], 'b': [15]})
-        assert pa.total_allocated_bytes() <= allocated_after_first_batch
+        assert pa.total_allocated_bytes() <= \
+            allocated_after_first_batch * pa.io_thread_count()
         check_one_batch(reader, {'a': [16], 'b': [17]})
-        assert pa.total_allocated_bytes() <= allocated_after_first_batch
+        assert pa.total_allocated_bytes() <= \
+            allocated_after_first_batch * pa.io_thread_count()
         with pytest.raises(StopIteration):
             reader.read_next_batch()
         assert pa.total_allocated_bytes() == old_allocated

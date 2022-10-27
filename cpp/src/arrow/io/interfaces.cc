@@ -34,6 +34,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
@@ -100,7 +101,6 @@ class InputStreamBlockIterator {
   int64_t block_size_;
   bool done_ = false;
 };
-
 }  // namespace
 
 const IOContext& Readable::io_context() const { return g_default_io_context; }
@@ -136,6 +136,44 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
   }
   DCHECK_GT(block_size, 0);
   return Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
+}
+
+// this is async re-entrant and can be used with a Readahead Generator
+// perhaps you should only use it with a Readahead Generator, otherwise there
+// is no point in using this, just use MakeInputStreamIterator instead.
+Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(
+    std::shared_ptr<RandomAccessFile> file, int64_t block_size) {
+  struct State {
+    explicit State(std::shared_ptr<RandomAccessFile> file_, int64_t block_size_)
+        : file(std::move(file_)), block_size(block_size_), position(0) {}
+
+    Status Init() {
+      RETURN_NOT_OK(file->Seek(0));
+      ARROW_ASSIGN_OR_RAISE(total_size, file->GetSize());
+      return Status::OK();
+    }
+
+    std::shared_ptr<RandomAccessFile> file;
+    int64_t block_size;
+    int64_t total_size;
+    std::atomic<int64_t> position;
+  };
+
+  auto state = std::make_shared<State>(std::move(file), block_size);
+  RETURN_NOT_OK(state->Init());
+  return [state]() {
+    auto pos = state->position.fetch_add(state->block_size);
+    if (pos >= state->total_size) {
+      return AsyncGeneratorEnd<std::shared_ptr<Buffer>>();
+    }
+    // pos is guaranteed to be smaller than total size, but you might not be able to read
+    // a full block
+    if (pos + state->block_size > state->total_size) {
+      return state->file->ReadAsync(pos, state->total_size - pos);
+    } else {
+      return state->file->ReadAsync(pos, state->block_size);
+    }
+  };
 }
 
 struct RandomAccessFile::Impl {
