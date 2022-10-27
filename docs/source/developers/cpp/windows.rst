@@ -178,14 +178,11 @@ For newer versions of Visual Studio, specify the generator
 ``Visual Studio 16 2019`` or see ``cmake --help`` for available
 generators.
 
-Building with Ninja and clcache
-===============================
+Building with Ninja
+===================
 
 The `Ninja <https://ninja-build.org/>`_ build system offers better build
-parallelization, and the optional `clcache
-<https://github.com/frerich/clcache/>`_ compiler cache keeps track of
-past compilations to avoid running them over and over again (in a way similar
-to the Unix-specific ``ccache``).
+parallelization.
 
 Newer versions of Visual Studio include Ninja. To see if your Visual Studio
 includes Ninja, run the initialization command shown
@@ -193,18 +190,15 @@ includes Ninja, run the initialization command shown
 run ``ninja --version``.
 
 If Ninja is not included in your version of Visual Studio, and you are using
-conda, activate your conda environment and install Ninja and clcache:
+conda, activate your conda environment and install Ninja:
 
 .. code-block:: shell
 
    activate arrow-dev
    conda install -c conda-forge ninja
-   pip install git+https://github.com/frerich/clcache.git
 
 If you are not using conda,
 `install Ninja from another source <https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages>`_
-and optionally
-`install clcache from another source <https://github.com/frerich/clcache/wiki/Installation>`_
 .
 
 After installation is complete, change working directory in ``cmd.exe`` to the root directory of Arrow and
@@ -216,25 +210,9 @@ do an out of source build by generating Ninja files:
    mkdir build
    cd build
    cmake -G "Ninja" ^
-         -DCMAKE_C_COMPILER=clcache ^
-         -DCMAKE_CXX_COMPILER=clcache ^
          -DARROW_BUILD_TESTS=ON ^
          -DGTest_SOURCE=BUNDLED ..
    cmake --build . --config Release
-
-Setting ``CMAKE_C_COMPILER`` and ``CMAKE_CXX_COMPILER`` in the command line
-of ``cmake`` is the preferred method of using ``clcache``. Alternatively, you
-can set ``CC`` and ``CXX`` environment variables before calling ``cmake``:
-
-.. code-block:: shell
-
-   ...
-   set CC=clcache
-   set CXX=clcache
-   cmake -G "Ninja" ^
-   ...
-
-
 
 Building with NMake
 ===================
