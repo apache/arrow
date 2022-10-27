@@ -21,4 +21,4 @@ use (
 	./go/arrow/compute
 )
 
-replace github.com/apache/arrow/go/v10 v10.0.0 => ./go
+replace github.com/apache/arrow/go/v11 v11.0.0 => ./go
