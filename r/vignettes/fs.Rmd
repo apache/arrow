@@ -27,7 +27,7 @@ arrow_with_gcs()
 
 If these return `TRUE` then the relevant support is enabled.
 
-In some cases you may find that your system does not have support enabled. The most common case for this occurs on Linux when installing `arrow` from source. In this situation S3 and GCS support is not always enabled by default, and there are additional system requirements involved. See `vignette("install_linux", package = "arrow")` for details on how to resolve this.
+In some cases you may find that your system does not have support enabled. The most common case for this occurs on Linux when installing `arrow` from source. In this situation S3 and GCS support is not always enabled by default, and there are additional system requirements involved. See `vignette("install", package = "arrow")` for details on how to resolve this.
 
 ## Connecting to cloud storage
 

@@ -457,9 +457,9 @@ not have any such concept and a partially written CSV file may be detected as va
 
 ## Futher reading
 
-- To learn about cloud storage, see `vignette("cloud_storage", package = "arrow")`.
+- To learn about cloud storage, see `vignette("fs", package = "arrow")`.
 - To learn about `dplyr` with `arrow`, see `vignette("data_wrangling", package = "arrow")`.
 - To learn about reading and writing data, see `vignette("read_write", package = "arrow")`.
-- To manually enable cloud support on Linux, see `vignette("install_linux", package = "arrow")`.
+- To manually enable cloud support on Linux, see `vignette("install", package = "arrow")`.
 - To learn about schemas and metadata, see `vignette("metadata", package = "arrow")`.
 

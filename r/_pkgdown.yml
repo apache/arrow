@@ -110,7 +110,7 @@ articles:
       - data_wrangling
       - dataset
       - python
-      - cloud_storage
+      - fs
       - flight
 
   - title: Arrow concepts
@@ -124,19 +124,19 @@ articles:
   - title: Installation
     navbar: Installation
     contents:
-      - install_linux
+      - install
       - install_nightly
 
   - title: Developer guides
     contents:
-      - developer_overview
-      - developer_environment
-      - developer_workflow
-      - debugging_arrow
-      - docker
-      - writing_bindings
-      - install_details
-      - data_object_layout
+      - developing
+      - developers/setup
+      - developers/workflow
+      - developers/debugging
+      - developers/docker
+      - developers/writing_bindings
+      - developers/install_details
+      - developers/data_object_layout
 
 reference:
   - title: Multi-file datasets
@@ -271,16 +271,6 @@ reference:
       - install_arrow
       - install_pyarrow
       - create_package_with_all_dependencies
-
-redirects:
-  - ["articles/install.html", "articles/install_linux.html"]
-  - ["articles/fs.html", "articles/cloud_storage.html"]
-  - ["articles/developers/setup.html", "articles/developer_environment.html"]
-  - ["articles/developers/workflow.html", "articles/developer_workflow.html"]
-  - ["articles/developers/debugging.html", "articles/debugging_arrow.html"]
-  - ["articles/developers/docker.html", "articles/docker.html"]
-  - ["articles/developers/install_details.html", "articles/install_details.html"]
-  - ["articles/developers/writing_bindings.html", "articles/writing_bindings.html"]
 
 repo:
   jira_projects: [ARROW]

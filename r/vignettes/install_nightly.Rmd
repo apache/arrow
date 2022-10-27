@@ -55,7 +55,7 @@ variables for options for configuring the build source and enabled features.
 
 ## Further reading
 
-- For users looking for information about installing on Linux, see `vignette("install_linux", package = "arrow")`.
+- For users looking for information about installing on Linux, see `vignette("install", package = "arrow")`.
 - For developers looking to understand the installation scripts, see `vignette("install_details", package = "arrow")`.
 
 

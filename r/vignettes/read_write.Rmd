@@ -31,7 +31,7 @@ Arrow Tables:
 
 All these functions can read and write files in the local filesystem or
 to cloud storage. For more on cloud storage support in `arrow`, see
-`vignette("cloud_storage", package = "arrow")`.
+`vignette("fs", package = "arrow")`.
 
 The `arrow` package also supports reading and writing multi-file datasets,
 which enable analysis and processing of larger-than-memory data, and provide 
@@ -168,6 +168,6 @@ read_json_arrow(file_path)
 
 ## Further reading
 
-- To learn more about cloud storage, see `vignette("cloud_storage", package = "arrow")`.
+- To learn more about cloud storage, see `vignette("fs", package = "arrow")`.
 - To learn more about multi-file datasets, see `vignette("dataset", package = "arrow")`.
 

@@ -189,7 +189,7 @@ bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi")
 nyc_taxi <- open_dataset(bucket)
 ```
 
-To learn more about the suport for cloud services in `arrow`, see `vignette("cloud_storage", package = "arrow")`.
+To learn more about the support for cloud services in `arrow`, see `vignette("fs", package = "arrow")`.
 
 ## Efficient data interchange between R and Python
 
@@ -224,5 +224,5 @@ gains](https://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
 
 Apache Arrow is an extensive project spanning multiple languages, and the `arrow` R package is only one part of this large project. Because of this there are a number of special considerations for developers who would like to contribute to the package. To help make this process easier, there are several articles in the `arrow` documentation that discuss topics that are relevant to `arrow` developers, but are very unlikely to be needed by users.
 
-For an overview of the development process and a list of related articles for developers, see `vignette("developer_overview", package = "arrow")`.
+For an overview of the development process and a list of related articles for developers, see `vignette("developing", package = "arrow")`.
 
