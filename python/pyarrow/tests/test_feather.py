@@ -849,7 +849,7 @@ def test_read_feather_does_not_mutate_timedelta(tempdir):
     from datetime import timedelta
     timedelta_1 = [{"timedelta_1": timedelta(seconds=12, microseconds=1)}]
     timedelta_2 = timedelta(hours=3, minutes=40, seconds=23)
-    data = {"timedelta_1": timedelta_1, "timedelta_2": timedelta_2,}
+    data = {"timedelta_1": timedelta_1, "timedelta_2": timedelta_2, }
     df = pd.DataFrame(data)
 
     write_feather(df, tempdir / "timedelta_mutation.feather")
