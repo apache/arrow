@@ -27,7 +27,7 @@ A second reason that R users may want to use PyArrow is to efficiently pass data
 
 ## Installing PyArrow
 
-To use Arrow in Python, the `pyarrow` library needs to be installed. For example, you may wish to create a Python [virtual environment](https://docs.python.org/3/library/venv.html) with the `pyarrow` library. A virtual environment is a specific Python installation created for one project or purpose. It is a good practice to use specific environments in Python so that updating a package doesn't impact packages in other projects.
+To use Arrow in Python, the `pyarrow` library needs to be installed. For example, you may wish to create a Python [virtual environment](https://docs.python.org/3/library/venv.html) containing the `pyarrow` library. A virtual environment is a specific Python installation created for one project or purpose. It is a good practice to use specific environments in Python so that updating a package doesn't impact packages in other projects.
 
 You can perform the set up from within R. Let's suppose you want to call your virtual environment something like `my-pyarrow-env`. Your setup code would look like this: 
 
@@ -54,11 +54,16 @@ see the [reticulate documentation](https://rstudio.github.io/reticulate/articles
 
 ## Importing PyArrow
 
-Assuming that `arrow` and `reticulate` are both loaded in R, your first step is to make sure that the correct Python environment is being used. To do that, use a command like this:
+Assuming that `arrow` and `reticulate` are both loaded in R, your first step is to make sure that the correct Python environment is being used. To do that with a virtual environment, use a command like this:
 
 ```r
-use_virtualenv("my-pyarrow-env") # virtualenv users
-use_condaenv("my-pyarrow-env")   # conda users
+use_virtualenv("my-pyarrow-env")
+```
+
+For a conda environment use the following:
+
+```r
+use_condaenv("my-pyarrow-env")
 ```
 
 Once you have done this, the next step is to import `pyarrow` into the Python session as shown below:
@@ -185,7 +190,7 @@ a_and_b
 
 Now you have a single Array in R.
 
-## Futher reading
+## Further reading
 
 - To learn more about installing and configuring Python from R,
 see the [reticulate documentation](https://rstudio.github.io/reticulate/articles/python_packages.html).

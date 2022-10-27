@@ -186,7 +186,7 @@ Both tell the `S3FileSystem` object that it should allow the creation of new buc
 and to talk to Google Storage instead of S3. The latter works because GCS implements an 
 S3-compatible API -- see [File systems that emulate S3](#file-systems-that-emulate-s3) 
 below -- but if you want better support for GCS you should refer to a `GcsFileSystem` 
-bt using a URI that starts with `gs://`. 
+but using a URI that starts with `gs://`. 
 
 Also note that parameters in the URI need to be 
 [percent encoded](https://en.wikipedia.org/wiki/Percent-encoding), which is why 

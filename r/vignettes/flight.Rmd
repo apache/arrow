@@ -1,11 +1,11 @@
 ---
-title: "Connecting to a flight server"
+title: "Connecting to a Flight server"
 description: >
   Learn how to efficiently stream Apache Arrow data objects across a 
   network using Arrow Flight 
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Connecting to a flight server}
+  %\VignetteIndexEntry{Connecting to a Flight server}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

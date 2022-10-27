@@ -455,7 +455,7 @@ Most file formats have magic numbers which are written at the end.  This means a
 partial file write can safely be detected and discarded.  The CSV file format does
 not have any such concept and a partially written CSV file may be detected as valid.
 
-## Futher reading
+## Further reading
 
 - To learn about cloud storage, see `vignette("fs", package = "arrow")`.
 - To learn about `dplyr` with `arrow`, see `vignette("data_wrangling", package = "arrow")`.

@@ -75,7 +75,7 @@ There are some special cases to note:
 
 - On Linux the installation process can sometimes be more involved because 
 CRAN does not host binaries for Linux. For more information please see 
-`vignette("install_linux", package = "arrow")`.
+`vignette("install", package = "arrow")`.
 
 - If you are compiling `arrow` from source, please note that as of version 
 10.0.0, `arrow` requires C++17 to build. This has implications on Windows and

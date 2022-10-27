@@ -20,7 +20,7 @@ library(arrow, warn.conflicts = FALSE)
 We begin by describing two key concepts:
 
 - Values in an array are stored in one or more **buffers**. A buffer is a sequential virtual address space (i.e., block of memory) with a given length. Given a  pointer specifying the memory address where the buffer starts, you can reach any byte in the buffer with an "offset" value that specifies a location relative to the start of the buffer. 
-- The **physical layout** of an array is a term used to describe how data in an array is laid out in memory, without taking into account of how that information is interpreted. As an example: a 32-bit signed integer and 32-bit floating point number have the same layout: they are both 32 bits, represented as 4 contiguous bytes in memory. The meaning is different, but the layout is the same.
+- The **physical layout** of an array is a term used to describe how data in an array is laid out in memory, without taking into account how that information is interpreted. As an example: a 32-bit signed integer and 32-bit floating point number have the same layout: they are both 32 bits, represented as 4 contiguous bytes in memory. The meaning is different, but the layout is the same.
 
 We can unpack these ideas using a simple array of integer values:
 
@@ -45,7 +45,7 @@ The validity bitmap is binary-valued, and contains a 1 whenever the correspondin
 10111
 ```
 
-However this is a slight over-simplification for three reasons. First, because memory is allocated in byte-size units there are three trailing bits at the end (assumed to be zero), giving us the bitmap `10111000`. Second, while we have written this from left-to-right, this written format is typically presumed to represent [big endian format](https://en.wikipedia.org/wiki/Endianness) whereas Arrow is little-endian. To reflect this we write the bits in reversed order: `00011101`. Finally, Arrow encourages [naturally aligned data structures](https://en.wikipedia.org/wiki/Data_structure_alignment) in which allocated memory addresses are a multiple of the data block sizes. Arrow uses *64 byte alignment*, so each data structure must be a multople of 64 bytes in size. This design feature exists to allow efficient use of modern hardware, as discussed in the [Arrow specification](https://arrow.apache.org/docs/format/Columnar.html#buffer-alignment-and-padding). This is what the buffer looks like this in memory:
+However this is a slight over-simplification for three reasons. First, because memory is allocated in byte-size units there are three trailing bits at the end (assumed to be zero), giving us the bitmap `10111000`. Second, while we have written this from left-to-right, this written format is typically presumed to represent [big endian format](https://en.wikipedia.org/wiki/Endianness) where the most-significant bit is written first (i.e., to the lowest-valued memory address). Arrow adopts a little-endian convention, which would more naturally correspond toa right-to-left ordering when written in English. To reflect this we write the bits in right-to-left order: `00011101`. Finally, Arrow encourages [naturally aligned data structures](https://en.wikipedia.org/wiki/Data_structure_alignment) in which allocated memory addresses are a multiple of the data block sizes. Arrow uses *64 byte alignment*, so each data structure must be a multiple of 64 bytes in size. This design feature exists to allow efficient use of modern hardware, as discussed in the [Arrow specification](https://arrow.apache.org/docs/format/Columnar.html#buffer-alignment-and-padding). This is what the buffer looks like this in memory:
 
 ::: {.grid}
 ::: {.g-col-6}
@@ -67,7 +67,7 @@ The data buffer, like the validity bitmap, is padded out to a length of 64 bytes
 :::
 :::
 
-Each integer occupies 4 bytes, as per the requirements of a 32-bit signed integer. Notice that the bytes associate with the missing value are left unspecified: space is allocated for the value but those bytes are not filled. 
+Each integer occupies 4 bytes, as per the requirements of a 32-bit signed integer. Notice that the bytes associated with the missing value are left unspecified: space is allocated for the value but those bytes are not filled. 
 
 ## Offset buffer
 
@@ -106,9 +106,9 @@ The difference between the `utf8()` data type and the `large_utf8()` data type i
 
 ## Chunked arrays
 
-Arrays are immutable objects: once an Array has been initialized the valuse it stores cannot be altered. This ensures that multiple entities can safely refer to an Array via pointers, and not run the risk that the values will change. Using immutable Arrays makes it possible for Arrow to avoid unnecessary copies of data objects. 
+Arrays are immutable objects: once an Array has been initialized the values it stores cannot be altered. This ensures that multiple entities can safely refer to an Array via pointers, and not run the risk that the values will change. Using immutable Arrays makes it possible for Arrow to avoid unnecessary copies of data objects. 
 
-There are limitations to immutable Arrays, most notably when new batches of data arrive. Because an array is immutable, you can't add the new information to an existing array. The only thing you can do if you don't want to disturb or copy your existing array is create a new array that contains the new data. Doing that preserves the immutability of arrays and doesn't lead to any unnecessary copying but now we have a new problem: the data are now split across two arrays. Each array contains only one "chunk" of the data. What would be ideal is an abstraction layer that allows us to treat these two Arrays as though they were a single "Array-like" object.
+There are limitations to immutable Arrays, most notably when new batches of data arrive. Because an array is immutable, you can't add the new information to an existing array. The only thing you can do if you don't want to disturb or copy your existing array is create a new array that contains the new data. Doing that preserves the immutability of arrays and doesn't lead to any unnecessary copying but now we have a new problem: the data are split across two arrays. Each array contains only one "chunk" of the data. What would be ideal is an abstraction layer that allows us to treat these two Arrays as though they were a single "Array-like" object.
 
 This is the problem that chunked arrays solve. A chunked array is a wrapper around a list of arrays, and allows you to index their contents "as if" they were a single array. Physically, the data are still stored in separate places -- each array is one chunk, and these chunks don't have to be adjacent to each other in memory -- but the chunked array provides us will a layer of abstraction that allows us to pretend that they are all one thing. 
 
