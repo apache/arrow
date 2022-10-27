@@ -25,6 +25,7 @@
 #include "arrow/array/array_binary.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_nested.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer_builder.h"
@@ -35,8 +36,10 @@
 #include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
@@ -49,6 +52,7 @@ namespace arrow {
 using internal::BinaryBitBlockCounter;
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
+using internal::BitmapAnd;
 using internal::CheckIndexBounds;
 using internal::CopyBitmap;
 using internal::CountSetBits;
@@ -789,7 +793,167 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
   bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
 }
 
+// // Construct a filter for each type and call Filter on child arrays.
+// Status FilterKeepNullDenseUnionImpl(KernelContext* ctx, const ExecSpan& batch,
+//                                     ExecResult* out) {
+//   const auto& values = batch[0].array;
+//   const auto num_children = values.child_data.size();
+//   const auto* values_types = values.GetValues<int8_t>(1);
+//   std::vector<std::shared_ptr<Buffer>> child_filter_buffers(num_children);
+//   for (size_t i = 0; i < num_children; ++i) {
+//     ARROW_ASSIGN_OR_RAISE(child_filter_buffers[i],
+//                           ctx->AllocateBitmap(values.child_data[i].length));
+//   }
+//   const auto& filter = batch[1].array;
+//   const auto filter_offset = filter.offset;
+//   const auto* filter_is_valid = filter.buffers[0].data;
+//   const auto* filter_data = filter.buffers[1].data;
+//   for (int64_t i = 0; i < filter.length; ++i) {
+//     auto type_index = values_types[i];
+//     std::vector<int64_t> child_positions(num_children, 0);
+//     auto filter_value_is_valid =
+//         filter_is_valid ? bit_util::GetBit(filter_is_valid, i + filter_offset) : true;
+//     if (filter_value_is_valid && bit_util::GetBit(filter_data, i + filter_offset)) {
+//       bit_util::SetBit(child_filter_buffers[type_index]->mutable_data(),
+//                        child_positions[type_index]++);
+//     }
+//   }
+
+//   auto* out_arr = out->array_data().get();
+//   out_arr->length = values.length;
+//   out_arr->offset = values.offset;
+//   for (size_t i : {1, 2}) {
+//     out_arr->buffers[i] = *values.buffers[i].owner;
+//   }
+//   out_arr->child_data.resize(num_children);
+//   for (size_t i = 0; i < num_children; ++i) {
+//     ARROW_ASSIGN_OR_RAISE(
+//         auto filtered_datum,
+//         Filter(values.child_data[i].ToArrayData(),
+//                ArrayData::Make(arrow::boolean(), values.child_data[i].length,
+//                                {child_filter_buffers[i]}),
+//                FilterState::Get(ctx), ctx->exec_context()));
+//     out_arr->child_data[i] = filtered_datum.make_array()->data();
+//   }
+//   ARROW_LOG(INFO) << "values: " << values.ToArray()->ToString();
+//   ARROW_LOG(INFO) << "filter: " << filter.ToArray()->ToString();
+//   ARROW_LOG(INFO) << "out: " << MakeArray(out->array_data())->ToString();
+//   return Status::OK();
+// }
+
+// KEEP_NULL filters only need to construct a new bitmap and shallow copy other buffers
+// and child arrays, except for Dense Union which doesn't have bitmaps
+Status FilterKeepNullImpl(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  // if (out->type()->id() == Type::DENSE_UNION) {
+  //   return FilterKeepNullDenseUnionImpl(ctx, batch, out);
+  // }
+  const auto& values = batch[0].array;
+  const auto* values_is_valid = values.buffers[0].data;
+  const auto values_offset = values.offset;
+  const auto values_length = values.length;
+
+  const auto& filter = batch[1].array;
+  const auto* filter_is_valid = filter.buffers[0].data;
+  const auto* filter_data = filter.buffers[1].data;
+  const auto filter_offset = filter.offset;
+
+  auto output_length = values_length;
+  auto* out_arr = out->array_data().get();
+  ARROW_ASSIGN_OR_RAISE(auto out_is_valid_buffer,
+                        ctx->AllocateBitmap(values.length + values.offset));
+  auto* out_is_valid = out_is_valid_buffer->mutable_data();
+  out_arr->length = output_length;
+  out_arr->offset = values_offset;
+  auto out_offset = values_offset;
+
+  // Data buffer is the same as input array, share all buffers except for the validity
+  // bitmap
+  for (size_t i : {1, 2}) {
+    if (values.buffers[i].data) {
+      out_arr->buffers[i] = *values.buffers[i].owner;
+    }
+  }
+
+  out_arr->child_data.resize(values.child_data.size());
+  for (size_t i = 0; i < values.child_data.size(); ++i) {
+    out_arr->child_data[i] = values.child_data[i].ToArrayData();
+  }
+
+  // Count set bits by block
+  DropNullCounter filter_counter(filter_is_valid, filter_data, filter_offset,
+                                 values_length);
+  OptionalBitBlockCounter data_valid_counter(values_is_valid, values_offset,
+                                             values_length);
+  OptionalBitBlockCounter filter_valid_counter(filter_is_valid, filter_offset,
+                                               values_length);
+
+  // Construct bitmap buffer
+  int64_t position = 0;
+  while (position < values_length) {
+    BitBlockCount filter_block = filter_counter.NextBlock();
+    BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
+    BitBlockCount data_valid_block = data_valid_counter.NextWord();
+    auto block_length = filter_block.length;
+    if (filter_block.AllSet() && data_valid_block.AllSet()) {
+      // Fastest path: all values in block are included and not null
+      bit_util::SetBitsTo(out_is_valid, out_offset + position, block_length, true);
+    } else if (filter_block.AllSet()) {
+      // Faster: all values are selected, but some values are null
+      // Batch copy bits from values validity bitmap to output validity bitmap
+      CopyBitmap(values_is_valid, values_offset + position, block_length, out_is_valid,
+                 out_offset + position);
+    } else if (filter_block.NoneSet()) {
+      // For this exceedingly common case in low-selectivity filters we can
+      // skip further analysis of the data and move on to the next block.
+    } else {
+      // Some but not all values to keep
+      if (data_valid_block.AllSet()) {
+        // No values are null
+        if (filter_valid_block.AllSet()) {
+          // Filter is non-null but some values are false
+          CopyBitmap(filter_data, position + filter_offset, block_length, out_is_valid,
+                     position + out_offset);
+        } else {
+          // out = filter_is_valid & filter_data
+          BitmapAnd(filter_is_valid, position + filter_offset, filter_data,
+                    position + filter_offset, block_length, position + out_offset,
+                    out_is_valid);
+        }
+      } else {  // !data_valid_block.AllSet()
+        // Some values are null
+        if (filter_valid_block.AllSet()) {
+          // out = value_is_valid & filter_data
+          BitmapAnd(values_is_valid, position + values_offset, filter_data,
+                    position + filter_offset, block_length, position + out_offset,
+                    out_is_valid);
+        } else {
+          // out = value_is_valid & filter_is_valid & filter_data
+          BitmapAnd(values_is_valid, position + values_offset, filter_is_valid,
+                    position + filter_offset, block_length, position + out_offset,
+                    out_is_valid);
+          BitmapAnd(out_is_valid, position + out_offset, filter_data,
+                    position + filter_offset, block_length, position + out_offset,
+                    out_is_valid);
+        }
+      }
+    }
+    position += block_length;
+  }
+
+  out_arr->null_count =
+      output_length - CountSetBits(out_is_valid, out_offset, output_length);
+  if (out_arr->null_count != 0) {
+    out_arr->buffers[0] = std::move(out_is_valid_buffer);
+  }
+
+  return Status::OK();
+}
+
 Status PrimitiveFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  if (FilterState::Get(ctx).filtered_value_behavior == FilterOptions::KEEP_NULL) {
+    return FilterKeepNullImpl(ctx, batch, out);
+  }
+
   const ArraySpan& values = batch[0].array;
   const ArraySpan& filter = batch[1].array;
   FilterOptions::NullSelectionBehavior null_selection =
@@ -1086,6 +1250,9 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
 #undef APPEND_SINGLE_VALUE
 
 Status BinaryFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  if (FilterState::Get(ctx).filtered_value_behavior) {
+    return FilterKeepNullImpl(ctx, batch, out);
+  }
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
@@ -1148,7 +1315,10 @@ Status NullTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 
 Status NullFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   int64_t output_length =
-      GetFilterOutputSize(batch[1].array, FilterState::Get(ctx).null_selection_behavior);
+      FilterState::Get(ctx).filtered_value_behavior == FilterOptions::KEEP_NULL
+          ? batch[1].length()
+          : GetFilterOutputSize(batch[1].array,
+                                FilterState::Get(ctx).null_selection_behavior);
   out->value = std::make_shared<NullArray>(output_length)->data();
   return Status::OK();
 }
@@ -1317,7 +1487,7 @@ struct Selection {
   template <typename ValidVisitor, typename NullVisitor>
   Status VisitFilter(ValidVisitor&& visit_valid, NullVisitor&& visit_null) {
     auto null_selection = FilterState::Get(ctx).null_selection_behavior;
-
+    auto filtered_value = FilterState::Get(ctx).filtered_value_behavior;
     const uint8_t* filter_data = selection.buffers[1].data;
 
     const uint8_t* filter_is_valid = selection.buffers[0].data;
@@ -1358,7 +1528,12 @@ struct Selection {
       BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
       BitBlockCount values_valid_block = values_valid_counter.NextWord();
       BitBlockCount filter_block = filter_counter.NextWord();
-      if (filter_block.NoneSet() && null_selection == FilterOptions::DROP) {
+      if (filter_block.NoneSet() && filtered_value == FilterOptions::KEEP_NULL) {
+        for (int64_t i = 0; i < filter_block.length; ++i) {
+          RETURN_NOT_OK(AppendNull());
+        }
+        in_position += filter_block.length;
+      } else if (filter_block.NoneSet() && null_selection == FilterOptions::DROP) {
         // For this exceedingly common case in low-selectivity filters we can
         // skip further analysis of the data and move on to the next block.
         in_position += filter_block.length;
@@ -1386,6 +1561,8 @@ struct Selection {
             for (int64_t i = 0; i < filter_block.length; ++i) {
               if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 RETURN_NOT_OK(AppendNotNull(in_position));
+              } else if (filtered_value == FilterOptions::KEEP_NULL) {
+                RETURN_NOT_OK(AppendNull());
               }
               ++in_position;
             }
@@ -1395,15 +1572,27 @@ struct Selection {
             for (int64_t i = 0; i < filter_block.length; ++i) {
               if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 RETURN_NOT_OK(AppendMaybeNull(in_position));
+              } else if (filtered_value == FilterOptions::KEEP_NULL) {
+                RETURN_NOT_OK(AppendNull());
               }
               ++in_position;
             }
           }
         }
       } else {  // !filter_valid_block.AllSet()
-        // Some of the filter values are null, so we have to handle the DROP
-        // versus EMIT_NULL null selection behavior.
-        if (null_selection == FilterOptions::DROP) {
+        if (filtered_value == FilterOptions::KEEP_NULL) {
+          for (int64_t i = 0; i < filter_block.length; ++i) {
+            if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
+                bit_util::GetBit(filter_data, filter_offset + in_position)) {
+              RETURN_NOT_OK(AppendMaybeNull(in_position));
+            } else {
+              RETURN_NOT_OK(AppendNull());
+            }
+            ++in_position;
+          }
+        } else if (null_selection == FilterOptions::DROP) {
+          // Some of the filter values are null, so we have to handle the DROP
+          // versus EMIT_NULL null selection behavior.
           // Filter null values are treated as false.
           for (int64_t i = 0; i < filter_block.length; ++i) {
             if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
@@ -1799,13 +1988,15 @@ struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
 
 // We need a slightly different approach for StructType. For Take, we can
 // invoke Take on each struct field's data with boundschecking disabled. For
-// Filter on the other hand, if we naively call Filter on each field, then the
-// filter output length will have to be redundantly computed. Thus, for Filter
-// we instead convert the filter to selection indices and then invoke take.
+// Filter on the other hand, if we naively call Filter on each
+// field, then the filter output length will have to be redundantly computed. Thus, for
+// Filter we instead convert the filter to selection indices and then invoke take.
+// For Filter with KEEP_NULL we use a separate implementation because it can't be
+// simulated with Take.
 
 // Struct selection implementation. ONLY used for Take
-struct StructImpl : public Selection<StructImpl, StructType> {
-  using Base = Selection<StructImpl, StructType>;
+struct StructTakeImpl : public Selection<StructTakeImpl, StructType> {
+  using Base = Selection<StructTakeImpl, StructType>;
   LIFT_BASE_MEMBERS();
   using Base::Base;
 
@@ -1835,7 +2026,46 @@ struct StructImpl : public Selection<StructImpl, StructType> {
   }
 };
 
+// Struct selection implementation. ONLY used for Filter
+struct StructFilterKeepNullImpl : public Selection<StructFilterKeepNullImpl, StructType> {
+  using Base = Selection<StructFilterKeepNullImpl, StructType>;
+  LIFT_BASE_MEMBERS();
+  using Base::Base;
+
+  template <typename Adapter>
+  Status GenerateOutput() {
+    StructArray typed_values(this->values.ToArrayData());
+    Adapter adapter(this);
+    // There's nothing to do for Struct except to generate the validity bitmap
+    return adapter.Generate([&](int64_t index) { return Status::OK(); },
+                            /*visit_null=*/VisitNoop);
+  }
+
+  Status Finish() override {
+    StructArray typed_values(this->values.ToArrayData());
+
+    // Select from children without boundschecking
+    out->child_data.resize(this->values.type->num_fields());
+    for (int field_index = 0; field_index < this->values.type->num_fields();
+         ++field_index) {
+      ARROW_ASSIGN_OR_RAISE(
+          Datum taken_field,
+          Filter(Datum(typed_values.field(field_index)),
+                 Datum(this->selection.ToArrayData()),
+                 FilterOptions{FilterOptions::DROP, FilterOptions::KEEP_NULL},
+                 ctx->exec_context()));
+      out->child_data[field_index] = taken_field.array();
+    }
+    return Status::OK();
+  }
+};
+
 Status StructFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  auto filtered_value_behavior = FilterState::Get(ctx).filtered_value_behavior;
+  if (filtered_value_behavior == FilterOptions::KEEP_NULL) {
+    return StructFilterKeepNullImpl{ctx, batch, /*output_length=*/batch[1].length(), out}
+        .ExecFilter();
+  }
   // Transform filter to selection indices and then use Take.
   std::shared_ptr<ArrayData> indices;
   RETURN_NOT_OK(GetTakeIndices(batch[1].array,
@@ -1864,8 +2094,18 @@ Result<std::shared_ptr<RecordBatch>> FilterRecordBatch(const RecordBatch& batch,
     return Status::Invalid("Filter inputs must all be the same length");
   }
 
-  // Convert filter to selection vector/indices and use Take
   const auto& filter_opts = *static_cast<const FilterOptions*>(options);
+  if (filter_opts.filtered_value_behavior == FilterOptions::KEEP_NULL) {
+    std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
+    for (int i = 0; i < batch.num_columns(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(Datum out,
+                            Filter(batch.column(i)->data(), filter, filter_opts, ctx));
+      columns[i] = out.make_array();
+    }
+    return RecordBatch::Make(batch.schema(), batch.num_rows(), std::move(columns));
+  }
+
+  // Convert filter to selection vector/indices and use Take
   ARROW_ASSIGN_OR_RAISE(
       std::shared_ptr<ArrayData> indices,
       GetTakeIndices(*filter.array(), filter_opts.null_selection_behavior,
@@ -2319,9 +2559,20 @@ class DropNullMetaFunction : public MetaFunction {
 
 template <typename Impl>
 Status FilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  // KEEP_NULL filters only need to construct a new bitmap and shallow copy other buffers
+  // and child arrays, except for Dense Union which doesn't have bitmaps
+  auto filtered_value = FilterState::Get(ctx).filtered_value_behavior;
+  if (filtered_value == FilterOptions::KEEP_NULL &&
+      out->type()->id() != Type::DENSE_UNION) {
+    return FilterKeepNullImpl(ctx, batch, out);
+  };
+
   // TODO: where are the values and filter length equality checked?
   int64_t output_length =
-      GetFilterOutputSize(batch[1].array, FilterState::Get(ctx).null_selection_behavior);
+      FilterState::Get(ctx).filtered_value_behavior == FilterOptions::KEEP_NULL
+          ? batch[1].length()
+          : GetFilterOutputSize(batch[1].array,
+                                FilterState::Get(ctx).null_selection_behavior);
   Impl kernel(ctx, batch, output_length, out);
   return kernel.ExecFilter();
 }
@@ -2514,7 +2765,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       {InputType(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
       {InputType(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
       {InputType(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
-      {InputType(Type::STRUCT), TakeExec<StructImpl>},
+      {InputType(Type::STRUCT), TakeExec<StructTakeImpl>},
       // TODO: Reuse ListType kernel for MAP
       {InputType(Type::MAP), TakeExec<ListImpl<MapType>>},
   };

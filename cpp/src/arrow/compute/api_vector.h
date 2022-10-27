@@ -43,11 +43,22 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
     EMIT_NULL,
   };
 
-  explicit FilterOptions(NullSelectionBehavior null_selection = DROP);
+  /// Configure the action taken when a value is filtered
+  enum FilteredValueBehavior {
+    /// The corresponding filtered value will be removed in the output.
+    REMOVE,
+    /// The corresponding filtered value will be null in the output. It shadows
+    /// NullSelectionBehavior since no values are dropped at all.
+    KEEP_NULL,
+  };
+
+  explicit FilterOptions(NullSelectionBehavior null_selection = DROP,
+                         FilteredValueBehavior filtered_value = REMOVE);
   static constexpr char const kTypeName[] = "FilterOptions";
   static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
+  FilteredValueBehavior filtered_value_behavior = REMOVE;
 };
 
 class ARROW_EXPORT TakeOptions : public FunctionOptions {

@@ -79,6 +79,8 @@ struct FilterArgs {
   double values_null_proportion = 0.;
   double selected_proportion = 0.;
   double filter_null_proportion = 0.;
+  FilterOptions::NullSelectionBehavior null_selection_behavior = FilterOptions::DROP;
+  FilterOptions::FilteredValueBehavior filtered_value_behavior = FilterOptions::REMOVE;
 
   FilterArgs(benchmark::State& state, bool filter_has_nulls)
       : size(state.range(0)), state_(state) {
@@ -86,6 +88,10 @@ struct FilterArgs {
     values_null_proportion = params.values_null_proportion;
     selected_proportion = params.selected_proportion;
     filter_null_proportion = filter_has_nulls ? params.filter_null_proportion : 0;
+    null_selection_behavior =
+        static_cast<FilterOptions::NullSelectionBehavior>(state.range(2) & 1);
+    filtered_value_behavior =
+        static_cast<FilterOptions::FilteredValueBehavior>((state.range(2) & 2) >> 1);
   }
 
   ~FilterArgs() {
@@ -93,6 +99,7 @@ struct FilterArgs {
     state_.counters["select%"] = selected_proportion * 100;
     state_.counters["data null%"] = values_null_proportion * 100;
     state_.counters["mask null%"] = filter_null_proportion * 100;
+    state_.counters["option"] = (filtered_value_behavior << 1) + null_selection_behavior;
     state_.SetBytesProcessed(state_.iterations() * size);
   }
 
@@ -200,7 +207,10 @@ struct FilterBenchmark {
     auto filter = rand.Boolean(values->length(), args.selected_proportion,
                                args.filter_null_proportion);
     for (auto _ : state) {
-      ABORT_NOT_OK(Filter(values, filter).status());
+      ABORT_NOT_OK(Filter(values, filter,
+                          FilterOptions{args.null_selection_behavior,
+                                        args.filtered_value_behavior})
+                       .status());
     }
   }
 
@@ -234,7 +244,10 @@ struct FilterBenchmark {
 
     auto batch = RecordBatch::Make(schema(fields), num_rows, columns);
     for (auto _ : state) {
-      ABORT_NOT_OK(Filter(batch, filter).status());
+      ABORT_NOT_OK(Filter(batch, filter,
+                          FilterOptions{args.null_selection_behavior,
+                                        args.filtered_value_behavior})
+                       .status());
     }
   }
 };
@@ -310,7 +323,11 @@ static void TakeStringMonotonicIndices(benchmark::State& state) {
 void FilterSetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : g_data_sizes) {
     for (int i = 0; i < static_cast<int>(g_filter_params.size()); ++i) {
-      bench->Args({static_cast<ArgsType>(size), i});
+      for (int null_selection_behavior :
+           {FilterOptions::DROP, FilterOptions::EMIT_NULL}) {
+        bench->Args({static_cast<ArgsType>(size), i, null_selection_behavior});
+      }
+      bench->Args({static_cast<ArgsType>(size), i, FilterOptions::KEEP_NULL << 1});
     }
   }
 }
@@ -325,7 +342,11 @@ BENCHMARK(FilterStringFilterWithNulls)->Apply(FilterSetArgs);
 void FilterRecordBatchSetArgs(benchmark::internal::Benchmark* bench) {
   for (auto num_cols : std::vector<int>({10, 50, 100})) {
     for (int i = 0; i < static_cast<int>(g_filter_params.size()); ++i) {
-      bench->Args({num_cols, i});
+      for (int null_selection_behavior :
+           {FilterOptions::DROP, FilterOptions::EMIT_NULL}) {
+        bench->Args({num_cols, i, null_selection_behavior});
+      }
+      bench->Args({num_cols, i, FilterOptions::KEEP_NULL << 1});
     }
   }
 }

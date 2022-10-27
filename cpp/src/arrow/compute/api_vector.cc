@@ -63,6 +63,21 @@ struct EnumTraits<FilterOptions::NullSelectionBehavior>
   }
 };
 template <>
+struct EnumTraits<FilterOptions::FilteredValueBehavior>
+    : BasicEnumTraits<FilterOptions::FilteredValueBehavior, FilterOptions::REMOVE,
+                      FilterOptions::KEEP_NULL> {
+  static std::string name() { return "FilterOptions::FilteredValueBehavior"; }
+  static std::string value_name(FilterOptions::FilteredValueBehavior value) {
+    switch (value) {
+      case FilterOptions::REMOVE:
+        return "REMOVE";
+      case FilterOptions::KEEP_NULL:
+        return "KEEP_NULL";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
 struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
     : BasicEnumTraits<DictionaryEncodeOptions::NullEncodingBehavior,
                       DictionaryEncodeOptions::ENCODE, DictionaryEncodeOptions::MASK> {
@@ -139,7 +154,8 @@ namespace internal {
 namespace {
 using ::arrow::internal::DataMember;
 static auto kFilterOptionsType = GetFunctionOptionsType<FilterOptions>(
-    DataMember("null_selection_behavior", &FilterOptions::null_selection_behavior));
+    DataMember("null_selection_behavior", &FilterOptions::null_selection_behavior),
+    DataMember("filtered_value_behavior", &FilterOptions::filtered_value_behavior));
 static auto kTakeOptionsType = GetFunctionOptionsType<TakeOptions>(
     DataMember("boundscheck", &TakeOptions::boundscheck));
 static auto kDictionaryEncodeOptionsType =
@@ -168,9 +184,11 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
 }  // namespace
 }  // namespace internal
 
-FilterOptions::FilterOptions(NullSelectionBehavior null_selection)
+FilterOptions::FilterOptions(NullSelectionBehavior null_selection,
+                             FilteredValueBehavior filtered_value)
     : FunctionOptions(internal::kFilterOptionsType),
-      null_selection_behavior(null_selection) {}
+      null_selection_behavior(null_selection),
+      filtered_value_behavior(filtered_value) {}
 constexpr char FilterOptions::kTypeName[];
 
 TakeOptions::TakeOptions(bool boundscheck)

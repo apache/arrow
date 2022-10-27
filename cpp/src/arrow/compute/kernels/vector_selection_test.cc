@@ -23,9 +23,12 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_primitive.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
@@ -174,9 +177,27 @@ std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
   return out_datum.make_array();
 }
 
+std::shared_ptr<Array> CoalesceFalseToNull(std::shared_ptr<Array> filter) {
+  BooleanBuilder builder;
+  auto filter_arr = std::static_pointer_cast<BooleanArray>(filter);
+  for (int i = 0; i < filter_arr->length(); ++i) {
+    if (filter->IsValid(i) && filter_arr->Value(i)) {
+      ARROW_EXPECT_OK(builder.Append(true));
+    } else {
+      ARROW_EXPECT_OK(builder.AppendNull());
+    }
+  }
+
+  EXPECT_OK_AND_ASSIGN(auto result, builder.Finish());
+  return result;
+}
+
 class TestFilterKernel : public ::testing::Test {
  protected:
-  TestFilterKernel() : emit_null_(FilterOptions::EMIT_NULL), drop_(FilterOptions::DROP) {}
+  TestFilterKernel()
+      : emit_null_(FilterOptions::EMIT_NULL),
+        drop_(FilterOptions::DROP),
+        keep_null_(FilterOptions::EMIT_NULL, FilterOptions::KEEP_NULL) {}
 
   void DoAssertFilter(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<Array>& filter,
@@ -197,6 +218,18 @@ class TestFilterKernel : public ::testing::Test {
       ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, coalesced_filter, emit_null_));
       auto expected_for_drop = out_datum.make_array();
       ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, filter, drop_));
+      auto actual = out_datum.make_array();
+      ValidateOutput(*actual);
+      AssertArraysEqual(*expected_for_drop, *actual, /*verbose=*/true);
+    }
+
+    // test with KEEP_NULL using EMIT_NULL and a coalesced filter
+    {
+      ARROW_SCOPED_TRACE("with KEEP_NULL");
+      auto coalesced_filter = CoalesceFalseToNull(filter);
+      ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, coalesced_filter, emit_null_));
+      auto expected_for_drop = out_datum.make_array();
+      ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, filter, keep_null_));
       auto actual = out_datum.make_array();
       ValidateOutput(*actual);
       AssertArraysEqual(*expected_for_drop, *actual, /*verbose=*/true);
@@ -233,7 +266,7 @@ class TestFilterKernel : public ::testing::Test {
                  ArrayFromJSON(type, expected));
   }
 
-  FilterOptions emit_null_, drop_;
+  FilterOptions emit_null_, drop_, keep_null_;
 };
 
 void ValidateFilter(const std::shared_ptr<Array>& values,
