@@ -321,27 +321,16 @@ Result<TypeHolder> ResolveStructFieldType(KernelContext* ctx,
   const auto& field_ref = OptionsWrapper<StructFieldOptions>::Get(ctx).field_ref;
   const DataType* type = types.front().type;
 
-  if (field_ref.IsName()) {
-    for (const auto& path : field_ref.FindAll(*type)) {
-      for (const auto& index : path.indices()) {
-        RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
-        type = type->field(index)->type().get();
-      }
-    }
+  FieldPath field_path;
+  if (field_ref.IsNested() || field_ref.IsName()) {
+    ARROW_ASSIGN_OR_RAISE(field_path, field_ref.FindOne(*type));
   } else {
-    DCHECK(field_ref.IsFieldPath() || field_ref.IsNested());
+    field_path = *field_ref.field_path();
+  }
 
-    FieldPath field_path;
-    if (field_ref.IsNested()) {
-      ARROW_ASSIGN_OR_RAISE(field_path, field_ref.FindOne(*type));
-    } else {
-      field_path = *field_ref.field_path();
-    }
-
-    for (const auto& index : field_path.indices()) {
-      RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
-      type = type->field(index)->type().get();
-    }
+  for (const auto& index : field_path.indices()) {
+    RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
+    type = type->field(index)->type().get();
   }
   return type;
 }

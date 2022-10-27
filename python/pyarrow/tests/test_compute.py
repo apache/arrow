@@ -2708,8 +2708,7 @@ def test_struct_fields_options():
     assert pc.struct_field(arr, [0]) == a
     assert pc.struct_field(arr, []) == arr
 
-    msg = "Field not found in struct: 'foo'"
-    with pytest.raises(pa.ArrowInvalid, match=msg):
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef*"):
         pc.struct_field(arr, 'foo')
 
     with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef*"):
