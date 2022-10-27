@@ -274,27 +274,17 @@ struct StructFieldFunctor {
                              "\nMaybe a bad FieldRef? ", field_ref.ToString());
     }
 
-    if (field_ref.IsName()) {
-      const auto& array = checked_cast<const StructArray&>(*current);
-      current = array.GetFieldByName(*field_ref.name());
-      if (current == nullptr) {
-        return Status::Invalid("Field not found in struct: '", *field_ref.name(), "'");
-      }
+    FieldPath field_path;
+    if (field_ref.IsNested() || field_ref.IsName()) {
+      ARROW_ASSIGN_OR_RAISE(field_path, field_ref.FindOne(*current->type()));
     } else {
-      DCHECK(field_ref.IsFieldPath() || field_ref.IsNested());
+      field_path = *field_ref.field_path();
+    }
 
-      FieldPath field_path;
-      if (field_ref.IsNested()) {
-        ARROW_ASSIGN_OR_RAISE(field_path, field_ref.FindOne(*current->type()));
-      } else {
-        field_path = *field_ref.field_path();
-      }
-
-      for (const auto& idx : field_path.indices()) {
-        ARROW_RETURN_NOT_OK(CheckIndex(idx, *current->type()));
-        const auto& array = checked_cast<const StructArray&>(*current);
-        ARROW_ASSIGN_OR_RAISE(current, array.GetFlattenedField(idx, ctx->memory_pool()));
-      }
+    for (const auto& idx : field_path.indices()) {
+      ARROW_RETURN_NOT_OK(CheckIndex(idx, *current->type()));
+      const auto& array = checked_cast<const StructArray&>(*current);
+      ARROW_ASSIGN_OR_RAISE(current, array.GetFlattenedField(idx, ctx->memory_pool()));
     }
     return current;
   }
