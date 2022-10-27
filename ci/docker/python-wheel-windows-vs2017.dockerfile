@@ -78,9 +78,9 @@ RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
 ARG python=3.8
-RUN (if "%python%"=="3.7" setx PYTHON_VERSION "3.7.15" && setx PATH "%PATH%;C:\Python37;C:\Python37\Scripts") & \
-    (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.15" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.15" && setx PATH "%PATH%;C:\Python39;C:\Python39\Scripts") & \
+RUN (if "%python%"=="3.7" setx PYTHON_VERSION "3.7.9" && setx PATH "%PATH%;C:\Python37;C:\Python37\Scripts") & \
+    (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \
+    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13" && setx PATH "%PATH%;C:\Python39;C:\Python39\Scripts") & \
     (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.8" && setx PATH "%PATH%;C:\Python310;C:\Python310\Scripts") & \
     (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.0" && setx PATH "%PATH%;C:\Python311;C:\Python311\Scripts")
 RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
