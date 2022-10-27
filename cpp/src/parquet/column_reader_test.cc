@@ -1043,14 +1043,14 @@ TEST_F(RecordReaderTest, SkipPartialRecord) {
   }
 }
 
-// Test that Skip works on ByteArrays. Specifically, this is testing
+// Test that SkipRecords works on ByteArrays. Specifically, this is testing
 // ReadAndThrowAwayValues for ByteArrays.
 TEST(RecordReaderByteArrayTest, SkipByteArray) {
   internal::LevelInfo level_info;
   level_info.def_level = 1;
   level_info.rep_level = 0;
 
-  // Must use REPEATED to excercise ReadAndThrowAwayValues for ByteArrays. It
+  // Must use REPEATED to exercise ReadAndThrowAwayValues for ByteArrays. It
   // does not do any buffering for Optional or Required fields as it calls
   // ResetValues after every read.
   NodePtr type = schema::ByteArray("b", Repetition::OPTIONAL);

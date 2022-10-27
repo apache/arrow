@@ -1350,11 +1350,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     if (gap == 0) return;
 
     int64_t levels_remaining = levels_written_ - gap;
-    int64_t destination = levels_position_ - gap;
 
     auto left_shift = [=](::arrow::ResizableBuffer* buffer) {
       int16_t* data = reinterpret_cast<int16_t*>(buffer->mutable_data());
-      std::copy(data + levels_position_, data + levels_written_, data + destination);
+      std::copy(data + levels_position_, data + levels_written_,
+                data + start_levels_position);
       PARQUET_THROW_NOT_OK(buffer->Resize(levels_remaining * sizeof(int16_t),
                                           /*shrink_to_fit=*/false));
     };
@@ -1427,11 +1427,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t start_levels_position = levels_position_;
     int64_t values_seen = 0;
     int64_t skipped_records = DelimitRecords(num_records, &values_seen);
-    if (ReadAndThrowAwayValues(values_seen) != values_seen) {
-      std::stringstream ss;
-      ss << "Could not read and throw away " << values_seen << " values";
-      throw ParquetException(ss.str());
-    }
+    ReadAndThrowAwayValues(values_seen);
     // Mark those levels and values as consumed in the the underlying page.
     // This must be done before we throw away levels since it updates
     // levels_position_ and levels_written_.
@@ -1459,7 +1455,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t level_batch_size =
         std::max<int64_t>(kMinLevelBatchSize, num_records - skipped_records);
 
-    // If 'at_record_start_' is false, but (skip_records == num_records), it
+    // If 'at_record_start_' is false, but (skipped_records == num_records), it
     // means that for the last record that was counted, we have not seen all
     // of it's values yet.
     while (!at_record_start_ || skipped_records < num_records) {
@@ -1508,7 +1504,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   // Read 'num_values' values and throw them away.
-  int64_t ReadAndThrowAwayValues(int64_t num_values) {
+  // Throws an error if it could not read 'num_values'.
+  void ReadAndThrowAwayValues(int64_t num_values) {
     int64_t values_left = num_values;
     int64_t batch_size = kMinLevelBatchSize;  // ReadBatch with a smaller memory footprint
     int64_t values_read = 0;
@@ -1524,7 +1521,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
           this->ReadValues(batch_size, reinterpret_cast<T*>(scratch->mutable_data()));
       values_left -= values_read;
     } while (values_read > 0 && values_left > 0);
-    return num_values - values_left;
+    if (values_left > 0) {
+      std::stringstream ss;
+      ss << "Could not read and throw away " << num_values << " values";
+      throw ParquetException(ss.str());
+    }
   }
 
   int64_t SkipRecords(int64_t num_records) override {
