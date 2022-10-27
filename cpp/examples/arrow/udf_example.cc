@@ -148,6 +148,7 @@ struct SimpleCountImpl : public ScalarUdfAggregator {
 
   arrow::Status MergeFrom(cp::KernelContext*, cp::KernelState&& src) override {
     const auto& other_state = arrow::internal::checked_cast<const SimpleCountImpl&>(src);
+    std::cout << "This non_nulls: " << this->non_nulls << std::endl;
     this->non_nulls += other_state.non_nulls;
     return arrow::Status::OK();
   }

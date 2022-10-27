@@ -51,6 +51,9 @@ struct ARROW_PYTHON_EXPORT ScalarUdfContext {
 struct ARROW_PYTHON_EXPORT ScalarAggregateUdfContext {
   MemoryPool* pool;
   int64_t batch_length;
+  // TODO: do we need to standardize this
+  // Meaning: do we have to Create a PythonAggregateState object or something separately.
+  PyObject* state;
 };
 
 
@@ -62,11 +65,12 @@ Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* user_function,
                                                   ScalarUdfWrapperCallback wrapper,
                                                   const ScalarUdfOptions& options);
 
-using ScalarAggregateConsumeUdfWrapperCallback = std::function<void(
+using ScalarAggregateInitUdfWrapperCallback = std::function<PyObject*(PyObject* init_function)>;
+using ScalarAggregateConsumeUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_consume_func, const ScalarAggregateUdfContext& context, PyObject* inputs)>;
 
-using ScalarAggregateMergeUdfWrapperCallback = std::function<void(
-    PyObject* user_merge_func, const ScalarAggregateUdfContext& context)>;
+using ScalarAggregateMergeUdfWrapperCallback = std::function<PyObject*(
+    PyObject* user_merge_func, const ScalarAggregateUdfContext& context, PyObject* current_state, PyObject* other_state)>;
 
 using ScalarAggregateFinalizeUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_finalize_func, const ScalarAggregateUdfContext& context)>;
@@ -78,6 +82,8 @@ Status ARROW_PYTHON_EXPORT RegisterScalarAggregateFunction(PyObject* consume_fun
                                                   ScalarAggregateMergeUdfWrapperCallback merge_wrapper,
                                                   PyObject* finalize_function,
                                                   ScalarAggregateFinalizeUdfWrapperCallback finalize_wrapper,
+                                                  PyObject* init_function,
+                                                  ScalarAggregateInitUdfWrapperCallback init_wrapper,
                                                   const ScalarUdfOptions& options);
 
 

@@ -507,55 +507,49 @@ def test_input_lifetime(unary_func_fixture):
 
 
 def test_aggregate_udf():
-    
-    class SimpleCount:
-        
-        def __init__(self):
-            self._count = 0
-            
-        def consume(self, ctx, x):
-            if isinstance(x, pa.Array):
-                self._count = self._count + len(x)
-            elif isinstance(x, pa.Scalar):
-                self._count = self._count + 1
-                
-        def merge(self, ctx):
-            pass
-        
-        def finalize(self, ctx):
-            return pa.scalar(self._count)
-    
-    
+
+    class State:
+        def __init__(self, count):
+            self._count = count
+
+        @property
+        def count(self):
+            return self._count
+
+        @count.setter
+        def count(self, value):
+            self._count = value
+
+    def init():
+        return pa.array([0])
+
     def consume(ctx, x):
         if isinstance(x, pa.Array):
-            print("consume: array: ", len(x) + 1)
+            count = len(x)
         elif isinstance(x, pa.Scalar):
-            print(1)
-                
-    def merge(ctx):
-        print("call merge")
-        pass
-    
+            count = 1
+        return pc.add(pa.array([count]), ctx.state)
+
+    def merge(ctx, current_state, other_state):
+        new_state = pc.add(current_state, other_state)
+        return pa.array([new_state.as_py()])
+
     def finalize(ctx):
-        print("call finalize")
-        return pa.array([10])
-    
+        return ctx.state
+
     func_name = "simple_count"
     unary_doc = {"summary": "count function",
                  "description": "test agg count function"}
-    simple_count = SimpleCount()
-    pc.register_scalar_aggregate_function(consume,
+
+    pc.register_scalar_aggregate_function(init,
+                                          consume,
                                           merge,
                                           finalize,
-                                func_name,
-                                unary_doc,
-                                {"array": pa.int64()},
-                                pa.int64())
-    
+                                          func_name,
+                                          unary_doc,
+                                          {"array": pa.int64()},
+                                          pa.int64())
+
     print(pc.get_function(func_name))
-    
-    pc.call_function(func_name, [pa.array([10, 20])])
-    
-    
-    
-    
+
+    print(pc.call_function(func_name, [pa.array([10, 20])]))

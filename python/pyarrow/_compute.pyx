@@ -2512,6 +2512,20 @@ cdef class ScalarAggregateUdfContext:
         """
         return box_memory_pool(self.c_context.pool)
 
+    @property
+    def state(self):
+        """
+        An object which maintains the state of aggregation
+        """
+        obj = <object>self.c_context.state
+        if obj is None:
+            raise RuntimeError("Error occurred in extracting state")
+        return obj
+
+    @state.setter
+    def state(self, value):
+        self.c_context.state = <PyObject*>value
+
 
 cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     """
@@ -2565,13 +2579,13 @@ cdef _scalar_agg_consume_udf_callback(consume_function, const CScalarAggregateUd
     return consume_function(context, *inputs)
 
 
-cdef _scalar_agg_merge_udf_callback(merge_function, const CScalarAggregateUdfContext& c_context):
+cdef _scalar_agg_merge_udf_callback(merge_function, const CScalarAggregateUdfContext& c_context, current_state, other_state):
     """
     Helper aggregate merge callback function used to wrap the ScalarAggregateUdfContext from Python to C++
     execution.
     """
     context = box_scalar_udf_agg_context(c_context)
-    return merge_function(context)
+    return merge_function(context, *current_state, *other_state)
 
 
 cdef _scalar_agg_finalize_udf_callback(finalize_function, const CScalarAggregateUdfContext& c_context):
@@ -2581,6 +2595,13 @@ cdef _scalar_agg_finalize_udf_callback(finalize_function, const CScalarAggregate
     """
     context = box_scalar_udf_agg_context(c_context)
     return finalize_function(context)
+
+cdef _scalar_agg_init_udf_callback(init_function):
+    """
+    Helper aggregate initialize callback function used to wrap the ScalarAggregateUdfContext from Python to C++
+    execution.
+    """
+    return init_function()
 
 
 def _get_scalar_udf_context(memory_pool, batch_length):
@@ -2715,25 +2736,31 @@ def register_scalar_function(func, function_name, function_doc, in_types,
                                         <function[CallbackUdf]> &_scalar_udf_callback, c_options))
 
 
-def register_scalar_aggregate_function(consume_func, merge_func, finalize_func, 
-    function_name, function_doc, in_types, out_type):
+def register_scalar_aggregate_function(init_func, consume_func, merge_func, finalize_func,
+                                       function_name, function_doc, in_types, out_type):
 
     cdef:
         c_string c_func_name
         CArity c_arity
         CFunctionDoc c_func_doc
         vector[shared_ptr[CDataType]] c_in_types
+        PyObject* c_init_function
         PyObject* c_consume_function
         PyObject* c_merge_function
         PyObject* c_finalize_function
         shared_ptr[CDataType] c_out_type
         CScalarUdfOptions c_options
 
+    if callable(init_func):
+        c_init_function = <PyObject*>init_func
+    else:
+        raise TypeError("init_func must be a callable")
+
     if callable(consume_func):
         c_consume_function = <PyObject*>consume_func
     else:
         raise TypeError("consume_func must be a callable")
-    
+
     if callable(merge_func):
         c_merge_function = <PyObject*>merge_func
     else:
@@ -2780,9 +2807,11 @@ def register_scalar_aggregate_function(consume_func, merge_func, finalize_func,
     c_options.output_type = c_out_type
 
     check_status(RegisterScalarAggregateFunction(c_consume_function,
-                                        <function[CallbackAggConsumeUdf]> &_scalar_agg_consume_udf_callback,
-                                        c_merge_function,
-                                        <function[CallbackAggMergeUdf]> &_scalar_agg_merge_udf_callback,
-                                        c_finalize_function,
-                                        <function[CallbackAggFinalizeUdf]> &_scalar_agg_finalize_udf_callback,
-                                        c_options))
+                                                 <function[CallbackAggConsumeUdf]> &_scalar_agg_consume_udf_callback,
+                                                 c_merge_function,
+                                                 <function[CallbackAggMergeUdf]> &_scalar_agg_merge_udf_callback,
+                                                 c_finalize_function,
+                                                 <function[CallbackAggFinalizeUdf]> &_scalar_agg_finalize_udf_callback,
+                                                 c_init_function,
+                                                 <function[CallbackAggInitUdf]> &_scalar_agg_init_udf_callback,
+                                                 c_options))
