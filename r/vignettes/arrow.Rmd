@@ -139,8 +139,8 @@ dataset_path <- file.path(tempdir(), "random_data")
 We can then use `group_by()` function from `dplyr` to specify that the data will be partitioned using the `subset` column, and then pass the grouped data to `write_dataset()`:
 
 ```{r}
-random_data |>
-  group_by(subset) |>
+random_data %>%
+  group_by(subset) %>%
   write_dataset(dataset_path)
 ```
 
@@ -167,11 +167,11 @@ To learn more about Arrow Datasets, see `vignette("dataset", package = "arrow")`
 Arrow Tables and Datasets can be analyzed using `dplyr` syntax. This is possible because the `arrow` R package supplies a backend that translates `dplyr` verbs into commands that are understood by the Arrow C++ library, and will similarly translate R expressions that appear within a call to a `dplyr` verb. For example, although the `dset` Dataset is not a data frame (and does not store the data values in memory), you can still pass it to a `dplyt` pipeline like the one shown below:
 
 ```{r}
-dset |>
-  group_by(subset) |> 
-  summarize(mean_x = mean(x), min_y = min(y)) |>
-  filter(mean_x > 0) |>
-  arrange(subset) |>
+dset %>%
+  group_by(subset) %>% 
+  summarize(mean_x = mean(x), min_y = min(y)) %>%
+  filter(mean_x > 0) %>%
+  arrange(subset) %>%
   collect()
 ```
 

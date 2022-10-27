@@ -133,16 +133,16 @@ month: int32
 Now that we have a Dataset object that refers to out data, we can construct `dplyr`-style queries. This is possible because `arrow` supplies a back end that allows users to manipulate tabular Arrow data using `dplyr` verbs. Here's an example: suppose you are curious about tipping behavior in the longest taxi rides. Let's find the median tip percentage for rides with fares greater than $100 in 2015, broken down by the number of passengers:
 
 ```{r, eval = file.exists("nyc-taxi")}
-system.time(ds |>
-  filter(total_amount > 100, year == 2015) |>
-  select(tip_amount, total_amount, passenger_count) |>
-  mutate(tip_pct = 100 * tip_amount / total_amount) |>
-  group_by(passenger_count) |>
+system.time(ds %>%
+  filter(total_amount > 100, year == 2015) %>%
+  select(tip_amount, total_amount, passenger_count) %>%
+  mutate(tip_pct = 100 * tip_amount / total_amount) %>%
+  group_by(passenger_count) %>%
   summarise(
     median_tip_pct = median(tip_pct),
     n = n()
-  ) |>
-  collect() |>
+  ) %>%
+  collect() %>%
   print())
 ```
 
@@ -174,11 +174,11 @@ There are three reasons `arrow` can accomplish this task so quickly:
 First, `arrow` adopts a lazy evaluation approach to queries: when `dplyr` verbs are called on the Dataset, they record their actions but do not evaluate those actions on the data until you run `collect()`. We can see this by taking the same code as before and leaving off the final step:
 
 ```{r, eval = file.exists("nyc-taxi")}
-ds |>
-  filter(total_amount > 100, year == 2015) |>
-  select(tip_amount, total_amount, passenger_count) |>
-  mutate(tip_pct = 100 * tip_amount / total_amount) |>
-  group_by(passenger_count) |>
+ds %>%
+  filter(total_amount > 100, year == 2015) %>%
+  select(tip_amount, total_amount, passenger_count) %>%
+  mutate(tip_pct = 100 * tip_amount / total_amount) %>%
+  group_by(passenger_count) %>%
   summarise(
     median_tip_pct = median(tip_pct),
     n = n()
@@ -216,11 +216,11 @@ As an example, to randomly sample a Dataset, use `map_batches` to sample a
 percentage of rows from each batch:
 
 ```{r, eval = file.exists("nyc-taxi")}
-sampled_data <- ds |>
-  filter(year == 2015) |>
-  select(tip_amount, total_amount, passenger_count) |>
-  map_batches(~ as_record_batch(sample_frac(as.data.frame(.), 1e-4))) |>
-  mutate(tip_pct = tip_amount / total_amount) |>
+sampled_data <- ds %>%
+  filter(year == 2015) %>%
+  select(tip_amount, total_amount, passenger_count) %>%
+  map_batches(~ as_record_batch(sample_frac(as.data.frame(.), 1e-4))) %>%
+  mutate(tip_pct = tip_amount / total_amount) %>%
   collect()
 
 str(sampled_data)
@@ -244,19 +244,19 @@ and then use `map_batches` to compute the MSE on the full Dataset.
 ```{r, eval = file.exists("nyc-taxi")}
 model <- lm(tip_pct ~ total_amount + passenger_count, data = sampled_data)
 
-ds |>
-  filter(year == 2015) |>
-  select(tip_amount, total_amount, passenger_count) |>
-  mutate(tip_pct = tip_amount / total_amount) |>
+ds %>%
+  filter(year == 2015) %>%
+  select(tip_amount, total_amount, passenger_count) %>%
+  mutate(tip_pct = tip_amount / total_amount) %>%
   map_batches(function(batch) {
-    batch |>
-      as.data.frame() |>
-      mutate(pred_tip_pct = predict(model, newdata = .)) |>
-      filter(!is.nan(tip_pct)) |>
-      summarize(sse_partial = sum((pred_tip_pct - tip_pct)^2), n_partial = n()) |>
+    batch %>%
+      as.data.frame() %>%
+      mutate(pred_tip_pct = predict(model, newdata = .)) %>%
+      filter(!is.nan(tip_pct)) %>%
+      summarize(sse_partial = sum((pred_tip_pct - tip_pct)^2), n_partial = n()) %>%
       as_record_batch()
-  }) |>
-  summarize(mse = sum(sse_partial) / sum(n_partial)) |>
+  }) %>%
+  summarize(mse = sum(sse_partial) / sum(n_partial)) %>%
   pull(mse)
 ```
 
@@ -344,8 +344,8 @@ One natural way to express the columns you want to partition on is to use the
 `group_by()` method:
 
 ```r
-ds |>
-  group_by(payment_type) |>
+ds %>%
+  group_by(payment_type) %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
@@ -380,8 +380,8 @@ and you just want to drop the rest and have a smaller working set.
 For this, you can `filter()` them out when writing:
 
 ```r
-ds |>
-  filter(payment_type == "Cash") |>
+ds %>%
+  filter(payment_type == "Cash") %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
@@ -390,9 +390,9 @@ or reorder them. Suppose you never care about `vendor_id`, and being a string co
 it can take up a lot of space when you read it in, so let's drop it:
 
 ```r
-ds |>
-  group_by(payment_type) |>
-  select(-vendor_id) |>
+ds %>%
+  group_by(payment_type) %>%
+  select(-vendor_id) %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
