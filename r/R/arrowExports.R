@@ -2048,8 +2048,8 @@ Table__from_record_batches <- function(batches, schema_sxp) {
   .Call(`_arrow_Table__from_record_batches`, batches, schema_sxp)
 }
 
-Table__from_schema <- function(schema_sxp) {
-  .Call(`_arrow_Table__from_schema`, schema_sxp)
+Table__from_schema <- function(schema) {
+  .Call(`_arrow_Table__from_schema`, schema)
 }
 
 Table__ReferencedBufferSize <- function(table) {

@@ -5152,11 +5152,11 @@ BEGIN_CPP11
 END_CPP11
 }
 // table.cpp
-std::shared_ptr<arrow::Table> Table__from_schema(SEXP schema_sxp);
-extern "C" SEXP _arrow_Table__from_schema(SEXP schema_sxp_sexp){
+std::shared_ptr<arrow::Table> Table__from_schema(const std::shared_ptr<arrow::Schema>& schema);
+extern "C" SEXP _arrow_Table__from_schema(SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::Input<SEXP>::type schema_sxp(schema_sxp_sexp);
-	return cpp11::as_sexp(Table__from_schema(schema_sxp));
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return cpp11::as_sexp(Table__from_schema(schema));
 END_CPP11
 }
 // table.cpp
