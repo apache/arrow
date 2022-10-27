@@ -31,13 +31,13 @@ COPY ci/conda_env_archery.txt /arrow/ci/
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
         "python>=3.7" \
-        numpy \
         compilers \
         maven=${maven} \
         nodejs=${node} \
-        yarn \
+        numpy \
         openjdk=${jdk} \
         sccache && \
+        yarn \
     mamba clean --all --force-pkgs-dirs
 
 # Install Rust with only the needed components
