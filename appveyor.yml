@@ -28,6 +28,9 @@ only_commits:
     - format/
     - python/
 
+cache:
+  - C:\Users\appveyor\AppData\Local\ccache
+
 matrix:
   fast_finish: true
 
@@ -55,6 +58,4 @@ build_script:
 test: off
 
 after_build:
-  # Try to get the info about the cache directory
-  - ccache -s -p
-  - sccache -s -p
+  - ccache -s
