@@ -38,6 +38,7 @@ jobs:
       R_IMAGE: {{ MATRIX }}
       R_TAG: "latest"
       ARROW_R_DEV: "FALSE"
+    {{ macros.github_set_sccache_envvars()|indent(4)}}  
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
