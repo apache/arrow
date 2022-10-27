@@ -24,7 +24,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // altrep.cpp
-logicals test_arrow_altrep_is_materialized(sexp x);
+sexp test_arrow_altrep_is_materialized(sexp x);
 extern "C" SEXP _arrow_test_arrow_altrep_is_materialized(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<sexp>::type x(x_sexp);
