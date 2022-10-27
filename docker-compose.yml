@@ -1799,8 +1799,8 @@ services:
       USE_CONDA: 1
     command: >
       /bin/bash -c "
-        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
         apt update -y && apt install -y curl git gnupg tzdata wget &&
+        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
         git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
