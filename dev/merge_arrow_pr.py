@@ -111,7 +111,8 @@ def strip_ci_directives(commit_message):
 
 
 def git_default_branch_name():
-    return run_cmd("git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@")
+    default_reference = run_cmd("git rev-parse --abbrev-ref origin/HEAD")
+    return default_reference.lstrip("origin/")
 
 
 def fix_version_from_branch(branch, versions):
