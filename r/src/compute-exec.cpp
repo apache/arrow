@@ -170,13 +170,13 @@ class ExecPlanReader : public arrow::RecordBatchReader {
           [&plan] { return [plan](const arrow::Status&) {}; });
 
       if (not_finished_yet) {
-        // plan_->StopProducing();
+        plan_->StopProducing();
       }
     }
 
     plan_status_ = PLAN_FINISHED;
-    plan_.reset();
-    sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
+    // plan_.reset();
+    // sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
   }
 };
 
