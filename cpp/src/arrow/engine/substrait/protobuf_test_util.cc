@@ -22,6 +22,13 @@
 namespace arrow {
 namespace engine {
 
+// A global test "environment", to ensure that the Protobuf API is finalized after
+// running unit tests by invoking google::protobuf::ShutdownProtobufLibrary.
+// This will prevent leaks in valgrind tests because it will delete the global objects
+// that were allocated by the Protocol Buffer library (see
+// "protobuf::ShutdownProtobufLibrary" in
+// https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.message_lite#ShutdownProtobufLibrary.details)
+
 class ProtobufEnvironment : public ::testing::Environment {
  public:
   void SetUp() override { GOOGLE_PROTOBUF_VERIFY_VERSION; }
