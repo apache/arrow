@@ -127,20 +127,20 @@ TEST(TestScalarNested, ListSliceVariableOutput) {
   const auto value_types = {float32(), int32()};
   for (auto value_type : value_types) {
     /* Variable list size output required variable size list input. */
-    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6]]")};
+    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]")};
     for (auto input : inputs) {
       ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
                             /*return_fixed_size_list=*/false);
-      auto expected = ArrayFromJSON(list(value_type), "[[1, 2], [4, 5], [6]]");
+      auto expected = ArrayFromJSON(list(value_type), "[[1, 2], [4, 5], [6], null]");
       CheckListSlice(input, expected, args);
 
       args.start = 1;
-      expected = ArrayFromJSON(list(value_type), "[[2], [5], []]");
+      expected = ArrayFromJSON(list(value_type), "[[2], [5], [], null]");
       CheckListSlice(input, expected, args);
 
       args.start = 2;
       args.stop = 4;
-      expected = ArrayFromJSON(list(value_type), "[[3], [], []]");
+      expected = ArrayFromJSON(list(value_type), "[[3], [], [], null]");
       CheckListSlice(input, expected, args);
     }
   }
@@ -161,24 +161,25 @@ TEST(TestScalarNested, ListSliceVariableOutput) {
 TEST(TestScalarNested, ListSliceFixedOutput) {
   const auto value_types = {float32(), int32()};
   for (auto value_type : value_types) {
-    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6]]"),
+    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]"),
                    ArrayFromJSON(fixed_size_list(value_type, 3),
-                                 "[[1, 2, 3], [4, 5, null], [6, null, null]]")};
+                                 "[[1, 2, 3], [4, 5, null], [6, null, null], null]")};
     for (auto input : inputs) {
       ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
                             /*return_fixed_size_list=*/true);
-      auto expected =
-          ArrayFromJSON(fixed_size_list(value_type, 2), "[[1, 2], [4, 5], [6, null]]");
+      auto expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                                    "[[1, 2], [4, 5], [6, null], null]");
       CheckListSlice(input, expected, args);
 
       args.start = 1;
-      expected = ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null]]");
+      expected =
+          ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null], null]");
       CheckListSlice(input, expected, args);
 
       args.start = 2;
       args.stop = 4;
       expected = ArrayFromJSON(fixed_size_list(value_type, 2),
-                               "[[3, null], [null, null], [null, null]]");
+                               "[[3, null], [null, null], [null, null], null]");
       CheckListSlice(input, expected, args);
     }
   }
