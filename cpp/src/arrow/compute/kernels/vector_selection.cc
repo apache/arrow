@@ -793,60 +793,9 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
   bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
 }
 
-// // Construct a filter for each type and call Filter on child arrays.
-// Status FilterKeepNullDenseUnionImpl(KernelContext* ctx, const ExecSpan& batch,
-//                                     ExecResult* out) {
-//   const auto& values = batch[0].array;
-//   const auto num_children = values.child_data.size();
-//   const auto* values_types = values.GetValues<int8_t>(1);
-//   std::vector<std::shared_ptr<Buffer>> child_filter_buffers(num_children);
-//   for (size_t i = 0; i < num_children; ++i) {
-//     ARROW_ASSIGN_OR_RAISE(child_filter_buffers[i],
-//                           ctx->AllocateBitmap(values.child_data[i].length));
-//   }
-//   const auto& filter = batch[1].array;
-//   const auto filter_offset = filter.offset;
-//   const auto* filter_is_valid = filter.buffers[0].data;
-//   const auto* filter_data = filter.buffers[1].data;
-//   for (int64_t i = 0; i < filter.length; ++i) {
-//     auto type_index = values_types[i];
-//     std::vector<int64_t> child_positions(num_children, 0);
-//     auto filter_value_is_valid =
-//         filter_is_valid ? bit_util::GetBit(filter_is_valid, i + filter_offset) : true;
-//     if (filter_value_is_valid && bit_util::GetBit(filter_data, i + filter_offset)) {
-//       bit_util::SetBit(child_filter_buffers[type_index]->mutable_data(),
-//                        child_positions[type_index]++);
-//     }
-//   }
-
-//   auto* out_arr = out->array_data().get();
-//   out_arr->length = values.length;
-//   out_arr->offset = values.offset;
-//   for (size_t i : {1, 2}) {
-//     out_arr->buffers[i] = *values.buffers[i].owner;
-//   }
-//   out_arr->child_data.resize(num_children);
-//   for (size_t i = 0; i < num_children; ++i) {
-//     ARROW_ASSIGN_OR_RAISE(
-//         auto filtered_datum,
-//         Filter(values.child_data[i].ToArrayData(),
-//                ArrayData::Make(arrow::boolean(), values.child_data[i].length,
-//                                {child_filter_buffers[i]}),
-//                FilterState::Get(ctx), ctx->exec_context()));
-//     out_arr->child_data[i] = filtered_datum.make_array()->data();
-//   }
-//   ARROW_LOG(INFO) << "values: " << values.ToArray()->ToString();
-//   ARROW_LOG(INFO) << "filter: " << filter.ToArray()->ToString();
-//   ARROW_LOG(INFO) << "out: " << MakeArray(out->array_data())->ToString();
-//   return Status::OK();
-// }
-
 // KEEP_NULL filters only need to construct a new bitmap and shallow copy other buffers
 // and child arrays, except for Dense Union which doesn't have bitmaps
 Status FilterKeepNullImpl(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  // if (out->type()->id() == Type::DENSE_UNION) {
-  //   return FilterKeepNullDenseUnionImpl(ctx, batch, out);
-  // }
   const auto& values = batch[0].array;
   const auto* values_is_valid = values.buffers[0].data;
   const auto values_offset = values.offset;
