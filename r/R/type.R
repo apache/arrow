@@ -37,8 +37,8 @@ DataType <- R6Class("DataType",
     ToString = function() {
       DataType__ToString(self)
     },
-    Equals = function(other, ...) {
-      inherits(other, "DataType") && DataType__Equals(self, other)
+    Equals = function(other, check_metadata = FALSE, check_internal_field_names = FALSE, ...) {
+      inherits(other, "DataType") && DataType__Equals(self, other, isTRUE(check_metadata), isTRUE(check_internal_field_names))
     },
     fields = function() {
       DataType__fields(self)
