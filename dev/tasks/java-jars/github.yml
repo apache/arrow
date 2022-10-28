@@ -36,13 +36,7 @@ jobs:
             -e ARROW_JAVA_TEST=OFF \
             java-jni-manylinux-2014
       - name: Compress into single artifact to keep directory structure
-        run: |
-          mkdir -p /tmp/arrow/java-dist/x86_64
-          cp arrow/java-dist/*.* /tmp/arrow/java-dist/x86_64/
-          pushd /tmp/
-          tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/x86_64/
-          popd
-          mv /tmp/arrow-shared-libs-linux.tar.gz .
+        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -95,12 +89,9 @@ jobs:
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
-            $GITHUB_WORKSPACE/arrow/java-dist
+            $GITHUB_WORKSPACE/arrow/java-dist/{{ arch }}
       - name: Compress into single artifact to keep directory structure
-        run: |
-          mkdir -p arrow/java-dist/{{ arch }}
-          mv arrow/java-dist/*.* arrow/java-dist/{{ arch }}/
-          tar -cvzf arrow-shared-libs-macos-{{ arch }}.tar.gz arrow/java-dist/
+        run: tar -cvzf arrow-shared-libs-macos-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -131,13 +122,10 @@ jobs:
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           REM For ORC
           set TZDIR=/c/msys64/usr/share/zoneinfo
-          bash -c "arrow/ci/scripts/java_jni_windows_build.sh $(pwd)/arrow $(pwd)/arrow/cpp-build $(pwd)/arrow/java-dist"
+          bash -c "arrow/ci/scripts/java_jni_windows_build.sh $(pwd)/arrow $(pwd)/arrow/cpp-build $(pwd)/arrow/java-dist/x86_64"
       - name: Compress into single artifact to keep directory structure
         shell: bash
-        run: |
-          mkdir -p arrow/java-dist/x86_64
-          mv arrow/java-dist/*.* arrow/java-dist/x86_64/
-          tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/x86_64/
+        run: tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -148,8 +136,8 @@ jobs:
     name: Build jar files
     runs-on: macos-latest
     needs:
-      - build-cpp-macos
       - build-cpp-ubuntu
+      - build-cpp-macos
       - build-cpp-windows
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
@@ -194,9 +182,6 @@ jobs:
           arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/java-dist
-      {{ macros.github_upload_releases(["arrow/java-dist/x86_64/*.jar",
-                                        "arrow/java-dist/x86_64/*.pom",
-                                        "arrow/java-dist/x86_64/*.zip",
-                                        "arrow/java-dist/aarch_64/*.jar",
-                                        "arrow/java-dist/aarch_64/*.pom",
-                                        "arrow/java-dist/aarch_64/*.zip"])|indent }}
+      {{ macros.github_upload_releases(["arrow/java-dist/*/*.jar",
+                                        "arrow/java-dist/*/*.pom",
+                                        "arrow/java-dist/*/*.zip"])|indent }}
