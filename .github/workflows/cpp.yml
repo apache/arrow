@@ -342,6 +342,7 @@ jobs:
       # We can't use unity build because we don't have enough memory on
       # GitHub Actions.
       # CMAKE_UNITY_BUILD: ON
+      GTest_SOURCE: BUNDLED
     steps:
       - name: Disable Crash Dialogs
         run: |
