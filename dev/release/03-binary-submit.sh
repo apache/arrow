@@ -25,8 +25,8 @@ if [ "$#" -ne 2 ]; then
 fi
 
 version=$1
-rc_number=$2
-version_with_rc="${version}-rc${rc_number}"
+rc=$2
+version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
 release_tag="apache-arrow-${version}"
 rc_branch="release-${version_with_rc}"
