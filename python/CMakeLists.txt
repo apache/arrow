@@ -232,6 +232,19 @@ include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
 # Dependencies
 #
 
+if(ARROW_PROTOBUF_USE_SHARED)
+  find_package(Protobuf)
+  include_directories(${PROTOBUF_INCLUDE_DIRS})
+  get_property(dirs DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
+  foreach(dir ${dirs})
+    message("dir='${dir}'")
+  endforeach()
+  get_cmake_property(_variableNames VARIABLES)
+  foreach (_variableName ${_variableNames})
+    message("${_variableName}=${${_variableName}}")
+  endforeach()
+endif()
+
 if(PYARROW_BUILD_FLIGHT)
   set(ARROW_FLIGHT TRUE)
 endif()
