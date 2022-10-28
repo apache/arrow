@@ -991,6 +991,18 @@ def test_map_labelled():
     assert len(arr) == 2
 
 
+def test_map_from_dict():
+    # ARROW-17832
+    tup_arr = pa.array([[('a', 1), ('b', 2)], [('c', 3)]],
+                       pa.map_(pa.string(), pa.int64()))
+    dict_arr = pa.array([{'a': 1, 'b': 2}, {'c': 3}],
+                        pa.map_(pa.string(), pa.int64()))
+
+    assert tup_arr.type.key_field == dict_arr.type.key_field
+    assert tup_arr.type.item_field == dict_arr.type.item_field
+    assert tup_arr == dict_arr
+
+
 def test_map_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
     offsets = pa.array(offsets_arr, type='int32')
