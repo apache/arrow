@@ -397,6 +397,8 @@ install_go() {
 
   if command -v go > /dev/null; then
     show_info "Found $(go version) at $(command -v go)"
+    export GOPATH=${ARROW_TMPDIR}/gopath
+    mkdir -p $GOPATH
     return 0
   fi
 
@@ -427,7 +429,8 @@ install_go() {
   export GOROOT=${prefix}/go
   export GOPATH=${prefix}/gopath
   export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-
+  
+  mkdir -p $GOPATH
   show_info "$(go version) installed at $(which go)"
 
   GO_ALREADY_INSTALLED=1
