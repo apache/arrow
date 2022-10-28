@@ -3,10 +3,6 @@ title: "Using docker containers"
 description: >
   A guide for `arrow` developers wanting to use docker
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Using docker containers}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 Arrow is compatible with a huge number of combinations of OSs, OS versions, 

@@ -3,10 +3,6 @@ title: "Reading and writing data files"
 description: >
   Learn how to read and write CSV, Parquet, and Feather files with `arrow` 
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Reading and writing data files}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 The `arrow` package provides functions for reading single data files in

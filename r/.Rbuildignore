@@ -29,3 +29,4 @@ STYLE.md
 ^.styler_excludes.R
 ^cheatsheet$
 ^revdep$
+^vignettes$

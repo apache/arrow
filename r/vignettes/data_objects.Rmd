@@ -5,10 +5,6 @@ description: >
   (among others), how they relate to each other, as well as their 
   relationships to familiar R objects like data frames and vectors 
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Data objects}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 This vignette describes the various data object types supplied by `arrow`, and documents how these objects are structured. 

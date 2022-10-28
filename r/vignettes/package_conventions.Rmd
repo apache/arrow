@@ -5,10 +5,6 @@ description: >
   underlying C++ library, and when to use these objects
   rather than the R-friendly wrapper functions
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Package conventions}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 C++ is an object-oriented language, so the core logic of the Arrow C++ library is encapsulated in classes and methods. In the `arrow` R package, these classes are implemented as [`R6`](https://r6.r-lib.org) classes, most of which are exported from the namespace.

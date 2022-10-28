@@ -4,10 +4,6 @@ description: >
   Learn how to use `arrow` and `reticulate` to efficiently transfer data 
   between R and Python without making unnecessary copies
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Integrating Arrow, Python, and R}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 The `arrow` package provides [reticulate](https://rstudio.github.io/reticulate/) methods for passing data between R and Python within the same process. This vignette provides a brief overview.

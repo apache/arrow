@@ -4,10 +4,6 @@ description: >
   Learn how to work with data sets stored in an 
   Amazon S3 bucket or on Google Cloud Storage 
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Using cloud storage (S3, GCS)}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 Working with data stored in cloud storage systems like [Amazon Simple Storage Service](https://docs.aws.amazon.com/s3/) (S3) and [Google Cloud Storage](https://cloud.google.com/storage/docs) (GCS) is a very common task. Because of this, the Arrow C++ library provides a toolkit aimed to make it as simple to work with cloud storage as it is to work with the local filesystem.

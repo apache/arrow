@@ -4,10 +4,6 @@ description: >
   Learn about fundamental data types in Apache Arrow and how those 
   types are mapped onto corresponding data types in R 
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Data types}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 Arrow has a rich data type system that includes direct analogs of many R data types, and many data types that do not have a counterpart in R. This vignette describes the Arrow type system, compares it to R data types, and outlines the default mappings used when data are transferred from Arrow to R. At the end of the vignette there are two lookup tables: one describing the default "R to Arrow" type mappings and the other describing the "Arrow to R" mappings.

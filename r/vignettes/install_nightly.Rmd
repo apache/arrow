@@ -3,10 +3,6 @@ title: "Installing development versions"
 description: >
   Learn how to install nightly builds of `arrow` 
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Installing development versions}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 Users of the `arrow` package will typically want to use the latest release version of the package, but may occasionally require a development build. Arrow developers are more likely to need the current development version. In this vignette we describe the process for installing the development version.

@@ -3,10 +3,6 @@ title: "Debugging strategies"
 description: >
   Tools and strategies to help `arrow` developers with debugging
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Debugging strategies}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 If you are a developer working with Arrow code, the package's use of tidy eval 

@@ -4,10 +4,6 @@ description: >
   Learn how Arrow uses Schemas to document structure of data objects, 
   and how R metadata are supported in Arrow
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Metadata}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 This vignette describes the various data and metadata object types supplied by `arrow`, and documents how these objects are structured. 

@@ -4,10 +4,6 @@ description: >
   Learn how to configure your environment to allow you to contribute
   to the `arrow` package
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Configuring a developer environment}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup-options, include=FALSE}

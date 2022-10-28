@@ -4,10 +4,6 @@ description: >
   Learn how to efficiently stream Apache Arrow data objects across a 
   network using Arrow Flight 
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Connecting to a Flight server}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 [Arrow Flight](https://arrow.apache.org/blog/2019/10/13/introducing-arrow-flight/) is a general-purpose client-server framework for high performance transport of large datasets over network interfaces, built as part of the Apache Arrow project. It allows for highly efficient data transfer by several means:

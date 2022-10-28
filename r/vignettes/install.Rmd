@@ -4,10 +4,6 @@ description: >
   Installing `arrow` on linux usually "just works", but occasionally poses
   problems. Learn how to handle installation problems if and when they arise
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Installing on Linux}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 In most cases, `install.packages("arrow")` should just work. There are things you can do to make the installation faster, documented in this vignette. If for some reason installation does not work, set the environment variable `ARROW_R_DEV=true`, retry, and share the logs with us.

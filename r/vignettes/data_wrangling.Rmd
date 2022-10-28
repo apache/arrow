@@ -3,10 +3,6 @@ title: "Data analysis with dplyr syntax"
 description: >
   Learn how to use the `dplyr` backend supplied by `arrow` 
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Data analysis with dplyr syntax}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 The `arrow` package provides a `dplyr` back end that allows users to manipulate tabular Arrow data (`Table` and `Dataset` objects) using familiar `dplyr` syntax. To use this functionality, make sure that the `arrow` and `dplyr` packages are both loaded. In this vignette we will take the `starwars` data set included in `dplyr`, convert it to an Arrow Table, and then analyze this data. Note that, although these examples all use an in-memory `Table` object, the same functionality works for an on-disk `Dataset` object with only minor differences in behaviour (documented later in the vignette).

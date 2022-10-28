@@ -4,10 +4,6 @@ description: >
   Learn how to use Datasets to read, write, and analyze 
   multi-file larger-than-memory data
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Working with multi-file data sets}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 Apache Arrow lets you work efficiently with multi-file data sets even when that data set is too large to be loaded into memory. With the help of Arrow Dataset objects you can analyze this kind of data using familiar  [`dplyr`](https://dplyr.tidyverse.org/) syntax. This vignette introduces Datasets and shows you how to analyze them with `dplyr` and `arrow`: we'll start by ensuring both packages are loaded

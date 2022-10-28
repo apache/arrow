@@ -3,10 +3,6 @@ title: "Get started with Arrow"
 description: >
   An overview of the Apache Arrow project and the `arrow` R package
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Get started with Arrow}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 Apache Arrow is a software development platform for building high performance applications that process and transport large data sets. It is designed to improve the performance of data analysis methods, and to increase the efficiency of moving data from one system or programming language to another.
