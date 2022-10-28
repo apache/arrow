@@ -1479,12 +1479,22 @@ tasks:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        # The CUDA image has to match the runner image 1:1 to work
+        # so these values are hardcoded to override any changes to .env
+        CUDA: 11.4.2
+        UBUNTU: 20.04
       image: ubuntu-cuda-cpp
   
   test-cuda-python:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        # The CUDA image has to match the runner image 1:1 to work
+        # so these values are hardcoded to override any changes to .env
+        CUDA: 11.4.2
+        UBUNTU: 20.04
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
