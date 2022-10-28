@@ -451,7 +451,8 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
                                                     const std::shared_ptr<Schema>& schema,
                                                     MemoryPool* pool) {
   const std::shared_ptr<Schema> current_schema = table->schema();
-  if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
+  if (current_schema->Equals(*schema, /*check_metadata=*/false,
+                             /*check_internal_field_names=*/true)) {
     return table->ReplaceSchemaMetadata(schema->metadata());
   }
 
