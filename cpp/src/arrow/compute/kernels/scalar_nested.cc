@@ -121,46 +121,22 @@ struct ListSlice {
     const Type* list_type = checked_cast<const Type*>(list_.type);
     const auto value_type = list_type->value_type();
 
-    // construct builder
     std::unique_ptr<ArrayBuilder> builder;
+
+    // construct array values
     if (opts.return_fixed_size_list) {
       RETURN_NOT_OK(MakeBuilder(
           ctx->memory_pool(),
           fixed_size_list(value_type, static_cast<int32_t>(opts.stop - opts.start)),
           &builder));
+      RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
     } else {
       if constexpr (std::is_same_v<Type, LargeListType>) {
         RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), large_list(value_type), &builder));
+        RETURN_NOT_OK(BuildArray<LargeListBuilder>(batch, opts, *builder));
       } else {
         RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), list(value_type), &builder));
-      }
-    }
-    RETURN_NOT_OK(builder->Reserve(list_.length));
-
-    // construct array values
-    if constexpr (std::is_same_v<Type, FixedSizeListType>) {
-      if (opts.return_fixed_size_list) {
-        RETURN_NOT_OK(
-            BuildArrayFromFixedSizeListType<FixedSizeListBuilder>(batch, opts, *builder));
-      } else {
-        if (std::is_same_v<Type, LargeListType>) {
-          RETURN_NOT_OK(
-              BuildArrayFromFixedSizeListType<LargeListBuilder>(batch, opts, *builder));
-        } else {
-          RETURN_NOT_OK(
-              BuildArrayFromFixedSizeListType<ListBuilder>(batch, opts, *builder));
-        }
-      }
-    } else {
-      if (opts.return_fixed_size_list) {
-        RETURN_NOT_OK(
-            BuildArrayFromListType<FixedSizeListBuilder>(batch, opts, *builder));
-      } else {
-        if (std::is_same_v<Type, LargeListType>) {
-          RETURN_NOT_OK(BuildArrayFromListType<LargeListBuilder>(batch, opts, *builder));
-        } else {
-          RETURN_NOT_OK(BuildArrayFromListType<ListBuilder>(batch, opts, *builder));
-        }
+        RETURN_NOT_OK(BuildArray<ListBuilder>(batch, opts, *builder));
       }
     }
 
@@ -169,9 +145,21 @@ struct ListSlice {
     out->value = result->data();
     return Status::OK();
   }
+
+  template <typename BuilderType>
+  static Status BuildArray(const ExecSpan& batch, const ListSliceOptions& opts,
+                           ArrayBuilder& builder) {
+    if constexpr (std::is_same_v<Type, FixedSizeListType>) {
+      RETURN_NOT_OK(BuildArrayFromFixedSizeListType<BuilderType>(batch, opts, builder));
+    } else {
+      RETURN_NOT_OK(BuildArrayFromListType<BuilderType>(batch, opts, builder));
+    }
+    return Status::OK();
+  }
+
   template <typename BuilderType>
   static Status BuildArrayFromFixedSizeListType(const ExecSpan& batch,
-                                                const ListSliceOptions opts,
+                                                const ListSliceOptions& opts,
                                                 ArrayBuilder& builder) {
     const auto list_size =
         checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
@@ -192,8 +180,10 @@ struct ListSlice {
     }
     return Status::OK();
   }
+
   template <typename BuilderType>
-  static Status BuildArrayFromListType(const ExecSpan& batch, const ListSliceOptions opts,
+  static Status BuildArrayFromListType(const ExecSpan& batch,
+                                       const ListSliceOptions& opts,
                                        ArrayBuilder& builder) {
     const ArraySpan& list_ = batch[0].array;
     const offset_type* offsets = list_.GetValues<offset_type>(1);
