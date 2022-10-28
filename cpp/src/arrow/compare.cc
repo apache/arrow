@@ -531,7 +531,8 @@ bool CompareArrayRanges(const ArrayData& left, const ArrayData& right,
                         int64_t right_start_idx, const EqualOptions& options,
                         bool floating_approximate) {
   if (left.type->id() != right.type->id() ||
-      !TypeEquals(*left.type, *right.type, false /* check_metadata */)) {
+      !TypeEquals(*left.type, *right.type, /*check_metadata=*/false,
+                  /*check_internal_field_names=*/false)) {
     return false;
   }
 

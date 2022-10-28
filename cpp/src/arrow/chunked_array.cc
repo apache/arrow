@@ -93,7 +93,8 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
     return false;
   }
   // We cannot toggle check_metadata here yet, so we don't check it
-  if (!type_->Equals(*other.type_, /*check_metadata=*/false)) {
+  if (!type_->Equals(*other.type_, /*check_metadata=*/false,
+                     /*check_internal_field_names=*/false)) {
     return false;
   }
 
@@ -130,7 +131,8 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
     return false;
   }
   // We cannot toggle check_metadata here yet, so we don't check it
-  if (!type_->Equals(*other.type_, /*check_metadata=*/false)) {
+  if (!type_->Equals(*other.type_, /*check_metadata=*/false,
+                     /*check_internal_field_names=*/false)) {
     return false;
   }
 
