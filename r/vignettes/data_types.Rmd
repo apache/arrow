@@ -6,7 +6,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-Arrow has a rich data type system that includes direct analogs of many R data types, and many data types that do not have a counterpart in R. This vignette describes the Arrow type system, compares it to R data types, and outlines the default mappings used when data are transferred from Arrow to R. At the end of the vignette there are two lookup tables: one describing the default "R to Arrow" type mappings and the other describing the "Arrow to R" mappings.
+Arrow has a rich data type system that includes direct analogs of many R data types, and many data types that do not have a counterpart in R. This article describes the Arrow type system, compares it to R data types, and outlines the default mappings used when data are transferred from Arrow to R. At the end of the article there are two lookup tables: one describing the default "R to Arrow" type mappings and the other describing the "Arrow to R" mappings.
 
 ## Motivating example
 
@@ -28,7 +28,7 @@ The data represented are essentially the same, but the descriptions of the data 
 
 Some of these differences are purely cosmetic: integers in R are in fact 32-bit signed integers, so the underlying data types in Arrow and R are direct analogs of one another. In other cases the differences are purely about the implementation: Arrow and R have different ways to store a vector of strings, but at a high level of abstraction the R character type and the Arrow string type can be viewed as direct analogs. In some cases, however, there are no clear analogs: while Arrow has an analog of POSIXct (the timestamp type) it does not have an analog of POSIXlt; converselt, while R can represent 32 bit signed integers, it does not have an equivalent of a 64 bit unsigned integer.
 
-When the `arrow` package converts between R data and Arrow data, it will first check to see if a Schema has been provided -- see `schema()` for more information -- and if none is available it will attempt to guess the appropriate type by following the default mappings. A complete listing of these mappings is provided at the end of the vignette, but the most common cases are depicted in the illustration below:
+When the `arrow` package converts between R data and Arrow data, it will first check to see if a Schema has been provided -- see `schema()` for more information -- and if none is available it will attempt to guess the appropriate type by following the default mappings. A complete listing of these mappings is provided at the end of the article, but the most common cases are depicted in the illustration below:
 
 ```{r, echo=FALSE, out.width="100%"}
 knitr::include_graphics("./data_types.png")
@@ -44,7 +44,7 @@ Arrow and R both use three-valued logic. In R, logical values can be `TRUE` or `
 chunked_array(c(TRUE, FALSE, NA), type = boolean()) # default
 ```
 
-It is not strictly necessary to set `type = boolean()` in this example because the default behavior in `arrow` is to translate R logical vectors to Arrow booleans and vice versa. However, for the sake of clarity we will specify the data types explicitly throughout this vignette. We will likewise use `chunked_array()` to create Arrow data from R objects and `as.vector()` to create R data from Arrow objects, but similar results are obtained if we use other methods. 
+It is not strictly necessary to set `type = boolean()` in this example because the default behavior in `arrow` is to translate R logical vectors to Arrow booleans and vice versa. However, for the sake of clarity we will specify the data types explicitly throughout this article. We will likewise use `chunked_array()` to create Arrow data from R objects and `as.vector()` to create R data from Arrow objects, but similar results are obtained if we use other methods. 
 
 ## Integer types
 
@@ -115,9 +115,9 @@ Though not natively used in R, decimal types can be useful in situations where i
 
 ## String/character types
 
-R uses a single character type to represent strings whereas Arrow has two types. In the Arrow C++ library these types are referred to as strings and large_strings, but to avoid ambiguity in the `arrow` R package they are defined using the `utf8()` and `large_utf8()` data type functions. The distinction between these two Arrow types is unlikely to be important for R users, though the difference is discussed in `vignette("data_object_layout", package = "arrow")`. 
+R uses a single character type to represent strings whereas Arrow has two types. In the Arrow C++ library these types are referred to as strings and large_strings, but to avoid ambiguity in the `arrow` R package they are defined using the `utf8()` and `large_utf8()` data type functions. The distinction between these two Arrow types is unlikely to be important for R users, though the difference is discussed in the article on [data object layout](./developers/data_object_layout.html). 
 
-The default behaviour is to translate R character vectors to the utf8/string type, and to translate both Arrow types to R character vectors:
+The default behavior is to translate R character vectors to the utf8/string type, and to translate both Arrow types to R character vectors:
 
 ```{r}
 strings <- chunked_array(c("oh", "well", "whatever"))
@@ -338,8 +338,5 @@ with a `ptype` attribute set to what an empty Array of the value type converts t
 
 ## Further reading 
 
-- To learn more how data types are specified through `schema()` metadata, see `vignette("metadata", package = "arrow")`.
-- For additional details on data types, see `help("data-type", package = "arrow")`.
-
-
-
+- To learn more how data types are specified through `schema()` metadata, see the [metadata article](./metadata.html).
+- For additional details on data types, see the [data types article](./data_types.html).

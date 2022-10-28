@@ -3,10 +3,6 @@ title: "Developer workflows"
 description: >
   Learn about the workflows and conventions followed by `arrow` developers
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Developer workflows}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 

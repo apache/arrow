@@ -33,7 +33,7 @@
 #' - Nested JSON objects convert to a [struct()] type, and inference proceeds recursively on the JSON objects' values.
 #'
 #' When `as_data_frame = FALSE`, Arrow types are further converted to R types.
-#' See `vignette("arrow", package = "arrow")` for details.
+#' See \url{https://arrow.apache.org/docs/r/articles/read_write.html} for details.
 #'
 #' @inheritParams read_delim_arrow
 #' @param schema [Schema] that describes the table.

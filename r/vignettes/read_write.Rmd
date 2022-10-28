@@ -26,15 +26,12 @@ Arrow Tables:
 - `write_csv_arrow()`: write a file in CSV format
 
 All these functions can read and write files in the local filesystem or
-to cloud storage. For more on cloud storage support in `arrow`, see
-`vignette("fs", package = "arrow")`.
+to cloud storage. For more on cloud storage support in `arrow`, see the [cloud storage article](./fs.html).
 
 The `arrow` package also supports reading and writing multi-file datasets,
 which enable analysis and processing of larger-than-memory data, and provide 
 the ability to partition data into smaller chunks without loading the full 
-data into memory. For more information on this topic, see 
-`vignette("dataset", package = "arrow")`.
-
+data into memory. For more information on this topic, see the [dataset article](./dataset.html).
 
 ## Parquet format
 
@@ -87,8 +84,7 @@ R object attributes are preserved when writing data to Parquet or
 Feather files and when reading those files back into R. This enables
 round-trip writing and reading of `sf::sf` objects, R data frames with
 with `haven::labelled` columns, and data frame with other custom
-attributes. To learn more about how metadata are handled in `arrow`,
-see `vignette("metadata", package = "arrow")`.
+attributes. To learn more about how metadata are handled in `arrow`, the [metadata article](./metadata.html).
 
 ## Feather format
 
@@ -164,6 +160,5 @@ read_json_arrow(file_path)
 
 ## Further reading
 
-- To learn more about cloud storage, see `vignette("fs", package = "arrow")`.
-- To learn more about multi-file datasets, see `vignette("dataset", package = "arrow")`.
-
+- To learn more about cloud storage, see the [cloud storage article](./fs.html).
+- To learn more about multi-file datasets, see the [datasets article](./dataset.html).

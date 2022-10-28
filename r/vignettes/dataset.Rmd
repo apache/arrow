@@ -6,7 +6,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-Apache Arrow lets you work efficiently with multi-file data sets even when that data set is too large to be loaded into memory. With the help of Arrow Dataset objects you can analyze this kind of data using familiar  [`dplyr`](https://dplyr.tidyverse.org/) syntax. This vignette introduces Datasets and shows you how to analyze them with `dplyr` and `arrow`: we'll start by ensuring both packages are loaded
+Apache Arrow lets you work efficiently with multi-file data sets even when that data set is too large to be loaded into memory. With the help of Arrow Dataset objects you can analyze this kind of data using familiar  [`dplyr`](https://dplyr.tidyverse.org/) syntax. This article introduces Datasets and shows you how to analyze them with `dplyr` and `arrow`: we'll start by ensuring both packages are loaded
 
 ```{r}
 library(arrow, warn.conflicts = FALSE)
@@ -19,7 +19,7 @@ The primary motivation for multi-file Datasets is to allow users to analyze extr
 
 This data set is comprised of 158 distinct Parquet files, each corresponding to a month of data. A single file is typically around 400-500MB in size, and the full data set is about 70GB in size. It is not a small data set -- it is slow to download and does not fit in memory on a typical machine 🙂  -- so we also host a "tiny" version of the NYC taxi data that is formatted in exactly the same way but includes only one out of every thousand entries in the original data set (i.e., individual files are <1MB in size, and the "tiny" data set is only 70MB) 
 
-If you have Amazon S3 and/or Google Cloud Storage support enabled in `arrow` (true for most users; see links at the end of this vignette if you need to troubleshoot this), you can connect to the "tiny taxi data" with either of the following commands:
+If you have Amazon S3 and/or Google Cloud Storage support enabled in `arrow` (true for most users; see links at the end of this article if you need to troubleshoot this), you can connect to the "tiny taxi data" with either of the following commands:
 
 ```r
 bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi-tiny")
@@ -34,7 +34,7 @@ To make a local copy of the data set stored in the `bucket` to a folder called `
 copy_files(from = bucket, to = "nyc-taxi")
 ```
 
-For the purposes of this vignette, we assume that the NYC taxi dataset (either the full data or the tiny version) has been downloaded locally and exists in an `"nyc-taxi"` directory. 
+For the purposes of this article, we assume that the NYC taxi dataset (either the full data or the tiny version) has been downloaded locally and exists in an `"nyc-taxi"` directory. 
 
 ## Opening Datasets
 
@@ -44,7 +44,7 @@ The first step in the process is to create a Dataset object that points at the d
 ds <- open_dataset("nyc-taxi")
 ```
 
-It is important to note that when we do this, the data values are not loaded into memory. Instead, Arrow scans the data directory to find relevant files, parses the file paths looking for a "Hive-style partitioning" (see below), and reads headers of the data files to construct a Schema that contains metadata describing the structure of the data. For more information about Schemas see `vignette("metadata", package = "arrow")`.
+It is important to note that when we do this, the data values are not loaded into memory. Instead, Arrow scans the data directory to find relevant files, parses the file paths looking for a "Hive-style partitioning" (see below), and reads headers of the data files to construct a Schema that contains metadata describing the structure of the data. For more information about Schemas see the [metadata article](./metadata.html).
 
 Two questions naturally follow from this: what kind of files does `open_dataset()` look for, and what structure does it expect to find in the file paths? Let's start by looking at the file types.
 
@@ -198,7 +198,7 @@ Second, all work is pushed down to the individual data files, and depending on t
 
 Third, because of partitioning, you can ignore some files entirely. In this example, by filtering `year == 2015`, all files corresponding to other years are immediately excluded: you don't have to load them in order to find that no rows match the filter. For Parquet files -- which contain row groups with statistics on the data contained within groups -- there may be entire chunks of data you can avoid scanning because they have no rows where `total_amount > 100`.
 
-One final thing to note about querying Datasets. Suppose you attempt to call unsupported `dplyr` verbs or unimplemented functions in your query on an Arrow Dataset. In that case, the `arrow` package raises an error. However, for `dplyr` queries on Arrow Table objects (which are already in-memory), the package automatically calls `collect()` before processing that `dplyr` verb. To learn more about the `dplyr` backend, see `vignette("data_wrangling", package = "arrow")`.
+One final thing to note about querying Datasets. Suppose you attempt to call unsupported `dplyr` verbs or unimplemented functions in your query on an Arrow Dataset. In that case, the `arrow` package raises an error. However, for `dplyr` queries on Arrow Table objects (which are already in-memory), the package automatically calls `collect()` before processing that `dplyr` verb. To learn more about the `dplyr` back end, see the [data wrangling article](./data_wrangling.html).
 
 ## Batch processing (experimental)
 
@@ -453,9 +453,9 @@ not have any such concept and a partially written CSV file may be detected as va
 
 ## Further reading
 
-- To learn about cloud storage, see `vignette("fs", package = "arrow")`.
-- To learn about `dplyr` with `arrow`, see `vignette("data_wrangling", package = "arrow")`.
-- To learn about reading and writing data, see `vignette("read_write", package = "arrow")`.
-- To manually enable cloud support on Linux, see `vignette("install", package = "arrow")`.
-- To learn about schemas and metadata, see `vignette("metadata", package = "arrow")`.
+- To learn about cloud storage, see the [cloud storage article](./fs.html).
+- To learn about `dplyr` with `arrow`, see the [data wrangling article](./data_wrangling.html).
+- To learn about reading and writing data, see the [read/write article](./read_write.html).
+- To manually enable cloud support on Linux, see the article on [installation on Linux](./install.html).
+- To learn about schemas and metadata, see the [metadata article](./metadata.html).
 

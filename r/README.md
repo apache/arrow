@@ -74,20 +74,17 @@ additional steps should be required.
 There are some special cases to note:
 
 - On Linux the installation process can sometimes be more involved because 
-CRAN does not host binaries for Linux. For more information please see 
-`vignette("install", package = "arrow")`.
+CRAN does not host binaries for Linux. For more information please see the [installation guide](https://arrow.apache.org/docs/r/articles/install.html).
 
 - If you are compiling `arrow` from source, please note that as of version 
 10.0.0, `arrow` requires C++17 to build. This has implications on Windows and
 CentOS 7. For Windows users it means you need to be running an R version of 
 4.0 or later. On CentOS 7, it means you need to install a newer compiler 
-than the default system compiler gcc 4.8. See 
-`vignette("install_details", package = "arrow")` for guidance. Not that 
+than the default system compiler gcc 4.8. See the [installation details article](https://arrow.apache.org/docs/r/articles/developers/install_details.html) for guidance. Not that 
 this does not affect users who are installing a binary version of the package.
 
 - Development versions of `arrow` are released nightly. Most users will not 
-need to install nightly builds, but if you do please see 
-`vignette("install_nightly", package = "arrow")` for more information.
+need to install nightly builds, but if you do please see the article on [installing nightly builds]([installation guide](https://arrow.apache.org/docs/r/articles/install_nightly.html) for more information.
 
 ## Arrow resources 
 

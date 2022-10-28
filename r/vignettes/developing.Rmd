@@ -5,7 +5,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-If you're interested in contributing to arrow, this vignette explains our approach, 
+If you're interested in contributing to arrow, this article explains our approach, 
 at a high-level.  If you're looking for more detailed content, you may want to 
 look at one of the following links:
 

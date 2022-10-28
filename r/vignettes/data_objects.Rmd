@@ -7,7 +7,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-This vignette describes the various data object types supplied by `arrow`, and documents how these objects are structured. 
+This article describes the various data object types supplied by `arrow`, and documents how these objects are structured. 
 
 ```{r include=FALSE}
 library(arrow, warn.conflicts = FALSE)
@@ -24,7 +24,7 @@ The `arrow` package supplies several object classes that are used to represent d
 | 2   | `Table`        | `Table$create(...)`                           | `arrow_table(...)`                            |
 | 2   | `Dataset`      | `Dataset$create(sources, schema)`             | `open_dataset(sources, schema)`               |
   
-Later in the vignette we'll look at each of these in more detail.
+Later in the article we'll look at each of these in more detail.
 
 For now we note that each of these object classes corresponds to a class of the same name in the underlying Arrow C++ library. It is also worth mentioning that the `arrow` package also defines classes that do not exist in the C++ library including:
 
@@ -38,7 +38,7 @@ In addition to these data objects, `arrow` defines the following classes for rep
 - A `Field` specifies a character string name and a `DataType`; and
 - A `DataType` is an attribute controlling how values are represented
 
-To learn more about the metadata classes, see `vignette("metadata", package = "arrow")`.
+To learn more about the metadata classes, see the [metadata article](./metadata.html).
 
 ## Scalars
 
@@ -73,7 +73,7 @@ Arrays are immutable objects: once an Array has been created it cannot be modifi
 
 ## Chunked Arrays
 
-In practice, most users of the `arrow` R package are likely to use Chunked Arrays rather than simple Arrays. Under the hood, a Chunked Array is a collection of one or more Arrays that can be indexed _as if_ they were a single Array. The reasons that Arrow provides this functionality are described in `vignette("data_object_layout", package = "arrow")` but for the present purposes it is sufficient to notice that Chunked Arrays behave like Arrays in regular data analysis.
+In practice, most users of the `arrow` R package are likely to use Chunked Arrays rather than simple Arrays. Under the hood, a Chunked Array is a collection of one or more Arrays that can be indexed _as if_ they were a single Array. The reasons that Arrow provides this functionality are described in the [data object layout article](./developers/data_object_layout.html) but for the present purposes it is sufficient to notice that Chunked Arrays behave like Arrays in regular data analysis.
 
 To illustrate, let's use the `chunked_array()` function:
 
@@ -198,11 +198,9 @@ The resulting object is shown schematically below:
 knitr::include_graphics("./table.png")
 ```
 
-
-
 ## Further reading 
 
-- To learn more about the internal structure of Arrays, see `vignette("data_object_layout", package = "arrow")`
-- To learn more about the different data types that can be represented in Arrow, see `vignette("data_types", package = "arrow")`
-- To learn more about how Arrow objects are implemented, see the [Arrow specification](https://arrow.apache.org/docs/format/Columnar.html) 
+- To learn more about the internal structure of Arrays, see the article on [data object layout](./developers/data_object_layout.html).
+- To learn more about the different data types that can be represented in Arrow, see the article on [data types](./data_types.html).
+- To learn more about how Arrow objects are implemented, see the [Arrow specification](https://arrow.apache.org/docs/format/Columnar.html) page. 
 

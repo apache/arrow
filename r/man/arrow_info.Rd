@@ -38,7 +38,7 @@ This function summarizes a number of build-time configurations and run-time
 settings for the Arrow package. It may be useful for diagnostics.
 }
 \seealso{
-If any capabilities are \code{FALSE}, see
-\code{vignette("install", package = "arrow")} for guidance on reinstalling the
-package.
+If any capabilities are \code{FALSE}, see the
+\href{https://arrow.apache.org/docs/r/articles/install.html}{install guide}
+for guidance on reinstalling the package.
 }

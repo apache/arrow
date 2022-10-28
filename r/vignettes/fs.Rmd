@@ -10,7 +10,7 @@ Working with data stored in cloud storage systems like [Amazon Simple Storage Se
 
 To make this work, the Arrow C++ library contains a general-purpose interface for file systems, and the `arrow` package exposes this interface to R users. For instance, if you want to you can create a `LocalFileSystem` object that allows you to interact with the local file system in the usual ways: copying, moving, and deleting files, obtaining information about files and folders, and so on (see `help("FileSystem", package = "arrow")` for details). In general you probably don't need this functionality because you already have tools for working with your local file system, but this interface becomes much more useful in the context of remote file systems. Currently there is a specific implementation for Amazon S3 provided by the `S3FileSystem` class, and another one for Google Cloud Storage provided by `GcsFileSystem`.
 
-This vignette provides an overview of working with both S3 and GCS data using the Arrow toolkit. 
+This article provides an overview of working with both S3 and GCS data using the Arrow toolkit. 
 
 ## S3 and GCS support on Linux
 
@@ -23,7 +23,7 @@ arrow_with_gcs()
 
 If these return `TRUE` then the relevant support is enabled.
 
-In some cases you may find that your system does not have support enabled. The most common case for this occurs on Linux when installing `arrow` from source. In this situation S3 and GCS support is not always enabled by default, and there are additional system requirements involved. See `vignette("install", package = "arrow")` for details on how to resolve this.
+In some cases you may find that your system does not have support enabled. The most common case for this occurs on Linux when installing `arrow` from source. In this situation S3 and GCS support is not always enabled by default, and there are additional system requirements involved. See the [installation article](./install.html) for details on how to resolve this.
 
 ## Connecting to cloud storage
 
@@ -37,7 +37,7 @@ you don't need to prefix the bucket path when listing a directory).
 With a `FileSystem` object, you can point to specific files in it with the `$path()` method
 and pass the result to file readers and writers (`read_parquet()`, `write_feather()`, et al.).
 
-Often the reason users work with cloud storage in real world analysis is to access large data sets. An example of this is discussed in `vignette("dataset", package = "arrow")`, but new users may prefer to work with a much smaller data set while learning how the `arrow` cloud storage interface works. To that end, the examples in this vignette rely on a multi-file Parquet dataset that stores a copy of the `diamonds` data made available through the [`ggplot2`](https://ggplot2.tidyverse.org/) package, documented in `help("diamonds", package = "ggplot2")`. The cloud storage version of this data set consists of 5 Parquet files totaling less than 1MB in size.
+Often the reason users work with cloud storage in real world analysis is to access large data sets. An example of this is discussed in the [datasets article](./dataset.html), but new users may prefer to work with a much smaller data set while learning how the `arrow` cloud storage interface works. To that end, the examples in this article rely on a multi-file Parquet dataset that stores a copy of the `diamonds` data made available through the [`ggplot2`](https://ggplot2.tidyverse.org/) package, documented in `help("diamonds", package = "ggplot2")`. The cloud storage version of this data set consists of 5 Parquet files totaling less than 1MB in size.
 
 The diamonds data set is hosted on both S3 and GCS, in a bucket named `voltrondata-labs-datasets`. To create an S3FileSystem object that refers to that bucket, use the following command:
 
@@ -147,7 +147,7 @@ gs://[access_key:secret_key@]bucket/path
 gs://anonymous@bucket/path
 ```
 
-For example, the Parquet file storing the "good cut" diamonds that we downloaded earlier in the vignette is available on both S3 and CGS. The relevant URIs are as follows:
+For example, the Parquet file storing the "good cut" diamonds that we downloaded earlier in the article is available on both S3 and CGS. The relevant URIs are as follows:
 
 ```r
 uri <- "s3://voltrondata-labs-datasets/diamonds/cut=Good/part-0.parquet"
@@ -320,6 +320,6 @@ Sys.setenv(AWS_EC2_METADATA_DISABLED = TRUE)
 ## Further reading
 
 - To learn more about `FileSystem` classes, including `S3FileSystem` and `GcsFileSystem`, see `help("FileSystem", package = "arrow")`.
-- To see a data analysis example that relies on data hosted on cloud storage, see `vignette("dataset", package = "arrow")`.
+- To see a data analysis example that relies on data hosted on cloud storage, see the [dataset article](./dataset.html).
 
 

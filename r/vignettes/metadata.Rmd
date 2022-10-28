@@ -6,7 +6,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-This vignette describes the various data and metadata object types supplied by `arrow`, and documents how these objects are structured. 
+This article describes the various data and metadata object types supplied by `arrow`, and documents how these objects are structured. 
 
 ```{r include=FALSE}
 library(arrow, warn.conflicts = FALSE)
@@ -79,4 +79,4 @@ Note that the attributes stored in `$metadata$r` are only understood by R. If yo
 ## Further reading
 
 - To learn more about `arrow` metadata, see the documentation for `schema()`.
-- To learn more about data types, see `vignette("data_types", package = "arrow")`.
+- To learn more about data types, see the [data types article](./data_types.html). 

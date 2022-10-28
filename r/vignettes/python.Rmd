@@ -6,9 +6,9 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-The `arrow` package provides [reticulate](https://rstudio.github.io/reticulate/) methods for passing data between R and Python within the same process. This vignette provides a brief overview.
+The `arrow` package provides [reticulate](https://rstudio.github.io/reticulate/) methods for passing data between R and Python within the same process. This article provides a brief overview.
 
-Code in this vignette assumes `arrow` and `reticulate` are both loaded:
+Code in this article assumes `arrow` and `reticulate` are both loaded:
 
 ```r
 library(arrow, warn.conflicts = FALSE)
@@ -17,7 +17,7 @@ library(reticulate, warn.conflicts = FALSE)
 
 ## Motivation
 
-One reason you might want to use PyArrow in R is to take advantage of functionality that is better supported in Python than in R at the current state of development. For example, at one point in time the R `arrow` package didn't support `concat_arrays()` but PyArrow did, so this would have been a good use case at that time. At the time of current writing PyArrow has more comprehensive support for [Arrow Flight](https://arrow.apache.org/docs/format/Flight.html) than the R package -- but see `vignette("flight", package = "arrow")` -- so that would be another instance in which PyArrow would be of benefit to R users.
+One reason you might want to use PyArrow in R is to take advantage of functionality that is better supported in Python than in R at the current state of development. For example, at one point in time the R `arrow` package didn't support `concat_arrays()` but PyArrow did, so this would have been a good use case at that time. At the time of current writing PyArrow has more comprehensive support for [Arrow Flight](https://arrow.apache.org/docs/format/Flight.html) than the R package -- but see [the article on Flight support in arrow](./flight.html) -- so that would be another instance in which PyArrow would be of benefit to R users.
 
 A second reason that R users may want to use PyArrow is to efficiently pass data objects between R and Python. With large data sets, it can be quite costly -- in terms of time and CPU cycles -- to perform the copy and covert operations required to translate a native data structure in R (e.g., a data frame) to an analogous structure in Python (e.g., a Pandas DataFrame) and vice versa. Because Arrow data objects such as Tables have the same in-memory format in R and Python, it is possible to perform "zero-copy" data transfers, in which only the metadata needs to be passed between languages. As illustrated later, this drastically improves performance. 
 
@@ -193,5 +193,5 @@ see the [reticulate documentation](https://rstudio.github.io/reticulate/articles
 - To learn PyArrow, see the official [PyArrow Documentation](https://arrow.apache.org/docs/python/) and [Apache Arrow Python Cookbook](https://arrow.apache.org/cookbook/py/).
 - R/Python integration in Arrow is also discussed in the [PyArrow Integrations Documentation](https://arrow.apache.org/docs/python/integration/python_r.html), in this [blog post about reticulate integration in Arrow](https://voltrondata.com/blog/passing-arrow-data-between-r-and-python-with-reticulate/), and in this [blog post about rpy2 integration in Arrow](https://voltrondata.com/blog/data-transfer-between-python-and-r-with-rpy2-and-apache-arrow/).
 - The integration between R Arrow and PyArrow is supported through the [Arrow C data interface](https://arrow.apache.org/docs/format/CDataInterface.html#c-data-interface).
-- To learn more about Arrow data objects, see `vignette("data_objects", package = "arrow")`.
+- To learn more about Arrow data objects, see the [data objects article](./data_objects.html).
 

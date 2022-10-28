@@ -84,7 +84,8 @@ read_parquet <- function(file,
 #' If you want to use the Parquet format but also want the ability to extend
 #' your dataset, you can write to additional Parquet files and then treat
 #' the whole directory of files as a [Dataset] you can query.
-#' See `vignette("dataset", package = "arrow")` for examples of this.
+#' See the \href{https://arrow.apache.org/docs/r/articles/dataset.html}{dataset
+#' article} for examples of this.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
