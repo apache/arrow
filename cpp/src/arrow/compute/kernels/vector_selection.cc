@@ -2514,7 +2514,7 @@ Status FilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (filtered_value == FilterOptions::KEEP_NULL &&
       out->type()->id() != Type::DENSE_UNION) {
     return FilterKeepNullImpl(ctx, batch, out);
-  };
+  }
 
   // TODO: where are the values and filter length equality checked?
   int64_t output_length =
