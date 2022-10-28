@@ -143,13 +143,20 @@ if [ ${SOURCE_PR} -gt 0 ]; then
 fi
 
 if [ ${SOURCE_VOTE} -gt 0 ]; then
+  jira_url="https://issues.apache.org/jira"
+  jql="project%20%3D%20ARROW%20AND%20status%20in%20%28Resolved%2C%20Closed%29%20AND%20fixVersion%20%3D%20${version}"
+  n_resolved_issues=$(curl "${jira_url}/rest/api/2/search/?jql=${jql}" | jq ".total")
+  verify_pr_url=$(curl \
+                    --header "Accept: application/vnd.github+json" \
+                    --get \
+                    --data "state=open" \
+                    --data "head=apache:${rc_branch}" \
+                    https://api.github.com/repos/apache/arrow/pulls | \
+                    jq -r ".[0].html_url")
   echo "The following draft email has been created to send to the"
   echo "dev@arrow.apache.org mailing list"
   echo ""
   echo "---------------------------------------------------------"
-  jira_url="https://issues.apache.org/jira"
-  jql="project%20%3D%20ARROW%20AND%20status%20in%20%28Resolved%2C%20Closed%29%20AND%20fixVersion%20%3D%20${version}"
-  n_resolved_issues=$(curl "${jira_url}/rest/api/2/search/?jql=${jql}" | jq ".total")
   cat <<MAIL
 To: dev@arrow.apache.org
 Subject: [VOTE] Release Apache Arrow ${version} - RC${rc}
@@ -170,6 +177,8 @@ The changelog is located at [12].
 Please download, verify checksums and signatures, run the unit tests,
 and vote on the release. See [13] for how to validate a release candidate.
 
+See also a verification result on GitHub pull request [14].
+
 The vote will be open for at least 72 hours.
 
 [ ] +1 Release this as Apache Arrow ${version}
@@ -189,6 +198,7 @@ The vote will be open for at least 72 hours.
 [11]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
 [12]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
 [13]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
+[14]: ${verify_pr_url}
 MAIL
   echo "---------------------------------------------------------"
 fi
