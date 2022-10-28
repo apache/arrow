@@ -322,7 +322,6 @@ jobs:
       ARROW_HOME: /${{ matrix.msystem_lower}}
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
-      ARROW_PYTHON: ON
       ARROW_S3: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
