@@ -26,7 +26,7 @@
 #pragma GCC diagnostic ignored "-Wattributes"
 #endif
 
-#if defined(__cplusplus) && (defined(__GNUC__) || defined(__clang__))
+#if defined(__cplusplus) && defined(__GNUC__) && !defined(__clang__)
 // Use C++ attribute syntax where possible to avoid GCC parser bug
 // (https://stackoverflow.com/questions/57993818/gcc-how-to-combine-attribute-dllexport-and-nodiscard-in-a-struct-de)
 #define ARROW_DLLEXPORT [[gnu::dllexport]]
