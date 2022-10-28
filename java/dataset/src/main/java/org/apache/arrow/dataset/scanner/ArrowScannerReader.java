@@ -40,6 +40,12 @@ public class ArrowScannerReader extends ArrowReader {
   private ScanTask currentTask = null;
   private ArrowReader currentReader = null;
 
+  /**
+   * Constructs a scanner reader using a Scanner.
+   *
+   * @param scanner scanning data over dataset
+   * @param allocator to allocate new buffers
+   */
   public ArrowScannerReader(Scanner scanner, BufferAllocator allocator) {
     super(allocator);
     this.scanner = scanner;
