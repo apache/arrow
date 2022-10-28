@@ -248,18 +248,18 @@ TEST(ExecPlanExecution, SinkWithOutpuSchemaOption) {
 
       auto basic_data = MakeBasicBatches();
 
-      std::shared_ptr<Schema> output_schema;
+      std::shared_ptr<Schema> sink_schema;
 
       ASSERT_OK(Declaration::Sequence(
                     {
                         {"source", SourceNodeOptions{basic_data.schema,
                                                      basic_data.gen(parallel, slow)}},
-                        {"sink", SinkNodeOptions{&sink_gen, &output_schema}},
+                        {"sink", SinkNodeOptions{&sink_gen, &sink_schema}},
                     })
                     .AddToPlan(plan.get()));
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                   Finishes(ResultWith(UnorderedElementsAreArray(basic_data.batches))));
-      ASSERT_TRUE(output_schema->Equals(*basic_data.schema));
+      ASSERT_TRUE(sink_schema->Equals(*basic_data.schema));
     }
   }
 }

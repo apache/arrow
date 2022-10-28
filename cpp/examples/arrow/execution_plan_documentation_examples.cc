@@ -312,11 +312,11 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
                         cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
 
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
-  std::shared_ptr<arrow::Schema> output_schema;
+  std::shared_ptr<arrow::Schema> sink_schema;
   ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {scan},
-                                       cp::SinkNodeOptions{&sink_gen, &output_schema}));
+                                       cp::SinkNodeOptions{&sink_gen, &sink_schema}));
 
-  return ExecutePlanAndCollectAsTable(exec_context, plan, output_schema, sink_gen);
+  return ExecutePlanAndCollectAsTable(exec_context, plan, sink_schema, sink_gen);
 }
 // (Doc section: Scan Example)
 

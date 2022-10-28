@@ -163,11 +163,11 @@ struct ARROW_EXPORT BackpressureOptions {
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
-                           std::shared_ptr<Schema>* output_schema = NULLPTR,
+                           std::shared_ptr<Schema>* schema = NULLPTR,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
-        output_schema(output_schema),
+        schema(schema),
         backpressure(std::move(backpressure)),
         backpressure_monitor(backpressure_monitor) {}
 
@@ -179,7 +179,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   std::function<Future<std::optional<ExecBatch>>()>* generator;
   /// \brief A pointer to the input schema to the SinkNode.
   ///
-  std::shared_ptr<Schema>* output_schema;
+  std::shared_ptr<Schema>* schema;
   /// \brief Options to control when to apply backpressure
   ///
   /// This is optional, the default is to never apply backpressure.  If the plan is not

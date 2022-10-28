@@ -128,7 +128,7 @@ class SinkNode : public ExecNode {
     RETURN_NOT_OK(ValidateOptions(sink_options));
     return plan->EmplaceNode<SinkNode>(
         plan, std::move(inputs), sink_options.generator, sink_options.backpressure,
-        sink_options.backpressure_monitor, sink_options.output_schema);
+        sink_options.backpressure_monitor, sink_options.schema);
   }
 
   const char* kind_name() const override { return "SinkNode"; }
