@@ -2952,33 +2952,37 @@ def test_list_slice_output_fixed(start, stop, expected, value_type, list_type):
     assert pylist == expected
 
 
-@pytest.mark.parametrize("start,stop,expected", (
-    (0, 1, [[1], [4], [6], None]),
-    (0, 2, [[1, 2], [4, 5], [6], None]),
-    (1, 2, [[2], [5], [], None]),
-    (2, 4, [[3], [], [], None])
+@pytest.mark.parametrize("start,stop", (
+    (0, 1,),
+    (0, 2,),
+    (1, 2,),
+    (2, 4,)
 ))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
 @pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
-def test_list_slice_output_variable(start, stop, expected, value_type, list_type):
+def test_list_slice_output_variable(start, stop, value_type, list_type):
     if list_type == "fixed":
-        arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None], None],
-                       pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
+        data = [[1, 2, 3], [4, 5, None], [6, None, None], None]
+        arr = pa.array(
+            data,
+            pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
     else:
-        arr = pa.array([[1, 2, 3], [4, 5], [6], None],
+        data = [[1, 2, 3], [4, 5], [6], None]
+        arr = pa.array(data,
                        pa.list_(pa.int8())).cast(list_type(value_type()))
+
+    # Gets same list type (ListArray vs LargeList)
     if list_type == "fixed":
-        msg = ("Requesting ListArray when slicing a FixedSizeList array would "
-               "always result in a FixedSizeList. Please set "
-               "`return_fixed_size_list=true` when slicing a FixedSizeList.")
-        with pytest.raises(pa.ArrowInvalid, match=msg):
-            pc.list_slice(arr, start, stop, return_fixed_size_list=False)
-    else:
-        result = pc.list_slice(arr, start, stop, return_fixed_size_list=False)
-        # Gets same list type (ListArray vs LargeList)
-        assert result.type == list_type(value_type())
-        pylist = result.cast(pa.list_(pa.int8())).to_pylist()
-        assert pylist == expected
+        list_type = pa.list_  # non fixed output type
+
+    result = pc.list_slice(arr, start, stop, return_fixed_size_list=False)
+    assert result.type == list_type(value_type())
+
+    pylist = result.cast(pa.list_(pa.int8())).to_pylist()
+
+    # Variable output slicing follows Python's slice semantics
+    expected = [d[start:stop] if d is not None else None for d in data]
+    assert pylist == expected
 
 
 def test_list_slice_bad_parameters():

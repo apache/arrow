@@ -143,10 +143,13 @@ struct ListSlice {
         RETURN_NOT_OK(
             BuildArrayFromFixedSizeListType<FixedSizeListBuilder>(batch, opts, *builder));
       } else {
-        return Status::Invalid(
-            "Requesting ListArray when slicing a FixedSizeList array would always "
-            "result in a FixedSizeList. Please set `return_fixed_size_list=true` when "
-            "slicing a FixedSizeList.");
+        if (std::is_same_v<Type, LargeListType>) {
+          RETURN_NOT_OK(
+              BuildArrayFromFixedSizeListType<LargeListBuilder>(batch, opts, *builder));
+        } else {
+          RETURN_NOT_OK(
+              BuildArrayFromFixedSizeListType<ListBuilder>(batch, opts, *builder));
+        }
       }
     } else {
       if (opts.return_fixed_size_list) {

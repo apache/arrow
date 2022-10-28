@@ -145,17 +145,13 @@ TEST(TestScalarNested, ListSliceVariableOutput) {
     }
   }
 
-  // Verify passing `return_fixed_size_list=false` with fixed size input fails
+  // Verify passing `return_fixed_size_list=false` with fixed size input
+  // returns variable size even if stop is beyond list_size
   ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
                         /*return_fixed_size_list=*/false);
   auto input = ArrayFromJSON(fixed_size_list(int32(), 1), "[[1]]");
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("Requesting ListArray when slicing a FixedSizeList array "
-                           "would always result in a FixedSizeList. Please set "
-                           "`return_fixed_size_list=true` when slicing a "
-                           "FixedSizeList."),
-      CallFunction("list_slice", {input}, &args));
+  auto expected = ArrayFromJSON(list(int32()), "[[1]]");
+  CheckListSlice(input, expected, args);
 }
 
 TEST(TestScalarNested, ListSliceFixedOutput) {
