@@ -18,7 +18,7 @@
 # under the License.
 #
 
-set -e
+set -eu
 
 : ${SOURCE_DEFAULT:=1}
 : ${SOURCE_RAT:=${SOURCE_DEFAULT}}
@@ -39,7 +39,7 @@ rc=$2
 
 tag=apache-arrow-${version}
 maint_branch=maint-${version}
-release_candidate_branch="release-${version}-rc${rc_number}"
+rc_branch="release-${version}-rc${rc}"
 tagrc=${tag}-rc${rc}
 rc_url="https://dist.apache.org/repos/dist/dev/arrow/${tagrc}"
 
@@ -129,13 +129,12 @@ fi
 # Create Pull Request and Crossbow comment to run verify source tasks
 if [ ${SOURCE_PR} -gt 0 ]; then
   archery crossbow \
-    --github-token=${ARROW_GITHUB_API_TOKEN} \
     verify-release-candidate \
     --base-branch=${maint_branch} \
     --create-pr \
-    --head-branch=${release_candidate_branch} \
+    --head-branch=${rc_branch} \
     --pr-body="PR to verify Release Candidate" \
-    --pr-title="WIP: [Release] Verify ${release_candidate_branch}" \
+    --pr-title="WIP: [Release] Verify ${rc_branch}" \
     --remote=https://github.com/apache/arrow \
     --rc=${rc} \
     --verify-source \
