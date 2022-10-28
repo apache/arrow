@@ -51,8 +51,42 @@ cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector
     return CDeclaration(tobytes("table_source"),
                         no_c_inputs, c_input_node_opts)
 
+cdef class BackpressureMonitor:
+    cdef:
+        CBackpressureMonitor* monitor
 
-def run_query(plan, table_provider=None, handle_backpressure=False, output_type=RecordBatchReader, use_threads=False):
+    def __init__(self):
+        pass
+
+    def bytes_in_use(self):
+        return self.monitor.bytes_in_use()
+
+    def is_paused(self):
+        return self.monitor.is_paused()
+
+cdef class BackpressureOptions:
+    cdef:
+        shared_ptr[CBackpressureOptions] options
+        uint64_t _resume_if_below
+        uint64_t _pause_if_above
+
+    def __init__(self, resume_if_below=0, pause_if_above=0):
+        self._resume_if_below = <uint64_t>resume_if_below
+        self._pause_if_above = <uint64_t>pause_if_above
+        self.options = make_shared[CBackpressureOptions](
+            self._resume_if_below, self._pause_if_above)
+
+    @property
+    def resume_if_below(self):
+        return self._resume_if_below
+
+    @property
+    def pause_if_above(self):
+        return self._pause_if_above
+
+
+def run_query(plan, table_provider=None, backpressure_options=None,
+              output_type=RecordBatchReader, use_threads=False):
     """
     Execute a Substrait plan and read the results as a RecordBatchReader.
 
@@ -64,13 +98,10 @@ def run_query(plan, table_provider=None, handle_backpressure=False, output_type=
         A function to resolve any NamedTable relation to a table.
         The function will receive a single argument which will be a list
         of strings representing the table name and should return a pyarrow.Table.
-    handle_backpressure: bool, default True
-        Enables if set True or disables handling backpressure.
+    backpressure_options: BackpressureOptions, default None
+        Provide backpressue range.
     output_type : RecordBatchReader or Table or InMemoryDataset
         In which format the output should be provided.
-        If the backpressure is handled, the output_type should be set only to
-        Table or InMemoryDataset. When backpressure is not set, it can be set
-        to Table or InMemoryDataset or RecordBatchReader.
     use_threads : bool, default True
         Whenever to use multithreading or not.
 
@@ -139,7 +170,8 @@ def run_query(plan, table_provider=None, handle_backpressure=False, output_type=
         shared_ptr[CExecContext] c_exec_context
         CExecutor *c_executor
         shared_ptr[CExecPlan] c_exec_plan
-        c_bool c_handle_backpressure
+        shared_ptr[CBackpressureOptions] c_backpressure_options_shd
+        CBackpressureMonitor* c_backpressure_monitor
 
     if isinstance(plan, bytes):
         c_buf_plan = pyarrow_unwrap_buffer(py_buffer(plan))
@@ -164,27 +196,31 @@ def run_query(plan, table_provider=None, handle_backpressure=False, output_type=
     c_exec_context = make_shared[CExecContext](
         c_default_memory_pool(), c_executor)
     c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
-    c_handle_backpressure = handle_backpressure
+
+    if backpressure_options:
+        # FIX ARROW-18187 and remove the backpressure validation clause
+        if backpressure_options.pause_if_above < backpressure_options.resume_if_below:
+            raise ValueError(
+                "`backpressure::pause_if_above` must be >= `backpressure::resume_if_below`")
+
+        c_backpressure_options_shd = (<BackpressureOptions>backpressure_options).options
+        monitor = BackpressureMonitor()
+        c_backpressure_monitor = (<BackpressureMonitor>monitor).monitor
+    else:
+        backpressure_options = BackpressureOptions()
+        c_backpressure_options_shd = (<BackpressureOptions>backpressure_options).options
+        c_backpressure_monitor = NULL
 
     with nogil:
         c_res_reader = ExecuteSerializedPlan(
             deref(c_buf_plan),
-            c_handle_backpressure,
-            c_exec_plan,
-            c_exec_context.get(),
             default_extension_id_registry(),
             GetFunctionRegistry(),
-            c_conversion_options)
+            c_conversion_options,
+            deref(c_backpressure_options_shd.get()),
+            &c_backpressure_monitor)
 
     c_reader = GetResultValue(c_res_reader)
-
-    if handle_backpressure:
-        if output_type == RecordBatchReader:
-            warnings.warn(
-                "backpressure handling enabled, output type \
-                can be only set to Table or InMemoryDataset. \
-                Setting output to Table.", UserWarning)
-        output_type = Table
 
     reader = RecordBatchReader.__new__(RecordBatchReader)
     reader.reader = c_reader

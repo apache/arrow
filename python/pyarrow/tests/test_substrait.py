@@ -108,7 +108,7 @@ def test_invalid_plan():
     }
     """
     buf = pa._substrait._parse_json_plan(tobytes(query))
-    exec_message = "Empty substrait plan is passed."
+    exec_message = "Invalid Substrait plan contained no top-level relations"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf)
 
@@ -303,3 +303,91 @@ def test_named_table_empty_names():
     exec_message = "names for NamedTable not provided"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf, table_provider)
+
+
+def test_backpressure_basic():
+    test_table = pa.Table.from_pydict({"x": [1, 2, 3, 4, 5,
+                                             6, 7, 8, 9, 10]})
+
+    def table_provider(names):
+        if not names:
+            raise Exception("No names provided")
+        elif names[0] == "t1":
+            return test_table
+        else:
+            raise Exception("Unrecognized table name")
+
+    substrait_query = """
+    {
+        "relations": [
+        {"rel": {
+            "read": {
+            "base_schema": {
+                "struct": {
+                "types": [
+                            {"i64": {}}
+                        ]
+                },
+                "names": [
+                        "x"
+                        ]
+            },
+            "namedTable": {
+                    "names": ["t1"]
+            }
+            }
+        }}
+        ]
+    }
+    """
+    bp_options = pa.substrait.BackpressureOptions(4, 8)
+
+    buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
+    reader = pa.substrait.run_query(buf, table_provider, bp_options)
+    res_tb = reader.read_all()
+    assert res_tb == test_table
+
+
+def test_invalid_backpressure_options():
+    test_table = pa.Table.from_pydict({"x": [1, 2, 3, 4, 5,
+                                             6, 7, 8, 9, 10]})
+
+    def table_provider(names):
+        if not names:
+            raise Exception("No names provided")
+        elif names[0] == "t1":
+            return test_table
+        else:
+            raise Exception("Unrecognized table name")
+
+    substrait_query = """
+    {
+        "relations": [
+        {"rel": {
+            "read": {
+            "base_schema": {
+                "struct": {
+                "types": [
+                            {"i64": {}}
+                        ]
+                },
+                "names": [
+                        "x"
+                        ]
+            },
+            "namedTable": {
+                    "names": ["t1"]
+            }
+            }
+        }}
+        ]
+    }
+    """
+    exec_msg = "`backpressure::pause_if_above` " \
+        + "must be >= `backpressure::resume_if_below`"
+    with pytest.raises(ValueError, match=exec_msg):
+        bp_options = pa.substrait.BackpressureOptions(1000, 500)
+        buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
+        reader = pa.substrait.run_query(buf, table_provider=table_provider,
+                                        backpressure_options=bp_options)
+        reader.read_all()

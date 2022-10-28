@@ -1168,7 +1168,8 @@ TEST(Substrait, GetRecordBatchReader) {
   test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
                                          compute::FunctionRegistry* func_registry) {
     ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
-    ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf, false));
+    ASSERT_OK_AND_ASSIGN(auto reader,
+                         ExecuteSerializedPlan(*buf, ext_id_reg, func_registry));
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
     // Note: assuming the binary.parquet file contains fixed amount of records
     // in case of a test failure, re-evalaute the content in the file
@@ -1185,8 +1186,7 @@ TEST(Substrait, GetRecordBatchReaderWithBackPressure) {
                                       ::arrow::internal::GetCpuThreadPool(),
                                       func_registry);
     ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
-    ASSERT_OK_AND_ASSIGN(auto reader,
-                         ExecuteSerializedPlan(*buf, true, plan, &exec_context));
+    ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf));
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
     // Note: assuming the binary.parquet file contains fixed amount of records
     // in case of a test failure, re-evalaute the content in the file

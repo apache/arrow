@@ -2560,6 +2560,13 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
                              c_string output_suffix_for_left,
                              c_string output_suffix_for_right)
 
+    cdef cppclass CBackpressureMonitor "arrow::compute::BackpressureMonitor":
+        CBackpressureMonitor()
+        uint64_t bytes_in_use() const
+        c_bool is_paused() const
+
+    cdef cppclass CBackpressureOptions "arrow::compute::BackpressureOptions":
+        CBackpressureOptions(uint32_t resume_if_below, uint32_t pause_if_above)
 
 cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
     cdef cppclass CDeclaration "arrow::compute::Declaration":

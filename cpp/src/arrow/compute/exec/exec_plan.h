@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
@@ -500,11 +501,13 @@ ARROW_EXPORT Future<std::shared_ptr<Table>> DeclarationToTableAsync(
 ///
 /// \see DeclarationToTable for details
 ARROW_EXPORT Result<std::vector<ExecBatch>> DeclarationToExecBatches(
-    Declaration declaration, ExecContext* exec_context = default_exec_context());
+    Declaration declaration, std::shared_ptr<Schema>* out_schema,
+    ExecContext* exec_context = default_exec_context());
 
 /// \brief Asynchronous version of \see DeclarationToExecBatches
 ARROW_EXPORT Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(
-    Declaration declaration, ExecContext* exec_context = default_exec_context());
+    Declaration declaration, std::shared_ptr<Schema>* out_schema,
+    ExecContext* exec_context = default_exec_context());
 
 /// \brief Utility method to run a declaration and collect the results into a vector
 ///
@@ -515,6 +518,11 @@ ARROW_EXPORT Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatc
 /// \brief Asynchronous version of \see DeclarationToBatches
 ARROW_EXPORT Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
     Declaration declaration, ExecContext* exec_context = default_exec_context());
+
+/// \brief Utility method to run a declaration return results as a RecordBatchReader
+Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
+    Declaration declaration, BackpressureOptions backpressure_options = {},
+    BackpressureMonitor** monitor = NULLPTR);
 
 /// \brief Wrap an ExecBatch generator in a RecordBatchReader.
 ///

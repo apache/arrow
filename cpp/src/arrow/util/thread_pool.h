@@ -494,7 +494,8 @@ ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 /// \brief Potentially run an async operation serially (if use_threads is false)
 /// \see RunSerially
 ///
-/// If `use_threads` is true, the global CPU executor is used.
+/// If `use_threads` is true, the global CPU executor is used.  However, this
+///   call will still block until completion.
 /// If `use_threads` is false, a temporary SerialExecutor is used.
 /// `get_future` is called (from this thread) with the chosen executor and must
 /// return a future that will eventually finish. This function returns once the
@@ -508,6 +509,26 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
   } else {
     return SerialExecutor::RunInSerialExecutor<ValueType>(std::move(get_future));
   }
+}
+
+/// \brief Potentially iterate an async generator serially (if use_threads is false)
+/// \see IterateGenerator
+///
+/// If `use_threads` is true, the global CPU executor will be used.  Each call to
+///   the iterator will simply wait until the next item is available.  Tasks may run in
+///   the background between calls.
+///
+/// If `use_threads` is false, the calling thread only will be used.  Each call to
+///   the iterator will use the calling thread to do enough work to generate one item.
+///   Tasks will be left in a queue until the next call and no work will be done between
+///   calls.
+template <typename T>
+Iterator<T> IterateSynchronously(FnOnce<Result<std::function<Future<T>()>>()> get_gen) {
+  auto maybe_gen = std::move(get_gen)();
+  if (!maybe_gen.ok()) {
+    return MakeErrorIterator<T>(maybe_gen.status());
+  }
+  return MakeGeneratorIterator(*maybe_gen);
 }
 
 }  // namespace internal

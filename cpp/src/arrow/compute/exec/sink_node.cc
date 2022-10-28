@@ -238,11 +238,11 @@ class SinkNode : public ExecNode {
     if (sink_options.backpressure.pause_if_above <
         sink_options.backpressure.resume_if_below) {
       return Status::Invalid(
-          "`backpressure::pause_if_above` must be >= `backpressure::resume_if_below");
+          "`backpressure::pause_if_above` must be >= `backpressure::resume_if_below`");
     }
     if (sink_options.backpressure.resume_if_below < 0) {
       return Status::Invalid(
-          "`backpressure::pause_if_above and backpressure::resume_if_below must be >= 0. "
+          "`backpressure::pause_if_above` and `backpressure::resume_if_below` must be >= 0. "
           " Set to 0 to disable backpressure.");
     }
     return Status::OK();

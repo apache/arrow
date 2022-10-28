@@ -424,7 +424,8 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
               {"filter", compute::FilterNodeOptions{scan_options_->filter}},
               {"augmented_project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"sink", compute::SinkNodeOptions{&sink_gen, scan_options_->backpressure}},
+              {"sink", compute::SinkNodeOptions{&sink_gen, /*schema=*/nullptr,
+                                                scan_options_->backpressure}},
           })
           .AddToPlan(plan.get()));
 

@@ -254,7 +254,7 @@ TEST(ExecPlanExecution, SinkWithOutpuSchemaOption) {
                     {
                         {"source", SourceNodeOptions{basic_data.schema,
                                                      basic_data.gen(parallel, slow)}},
-                        {"sink", SinkNodeOptions{&sink_gen, {}, NULLPTR, &output_schema}},
+                        {"sink", SinkNodeOptions{&sink_gen, &output_schema}},
                     })
                     .AddToPlan(plan.get()));
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
@@ -338,13 +338,14 @@ TEST(ExecPlanExecution, SinkNodeBackpressure) {
   BackpressureMonitor* backpressure_monitor;
   BackpressureOptions backpressure_options(resume_if_below_bytes, pause_if_above_bytes);
   std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
-  ARROW_EXPECT_OK(compute::Declaration::Sequence(
-                      {
-                          {"source", SourceNodeOptions(schema_, batch_producer)},
-                          {"sink", SinkNodeOptions{&sink_gen, backpressure_options,
-                                                   &backpressure_monitor}},
-                      })
-                      .AddToPlan(plan.get()));
+  ARROW_EXPECT_OK(
+      compute::Declaration::Sequence(
+          {
+              {"source", SourceNodeOptions(schema_, batch_producer)},
+              {"sink", SinkNodeOptions{&sink_gen, /*schema=*/nullptr,
+                                       backpressure_options, &backpressure_monitor}},
+          })
+          .AddToPlan(plan.get()));
   ASSERT_TRUE(backpressure_monitor);
   ARROW_EXPECT_OK(plan->StartProducing());
 

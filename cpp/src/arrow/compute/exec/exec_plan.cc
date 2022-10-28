@@ -588,13 +588,14 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
   return DeclarationToBatchesAsync(std::move(declaration), exec_context).result();
 }
 
-Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(Declaration declaration,
-                                                             ExecContext* exec_context) {
+Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(
+    Declaration declaration, std::shared_ptr<Schema>* out_schema,
+    ExecContext* exec_context) {
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
                         ExecPlan::Make(exec_context));
-  Declaration with_sink =
-      Declaration::Sequence({declaration, {"sink", SinkNodeOptions(&sink_gen)}});
+  Declaration with_sink = Declaration::Sequence(
+      {declaration, {"sink", SinkNodeOptions(&sink_gen, out_schema)}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
   ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
   auto collected_fut = CollectAsyncGenerator(sink_gen);
@@ -607,9 +608,92 @@ Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(Declaration declara
       });
 }
 
-Result<std::vector<ExecBatch>> DeclarationToExecBatches(Declaration declaration,
-                                                        ExecContext* exec_context) {
-  return DeclarationToExecBatchesAsync(std::move(declaration), exec_context).result();
+Result<std::vector<ExecBatch>> DeclarationToExecBatches(
+    Declaration declaration, std::shared_ptr<Schema>* out_schema,
+    ExecContext* exec_context) {
+  return DeclarationToExecBatchesAsync(std::move(declaration), out_schema, exec_context)
+      .result();
+}
+
+namespace {
+struct BatchConverter {
+  Future<std::shared_ptr<RecordBatch>> operator()() {
+    return exec_batch_gen().Then([this](const std::optional<ExecBatch>& batch)
+                                     -> Result<std::shared_ptr<RecordBatch>> {
+      if (batch) {
+        return batch->ToRecordBatch(schema);
+      } else {
+        return nullptr;
+      }
+    });
+  }
+
+  AsyncGenerator<std::optional<ExecBatch>> exec_batch_gen;
+  std::shared_ptr<Schema> schema;
+};
+
+Result<BatchConverter> DeclarationToRecordBatchGenerator(
+    Declaration declaration, std::shared_ptr<ExecPlan>* out_plan,
+    BackpressureOptions backpressure_options = {},
+    BackpressureMonitor** monitor = NULLPTR) {
+  BatchConverter converter;
+  ARROW_ASSIGN_OR_RAISE(*out_plan, ExecPlan::Make());
+  Declaration with_sink = Declaration::Sequence(
+      {declaration,
+       {"sink", SinkNodeOptions(&converter.exec_batch_gen, &converter.schema,
+                                backpressure_options, monitor)}});
+  ARROW_RETURN_NOT_OK(with_sink.AddToPlan(out_plan->get()));
+  ARROW_RETURN_NOT_OK((*out_plan)->StartProducing());
+  return converter;
+}
+}  // namespace
+
+Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
+    Declaration declaration, BackpressureOptions backpressure_options,
+    BackpressureMonitor** monitor) {
+  std::shared_ptr<ExecPlan> plan;
+  std::shared_ptr<Schema> schema;
+  Iterator<std::shared_ptr<RecordBatch>> batch_itr =
+      ::arrow::internal::IterateSynchronously<std::shared_ptr<RecordBatch>>(
+          [&]() -> Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> {
+            ARROW_ASSIGN_OR_RAISE(BatchConverter batch_converter,
+                                  DeclarationToRecordBatchGenerator(
+                                      declaration, &plan, backpressure_options, monitor));
+            schema = batch_converter.schema;
+            return batch_converter;
+          });
+
+  struct PlanReader : RecordBatchReader {
+    PlanReader(std::shared_ptr<ExecPlan> plan, std::shared_ptr<Schema> schema,
+               Iterator<std::shared_ptr<RecordBatch>> iterator)
+        : plan_(std::move(plan)),
+          schema_(std::move(schema)),
+          iterator_(std::move(iterator)) {}
+    ~PlanReader() { plan_->finished().Wait(); }
+
+    std::shared_ptr<Schema> schema() const override { return schema_; }
+
+    Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
+      return iterator_.Next().Value(record_batch);
+    }
+
+    Status Close() override {
+      // End plan and read from generator until finished
+      plan_->StopProducing();
+      std::shared_ptr<RecordBatch> batch;
+      do {
+        ARROW_RETURN_NOT_OK(ReadNext(&batch));
+      } while (batch != nullptr);
+      return Status::OK();
+    }
+
+    std::shared_ptr<ExecPlan> plan_;
+    std::shared_ptr<Schema> schema_;
+    Iterator<std::shared_ptr<RecordBatch>> iterator_;
+  };
+
+  return std::make_unique<PlanReader>(std::move(plan), std::move(schema),
+                                      std::move(batch_itr));
 }
 
 namespace internal {

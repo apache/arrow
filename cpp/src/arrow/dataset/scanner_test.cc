@@ -784,12 +784,13 @@ TEST(TestNewScanner, NoColumns) {
   test_dataset->DeliverBatchesInOrder(false);
 
   ScanV2Options options(test_dataset);
-  ASSERT_OK_AND_ASSIGN(std::vector<compute::ExecBatch> batches,
-                       compute::DeclarationToExecBatches({"scan2", options}));
-  ASSERT_EQ(16, batches.size());
+  ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
+                       compute::DeclarationToBatches({"scan2", options}));
+  ASSERT_EQ(1, batches.size());
   for (const auto& batch : batches) {
-    ASSERT_EQ(0, batch.values.size());
-    ASSERT_EQ(kRowsPerTestBatch, batch.length);
+    ASSERT_EQ(0, batch->schema()->num_fields());
+    ASSERT_EQ(kRowsPerTestBatch * kNumFragments * kNumBatchesPerFragment,
+              batch->num_rows());
   }
 }
 

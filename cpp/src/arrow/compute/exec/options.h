@@ -163,13 +163,13 @@ struct ARROW_EXPORT BackpressureOptions {
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
+                           std::shared_ptr<Schema>* output_schema = NULLPTR,
                            BackpressureOptions backpressure = {},
-                           BackpressureMonitor** backpressure_monitor = NULLPTR,
-                           std::shared_ptr<Schema>* output_schema = NULLPTR)
+                           BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
+        output_schema(output_schema),
         backpressure(std::move(backpressure)),
-        backpressure_monitor(backpressure_monitor),
-        output_schema(output_schema) {}
+        backpressure_monitor(backpressure_monitor) {}
 
   /// \brief A pointer to a generator of batches.
   ///
@@ -177,6 +177,9 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// data from the plan.  If this function is not called frequently enough then the sink
   /// node will start to accumulate data and may apply backpressure.
   std::function<Future<std::optional<ExecBatch>>()>* generator;
+  /// \brief A pointer to the input schema to the SinkNode.
+  ///
+  std::shared_ptr<Schema>* output_schema;
   /// \brief Options to control when to apply backpressure
   ///
   /// This is optional, the default is to never apply backpressure.  If the plan is not
@@ -188,8 +191,6 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// the amount of data currently queued in the sink node.  This is an optional utility
   /// and backpressure can be applied even if this is not used.
   BackpressureMonitor** backpressure_monitor;
-  /// TODO: remove if not working
-  std::shared_ptr<Schema>* output_schema;
 };
 
 /// \brief Control used by a SinkNodeConsumer to pause & resume

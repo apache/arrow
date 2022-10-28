@@ -32,13 +32,25 @@ namespace engine {
 using PythonTableProvider =
     std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)>;
 
+/// \brief Get a RecordBatchReader by executing a serialized Substrait plan.
+///
+/// \param[in] substrait_buffer a buffer containing the protobuf serialization of a
+/// Substrait Plan message.
+/// \param[in] ext_id_registry an extension-id-registry to use, or
+/// null for the default one.
+/// \param[in] func_registry a function registry to use, or null
+/// for the default one.
+/// \param[in] conversion_options options to control how the
+/// conversion is to be done.
+/// \param[in] backpressure_options options to control how the backpressure is
+/// handled
+/// \param[out] monitor a pointer to an object which monitors the backpressure
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    const Buffer& substrait_buffer, const bool handle_backpressure = false,
-    std::shared_ptr<compute::ExecPlan> plan = NULLPTR,
-    compute::ExecContext* exec_context = NULLPTR,
-    const ExtensionIdRegistry* registry = NULLPTR,
+    const Buffer& substrait_buffer, const ExtensionIdRegistry* ext_id_registry = NULLPTR,
     compute::FunctionRegistry* func_registry = NULLPTR,
-    const ConversionOptions& conversion_options = {});
+    const ConversionOptions& conversion_options = {},
+    compute::BackpressureOptions backpressure_options = {},
+    compute::BackpressureMonitor** monitor = NULLPTR);
 
 /// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.
