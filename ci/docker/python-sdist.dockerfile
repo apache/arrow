@@ -25,7 +25,8 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         git \
-        python3-pip && \
+        python3-pip \
+        curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
