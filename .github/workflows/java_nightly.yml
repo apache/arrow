@@ -113,6 +113,7 @@ jobs:
             mkdir -p repo/org/apache/arrow/${BASH_REMATCH[1]}/${DATE}
             # Copy twice to maintain a latest snapshot and some earlier versions
             cp binaries/$PREFIX/java-jars/$LIBRARY repo/org/apache/arrow/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}
+            touch repo/org/apache/arrow/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}
             cp binaries/$PREFIX/java-jars/$LIBRARY repo/org/apache/arrow/${BASH_REMATCH[1]}/${DATE}
             echo "Artifacts $LIBRARY configured"
           done
@@ -122,9 +123,10 @@ jobs:
           KEEP: ${{ github.event.inputs.keep || 14 }}
         run: |
           for i in `ls -t repo/org/apache/arrow`; do
-            ls -tp repo/org/apache/arrow/$i \
+            find repo/org/apache/arrow/$i -mindepth 1 -maxdepth 1 -type d -print0 \
+            | xargs -0 ls -t -d \
             | tail -n +$((KEEP + 1)) \
-            | xargs -I {} rm -rf repo/org/apache/arrow/$i/{}
+            | xargs rm -rf
           done
       - name: Show repo contents
         run: tree repo
