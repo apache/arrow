@@ -337,7 +337,8 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
         write_options_(std::move(write_options)) {}
 
   Status Init(const std::shared_ptr<Schema>& schema,
-              compute::BackpressureControl* backpressure_control) override {
+              compute::BackpressureControl* backpressure_control,
+              compute::ExecPlan* plan) override {
     if (custom_metadata_) {
       schema_ = schema->WithMetadata(custom_metadata_);
     } else {
@@ -345,11 +346,13 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     }
     backpressure_control_ = backpressure_control;
     scheduler_throttle_ = util::AsyncTaskScheduler::MakeThrottle(1);
-    scheduler_finished_ = util::AsyncTaskScheduler::Make(
+    serial_scheduler_ = plan->async_scheduler()->MakeSubScheduler(
         [&](util::AsyncTaskScheduler* scheduler) {
-          scheduler_ = scheduler;
-          scheduler->AddSimpleTask([&] { return finished_; });
           dataset_writer_->Start(scheduler);
+          return Status::OK();
+        },
+        [this](const Status& finish_st) {
+          finished_.MarkFinished();
           return Status::OK();
         },
         scheduler_throttle_.get());
@@ -363,14 +366,14 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   }
 
   Future<> Finish() override {
-    scheduler_->AddSimpleTask([this]() -> Result<Future<>> {
+    serial_scheduler_->Get()->AddSimpleTask([this]() -> Result<Future<>> {
       ARROW_RETURN_NOT_OK(dataset_writer_->Finish());
       // Finish is actually synchronous but we add it to the scheduler because we want to
       // make sure it happens after all the write calls.
       return Future<>::MakeFinished();
     });
-    finished_.MarkFinished();
-    return scheduler_finished_;
+    serial_scheduler_->Reset();
+    return finished_;
   }
 
  private:
@@ -380,7 +383,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
         batch, guarantee, write_options_,
         [this](std::shared_ptr<RecordBatch> next_batch,
                const PartitionPathFormat& destination) {
-          scheduler_->AddSimpleTask([this, next_batch, destination] {
+          serial_scheduler_->Get()->AddSimpleTask([this, next_batch, destination] {
             Future<> has_room = dataset_writer_->WriteRecordBatch(
                 next_batch, destination.directory, destination.filename);
             if (!has_room.is_finished()) {
@@ -400,8 +403,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   std::shared_ptr<const KeyValueMetadata> custom_metadata_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
-  util::AsyncTaskScheduler* scheduler_;
-  Future<> scheduler_finished_;
+  std::unique_ptr<util::AsyncTaskScheduler::Holder> serial_scheduler_;
   Future<> finished_ = Future<>::Make();
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> scheduler_throttle_;
   std::shared_ptr<Schema> schema_ = nullptr;

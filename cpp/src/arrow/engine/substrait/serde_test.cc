@@ -103,7 +103,8 @@ Result<std::shared_ptr<Table>> GetTableFromPlan(
 
 class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
-  Status Init(const std::shared_ptr<Schema>&, compute::BackpressureControl*) override {
+  Status Init(const std::shared_ptr<Schema>&, compute::BackpressureControl*,
+              compute::ExecPlan* plan) override {
     return Status::OK();
   }
   Status Consume(compute::ExecBatch exec_batch) override { return Status::OK(); }

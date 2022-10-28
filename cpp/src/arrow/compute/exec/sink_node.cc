@@ -303,7 +303,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
       }
       output_schema = schema(std::move(fields));
     }
-    RETURN_NOT_OK(consumer_->Init(output_schema, this));
+    RETURN_NOT_OK(consumer_->Init(output_schema, this, plan_));
     return Status::OK();
   }
 

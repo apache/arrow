@@ -519,7 +519,7 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
             : batches_seen(batches_seen), finish(std::move(finish)) {}
 
         Status Init(const std::shared_ptr<Schema>& schema,
-                    BackpressureControl* backpressure_control) override {
+                    BackpressureControl* backpressure_control, ExecPlan* plan) override {
           return Status::OK();
         }
 
@@ -593,7 +593,7 @@ TEST(ExecPlanExecution, ConsumingSinkNames) {
   struct SchemaKeepingConsumer : public SinkNodeConsumer {
     std::shared_ptr<Schema> schema_;
     Status Init(const std::shared_ptr<Schema>& schema,
-                BackpressureControl* backpressure_control) override {
+                BackpressureControl* backpressure_control, ExecPlan* plan) override {
       schema_ = schema;
       return Status::OK();
     }
@@ -631,7 +631,7 @@ TEST(ExecPlanExecution, ConsumingSinkNames) {
 TEST(ExecPlanExecution, ConsumingSinkError) {
   struct InitErrorConsumer : public SinkNodeConsumer {
     Status Init(const std::shared_ptr<Schema>& schema,
-                BackpressureControl* backpressure_control) override {
+                BackpressureControl* backpressure_control, ExecPlan* plan) override {
       return Status::Invalid("XYZ");
     }
     Status Consume(ExecBatch batch) override { return Status::OK(); }
@@ -639,7 +639,7 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
   };
   struct ConsumeErrorConsumer : public SinkNodeConsumer {
     Status Init(const std::shared_ptr<Schema>& schema,
-                BackpressureControl* backpressure_control) override {
+                BackpressureControl* backpressure_control, ExecPlan* plan) override {
       return Status::OK();
     }
     Status Consume(ExecBatch batch) override { return Status::Invalid("XYZ"); }
@@ -647,7 +647,7 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
   };
   struct FinishErrorConsumer : public SinkNodeConsumer {
     Status Init(const std::shared_ptr<Schema>& schema,
-                BackpressureControl* backpressure_control) override {
+                BackpressureControl* backpressure_control, ExecPlan* plan) override {
       return Status::OK();
     }
     Status Consume(ExecBatch batch) override { return Status::OK(); }
