@@ -33,10 +33,6 @@ jobs:
       - name: Execute Docker Build
         shell: bash
         env:
-          # The CUDA image has to match the runner image 1:1 to work
-          # so these values are hardcoded to override any changes to .env
-          CUDA: "11.4.2"
-          UBUNTU: "20.04"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           archery docker run \

@@ -1474,17 +1474,27 @@ tasks:
       - docs.tar.gz
 
   ############################## CUDA tests #################################
-  
+  # The CUDA image has to match the runner image 1:1 to work
+  # so these values are hardcoded to override any changes to .env
+  {% set cuda_ver='11.4.2' %}
+  {% set cuda_ubuntu='20.04' %}
+
   test-cuda-cpp:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        CUDA: {{ cuda_ver }}
+        UBUNTU: {{ cuda_ubuntu }}
       image: ubuntu-cuda-cpp
   
   test-cuda-python:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        CUDA: {{ cuda_ver }}
+        UBUNTU: {{ cuda_ubuntu }}
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
