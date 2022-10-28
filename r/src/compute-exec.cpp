@@ -170,7 +170,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
           [&plan] { return [plan](const arrow::Status&) {}; });
 
       if (not_finished_yet) {
-        plan_->StopProducing();
+        // plan_->StopProducing();
       }
     }
 
