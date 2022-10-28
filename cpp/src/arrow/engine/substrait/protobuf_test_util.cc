@@ -15,15 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/substrait/protobuf_test_util.h"
+#include <gtest/gtest.h>
 
-#include <google/protobuf/stubs/common.h>
+#include <google/protobuf/message_lite.h>
 
 namespace arrow {
 namespace engine {
 
-void ProtobufEnvironment::SetUp() { GOOGLE_PROTOBUF_VERIFY_VERSION; }
-void ProtobufEnvironment::TearDown() { google::protobuf::ShutdownProtobufLibrary(); }
+class ProtobufEnvironment : public ::testing::Environment {
+ public:
+  void SetUp() override { GOOGLE_PROTOBUF_VERIFY_VERSION; }
+  void TearDown() override { google::protobuf::ShutdownProtobufLibrary(); }
+};
 
 ::testing::Environment* protobuf_env =
     ::testing::AddGlobalTestEnvironment(new ProtobufEnvironment);
