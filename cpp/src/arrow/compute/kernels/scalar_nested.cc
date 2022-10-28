@@ -135,7 +135,7 @@ struct ListSlice {
         RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), list(value_type), &builder));
       }
     }
-    RETURN_NOT_OK(builder->Reserve(list_.length - 1));
+    RETURN_NOT_OK(builder->Reserve(list_.length));
 
     // construct array values
     if constexpr (std::is_same_v<Type, FixedSizeListType>) {
