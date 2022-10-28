@@ -568,6 +568,68 @@ struct CastFunctor<O, I,
 };
 
 // ----------------------------------------------------------------------
+// String to decimal
+
+struct StringToDecimal {
+  template <typename OutValue, typename StringType>
+  OutValue Call(KernelContext*, StringType val, Status* st) const {
+    OutValue parsed_out;
+    int32_t parsed_precision;
+    int32_t parsed_scale;
+    auto r_parse = OutValue::FromString(std::string_view(val.data(), val.size()),
+                                        &parsed_out, &parsed_precision, &parsed_scale);
+
+    if (ARROW_PREDICT_TRUE(r_parse.ok())) {
+      if (allow_truncate_) {
+        return (parsed_scale < out_scale_)
+                   ? parsed_out.IncreaseScaleBy(out_scale_ - parsed_scale)
+                   : parsed_out.ReduceScaleBy(parsed_scale - out_scale_, false);
+      }
+
+      auto maybe_rescaled = parsed_out.Rescale(parsed_scale, out_scale_);
+      if (!maybe_rescaled.ok()) {
+        *st = maybe_rescaled.status();
+        return {};  // Zero
+      }
+      if (maybe_rescaled->FitsInPrecision(out_precision_)) {
+        return maybe_rescaled.MoveValueUnsafe();
+      } else {
+        *st = Status::Invalid("Decimal value does not fit in precision ", out_precision_);
+        return {};  // Zero
+      }
+    }
+
+    *st = r_parse;
+    return {};  // Zero
+  }
+
+  int32_t out_scale_, out_precision_;
+  bool allow_truncate_;
+};
+
+template <typename ARROW_TYPE, typename I>
+struct DecimalCastFunctor {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+    const auto& out_type = checked_cast<const ARROW_TYPE&>(*out->type());
+    const auto out_scale = out_type.scale();
+    const auto out_precision = out_type.precision();
+
+    applicator::ScalarUnaryNotNullStateful<ARROW_TYPE, I, StringToDecimal> kernel(
+        StringToDecimal{out_scale, out_precision, options.allow_decimal_truncate});
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <typename I>
+struct CastFunctor<Decimal128Type, I, enable_if_t<is_base_binary_type<I>::value>>
+    : public DecimalCastFunctor<Decimal128Type, I> {};
+
+template <typename I>
+struct CastFunctor<Decimal256Type, I, enable_if_t<is_base_binary_type<I>::value>>
+    : public DecimalCastFunctor<Decimal256Type, I> {};
+
+// ----------------------------------------------------------------------
 // Decimal to real
 
 struct DecimalToReal {
@@ -681,6 +743,12 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }
 
+  // Cast from other strings
+  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryBase<CastFunctor, Decimal128Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+
   // Cast from other decimal
   auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
   // We resolve the output type of this kernel from the CastOptions
@@ -707,6 +775,12 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
   // Cast from integer
   for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
     auto exec = GenerateInteger<CastFunctor, Decimal256Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+
+  // Cast from other strings
+  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryBase<CastFunctor, Decimal256Type>(in_ty->id());
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }
 

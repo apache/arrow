@@ -217,7 +217,8 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
     PYTHON=3.8 archery docker run conda-python
 
     # disable the cache only for the leaf image
-    PANDAS=master archery docker run --no-leaf-cache conda-python-pandas
+    PANDAS=upstream_devel archery docker run --no-leaf-cache \
+        conda-python-pandas
 
     # entirely skip building the image
     archery docker run --no-pull --no-build conda-python

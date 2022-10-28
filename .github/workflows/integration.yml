@@ -85,7 +85,11 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: archery docker run -e ARCHERY_INTEGRATION_WITH_RUST=1 conda-integration
+        run: >
+          archery docker run \
+            -e ARCHERY_DEFAULT_BRANCH=${{ github.event.repository.default_branch }} \
+            -e ARCHERY_INTEGRATION_WITH_RUST=1 \
+            conda-integration
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         env:
