@@ -18,7 +18,7 @@
 
 
 # A script to install dependencies required for release
-# verification Red Hat Enterprise Linux 7 clones in particular
+# verification Red Hat Enterprise Linux 7 rebuilds in particular
 # on CentOS 7
 
 set -exu
