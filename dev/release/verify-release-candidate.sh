@@ -429,7 +429,7 @@ install_go() {
   export GOROOT=${prefix}/go
   export GOPATH=${prefix}/gopath
   export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-  
+
   mkdir -p $GOPATH
   show_info "$(go version) installed at $(which go)"
 
