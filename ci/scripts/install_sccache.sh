@@ -46,7 +46,7 @@ echo "  $SCCACHE_ARCHIVE" >> $SCCACHE_ARCHIVE.sha256
 SHA_ARGS="--check --status"
 
 # Busybox sha256sum uses different flags
-if command -v busybox &> /dev/null; then
+if sha256sum --version 2>&1 | grep -q BusyBox; then
   SHA_ARGS="-sc"
 fi
 
