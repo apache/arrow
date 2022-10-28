@@ -82,7 +82,11 @@ func getGoArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op Arithm
 	case OpMul:
 		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a * b }))
 	case OpDiv:
-		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, _ *error) T {
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) T {
+			if b == 0 {
+				*e = errDivByZero
+				return 0
+			}
 			return a / b
 		})
 	case OpAddChecked:
@@ -159,6 +163,16 @@ func getGoArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op Arithm
 }
 
 func getGoArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+	if op == OpDivChecked {
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
+			if b == 0 {
+				*e = errDivByZero
+				return
+			}
+			return a / b
+		})
+	}
+
 	if op >= OpAddChecked {
 		op -= OpAddChecked // floating checked is the same as floating unchecked
 	}
@@ -171,10 +185,6 @@ func getGoArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.
 		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a * b }))
 	case OpDiv:
 		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
-			if b == 0 {
-				*e = errDivByZero
-				return
-			}
 			return a / b
 		})
 	}
