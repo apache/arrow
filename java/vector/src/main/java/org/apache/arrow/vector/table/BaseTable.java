@@ -430,4 +430,14 @@ public abstract class BaseTable implements AutoCloseable {
     }
     return dictionary;
   }
+
+  /**
+   * Returns this table if it is Immutable; otherwise returns a new Immutable table from the data in this table.
+   */
+  public abstract Table toImmutableTable();
+
+  /**
+   * Returns this table if it is already Mutable; otherwise returns a new Mutable table from the data in this table.
+   */
+  public abstract MutableTable toMutableTable();
 }
