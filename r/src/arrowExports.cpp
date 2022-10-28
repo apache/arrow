@@ -2426,12 +2426,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
-bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs);
-extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
+bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs, bool check_metadata, bool check_internal_field_names);
+extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp, SEXP check_metadata_sexp, SEXP check_internal_field_names_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type lhs(lhs_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(DataType__Equals(lhs, rhs));
+	arrow::r::Input<bool>::type check_metadata(check_metadata_sexp);
+	arrow::r::Input<bool>::type check_internal_field_names(check_internal_field_names_sexp);
+	return cpp11::as_sexp(DataType__Equals(lhs, rhs, check_metadata, check_internal_field_names));
 END_CPP11
 }
 // datatype.cpp
@@ -4947,13 +4949,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // schema.cpp
-bool Schema__Equals(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::Schema>& other, bool check_metadata);
-extern "C" SEXP _arrow_Schema__Equals(SEXP schema_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
+bool Schema__Equals(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::Schema>& other, bool check_metadata, bool check_internal_field_names);
+extern "C" SEXP _arrow_Schema__Equals(SEXP schema_sexp, SEXP other_sexp, SEXP check_metadata_sexp, SEXP check_internal_field_names_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type other(other_sexp);
 	arrow::r::Input<bool>::type check_metadata(check_metadata_sexp);
-	return cpp11::as_sexp(Schema__Equals(schema, other, check_metadata));
+	arrow::r::Input<bool>::type check_internal_field_names(check_internal_field_names_sexp);
+	return cpp11::as_sexp(Schema__Equals(schema, other, check_metadata, check_internal_field_names));
 END_CPP11
 }
 // schema.cpp
@@ -5511,7 +5514,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_struct__", (DL_FUNC) &_arrow_struct__, 1}, 
 		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1}, 
 		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1}, 
-		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 2}, 
+		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 4}, 
 		{ "_arrow_DataType__num_fields", (DL_FUNC) &_arrow_DataType__num_fields, 1}, 
 		{ "_arrow_DataType__fields", (DL_FUNC) &_arrow_DataType__fields, 1}, 
 		{ "_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1}, 
@@ -5766,7 +5769,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Schema__metadata", (DL_FUNC) &_arrow_Schema__metadata, 1}, 
 		{ "_arrow_Schema__WithMetadata", (DL_FUNC) &_arrow_Schema__WithMetadata, 2}, 
 		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1}, 
-		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 3}, 
+		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 4}, 
 		{ "_arrow_arrow__UnifySchemas", (DL_FUNC) &_arrow_arrow__UnifySchemas, 1}, 
 		{ "_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1}, 
 		{ "_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1}, 

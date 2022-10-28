@@ -118,8 +118,8 @@ Schema <- R6Class("Schema",
       metadata <- prepare_key_value_metadata(metadata)
       Schema__WithMetadata(self, metadata)
     },
-    Equals = function(other, check_metadata = FALSE, ...) {
-      inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
+    Equals = function(other, check_metadata = FALSE, check_internal_field_names = FALSE, ...) {
+      inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata), isTRUE(check_internal_field_names))
     },
     export_to_c = function(ptr) ExportSchema(self, ptr),
     code = function() {
