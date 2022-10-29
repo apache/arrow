@@ -2413,7 +2413,7 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
 // Slice
 
 namespace {
-struct SliceCodeunitsTransform : StringSliceTransformBase {
+struct SliceBytesTransform : StringSliceTransformBase {
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
     const SliceOptions& opt = *this->options;
     if ((opt.start >= 0) != (opt.stop >= 0)) {
@@ -2544,9 +2544,9 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
 };
 
 template <typename Type>
-using SliceCodeunits = StringTransformExec<Type, SliceCodeunitsTransform>;
+using SliceBytes = StringTransformExec<Type, SliceBytesTransform>;
 
-} // anonymouse namespace
+}  // namespace
 
 const FunctionDoc binary_slice_bytes_doc(
     "Slice string",
@@ -2563,9 +2563,9 @@ void AddAsciiStringSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_slice_bytes", Arity::Unary(),
                                                binary_slice_bytes_doc);
   for (const auto& ty : BinaryTypes()) {
-    auto exec = GenerateVarBinaryToVarBinary<SliceCodeunits>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<SliceBytes>(ty);
     DCHECK_OK(
-        func->AddKernel({ty}, ty, std::move(exec), SliceCodeunitsTransform::State::Init));
+        func->AddKernel({ty}, ty, std::move(exec), SliceBytesTransform::State::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
