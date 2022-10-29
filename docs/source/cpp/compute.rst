@@ -1090,10 +1090,15 @@ in reverse order.
 +--------------------------+------------+----------------+-----------------+--------------------------+---------+
 | Function name            | Arity      | Input types    | Output type     | Options class            | Notes   |
 +==========================+============+================+=================+==========================+=========+
-| utf8_slice_codeunits     | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(1)    |
+| binary_slice_bytes       | Unary      | Binary-like    | Binary-like     | :struct:`SliceOptions`   | \(1)    |
++--------------------------+------------+----------------+-----------------+--------------------------+---------+
+| utf8_slice_codeunits     | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(2)    |
 +--------------------------+------------+----------------+-----------------+--------------------------+---------+
 
 * \(1) Slice string into a substring defined by (``start``, ``stop``, ``step``)
+  as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
+  in bytes. Null inputs emit null.
+* \(2) Slice string into a substring defined by (``start``, ``stop``, ``step``)
   as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
   in codeunits. Null inputs emit null.
 

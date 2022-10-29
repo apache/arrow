@@ -342,6 +342,7 @@ String Slicing
 .. autosummary::
    :toctree: ../generated/
 
+   binary_slice_bytes
    utf8_slice_codeunits
 
 Containment Tests
