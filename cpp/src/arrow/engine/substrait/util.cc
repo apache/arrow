@@ -27,42 +27,6 @@ namespace arrow {
 
 namespace engine {
 
-namespace {
-
-/// \brief A SinkNodeConsumer specialized to output ExecBatches via PushGenerator
-class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
- public:
-  explicit SubstraitSinkConsumer(
-      arrow::PushGenerator<std::optional<compute::ExecBatch>>::Producer producer)
-      : producer_(std::move(producer)) {}
-
-  Status Consume(compute::ExecBatch batch) override {
-    // Consume a batch of data
-    bool did_push = producer_.Push(batch);
-    if (!did_push) return Status::Invalid("Producer closed already");
-    return Status::OK();
-  }
-
-  Status Init(const std::shared_ptr<Schema>& schema,
-              compute::BackpressureControl* backpressure_control) override {
-    schema_ = schema;
-    return Status::OK();
-  }
-
-  Future<> Finish() override {
-    ARROW_UNUSED(producer_.Close());
-    return Future<>::MakeFinished();
-  }
-
-  std::shared_ptr<Schema> schema() { return schema_; }
-
- private:
-  arrow::PushGenerator<std::optional<compute::ExecBatch>>::Producer producer_;
-  std::shared_ptr<Schema> schema_;
-};
-
-}  // namespace
-
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const ExtensionIdRegistry* ext_id_registry,
     compute::FunctionRegistry* func_registry, const ConversionOptions& conversion_options,

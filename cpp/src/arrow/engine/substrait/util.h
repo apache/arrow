@@ -20,8 +20,8 @@
 #include <memory>
 #include <optional>
 
-#include "arrow/compute/registry.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/registry.h"
 #include "arrow/engine/substrait/api.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/util/iterator.h"
