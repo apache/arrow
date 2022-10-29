@@ -2412,6 +2412,7 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Slice
 
+namespace {
 struct SliceCodeunitsTransform : StringSliceTransformBase {
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
     const SliceOptions& opt = *this->options;
@@ -2544,6 +2545,8 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
 
 template <typename Type>
 using SliceCodeunits = StringTransformExec<Type, SliceCodeunitsTransform>;
+
+} // anonymouse namespace
 
 const FunctionDoc binary_slice_bytes_doc(
     "Slice string",
