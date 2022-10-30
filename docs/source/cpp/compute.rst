@@ -1087,13 +1087,13 @@ semantics follow Python slicing semantics: the start index is inclusive,
 the stop index exclusive; if the step is negative, the sequence is followed
 in reverse order.
 
-+--------------------------+------------+----------------+-----------------+--------------------------+---------+
-| Function name            | Arity      | Input types    | Output type     | Options class            | Notes   |
-+==========================+============+================+=================+==========================+=========+
-| binary_slice_bytes       | Unary      | Binary-like    | Binary-like     | :struct:`SliceOptions`   | \(1)    |
-+--------------------------+------------+----------------+-----------------+--------------------------+---------+
-| utf8_slice_codeunits     | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(2)    |
-+--------------------------+------------+----------------+-----------------+--------------------------+---------+
++--------------------------+------------+-------------------------+-------------------------+--------------------------+---------+
+| Function name            | Arity      | Input types             | Output type             | Options class            | Notes   |
++==========================+============+=========================+=========================+==========================+=========+
+| binary_slice_bytes       | Unary      | Binary- or String-like  | Binary- or String-like  | :struct:`SliceOptions`   | \(1)    |
++--------------------------+------------+-------------------------+-------------------------+--------------------------+---------+
+| utf8_slice_codeunits     | Unary      | String-like             | String-like             | :struct:`SliceOptions`   | \(2)    |
++--------------------------+------------+-------------------------+-------------------------+--------------------------+---------+
 
 * \(1) Slice string into a substring defined by (``start``, ``stop``, ``step``)
   as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
