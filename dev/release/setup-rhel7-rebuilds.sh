@@ -26,17 +26,29 @@ set -exu
 yum -y update
 yum -y groupinstall "Development Tools"
 yum -y install centos-release-scl curl
+cd /etc/pki/rpm-gpg
+curl -O http://springdale.princeton.edu/data/springdale/7/x86_64/os/RPM-GPG-KEY-springdale
+cd /etc/yum.repos.d
+cat << EOF > Springdale-SCL.repo
+[Springdale-SCL]
+name=Springdale - SCL
+baseurl=http://springdale.princeton.edu/data/springdale/SCL/$releasever/$basearch
+gpgcheck=1
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-springdale
+EOF
+cd $HOME
 yum -y install epel-release
 yum -y install \
   cmake3 \
-  devtoolset-11-* \
+  devtoolset-9-* \
   git \
   gobject-introspection-devel \
   java-11-openjdk-devel \
   libcurl-devel \
   libicu-devel \
   libtool \
-  llvm13-devel \
+  llvm-toolset-13.0-* \
   maven \
   ncurses-devel \
   ninja-build \
@@ -55,7 +67,7 @@ alternatives --install /usr/local/bin/cmake cmake /usr/bin/cmake3 20 \
   --slave /usr/local/bin/cpack cpack /usr/bin/cpack3 \
   --slave /usr/local/bin/ccmake ccmake /usr/bin/ccmake3 \
   --family cmake
-scl enable rh-python38 devtoolset-11 rh-ruby30 bash
+scl enable rh-python38 devtoolset-9 llvm-toolset-13.0 rh-ruby30 bash
 python -m pip install -U pip
 wget https://www.openssl.org/source/openssl-3.0.5.tar.gz
 tar -xf openssl-3.0.5.tar.gz
