@@ -19,6 +19,7 @@
 #include <cctype>
 #include <iterator>
 #include <string>
+#include <iostream>
 
 #ifdef ARROW_WITH_RE2
 #include <re2/re2.h>
@@ -2439,27 +2440,31 @@ struct SliceBytesTransform : StringSliceTransformBase {
     // Slice in forward order (step > 0)
     const SliceOptions& opt = *this->options;
     const uint8_t* begin = input;
-    const uint8_t* end = input + input_string_ncodeunits - 1;
+    const uint8_t* end = input + input_string_ncodeunits;
     const uint8_t* begin_sliced;
     const uint8_t* end_sliced;
+
+    if (!input_string_ncodeunits) {
+      return 0;
+    }
     // First, compute begin_sliced and end_sliced
     if (opt.start >= 0) {
       // start counting from the left
-      begin_sliced = begin + opt.start;
+      begin_sliced = std::min(begin + opt.start, end);
       if (opt.stop > opt.start) {
         // continue counting from begin_sliced
         const int64_t length = opt.stop - opt.start;
         end_sliced = std::min(begin_sliced + length, end);
       } else if (opt.stop < 0) {
         // from the end
-        end_sliced = std::max(end - opt.stop, begin);
+        end_sliced = std::max(end + opt.stop, begin_sliced);
       } else {
         // zero length slice
         return 0;
       }
     } else {
       // start counting from the right
-      begin_sliced = end - opt.start;
+      begin_sliced = std::max(end + opt.start, begin);
       if (opt.stop > 0) {
         // continue counting from the left, we cannot start from begin_sliced because we
         // don't know how many bytes are between begin and begin_sliced
@@ -2474,7 +2479,7 @@ struct SliceBytesTransform : StringSliceTransformBase {
         // in some cases we can optimize this, depending on the shortest path (from end
         // or begin_sliced), but begin_sliced and opt.start can be 'out of sync',
         // for instance when start=-100, when the string length is only 10.
-        end_sliced = std::max(end - opt.stop, begin);
+        end_sliced = std::max(end + opt.stop, begin_sliced);
       } else {
         // zero length slice
         return 0;
@@ -2495,7 +2500,7 @@ struct SliceBytesTransform : StringSliceTransformBase {
     while (i < end_sliced) {
       *dest = *i;
       // skip step codeunits
-      i += opt.step - 1;
+      i += opt.step;
       dest++;
     }
     return dest - output;
@@ -2510,12 +2515,16 @@ struct SliceBytesTransform : StringSliceTransformBase {
     const uint8_t* begin_sliced = begin;
     const uint8_t* end_sliced = end;
 
+    if (!input_string_ncodeunits) {
+      return 0;
+    }
+
     if (opt.start >= 0) {
       // +1 because begin_sliced acts as as the end of a reverse iterator
       begin_sliced = std::min(begin + opt.start + 1, end);
     } else {
       // -1 because start=-1 means the last byte, which is 0 advances
-      begin_sliced = std::max(end - opt.start - 1, begin);
+      begin_sliced = std::max(end + opt.start + 1, begin);
     }
     begin_sliced--;
 
@@ -2523,7 +2532,7 @@ struct SliceBytesTransform : StringSliceTransformBase {
     if (opt.stop >= 0) {
       end_sliced = std::min(begin + opt.stop + 1, end);
     } else {
-      end_sliced = std::max(end - opt.stop - 1, begin);
+      end_sliced = std::max(end + opt.stop + 1, begin);
     }
     end_sliced--;
 
@@ -2562,7 +2571,7 @@ const FunctionDoc binary_slice_bytes_doc(
 void AddAsciiStringSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_slice_bytes", Arity::Unary(),
                                                binary_slice_bytes_doc);
-  for (const auto& ty : BinaryTypes()) {
+  for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SliceBytes>(ty);
     DCHECK_OK(
         func->AddKernel({ty}, ty, std::move(exec), SliceBytesTransform::State::Init));
