@@ -2121,8 +2121,8 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
 
 TYPED_TEST(TestBaseBinaryKernels, SliceBytesBasic) {
   SliceOptions options{2, 4};
-  this->CheckUnary("binary_slice_bytes", R"(["foo", "fo", null, "foo "])",
-                   this->type(), R"(["o", "", null, "o "])", &options);
+  this->CheckUnary("binary_slice_bytes", R"(["foo", "fo", null, "foo "])", this->type(),
+                   R"(["o", "", null, "o "])", &options);
 
   // end is beyond 0, but before start (hence empty)
   SliceOptions options_edgecase_1{-3, 1};
@@ -2208,7 +2208,6 @@ TYPED_TEST(TestBaseBinaryKernels, SliceBytesNegPos) {
   this->CheckUnary("binary_slice_bytes", R"(["", "f", "fo", "foo", "food", "foods"])",
                    this->type(), R"(["", "", "o", "o", "do", "so"])", &options_step_neg);
 }
-
 
 TYPED_TEST(TestStringKernels, PadAscii) {
   PadOptions options{/*width=*/5, " "};

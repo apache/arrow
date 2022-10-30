@@ -19,7 +19,6 @@
 #include <cctype>
 #include <iterator>
 #include <string>
-#include <iostream>
 
 #ifdef ARROW_WITH_RE2
 #include <re2/re2.h>
@@ -2536,7 +2535,6 @@ struct SliceBytesTransform : StringSliceTransformBase {
     }
     end_sliced--;
 
-    DCHECK(begin_sliced >= end_sliced);
     // Copy computed slice to output
     uint8_t* dest = output;
     const uint8_t* i = begin_sliced;
