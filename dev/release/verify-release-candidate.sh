@@ -23,7 +23,7 @@
 # - Maven >= 3.3.9
 # - JDK >=7
 # - gcc >= 4.8
-# - Node.js >= 11.12 (best way is to use nvm)
+# - Node.js >= 16.12 (best way is to use nvm)
 # - Go >= 1.17
 # - Docker
 #
@@ -325,10 +325,17 @@ install_nodejs() {
     curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+<<<<<<< HEAD
 
     # ARROW-18335: "gulp bundle" failed with Node.js 18.
     # nvm install --lts
-    nvm install 16
+    # nvm install 16
+    # Use node 16 if on a RHEL7 derivative, otherwise use latest node lts version
+    if [[ "$(uname -o)" == *"Linux"* ]] && [[ "$(uname -r)" == *".el7."* ]]; then
+      nvm install --lts=Gallium
+    else
+      nvm install --lts
+    fi
     show_info "Installed NodeJS $(node --version)"
   fi
 
