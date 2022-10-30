@@ -56,6 +56,7 @@ yum -y install \
   ninja-build \
   perl-core \
   rh-python38 \
+  rh-python38-scldevel \
   rh-ruby30* \
   sqlite-devel \
   tar \
