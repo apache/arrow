@@ -2425,8 +2425,7 @@ struct SliceBytesTransform : StringSliceTransformBase {
     return std::min(input_bytes, ninputs * std::max<int64_t>(0, max_slice_bytes));
   }
 
-  int64_t Transform(const uint8_t* input, int64_t input_string_bytes,
-                    uint8_t* output) {
+  int64_t Transform(const uint8_t* input, int64_t input_string_bytes, uint8_t* output) {
     if (options->step >= 1) {
       return SliceForward(input, input_string_bytes, output);
     }
