@@ -18,6 +18,7 @@
 from datetime import datetime
 from functools import lru_cache, partial
 import inspect
+import itertools
 import os
 import pickle
 import pytest
@@ -534,6 +535,24 @@ def test_slice_compatibility():
                 # Positional options
                 assert pc.utf8_slice_codeunits(arr,
                                                start, stop, step) == result
+
+
+def test_binary_slice_compatibility():
+    arr = pa.array((el.encode('ascii')
+                   for el in ["", "a", "ab", "abc", "abcd", "abcde"]))
+    for start, stop, step in itertools.product(range(-6, 6),
+                                               range(-6, 6),
+                                               range(-3, 4)):
+        if step == 0:
+            continue
+        expected = pa.array([k.as_py()[start:stop:step]
+                             for k in arr])
+        result = pc.binary_slice_bytes(
+            arr, start=start, stop=stop, step=step)
+        assert expected.equals(result)
+        # Positional options
+        assert pc.binary_slice_bytes(arr,
+                                     start, stop, step) == result
 
 
 def test_split_pattern():
