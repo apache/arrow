@@ -2414,36 +2414,35 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
 
 namespace {
 struct SliceBytesTransform : StringSliceTransformBase {
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_bytes) override {
     const SliceOptions& opt = *this->options;
     if ((opt.start >= 0) != (opt.stop >= 0)) {
       // If start and stop don't have the same sign, we can't guess an upper bound
       // on the resulting slice lengths, so return a worst case estimate.
-      return input_ncodeunits;
+      return input_bytes;
     }
-    int64_t max_slice_codepoints = (opt.stop - opt.start + opt.step - 1) / opt.step;
-    return std::min(input_ncodeunits,
-                    ninputs * std::max<int64_t>(0, max_slice_codepoints));
+    int64_t max_slice_bytes = (opt.stop - opt.start + opt.step - 1) / opt.step;
+    return std::min(input_bytes, ninputs * std::max<int64_t>(0, max_slice_bytes));
   }
 
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+  int64_t Transform(const uint8_t* input, int64_t input_string_bytes,
                     uint8_t* output) {
     if (options->step >= 1) {
-      return SliceForward(input, input_string_ncodeunits, output);
+      return SliceForward(input, input_string_bytes, output);
     }
-    return SliceBackward(input, input_string_ncodeunits, output);
+    return SliceBackward(input, input_string_bytes, output);
   }
 
-  int64_t SliceForward(const uint8_t* input, int64_t input_string_ncodeunits,
+  int64_t SliceForward(const uint8_t* input, int64_t input_string_bytes,
                        uint8_t* output) {
     // Slice in forward order (step > 0)
     const SliceOptions& opt = *this->options;
     const uint8_t* begin = input;
-    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* end = input + input_string_bytes;
     const uint8_t* begin_sliced;
     const uint8_t* end_sliced;
 
-    if (!input_string_ncodeunits) {
+    if (!input_string_bytes) {
       return 0;
     }
     // First, compute begin_sliced and end_sliced
@@ -2505,16 +2504,16 @@ struct SliceBytesTransform : StringSliceTransformBase {
     return dest - output;
   }
 
-  int64_t SliceBackward(const uint8_t* input, int64_t input_string_ncodeunits,
+  int64_t SliceBackward(const uint8_t* input, int64_t input_string_bytes,
                         uint8_t* output) {
     // Slice in reverse order (step < 0)
     const SliceOptions& opt = *this->options;
     const uint8_t* begin = input;
-    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* end = input + input_string_bytes;
     const uint8_t* begin_sliced = begin;
     const uint8_t* end_sliced = end;
 
-    if (!input_string_ncodeunits) {
+    if (!input_string_bytes) {
       return 0;
     }
 
