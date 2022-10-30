@@ -62,8 +62,8 @@ gpgcheck=1
 enabled=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-springdale
 EOF
-% source scl_source enable devtoolset-11
-% source scl_source enable llvm-toolset-13.0
+% scl_source enable devtoolset-11
+% scl_source enable llvm-toolset-13.0
 % git clone https://github.com/sstephenson/rbenv.git ~/.rbenv
 % git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build
 % echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
