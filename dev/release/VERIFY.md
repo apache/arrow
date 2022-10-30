@@ -32,7 +32,7 @@ Java, JavaScript, Ruby and Python builds on Linux and macOS. Read the script
 
 ### C GLib
 
-You need the followings to verify C GLib build:
+You need the following to verify C GLib build:
 
   * GLib
   * GObject Introspection
@@ -40,42 +40,23 @@ You need the followings to verify C GLib build:
   * gobject-introspection gem
   * test-unit gem
 
-You can install them by the followings on Debian GNU/Linux and Ubuntu:
+You can install them on Debian GNU/Linux and Ubuntu by:
 
 ```console
 % sudo apt install -y -V libgirepository1.0-dev ruby-dev
 % sudo gem install gobject-introspection test-unit
 ```
 
-You can install them by the followings on CentOS 7:
-
+You can install them on RHEL 8/9 and rebuilds of these by:
 ```console
-% sudo yum install -y gobject-introspection-devel git curl
-% cd /etc/pki/rpm-gpg
-% curl -O http://springdale.princeton.edu/data/springdale/7/x86_64/os/RPM-GPG-KEY-springdale
-% cd /etc/yum.repos.d
-% cat << EOF > Springdale-SCL.repo
-[Springdale-SCL]
-name=Springdale - SCL
-baseurl=http://springdale.princeton.edu/data/springdale/SCL/$releasever/$basearch
-gpgcheck=1
-enabled=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-springdale
-EOF
-% scl_source enable devtoolset-11
-% scl_source enable llvm-toolset-13.0
-% git clone https://github.com/sstephenson/rbenv.git ~/.rbenv
-% git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build
-% echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
-% echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
-% source ~/.bash_profile
-% sudo yum install -y gcc make patch openssl-devel readline-devel zlib-devel
-% rbenv install 3.1.2
-% rbenv global 3.1.2
-% gem install gobject-introspection test-unit
+% sudo dnf -y install 'dnf-command(config-manager)'
+% sudo dnf -y module disable ruby
+% sudo dnf -y module enable ruby:2.7
+% sudo dnf install ruby-devel gobject-introspection-devel
+% sudo gem install test-unit
 ```
 
-You can install them by the followings on macOS:
+You can install them on macOS by:
 
 ```console
 % brew install -y gobject-introspection
@@ -91,9 +72,9 @@ You need to set `PKG_CONFIG_PATH` to find libffi on macOS:
 ### C++, C#, C GLib, Go, Java, JavaScript, Python, Ruby
 
 Example scripts to install the dependencies to run the verification
-script for verifying the source on CentOS 7, Ubuntu 20.04,  and
+script for verifying the source on RHEL 7 rebuilds, Ubuntu 20.04,  and
 RHEL 8 rebuilds, Rocky Linux 8 and AlmaLinux 8 are in this folder
-and named `setup-centos7.sh`, `setup-ubuntu.sh` and
+and named `setup-rhel7-rebuilds.sh`, `setup-ubuntu.sh` and
 `setup-rhel-rebuilds.sh`. These can be adapted to different
 situations. Go and JavaScript are installed by the verification
 script in the testing environment. Verifying the apt and yum binaries
