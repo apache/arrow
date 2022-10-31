@@ -32,16 +32,22 @@
 // C datetime API.  This is error-prone and potentially costly.
 // Instead, we redefine PyDateTimeAPI to point to a global variable,
 // which is initialized once by calling InitDatetime().
+#ifdef PYPY_VERSION
+#include "datetime.h"
+#else
 #define PyDateTimeAPI ::arrow::py::internal::datetime_api
+#endif
 
 namespace arrow {
 namespace py {
 namespace internal {
 
+#ifndef PYPY_VERSION
 extern PyDateTime_CAPI* datetime_api;
 
 ARROW_PYTHON_EXPORT
 void InitDatetime();
+#endif
 
 // Returns the MonthDayNano namedtuple type (increments the reference count).
 ARROW_PYTHON_EXPORT
