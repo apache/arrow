@@ -571,11 +571,15 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBindi
   ASSERT_OK_AND_EQ(7, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
   // Set a stream of parameters
-  record_batch = RecordBatchFromJSON(parameter_schema, R"([ [[2, 999]], [[2, 42]] ])");
-  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({std::move(record_batch)}));
+  ASSERT_OK_AND_ASSIGN(
+      auto reader,
+      RecordBatchReader::Make({
+          RecordBatchFromJSON(parameter_schema, R"([ [[2, 999]], [[2, 42]] ])"),
+          RecordBatchFromJSON(parameter_schema, R"([ [[2, -1]] ])"),
+      }));
   ASSERT_OK(prepared_statement->SetParameters(std::move(reader)));
-  ASSERT_OK_AND_EQ(2, prepared_statement->ExecuteUpdate());
-  ASSERT_OK_AND_EQ(9, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(3, prepared_statement->ExecuteUpdate());
+  ASSERT_OK_AND_EQ(10, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
 TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
