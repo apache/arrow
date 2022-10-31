@@ -172,7 +172,7 @@ dset %>%
 
 Notice that we call `collect()` at the end of the pipeline. No actual computations are performed until `collect()` (or the related `compute()` function) is called. This "lazy evaluation" makes it possible for the Arrow C++ compute engine to optimize how the computations are performed. 
 
-To learn more about analyzing Arrow data, see the [data wrangling article](./data_wrangling.html).
+To learn more about analyzing Arrow data, see the [data wrangling article](./data_wrangling.html). The [list of functions available in dplyr queries](https://arrow.apache.org/docs/r/reference/acero.html) page may also be useful.
 
 ## Connecting to cloud storage
 

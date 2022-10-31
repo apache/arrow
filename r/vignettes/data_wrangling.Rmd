@@ -81,7 +81,7 @@ sw %>%
 
 ## Expressions within dplyr verbs
 
-Inside `dplyr` verbs, Arrow offers support for many functions and operators, with common functions mapped to their base R and tidyverse equivalents. The [changelog](https://arrow.apache.org/docs/r/news/index.html) lists many of them. If there are additional functions you would like to see implemented, please file an issue as described in the [Getting help](https://arrow.apache.org/docs/r/#getting-help) guidelines.
+Inside `dplyr` verbs, Arrow offers support for many functions and operators, with common functions mapped to their base R and tidyverse equivalents: you can find a [list of supported functions within dplyr queries](../reference/acero.html) in the function documentation. If there are additional functions you would like to see implemented, please file an issue as described in the [Getting help](https://arrow.apache.org/docs/r/#getting-help) guidelines.
 
 ## Registering custom bindings
 
