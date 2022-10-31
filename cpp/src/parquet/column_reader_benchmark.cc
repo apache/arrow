@@ -67,9 +67,9 @@ static void BM_Skip(::benchmark::State& state) {
         DoNotOptimize(values_count = reader->Skip(batch_size));
       } else {
         int64_t values_read = 0;
-        DoNotOptimize(values_count = reader->ReadBatch(
-                                     batch_size, read_defs.data(), read_reps.data(),
-                                     read_values.data(), &values_read));
+        DoNotOptimize(values_count = reader->ReadBatch(batch_size, read_defs.data(),
+                                                       read_reps.data(),
+                                                       read_values.data(), &values_read));
       }
     }
   }
