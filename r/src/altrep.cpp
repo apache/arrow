@@ -1098,9 +1098,9 @@ void test_arrow_altrep_set_string_elt(sexp x, int i, std::string value) {
 }
 
 // [[arrow::export]]
-logicals test_arrow_altrep_is_materialized(sexp x) {
+sexp test_arrow_altrep_is_materialized(sexp x) {
   if (!is_arrow_altrep(x)) {
-    return logicals({NA_LOGICAL});
+    return Rf_ScalarLogical(NA_LOGICAL);
   }
 
   sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
@@ -1120,7 +1120,7 @@ logicals test_arrow_altrep_is_materialized(sexp x) {
     result = arrow::r::altrep::AltrepFactor::IsMaterialized(x);
   }
 
-  return logicals({result});
+  return Rf_ScalarLogical(result);
 }
 
 // [[arrow::export]]
@@ -1163,19 +1163,19 @@ sexp test_arrow_altrep_copy_by_element(sexp x) {
   R_xlen_t n = Rf_xlength(x);
 
   if (TYPEOF(x) == INTSXP) {
-    writable::integers out(Rf_xlength(x));
+    cpp11::writable::integers out(Rf_xlength(x));
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = INTEGER_ELT(x, i);
     }
     return out;
   } else if (TYPEOF(x) == REALSXP) {
-    writable::doubles out(Rf_xlength(x));
+    cpp11::writable::doubles out(Rf_xlength(x));
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = REAL_ELT(x, i);
     }
     return out;
   } else if (TYPEOF(x) == STRSXP) {
-    writable::strings out(Rf_xlength(x));
+    cpp11::writable::strings out(Rf_xlength(x));
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = STRING_ELT(x, i);
     }
@@ -1194,8 +1194,8 @@ sexp test_arrow_altrep_copy_by_region(sexp x, R_xlen_t region_size) {
   R_xlen_t n = Rf_xlength(x);
 
   if (TYPEOF(x) == INTSXP) {
-    writable::integers out(Rf_xlength(x));
-    writable::integers buf_shelter(region_size);
+    cpp11::writable::integers out(Rf_xlength(x));
+    cpp11::writable::integers buf_shelter(region_size);
     int* buf = INTEGER(buf_shelter);
     for (R_xlen_t i = 0; i < n; i++) {
       if ((i % region_size) == 0) {
@@ -1205,8 +1205,8 @@ sexp test_arrow_altrep_copy_by_region(sexp x, R_xlen_t region_size) {
     }
     return out;
   } else if (TYPEOF(x) == REALSXP) {
-    writable::doubles out(Rf_xlength(x));
-    writable::doubles buf_shelter(region_size);
+    cpp11::writable::doubles out(Rf_xlength(x));
+    cpp11::writable::doubles buf_shelter(region_size);
     double* buf = REAL(buf_shelter);
     for (R_xlen_t i = 0; i < n; i++) {
       if ((i % region_size) == 0) {
@@ -1229,21 +1229,21 @@ sexp test_arrow_altrep_copy_by_dataptr(sexp x) {
   R_xlen_t n = Rf_xlength(x);
 
   if (TYPEOF(x) == INTSXP) {
-    writable::integers out(Rf_xlength(x));
+    cpp11::writable::integers out(Rf_xlength(x));
     int* ptr = reinterpret_cast<int*>(DATAPTR(x));
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
     }
     return out;
   } else if (TYPEOF(x) == REALSXP) {
-    writable::doubles out(Rf_xlength(x));
+    cpp11::writable::doubles out(Rf_xlength(x));
     double* ptr = reinterpret_cast<double*>(DATAPTR(x));
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
     }
     return out;
   } else if (TYPEOF(x) == STRSXP) {
-    writable::strings out(Rf_xlength(x));
+    cpp11::writable::strings out(Rf_xlength(x));
     SEXP* ptr = reinterpret_cast<SEXP*>(DATAPTR(x));
     for (R_xlen_t i = 0; i < n; i++) {
       out[i] = ptr[i];
