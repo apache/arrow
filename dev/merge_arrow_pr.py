@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -54,7 +53,7 @@ try:
     import jira.exceptions
 except ImportError:
     print("Could not find jira library. "
-          "Run 'sudo pip install jira' to install.")
+          "Run 'pip install jira' to install.")
     print("Exiting without trying to close the associated JIRA.")
     sys.exit(1)
 
@@ -116,7 +115,7 @@ def fix_version_from_branch(branch, versions):
         return [x for x in versions if x.name.startswith(branch_ver)][-1]
 
 
-# We can merge both ARROW and PARQUET patchesa
+# We can merge both ARROW and PARQUET patches
 SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
 PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
                     for project in SUPPORTED_PROJECTS]
@@ -398,7 +397,8 @@ class PullRequest(object):
             email = author['email']
             return f'{name} <{email}>'
         commit_authors = [format_commit_author(commit) for commit in commits]
-        co_authored_by_re = re.compile(r'^Co-authored-by:\s*(.*)')
+        co_authored_by_re = re.compile(
+            r'^Co-authored-by:\s*(.*)', re.MULTILINE)
 
         def extract_co_authors(commit):
             message = commit['commit']['message']
@@ -426,7 +426,9 @@ class PullRequest(object):
         commit_title = f'{self.title} (#{self.number})'
         commit_message_chunks = []
         if self.body is not None:
-            commit_message_chunks.append(self.body)
+            # avoid github user name references by inserting a space after @
+            body = re.sub(r"@(\w+)", "@ \\1", self.body)
+            commit_message_chunks.append(body)
 
         committer_name = run_cmd("git config --get user.name").strip()
         committer_email = run_cmd("git config --get user.email").strip()

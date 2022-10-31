@@ -29,7 +29,7 @@
     <Product>Apache Arrow library</Product>
     <Copyright>Copyright 2016-2019 The Apache Software Foundation</Copyright>
     <Company>The Apache Software Foundation</Company>
-    <Version>10.0.0-SNAPSHOT</Version>
+    <Version>11.0.0-SNAPSHOT</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -43,6 +43,7 @@
   <PropertyGroup>
     <Authors>The Apache Software Foundation</Authors>
     <PackageIconUrl>https://www.apache.org/images/feather.png</PackageIconUrl>
+    <!-- We can't use PackageLicenseExpression; the license file also contains 3rd-party notices. -->
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageProjectUrl>https://arrow.apache.org/</PackageProjectUrl>
     <PackageTags>apache arrow</PackageTags>

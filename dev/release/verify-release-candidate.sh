@@ -24,7 +24,7 @@
 # - JDK >=7
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
-# - Go >= 1.15
+# - Go >= 1.17
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -213,6 +213,7 @@ test_apt() {
         ;;
     esac
     if ! docker run --rm -v "${ARROW_DIR}":/arrow:delegated \
+           --security-opt="seccomp=unconfined" \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
@@ -396,6 +397,8 @@ install_go() {
 
   if command -v go > /dev/null; then
     show_info "Found $(go version) at $(command -v go)"
+    export GOPATH=${ARROW_TMPDIR}/gopath
+    mkdir -p $GOPATH
     return 0
   fi
 
@@ -427,6 +430,7 @@ install_go() {
   export GOPATH=${prefix}/gopath
   export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 
+  mkdir -p $GOPATH
   show_info "$(go version) installed at $(which go)"
 
   GO_ALREADY_INSTALLED=1
@@ -600,11 +604,14 @@ test_and_install_cpp() {
     -DARROW_BUILD_INTEGRATION=ON \
     -DARROW_BUILD_TESTS=ON \
     -DARROW_BUILD_UTILITIES=ON \
+    -DARROW_COMPUTE=ON \
+    -DARROW_CSV=ON \
     -DARROW_CUDA=${ARROW_CUDA} \
     -DARROW_DATASET=ON \
     -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-$DEFAULT_DEPENDENCY_SOURCE} \
-    -DARROW_FLIGHT_SQL=${ARROW_FLIGHT_SQL} \
+    -DARROW_FILESYSTEM=ON \
     -DARROW_FLIGHT=${ARROW_FLIGHT} \
+    -DARROW_FLIGHT_SQL=${ARROW_FLIGHT_SQL} \
     -DARROW_GANDIVA=${ARROW_GANDIVA} \
     -DARROW_GCS=${ARROW_GCS} \
     -DARROW_HDFS=ON \
@@ -612,7 +619,6 @@ test_and_install_cpp() {
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
     -DARROW_PLASMA=${ARROW_PLASMA} \
-    -DARROW_PYTHON=ON \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
@@ -834,7 +840,7 @@ test_js() {
   show_header "Build and test JavaScript libraries"
 
   maybe_setup_nodejs || exit 1
-  maybe_setup_conda nodejs=17 || exit 1
+  maybe_setup_conda nodejs=16 || exit 1
 
   if ! command -v yarn &> /dev/null; then
     npm install -g yarn
@@ -856,9 +862,10 @@ test_go() {
   maybe_setup_go || exit 1
   maybe_setup_conda compilers go=1.17 || exit 1
 
-  pushd go/arrow
+  pushd go
   go get -v ./...
   go test ./...
+  go install ./...
   go clean -modcache
   popd
 }
@@ -1012,7 +1019,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="3.7m 3.8 3.9 3.10"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10}"
   local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for python in ${python_versions}; do
@@ -1021,7 +1028,7 @@ test_linux_wheels() {
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
       CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
-      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
+      pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
@@ -1065,11 +1072,12 @@ test_macos_wheels() {
   # the interpreter should be installed from python.org:
   #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
   if [ "$(uname -m)" = "arm64" ]; then
-    for pyver in "3.9 3.10"; do
+    for pyver in 3.9 3.10; do
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
 
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
+        show_header "Testing Python ${pyver} universal2 wheel on ${arch}"
         VENV_ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
         # install pyarrow's universal2 wheel
         pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
@@ -1085,23 +1093,31 @@ test_wheels() {
   show_header "Downloading Python wheels"
   maybe_setup_conda python || exit 1
 
-  local download_dir=${ARROW_TMPDIR}/binaries
-  mkdir -p ${download_dir}
-
-  if [ "$(uname)" == "Darwin" ]; then
-    local filter_regex=.*macosx.*
+  local wheels_dir=
+  if [ "${SOURCE_KIND}" = "local" ]; then
+    wheels_dir="${ARROW_SOURCE_DIR}/python/repaired_wheels"
   else
-    local filter_regex=.*manylinux.*
+    local download_dir=${ARROW_TMPDIR}/binaries
+    mkdir -p ${download_dir}
+
+    if [ "$(uname)" == "Darwin" ]; then
+      local filter_regex=.*macosx.*
+    else
+      local filter_regex=.*manylinux.*
+    fi
+
+    ${PYTHON:-python3} \
+      $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+      --package_type python \
+      --regex=${filter_regex} \
+      --dest=${download_dir}
+
+    verify_dir_artifact_signatures ${download_dir}
+
+    wheels_dir=${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
   fi
 
-  ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-         --package_type python \
-         --regex=${filter_regex} \
-         --dest=${download_dir}
-
-  verify_dir_artifact_signatures ${download_dir}
-
-  pushd ${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
+  pushd ${wheels_dir}
 
   if [ "$(uname)" == "Darwin" ]; then
     test_macos_wheels

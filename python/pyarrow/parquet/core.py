@@ -21,6 +21,7 @@ from concurrent import futures
 from contextlib import nullcontext
 from functools import partial, reduce
 
+import inspect
 import json
 from collections.abc import Collection
 import numpy as np
@@ -229,6 +230,8 @@ class ParquetFile:
     common_metadata : FileMetaData, default None
         Will be used in reads for pandas schema metadata if not found in the
         main file's metadata, no other uses at the moment.
+    read_dictionary : list
+        List of column names to read directly as DictionaryArray.
     memory_map : bool, default False
         If the source is a file path, use a memory map to read file, which can
         improve performance in some environments.
@@ -239,8 +242,6 @@ class ParquetFile:
         Coalesce and issue file reads in parallel to improve performance on
         high-latency filesystems (e.g. S3). If True, Arrow will use a
         background I/O thread pool.
-    read_dictionary : list
-        List of column names to read directly as DictionaryArray.
     coerce_int96_timestamp_unit : str, default None.
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
@@ -737,6 +738,12 @@ _parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.4"
 use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
+compression : str or dict
+    Specify the compression codec, either on a general basis or per-column.
+    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
+write_statistics : bool or list
+    Specify if we should write statistics in general (default is True) or only
+    for some columns.
 use_deprecated_int96_timestamps : bool, default None
     Write timestamps to INT96 Parquet format. Defaults to False unless enabled
     by flavor argument. This take priority over the coerce_timestamps option.
@@ -750,22 +757,16 @@ coerce_timestamps : str, default None
     If the casting results in loss of data, it will raise an exception
     unless ``allow_truncated_timestamps=True`` is given.
     Valid values: {None, 'ms', 'us'}
-data_page_size : int, default None
-    Set a target threshold for the approximate encoded size of data
-    pages within a column chunk (in bytes). If None, use the default data page
-    size of 1MByte.
 allow_truncated_timestamps : bool, default False
     Allow loss of data when coercing timestamps to a particular
     resolution. E.g. if microsecond or nanosecond data is lost when coercing to
     'ms', do not raise an exception. Passing ``allow_truncated_timestamp=True``
     will NOT result in the truncation exception being ignored unless
     ``coerce_timestamps`` is not None.
-compression : str or dict
-    Specify the compression codec, either on a general basis or per-column.
-    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
-write_statistics : bool or list
-    Specify if we should write statistics in general (default is True) or only
-    for some columns.
+data_page_size : int, default None
+    Set a target threshold for the approximate encoded size of data
+    pages within a column chunk (in bytes). If None, use the default data page
+    size of 1MByte.
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options to work with
     various target systems.
@@ -1095,12 +1096,12 @@ class ParquetDatasetPiece:
         Path to file in the file system where this piece is located.
     open_file_func : callable
         Function to use for obtaining file handle to dataset piece.
-    partition_keys : list of tuples
-        Two-element tuples of ``(column name, ordinal index)``.
-    row_group : int, default None
-        Row group to load. By default, reads all row groups.
     file_options : dict
         Options
+    row_group : int, default None
+        Row group to load. By default, reads all row groups.
+    partition_keys : list of tuples
+        Two-element tuples of ``(column name, ordinal index)``.
     """
 
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
@@ -1650,11 +1651,11 @@ filesystem : FileSystem, default None
     If nothing passed, will be inferred based on path.
     Path will try to be found in the local on-disk filesystem otherwise
     it will be parsed as an URI to determine the filesystem.
-metadata : pyarrow.parquet.FileMetaData
-    Use metadata obtained elsewhere to validate file schemas.
 schema : pyarrow.parquet.Schema
     Use schema obtained elsewhere to validate file schemas. Alternative to
     metadata parameter.
+metadata : pyarrow.parquet.FileMetaData
+    Use metadata obtained elsewhere to validate file schemas.
 split_row_groups : bool, default False
     Divide files into pieces for each row group in the file.
 validate_schema : bool, default True
@@ -2666,19 +2667,6 @@ schema : Schema, optional
     Optionally provide the Schema for the parquet dataset, in which case it
     will not be inferred from the source.
 {1}
-use_legacy_dataset : bool, default False
-    By default, `read_table` uses the new Arrow Datasets API since
-    pyarrow 1.0.0. Among other things, this allows to pass `filters`
-    for all columns and not only the partition keys, enables
-    different partitioning schemes, etc.
-    Set to True to use the legacy behaviour (this option is deprecated,
-    and the legacy implementation will be removed in a future version).
-ignore_prefixes : list, optional
-    Files matching any of these prefixes will be ignored by the
-    discovery process if use_legacy_dataset=False.
-    This is matched to the basename of a path.
-    By default this is ['.', '_'].
-    Note that discovery happens only if a directory is passed as source.
 filesystem : FileSystem, default None
     If nothing passed, will be inferred based on path.
     Path will try to be found in the local on-disk filesystem otherwise
@@ -2693,6 +2681,19 @@ filters : List[Tuple] or List[List[Tuple]] or None (default)
     and different partitioning schemes are supported.
 
     {3}
+use_legacy_dataset : bool, default False
+    By default, `read_table` uses the new Arrow Datasets API since
+    pyarrow 1.0.0. Among other things, this allows to pass `filters`
+    for all columns and not only the partition keys, enables
+    different partitioning schemes, etc.
+    Set to True to use the legacy behaviour (this option is deprecated,
+    and the legacy implementation will be removed in a future version).
+ignore_prefixes : list, optional
+    Files matching any of these prefixes will be ignored by the
+    discovery process if use_legacy_dataset=False.
+    This is matched to the basename of a path.
+    By default this is ['.', '_'].
+    Note that discovery happens only if a directory is passed as source.
 pre_buffer : bool, default True
     Coalesce and issue file reads in parallel to improve performance on
     high-latency filesystems (e.g. S3). If True, Arrow will use a
@@ -2805,9 +2806,9 @@ Read data from a single Parquet file:
 
 
 def read_table(source, *, columns=None, use_threads=True, metadata=None,
-               schema=None, use_pandas_metadata=False, memory_map=False,
-               read_dictionary=None, filesystem=None, filters=None,
-               buffer_size=0, partitioning="hive", use_legacy_dataset=False,
+               schema=None, use_pandas_metadata=False, read_dictionary=None,
+               memory_map=False, buffer_size=0, partitioning="hive",
+               filesystem=None, filters=None, use_legacy_dataset=False,
                ignore_prefixes=None, pre_buffer=True,
                coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
@@ -2914,10 +2915,9 @@ read_table.__doc__ = _read_table_docstring.format(
 
 Note: starting with pyarrow 1.0, the default for `use_legacy_dataset` is
 switched to False.""",
-    "\n".join((_read_docstring_common,
-               """use_pandas_metadata : bool, default False
+    "\n".join(("""use_pandas_metadata : bool, default False
     If True and file has custom pandas schema metadata, ensure that
-    index columns are also loaded.""")),
+    index columns are also loaded.""", _read_docstring_common)),
     """pyarrow.Table
     Content of the file as a table (of columns)""",
     _DNF_filter_doc, _read_table_example)
@@ -3086,10 +3086,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
     table : pyarrow.Table
     root_path : str, pathlib.Path
         The root directory of the dataset
-    filesystem : FileSystem, default None
-        If nothing passed, will be inferred based on path.
-        Path will try to be found in the local on-disk filesystem otherwise
-        it will be parsed as an URI to determine the filesystem.
     partition_cols : list,
         Column names by which to partition the dataset.
         Columns are partitioned in the order they are given
@@ -3100,16 +3096,16 @@ def write_to_dataset(table, root_path, partition_cols=None,
         This option is only supported for use_legacy_dataset=True.
         When use_legacy_dataset=None and this option is specified,
         use_legacy_datase will be set to True.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
     use_legacy_dataset : bool
         Default is False. Set to True to use the the legacy behaviour
         (this option is deprecated, and the legacy implementation will be
         removed in a future version). The legacy implementation still
         supports the `partition_filename_cb` keyword but is less efficient
         when using partition columns.
-    use_threads : bool, default True
-        Write files in parallel. If enabled, then maximum parallelism will be
-        used determined by the number of available CPU cores.
-        This option is only supported for use_legacy_dataset=False.
     schema : Schema, optional
         This option is only supported for use_legacy_dataset=False.
     partitioning : Partitioning or list[str], optional
@@ -3123,6 +3119,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
         A template string used to generate basenames of written data files.
         The token '{i}' will be replaced with an automatically incremented
         integer. If not specified, it defaults to "guid-{i}.parquet".
+        This option is only supported for use_legacy_dataset=False.
+    use_threads : bool, default True
+        Write files in parallel. If enabled, then maximum parallelism will be
+        used determined by the number of available CPU cores.
         This option is only supported for use_legacy_dataset=False.
     file_visitor : function
         If set, this function will be called with a WrittenFile instance
@@ -3164,9 +3164,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
         This option is only supported for use_legacy_dataset=False.
     **kwargs : dict,
         When use_legacy_dataset=False, used as additional kwargs for
-        `dataset.write_dataset` function (passed to
-        `ParquetFileFormat.make_write_options`). See the docstring
-        of `write_table` for the available options.
+        `dataset.write_dataset` function for matching kwargs, and remainder to
+        `ParquetFileFormat.make_write_options`. See the docstring
+        of `write_table` and `dataset.write_dataset` for the available options.
         When use_legacy_dataset=True, used as additional kwargs for
         `parquet.write_table` function (See docstring for `write_table`
         or `ParquetWriter` for more information).
@@ -3238,22 +3238,20 @@ def write_to_dataset(table, root_path, partition_cols=None,
     if not use_legacy_dataset:
         import pyarrow.dataset as ds
 
-        # extract non-file format options
-        schema = kwargs.pop("schema", None)
-        use_threads = kwargs.pop("use_threads", True)
-        chunk_size = kwargs.pop("chunk_size", None)
-        row_group_size = kwargs.pop("row_group_size", None)
-
-        row_group_size = (
-            row_group_size if row_group_size is not None else chunk_size
+        # extract write_dataset specific options
+        # reset assumed to go to make_write_options
+        write_dataset_kwargs = dict()
+        for key in inspect.signature(ds.write_dataset).parameters:
+            if key in kwargs:
+                write_dataset_kwargs[key] = kwargs.pop(key)
+        write_dataset_kwargs['max_rows_per_group'] = kwargs.pop(
+            'row_group_size', kwargs.pop("chunk_size", None)
         )
-
         # raise for unsupported keywords
         msg = (
             "The '{}' argument is not supported with the new dataset "
             "implementation."
         )
-
         if metadata_collector is not None:
             def file_visitor(written_file):
                 metadata_collector.append(written_file.metadata)
@@ -3285,7 +3283,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             file_visitor=file_visitor,
             basename_template=basename_template,
             existing_data_behavior=existing_data_behavior,
-            max_rows_per_group=row_group_size)
+            **write_dataset_kwargs)
         return
 
     # warnings and errors when using legacy implementation
@@ -3342,6 +3340,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
         for col in table.schema.names:
             if col in partition_cols:
                 subschema = subschema.remove(subschema.get_field_index(col))
+
+        # ARROW-17829: avoid deprecation warnings for df.groupby
+        # https://github.com/pandas-dev/pandas/issues/42795
+        if len(partition_keys) == 1:
+            partition_keys = partition_keys[0]
 
         for keys, subgroup in data_df.groupby(partition_keys):
             if not isinstance(keys, tuple):

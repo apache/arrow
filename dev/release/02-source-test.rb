@@ -105,6 +105,14 @@ class SourceTest < Test::Unit::TestCase
     search_url.open do |response|
       n_resolved_issues = JSON.parse(response.read)["total"]
     end
+    github_api_url = "https://api.github.com"
+    verify_prs = URI("#{github_api_url}/repos/apache/arrow/pulls" +
+                     "?state=open" +
+                     "&head=apache:release-#{@release_version}-rc0")
+    verify_pr_url = nil
+    verify_prs.open("Accept" => "application/vnd.github+json") do |response|
+      verify_pr_url = (JSON.parse(response.read)[0] || {})["html_url"]
+    end
     output = source("VOTE")
     assert_equal(<<-VOTE.strip, output[/^-+$(.+?)^-+$/m, 1].strip)
 To: dev@arrow.apache.org
@@ -126,6 +134,8 @@ The changelog is located at [12].
 Please download, verify checksums and signatures, run the unit tests,
 and vote on the release. See [13] for how to validate a release candidate.
 
+See also a verification result on GitHub pull request [14].
+
 The vote will be open for at least 72 hours.
 
 [ ] +1 Release this as Apache Arrow #{@release_version}
@@ -145,6 +155,7 @@ The vote will be open for at least 72 hours.
 [11]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
 [12]: https://github.com/apache/arrow/blob/#{@current_commit}/CHANGELOG.md
 [13]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
+[14]: #{verify_pr_url || "null"}
     VOTE
   end
 end

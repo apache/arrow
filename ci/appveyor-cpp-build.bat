@@ -60,16 +60,20 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_BUILD_EXAMPLES=ON ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
+      -DARROW_COMPUTE=ON ^
       -DARROW_CSV=ON ^
       -DARROW_CXXFLAGS="%ARROW_CXXFLAGS%" ^
       -DARROW_DATASET=ON ^
       -DARROW_ENABLE_TIMING_TESTS=OFF ^
+      -DARROW_FILESYSTEM=ON ^
       -DARROW_FLIGHT=%ARROW_BUILD_FLIGHT% ^
       -DARROW_FLIGHT_SQL=%ARROW_BUILD_FLIGHT_SQL% ^
       -DARROW_GANDIVA=%ARROW_BUILD_GANDIVA% ^
+      -DARROW_HDFS=ON ^
+      -DARROW_JSON=ON ^
       -DARROW_MIMALLOC=ON ^
+      -DARROW_ORC=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_PYTHON=ON ^
       -DARROW_S3=%ARROW_S3% ^
       -DARROW_SUBSTRAIT=ON ^
       -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
@@ -90,13 +94,11 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       ..  || exit /B
 cmake --build . --target install --config Release || exit /B
 
-@rem Needed so arrow-python-test.exe works
-set OLD_PYTHONHOME=%PYTHONHOME%
-set PYTHONHOME=%CONDA_PREFIX%
+@rem For ORC C++
+set TZDIR=%CONDA_PREFIX%\share\zoneinfo
 
 ctest --output-on-failure || exit /B
 
-set PYTHONHOME=%OLD_PYTHONHOME%
 popd
 
 @rem
@@ -116,6 +118,7 @@ set PYARROW_WITH_PARQUET=ON
 set PYARROW_WITH_PARQUET_ENCRYPTION=ON
 set PYARROW_WITH_S3=%ARROW_S3%
 set PYARROW_WITH_STATIC_BOOST=ON
+set PYARROW_WITH_SUBSTRAIT=ON
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now

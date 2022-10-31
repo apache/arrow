@@ -13,12 +13,12 @@ cast(x, to, safe = TRUE, ...)
 it should be a \link{Schema}.}
 
 \item{safe}{logical: only allow the type conversion if no data is lost
-(truncation, overflow, etc.). Default is \code{TRUE}}
+(truncation, overflow, etc.). Default is \code{TRUE}.}
 
 \item{...}{specific \code{CastOptions} to set}
 }
 \value{
-an \code{Expression}
+An \link{Expression}
 }
 \description{
 This is a wrapper around the \verb{$cast()} method that many Arrow objects have.
@@ -32,7 +32,9 @@ mtcars \%>\%
 }
 }
 \seealso{
-https://arrow.apache.org/docs/cpp/api/compute.html for the list of
-supported CastOptions.
+\code{\link{data-type}} for a list of \link{DataType} to be used with \code{to}.
+
+\href{https://arrow.apache.org/docs/cpp/api/compute.html?highlight=castoptions#arrow\%3A\%3Acompute\%3A\%3ACastOptions}{Arrow C++ CastOptions documentation} # nolint
+for the list of supported CastOptions.
 }
 \keyword{internal}

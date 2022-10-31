@@ -708,7 +708,9 @@ test_that("Dataset write max rows per files", {
 })
 
 test_that("Dataset min_rows_per_group", {
+  skip_if_not(CanRunWithCapturedR())
   skip_if_not_available("parquet")
+
   rb1 <- record_batch(
     c1 = c(1, 2, 3, 4),
     c2 = c("a", "b", "e", "a")
@@ -739,7 +741,8 @@ test_that("Dataset min_rows_per_group", {
 
   row_group_sizes <- ds %>%
     map_batches(~ record_batch(nrows = .$num_rows)) %>%
-    pull(nrows)
+    pull(nrows) %>%
+    as.vector()
   index <- 1
 
   # We expect there to be 3 row groups since 11/5 = 2.2 and 11/4 = 2.75
@@ -756,7 +759,9 @@ test_that("Dataset min_rows_per_group", {
 })
 
 test_that("Dataset write max rows per group", {
+  skip_if_not(CanRunWithCapturedR())
   skip_if_not_available("parquet")
+
   num_of_records <- 30
   max_rows_per_group <- 18
   df <- tibble::tibble(
@@ -778,6 +783,7 @@ test_that("Dataset write max rows per group", {
   row_group_sizes <- ds %>%
     map_batches(~ record_batch(nrows = .$num_rows)) %>%
     pull(nrows) %>%
+    as.vector() %>%
     sort()
 
   expect_equal(row_group_sizes, c(12, 18))

@@ -69,7 +69,7 @@ def _alltypes_example(size=100):
         # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
         # us, ns
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]'),
+                              dtype='datetime64[ms]').astype("datetime64[ns]"),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
@@ -1016,7 +1016,7 @@ class TestConvertDateTimeLikeTypes:
                 '2007-07-13T01:23:34.123',
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
+                dtype='datetime64[ms]').astype("datetime64[ns]")
         })
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
@@ -2718,7 +2718,7 @@ class TestConvertMisc:
         cases.append(boolean_objects)
 
         cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
-                               dtype='datetime64[ms]')
+                               dtype='datetime64[ms]').astype("datetime64[ns]")
                      .reshape(N, K).copy())
 
         strided_mask = (random_numbers > 0).astype(bool)[:, 0]
@@ -3813,10 +3813,11 @@ def test_dictionary_from_pandas_specified_type():
     with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
 
-    # mismatching order -> raise error (for now a deprecation warning)
+    # mismatching order -> raise error
     typ = pa.dictionary(
         index_type=pa.int8(), value_type=pa.string(), ordered=True)
-    with pytest.warns(FutureWarning, match="The 'ordered' flag of the passed"):
+    msg = "The 'ordered' flag of the passed categorical values "
+    with pytest.raises(ValueError, match=msg):
         result = pa.array(cat, type=typ)
     assert result.to_pylist() == ['a', 'b']
 
@@ -4469,6 +4470,18 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
             assert result[0].tzinfo is None
             expected = dt
         assert result[0] == expected
+
+
+def test_timestamp_as_object_fixed_offset():
+    # ARROW-16547 to_pandas with timestamp_as_object=True and FixedOffset
+    pytz = pytest.importorskip("pytz")
+    import datetime
+    timezone = pytz.FixedOffset(120)
+    dt = timezone.localize(datetime.datetime(2022, 5, 12, 16, 57))
+
+    table = pa.table({"timestamp_col": pa.array([dt])})
+    result = table.to_pandas(timestamp_as_object=True)
+    assert pa.table(result) == table
 
 
 def test_threaded_pandas_import():

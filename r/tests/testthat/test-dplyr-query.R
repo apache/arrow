@@ -70,24 +70,36 @@ See $.data for the source Arrow object',
 
 test_that("pull", {
   compare_dplyr_binding(
-    .input %>% pull(),
+    .input %>% pull() %>% as.vector(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>% pull(1),
+    .input %>% pull(1) %>% as.vector(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>% pull(chr),
+    .input %>% pull(chr) %>% as.vector(),
     tbl
   )
   compare_dplyr_binding(
     .input %>%
       filter(int > 4) %>%
       rename(strng = chr) %>%
-      pull(strng),
+      pull(strng) %>%
+      as.vector(),
     tbl
   )
+})
+
+test_that("pull() shows a deprecation warning if the option isn't set", {
+  expect_warning(
+    vec <- tbl %>%
+      arrow_table() %>%
+      pull(as_vector = NULL),
+    "Current behavior of returning an R vector is deprecated"
+  )
+  # And the default is the old behavior, an R vector
+  expect_identical(vec, pull(tbl))
 })
 
 test_that("collect(as_data_frame=FALSE)", {
@@ -119,7 +131,7 @@ test_that("collect(as_data_frame=FALSE)", {
     filter(int > 5) %>%
     group_by(int) %>%
     collect(as_data_frame = FALSE)
-  expect_s3_class(b4, "arrow_dplyr_query")
+  expect_r6_class(b4, "Table")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -156,7 +168,7 @@ test_that("compute()", {
     filter(int > 5) %>%
     group_by(int) %>%
     compute()
-  expect_s3_class(b4, "arrow_dplyr_query")
+  expect_r6_class(b4, "Table")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -578,4 +590,44 @@ test_that("needs_projection unit tests", {
   expect_true(query_needs_projection(
     tab %>% relocate(lgl)
   ))
+})
+
+test_that("compute() on a grouped query returns a Table with groups in metadata", {
+  tab1 <- tbl %>%
+    arrow_table() %>%
+    group_by(int) %>%
+    compute()
+  expect_r6_class(tab1, "Table")
+  expect_equal(
+    as.data.frame(tab1),
+    tbl %>%
+      group_by(int)
+  )
+  expect_equal(
+    collect(tab1),
+    tbl %>%
+      group_by(int)
+  )
+})
+
+test_that("collect() is identical to compute() %>% collect()", {
+  tab1 <- tbl %>%
+    arrow_table()
+  adq1 <- tab1 %>%
+    group_by(int)
+
+  expect_equal(
+    tab1 %>%
+      compute() %>%
+      collect(),
+    tab1 %>%
+      collect()
+  )
+  expect_equal(
+    adq1 %>%
+      compute() %>%
+      collect(),
+    adq1 %>%
+      collect()
+  )
 })

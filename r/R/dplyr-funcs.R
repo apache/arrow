@@ -75,7 +75,7 @@ register_binding <- function(fun_name,
   previous_fun <- registry[[unqualified_name]]
 
   # if the unqualified name exists in the registry, warn
-  if (!is.null(previous_fun)) {
+  if (!is.null(previous_fun) && !identical(fun, previous_fun)) {
     warn(
       paste0(
         "A \"",
@@ -123,8 +123,11 @@ unregister_binding <- function(fun_name, registry = nse_funcs,
   invisible(previous_fun)
 }
 
-register_binding_agg <- function(fun_name, agg_fun, registry = agg_funcs) {
-  register_binding(fun_name, agg_fun, registry = registry)
+register_binding_agg <- function(fun_name,
+                                 agg_fun,
+                                 registry = agg_funcs,
+                                 notes = character(0)) {
+  register_binding(fun_name, agg_fun, registry = registry, notes = notes)
 }
 
 # Supports functions and tests that call previously-defined bindings
@@ -136,8 +139,8 @@ call_binding_agg <- function(fun_name, ...) {
   agg_funcs[[fun_name]](...)
 }
 
-# Called in .onLoad()
 create_binding_cache <- function() {
+  # Called in .onLoad()
   .cache$docs <- list()
 
   # Register all available Arrow Compute functions, namespaced as arrow_fun.

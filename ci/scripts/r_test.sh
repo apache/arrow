@@ -26,19 +26,6 @@ pushd ${source_dir}
 
 printenv
 
-if [[ -n "$DEVTOOLSET_VERSION" ]]; then
-  # enable the devtoolset version to use it
-  source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
-
-  # Build images which require the devtoolset don't have CXX17 variables
-  # set as the system compiler doesn't support C++17
-  mkdir -p ~/.R
-  echo "CC = $(which gcc) -fPIC" >> ~/.R/Makevars
-  echo "CXX17 = $(which g++) -fPIC" >> ~/.R/Makevars
-  echo "CXX17STD = -std=c++17" >> ~/.R/Makevars
-  echo "CXX17FLAGS = ${CXX11FLAGS}" >> ~/.R/Makevars
-fi
-
 # Run the nixlibs.R test suite, which is not included in the installed package
 ${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
 
@@ -100,14 +87,6 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   } else {
     args <- c('--no-manual', '--ignore-vignettes')
     build_args <- '--no-build-vignettes'
-
-    if (nzchar(Sys.which('minio'))) {
-      message('Running minio for S3 tests (if build supports them)')
-      minio_dir <- tempfile()
-      dir.create(minio_dir)
-      pid_minio <- sys::exec_background('minio', c('server', minio_dir))
-      on.exit(tools::pskill(pid_minio), add = TRUE)
-    }
   }
 
   if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {

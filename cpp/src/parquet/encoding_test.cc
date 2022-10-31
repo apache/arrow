@@ -52,9 +52,40 @@ namespace parquet {
 
 namespace test {
 
-TEST(VectorBooleanTest, TestEncodeDecode) {
+TEST(VectorBooleanTest, TestEncodeBoolDecode) {
+  // PARQUET-454
+  const int nvalues = 10000;
+  bool decode_buffer[nvalues] = {false};
+
+  int nbytes = static_cast<int>(bit_util::BytesForBits(nvalues));
+
+  std::vector<bool> draws;
+  ::arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
+
+  std::unique_ptr<BooleanEncoder> encoder =
+      MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
+  encoder->Put(draws, nvalues);
+
+  std::unique_ptr<BooleanDecoder> decoder =
+      MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+
+  std::shared_ptr<Buffer> encode_buffer = encoder->FlushValues();
+  ASSERT_EQ(nbytes, encode_buffer->size());
+
+  decoder->SetData(nvalues, encode_buffer->data(),
+                   static_cast<int>(encode_buffer->size()));
+  int values_decoded = decoder->Decode(&decode_buffer[0], nvalues);
+  ASSERT_EQ(nvalues, values_decoded);
+
+  for (int i = 0; i < nvalues; ++i) {
+    ASSERT_EQ(draws[i], decode_buffer[i]);
+  }
+}
+
+TEST(VectorBooleanTest, TestEncodeIntDecode) {
   // PARQUET-454
   int nvalues = 10000;
+
   int nbytes = static_cast<int>(bit_util::BytesForBits(nvalues));
 
   std::vector<bool> draws;

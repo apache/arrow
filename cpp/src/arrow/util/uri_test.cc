@@ -255,8 +255,9 @@ TEST(Uri, FileScheme) {
   // https://tools.ietf.org/html/rfc8089
   Uri uri;
 
-  auto check_no_host = [&](std::string uri_string, std::string path) -> void {
+  auto check_file_no_host = [&](std::string uri_string, std::string path) -> void {
     ASSERT_OK(uri.Parse(uri_string));
+    ASSERT_TRUE(uri.is_file_scheme());
     ASSERT_EQ(uri.scheme(), "file");
     ASSERT_EQ(uri.host(), "");
     ASSERT_EQ(uri.path(), path);
@@ -264,9 +265,20 @@ TEST(Uri, FileScheme) {
     ASSERT_EQ(uri.password(), "");
   };
 
-  auto check_with_host = [&](std::string uri_string, std::string host,
-                             std::string path) -> void {
+  auto check_notfile_no_host = [&](std::string uri_string, std::string path) -> void {
     ASSERT_OK(uri.Parse(uri_string));
+    ASSERT_FALSE(uri.is_file_scheme());
+    ASSERT_NE(uri.scheme(), "file");
+    ASSERT_EQ(uri.host(), "");
+    ASSERT_EQ(uri.path(), path);
+    ASSERT_EQ(uri.username(), "");
+    ASSERT_EQ(uri.password(), "");
+  };
+
+  auto check_file_with_host = [&](std::string uri_string, std::string host,
+                                  std::string path) -> void {
+    ASSERT_OK(uri.Parse(uri_string));
+    ASSERT_TRUE(uri.is_file_scheme());
     ASSERT_EQ(uri.scheme(), "file");
     ASSERT_EQ(uri.host(), host);
     ASSERT_EQ(uri.path(), path);
@@ -280,16 +292,19 @@ TEST(Uri, FileScheme) {
 
   // Absolute paths
   // (no authority)
-  check_no_host("file:/", "/");
-  check_no_host("file:/foo/bar", "/foo/bar");
+  check_file_no_host("file:/", "/");
+  check_file_no_host("file:/foo1/bar", "/foo1/bar");
   // (empty authority)
-  check_no_host("file:///", "/");
-  check_no_host("file:///foo/bar", "/foo/bar");
+  check_file_no_host("file:///", "/");
+  check_file_no_host("file:///foo2/bar", "/foo2/bar");
+  // (not file scheme)
+  check_notfile_no_host("s3:/", "/");
+  check_notfile_no_host("s3:///foo3/bar", "/foo3/bar");
   // (non-empty authority)
-  check_with_host("file://localhost/", "localhost", "/");
-  check_with_host("file://localhost/foo/bar", "localhost", "/foo/bar");
-  check_with_host("file://hostname.com/", "hostname.com", "/");
-  check_with_host("file://hostname.com/foo/bar", "hostname.com", "/foo/bar");
+  check_file_with_host("file://localhost/", "localhost", "/");
+  check_file_with_host("file://localhost/foo/bar", "localhost", "/foo/bar");
+  check_file_with_host("file://hostname.com/", "hostname.com", "/");
+  check_file_with_host("file://hostname.com/foo/bar", "hostname.com", "/foo/bar");
 
 #ifdef _WIN32
   // Relative paths
@@ -298,14 +313,17 @@ TEST(Uri, FileScheme) {
 
   // Absolute paths
   // (no authority)
-  check_no_host("file:/C:/", "C:/");
-  check_no_host("file:/C:/foo/bar", "C:/foo/bar");
+  check_file_no_host("file:/C:/", "C:/");
+  check_file_no_host("file:/C:/foo/bar", "C:/foo/bar");
   // (empty authority)
-  check_no_host("file:///C:/", "C:/");
-  check_no_host("file:///C:/foo/bar", "C:/foo/bar");
+  check_file_no_host("file:///D:/", "D:/");
+  check_file_no_host("file:///D:/foo/bar", "D:/foo/bar");
+  // (not file scheme; so slash is prepended)
+  check_notfile_no_host("hive:///E:/", "/E:/");
+  check_notfile_no_host("hive:/E:/foo/bar", "/E:/foo/bar");
   // (non-empty authority)
-  check_with_host("file://server/share/", "server", "/share/");
-  check_with_host("file://server/share/foo/bar", "server", "/share/foo/bar");
+  check_file_with_host("file://server/share/", "server", "/share/");
+  check_file_with_host("file://server/share/foo/bar", "server", "/share/foo/bar");
 #endif
 }
 

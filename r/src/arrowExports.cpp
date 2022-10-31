@@ -5,20 +5,63 @@
 #include "./arrow_types.h"
 
 // altrep.cpp
-void test_SET_STRING_ELT(SEXP s);
-extern "C" SEXP _arrow_test_SET_STRING_ELT(SEXP s_sexp){
+bool is_arrow_altrep(cpp11::sexp x);
+extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<SEXP>::type s(s_sexp);
-	test_SET_STRING_ELT(s);
+	arrow::r::Input<cpp11::sexp>::type x(x_sexp);
+	return cpp11::as_sexp(is_arrow_altrep(x));
+END_CPP11
+}
+// altrep.cpp
+void test_arrow_altrep_set_string_elt(sexp x, int i, std::string value);
+extern "C" SEXP _arrow_test_arrow_altrep_set_string_elt(SEXP x_sexp, SEXP i_sexp, SEXP value_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	arrow::r::Input<std::string>::type value(value_sexp);
+	test_arrow_altrep_set_string_elt(x, i, value);
 	return R_NilValue;
 END_CPP11
 }
 // altrep.cpp
-bool is_arrow_altrep(SEXP x);
-extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
+sexp test_arrow_altrep_is_materialized(sexp x);
+extern "C" SEXP _arrow_test_arrow_altrep_is_materialized(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	return cpp11::as_sexp(is_arrow_altrep(x));
+	arrow::r::Input<sexp>::type x(x_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_is_materialized(x));
+END_CPP11
+}
+// altrep.cpp
+bool test_arrow_altrep_force_materialize(sexp x);
+extern "C" SEXP _arrow_test_arrow_altrep_force_materialize(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_force_materialize(x));
+END_CPP11
+}
+// altrep.cpp
+sexp test_arrow_altrep_copy_by_element(sexp x);
+extern "C" SEXP _arrow_test_arrow_altrep_copy_by_element(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_copy_by_element(x));
+END_CPP11
+}
+// altrep.cpp
+sexp test_arrow_altrep_copy_by_region(sexp x, R_xlen_t region_size);
+extern "C" SEXP _arrow_test_arrow_altrep_copy_by_region(SEXP x_sexp, SEXP region_size_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	arrow::r::Input<R_xlen_t>::type region_size(region_size_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_copy_by_region(x, region_size));
+END_CPP11
+}
+// altrep.cpp
+sexp test_arrow_altrep_copy_by_dataptr(sexp x);
+extern "C" SEXP _arrow_test_arrow_altrep_copy_by_dataptr(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<sexp>::type x(x_sexp);
+	return cpp11::as_sexp(test_arrow_altrep_copy_by_dataptr(x));
 END_CPP11
 }
 // array.cpp
@@ -1005,11 +1048,11 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, int type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right);
-extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
+std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, compute::JoinType join_type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right);
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP join_type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
-	arrow::r::Input<int>::type type(type_sexp);
+	arrow::r::Input<compute::JoinType>::type join_type(join_type_sexp);
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type right_data(right_data_sexp);
 	arrow::r::Input<std::vector<std::string>>::type left_keys(left_keys_sexp);
 	arrow::r::Input<std::vector<std::string>>::type right_keys(right_keys_sexp);
@@ -1017,7 +1060,7 @@ BEGIN_CPP11
 	arrow::r::Input<std::vector<std::string>>::type right_output(right_output_sexp);
 	arrow::r::Input<std::string>::type output_suffix_for_left(output_suffix_for_left_sexp);
 	arrow::r::Input<std::string>::type output_suffix_for_right(output_suffix_for_right_sexp);
-	return cpp11::as_sexp(ExecNode_Join(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right));
+	return cpp11::as_sexp(ExecNode_Join(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right));
 END_CPP11
 }
 // compute-exec.cpp
@@ -4658,6 +4701,22 @@ BEGIN_CPP11
 END_CPP11
 }
 // safe-call-into-r-impl.cpp
+void DeinitializeMainRThread();
+extern "C" SEXP _arrow_DeinitializeMainRThread(){
+BEGIN_CPP11
+	DeinitializeMainRThread();
+	return R_NilValue;
+END_CPP11
+}
+// safe-call-into-r-impl.cpp
+bool SetEnableSignalStopSource(bool enabled);
+extern "C" SEXP _arrow_SetEnableSignalStopSource(SEXP enabled_sexp){
+BEGIN_CPP11
+	arrow::r::Input<bool>::type enabled(enabled_sexp);
+	return cpp11::as_sexp(SetEnableSignalStopSource(enabled));
+END_CPP11
+}
+// safe-call-into-r-impl.cpp
 bool CanRunWithCapturedR();
 extern "C" SEXP _arrow_CanRunWithCapturedR(){
 BEGIN_CPP11
@@ -4760,11 +4819,19 @@ BEGIN_CPP11
 END_CPP11
 }
 // schema.cpp
-std::shared_ptr<arrow::Schema> schema_(const std::vector<std::shared_ptr<arrow::Field>>& fields);
-extern "C" SEXP _arrow_schema_(SEXP fields_sexp){
+std::shared_ptr<arrow::Schema> Schema__from_fields(const std::vector<std::shared_ptr<arrow::Field>>& fields);
+extern "C" SEXP _arrow_Schema__from_fields(SEXP fields_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::vector<std::shared_ptr<arrow::Field>>&>::type fields(fields_sexp);
-	return cpp11::as_sexp(schema_(fields));
+	return cpp11::as_sexp(Schema__from_fields(fields));
+END_CPP11
+}
+// schema.cpp
+std::shared_ptr<arrow::Schema> Schema__from_list(cpp11::list field_list);
+extern "C" SEXP _arrow_Schema__from_list(SEXP field_list_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type field_list(field_list_sexp);
+	return cpp11::as_sexp(Schema__from_list(field_list));
 END_CPP11
 }
 // schema.cpp
@@ -5085,6 +5152,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // table.cpp
+std::shared_ptr<arrow::Table> Table__from_schema(const std::shared_ptr<arrow::Schema>& schema);
+extern "C" SEXP _arrow_Table__from_schema(SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return cpp11::as_sexp(Table__from_schema(schema));
+END_CPP11
+}
+// table.cpp
 r_vec_size Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_Table__ReferencedBufferSize(SEXP table_sexp){
 BEGIN_CPP11
@@ -5202,8 +5277,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_gcs_available", (DL_FUNC)& _gcs_available, 0 },
 		{ "_json_available", (DL_FUNC)& _json_available, 0 },
-		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
+		{ "_arrow_test_arrow_altrep_set_string_elt", (DL_FUNC) &_arrow_test_arrow_altrep_set_string_elt, 3}, 
+		{ "_arrow_test_arrow_altrep_is_materialized", (DL_FUNC) &_arrow_test_arrow_altrep_is_materialized, 1}, 
+		{ "_arrow_test_arrow_altrep_force_materialize", (DL_FUNC) &_arrow_test_arrow_altrep_force_materialize, 1}, 
+		{ "_arrow_test_arrow_altrep_copy_by_element", (DL_FUNC) &_arrow_test_arrow_altrep_copy_by_element, 1}, 
+		{ "_arrow_test_arrow_altrep_copy_by_region", (DL_FUNC) &_arrow_test_arrow_altrep_copy_by_region, 2}, 
+		{ "_arrow_test_arrow_altrep_copy_by_dataptr", (DL_FUNC) &_arrow_test_arrow_altrep_copy_by_dataptr, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
@@ -5657,6 +5737,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
 		{ "_arrow_InitializeMainRThread", (DL_FUNC) &_arrow_InitializeMainRThread, 0}, 
+		{ "_arrow_DeinitializeMainRThread", (DL_FUNC) &_arrow_DeinitializeMainRThread, 0}, 
+		{ "_arrow_SetEnableSignalStopSource", (DL_FUNC) &_arrow_SetEnableSignalStopSource, 1}, 
 		{ "_arrow_CanRunWithCapturedR", (DL_FUNC) &_arrow_CanRunWithCapturedR, 0}, 
 		{ "_arrow_TestSafeCallIntoR", (DL_FUNC) &_arrow_TestSafeCallIntoR, 2}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
@@ -5669,7 +5751,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Scalar__type", (DL_FUNC) &_arrow_Scalar__type, 1}, 
 		{ "_arrow_Scalar__Equals", (DL_FUNC) &_arrow_Scalar__Equals, 2}, 
 		{ "_arrow_Scalar__ApproxEquals", (DL_FUNC) &_arrow_Scalar__ApproxEquals, 2}, 
-		{ "_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1}, 
+		{ "_arrow_Schema__from_fields", (DL_FUNC) &_arrow_Schema__from_fields, 1}, 
+		{ "_arrow_Schema__from_list", (DL_FUNC) &_arrow_Schema__from_list, 1}, 
 		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1}, 
 		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 
 		{ "_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2}, 
@@ -5706,6 +5789,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__SelectColumns", (DL_FUNC) &_arrow_Table__SelectColumns, 2}, 
 		{ "_arrow_all_record_batches", (DL_FUNC) &_arrow_all_record_batches, 1}, 
 		{ "_arrow_Table__from_record_batches", (DL_FUNC) &_arrow_Table__from_record_batches, 2}, 
+		{ "_arrow_Table__from_schema", (DL_FUNC) &_arrow_Table__from_schema, 1}, 
 		{ "_arrow_Table__ReferencedBufferSize", (DL_FUNC) &_arrow_Table__ReferencedBufferSize, 1}, 
 		{ "_arrow_Table__ConcatenateTables", (DL_FUNC) &_arrow_Table__ConcatenateTables, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 

@@ -101,6 +101,8 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          REM For ORC
+          set TZDIR=/c/msys64/usr/share/zoneinfo
           bash -c "arrow/ci/scripts/java_jni_windows_build.sh $(pwd)/arrow $(pwd)/arrow/cpp-build $(pwd)/arrow/java-dist"
       - name: Compress into single artifact to keep directory structure
         shell: bash
@@ -148,8 +150,7 @@ jobs:
           test -f arrow/java-dist/arrow_dataset_jni.dll
           test -f arrow/java-dist/libarrow_orc_jni.dylib
           test -f arrow/java-dist/libarrow_orc_jni.so
-          # We can enable this after ARROW-17817 is resolved.
-          # test -f arrow/java-dist/arrow_orc_jni.dll
+          test -f arrow/java-dist/arrow_orc_jni.dll
           test -f arrow/java-dist/libgandiva_jni.dylib
           test -f arrow/java-dist/libgandiva_jni.so
           test -f arrow/java-dist/libplasma_java.dylib

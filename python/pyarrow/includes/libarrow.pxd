@@ -1521,6 +1521,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool emit_dictionary_deltas
         c_bool unify_dictionaries
 
+        CIpcWriteOptions()
+        CIpcWriteOptions(CIpcWriteOptions&&)
+
         @staticmethod
         CIpcWriteOptions Defaults()
 
@@ -2533,7 +2536,7 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         pass
 
     cdef cppclass CFilterNodeOptions "arrow::compute::FilterNodeOptions"(CExecNodeOptions):
-        CFilterNodeOptions(CExpression, c_bool async_mode)
+        CFilterNodeOptions(CExpression)
 
     cdef cppclass CProjectNodeOptions "arrow::compute::ProjectNodeOptions"(CExecNodeOptions):
         CProjectNodeOptions(vector[CExpression] expressions)

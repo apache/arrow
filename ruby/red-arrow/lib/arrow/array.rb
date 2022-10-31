@@ -47,7 +47,15 @@ module Arrow
             nil
           end
         else
-          nil
+          if value.respond_to?(:to_arrow_array)
+            begin
+              value.to_arrow_array
+            rescue RangeError
+              nil
+            end
+          else
+            nil
+          end
         end
       end
     end
@@ -100,6 +108,10 @@ module Arrow
     end
 
     def to_arrow
+      self
+    end
+
+    def to_arrow_array
       self
     end
 

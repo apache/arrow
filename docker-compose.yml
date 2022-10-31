@@ -441,11 +441,8 @@ services:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_HOME: /arrow
       LIBARROW_MINIMAL: "false"
-      # Turn off features that aren't supported on CentOS 7 gcc 4.8
-      ARROW_GCS: "OFF"
-      ARROW_MIMALLOC: "OFF"
-      ARROW_S3: "OFF"
-    command: *cpp-static-command
+    command: /bin/bash -c " 
+          scl enable devtoolset-8 '/arrow/r/inst/build_arrow_static.sh'"
 
   ubuntu-cpp-bundled:
     # Arrow build with BUNDLED dependencies
@@ -472,11 +469,9 @@ services:
     # Usage:
     #   docker-compose build cuda-cpp
     #   docker-compose run --rm cuda-cpp
-    # Also need to edit the host docker configuration as follows:
-    #   https://github.com/docker/compose/issues/6691#issuecomment-561504928
     # Parameters:
     #   ARCH: amd64
-    #   CUDA: 9.1, 10.0, 10.1
+    #   CUDA: <depends on your nvidia driver, should match system CUDA>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
     build:
       context: .
@@ -490,18 +485,34 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
-    environment: &cuda-environment
-      <<: *ccache
-      ARROW_BUILD_STATIC: "OFF"
+    environment:
+      <<: [ *ccache, *sccache]
+      ARROW_BUILD_UTILITIES: "OFF"
+      ARROW_COMPUTE: "OFF"
+      ARROW_CSV: "OFF"
       ARROW_CUDA: "ON"
+      ARROW_DATASET: "OFF"
+      ARROW_ENABLE_TIMING_TESTS: "OFF"
+      ARROW_FILESYSTEM: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_GCS: "OFF"
+      ARROW_HDFS: "OFF"
+      ARROW_JEMALLOC: "OFF"
+      ARROW_JSON: "OFF"
       ARROW_ORC: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_PLASMA: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
     volumes: *ubuntu-volumes
     command: *cpp-command
+    deploy: &cuda-deploy
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
 
   ubuntu-cpp-sanitizer:
     # Usage:
@@ -564,6 +575,7 @@ services:
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
       ARROW_BUILD_STATIC: "OFF"
+      ARROW_CTEST_TIMEOUT: 500
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_DATASET: "ON"
       ARROW_JEMALLOC: "OFF"
@@ -774,7 +786,7 @@ services:
     #   docker-compose run --rm cuda-python
     # Parameters:
     #   ARCH: amd64
-    #   CUDA: 8.0, 10.0, ...
+    #   CUDA: <depends on your nvidia driver, should match system CUDA>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
@@ -786,8 +798,28 @@ services:
         numba: ${NUMBA}
     shm_size: *shm-size
     environment:
-      <<: [ *ccache, *cuda-environment ]
+      <<: [ *ccache, *sccache ] 
+      ARROW_BUILD_UTILITIES: "OFF"
+      ARROW_COMPUTE: "ON"
+      ARROW_CSV: "ON"
+      ARROW_CUDA: "ON"
+      ARROW_DATASET: "ON"
+      ARROW_ENABLE_TIMING_TESTS: "OFF"
+      ARROW_FILESYSTEM: "ON"
+      ARROW_GANDIVA: "OFF"
+      ARROW_GCS: "OFF"
+      ARROW_HDFS: "ON"
+      ARROW_JEMALLOC: "ON"
+      ARROW_JSON: "ON"
+      ARROW_ORC: "OFF"
+      ARROW_PARQUET: "ON"
+      ARROW_PLASMA: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_SUBSTRAIT: "OFF"
+      ARROW_WITH_OPENTELEMETRY: "OFF"
+      SETUPTOOLS_SCM_PRETEND_VERSION:
     volumes: *ubuntu-volumes
+    deploy: *cuda-deploy
     command: &python-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -984,10 +1016,15 @@ services:
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
-  # doesn't exit properly on fail
   python-wheel-windows-test:
-    image: python:${PYTHON}-windowsservercore-1809
+    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2017-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    build:
+      args:
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/python-wheel-windows-test-vs2017.dockerfile
     volumes:
+      - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
       - type: bind
         source: .
         target: "C:/arrow"
@@ -1071,7 +1108,7 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
-        archery numpydoc --allow-rule PR01,PR10 &&
+        archery numpydoc --allow-rule PR01,PR03,PR10 &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-dask:
@@ -1373,21 +1410,20 @@ services:
     # Usage:
     #   docker-compose build r-revdepcheck
     #   docker-compose run r-revdepcheck
-    image: ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+    image: ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+        - ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
       args:
-        base: rstudio/r-base:4.0-focal
+        base: rstudio/r-base:4.2-focal
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
     shm_size: *shm-size
     environment:
-      LIBARROW_DOWNLOAD: "true"
-      LIBARROW_MINIMAL: "false"
-      ARROW_SOURCE_HOME: "/arrow"
+      N_JOBS:
+      ARROW_REVDEP_WORKERS:
       ARROW_R_DEV: "true"
     volumes: *ubuntu-volumes
     command: >

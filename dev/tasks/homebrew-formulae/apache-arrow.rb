@@ -29,7 +29,7 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-10.0.0-SNAPSHOT/apache-arrow-10.0.0-SNAPSHOT.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-11.0.0-SNAPSHOT/apache-arrow-11.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   license "Apache-2.0"
   head "https://github.com/apache/arrow.git"
@@ -72,17 +72,22 @@ class ApacheArrow < Formula
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     args = %W[
+      -DARROW_COMPUTE=ON
+      -DARROW_CSV=ON
+      -DARROW_DATASET=ON
+      -DARROW_FILESYSTEM=ON
       -DARROW_FLIGHT=ON
       -DARROW_GANDIVA=ON
       -DARROW_GCS=ON
+      -DARROW_HDFS=ON
       -DARROW_INSTALL_NAME_RPATH=OFF
       -DARROW_JEMALLOC=ON
+      -DARROW_JSON=ON
       -DARROW_MIMALLOC=ON
       -DARROW_ORC=ON
       -DARROW_PARQUET=ON
       -DARROW_PLASMA=ON
       -DARROW_PROTOBUF_USE_SHARED=ON
-      -DARROW_PYTHON=ON
       -DARROW_S3=ON
       -DARROW_WITH_BROTLI=ON
       -DARROW_WITH_BZ2=ON

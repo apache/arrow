@@ -41,6 +41,7 @@ cdef class IpcWriteOptions(_Weakrefable):
     cdef:
         CIpcWriteOptions c_options
 
+
 cdef class IpcReadOptions(_Weakrefable):
     cdef:
         CIpcReadOptions c_options
@@ -71,7 +72,7 @@ cdef class DataType(_Weakrefable):
         bytes pep3118_format
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *
-    cdef Field field(self, int i)
+    cpdef Field field(self, i)
 
 
 cdef class ListType(DataType):

@@ -23,11 +23,11 @@ import (
 	"io"
 	"sort"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/endian"
-	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/endian"
+	"github.com/apache/arrow/go/v11/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 

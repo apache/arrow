@@ -168,7 +168,8 @@ test_that("strptime", {
       mutate(
         x = strptime(x, format = "%m-%d-%Y")
       ) %>%
-      pull(),
+      pull() %>%
+      as.vector(),
     # R's strptime returns POSIXlt (list type)
     as.POSIXct(tstamp),
     ignore_attr = "tzone"
@@ -456,6 +457,12 @@ test_that("strftime", {
 test_that("format_ISO8601", {
   # https://issues.apache.org/jira/projects/ARROW/issues/ARROW-15266
   skip_if_not_available("re2")
+  # A change in R altered the behavior of lubridate::format_ISO8601:
+  # https://github.com/wch/r-source/commit/f6fd993f8a2f799a56dbecbd8238f155191fc31b
+  # Fixed in lubridate here:
+  # https://github.com/tidyverse/lubridate/pull/1068
+  skip_if_not(packageVersion("lubridate") > "1.8")
+
   times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
 
   compare_dplyr_binding(
@@ -1890,7 +1897,7 @@ test_that("`as.Date()` and `as_date()`", {
         )
       ) %>%
       collect(),
-    regexp = "consider using the lubridate specialised parsing functions"
+    regexp = "Consider using the lubridate specialised parsing functions"
   )
 
   # record batch test
@@ -1904,7 +1911,7 @@ test_that("`as.Date()` and `as_date()`", {
         )
       ) %>%
       collect(),
-    regexp = "consider using the lubridate specialised parsing functions"
+    regexp = "Consider using the lubridate specialised parsing functions"
   )
 
   # strptime does not support a partial format - Arrow returns NA, while
@@ -3166,9 +3173,12 @@ check_timestamp_rounding <- function(data, unit, lubridate_unit = unit, ...) {
 
 test_that("date round/floor/ceil works for units of 1 day or less", {
   test_df %>% check_date_rounding("1 millisecond", lubridate_unit = ".001 second")
-  test_df %>% check_date_rounding("1 day")
   test_df %>% check_date_rounding("1 second")
   test_df %>% check_date_rounding("1 hour")
+
+  skip("floor_date(as.Date(NA), '1 day') is no longer NA on latest R-devel")
+  # Possibly https://github.com/wch/r-source/commit/4f70ce0d79eeda7464cf97448e515275cbef754b
+  test_df %>% check_date_rounding("1 day")
 })
 
 test_that("timestamp round/floor/ceil works for units of 1 day or less", {
