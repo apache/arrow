@@ -121,6 +121,34 @@ TEST(AsyncTaskScheduler, SubSchedulerHolderLeftForever) {
   child_scheduler_task.MarkFinished();
   parent_scheduler_task.MarkFinished();
   ASSERT_FINISHES_OK(finished);
+
+  // Holders should also be kept alive by grandparent tasks (and great-grandparent, etc.)
+  Future<> grandparent_scheduler_task = Future<>::Make();
+  parent_scheduler_task = Future<>::Make();
+  bool child_scheduler_finished = false;
+  holder.reset();
+  finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    scheduler->AddSimpleTask([&] { return grandparent_scheduler_task; });
+    scheduler->MakeSubScheduler(
+        [&](AsyncTaskScheduler* mid_scheduler) {
+          mid_scheduler->AddSimpleTask([&] { return parent_scheduler_task; });
+          holder = mid_scheduler->MakeSubScheduler(
+              [&](AsyncTaskScheduler* sub_scheduler) { return Status::OK(); },
+              [&](const Status& st) {
+                child_scheduler_finished = true;
+                return Status::OK();
+              });
+          return Status::OK();
+        },
+        EmptyFinishCallback());
+    return Status::OK();
+  });
+  parent_scheduler_task.MarkFinished();
+  // Child scheduler should be kept non-ended since the grandparent scheduler still has a
+  // task even if the parent scheduler is ended and task-less.
+  ASSERT_FALSE(child_scheduler_finished);
+  grandparent_scheduler_task.MarkFinished();
+  ASSERT_FINISHES_OK(finished);
 }
 
 TEST(AsyncTaskScheduler, TaskStaysAliveUntilFinished) {

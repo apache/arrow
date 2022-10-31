@@ -148,6 +148,16 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   using Task = AsyncTaskScheduler::Task;
   using Queue = AsyncTaskScheduler::Queue;
 
+  /// State that is shared across all schedulers in a tree.
+  struct CommonState {
+    // Used to safety-end all sub-schedulers when the task count hits 0
+    // Only used on success.
+    AsyncTaskSchedulerImpl* root = nullptr;
+    std::atomic<int> task_counter{1};
+    // Used to notify all other schedulers if any scheduler aborts
+    std::atomic<bool> abort{false};
+  };
+
   AsyncTaskSchedulerImpl(AsyncTaskSchedulerImpl* parent, std::unique_ptr<Queue> queue,
                          Throttle* throttle, FnOnce<Status(Status)> finish_callback,
                          StopToken stop_token)
@@ -157,10 +167,10 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
         finish_callback_(std::move(finish_callback)),
         stop_token_(std::move(stop_token)) {
     if (parent == nullptr) {
-      owned_global_abort_ = std::make_unique<std::atomic<bool>>(0);
-      global_abort_ = owned_global_abort_.get();
+      global_state_ = &owned_global_state_;
+      global_state_->root = this;
     } else {
-      global_abort_ = parent->global_abort_;
+      global_state_ = parent->global_state_;
     }
     if (throttle != nullptr && !queue_) {
       queue_ = std::make_unique<FifoQueue>();
@@ -168,7 +178,6 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   }
 
   ~AsyncTaskSchedulerImpl() {
-    std::unique_lock<std::mutex> lk(mutex_);
     DCHECK(!queue_ || queue_->Empty())
         << " scheduler destroyed before all queued tasks finished";
     DCHECK_EQ(running_tasks_, 0) << " scheduler destroyed while tasks still running";
@@ -180,7 +189,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     if (state_ == State::kAborted) {
       return false;
     }
-    if (global_abort_->load()) {
+    if (global_state_->abort.load()) {
       AbortUnlocked(Status::Cancelled("Another scheduler aborted"), std::move(lk));
       return false;
     }
@@ -256,24 +265,46 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       std::list<std::shared_ptr<AsyncTaskSchedulerImpl>>::iterator child_itr;
     };
 
+    global_state_->task_counter++;
     Status initial_task_st = std::move(initial_task)(child);
     child->OnTaskFinished(initial_task_st, 0);
     child->OnFinished().AddCallback(Finalizer{this, child, child_itr});
     return std::make_unique<HolderImpl>(std::move(owned_child));
   }
 
-  void End() {
-    std::unique_lock<std::mutex> lk(mutex_);
+  bool EndUnlocked(std::unique_lock<std::mutex> lk) {
     if (state_ == State::kEnded) {
-      return;
+      return false;
     }
     state_ = State::kEnded;
-    MaybeEndUnlocked(std::move(lk));
+    return MaybeEndUnlocked(std::move(lk));
+  }
+
+  void End() {
+    std::unique_lock<std::mutex> lk(mutex_);
+    EndUnlocked(std::move(lk));
   }
 
   Future<> OnFinished() const { return finished_; }
 
  private:
+  void SafetyEnd() {
+    std::unique_lock lk(mutex_);
+    // Ending a sub-scheduler should cause it to be removed from the list so we
+    // make a copy to avoid concurrent modification
+    std::vector<std::weak_ptr<AsyncTaskSchedulerImpl>> to_reset(sub_schedulers_.size());
+    for (const auto& sub_scheduler : sub_schedulers_) {
+      to_reset.emplace_back(sub_scheduler);
+    }
+    EndUnlocked(std::move(lk));
+    for (const auto& weak_scheduler : to_reset) {
+      std::shared_ptr<AsyncTaskSchedulerImpl> scheduler = weak_scheduler.lock();
+      if (scheduler) {
+        scheduler->SafetyEnd();
+      }
+    }
+  }
+
   void ContinueTasksUnlocked(std::unique_lock<std::mutex>* lk) {
     while (!queue_->Empty()) {
       int next_cost = std::min(queue_->Peek().cost(), throttle_->Capacity());
@@ -312,7 +343,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       AbortUnlocked(st, std::move(lk));
       return false;
     }
-    if (global_abort_->load()) {
+    if (global_state_->abort.load()) {
       running_tasks_--;
       AbortUnlocked(Status::Cancelled("Another scheduler aborted"), std::move(lk));
       return false;
@@ -326,7 +357,14 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     }
     lk.lock();
     running_tasks_--;
-    return MaybeEndUnlocked(std::move(lk));
+    bool more_to_do = MaybeEndUnlocked(std::move(lk));
+    if (more_to_do && --global_state_->task_counter == 0) {
+      AsyncTaskSchedulerImpl* root = global_state_->root;
+      lk.unlock();
+      root->SafetyEnd();
+      return false;
+    }
+    return more_to_do;
   }
 
   bool DoSubmitTask(std::unique_ptr<Task> task) {
@@ -337,7 +375,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     Result<Future<>> submit_result = (*task)(this);
     if (!submit_result.ok()) {
       std::unique_lock<std::mutex> lk(mutex_);
-      global_abort_->store(true);
+      global_state_->abort.store(true);
       running_tasks_--;
       AbortUnlocked(submit_result.status(), std::move(lk));
       return false;
@@ -355,28 +393,11 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   }
 
   bool MaybeEndUnlocked(std::unique_lock<std::mutex>&& lk) {
-    if (running_tasks_ > 0 &&
-        running_tasks_ <= static_cast<int>(sub_schedulers_.size())) {
-      // parent is out of tasks and so sub schedulers should be ended
-      std::vector<std::weak_ptr<AsyncTaskSchedulerImpl>> to_reset;
-      for (const auto& sub_scheduler : sub_schedulers_) {
-        to_reset.emplace_back(sub_scheduler);
-      }
-      lk.unlock();
-      for (const auto& weak_scheduler : to_reset) {
-        std::shared_ptr<AsyncTaskSchedulerImpl> scheduler = weak_scheduler.lock();
-        if (scheduler) {
-          scheduler->End();
-        }
-      }
-      return true;
-    }
     if (IsFullyFinished()) {
       lk.unlock();
       finished_.MarkFinished(maybe_error_);
       return false;
     } else {
-      lk.unlock();
       return true;
     }
   }
@@ -401,6 +422,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
   bool SubmitTaskUnlocked(std::unique_ptr<Task> task, std::unique_lock<std::mutex>* lk) {
     running_tasks_++;
+    global_state_->task_counter++;
     lk->unlock();
     return DoSubmitTask(std::move(task));
   }
@@ -449,8 +471,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
   std::list<std::shared_ptr<AsyncTaskSchedulerImpl>> sub_schedulers_;
 
-  std::unique_ptr<std::atomic<bool>> owned_global_abort_ = nullptr;
-  std::atomic<bool>* global_abort_;
+  // This is always initialized but only meaningful for the top-level scheduler
+  CommonState owned_global_state_;
+  CommonState* global_state_;
   StopToken stop_token_;
 
   // Allows AsyncTaskScheduler::Make to call OnTaskFinished

@@ -497,10 +497,12 @@ class TeeNode : public compute::MapNode {
         util::AsyncTaskScheduler::MakeThrottle(1);
     util::AsyncTaskScheduler::Throttle* serial_throttle_view = serial_throttle.get();
     serial_scheduler_ = plan_->async_scheduler()->MakeSubScheduler(
-        [&](util::AsyncTaskScheduler* scheduler) { return Status::OK(); },
+        [&](util::AsyncTaskScheduler* scheduler) {
+          dataset_writer_->Start(scheduler);
+          return Status::OK();
+        },
         [owned_throttle = std::move(serial_throttle)](Status) { return Status::OK(); },
         serial_throttle_view);
-    dataset_writer_->Start(plan_->async_scheduler());
     return MapNode::StartProducing();
   }
 
@@ -529,12 +531,12 @@ class TeeNode : public compute::MapNode {
       MapNode::Finish(std::move(finish_st));
       return;
     }
-    Status writer_finish_st = dataset_writer_->Finish();
-    if (!writer_finish_st.ok()) {
-      MapNode::Finish(std::move(writer_finish_st));
-      return;
-    }
-    MapNode::Finish(Status::OK());
+    serial_scheduler_->Get()->AddSimpleTask([this] {
+      Status finish_st = dataset_writer_->Finish();
+      MapNode::Finish(finish_st);
+      return Future<>::MakeFinished(finish_st);
+    });
+    serial_scheduler_->Reset();
   }
 
   Result<compute::ExecBatch> DoTee(const compute::ExecBatch& batch) {
