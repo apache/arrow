@@ -70,11 +70,11 @@ register_bindings_math <- function() {
 
   register_binding("base::trunc", function(x, ...) {
     # accepts and ignores ... for consistency with base::trunc()
-    build_expr("trunc", x)
+    Expression$create("trunc", x)
   })
 
   register_binding("base::round", function(x, digits = 0) {
-    build_expr(
+    Expression$create(
       "round",
       x,
       options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
@@ -82,14 +82,14 @@ register_bindings_math <- function() {
   })
 
   register_binding("base::sqrt", function(x) {
-    build_expr(
+    Expression$create(
       "sqrt_checked",
       x
     )
   })
 
   register_binding("base::exp", function(x) {
-    build_expr(
+    Expression$create(
       "power_checked",
       exp(1),
       x
