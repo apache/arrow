@@ -56,17 +56,14 @@ Expressions. These are the basis for the \code{.data} mask inside dplyr methods.
 \section{Writing bindings}{
 
 When to use \code{build_expr()} vs. \code{Expression$create()}?
-
-Use \code{build_expr()} if you need to
-\itemize{
-\item map R function names to Arrow C++ functions
-\item wrap R inputs (vectors) as Array/Scalar
-}
-
+Use \code{build_expr()} if you want to cast any non-Expressions (i.e. Scalar)
+to match the type of the Expression(s) in the arguments: for example,
+\code{build_expr("add_checked", int16_field, 1)} will cast \code{1} to \code{int16} so that
+\code{int16_field} is not upcast to \code{float64} to match \code{1} (a \code{double} in R).
 \code{Expression$create()} is lower level. Most of the bindings use it
 because they manage the preparation of the user-provided inputs
 and don't need or don't want to the automatic conversion of R objects
-to \link{Scalar}.
+to \link{Scalar} with a matching type.
 }
 
 \keyword{internal}

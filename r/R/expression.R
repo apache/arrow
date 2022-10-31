@@ -212,7 +212,7 @@ Expression$scalar <- function(x) {
 
 # Wrapper around Expression$create that:
 # (1) maps R function names to Arrow C++ compute ("/" --> "divide_checked")
-# (2) wraps R input args as Array or Scalar
+# (2) wraps R input args as Array or Scalar and attempts to match types
 build_expr <- function(FUN,
                        ...,
                        args = list(...),
