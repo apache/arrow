@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -26,6 +27,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_binary.h"
 #include "arrow/util/macros.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -35,7 +37,10 @@
 
 namespace parquet {
 
+using parquet::Repetition;
+using parquet::internal::BinaryRecordReader;
 using schema::NodePtr;
+using testing::ElementsAre;
 
 namespace test {
 
@@ -74,9 +79,8 @@ static inline bool vector_equal_with_def_levels(const std::vector<T>& left,
 class TestPrimitiveReader : public ::testing::Test {
  public:
   void InitReader(const ColumnDescriptor* d) {
-    std::unique_ptr<PageReader> pager_;
-    pager_.reset(new test::MockPageReader(pages_));
-    reader_ = ColumnReader::Make(d, std::move(pager_));
+    auto pager = std::make_unique<MockPageReader>(pages_);
+    reader_ = ColumnReader::Make(d, std::move(pager));
   }
 
   void CheckResults() {
@@ -629,6 +633,573 @@ TEST_F(TestPrimitiveReader, TestNonDictionaryEncodedPagesWithExposeEncoding) {
                                                &indices_read, &dict, &dict_len),
                ParquetException);
   pages_.clear();
+}
+
+class RecordReaderTest : public ::testing::Test {
+ public:
+  const int32_t kNullValue = -1;
+
+  void Init(int32_t max_def_level, int32_t max_rep_level, Repetition::type repetition) {
+    level_info_.def_level = max_def_level;
+    level_info_.rep_level = max_rep_level;
+    repetition_type_ = repetition;
+
+    NodePtr type = schema::Int32("b", repetition);
+    descr_ = std::make_unique<ColumnDescriptor>(type, level_info_.def_level,
+                                                level_info_.rep_level);
+
+    record_reader_ = internal::RecordReader::Make(descr_.get(), level_info_);
+  }
+
+  void CheckReadValues(std::vector<int32_t> expected_values,
+                       std::vector<int16_t> expected_defs,
+                       std::vector<int16_t> expected_reps) {
+    const auto read_values = reinterpret_cast<const int32_t*>(record_reader_->values());
+    std::vector<int32_t> read_vals(read_values,
+                                   read_values + record_reader_->values_written());
+    ASSERT_EQ(read_vals.size(), expected_values.size());
+    for (size_t i = 0; i < expected_values.size(); ++i) {
+      if (expected_values[i] != kNullValue) {
+        ASSERT_EQ(expected_values[i], read_values[i]);
+      }
+    }
+
+    if (repetition_type_ != Repetition::REQUIRED) {
+      std::vector<int16_t> read_defs(
+          record_reader_->def_levels(),
+          record_reader_->def_levels() + record_reader_->levels_position());
+      ASSERT_TRUE(vector_equal(expected_defs, read_defs));
+    }
+
+    if (repetition_type_ == Repetition::REPEATED) {
+      std::vector<int16_t> read_reps(
+          record_reader_->rep_levels(),
+          record_reader_->rep_levels() + record_reader_->levels_position());
+      ASSERT_TRUE(vector_equal(expected_reps, read_reps));
+    }
+  }
+
+  void CheckState(int64_t values_written, int64_t null_count, int64_t levels_written,
+                  int64_t levels_position) {
+    ASSERT_EQ(record_reader_->values_written(), values_written);
+    ASSERT_EQ(record_reader_->null_count(), null_count);
+    ASSERT_EQ(record_reader_->levels_written(), levels_written);
+    ASSERT_EQ(record_reader_->levels_position(), levels_position);
+  }
+
+ protected:
+  std::shared_ptr<internal::RecordReader> record_reader_;
+  std::unique_ptr<ColumnDescriptor> descr_;
+  internal::LevelInfo level_info_;
+  Repetition::type repetition_type_;
+};
+
+// Tests reading a repeated field using the RecordReader.
+TEST_F(RecordReaderTest, BasicReadRepeatedField) {
+  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+
+  // Records look like: {[10], null, [20, 20], null, [30, 30, 30], null}
+  std::vector<std::shared_ptr<Page>> pages;
+  std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
+  std::vector<int16_t> def_levels = {1, 0, 1, 1, 0, 1, 1, 1, 0};
+  std::vector<int16_t> rep_levels = {0, 0, 0, 1, 0, 0, 1, 1, 0};
+
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
+      Encoding::PLAIN,
+      /*indices=*/{},
+      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
+      level_info_.rep_level);
+  pages.push_back(std::move(page));
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+
+  // Read [10], null
+  int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
+  ASSERT_EQ(records_read, 2);
+  CheckState(/*values_written=*/2, /*null_count=*/1, /*levels_written=*/9,
+             /*levels_position=*/2);
+  CheckReadValues(/*expected_values=*/{10, kNullValue}, /*expected_defs=*/{1, 0},
+                  /*expected_reps=*/{0, 0});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/7,
+             /*levels_position=*/0);
+  // Read [20, 20], null, [30, 30, 30]
+  records_read = record_reader_->ReadRecords(/*num_records=*/3);
+  ASSERT_EQ(records_read, 3);
+  CheckState(/*values_written=*/6, /*null_count=*/1, /*levels_written=*/7,
+             /*levels_position=*/6);
+  CheckReadValues(/*expected_values=*/{20, 20, kNullValue, 30, 30, 30},
+                  /*expected_defs=*/{1, 1, 0, 1, 1, 1},
+                  /*expected_reps=*/{0, 1, 0, 0, 1, 1});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
+             /*levels_position=*/0);
+  // Read the last null value and read past the end.
+  records_read = record_reader_->ReadRecords(/*num_records=*/3);
+  ASSERT_EQ(records_read, 1);
+  CheckState(/*values_written=*/1, /*null_count=*/1, /*levels_written=*/1,
+             /*levels_position=*/1);
+  CheckReadValues(/*expected_values=*/{kNullValue},
+                  /*expected_defs=*/{0},
+                  /*expected_reps=*/{0});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
+             /*levels_position=*/0);
+}
+
+// Test that we can skip required top level field.
+TEST_F(RecordReaderTest, SkipRequiredTopLevel) {
+  Init(/*max_def_level=*/0, /*max_rep_level=*/0, Repetition::REQUIRED);
+
+  std::vector<std::shared_ptr<Page>> pages;
+  std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
+      Encoding::PLAIN,
+      /*indices=*/{},
+      /*indices_size=*/0, /*def_levels=*/{}, level_info_.def_level,
+      /*rep_levels=*/{}, level_info_.rep_level);
+  pages.push_back(std::move(page));
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+
+  int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/3);
+  ASSERT_EQ(records_skipped, 3);
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
+             /*levels_position=*/0);
+
+  int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
+  ASSERT_EQ(records_read, 2);
+  CheckState(/*values_written=*/2, /*null_count=*/0, /*levels_written=*/0,
+             /*levels_position=*/0);
+  CheckReadValues(/*expected_values=*/{30, 30}, /*expected_defs=*/{},
+                  /*expected_reps=*/{});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
+             /*levels_position=*/0);
+}
+
+// Skip an optional field. Intentionally included some null values.
+TEST_F(RecordReaderTest, SkipOptional) {
+  Init(/*max_def_level=*/1, /*max_rep_level=*/0, Repetition::OPTIONAL);
+
+  // Records look like {null, 10, 20, 30, null, 40, 50, 60}
+  std::vector<std::shared_ptr<Page>> pages;
+  std::vector<int32_t> values = {10, 20, 30, 40, 50, 60};
+  std::vector<int16_t> def_levels = {0, 1, 1, 0, 1, 1, 1, 1};
+
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
+      Encoding::PLAIN,
+      /*indices=*/{},
+      /*indices_size=*/0, def_levels, level_info_.def_level,
+      /*rep_levels=*/{}, level_info_.rep_level);
+  pages.push_back(std::move(page));
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+
+  {
+    // Skip {null, 10}
+    // This also tests when we start with a Skip.
+    int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/2);
+    ASSERT_EQ(records_skipped, 2);
+    CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
+               /*levels_position=*/0);
+  }
+
+  {
+    // Read 3 records: {20, null, 30}
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/3);
+
+    ASSERT_EQ(records_read, 3);
+    // values_written() includes null values.
+    // We had skipped 2 of the levels above. So there is only 6 left in total to
+    // read, and we read 3 of them here.
+    CheckState(/*values_written=*/3, /*null_count=*/1, /*levels_written=*/6,
+               /*levels_position=*/3);
+
+    // ReadRecords for optional fields uses ReadValuesSpaced, so there is a
+    // placeholder for null.
+    CheckReadValues(/*expected_values=*/{20, kNullValue, 30}, /*expected_defs=*/{1, 0, 1},
+                    /*expected_reps=*/{});
+  }
+
+  {
+    // Skip {40, 50}.
+    int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/2);
+    ASSERT_EQ(records_skipped, 2);
+    CheckState(/*values_written=*/3, /*null_count=*/1, /*levels_written=*/4,
+               /*levels_position=*/3);
+    CheckReadValues(/*expected_values=*/{20, kNullValue, 30}, /*expected_defs=*/{1, 0, 1},
+                    /*expected_reps=*/{});
+    // Reset after a Skip.
+    record_reader_->Reset();
+    CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
+               /*levels_position=*/0);
+  }
+
+  {
+    // Read to the end of the column. Read {60}
+    // This test checks that ReadAndThrowAwayValues works, since if it
+    // does not we would read the wrong values.
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1);
+
+    ASSERT_EQ(records_read, 1);
+    CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/1,
+               /*levels_position=*/1);
+    CheckReadValues(/*expected_values=*/{60},
+                    /*expected_defs=*/{1},
+                    /*expected_reps=*/{});
+  }
+
+  // We have exhausted all the records.
+  ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/3), 0);
+  ASSERT_EQ(record_reader_->SkipRecords(/*num_records=*/3), 0);
+}
+
+// Test skipping for repeated fields.
+TEST_F(RecordReaderTest, SkipRepeated) {
+  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+
+  // Records look like {null, [20, 20, 20], null, [30, 30], [40]}
+  std::vector<std::shared_ptr<Page>> pages;
+  std::vector<int32_t> values = {20, 20, 20, 30, 30, 40};
+  std::vector<int16_t> def_levels = {0, 1, 1, 1, 0, 1, 1, 1};
+  std::vector<int16_t> rep_levels = {0, 0, 1, 1, 0, 0, 1, 0};
+
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
+      Encoding::PLAIN,
+      /*indices=*/{},
+      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
+      level_info_.rep_level);
+  pages.push_back(std::move(page));
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+
+  {
+    // This should skip the first null record.
+    int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/1);
+    ASSERT_EQ(records_skipped, 1);
+    ASSERT_EQ(record_reader_->values_written(), 0);
+    ASSERT_EQ(record_reader_->null_count(), 0);
+    // For repeated fields, we need to read the levels to find the record
+    // boundaries and skip. So some levels are read, however, the skipped
+    // level should not be there after the skip. That's why levels_position()
+    // is 0.
+    CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/7,
+               /*levels_position=*/0);
+    CheckReadValues(/*expected_values=*/{},
+                    /*expected_defs=*/{},
+                    /*expected_reps=*/{});
+  }
+
+  {
+    // Read [20, 20, 20]
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1);
+    ASSERT_EQ(records_read, 1);
+    CheckState(/*values_written=*/3, /*null_count=*/0, /*levels_written=*/7,
+               /*levels_position=*/3);
+    CheckReadValues(/*expected_values=*/{20, 20, 20},
+                    /*expected_defs=*/{1, 1, 1},
+                    /*expected_reps=*/{0, 1, 1});
+  }
+
+  {
+    // Skip the null record and also skip [30, 30]
+    int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/2);
+    ASSERT_EQ(records_skipped, 2);
+    // We remove the skipped levels from the buffer.
+    CheckState(/*values_written=*/3, /*null_count=*/0, /*levels_written=*/4,
+               /*levels_position=*/3);
+    CheckReadValues(/*expected_values=*/{20, 20, 20},
+                    /*expected_defs=*/{1, 1, 1},
+                    /*expected_reps=*/{0, 1, 1});
+  }
+
+  {
+    // Read [40]
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1);
+    ASSERT_EQ(records_read, 1);
+    CheckState(/*values_written=*/4, /*null_count=*/0, /*levels_written=*/4,
+               /*levels_position=*/4);
+    CheckReadValues(/*expected_values=*/{20, 20, 20, 40},
+                    /*expected_defs=*/{1, 1, 1, 1},
+                    /*expected_reps=*/{0, 1, 1, 0});
+  }
+}
+
+// Tests that for repeated fields, we first consume what is in the buffer
+// before reading more levels.
+TEST_F(RecordReaderTest, SkipRepeatedConsumeBufferFirst) {
+  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+
+  std::vector<std::shared_ptr<Page>> pages;
+  std::vector<int32_t> values(2048, 10);
+  std::vector<int16_t> def_levels(2048, 1);
+  std::vector<int16_t> rep_levels(2048, 0);
+
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
+      Encoding::PLAIN,
+      /*indices=*/{},
+      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
+      level_info_.rep_level);
+  pages.push_back(std::move(page));
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+  {
+    // Read 1000 records. We will read 1024 levels because that is the minimum
+    // number of levels to read.
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1000);
+    ASSERT_EQ(records_read, 1000);
+    CheckState(/*values_written=*/1000, /*null_count=*/0, /*levels_written=*/1024,
+               /*levels_position=*/1000);
+    std::vector<int32_t> expected_values(1000, 10);
+    std::vector<int16_t> expected_def_levels(1000, 1);
+    std::vector<int16_t> expected_rep_levels(1000, 0);
+    CheckReadValues(expected_values, expected_def_levels, expected_rep_levels);
+    // Reset removes the already consumed values and levels.
+    record_reader_->Reset();
+  }
+
+  {  // Skip 12 records. Since we already have 24 in the buffer, we should not be
+    // reading any more levels into the buffer, we will just consume 12 of it.
+    int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/12);
+    ASSERT_EQ(records_skipped, 12);
+    CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/12,
+               /*levels_position=*/0);
+    // Everthing is empty because we reset the reader before this skip.
+    CheckReadValues(/*expected_values=*/{}, /*expected_def_levels=*/{},
+                    /*expected_rep_levels=*/{});
+  }
+}
+
+// Test reading when one record spans multiple pages for a repeated field.
+TEST_F(RecordReaderTest, ReadPartialRecord) {
+  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+
+  std::vector<std::shared_ptr<Page>> pages;
+
+  // Page 1: {[10], [20, 20, 20 ... } continues to next page.
+  {
+    std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+        descr_.get(), /*values=*/{10, 20, 20, 20}, /*num_values=*/4, Encoding::PLAIN,
+        /*indices=*/{},
+        /*indices_size=*/0, /*def_levels=*/{1, 1, 1, 1}, level_info_.def_level,
+        /*rep_levels=*/{0, 0, 1, 1}, level_info_.rep_level);
+    pages.push_back(std::move(page));
+  }
+
+  // Page 2: {... 20, 20, ...} continues from previous page and to next page.
+  {
+    std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+        descr_.get(), /*values=*/{20, 20}, /*num_values=*/2, Encoding::PLAIN,
+        /*indices=*/{},
+        /*indices_size=*/0, /*def_levels=*/{1, 1}, level_info_.def_level,
+        /*rep_levels=*/{1, 1}, level_info_.rep_level);
+    pages.push_back(std::move(page));
+  }
+
+  // Page 3: { ... 20], [30]} continues from previous page.
+  {
+    std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+        descr_.get(), /*values=*/{20, 30}, /*num_values=*/2, Encoding::PLAIN,
+        /*indices=*/{},
+        /*indices_size=*/0, /*def_levels=*/{1, 1}, level_info_.def_level,
+        /*rep_levels=*/{1, 0}, level_info_.rep_level);
+    pages.push_back(std::move(page));
+  }
+
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+
+  {
+    // Read [10]
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1);
+    ASSERT_EQ(records_read, 1);
+    CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/4,
+               /*levels_position=*/1);
+    CheckReadValues(/*expected_values=*/{10},
+                    /*expected_defs=*/{1},
+                    /*expected_reps=*/{0});
+  }
+
+  {
+    // Read [20, 20, 20, 20, 20, 20] that spans multiple pages.
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1);
+    ASSERT_EQ(records_read, 1);
+    CheckState(/*values_written=*/7, /*null_count=*/0, /*levels_written=*/8,
+               /*levels_position=*/7);
+    CheckReadValues(/*expected_values=*/{10, 20, 20, 20, 20, 20, 20},
+                    /*expected_defs=*/{1, 1, 1, 1, 1, 1, 1},
+                    /*expected_reps=*/{0, 0, 1, 1, 1, 1, 1});
+  }
+
+  {
+    // Read [30]
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1);
+    ASSERT_EQ(records_read, 1);
+    CheckState(/*values_written=*/8, /*null_count=*/0, /*levels_written=*/8,
+               /*levels_position=*/8);
+    CheckReadValues(/*expected_values=*/{10, 20, 20, 20, 20, 20, 20, 30},
+                    /*expected_defs=*/{1, 1, 1, 1, 1, 1, 1, 1},
+                    /*expected_reps=*/{0, 0, 1, 1, 1, 1, 1, 0});
+  }
+}
+
+// Test skipping for repeated fields for the case when one record spans multiple
+// pages.
+TEST_F(RecordReaderTest, SkipPartialRecord) {
+  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+
+  std::vector<std::shared_ptr<Page>> pages;
+
+  // Page 1: {[10], [20, 20, 20 ... } continues to next page.
+  {
+    std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+        descr_.get(), /*values=*/{10, 20, 20, 20}, /*num_values=*/4, Encoding::PLAIN,
+        /*indices=*/{},
+        /*indices_size=*/0, /*def_levels=*/{1, 1, 1, 1}, level_info_.def_level,
+        /*rep_levels=*/{0, 0, 1, 1}, level_info_.rep_level);
+    pages.push_back(std::move(page));
+  }
+
+  // Page 2: {... 20, 20, ...} continues from previous page and to next page.
+  {
+    std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+        descr_.get(), /*values=*/{20, 20}, /*num_values=*/2, Encoding::PLAIN,
+        /*indices=*/{},
+        /*indices_size=*/0, /*def_levels=*/{1, 1}, level_info_.def_level,
+        /*rep_levels=*/{1, 1}, level_info_.rep_level);
+    pages.push_back(std::move(page));
+  }
+
+  // Page 3: { ... 20, [30]} continues from previous page.
+  {
+    std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+        descr_.get(), /*values=*/{20, 30}, /*num_values=*/2, Encoding::PLAIN,
+        /*indices=*/{},
+        /*indices_size=*/0, /*def_levels=*/{1, 1}, level_info_.def_level,
+        /*rep_levels=*/{1, 0}, level_info_.rep_level);
+    pages.push_back(std::move(page));
+  }
+
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+
+  {
+    // Read [10]
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1);
+    ASSERT_EQ(records_read, 1);
+    // There are 4 levels in the first page.
+    CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/4,
+               /*levels_position=*/1);
+    CheckReadValues(/*expected_values=*/{10},
+                    /*expected_defs=*/{1},
+                    /*expected_reps=*/{0});
+  }
+
+  {
+    // Skip the record that goes across pages.
+    int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/1);
+    ASSERT_EQ(records_skipped, 1);
+    CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/2,
+               /*levels_position=*/1);
+    CheckReadValues(/*expected_values=*/{10},
+                    /*expected_defs=*/{1},
+                    /*expected_reps=*/{0});
+  }
+
+  {
+    // Read [30]
+    int64_t records_read = record_reader_->ReadRecords(/*num_records=*/1);
+
+    ASSERT_EQ(records_read, 1);
+    CheckState(/*values_written=*/2, /*null_count=*/0, /*levels_written=*/2,
+               /*levels_position=*/2);
+    CheckReadValues(/*expected_values=*/{10, 30},
+                    /*expected_defs=*/{1, 1},
+                    /*expected_reps=*/{0, 0});
+  }
+}
+
+// Test that SkipRecords works on ByteArrays. Specifically, this is testing
+// ReadAndThrowAwayValues for ByteArrays.
+TEST(RecordReaderByteArrayTest, SkipByteArray) {
+  internal::LevelInfo level_info;
+  level_info.def_level = 1;
+  level_info.rep_level = 0;
+
+  // Must use REPEATED to exercise ReadAndThrowAwayValues for ByteArrays. It
+  // does not do any buffering for Optional or Required fields as it calls
+  // ResetValues after every read.
+  NodePtr type = schema::ByteArray("b", Repetition::OPTIONAL);
+  const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
+
+  std::vector<std::shared_ptr<Page>> pages;
+  int levels_per_page = 90;
+  int num_pages = 1;
+
+  std::vector<int16_t> def_levels;
+  std::vector<int16_t> rep_levels;
+  std::vector<ByteArray> values;
+  std::vector<uint8_t> buffer;
+
+  MakePages<ByteArrayType>(&descr, num_pages, levels_per_page, def_levels, rep_levels,
+                           values, buffer, pages, Encoding::PLAIN);
+
+  auto pager = std::make_unique<MockPageReader>(pages);
+
+  std::shared_ptr<internal::RecordReader> record_reader =
+      internal::RecordReader::Make(&descr, level_info);
+  record_reader->SetPageReader(std::move(pager));
+
+  // Read one-third of the page.
+  ASSERT_EQ(record_reader->ReadRecords(/*num_records=*/30), 30);
+
+  // Skip 30 records.
+  ASSERT_EQ(record_reader->SkipRecords(/*num_records=*/30), 30);
+
+  // Read 60 more records. Only 30 will be read, since we read 30 and skipped 30,
+  // so only 30 is left.
+  ASSERT_EQ(record_reader->ReadRecords(/*num_records=*/60), 30);
+
+  auto binary_reader = dynamic_cast<BinaryRecordReader*>(record_reader.get());
+  ASSERT_NE(binary_reader, nullptr);
+  // Chunks are reset after this call.
+  ::arrow::ArrayVector array_vector = binary_reader->GetBuilderChunks();
+  ASSERT_EQ(array_vector.size(), 1);
+  auto binary_array = dynamic_cast<::arrow::BinaryArray*>(array_vector[0].get());
+  ASSERT_NE(binary_array, nullptr);
+  ASSERT_EQ(binary_array->length(), 60);
+
+  // Our values above are not spaced, however, the RecordReader will
+  // read spaced for nullable values.
+  // Create spaced expected values.
+  std::vector<std::string_view> expected_values;
+  size_t values_index = 0;
+  for (int i = 0; i < 90; ++i) {
+    if (def_levels[i] == 0) {
+      expected_values.emplace_back();
+      continue;
+    }
+    expected_values.emplace_back(reinterpret_cast<const char*>(values[values_index].ptr),
+                                 values[values_index].len);
+    ++values_index;
+  }
+
+  // Check that the expected values match the actual values.
+  for (size_t i = 0; i < 30; ++i) {
+    ASSERT_EQ(expected_values[i].compare(binary_array->GetView(i)), 0);
+    ASSERT_EQ(def_levels[i] == 0, binary_array->IsNull(i));
+  }
+  // Repeat for the next range that we read.
+  for (size_t i = 60; i < 90; ++i) {
+    ASSERT_EQ(expected_values[i].compare(binary_array->GetView(i - 30)), 0);
+    ASSERT_EQ(def_levels[i] == 0, binary_array->IsNull(i - 30));
+  }
 }
 
 }  // namespace test
