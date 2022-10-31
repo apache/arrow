@@ -16,6 +16,7 @@
 # under the License.
 
 import decimal
+from email.policy import strict
 import gc
 import os
 import sys
@@ -142,7 +143,7 @@ class TestPythonIntegration(unittest.TestCase):
         expected = field_generator()
         self.assertEqual(expected, new_field)
 
-    def round_trip_array(self, array_generator, expected_diff=None):
+    def round_trip_array(self, array_generator, ignore_field_names):
         original_arr = array_generator()
         with self.bridge.java_c.CDataDictionaryProvider() as dictionary_provider, \
                 self.bridge.python_to_java_array(original_arr, dictionary_provider) as vector:
@@ -150,9 +151,11 @@ class TestPythonIntegration(unittest.TestCase):
             new_array = self.bridge.java_to_python_array(vector, dictionary_provider)
 
         expected = array_generator()
-        if expected_diff:
-            self.assertEqual(expected, new_array.view(expected.type))
-        self.assertEqual(expected.diff(new_array), expected_diff or '')
+
+        self.assertEqual(expected, new_array)
+        if not ignore_field_names:
+            self.assertTrue(expected.equals(new_array.view(expected.type)),
+                            check_metadata=True, check_internal_field_names=True)
 
     def round_trip_record_batch(self, rb_generator):
         original_rb = rb_generator()
@@ -191,7 +194,7 @@ class TestPythonIntegration(unittest.TestCase):
     def test_list_array(self):
         self.round_trip_array(lambda: pa.array(
             [[], [0], [1, 2], [4, 5, 6]], pa.list_(pa.int64())
-        ), "# Array types differed: list<item: int64> vs list<$data$: int64>\n")
+        ), ignore_field_names=True)
 
     def test_struct_array(self):
         fields = [
@@ -218,7 +221,7 @@ class TestPythonIntegration(unittest.TestCase):
         keys = pa.array(pykeys, type="binary")
         items = pa.array(pyitems, type="i4")
         self.round_trip_array(
-            lambda: pa.MapArray.from_arrays(offsets, keys, items))
+            lambda: pa.MapArray.from_arrays(offsets, keys, items), ignore_field_names=True)
 
     def test_field(self):
         self.round_trip_field(lambda: pa.field("aa", pa.bool_()))
