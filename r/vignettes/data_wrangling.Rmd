@@ -115,7 +115,7 @@ Once registered, the following works:
 
 ```{r}
 sw %>% 
-  transmute(name, snake_name = to_snake_name(name)) %>%
+  mutate(name, snake_name = to_snake_name(name), .keep = "none") %>%
   collect()
 ```
 
