@@ -552,22 +552,22 @@ register_bindings_duration_constructor <- function() {
 }
 
 register_bindings_duration_helpers <- function() {
-  duration_helpers_map_factory <- function(value, unit) {
+  duration_factory <- function(value, unit) {
     force(value)
     force(unit)
     function(x = 1) make_duration(x * value, unit)
   }
 
-  for (name in names(.helpers_function_map)) {
-    register_binding(
-      name,
-      duration_helpers_map_factory(
-        .helpers_function_map[[name]][[1]],
-        .helpers_function_map[[name]][[2]]
-      )
-    )
-  }
-
+  register_binding("lubridate::dminutes", duration_factory(60, "s"))
+  register_binding("lubridate::dhours", duration_factory(3600, "s"))
+  register_binding("lubridate::ddays", duration_factory(86400, "s"))
+  register_binding("lubridate::dweeks", duration_factory(604800, "s"))
+  register_binding("lubridate::dmonths", duration_factory(2629800, "s"))
+  register_binding("lubridate::dyears", duration_factory(31557600, "s"))
+  register_binding("lubridate::dseconds", duration_factory(1, "s"))
+  register_binding("lubridate::dmilliseconds", duration_factory(1, "ms"))
+  register_binding("lubridate::dmicroseconds", duration_factory(1, "us"))
+  register_binding("lubridate::dnanoseconds", duration_factory(1, "ns"))
   register_binding(
     "lubridate::dpicoseconds",
     function(x = 1) {

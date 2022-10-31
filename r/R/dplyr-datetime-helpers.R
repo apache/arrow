@@ -26,18 +26,6 @@ check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
   locale
 }
 
-.helpers_function_map <- list(
-  "lubridate::dminutes" = list(60, "s"),
-  "lubridate::dhours" = list(3600, "s"),
-  "lubridate::ddays" = list(86400, "s"),
-  "lubridate::dweeks" = list(604800, "s"),
-  "lubridate::dmonths" = list(2629800, "s"),
-  "lubridate::dyears" = list(31557600, "s"),
-  "lubridate::dseconds" = list(1, "s"),
-  "lubridate::dmilliseconds" = list(1, "ms"),
-  "lubridate::dmicroseconds" = list(1, "us"),
-  "lubridate::dnanoseconds" = list(1, "ns")
-)
 make_duration <- function(x, unit) {
   # TODO(ARROW-15862): remove first cast to int64
   cast(x, int64())$cast(duration(unit))
