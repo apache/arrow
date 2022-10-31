@@ -1,71 +1,56 @@
-BUILD:
-- aarch64-conda_cos7-linux-gnu
 bzip2:
 - '1'
+c_ares:
+- '1'
 c_compiler:
-- gcc
-c_compiler_version:
-- '9'
-cdt_arch:
-- aarch64
-cdt_name:
-- cos7
+- vs2019
 channel_sources:
 - conda-forge
 channel_targets:
 - conda-forge main
+cuda_compiler:
+- nvcc
 cuda_compiler_version:
-- None
+- '10.2'
 cxx_compiler:
-- gxx
-cxx_compiler_version:
-- '9'
-docker_image:
-- quay.io/condaforge/linux-anvil-cos7-x86_64
+- vs2019
 gflags:
 - '2.2'
 glog:
-- '0.5'
+- '0.6'
 google_cloud_cpp:
-- '1.35'
+- '2.2'
 grpc_cpp:
-- '1.43'
+- '1.47'
+libabseil:
+- '20220623.0'
 libprotobuf:
-- '3.19'
+- '3.21'
 lz4_c:
 - 1.9.3
 numpy:
-- '1.19'
+- '1.20'
 openssl:
 - 1.1.1
-orc:
-- 1.7.3
 pin_run_as_build:
   bzip2:
     max_pin: x
-  lz4-c:
-    max_pin: x.x.x
   python:
     min_pin: x.x
     max_pin: x.x
   zlib:
     max_pin: x.x
 python:
-- 3.9.* *_cpython
+- 3.7.* *_cpython
 re2:
-- 2022.02.01
+- 2022.06.01
 snappy:
 - '1'
 target_platform:
-- linux-aarch64
+- win-64
 thrift_cpp:
-- 0.15.0
+- 0.16.0
 zip_keys:
-- - c_compiler_version
-  - cxx_compiler_version
-  - cuda_compiler_version
-  - cdt_name
-  - docker_image
 - - python
   - numpy
 zlib:
