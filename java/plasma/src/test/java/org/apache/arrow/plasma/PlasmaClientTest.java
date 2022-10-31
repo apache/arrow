@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -52,12 +51,8 @@ public class PlasmaClientTest {
         throw new Exception("Please set plasma store path in env PLASMA_STORE");
       }
 
-      final String libraryToLoad =
-          System.getProperty("os.arch").toLowerCase(Locale.US).replace("amd64", "x86_64") + File.separator +
-              System.mapLibraryName("plasma_java");
-
       this.startObjectStore(plasmaStorePath);
-      System.load(libraryToLoad);
+      System.loadLibrary("plasma_java");
       pLink = new PlasmaClient(this.getStoreAddress(), "", 0);
     } catch (Throwable t) {
       cleanup();

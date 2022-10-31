@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -70,17 +69,15 @@ class JniLoader {
 
   private static void loadGandivaLibraryFromJar(final String tmpDir)
           throws IOException, GandivaException {
-    final String libraryToLoad =
-        System.getProperty("os.arch").toLowerCase(Locale.US).replace("amd64", "x86_64") + File.separator +
-            System.mapLibraryName(LIBRARY_NAME);
-    final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad, LIBRARY_NAME);
+    final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
+    final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad);
     System.load(libraryFile.getAbsolutePath());
   }
 
 
-  private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad, String libraryName)
+  private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad)
           throws IOException, GandivaException {
-    final File temp = setupFile(tmpDir, libraryName);
+    final File temp = setupFile(tmpDir, libraryToLoad);
     try (final InputStream is = JniLoader.class.getClassLoader()
             .getResourceAsStream(libraryToLoad)) {
       if (is == null) {
