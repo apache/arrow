@@ -836,7 +836,7 @@ TEST_F(RecordReaderTest, SkipOptional) {
     // Reset after a Skip.
     record_reader_->Reset();
     CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
-             /*levels_position=*/0);
+               /*levels_position=*/0);
   }
 
   {
