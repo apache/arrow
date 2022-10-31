@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.VARCHAR_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.intPlusVarcharColumns;
 import static org.apache.arrow.vector.table.TestUtils.numericVectors;
+import static org.apache.arrow.vector.table.TestUtils.simpleTemporalVectors;
 import static org.apache.arrow.vector.table.TestUtils.twoIntColumns;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,6 +42,10 @@ import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableSmallIntHolder;
+import org.apache.arrow.vector.holders.NullableTimeMicroHolder;
+import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
+import org.apache.arrow.vector.holders.NullableTimeNanoHolder;
+import org.apache.arrow.vector.holders.NullableTimeSecHolder;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
@@ -366,6 +371,106 @@ class MutableRowTest {
       holder.value = 5.5;
       c.setFloat8(9, holder);
       assertEquals(5.5, c.getFloat8(9));
+    }
+  }
+
+  @Test
+  void setTimeSec() {
+    List<FieldVector> vectorList = simpleTemporalVectors(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setTimeSec("timeSec_vector", 1);
+      assertEquals(1, c.getTimeSec("timeSec_vector"));
+      c.setTimeSec("timeSec_vector", 2);
+      assertEquals(2, c.getTimeSec("timeSec_vector"));
+      c.setTimeSec(0, 3);
+      assertEquals(3, c.getTimeSec("timeSec_vector"));
+
+      // test with holder
+      NullableTimeSecHolder holder = new NullableTimeSecHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setTimeSec("timeSec_vector", holder);
+      assertEquals(4, c.getTimeSec("timeSec_vector"));
+      holder.value = 5;
+      c.setTimeSec(0, holder);
+      assertEquals(5, c.getTimeSec(0));
+    }
+  }
+
+  @Test
+  void setTimeMilli() {
+    List<FieldVector> vectorList = simpleTemporalVectors(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setTimeMilli("timeMilli_vector", 1);
+      assertEquals(1, c.getTimeMilli("timeMilli_vector"));
+      c.setTimeMilli("timeMilli_vector", 2);
+      assertEquals(2, c.getTimeMilli("timeMilli_vector"));
+      c.setTimeMilli(1, 3);
+      assertEquals(3, c.getTimeMilli("timeMilli_vector"));
+
+      // test with holder
+      NullableTimeMilliHolder holder = new NullableTimeMilliHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setTimeMilli("timeMilli_vector", holder);
+      assertEquals(4, c.getTimeMilli("timeMilli_vector"));
+      holder.value = 5;
+      c.setTimeMilli(1, holder);
+      assertEquals(5, c.getTimeMilli(1));
+    }
+  }
+
+  @Test
+  void setTimeMicro() {
+    List<FieldVector> vectorList = simpleTemporalVectors(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setTimeMicro("timeMicro_vector", 1);
+      assertEquals(1, c.getTimeMicro("timeMicro_vector"));
+      c.setTimeMicro("timeMicro_vector", 2);
+      assertEquals(2, c.getTimeMicro("timeMicro_vector"));
+      c.setTimeMicro(2, 3);
+      assertEquals(3, c.getTimeMicro("timeMicro_vector"));
+
+      // test with holder
+      NullableTimeMicroHolder holder = new NullableTimeMicroHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setTimeMicro("timeMicro_vector", holder);
+      assertEquals(4, c.getTimeMicro("timeMicro_vector"));
+      holder.value = 5;
+      c.setTimeMicro(2, holder);
+      assertEquals(5, c.getTimeMicro(2));
+    }
+  }
+
+  @Test
+  void setTimeNano() {
+    List<FieldVector> vectorList = simpleTemporalVectors(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setTimeNano("timeNano_vector", 1);
+      assertEquals(1, c.getTimeNano("timeNano_vector"));
+      c.setTimeNano("timeNano_vector", 2);
+      assertEquals(2, c.getTimeNano("timeNano_vector"));
+      c.setTimeNano(3, 3);
+      assertEquals(3, c.getTimeNano("timeNano_vector"));
+
+      // test with holder
+      NullableTimeNanoHolder holder = new NullableTimeNanoHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setTimeNano("timeNano_vector", holder);
+      assertEquals(4, c.getTimeNano("timeNano_vector"));
+      holder.value = 5;
+      c.setTimeNano(3, holder);
+      assertEquals(5, c.getTimeNano(3));
     }
   }
 
