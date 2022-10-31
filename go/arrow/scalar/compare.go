@@ -18,9 +18,6 @@ package scalar
 
 import "github.com/apache/arrow/go/v11/arrow"
 
-//TODO(zeroshade): approxequals
-// tracked in https://issues.apache.org/jira/browse/ARROW-13980
-
 // Equals returns true if two scalars are equal, which means they have the same
 // datatype, validity and value.
 func Equals(left, right Scalar) bool {
@@ -38,6 +35,62 @@ func Equals(left, right Scalar) bool {
 
 	if !left.IsValid() {
 		return true
+	}
+
+	return left.equals(right)
+}
+
+type equalOption struct {
+	atol   float64 // absolute tolerance
+	nansEq bool    // whether NaNs are considered equal
+}
+
+// EqualOption is a functional option type used to configure how Records and Arrays are compared.
+type EqualOption func(*equalOption)
+
+// WithNaNsEqual configures the comparison functions so that NaNs are considered equal.
+func WithNaNsEqual(val bool) EqualOption {
+	return func(eo *equalOption) {
+		eo.nansEq = val
+	}
+}
+
+// WithAbsTolerance configures the comparison functions so that 2 floating point values
+// v1 and v2 are considered equal if |v1-v2| <= atol.
+func WithAbsTolerance(atol float64) EqualOption {
+	return func(eo *equalOption) {
+		eo.atol = atol
+	}
+}
+
+const defaultAbsoluteTolerance = 1e-5
+
+type approxEqualScalar interface {
+	approxEquals(Scalar, equalOption) bool
+}
+
+func ApproxEquals(left, right Scalar, opts ...EqualOption) bool {
+	eq := equalOption{
+		atol:   defaultAbsoluteTolerance,
+		nansEq: false,
+	}
+	for _, opt := range opts {
+		opt(&eq)
+	}
+
+	switch {
+	case left == right:
+		return true
+	case !arrow.TypeEqual(left.DataType(), right.DataType()):
+		return false
+	case left.IsValid() != right.IsValid():
+		return false
+	case !left.IsValid():
+		return true
+	}
+
+	if approx, ok := left.(approxEqualScalar); ok {
+		return approx.approxEquals(right, eq)
 	}
 
 	return left.equals(right)

@@ -20,6 +20,7 @@ package scalar
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"unsafe"
 
@@ -567,6 +568,17 @@ func (s *Float32) equals(rhs Scalar) bool {
 	return s.Value == rhs.(*Float32).Value
 }
 
+func (s *Float32) approxEquals(rhs Scalar, eq equalOption) bool {
+	v1 := float64(s.Value)
+	v2 := float64(rhs.(*Float32).Value)
+	switch {
+	case eq.nansEq:
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
+	default:
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol
+	}
+}
+
 func (s *Float32) value() interface{} {
 	return s.Value
 }
@@ -631,6 +643,17 @@ func (s *Float64) Data() []byte {
 
 func (s *Float64) equals(rhs Scalar) bool {
 	return s.Value == rhs.(*Float64).Value
+}
+
+func (s *Float64) approxEquals(rhs Scalar, eq equalOption) bool {
+	v1 := float64(s.Value)
+	v2 := float64(rhs.(*Float64).Value)
+	switch {
+	case eq.nansEq:
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
+	default:
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol
+	}
 }
 
 func (s *Float64) value() interface{} {
