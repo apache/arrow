@@ -74,14 +74,14 @@ For more information about these details see the [data types](./data_types.html)
 ## Reading and writing data
 
 One of the main ways to use `arrow` is to read and write data files in
-several common formats. The `arrow` package supplies extremely fast CSV reading and writing capabilities, but in addition supports data formats like Parquet and Feather that are not widely supported in other packages. In addition, the `arrow` package supports multi-file data sets in which a single rectangular data set is stored across multiple files. 
+several common formats. The `arrow` package supplies extremely fast CSV reading and writing capabilities, but in addition supports data formats like Parquet and Arrow (also called Feather) that are not widely supported in other packages. In addition, the `arrow` package supports multi-file data sets in which a single rectangular data set is stored across multiple files. 
 
 ### Individual files
 
 When the goal is to read a single data file, there are several functions you can use:
 
 -   `read_parquet()`: read a file in Parquet format
--   `read_feather()`: read a file in Feather format
+-   `read_feather()`: read a file in Arrow/Feather format
 -   `read_delim_arrow()`: read a delimited text file 
 -   `read_csv_arrow()`: read a comma-separated values (CSV) file
 -   `read_tsv_arrow()`: read a tab-separated values (TSV) file

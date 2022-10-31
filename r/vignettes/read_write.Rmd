@@ -11,7 +11,7 @@ returns an R data frame. To return an Arrow Table, set argument
 `as_data_frame = FALSE`.
 
 - `read_parquet()`: read a file in Parquet format
-- `read_feather()`: read a file in Feather format (the Apache Arrow IPC format)
+- `read_feather()`: read a file in the Apache Arrow IPC format (also called the Feather format)
 - `read_delim_arrow()`: read a delimited text file (default delimiter is comma)
 - `read_csv_arrow()`: read a comma-separated values (CSV) file
 - `read_tsv_arrow()`: read a tab-separated values (TSV) file
@@ -22,7 +22,7 @@ following functions, which can be used with both R data frames and
 Arrow Tables:
 
 - `write_parquet()`: write a file in Parquet format
-- `write_feather()`: write a file in Feather format
+- `write_feather()`: write a file in Arrow IPC format
 - `write_csv_arrow()`: write a file in CSV format
 
 All these functions can read and write files in the local filesystem or
@@ -81,24 +81,24 @@ read_parquet(file_path, col_select = c("name", "height", "mass"))
 ```
 
 R object attributes are preserved when writing data to Parquet or
-Feather files and when reading those files back into R. This enables
+Arrow/Feather files and when reading those files back into R. This enables
 round-trip writing and reading of `sf::sf` objects, R data frames with
 with `haven::labelled` columns, and data frame with other custom
 attributes. To learn more about how metadata are handled in `arrow`, the [metadata article](./metadata.html).
 
-## Feather format
+## Arrow/Feather format
 
-The Feather file format was developed to provide binary columnar 
+The Arrow file format was developed to provide binary columnar 
 serialization for data frames, to make reading and writing data frames 
 efficient, and to make sharing data across data analysis languages easy.
-It is closely associated with the Apache Arrow project, and development
-of the original [Feather](https://github.com/wesm/feather) project has 
-now been moved into the Arrow project itself, and you can find the 
-detailed specification of version 2 of the Feather format -- officially 
-referred to as [the IPC file format](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format) --
+This file format is sometimes referred to as Feather because it is an
+outgrowth of the original [Feather](https://github.com/wesm/feather) project 
+that has now been moved into the Arrow project itself. You can find the 
+detailed specification of version 2 of the Arrow format -- officially 
+referred to as [the Arrow IPC file format](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format) --
 on the Arrow specification page. 
 
-The `write_feather()` function writes version 2 Feather files by default, and supports multiple kinds of file compression. Basic use is shown below:
+The `write_feather()` function writes version 2 Arrow/Feather files by default, and supports multiple kinds of file compression. Basic use is shown below:
 
 ```{r}
 file_path <- tempfile()
@@ -111,7 +111,7 @@ The `read_feather()` function provides a familiar interface for reading feather 
 read_feather(file_path)
 ```
 
-Like the Parquet reader, the Feather reader supports reading a only subset of columns, and can produce Arrow Table output:
+Like the Parquet reader, this reader supports reading a only subset of columns, and can produce Arrow Table output:
 
 ```{r}
 read_feather(
