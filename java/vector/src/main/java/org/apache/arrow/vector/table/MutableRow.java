@@ -159,7 +159,7 @@ public class MutableRow extends Row {
    */
   public MutableRow setNull(String columnName) {
     FieldVector v = table.getVector(columnName);
-    // TODO: v.setNull(getRowNumber());
+    v.setNull(getRowNumber());
     return this;
   }
 
@@ -171,7 +171,7 @@ public class MutableRow extends Row {
    */
   public MutableRow setNull(int columnIndex) {
     FieldVector v = table.getVector(columnIndex);
-    // TODO: v.setNull(getRowNumber());
+    v.setNull(getRowNumber());
     return this;
   }
 
