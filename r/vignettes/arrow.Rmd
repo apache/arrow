@@ -65,9 +65,10 @@ as.data.frame(dat)
 ```
 
 When this coercion takes place, each of the columns in the original Arrow Table must be converted to native R data objects. In the `dat` Table, for instance, `dat$x` is stored as the Arrow data type int32 inherited from C++, which becomes an R integer type when `as.data.frame()` is called. 
-In most instances the data conversion takes place automatically and without friction: a column stored as a timestamp in Arrow becomes a POSIXct vector in R, for example. However, there are some instances where the mapping between Arrow data types and R data types is not exact and care is required.
 
-To learn more about data types in Arrow and how they are mapped to R data types, see the [data types](./data_types.html) article. 
+In most instances the data conversion takes place automatically and without friction: a column stored as a timestamp in Arrow becomes a POSIXct vector in R, for example. However, there are some instances where the mapping between Arrow data types and R data types is not exact and care is required. As an example, Arrow does not have an analog of the POSIXlt class: date/time data expressed as POSIXlt objects will preserve the internal list structure of the POSIXlt object, but it will arrive in Arrow as a list. As a consequence users need to decide if what needs to be preserved is the timestamp (in which case it is better to coerce to POSIXlt to POSIXct before translating to Arrow), or if a POSIXlt-style list is preferable. Similar issues exist in the other direction: Arrow dictionary objects are a little more flexible than R factors, for instance. 
+
+For more information about these details see the [data types](./data_types.html) article. 
 
 
 ## Reading and writing data
