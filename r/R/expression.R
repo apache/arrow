@@ -219,7 +219,7 @@ build_expr <- function(FUN,
                        options = empty_named_list()) {
   if (FUN == "-" && length(args) == 1L) {
     if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
-      return(build_expr("negate_checked", args[[1]]))
+      return(Expression$create("negate_checked", args[[1]]))
     } else {
       return(-args[[1]])
     }
@@ -260,11 +260,11 @@ build_expr <- function(FUN,
           "if_else",
           build_expr("equal", args[[2]], 0L),
           Scalar$create(NA_integer_),
-          build_expr("floor", out)
+          Expression$create("floor", out)
         )
         return(out_float$cast(args[[1]]$type()))
       } else {
-        return(build_expr("floor", out))
+        return(Expression$create("floor", out))
       }
     } else if (FUN == "%%") {
       return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))

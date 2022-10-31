@@ -124,7 +124,7 @@ register_bindings_type_cast <- function() {
     # does.
     args <- dots_list(..., .named = TRUE, .homonyms = "error")
 
-    build_expr(
+    Expression$create(
       "make_struct",
       args = unname(args),
       options = list(field_names = names(args))
@@ -163,7 +163,7 @@ register_bindings_type_cast <- function() {
         }
       }
 
-      build_expr(
+      Expression$create(
         "make_struct",
         args = unname(args),
         options = list(field_names = names(args))

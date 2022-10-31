@@ -90,10 +90,10 @@ register_bindings_conditional <- function() {
         abort(handle_arrow_not_supported(value[[i]], format_expr(f[[3]])))
       }
     }
-    build_expr(
+    Expression$create(
       "case_when",
       args = c(
-        build_expr(
+        Expression$create(
           "make_struct",
           args = query,
           options = list(field_names = as.character(seq_along(query)))

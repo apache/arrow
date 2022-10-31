@@ -28,15 +28,14 @@ NULL
 #'
 #' @section Writing bindings:
 #' When to use `build_expr()` vs. `Expression$create()`?
-#'
-#' Use `build_expr()` if you need to
-#' - map R function names to Arrow C++ functions
-#' - wrap R inputs (vectors) as Array/Scalar
-#'
+#' Use `build_expr()` if you want to cast any non-Expressions (i.e. Scalar)
+#' to match the type of the Expression(s) in the arguments: for example,
+#' `build_expr("add_checked", int16_field, 1)` will cast `1` to `int16` so that
+#' `int16_field` is not upcast to `float64` to match `1` (a `double` in R).
 #' `Expression$create()` is lower level. Most of the bindings use it
 #' because they manage the preparation of the user-provided inputs
 #' and don't need or don't want to the automatic conversion of R objects
-#' to [Scalar].
+#' to [Scalar] with a matching type.
 #'
 #' @param fun_name A string containing a function name in the form `"function"` or
 #'   `"package::function"`. The package name is currently not used but

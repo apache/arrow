@@ -53,19 +53,11 @@ register_bindings_math <- function() {
   register_binding("base::logb", log_binding)
 
   register_binding("base::pmin", function(..., na.rm = FALSE) {
-    build_expr(
-      "min_element_wise",
-      ...,
-      options = list(skip_nulls = na.rm)
-    )
+    build_expr("min_element_wise", ..., options = list(skip_nulls = na.rm))
   })
 
   register_binding("base::pmax", function(..., na.rm = FALSE) {
-    build_expr(
-      "max_element_wise",
-      ...,
-      options = list(skip_nulls = na.rm)
-    )
+    build_expr("max_element_wise", ..., options = list(skip_nulls = na.rm))
   })
 
   register_binding("base::trunc", function(x, ...) {
