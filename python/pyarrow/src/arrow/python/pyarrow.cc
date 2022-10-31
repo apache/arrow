@@ -41,7 +41,7 @@ static Status UnwrapError(PyObject* obj, const char* expected_type) {
 
 int import_pyarrow() {
 #ifdef PYPY_VERSION
-PyDateTime_IMPORT;
+  PyDateTime_IMPORT;
 #else
   internal::InitDatetime();
 #endif

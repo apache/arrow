@@ -35,7 +35,7 @@
 #ifdef PYPY_VERSION
 #include "datetime.h"
 #else
-  #define PyDateTimeAPI ::arrow::py::internal::datetime_api
+#define PyDateTimeAPI ::arrow::py::internal::datetime_api
 #endif
 
 namespace arrow {
