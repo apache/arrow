@@ -508,18 +508,6 @@ def test_input_lifetime(unary_func_fixture):
 
 def test_aggregate_udf():
 
-    class State:
-        def __init__(self, count):
-            self._count = count
-
-        @property
-        def count(self):
-            return self._count
-
-        @count.setter
-        def count(self, value):
-            self._count = value
-
     def init():
         return pa.array([0])
 
@@ -530,8 +518,8 @@ def test_aggregate_udf():
             count = 1
         return pc.add(pa.array([count]), ctx.state)
 
-    def merge(ctx, current_state, other_state):
-        new_state = pc.add(current_state, other_state)
+    def merge(ctx, other_state):
+        new_state = pc.add(ctx.state, other_state)
         return pa.array([new_state.as_py()])
 
     def finalize(ctx):
@@ -553,3 +541,89 @@ def test_aggregate_udf():
     print(pc.get_function(func_name))
 
     print(pc.call_function(func_name, [pa.array([10, 20])]))
+    
+def test_aggregate_udf_with_custom_state():
+    
+    class State:
+        def __init__(self, non_null):
+            self._non_null = non_null
+
+        @property
+        def non_null(self):
+            return self._non_null
+
+        @non_null.setter
+        def non_null(self, value):
+            self._non_null = value
+            
+        def __repr__(self):
+            if self._non_null is None:
+                return "no values stored"
+            else:
+                return "count: " + str(self._non_null)
+        
+        def next(self): 
+            return self._non_null
+        
+        def __iter__(self): 
+            return self
+
+
+    def init():
+        print(">>> Init")
+        state = State(1)
+        return state
+
+    def consume(ctx, x):
+        print(">>> consume")
+        if isinstance(x, pa.Array):
+            count = len(x)
+        elif isinstance(x, pa.Scalar):
+            count = 1
+        print("state: ", ctx.state)
+        return pc.add(pa.array([count]), pa.array([ctx.state.non_null]))
+
+    def merge(ctx, other_state):
+        print(">>> merge")
+        print("os: ", other_state)
+        return pa.array([1])
+
+    def finalize(ctx):
+        print(">>> finalize")
+        print(ctx.state)
+        return pa.array([2])
+
+    func_name = "simple_count_1"
+    unary_doc = {"summary": "count function",
+                 "description": "test agg count function"}
+
+    pc.register_scalar_aggregate_function(init,
+                                          consume,
+                                          merge,
+                                          finalize,
+                                          func_name,
+                                          unary_doc,
+                                          {"array": pa.int64()},
+                                          pa.int64())
+
+    print(pc.get_function(func_name))
+
+    print(pc.call_function(func_name, [pa.array([10, 20])]))
+    
+
+
+def test_segfault_error():
+    func_name = "simple_count_x"
+    unary_doc = {"summary": "count function",
+                 "description": "test agg count function"}
+    
+    def func(ctx, x):
+        return x
+
+    pc.register_scalar_function(func,
+                                func_name,
+                                unary_doc,
+                                {"array": pa.int64()},
+                                pa.int64())
+    
+    print(pc.call_function(func_name, [pa.array([10])]))

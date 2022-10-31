@@ -2765,7 +2765,7 @@ ctypedef PyObject* CallbackAggInitUdf(object init_function)
 
 ctypedef PyObject* CallbackAggConsumeUdf(object consume_function, const CScalarAggregateUdfContext& context, object inputs)
 
-ctypedef PyObject* CallbackAggMergeUdf(object merge_function, const CScalarAggregateUdfContext& context, object current_state, object other_state)
+ctypedef PyObject* CallbackAggMergeUdf(object merge_function, const CScalarAggregateUdfContext& context, object other_state)
 
 ctypedef PyObject* CallbackAggFinalizeUdf(object finalize_function, const CScalarAggregateUdfContext& context)
 

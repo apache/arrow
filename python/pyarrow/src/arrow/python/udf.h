@@ -70,7 +70,7 @@ using ScalarAggregateConsumeUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_consume_func, const ScalarAggregateUdfContext& context, PyObject* inputs)>;
 
 using ScalarAggregateMergeUdfWrapperCallback = std::function<PyObject*(
-    PyObject* user_merge_func, const ScalarAggregateUdfContext& context, PyObject* current_state, PyObject* other_state)>;
+    PyObject* user_merge_func, const ScalarAggregateUdfContext& context, PyObject* other_state)>;
 
 using ScalarAggregateFinalizeUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_finalize_func, const ScalarAggregateUdfContext& context)>;

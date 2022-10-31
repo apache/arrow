@@ -210,6 +210,8 @@ Status CheckUdfContext(std::string&& msg, ScalarAggregateUdfContext udf_context)
         std::cout << "is array" << std::endl;
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> val, unwrap_array(udf_context.state));
         std::cout << val->ToString() << std::endl;
+      } else {
+        PrintPyObject("non-arrow-object", udf_context.state);
       }
   } else {
     std::cout << "this->udf_context_.state is null" << std::endl;
@@ -285,7 +287,7 @@ struct PythonScalarUdfAggregatorImpl : public ScalarUdfAggregator {
     Py_INCREF(this->udf_context_.state);
     this->udf_context_.state = this->owned_state_.obj();
     // TODO: think about guaranteeing DRY (following logic already used in ScalarUDFs)
-    
+    CheckUdfContext("check udf context @ConsumeBatch Start", this->udf_context_);
     OwnedRef arg_tuple(PyTuple_New(num_args));
     RETURN_NOT_OK(CheckPyError());
     for (int arg_id = 0; arg_id < num_args; arg_id++) {
@@ -306,6 +308,7 @@ struct PythonScalarUdfAggregatorImpl : public ScalarUdfAggregator {
     this->owned_state_.reset(consume_res);
     Py_INCREF(this->udf_context_.state);
     this->udf_context_.state = this->owned_state_.obj();
+    CheckUdfContext("check udf context @ConsumeBatch End", this->udf_context_);
     RETURN_NOT_OK(CheckPyError());
     return Status::OK();
   }
@@ -319,21 +322,39 @@ struct PythonScalarUdfAggregatorImpl : public ScalarUdfAggregator {
   }
 
   Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) override {
+    std::cout << "MergeFrom Start" << std::endl;
     const auto& other_state = arrow::internal::checked_cast<const PythonScalarUdfAggregatorImpl&>(src);
     return SafeCallIntoPython([&]() -> Status {
-      OwnedRef result(merge_cb(merge_function->obj(), other_state.udf_context_, this->owned_state_.obj(), other_state.owned_state_.obj()));
+      CheckUdfContext("\tcheck this->udf_context @MergeFrom", this->udf_context_);
+      CheckUdfContext("\tcheck other_state->udf_context @MergeFrom", other_state.udf_context_);
+      std::cout << "\tJust before callback exec" << std::endl;
+      if (this->owned_state_.obj() == Py_None) {
+        std::cout << "\t this->owned_state_.obj() == Py_None" << std::endl;
+      }
+      if (other_state.owned_state_.obj() == Py_None) {
+        std::cout << "\t other_state.owned_state_.obj() == Py_None" << std::endl;
+      }
+      if(this->udf_context_.state == Py_None) {
+        std::cout << "\t this->udf_context_.state == PyNone" << std::endl;
+      }
+      OwnedRef result(merge_cb(merge_function->obj(), this->udf_context_, other_state.owned_state_.obj()));
       RETURN_NOT_OK(CheckPyError());
+      std::cout << "\t Exec callback finished" << std::endl;
       PyObject* merge_res = result.obj();
       Py_INCREF(merge_res);
       this->owned_state_.reset(merge_res);
+      std::cout << "Results stored in owned_state" << std::endl;
       Py_INCREF(this->udf_context_.state);
       this->udf_context_.state = this->owned_state_.obj();
+      std::cout << "Results stored in udf_context._state" << std::endl;
+      std::cout << "MergeFrom End" << std::endl;
       return Status::OK();
     });  
   }
 
   Status Finalize(compute::KernelContext* ctx, arrow::Datum* out) override {
     // TODO: consider the this_state and return the accurate value
+    std::cout << "Finalize" << std::endl;
     return SafeCallIntoPython([&]() -> Status { 
         OwnedRef result(finalize_cb(finalize_function->obj(), this->udf_context_));
         RETURN_NOT_OK(CheckPyError());

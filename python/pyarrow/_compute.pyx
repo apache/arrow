@@ -2579,13 +2579,18 @@ cdef _scalar_agg_consume_udf_callback(consume_function, const CScalarAggregateUd
     return consume_function(context, *inputs)
 
 
-cdef _scalar_agg_merge_udf_callback(merge_function, const CScalarAggregateUdfContext& c_context, current_state, other_state):
+cdef _scalar_agg_merge_udf_callback(merge_function, const CScalarAggregateUdfContext& c_context, other_state):
     """
     Helper aggregate merge callback function used to wrap the ScalarAggregateUdfContext from Python to C++
     execution.
     """
+    print("_scalar_agg_merge_udf_callback")
     context = box_scalar_udf_agg_context(c_context)
-    return merge_function(context, *current_state, *other_state)
+    print("context: ", context)
+    print("context.state: ", context.state)
+    print("other_state: ", other_state)
+    print("*other_state: ", *other_state)
+    return merge_function(context, *other_state)
 
 
 cdef _scalar_agg_finalize_udf_callback(finalize_function, const CScalarAggregateUdfContext& c_context):
