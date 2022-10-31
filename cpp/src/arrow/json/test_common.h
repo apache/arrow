@@ -54,20 +54,35 @@ using rj::StringBuffer;
 using std::string_view;
 using Writer = rj::Writer<StringBuffer>;
 
+struct GenerateOptions {
+  // Probability of a field being written
+  double field_probability = 1.0;
+  // Probability of a value being null. For an object's child fields, this is factored-in
+  // before `field_probability`
+  double null_probability = 0.2;
+  // Whether to randomize the order of written fields
+  bool randomize_field_order = false;
+
+  static constexpr GenerateOptions Defaults() { return GenerateOptions{}; }
+};
+
 inline static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid(""); }
 
 template <typename Engine>
-inline static Status Generate(const std::shared_ptr<DataType>& type, Engine& e,
-                              Writer* writer);
+inline static Status Generate(
+    const std::shared_ptr<DataType>& type, Engine& e, Writer* writer,
+    const GenerateOptions& options = GenerateOptions::Defaults());
 
 template <typename Engine>
-inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
-                              Engine& e, Writer* writer);
+inline static Status Generate(
+    const std::vector<std::shared_ptr<Field>>& fields, Engine& e, Writer* writer,
+    const GenerateOptions& options = GenerateOptions::Defaults());
 
 template <typename Engine>
-inline static Status Generate(const std::shared_ptr<Schema>& schm, Engine& e,
-                              Writer* writer) {
-  return Generate(schm->fields(), e, writer);
+inline static Status Generate(
+    const std::shared_ptr<Schema>& schm, Engine& e, Writer* writer,
+    const GenerateOptions& options = GenerateOptions::Defaults()) {
+  return Generate(schm->fields(), e, writer, options);
 }
 
 template <typename Engine>
@@ -99,7 +114,7 @@ struct GenerateImpl {
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T&) {
     auto size = std::poisson_distribution<>{4}(e);
-    std::uniform_int_distribution<uint16_t> gen_char(32, 127);  // FIXME generate UTF8
+    std::uniform_int_distribution<uint16_t> gen_char(32, 126);  // FIXME generate UTF8
     std::string s(size, '\0');
     for (char& ch : s) ch = static_cast<char>(gen_char(e));
     return OK(writer.String(s.c_str()));
@@ -109,11 +124,13 @@ struct GenerateImpl {
   enable_if_list_like<T, Status> Visit(const T& t) {
     auto size = std::poisson_distribution<>{4}(e);
     writer.StartArray();
-    for (int i = 0; i < size; ++i) RETURN_NOT_OK(Generate(t.value_type(), e, &writer));
+    for (int i = 0; i < size; ++i) {
+      RETURN_NOT_OK(Generate(t.value_type(), e, &writer, options));
+    }
     return OK(writer.EndArray(size));
   }
 
-  Status Visit(const StructType& t) { return Generate(t.fields(), e, &writer); }
+  Status Visit(const StructType& t) { return Generate(t.fields(), e, &writer, options); }
 
   Status Visit(const DayTimeIntervalType& t) { return NotImplemented(t); }
 
@@ -133,31 +150,72 @@ struct GenerateImpl {
     return Status::NotImplemented("random generation of arrays of type ", t);
   }
 
+  static bool GetBool(Engine& e, double probability) {
+    return std::uniform_real_distribution<>{0, 1}(e) < probability;
+  }
+
+  static bool MaybeWriteNull(Engine& e, Writer* writer, double probability) {
+    bool outcome = GetBool(e, probability);
+    if (outcome) writer->Null();
+    return outcome;
+  }
+
+  static Status WriteValue(const DataType& type, Engine& e, Writer* writer,
+                           const GenerateOptions& options) {
+    GenerateImpl visitor = {e, *writer, options};
+    return VisitTypeInline(type, &visitor);
+  }
+
   Engine& e;
   rj::Writer<rj::StringBuffer>& writer;
+  const GenerateOptions& options;
 };
 
 template <typename Engine>
 inline static Status Generate(const std::shared_ptr<DataType>& type, Engine& e,
-                              Writer* writer) {
-  if (std::uniform_real_distribution<>{0, 1}(e) < .2) {
-    // one out of 5 chance of null, anywhere
-    writer->Null();
+                              Writer* writer, const GenerateOptions& options) {
+  using Impl = GenerateImpl<Engine>;
+  if (Impl::MaybeWriteNull(e, writer, options.null_probability)) {
     return Status::OK();
   }
-  GenerateImpl<Engine> visitor = {e, *writer};
-  return VisitTypeInline(*type, &visitor);
+  return Impl::WriteValue(*type, e, writer, options);
 }
 
 template <typename Engine>
 inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
-                              Engine& e, Writer* writer) {
+                              Engine& e, Writer* writer, const GenerateOptions& options) {
+  using Impl = GenerateImpl<Engine>;
+
   RETURN_NOT_OK(OK(writer->StartObject()));
-  for (const auto& f : fields) {
-    writer->Key(f->name().c_str());
-    RETURN_NOT_OK(Generate(f->type(), e, writer));
+  if (fields.empty()) {
+    return OK(writer->EndObject(0));
   }
-  return OK(writer->EndObject(static_cast<int>(fields.size())));
+
+  // Indices of the fields we plan to actually write, in order
+  std::vector<size_t> indices;
+  indices.reserve(static_cast<size_t>(fields.size() * options.field_probability));
+
+  for (size_t i = 0; i < fields.size(); ++i) {
+    if (Impl::GetBool(e, options.field_probability)) {
+      indices.push_back(i);
+    }
+  }
+  if (options.randomize_field_order) {
+    std::shuffle(indices.begin(), indices.end(), e);
+  }
+
+  // Scale the likelyhood of null values to account for any fields we've dropped
+  double null_probability = options.null_probability;
+  null_probability *= static_cast<double>(indices.size()) / fields.size();
+
+  for (auto i : indices) {
+    writer->Key(fields[i]->name().c_str());
+    if (!Impl::MaybeWriteNull(e, writer, null_probability)) {
+      RETURN_NOT_OK(Impl::WriteValue(*fields[i]->type(), e, writer, options));
+    }
+  }
+
+  return OK(writer->EndObject(static_cast<int>(indices.size())));
 }
 
 inline static Status MakeStream(string_view src_str,
