@@ -932,7 +932,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   // value type for batch_size.
   void InitScratchForSkip(int64_t batch_size);
 
-  // Scrtach space for reading and throwing away rep/def levels and values when
+  // Scratch space for reading and throwing away rep/def levels and values when
   // skipping.
   std::shared_ptr<ResizableBuffer> scratch_for_skip_;
 
