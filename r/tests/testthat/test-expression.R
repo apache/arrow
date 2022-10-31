@@ -58,9 +58,10 @@ test_that("C++ expressions", {
   # Interprets that as a list type
   expect_r6_class(f == c(1L, 2L), "Expression")
 
-  expect_error(
+  # Non-Expression inputs are wrapped in Expression$scalar()
+  expect_equal(
     Expression$create("add", 1, 2),
-    "Expression arguments must be Expression objects"
+    Expression$create("add", Expression$scalar(1), Expression$scalar(2))
   )
 })
 

@@ -631,3 +631,90 @@ test_that("collect() is identical to compute() %>% collect()", {
       collect()
   )
 })
+
+test_that("Scalars in expressions match the type of the field, if possible", {
+  tbl_with_datetime <- tbl
+  tbl_with_datetime$dates <- as.Date("2022-08-28") + 1:10
+  tbl_with_datetime$times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
+  tab <- Table$create(tbl_with_datetime)
+
+  # 5 is double in R but is properly interpreted as int, no cast is added
+  expect_output(
+    tab %>%
+      filter(int == 5) %>%
+      show_exec_plan(),
+    "int == 5"
+  )
+
+  # Because 5.2 can't cast to int32 without truncation, we pass as is
+  # and Acero will cast int to float64
+  expect_output(
+    tab %>%
+      filter(int == 5.2) %>%
+      show_exec_plan(),
+    "filter=(cast(int, {to_type=double",
+    fixed = TRUE
+  )
+  expect_equal(
+    tab %>%
+      filter(int == 5.2) %>%
+      nrow(),
+    0
+  )
+
+  # int == string, this works in dplyr and here too
+  expect_output(
+    tab %>%
+      filter(int == "5") %>%
+      show_exec_plan(),
+    "int == 5",
+    fixed = TRUE
+  )
+  expect_equal(
+    tab %>%
+      filter(int == "5") %>%
+      nrow(),
+    1
+  )
+
+  # Strings automatically parsed to date/timestamp
+  expect_output(
+    tab %>%
+      filter(dates > "2022-09-01") %>%
+      show_exec_plan(),
+    "dates > 2022-09-01"
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(dates > "2022-09-01") %>%
+      collect(),
+    tbl_with_datetime
+  )
+
+  expect_output(
+    tab %>%
+      filter(times > "2018-10-07 19:04:05") %>%
+      show_exec_plan(),
+    "times > 2018-10-0. ..:..:05"
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(times > "2018-10-07 19:04:05") %>%
+      collect(),
+    tbl_with_datetime
+  )
+
+  tab_with_decimal <- tab %>%
+    mutate(dec = cast(dbl, decimal(15, 2))) %>%
+    compute()
+
+  # This reproduces the issue on ARROW-17601, found in the TPC-H query 1
+  # In ARROW-17462, we chose not to auto-cast to decimal to avoid that issue
+  result <- tab_with_decimal %>%
+    summarize(
+      tpc_h_1 = sum(dec * (1 - dec) * (1 + dec), na.rm = TRUE),
+      as_dbl = sum(dbl * (1 - dbl) * (1 + dbl), na.rm = TRUE)
+    ) %>%
+    collect()
+  expect_equal(result$tpc_h_1, result$as_dbl)
+})
