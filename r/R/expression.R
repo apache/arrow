@@ -111,13 +111,22 @@ register_bindings_array_function_map <- function() {
   # use a function to generate the binding so that `operator` persists
   # beyond execution time (another option would be to use quasiquotation
   # and unquote `operator` directly into the function expression)
-  array_function_map_factory <- function(operator) {
+  unary_factory <- function(operator) {
+    force(operator)
+    function(...) Expression$create(operator, ...)
+  }
+  for (name in names(.unary_function_map)) {
+    register_binding(name, unary_factory(.unary_function_map[[name]]))
+  }
+
+  # These go through build_expr to align types
+  binary_factory <- function(operator) {
     force(operator)
     function(...) build_expr(operator, ...)
   }
 
-  for (name in names(.array_function_map)) {
-    register_binding(name, array_function_map_factory(name))
+  for (name in names(.binary_function_map)) {
+    register_binding(name, binary_factory(name))
   }
 }
 
