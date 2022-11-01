@@ -65,7 +65,7 @@ composing these, you can create arbitrarily complex expression trees.
 
 Once an expression tree is built, they are wrapped in either :class:`Expression`
 or :class:`Condition`, depending on how they will be used.
-``Expression`` is used in projections while ``Condition`` is used filters.
+``Expression`` is used in projections while ``Condition`` is used in filters.
 
 As an example, here is how to create an Expression representing ``x + 3`` and a
 Condition representing ``x < 3``:
