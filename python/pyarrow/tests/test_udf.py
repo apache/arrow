@@ -531,14 +531,6 @@ def test_aggregate_udf_with_custom_state():
                 return "count: " + str(self.non_null) \
                     + ", msg: " + str(self.msg)
 
-        def next(self):
-            print("next: ", self.msg, self.non_null)
-            return self.non_null
-
-        def __iter__(self):
-            print("iter: ", self.msg, self.non_null)
-            yield self.non_null
-
         def __del__(self):
             print("State.__del__, msg: " + str(self.msg))
 
@@ -548,23 +540,110 @@ def test_aggregate_udf_with_custom_state():
 
     def consume(ctx, x):
         if isinstance(x, pa.Array):
-            count = pc.sum(pc.invert(pc.is_nan(x))).as_py()
+            non_null = pc.sum(pc.invert(pc.is_nan(x))).as_py()
         elif isinstance(x, pa.Scalar):
             if x.as_py():
-                count = 1
-        state_val = pc.add(pa.array([count]), pa.array([ctx.state.non_null]))
-        return State(state_val[0].as_py(), "@consume")
+                non_null = 1
+        non_null = non_null + ctx.state.non_null
+        return State(non_null, "@consume")
 
     def merge(ctx, other_state):
         merged_state_val = ctx.state.non_null + other_state.non_null
         return State(merged_state_val, "@merge")
 
     def finalize(ctx):
-        print(ctx.state)
         return pa.array([ctx.state.non_null])
 
     func_name = "simple_count_1"
     unary_doc = {"summary": "count function",
+                 "description": "test agg count function"}
+
+    pc.register_scalar_aggregate_function(init,
+                                          consume,
+                                          merge,
+                                          finalize,
+                                          func_name,
+                                          unary_doc,
+                                          {"array": pa.int64()},
+                                          pa.int64())
+
+    print(pc.get_function(func_name))
+
+    print(pc.call_function(func_name, [
+          pa.array([10, 20, None, 30, None, 40])]))
+
+
+def test_aggregate_udf_with_custom_state_multi_attr():
+    class State:
+        def __init__(self, non_null=0, null=0, msg=""):
+            self._non_null = non_null
+            self._null = null
+            self._msg = msg
+
+        @property
+        def non_null(self):
+            return self._non_null
+
+        @non_null.setter
+        def non_null(self, value):
+            self._non_null = value
+
+        @property
+        def null(self):
+            return self._null
+
+        @null.setter
+        def null(self, value):
+            self._null = value
+
+        @property
+        def msg(self):
+            return self._msg
+
+        def __repr__(self):
+            if self._non_null is None:
+                return "no values stored"
+            else:
+                return "non_null: " + str(self.non_null) \
+                    + ", null: " + str(self.null) \
+                    + ", msg: " + str(self.msg)
+
+        def __del__(self):
+            print("State.__del__, msg: " + str(self.msg))
+
+    def init():
+        print(">>> init")
+        state = State(0, 0, "@init")
+        return state
+
+    def consume(ctx, x):
+        print(">>> consume")
+        null = 0
+        non_null = 0
+        if isinstance(x, pa.Array):
+            non_null = pc.sum(pc.invert(pc.is_nan(x))).as_py()
+            null = len(x) - non_null
+        elif isinstance(x, pa.Scalar):
+            if x.as_py():
+                non_null = 1
+            else:
+                null = 1
+        non_null = non_null + ctx.state.non_null
+        return State(non_null, null, "@consume")
+
+    def merge(ctx, other_state):
+        print(">>> merge")
+        merged_st_non_null = ctx.state.non_null + other_state.non_null
+        merged_st_null = ctx.state.null + other_state.null
+        return State(merged_st_non_null, merged_st_null, "@merge")
+
+    def finalize(ctx):
+        print(">>> finalize")
+        print(ctx.state)
+        return pa.array([ctx.state.non_null, ctx.state.null])
+
+    func_name = "basic_count"
+    unary_doc = {"summary": "count function for null and non-null",
                  "description": "test agg count function"}
 
     pc.register_scalar_aggregate_function(init,

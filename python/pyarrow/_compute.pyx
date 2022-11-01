@@ -2584,11 +2584,7 @@ cdef _scalar_agg_merge_udf_callback(merge_function, const CScalarAggregateUdfCon
     Helper aggregate merge callback function used to wrap the ScalarAggregateUdfContext from Python to C++
     execution.
     """
-    print("_scalar_agg_merge_udf_callback")
     context = box_scalar_udf_agg_context(c_context)
-    print("context: ", context)
-    print("context.state: ", context.state)
-    print("other_state: ", other_state)
     return merge_function(context, other_state)
 
 
