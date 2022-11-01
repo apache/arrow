@@ -1662,34 +1662,6 @@ public class MutableRow extends Row {
    *
    * @return this MutableRow for method chaining
    */
-  public MutableRow setDecimal(int columnIndex, ArrowBuf value) {
-    DecimalVector v = (DecimalVector) table.getVector(columnIndex);
-    v.setSafe(getRowNumber(), value);
-    return this;
-  }
-
-  /**
-   * Sets the value of the column with the given name at this MutableRow to the given value. An
-   * IllegalStateException is thrown if the column is not present in the MutableRow and an
-   * IllegalArgumentException is thrown if it has a different type to that named in the method
-   * signature
-   *
-   * @return this MutableRow for chaining operations
-   */
-  public MutableRow setDecimal(String columnName, ArrowBuf value) {
-    DecimalVector v = (DecimalVector) table.getVector(columnName);
-    v.setSafe(getRowNumber(), value);
-    return this;
-  }
-
-  /**
-   * Sets the value of the column at the given index and this MutableRow to the given value. An
-   * IllegalStateException is thrown if the column is not present in the MutableRow and an
-   * IllegalArgumentException is thrown if it has a different type to that named in the method
-   * signature
-   *
-   * @return this MutableRow for method chaining
-   */
   public MutableRow setDecimal(int columnIndex, NullableDecimalHolder value) {
     DecimalVector v = (DecimalVector) table.getVector(columnIndex);
     v.setSafe(getRowNumber(), value);

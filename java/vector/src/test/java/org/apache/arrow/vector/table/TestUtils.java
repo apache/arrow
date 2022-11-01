@@ -19,6 +19,7 @@ package org.apache.arrow.vector.table;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +27,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
@@ -363,6 +365,15 @@ public class TestUtils {
     return mapVector;
   }
 
+  static List<FieldVector> decimalVector(BufferAllocator allocator, int rowCount) {
+    List<FieldVector> vectors = new ArrayList<>();
+    vectors.add(new DecimalVector("decimal_vector",
+        new FieldType(true, new ArrowType.Decimal(38, 10, 128), null),
+        allocator));
+    vectors.forEach(vec -> generateDecimalData((DecimalVector) vec, rowCount));
+    return vectors;
+  }
+
   /** Returns a UnionVector. */
   static UnionVector simpleUnionVector(BufferAllocator allocator) {
     final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
@@ -400,4 +411,18 @@ public class TestUtils {
     unionVector.setValueCount(4);
     return unionVector;
   }
+
+  private static void generateDecimalData(DecimalVector vector, int valueCount) {
+    final BigDecimal even = new BigDecimal("0.0543278923");
+    final BigDecimal odd = new BigDecimal("2.0543278923");
+    for (int i = 0; i < valueCount; i++) {
+      if (i % 2 == 0) {
+        vector.setSafe(i, even);
+      } else {
+        vector.setSafe(i, odd);
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
+
 }

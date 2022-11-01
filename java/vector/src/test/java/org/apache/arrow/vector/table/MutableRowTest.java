@@ -19,6 +19,7 @@ package org.apache.arrow.vector.table;
 
 import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.VARCHAR_VECTOR_NAME_1;
+import static org.apache.arrow.vector.table.TestUtils.decimalVector;
 import static org.apache.arrow.vector.table.TestUtils.intPlusVarcharColumns;
 import static org.apache.arrow.vector.table.TestUtils.intervalVectors;
 import static org.apache.arrow.vector.table.TestUtils.numericVectors;
@@ -30,12 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -44,6 +47,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableDateMilliHolder;
+import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
@@ -72,6 +76,7 @@ import org.apache.arrow.vector.holders.NullableUInt8Holder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.util.DecimalUtility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -718,6 +723,46 @@ class MutableRowTest {
   }
 
   @Test
+  void setDecimal() {
+    List<FieldVector> vectorList = decimalVector(allocator, 2);
+    int vectorPosition = 0;
+    String vectorName = "decimal_vector";
+
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+
+      BigDecimal d = new BigDecimal("11.1234567890");
+      c.setDecimal(vectorName, d);
+      assertEquals(d, c.getDecimalObj(vectorName));
+      BigDecimal d2 = new BigDecimal("44.1234567890");
+      c.setDecimal(vectorPosition, d2);
+      assertEquals(d2, c.getDecimalObj(vectorPosition));
+
+      // test with holder
+
+      NullableDecimalHolder holder = new NullableDecimalHolder();
+      holder.precision = 55;
+      holder.scale = 10;
+      holder.start = 0;
+      holder.isSet = 1;
+
+      BigDecimal val1 = new BigDecimal("199.9999999999");
+      ArrowBuf buf = allocator.buffer(1024);
+      DecimalUtility.writeBigDecimalToArrowBuf(val1, buf, 0, 16);
+      holder.buffer = buf;
+      c.setDecimal(vectorName, holder);
+      assertEquals(val1, c.getDecimalObj(vectorName));
+
+      BigDecimal val2 = new BigDecimal("199.6666666666");
+      DecimalUtility.writeBigDecimalToArrowBuf(val2, buf, 0, 16);
+
+      c.setDecimal(vectorPosition, holder);
+      assertEquals(val2, c.getDecimalObj(vectorPosition));
+    }
+  }
+
+  @Test
   void setDateMilli() {
     List<FieldVector> vectorList = simpleTemporalVectors(allocator, 2);
     int vectorPosition = 8;
@@ -843,7 +888,7 @@ class MutableRowTest {
 
       c.setIntervalMonthDayNano(vectorName, 6, 3, 303);
       assertEquals(periodDurationA, c.getIntervalMonthDayNanoObj(vectorName));
-      c.setIntervalMonthDayNano(vectorName, 7, 4, 304);
+      c.setIntervalMonthDayNano(vectorPosition, 7, 4, 304);
       assertEquals(periodDurationB, c.getIntervalMonthDayNanoObj(vectorName));
       c.setIntervalMonthDayNano(vectorName, 8, 5, 305);
       assertEquals(periodDurationC, c.getIntervalMonthDayNanoObj(vectorName));
