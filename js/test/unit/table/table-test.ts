@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Bool, Dictionary, Float32, Float64, Int32, Int8, makeTable, tableFromArrays, tableFromJSON } from 'apache-arrow';
+import { Bool, Dictionary, Float32, Float64, Int32, Int8, List, makeTable, Struct, tableFromArrays, tableFromJSON } from 'apache-arrow';
 
 describe('makeTable()', () => {
     test(`creates a new Table from Typed Arrays`, () => {
@@ -78,4 +78,21 @@ describe('tableFromJSON()', () => {
         expect(table.getChild('b')!.type).toBeInstanceOf(Bool);
         expect(table.getChild('c')!.type).toBeInstanceOf(Dictionary);
     });
+
+    test(`creates table from objects with string values nested in an array`, () => {
+	const table = tableFromJSON([{
+		a: [
+			{
+				b: "hi",
+			}
+		]
+	}])
+
+	const list = table.getChild('a')!
+        expect(list.type).toBeInstanceOf(List);
+	const struct = list.getChildAt(0)!
+        expect(struct.type).toBeInstanceOf(Struct);
+	const b = struct.getChild('b')!
+        expect(b.type).toBeInstanceOf(Dictionary);
+    })
 });
