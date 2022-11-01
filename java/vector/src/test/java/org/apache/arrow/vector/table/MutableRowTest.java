@@ -17,15 +17,18 @@
 
 package org.apache.arrow.vector.table;
 
+import static org.apache.arrow.vector.table.TestUtils.FIXEDBINARY_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.VARCHAR_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.decimalVector;
+import static org.apache.arrow.vector.table.TestUtils.intPlusFixedBinaryColumns;
 import static org.apache.arrow.vector.table.TestUtils.intPlusVarcharColumns;
 import static org.apache.arrow.vector.table.TestUtils.intervalVectors;
 import static org.apache.arrow.vector.table.TestUtils.numericVectors;
 import static org.apache.arrow.vector.table.TestUtils.simpleTemporalVectors;
 import static org.apache.arrow.vector.table.TestUtils.timezoneTemporalVectors;
 import static org.apache.arrow.vector.table.TestUtils.twoIntColumns;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -49,6 +52,7 @@ import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
+import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -909,6 +913,37 @@ class MutableRowTest {
       PeriodDuration periodDuration2 = new PeriodDuration(Period.ofMonths(48).plusDays(24), Duration.ofNanos(202));
       c.setIntervalMonthDayNano(vectorPosition, holder);
       assertEquals(periodDuration2, c.getIntervalMonthDayNanoObj(vectorPosition));
+    }
+  }
+
+
+  @Test
+  void setFixedSizeBinary() {
+    String vectorName = FIXEDBINARY_VECTOR_NAME_1;
+    int vectorPosition = 1;
+    List<FieldVector> vectorList = intPlusFixedBinaryColumns(allocator);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setFixedSizeBinary(vectorName, "new".getBytes());
+      assertArrayEquals("new".getBytes(), c.getFixedSizeBinary(vectorName));
+      c.setFixedSizeBinary(vectorName, "old".getBytes());
+      assertArrayEquals("old".getBytes(), c.getFixedSizeBinary(vectorName));
+      c.setFixedSizeBinary(vectorPosition, "for".getBytes());
+      assertArrayEquals("for".getBytes(), c.getFixedSizeBinary(vectorName));
+
+      // test with holder
+
+      NullableFixedSizeBinaryHolder holder = new NullableFixedSizeBinaryHolder();
+      holder.byteWidth = 3;
+      holder.buffer = allocator.buffer(3);
+      holder.buffer.setBytes(0, "bah".getBytes());
+      holder.isSet = 1;
+      c.setFixedSizeBinary(vectorName, holder);
+      assertArrayEquals("bah".getBytes(), c.getFixedSizeBinary(vectorName));
+      holder.buffer.setBytes(0, "nah".getBytes());
+      c.setFixedSizeBinary(vectorPosition, holder);
+      assertArrayEquals("nah".getBytes(), c.getFixedSizeBinary(vectorPosition));
     }
   }
 
