@@ -142,4 +142,5 @@ Collate:
     'reexports-bit64.R'
     'reexports-tidyselect.R'
     'schema.R'
+    'udf.R'
     'util.R'
