@@ -495,19 +495,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       const auto* right_keys = callptr->arguments[1].field_ref();
       // Validating JoinKeys
       if (!left_keys || !right_keys) {
-        return Status::Invalid("Left keys for join cannot be null");
-      }
-      // TODO: verify this validation
-      if (!left_keys->IsFieldPath() || !right_keys->IsFieldPath()) {
-        return Status::Invalid("Join keys must be FieldPaths");
+        return Status::Invalid(
+            "join condition must include references to both left and right inputs");
       }
       int num_left_fields = left.output_schema->num_fields();
       const auto* right_field_path = right_keys->field_path();
-      std::vector<int> adjusted_field_indices;
-      adjusted_field_indices.reserve(join_schema->num_fields() - num_left_fields);
-      for (size_t idx = 0; idx < right_field_path->indices().size(); idx++) {
-        adjusted_field_indices.push_back((*right_field_path)[idx] - num_left_fields);
-      }
+      std::vector<int> adjusted_field_indices(right_field_path->indices());
+      adjusted_field_indices[0] -= num_left_fields;
       FieldPath adjusted_right_keys(adjusted_field_indices);
       compute::HashJoinNodeOptions join_options{{std::move(*left_keys)},
                                                 {std::move(adjusted_right_keys)}};
