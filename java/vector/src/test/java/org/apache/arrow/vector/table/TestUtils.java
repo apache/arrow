@@ -31,6 +31,9 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.GenerateSampleData;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
+import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
@@ -262,6 +265,15 @@ public class TestUtils {
     vectors.add(new TimeStampMilliTZVector("timeStampMilliTZ_vector", allocator, "UTC"));
     vectors.add(new TimeStampMicroTZVector("timeStampMicroTZ_vector", allocator, "UTC"));
     vectors.add(new TimeStampNanoTZVector("timeStampNanoTZ_vector", allocator, "UTC"));
+    vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
+    return vectors;
+  }
+
+  static List<FieldVector> intervalVectors(BufferAllocator allocator, int rowCount) {
+    List<FieldVector> vectors = new ArrayList<>();
+    vectors.add(new IntervalDayVector("intervalDay_vector", allocator));
+    vectors.add(new IntervalYearVector("intervalYear_vector", allocator));
+    vectors.add(new IntervalMonthDayNanoVector("intervalMonthDayNano_vector", allocator));
     vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
     return vectors;
   }

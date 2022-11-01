@@ -112,6 +112,7 @@ import org.apache.arrow.vector.types.pojo.Field;
  * TODO: Check for missing fixed-with type setters
  * TODO: Alternate setters(Object, (non-nullable) ValueHolder)
  */
+@SuppressWarnings("UnusedReturnValue")
 public class MutableRow extends Row {
 
   /** Lazy map of Fields to ValueHolders. **/
@@ -817,34 +818,6 @@ public class MutableRow extends Row {
    *
    * @return this MutableRow for method chaining
    */
-  public MutableRow setIntervalDay(int columnIndex, ArrowBuf value) {
-    IntervalDayVector v = (IntervalDayVector) table.getVector(columnIndex);
-    v.setSafe(getRowNumber(), value);
-    return this;
-  }
-
-  /**
-   * Sets the value of the column with the given name at this MutableRow to the given value. An
-   * IllegalStateException is thrown if the column is not present in the MutableRow and an
-   * IllegalArgumentException is thrown if it has a different type to that named in the method
-   * signature
-   *
-   * @return this MutableRow for chaining operations
-   */
-  public MutableRow setIntervalDay(String columnName, ArrowBuf value) {
-    IntervalDayVector v = (IntervalDayVector) table.getVector(columnName);
-    v.setSafe(getRowNumber(), value);
-    return this;
-  }
-
-  /**
-   * Sets the value of the column at the given index and this MutableRow to the given value. An
-   * IllegalStateException is thrown if the column is not present in the MutableRow and an
-   * IllegalArgumentException is thrown if it has a different type to that named in the method
-   * signature
-   *
-   * @return this MutableRow for method chaining
-   */
   public MutableRow setIntervalDay(int columnIndex, NullableIntervalDayHolder value) {
     IntervalDayVector v = (IntervalDayVector) table.getVector(columnIndex);
     v.setSafe(getRowNumber(), value);
@@ -885,6 +858,7 @@ public class MutableRow extends Row {
    * IllegalArgumentException is thrown if it has a different type to that named in the method
    * signature
    *
+   * @param value the number of years in the interval
    * @return this MutableRow for chaining operations
    */
   public MutableRow setIntervalYear(String columnName, int value) {
@@ -899,6 +873,7 @@ public class MutableRow extends Row {
    * IllegalArgumentException is thrown if it has a different type to that named in the method
    * signature
    *
+   * @param value the number of years in the interval
    * @return this MutableRow for method chaining
    */
   public MutableRow setIntervalYear(int columnIndex, NullableIntervalYearHolder value) {
@@ -929,9 +904,9 @@ public class MutableRow extends Row {
    *
    * @return this MutableRow for method chaining
    */
-  public MutableRow setIntervalMonthDayNano(int columnIndex, ArrowBuf value) {
+  public MutableRow setIntervalMonthDayNano(int columnIndex, int months, int days, long nanos) {
     IntervalMonthDayNanoVector v = (IntervalMonthDayNanoVector) table.getVector(columnIndex);
-    v.setSafe(getRowNumber(), value);
+    v.setSafe(getRowNumber(), months, days, nanos);
     return this;
   }
 
@@ -943,9 +918,9 @@ public class MutableRow extends Row {
    *
    * @return this MutableRow for chaining operations
    */
-  public MutableRow setIntervalMonthDayNano(String columnName, ArrowBuf value) {
+  public MutableRow setIntervalMonthDayNano(String columnName, int months, int days, long nanos) {
     IntervalMonthDayNanoVector v = (IntervalMonthDayNanoVector) table.getVector(columnName);
-    v.setSafe(getRowNumber(), value);
+    v.setSafe(getRowNumber(), months, days, nanos);
     return this;
   }
 

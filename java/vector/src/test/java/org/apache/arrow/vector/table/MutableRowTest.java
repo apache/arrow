@@ -20,6 +20,7 @@ package org.apache.arrow.vector.table;
 import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.VARCHAR_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.intPlusVarcharColumns;
+import static org.apache.arrow.vector.table.TestUtils.intervalVectors;
 import static org.apache.arrow.vector.table.TestUtils.numericVectors;
 import static org.apache.arrow.vector.table.TestUtils.simpleTemporalVectors;
 import static org.apache.arrow.vector.table.TestUtils.twoIntColumns;
@@ -29,18 +30,24 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
+import org.apache.arrow.vector.holders.NullableIntervalMonthDayNanoHolder;
+import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
 import org.apache.arrow.vector.holders.NullableSmallIntHolder;
 import org.apache.arrow.vector.holders.NullableTimeMicroHolder;
 import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
@@ -587,6 +594,93 @@ class MutableRowTest {
       holder.value = 5;
       c.setTimeStampNano(vectorPosition, holder);
       assertEquals(5, c.getTimeStampNano(vectorPosition));
+    }
+  }
+
+  @Test
+  void setIntervalDay() {
+    String vectorName = "intervalDay_vector";
+    int vectorPosition = 0;
+    List<FieldVector> vectorList = intervalVectors(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      // test with holder
+      NullableIntervalDayHolder holder = new NullableIntervalDayHolder();
+      holder.days = 4;
+      holder.isSet = 1;
+      c.setIntervalDay(vectorName, holder);
+      assertEquals(Duration.ofDays(4), c.getIntervalDayObj(vectorName));
+      holder.days = 5;
+      c.setIntervalDay(vectorPosition, holder);
+      assertEquals(Duration.ofDays(5), c.getIntervalDayObj(vectorPosition));
+    }
+  }
+
+  @Test
+  void setIntervalYear() {
+    String vectorName = "intervalYear_vector";
+    int vectorPosition = 1;
+    List<FieldVector> vectorList = intervalVectors(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setIntervalYear(vectorName, 1);
+      assertEquals(1, c.getIntervalYear(vectorName));
+      c.setIntervalYear(vectorName, 2);
+      assertEquals(2, c.getIntervalYear(vectorName));
+      c.setIntervalYear(vectorPosition, 3);
+      assertEquals(3, c.getIntervalYear(vectorName));
+
+      // test with holder
+      NullableIntervalYearHolder holder = new NullableIntervalYearHolder();
+      holder.value = 24;
+      holder.isSet = 1;
+
+      c.setIntervalYear(vectorName, holder);
+      assertEquals(Period.ofMonths(24), c.getIntervalYearObj(vectorName));
+      holder.value = 36;
+      c.setIntervalYear(vectorPosition, holder);
+      assertEquals(Period.ofMonths(36), c.getIntervalYearObj(vectorPosition));
+    }
+  }
+
+  @Test
+  void setIntervalMonthDayNano() {
+    String vectorName = "intervalMonthDayNano_vector";
+    int vectorPosition = 2;
+    List<FieldVector> vectorList = intervalVectors(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+
+      PeriodDuration periodDurationA = new PeriodDuration(Period.ofMonths(6).plusDays(3), Duration.ofNanos(303));
+      PeriodDuration periodDurationB = new PeriodDuration(Period.ofMonths(7).plusDays(4), Duration.ofNanos(304));
+      PeriodDuration periodDurationC = new PeriodDuration(Period.ofMonths(8).plusDays(5), Duration.ofNanos(305));
+
+      c.setIntervalMonthDayNano(vectorName, 6, 3, 303);
+      assertEquals(periodDurationA, c.getIntervalMonthDayNanoObj(vectorName));
+      c.setIntervalMonthDayNano(vectorName, 7, 4, 304);
+      assertEquals(periodDurationB, c.getIntervalMonthDayNanoObj(vectorName));
+      c.setIntervalMonthDayNano(vectorName, 8, 5, 305);
+      assertEquals(periodDurationC, c.getIntervalMonthDayNanoObj(vectorName));
+
+      // test with holder
+      NullableIntervalMonthDayNanoHolder holder = new NullableIntervalMonthDayNanoHolder();
+      holder.months = 24;
+      holder.days = 12;
+      holder.nanoseconds = 101;
+      holder.isSet = 1;
+
+      c.setIntervalMonthDayNano(vectorName, holder);
+      PeriodDuration periodDuration1 = new PeriodDuration(Period.ofMonths(24).plusDays(12), Duration.ofNanos(101));
+      assertEquals(periodDuration1, c.getIntervalMonthDayNanoObj(vectorName));
+      holder.months = 48;
+      holder.days = 24;
+      holder.nanoseconds = 202;
+      PeriodDuration periodDuration2 = new PeriodDuration(Period.ofMonths(48).plusDays(24), Duration.ofNanos(202));
+      c.setIntervalMonthDayNano(vectorPosition, holder);
+      assertEquals(periodDuration2, c.getIntervalMonthDayNanoObj(vectorPosition));
     }
   }
 

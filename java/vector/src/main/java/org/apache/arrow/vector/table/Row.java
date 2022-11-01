@@ -1505,6 +1505,8 @@ public class Row implements Iterator<Row> {
    * Returns a Period from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
+   *
+   * @return a Period of n MONTHS, not YEARS
    */
   public Period getIntervalYearObj(String columnName) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnName);
@@ -1515,6 +1517,8 @@ public class Row implements Iterator<Row> {
    * Returns a Period from the column with the given index at the current row. An
    * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
+   *
+   * @return a Period of n MONTHS, not YEARS
    */
   public Period getIntervalYearObj(int columnIndex) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnIndex);
@@ -1525,6 +1529,8 @@ public class Row implements Iterator<Row> {
    * Returns an int from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
+   *
+   * @return the number of MONTHS in the interval (not YEARS)
    */
   public int getIntervalYear(String columnName) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnName);
@@ -1535,6 +1541,8 @@ public class Row implements Iterator<Row> {
    * Returns an int from the column with the given index at the current row. An
    * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
+   *
+   * @return the number of MONTHS in the interval (not YEARS)
    */
   public int getIntervalYear(int columnIndex) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnIndex);
@@ -1545,6 +1553,8 @@ public class Row implements Iterator<Row> {
    * Updates the holder with the value from the column of the given name at the current row. An
    * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
+   *
+   * @param holder  a holder to store the interval. Note that the value of the holder represents MONTHS not years
    */
   public void getIntervalYear(String columnName, NullableIntervalYearHolder holder) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnName);
@@ -1555,6 +1565,8 @@ public class Row implements Iterator<Row> {
    * Updates the holder with the value from the column with the given index at the current row. An
    * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
+   *
+   * @param holder  a holder to store the interval. Note that the value of the holder represents MONTHS not years
    */
   public void getIntervalYear(int columnIndex, NullableIntervalYearHolder holder) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnIndex);
