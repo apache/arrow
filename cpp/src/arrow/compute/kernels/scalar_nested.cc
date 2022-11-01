@@ -171,7 +171,7 @@ struct ListSlice {
     for (offset_type offset = 0; offset < n_offsets * list_size;
          offset = offset + list_size) {
       auto next_offset = offset + list_size;
-      if (list_values.IsNull(offset)) {
+      if (list_.IsNull(offset / list_size)) {
         RETURN_NOT_OK(list_builder->AppendNull());
       } else {
         RETURN_NOT_OK(SetValues<BuilderType>(list_builder, offset, next_offset, &opts,
