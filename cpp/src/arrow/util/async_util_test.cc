@@ -89,7 +89,7 @@ TEST(AsyncTaskScheduler, SubSchedulerHolderLeftForever) {
   Future<> parent_scheduler_task = Future<>::Make();
   Future<> child_scheduler_task = Future<>::Make();
   // Holder kept alive outside of any task scheduler.
-  std::shared_ptr<AsyncTaskScheduler::Holder> holder;
+  std::unique_ptr<AsyncTaskScheduler::Holder> holder;
   Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
     scheduler->AddSimpleTask([&] { return parent_scheduler_task; });
     holder = scheduler->MakeSubScheduler(
@@ -102,6 +102,10 @@ TEST(AsyncTaskScheduler, SubSchedulerHolderLeftForever) {
   });
   parent_scheduler_task.MarkFinished();
   child_scheduler_task.MarkFinished();
+  AssertNotFinished(finished);
+  // If this holder were never destroyed then it would deadlock.  Care
+  // should be taken to ensure the holder is destroyed.
+  holder->Reset();
   ASSERT_FINISHES_OK(finished);
 
   // Holder destroyed when parent scheduler destroyed
@@ -126,29 +130,87 @@ TEST(AsyncTaskScheduler, SubSchedulerHolderLeftForever) {
   Future<> grandparent_scheduler_task = Future<>::Make();
   parent_scheduler_task = Future<>::Make();
   bool child_scheduler_finished = false;
-  holder.reset();
-  finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
-    scheduler->AddSimpleTask([&] { return grandparent_scheduler_task; });
-    scheduler->MakeSubScheduler(
-        [&](AsyncTaskScheduler* mid_scheduler) {
-          mid_scheduler->AddSimpleTask([&] { return parent_scheduler_task; });
-          holder = mid_scheduler->MakeSubScheduler(
-              [&](AsyncTaskScheduler* sub_scheduler) { return Status::OK(); },
-              [&](const Status& st) {
-                child_scheduler_finished = true;
-                return Status::OK();
-              });
-          return Status::OK();
-        },
-        EmptyFinishCallback());
-    return Status::OK();
-  });
-  parent_scheduler_task.MarkFinished();
-  // Child scheduler should be kept non-ended since the grandparent scheduler still has a
-  // task even if the parent scheduler is ended and task-less.
-  ASSERT_FALSE(child_scheduler_finished);
-  grandparent_scheduler_task.MarkFinished();
+  {
+    std::unique_ptr<AsyncTaskScheduler::Holder> scoped_holder;
+    finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+      scheduler->AddSimpleTask([&] { return grandparent_scheduler_task; });
+      scheduler->MakeSubScheduler(
+          [&](AsyncTaskScheduler* mid_scheduler) {
+            mid_scheduler->AddSimpleTask([&] { return parent_scheduler_task; });
+            scoped_holder = mid_scheduler->MakeSubScheduler(
+                [&](AsyncTaskScheduler* sub_scheduler) { return Status::OK(); },
+                [&](const Status& st) {
+                  child_scheduler_finished = true;
+                  return Status::OK();
+                });
+            return Status::OK();
+          },
+          EmptyFinishCallback());
+      return Status::OK();
+    });
+    parent_scheduler_task.MarkFinished();
+    ASSERT_FALSE(child_scheduler_finished);
+    grandparent_scheduler_task.MarkFinished();
+    AssertNotFinished(finished);
+  }
   ASSERT_FINISHES_OK(finished);
+}
+
+TEST(AsyncTaskScheduler, CancelWaitsForTasksToFinish) {
+  StopSource stop_source;
+  Future<> task = Future<>::Make();
+  Future<> finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) {
+        scheduler->AddSimpleTask([&] { return task; });
+        return Status::OK();
+      },
+      nullptr, nullptr, stop_source.token());
+  stop_source.RequestStop();
+  AssertNotFinished(finished);
+  task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Cancelled, finished);
+}
+
+TEST(AsyncTaskScheduler, CancelPurgesQueuedTasks) {
+  StopSource stop_source;
+  Future<> task = Future<>::Make();
+  std::unique_ptr<AsyncTaskScheduler::Throttle> throttle =
+      AsyncTaskScheduler::MakeThrottle(1);
+  bool second_task_submitted = false;
+  Future<> finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) {
+        scheduler->AddSimpleTask([&] { return task; });
+        scheduler->AddSimpleTask([&] {
+          second_task_submitted = true;
+          return Future<>::MakeFinished();
+        });
+        return Status::OK();
+      },
+      throttle.get(), nullptr, stop_source.token());
+  stop_source.RequestStop();
+  task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Cancelled, finished);
+  ASSERT_FALSE(second_task_submitted);
+}
+
+TEST(AsyncTaskScheduler, CancelPreventsAdditionalTasks) {
+  StopSource stop_source;
+  Future<> task = Future<>::Make();
+  bool second_task_submitted = false;
+  Future<> finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) {
+        scheduler->AddSimpleTask([&] { return task; });
+        stop_source.RequestStop();
+        scheduler->AddSimpleTask([&] {
+          second_task_submitted = true;
+          return task;
+        });
+        return Status::OK();
+      },
+      nullptr, nullptr, stop_source.token());
+  task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Cancelled, finished);
+  ASSERT_FALSE(second_task_submitted);
 }
 
 TEST(AsyncTaskScheduler, TaskStaysAliveUntilFinished) {

@@ -18,6 +18,7 @@
 #include "arrow/dataset/dataset_writer.h"
 
 #include <deque>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -209,6 +210,7 @@ class DatasetWriterFileQueue {
     while (!staged_batches_.empty()) {
       RETURN_NOT_OK(PopAndDeliverStagedBatch());
     }
+    std::cout << "Closing file scheduler: " << scheduler_->Get() << std::endl;
     // At this point all write tasks have been added.  Because the scheduler
     // is a 1-task FIFO we know this task will run at the very end and can
     // add it now.
@@ -325,12 +327,14 @@ class DatasetWriterDirectoryQueue {
     util::AsyncTaskScheduler::Throttle* throttle_view = throttle.get();
     auto file_finish_task = [self = this, file_queue = std::move(file_queue),
                              throttle = std::move(throttle)](Status) {
+      std::cout << "Ending file scheduler\n";
       self->writer_state_->open_files_throttle.Release(1);
       return Status::OK();
     };
     std::unique_ptr<util::AsyncTaskScheduler::Holder> scheduler =
         scheduler_->MakeSubScheduler(
             [&](util::AsyncTaskScheduler* file_scheduler) {
+              std::cout << "Created file scheduler: " << file_scheduler << std::endl;
               if (init_future_.is_valid()) {
                 file_scheduler->AddSimpleTask(
                     [init_future = init_future_]() { return init_future; });
