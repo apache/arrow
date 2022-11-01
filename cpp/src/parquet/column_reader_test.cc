@@ -320,7 +320,7 @@ TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
       values_.begin() + 5.5 * levels_per_page);
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
-  // 3) skip_size < page_size (skip limited to a single page)
+  // 4) skip_size < page_size (skip limited to a single page)
   // Skip half a page (page 5.5 to 6)
   levels_skipped = reader->Skip(levels_per_page / 2);
   ASSERT_EQ(0.5 * levels_per_page, levels_skipped);
@@ -334,11 +334,11 @@ TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
       values_.begin() + 6.5 * levels_per_page);
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
-  // 4) skip_size = 0
+  // 5) skip_size = 0
   levels_skipped = reader->Skip(0);
   ASSERT_EQ(0, levels_skipped);
 
-  // 5) Skip past the end page.
+  // 6) Skip past the end page.
   levels_skipped = reader->Skip(levels_per_page / 2 + 10);
   ASSERT_EQ(levels_per_page / 2, levels_skipped);
 
