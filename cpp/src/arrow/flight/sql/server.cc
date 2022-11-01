@@ -1094,41 +1094,49 @@ arrow::Result<int64_t> FlightSqlServerBase::DoPutCommandSubstraitPlan(
   return Status::NotImplemented("DoPutCommandSubstraitPlan not implemented");
 }
 
-std::shared_ptr<Schema> SqlSchema::GetCatalogsSchema() {
-  return arrow::schema({field("catalog_name", utf8(), false)});
+const std::shared_ptr<Schema>& SqlSchema::GetCatalogsSchema() {
+  static std::shared_ptr<Schema> kSchema =
+      arrow::schema({field("catalog_name", utf8(), false)});
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetDbSchemasSchema() {
-  return arrow::schema(
+const std::shared_ptr<Schema>& SqlSchema::GetDbSchemasSchema() {
+  static std::shared_ptr<Schema> kSchema = arrow::schema(
       {field("catalog_name", utf8()), field("db_schema_name", utf8(), false)});
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetTablesSchema() {
-  return arrow::schema({field("catalog_name", utf8()), field("db_schema_name", utf8()),
-                        field("table_name", utf8(), false),
-                        field("table_type", utf8(), false)});
+const std::shared_ptr<Schema>& SqlSchema::GetTablesSchema() {
+  static std::shared_ptr<Schema> kSchema = arrow::schema(
+      {field("catalog_name", utf8()), field("db_schema_name", utf8()),
+       field("table_name", utf8(), false), field("table_type", utf8(), false)});
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetTablesSchemaWithIncludedSchema() {
-  return arrow::schema({field("catalog_name", utf8()), field("db_schema_name", utf8()),
-                        field("table_name", utf8(), false),
-                        field("table_type", utf8(), false),
-                        field("table_schema", binary(), false)});
+const std::shared_ptr<Schema>& SqlSchema::GetTablesSchemaWithIncludedSchema() {
+  static std::shared_ptr<Schema> kSchema = arrow::schema(
+      {field("catalog_name", utf8()), field("db_schema_name", utf8()),
+       field("table_name", utf8(), false), field("table_type", utf8(), false),
+       field("table_schema", binary(), false)});
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetTableTypesSchema() {
-  return arrow::schema({field("table_type", utf8(), false)});
+const std::shared_ptr<Schema>& SqlSchema::GetTableTypesSchema() {
+  static std::shared_ptr<Schema> kSchema =
+      arrow::schema({field("table_type", utf8(), false)});
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetPrimaryKeysSchema() {
-  return arrow::schema(
+const std::shared_ptr<Schema>& SqlSchema::GetPrimaryKeysSchema() {
+  static std::shared_ptr<Schema> kSchema = arrow::schema(
       {field("catalog_name", utf8()), field("db_schema_name", utf8()),
        field("table_name", utf8(), false), field("column_name", utf8(), false),
        field("key_sequence", int32(), false), field("key_name", utf8())});
+  return kSchema;
 }
 
-std::shared_ptr<Schema> GetImportedExportedKeysAndCrossReferenceSchema() {
-  return arrow::schema(
+const std::shared_ptr<Schema>& GetImportedExportedKeysAndCrossReferenceSchema() {
+  static std::shared_ptr<Schema> kSchema = arrow::schema(
       {field("pk_catalog_name", utf8(), true), field("pk_db_schema_name", utf8(), true),
        field("pk_table_name", utf8(), false), field("pk_column_name", utf8(), false),
        field("fk_catalog_name", utf8(), true), field("fk_db_schema_name", utf8(), true),
@@ -1136,35 +1144,44 @@ std::shared_ptr<Schema> GetImportedExportedKeysAndCrossReferenceSchema() {
        field("key_sequence", int32(), false), field("fk_key_name", utf8(), true),
        field("pk_key_name", utf8(), true), field("update_rule", uint8(), false),
        field("delete_rule", uint8(), false)});
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetImportedKeysSchema() {
-  return GetImportedExportedKeysAndCrossReferenceSchema();
+const std::shared_ptr<Schema>& SqlSchema::GetImportedKeysSchema() {
+  static std::shared_ptr<Schema> kSchema =
+      GetImportedExportedKeysAndCrossReferenceSchema();
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetExportedKeysSchema() {
-  return GetImportedExportedKeysAndCrossReferenceSchema();
+const std::shared_ptr<Schema>& SqlSchema::GetExportedKeysSchema() {
+  static std::shared_ptr<Schema> kSchema =
+      GetImportedExportedKeysAndCrossReferenceSchema();
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetCrossReferenceSchema() {
-  return GetImportedExportedKeysAndCrossReferenceSchema();
+const std::shared_ptr<Schema>& SqlSchema::GetCrossReferenceSchema() {
+  static std::shared_ptr<Schema> kSchema =
+      GetImportedExportedKeysAndCrossReferenceSchema();
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetSqlInfoSchema() {
-  return arrow::schema({field("info_name", uint32(), false),
-                        field("value",
-                              dense_union({field("string_value", utf8(), false),
-                                           field("bool_value", boolean(), false),
-                                           field("bigint_value", int64(), false),
-                                           field("int32_bitmask", int32(), false),
-                                           field("string_list", list(utf8()), false),
-                                           field("int32_to_int32_list_map",
-                                                 map(int32(), list(int32())), false)}),
-                              false)});
+const std::shared_ptr<Schema>& SqlSchema::GetSqlInfoSchema() {
+  static std::shared_ptr<Schema> kSchema =
+      arrow::schema({field("info_name", uint32(), false),
+                     field("value",
+                           dense_union({field("string_value", utf8(), false),
+                                        field("bool_value", boolean(), false),
+                                        field("bigint_value", int64(), false),
+                                        field("int32_bitmask", int32(), false),
+                                        field("string_list", list(utf8()), false),
+                                        field("int32_to_int32_list_map",
+                                              map(int32(), list(int32())), false)}),
+                           false)});
+  return kSchema;
 }
 
-std::shared_ptr<Schema> SqlSchema::GetXdbcTypeInfoSchema() {
-  return arrow::schema({
+const std::shared_ptr<Schema>& SqlSchema::GetXdbcTypeInfoSchema() {
+  static std::shared_ptr<Schema> kSchema = arrow::schema({
       field("type_name", utf8(), false),
       field("data_type", int32(), false),
       field("column_size", int32()),
@@ -1185,6 +1202,7 @@ std::shared_ptr<Schema> SqlSchema::GetXdbcTypeInfoSchema() {
       field("num_prec_radix", int32()),
       field("interval_precision", int32()),
   });
+  return kSchema;
 }
 }  // namespace sql
 }  // namespace flight
