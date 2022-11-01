@@ -143,33 +143,45 @@ build_expr <- function(FUN,
     }
   }
 
-  args <- wrap_scalars(args, FUN)
+  if (FUN != "%/%") {
+    # We switch %/% behavior based on the actual input types so don't
+    # try to cast scalars to match the columns
+    args <- wrap_scalars(args)
+  }
 
   # In Arrow, "divide" is one function, which does integer division on
   # integer inputs and floating-point division on floats
   if (FUN == "/") {
-    # TODO: omg so many ways it's wrong to assume these types
-    args <- lapply(args, function(x) x$cast(float64()))
+    # TODO: omg so many ways it's wrong to assume these types (right?)
+    args <- lapply(args, cast, float64())
   } else if (FUN == "%/%") {
     # In R, integer division works like floor(float division)
-    out <- build_expr("/", args = args)
+    out <- Expression$create("floor", build_expr("/", args = args))
 
-    # integer output only for all integer input
+    # ... but if inputs are integer, make sure we return an integer
     int_type_ids <- Type[toupper(INTEGER_TYPES)]
-    numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
-    denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
-
-    if (numerator_is_int && denominator_is_int) {
-      out_float <- Expression$create(
-        "if_else",
-        build_expr("equal", args[[2]], 0L),
-        Scalar$create(NA_integer_),
-        Expression$create("floor", out)
-      )
-      return(out_float$cast(args[[1]]$type()))
-    } else {
-      return(Expression$create("floor", out))
+    is_int <- function(x) {
+      is.integer(x) ||
+        (inherits(x, "ArrowObject") && x$type_id() %in% int_type_ids)
     }
+
+    if (is_int(args[[1]]) && is_int(args[[2]])) {
+      if (inherits(args[[1]], "ArrowObject")) {
+        out_type <- args[[1]]$type()
+      } else {
+        # It's an R integer
+        out_type <- int32()
+      }
+      # If args[[2]] == 0, float division returns Inf,
+      # but for integer division R returns NA, so wrap in if_else
+      out <- Expression$create(
+        "if_else",
+        build_expr("==", args[[2]], 0L),
+        Scalar$create(NA_integer_, out_type),
+        cast(out, out_type, allow_float_truncate = TRUE)
+      )
+    }
+    return(out)
   } else if (FUN == "%%") {
     return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
   }
@@ -177,7 +189,7 @@ build_expr <- function(FUN,
   Expression$create(.array_function_map[[FUN]] %||% FUN, args = args, options = options)
 }
 
-wrap_scalars <- function(args, FUN = "") {
+wrap_scalars <- function(args) {
   is_expr <- map_lgl(args, ~ inherits(., "Expression"))
   if (all(is_expr)) {
     # No wrapping is required
@@ -186,11 +198,10 @@ wrap_scalars <- function(args, FUN = "") {
 
   args[!is_expr] <- lapply(args[!is_expr], Scalar$create)
 
-  # There are some functions you wouldn't want going through here (so don't
-  # use build_expr()):
-  # * %/%: we switch behavior based on int vs. dbl in R (see build_expr) so skip
+  # There are some functions you wouldn't want going through here:
+  # * %/%: we switch behavior based on int vs. dbl in R (see build_expr)
   # * binary_repeat, list_element: 2nd arg must be integer, Acero will handle it
-  if (any(is_expr) && !(FUN %in% "%/%")) {
+  if (any(is_expr)) {
     try(
       {
         # If the Expression has no Schema embedded, we cannot resolve its
