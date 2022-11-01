@@ -1076,24 +1076,15 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
   FileDescriptor fd;
 
 #if defined(_WIN32)
-  int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
   DWORD desired_access = GENERIC_WRITE;
   DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
   DWORD creation_disposition = OPEN_ALWAYS;
 
-  if (append) {
-    oflag |= _O_APPEND;
-  }
-
   if (truncate) {
-    oflag |= _O_TRUNC;
     creation_disposition = CREATE_ALWAYS;
   }
 
-  if (write_only) {
-    oflag |= _O_WRONLY;
-  } else {
-    oflag |= _O_RDWR;
+  if (!write_only) {
     desired_access |= GENERIC_READ;
   }
 
@@ -1542,7 +1533,7 @@ static inline int64_t pread_compat(int fd, void* buf, int64_t nbytes, int64_t po
 #if defined(_WIN32)
   HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
   DWORD dwBytesRead = 0;
-  OVERLAPPED overlapped = {0};
+  OVERLAPPED overlapped = {};
   overlapped.Offset = static_cast<uint32_t>(pos);
   overlapped.OffsetHigh = static_cast<uint32_t>(pos >> 32);
 
