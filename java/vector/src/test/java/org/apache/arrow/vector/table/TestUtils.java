@@ -25,6 +25,7 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -66,7 +67,9 @@ import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.writer.Float8Writer;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
@@ -274,6 +277,7 @@ public class TestUtils {
     vectors.add(new IntervalDayVector("intervalDay_vector", allocator));
     vectors.add(new IntervalYearVector("intervalYear_vector", allocator));
     vectors.add(new IntervalMonthDayNanoVector("intervalMonthDayNano_vector", allocator));
+    vectors.add(new DurationVector("duration_vector", new FieldType(true, new ArrowType.Duration(TimeUnit.SECOND), null), allocator));
     vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
     return vectors;
   }

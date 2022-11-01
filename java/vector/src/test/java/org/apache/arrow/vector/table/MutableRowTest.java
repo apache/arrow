@@ -42,6 +42,7 @@ import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
+import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -62,6 +63,7 @@ import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.junit.jupiter.api.BeforeEach;
@@ -605,6 +607,13 @@ class MutableRowTest {
     try (MutableTable t = new MutableTable(vectorList)) {
       MutableRow c = t.mutableRow();
       c.setPosition(1);
+      c.setIntervalDay(vectorName, 1, 11);
+      assertEquals(Duration.ofDays(1).plusMillis(11), c.getIntervalDayObj(vectorName));
+      c.setIntervalDay(vectorName, 2, 22);
+      assertEquals(Duration.ofDays(2).plusMillis(22), c.getIntervalDayObj(vectorName));
+      c.setIntervalDay(vectorPosition, 3, 33);
+      assertEquals(Duration.ofDays(3).plusMillis(33), c.getIntervalDayObj(vectorName));
+
       // test with holder
       NullableIntervalDayHolder holder = new NullableIntervalDayHolder();
       holder.days = 4;
@@ -614,6 +623,34 @@ class MutableRowTest {
       holder.days = 5;
       c.setIntervalDay(vectorPosition, holder);
       assertEquals(Duration.ofDays(5), c.getIntervalDayObj(vectorPosition));
+    }
+  }
+
+  @Test
+  void setDuration() {
+    String vectorName = "duration_vector";
+    int vectorPosition = 3;
+    List<FieldVector> vectorList = intervalVectors(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setDuration(vectorName, 11_111);
+      assertEquals(Duration.ofSeconds(11_111), c.getDurationObj(vectorName));
+      c.setDuration(vectorName, 22_222);
+      assertEquals(Duration.ofSeconds(22_222), c.getDurationObj(vectorName));
+      c.setDuration(vectorPosition, 33_333);
+      assertEquals(Duration.ofSeconds(33_333), c.getDurationObj(vectorName));
+
+      // test with holder
+      NullableDurationHolder holder = new NullableDurationHolder();
+      holder.value = 4;
+      holder.unit = TimeUnit.SECOND;
+      holder.isSet = 1;
+      c.setDuration(vectorName, holder);
+      assertEquals(Duration.ofSeconds(4), c.getDurationObj(vectorName));
+      holder.value = 5;
+      c.setDuration(vectorPosition, holder);
+      assertEquals(Duration.ofSeconds(5), c.getDurationObj(vectorPosition));
     }
   }
 

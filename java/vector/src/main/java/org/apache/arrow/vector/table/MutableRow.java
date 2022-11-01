@@ -760,11 +760,12 @@ public class MutableRow extends Row {
    * IllegalArgumentException is thrown if it has a different type to that named in the method
    * signature
    *
+   * @param duration in the time unit this vector was constructed with
    * @return this MutableRow for method chaining
    */
-  public MutableRow setDuration(int columnIndex, ArrowBuf value) {
+  public MutableRow setDuration(int columnIndex, long duration) {
     DurationVector v = (DurationVector) table.getVector(columnIndex);
-    v.setSafe(getRowNumber(), value);
+    v.setSafe(getRowNumber(), duration);
     return this;
   }
 
@@ -774,11 +775,12 @@ public class MutableRow extends Row {
    * IllegalArgumentException is thrown if it has a different type to that named in the method
    * signature
    *
+   * @param duration in the time unit this vector was constructed with
    * @return this MutableRow for chaining operations
    */
-  public MutableRow setDuration(String columnName, ArrowBuf value) {
+  public MutableRow setDuration(String columnName, long duration) {
     DurationVector v = (DurationVector) table.getVector(columnName);
-    v.setSafe(getRowNumber(), value);
+    v.setSafe(getRowNumber(), duration);
     return this;
   }
 
@@ -821,6 +823,34 @@ public class MutableRow extends Row {
   public MutableRow setIntervalDay(int columnIndex, NullableIntervalDayHolder value) {
     IntervalDayVector v = (IntervalDayVector) table.getVector(columnIndex);
     v.setSafe(getRowNumber(), value);
+    return this;
+  }
+
+  /**
+   * Sets the value of the column with the given name at this MutableRow to the given value. An
+   * IllegalStateException is thrown if the column is not present in the MutableRow and an
+   * IllegalArgumentException is thrown if it has a different type to that named in the method
+   * signature
+   *
+   * @return this MutableRow for chaining operations
+   */
+  public MutableRow setIntervalDay(String columnName, int days, int millis) {
+    IntervalDayVector v = (IntervalDayVector) table.getVector(columnName);
+    v.setSafe(getRowNumber(), days, millis);
+    return this;
+  }
+
+  /**
+   * Sets the value of the column at the given index and this MutableRow to the given value. An
+   * IllegalStateException is thrown if the column is not present in the MutableRow and an
+   * IllegalArgumentException is thrown if it has a different type to that named in the method
+   * signature
+   *
+   * @return this MutableRow for method chaining
+   */
+  public MutableRow setIntervalDay(int columnIndex, int days, int millis) {
+    IntervalDayVector v = (IntervalDayVector) table.getVector(columnIndex);
+    v.setSafe(getRowNumber(), days, millis);
     return this;
   }
 
