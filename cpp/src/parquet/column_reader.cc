@@ -852,7 +852,6 @@ class ColumnReaderImplBase {
     return num_buffered_values_ - num_decoded_values_;
   }
 
-
   const ColumnDescriptor* descr_;
   const int16_t max_def_level_;
   const int16_t max_rep_level_;
