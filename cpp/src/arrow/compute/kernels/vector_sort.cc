@@ -2085,7 +2085,8 @@ class ChunkedArrayRanker : public TypeVisitor {
   // with ArraySorter / ChunkedArraySorter, so likely should refactor ArrayRanker
   ChunkedArrayRanker(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
                      const ChunkedArray& chunked_array, const SortOrder order,
-                     const NullPlacement null_placement, const RankOptions::Tiebreaker tiebreaker, Datum* output)
+                     const NullPlacement null_placement,
+                     const RankOptions::Tiebreaker tiebreaker, Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
         indices_begin_(indices_begin),
@@ -2109,7 +2110,6 @@ class ChunkedArrayRanker : public TypeVisitor {
 
   template <typename InType>
   Status RankInternal() {
-    using GetView = GetViewType<InType>;
     using T = typename GetViewType<InType>::T;
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
@@ -2138,14 +2138,14 @@ class ChunkedArrayRanker : public TypeVisitor {
     }
     DCHECK_EQ(end_offset, indices_end_ - indices_begin_);
 
+    auto resolver = ChunkedArrayResolver(arrays);
     if (sorted.size() > 1) {
       auto merge_nulls = [&](uint64_t* nulls_begin, uint64_t* nulls_middle,
                              uint64_t* nulls_end, uint64_t* temp_indices,
                              int64_t null_count) {
         if (has_null_like_values<typename ArrayType::TypeClass>::value) {
-          PartitionNullsOnly<StablePartitioner>(nulls_begin, nulls_end,
-                                                ChunkedArrayResolver(arrays), null_count,
-                                                null_placement_);
+          PartitionNullsOnly<StablePartitioner>(nulls_begin, nulls_end, resolver,
+                                                null_count, null_placement_);
         }
       };
       auto merge_non_nulls = [&](uint64_t* range_begin, uint64_t* range_middle,
@@ -2201,22 +2201,7 @@ class ChunkedArrayRanker : public TypeVisitor {
         }
 
         for (auto it = sorted[0].non_nulls_begin; it < sorted[0].non_nulls_end; it++) {
-          // Below code wasn't working for string specialization as -> value returned a buffer
-          // but T is a basic_string_view
-          // using ScalarType = typename TypeTraits<InType>::ScalarType;
-          // auto scalar = std::dynamic_pointer_cast<ScalarType>(
-          //   chunked_array_.GetScalar(*it).ValueOrDie());
-          // curr_value = scalar->value;
-          // TODO: can we use chunk_resolver_ from chunked array externally?          
-          if (*it >= 2) {
-            ArrayType arr(arrays[1]->data());
-            curr_value = GetView::LogicalValue(arr.GetView(*it - 2));
-          }
-          else {
-            ArrayType arr(arrays[0]->data());
-            curr_value = GetView::LogicalValue(arr.GetView(*it));            
-          }          
-          
+          curr_value = resolver.Resolve<ArrayType>(*it).Value();
           if (it == sorted[0].non_nulls_begin || curr_value != prev_value) {
             rank++;
           }
@@ -2254,16 +2239,7 @@ class ChunkedArrayRanker : public TypeVisitor {
         }
 
         for (auto it = sorted[0].non_nulls_begin; it < sorted[0].non_nulls_end; it++) {
-          // TODO: can we use chunk_resolver_ from chunked array externally?
-          if (*it >= 2) {
-            ArrayType arr(arrays[1]->data());
-            curr_value = GetView::LogicalValue(arr.GetView(*it - 2));
-          }
-          else {
-            ArrayType arr(arrays[0]->data());
-            curr_value = GetView::LogicalValue(arr.GetView(*it));            
-          }
-          
+          curr_value = resolver.Resolve<ArrayType>(*it).Value();
           if (it == sorted[0].non_nulls_begin || curr_value != prev_value) {
             rank = (it - sorted[0].overall_begin()) + 1;
           }
@@ -2291,21 +2267,13 @@ class ChunkedArrayRanker : public TypeVisitor {
           }
         }
 
-        for (auto it = sorted[0].non_nulls_end - 1; it >= sorted[0].non_nulls_begin; it--)
-{
-  // TODO: can we use chunk_resolver_ from chunked array externally?
-          if (*it >= 2) {
-            ArrayType arr(arrays[1]->data());
-            curr_value = GetView::LogicalValue(arr.GetView(*it - 2));
-          }
-          else {
-            ArrayType arr(arrays[0]->data());
-            curr_value = GetView::LogicalValue(arr.GetView(*it));            
-          }          
+        for (auto it = sorted[0].non_nulls_end - 1; it >= sorted[0].non_nulls_begin;
+             it--) {
+          curr_value = resolver.Resolve<ArrayType>(*it).Value();
 
-  if (it == sorted[0].non_nulls_end
-      - 1 || curr_value != prev_value) { rank = (it - sorted[0].overall_begin()) + 1;
-  }
+          if (it == sorted[0].non_nulls_end - 1 || curr_value != prev_value) {
+            rank = (it - sorted[0].overall_begin()) + 1;
+          }
           out_begin[*it] = rank;
           prev_value = curr_value;
         }
@@ -2320,7 +2288,7 @@ class ChunkedArrayRanker : public TypeVisitor {
         break;
       }
     }
-    
+
     *output_ = Datum(rankings);
     return Status::OK();
   }
@@ -2389,10 +2357,10 @@ class RankMetaFunction : public MetaFunction {
       case Datum::ARRAY: {
         return Rank(*args[0].make_array(), rank_options, ctx);
       } break;
-    case Datum::CHUNKED_ARRAY: {
-      return Rank(*args[0].chunked_array(), rank_options, ctx);
+      case Datum::CHUNKED_ARRAY: {
+        return Rank(*args[0].chunked_array(), rank_options, ctx);
       } break;
-    default:
+      default:
         break;
     }
     return Status::NotImplemented(
