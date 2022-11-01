@@ -66,23 +66,28 @@ register_bindings_conditional <- function() {
     Expression$create("coalesce", args = args)
   })
 
-  if_else_binding <- function(condition, true, false, missing = NULL) {
-    if (!is.null(missing)) {
-      return(if_else_binding(
-        call_binding("is.na", (condition)),
-        missing,
-        if_else_binding(condition, true, false)
-      ))
-    }
-
-    build_expr("if_else", condition, true, false)
-  }
-
-  register_binding("dplyr::if_else", if_else_binding)
-
   # Although base R ifelse allows `yes` and `no` to be different classes
   register_binding("base::ifelse", function(test, yes, no) {
-    if_else_binding(condition = test, true = yes, false = no)
+    args <- list(test, yes, no)
+    # For if_else, the first arg should be a bool Expression, and we don't
+    # want to consider that when casting the other args to the same type.
+    # But ideally `yes` and `no` args should be the same type.
+    args[-1] <- wrap_scalars(args[-1])
+
+    Expression$create("if_else", args = args)
+  })
+
+  register_binding("dplyr::if_else", function(condition, true, false, missing = NULL) {
+    out <- call_binding("base::ifelse", condition, true, false)
+    if (!is.null(missing)) {
+      out <- call_binding(
+        "base::ifelse",
+        call_binding("is.na", condition),
+        missing,
+        out
+      )
+    }
+    out
   })
 
   register_binding("dplyr::case_when", function(...) {

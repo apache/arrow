@@ -160,7 +160,7 @@ build_expr <- function(FUN,
     denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
 
     if (numerator_is_int && denominator_is_int) {
-      out_float <- build_expr(
+      out_float <- Expression$create(
         "if_else",
         build_expr("equal", args[[2]], 0L),
         Scalar$create(NA_integer_),
@@ -177,15 +177,7 @@ build_expr <- function(FUN,
   Expression$create(.array_function_map[[FUN]] %||% FUN, args = args, options = options)
 }
 
-wrap_scalars <- function(args, FUN) {
-  arrow_fun <- .array_function_map[[FUN]] %||% FUN
-  if (arrow_fun == "if_else") {
-    # For if_else, the first arg should be a bool Expression, and we don't
-    # want to consider that when casting the other args to the same type
-    args[-1] <- wrap_scalars(args[-1], FUN = "")
-    return(args)
-  }
-
+wrap_scalars <- function(args, FUN = "") {
   is_expr <- map_lgl(args, ~ inherits(., "Expression"))
   if (all(is_expr)) {
     # No wrapping is required
