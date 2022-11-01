@@ -53,18 +53,18 @@ library(dplyr, warn.conflicts = FALSE)
 
 some_model <- lm(mpg ~ disp + cyl, data = mtcars)
 register_scalar_function(
-    "mtcars_predict_mpg",
-    function(context, disp, cyl) {
-        predict(some_model, newdata = data.frame(disp, cyl))
-    },
-    in_type = schema(disp = float64(), cyl = float64()),
-    out_type = float64(),
-    auto_convert = TRUE
+  "mtcars_predict_mpg",
+  function(context, disp, cyl) {
+    predict(some_model, newdata = data.frame(disp, cyl))
+  },
+  in_type = schema(disp = float64(), cyl = float64()),
+  out_type = float64(),
+  auto_convert = TRUE
 )
 
 as_arrow_table(mtcars) \%>\%
-    transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) \%>\%
-    collect() \%>\%
-    head()
+  transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) \%>\%
+  collect() \%>\%
+  head()
 \dontshow{\}) # examplesIf}
 }

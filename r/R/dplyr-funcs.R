@@ -27,15 +27,17 @@ NULL
 #' Expressions. These are the basis for the `.data` mask inside dplyr methods.
 #'
 #' @section Writing bindings:
-#' When to use `build_expr()` vs. `Expression$create()`?
-#' Use `build_expr()` if you want to cast any non-Expressions (i.e. Scalar)
-#' to match the type of the Expression(s) in the arguments: for example,
-#' `build_expr("add_checked", int16_field, 1)` will cast `1` to `int16` so that
-#' `int16_field` is not upcast to `float64` to match `1` (a `double` in R).
-#' `Expression$create()` is lower level. Most of the bindings use it
-#' because they manage the preparation of the user-provided inputs
-#' and don't need or don't want to the automatic conversion of R objects
-#' to [Scalar] with a matching type.
+#' * `Expression$create()` will wrap any non-Expression inputs as Scalar
+#'   Expressions. If you want to try to coerce scalar inputs to match the type
+#'   of the Expression(s) in the arguments, call `wrap_scalars(args)` on the
+#'   args. For example, `Expression$create("add", args = list(int16_field, 1))`
+#'   would result in a `float64` type output because `1` is a `double` in R.
+#'   To prevent casting all of the data in `int16_field` to float and to
+#'   preserve it as int16, do
+#'   `Expression$create("add", args = wrap_scalars(list(int16_field, 1)))`
+#' * `build_expr()` is internal, used to handle logical and arithmetic
+#'   operators. You shouldn't use it in your bindings.
+#' * Inside your function, you can call any other binding with `call_binding()`.
 #'
 #' @param fun_name A string containing a function name in the form `"function"` or
 #'   `"package::function"`. The package name is currently not used but
@@ -63,7 +65,6 @@ NULL
 #' @return The previously registered binding or `NULL` if no previously
 #'   registered function existed.
 #' @keywords internal
-#'
 register_binding <- function(fun_name,
                              fun,
                              registry = nse_funcs,

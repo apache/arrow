@@ -127,7 +127,9 @@ register_bindings_array_function_map <- function() {
 }
 
 # Wrapper around Expression$create that:
-# (1) maps R function names to Arrow C++ compute ("/" --> "divide_checked")
+# (1) maps R operator names to Arrow C++ compute ("/" --> "divide_checked").
+#     This is convenient for Ops.Expression, despite the special handling
+#     for the division operators inside the function
 # (2) wraps R input args as Array or Scalar and attempts to cast them to
 #     match the type of the columns/fields in the expression. This is to prevent
 #     upcasting all of the data where a simple downcast of a Scalar works.

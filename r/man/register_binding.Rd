@@ -55,15 +55,19 @@ Expressions. These are the basis for the \code{.data} mask inside dplyr methods.
 }
 \section{Writing bindings}{
 
-When to use \code{build_expr()} vs. \code{Expression$create()}?
-Use \code{build_expr()} if you want to cast any non-Expressions (i.e. Scalar)
-to match the type of the Expression(s) in the arguments: for example,
-\code{build_expr("add_checked", int16_field, 1)} will cast \code{1} to \code{int16} so that
-\code{int16_field} is not upcast to \code{float64} to match \code{1} (a \code{double} in R).
-\code{Expression$create()} is lower level. Most of the bindings use it
-because they manage the preparation of the user-provided inputs
-and don't need or don't want to the automatic conversion of R objects
-to \link{Scalar} with a matching type.
+\itemize{
+\item \code{Expression$create()} will wrap any non-Expression inputs as Scalar
+Expressions. If you want to try to coerce scalar inputs to match the type
+of the Expression(s) in the arguments, call \code{wrap_scalars(args)} on the
+args. For example, \code{Expression$create("add", args = list(int16_field, 1))}
+would result in a \code{float64} type output because \code{1} is a \code{double} in R.
+To prevent casting all of the data in \code{int16_field} to float and to
+preserve it as int16, do
+\code{Expression$create("add", args = wrap_scalars(list(int16_field, 1)))}
+\item \code{build_expr()} is internal, used to handle logical and arithmetic
+operators. You shouldn't use it in your bindings.
+\item Inside your function, you can call any other binding with \code{call_binding()}.
+}
 }
 
 \keyword{internal}

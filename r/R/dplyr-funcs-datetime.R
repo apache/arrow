@@ -469,7 +469,7 @@ register_bindings_duration <- function() {
 
       # we need to go build the subtract expression instead of `time1 - time2` to
       # prevent complaints when we try to subtract an R object from an Expression
-      cast(build_expr("-", time1, time2), duration("s"))
+      cast(call_binding("-", time1, time2), duration("s"))
     },
     notes = c(
       'only supports `units = "secs"` (the default);',

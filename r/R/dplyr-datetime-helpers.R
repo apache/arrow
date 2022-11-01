@@ -126,8 +126,11 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
     delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
     # TODO: revisit after ARROW-15862
     # (casting from int32 -> duration or double -> duration)
-    delta_in_days <- (delta_in_sec$cast(int64()) / 86400L)$cast(int32())
-    x <- build_expr("+", x, delta_in_days)
+    delta_in_days <- cast(
+      cast(delta_in_sec, int64()) / 86400L,
+      int32()
+    )
+    x <- call_binding("+", x, delta_in_days)
   }
 
   x
