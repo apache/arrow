@@ -2714,7 +2714,7 @@ TEST(Substrait, JoinRelEndToEnd) {
                 "selection": {
                   "directReference": {
                     "structField": {
-                      "field": 0
+                      "field": 2
                     }
                   },
                   "rootReference": {
@@ -2871,7 +2871,7 @@ TEST(Substrait, JoinRelWithEmit) {
                 "selection": {
                   "directReference": {
                     "structField": {
-                      "field": 0
+                      "field": 2
                     }
                   },
                   "rootReference": {
