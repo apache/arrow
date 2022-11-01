@@ -16,8 +16,6 @@
 // under the License.
 
 #include "arrow/engine/substrait/util.h"
-
-#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 

@@ -20,7 +20,7 @@
 #include <memory>
 #include <optional>
 
-#include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/registry.h"
 #include "arrow/engine/substrait/api.h"
 #include "arrow/engine/substrait/options.h"
