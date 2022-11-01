@@ -154,7 +154,7 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
 
 #endif  // ARROW_HAVE_SSE4_2
 
-#ifdef ARROW_HAVE_ARMV8_CRYPTO
+#ifdef ARROW_HAVE_NEON
 
 using VectorType = uint8x16_t;
 using VectorTypeDual = uint8x16x2_t;
@@ -237,7 +237,7 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
   }
 }
 
-#endif  // ARROW_HAVE_ARMV8_CRYPTO
+#endif  // ARROW_HAVE_NEON
 
 static void PlatformMemcpy(void* src, void* dst, size_t size) { memcpy(src, dst, size); }
 

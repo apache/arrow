@@ -379,7 +379,7 @@ register_scalar_function <- function(name, fun, in_type, out_type,
   RegisterScalarUDF(name, scalar_function)
 
   # register with dplyr binding (enables its use in mutate(), filter(), etc.)
-  binding_fun <- function(...) build_expr(name, ...)
+  binding_fun <- function(...) Expression$create(name, ...)
 
   # inject the value of `name` into the expression to avoid saving this
   # execution environment in the binding, which eliminates a warning when the

@@ -61,7 +61,6 @@ type Scalar interface {
 	// internal only functions for delegation
 	value() interface{}
 	equals(Scalar) bool
-	//TODO(zeroshade): approxEquals
 }
 
 type Releasable interface {

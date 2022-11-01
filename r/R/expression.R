@@ -171,7 +171,13 @@ Expression$create <- function(function_name,
                               args = list(...),
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
-  assert_that(is_list_of(args, "Expression"), msg = "Expression arguments must be Expression objects")
+  # Make sure all inputs are Expressions
+  args <- lapply(args, function(x) {
+    if (!inherits(x, "Expression")) {
+      x <- Expression$scalar(x)
+    }
+    x
+  })
   expr <- compute___expr__call(function_name, args, options)
   if (length(args)) {
     expr$schema <- unify_schemas(schemas = lapply(args, function(x) x$schema))
@@ -187,7 +193,10 @@ Expression$field_ref <- function(name) {
   compute___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
-  expr <- compute___expr__scalar(Scalar$create(x))
+  if (!inherits(x, "Scalar")) {
+    x <- Scalar$create(x)
+  }
+  expr <- compute___expr__scalar(x)
   expr$schema <- schema()
   expr
 }
@@ -208,21 +217,20 @@ build_expr <- function(FUN,
   }
   if (FUN == "%in%") {
     # Special-case %in%, which is different from the Array function name
+    value_set <- Array$create(args[[2]])
+    try(
+      value_set <- cast_or_parse(value_set, args[[1]]$type()),
+      silent = TRUE
+    )
+
     expr <- Expression$create("is_in", args[[1]],
       options = list(
-        # If args[[2]] is already an Arrow object (like a scalar),
-        # this wouldn't work
-        value_set = Array$create(args[[2]]),
+        value_set = value_set,
         skip_nulls = TRUE
       )
     )
   } else {
-    args <- lapply(args, function(x) {
-      if (!inherits(x, "Expression")) {
-        x <- Expression$scalar(x)
-      }
-      x
-    })
+    args <- wrap_scalars(args, FUN)
 
     # In Arrow, "divide" is one function, which does integer division on
     # integer inputs and floating-point division on floats
@@ -256,6 +264,101 @@ build_expr <- function(FUN,
     expr <- Expression$create(.array_function_map[[FUN]] %||% FUN, args = args, options = options)
   }
   expr
+}
+
+wrap_scalars <- function(args, FUN) {
+  arrow_fun <- .array_function_map[[FUN]] %||% FUN
+  if (arrow_fun == "if_else") {
+    # For if_else, the first arg should be a bool Expression, and we don't
+    # want to consider that when casting the other args to the same type
+    args[-1] <- wrap_scalars(args[-1], FUN = "")
+    return(args)
+  }
+
+  is_expr <- map_lgl(args, ~ inherits(., "Expression"))
+  if (all(is_expr)) {
+    # No wrapping is required
+    return(args)
+  }
+
+  args[!is_expr] <- lapply(args[!is_expr], Scalar$create)
+
+  # Some special casing by function
+  # * %/%: we switch behavior based on int vs. dbl in R (see build_expr) so skip
+  # * binary_repeat, list_element: 2nd arg must be integer, Acero will handle it
+  if (any(is_expr) && !(arrow_fun %in% c("binary_repeat", "list_element")) && !(FUN %in% "%/%")) {
+    try(
+      {
+        # If the Expression has no Schema embedded, we cannot resolve its
+        # type here, so this will error, hence the try() wrapping it
+        # This will also error if length(args[is_expr]) == 0, or
+        # if there are multiple exprs that do not share a common type.
+        to_type <- common_type(args[is_expr])
+        # Try casting to this type, but if the cast fails,
+        # we'll just keep the original
+        args[!is_expr] <- lapply(args[!is_expr], cast_or_parse, type = to_type)
+      },
+      silent = TRUE
+    )
+  }
+
+  args[!is_expr] <- lapply(args[!is_expr], Expression$scalar)
+  args
+}
+
+common_type <- function(exprs) {
+  types <- map(exprs, ~ .$type())
+  first_type <- types[[1]]
+  if (length(types) == 1 || all(map_lgl(types, ~ .$Equals(first_type)))) {
+    # Functions (in our tests) that have multiple exprs to check:
+    # * case_when
+    # * pmin/pmax
+    return(first_type)
+  }
+  stop("There is no common type in these expressions")
+}
+
+cast_or_parse <- function(x, type) {
+  to_type_id <- type$id
+  if (to_type_id %in% c(Type[["DECIMAL128"]], Type[["DECIMAL256"]])) {
+    # TODO: determine the minimum size of decimal (or integer) required to
+    # accommodate x
+    # We would like to keep calculations on decimal if that's what the data has
+    # so that we don't lose precision. However, there are some limitations
+    # today, so it makes sense to keep x as double (which is probably is from R)
+    # and let Acero cast the decimal to double to compute.
+    # You can specify in your query that x should be decimal or integer if you
+    # know it to be safe.
+    # * ARROW-17601: multiply(decimal, decimal) can fail to make output type
+    return(x)
+  }
+
+  # For most types, just cast.
+  # But for string -> date/time, we need to call a parsing function
+  if (x$type_id() %in% c(Type[["STRING"]], Type[["LARGE_STRING"]])) {
+    if (to_type_id %in% c(Type[["DATE32"]], Type[["DATE64"]])) {
+      x <- call_function(
+        "strptime",
+        x,
+        options = list(format = "%Y-%m-%d", unit = 0L)
+      )
+    } else if (to_type_id == Type[["TIMESTAMP"]]) {
+      x <- call_function(
+        "strptime",
+        x,
+        options = list(format = "%Y-%m-%d %H:%M:%S", unit = 1L)
+      )
+      # R assumes timestamps without timezone specified are
+      # local timezone while Arrow assumes UTC. For consistency
+      # with R behavior, specify local timezone here.
+      x <- call_function(
+        "assume_timezone",
+        x,
+        options = list(timezone = Sys.timezone())
+      )
+    }
+  }
+  x$cast(type)
 }
 
 #' @export
