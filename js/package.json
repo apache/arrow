@@ -5,6 +5,11 @@
     "arrow2csv": "bin/arrow2csv.js"
   },
   "type": "module",
+  "exports": {
+      ".": "targets/esnext/esm/arrow.dom.mjs",
+      "./*": "targets/esnext/esm/*"
+  },
+  "main": "index.ts",
   "scripts": {
     "lerna": "lerna",
     "test": "cross-env NODE_NO_WARNINGS=1 gulp test",

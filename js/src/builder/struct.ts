@@ -25,10 +25,16 @@ import { Struct, TypeMap } from '../type.js';
 export class StructBuilder<T extends TypeMap = any, TNull = any> extends Builder<Struct<T>, TNull> {
     public setValue(index: number, value: Struct<T>['TValue']) {
         const { children, type } = this;
+	console.log("YOINK", value)
+	console.log(index)
+	console.log(children)
         switch (Array.isArray(value) || value.constructor) {
             case true: return type.children.forEach((_, i) => children[i].set(index, value[i]));
             case Map: return type.children.forEach((f, i) => children[i].set(index, value.get(f.name)));
-            default: return type.children.forEach((f, i) => children[i].set(index, value[f.name]));
+            default: return type.children.forEach((f, i) => {
+		    console.log("in the belly of the whale", f.name,  f, i)
+		    children[i].set(index, value[f.name])
+	    });
         }
     }
 

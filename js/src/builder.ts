@@ -237,6 +237,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @returns {this} The updated `Builder` instance.
      */
     public set(index: number, value: T['TValue'] | TNull) {
+	console.log("Oh my oh my", this._isValid)
         if (this.setValid(index, this.isValid(value))) {
             this.setValue(index, value);
         }
@@ -367,6 +368,7 @@ export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_
         const pending = this._pending || (this._pending = new Map());
         const current = pending.get(index);
         current && (this._pendingLength -= current.length);
+	console.log("OH FUCK FUCK FUCK", index, value)
         this._pendingLength += (value instanceof MapRow) ? value[kKeys].length : value.length;
         pending.set(index, value);
     }

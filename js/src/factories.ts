@@ -83,7 +83,7 @@ export function vectorFromArray(init: any, type?: dtypes.DataType) {
     if (init instanceof Data || init instanceof Vector || init.type instanceof dtypes.DataType || ArrayBuffer.isView(init)) {
         return makeVector(init as any);
     }
-    const options: IterableBuilderOptions = { type: type ?? inferType(init), nullValues: [null] };
+    const options: IterableBuilderOptions = { type: type ?? inferType(init), nullValues: [null, undefined] };
     const chunks = [...builderThroughIterable(options)(init)];
     const vector = chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
     if (dtypes.DataType.isDictionary(vector.type)) {
@@ -229,6 +229,7 @@ export function builderThroughIterable<T extends dtypes.DataType = any, TNull = 
         let numChunks = 0;
         const builder = makeBuilder(options);
         for (const value of source) {
+	    console.log("OH NO", value)
             if (builder.append(value)[sizeProperty] >= highWaterMark) {
                 ++numChunks && (yield builder.toVector());
             }
