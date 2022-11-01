@@ -198,20 +198,15 @@ struct StructFieldFunctor {
     const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
     std::shared_ptr<Array> current = MakeArray(batch[0].array.ToArrayData());
 
-    // Specific struct handling
-    if (current->type()->id() == Type::STRUCT) {
-      ARROW_ASSIGN_OR_RAISE(current, ApplyFieldRef(ctx, options.field_ref, current));
-      out->value = std::move(current->data());
-      return Status::OK();
+    FieldPath field_path;
+    if (options.field_ref.IsNested() || options.field_ref.IsName()) {
+      ARROW_ASSIGN_OR_RAISE(field_path, options.field_ref.FindOne(*current->type()));
+    } else {
+      DCHECK(options.field_ref.IsFieldPath());
+      field_path = *options.field_ref.field_path();
     }
 
-    // indices required now for remaining union types, which is part of field_path
-    if (!options.field_ref.IsFieldPath()) {
-      return Status::Invalid("Indices required for: ", current->type()->ToString());
-    }
-
-    // union types
-    for (const auto& index : options.field_ref.field_path()->indices()) {
+    for (const auto& index : field_path.indices()) {
       RETURN_NOT_OK(CheckIndex(index, *current->type()));
       switch (current->type()->id()) {
         case Type::STRUCT: {
@@ -264,29 +259,6 @@ struct StructFieldFunctor {
     }
     out->value = std::move(current->data());
     return Status::OK();
-  }
-
-  static Result<std::shared_ptr<Array>> ApplyFieldRef(KernelContext* ctx,
-                                                      const FieldRef& field_ref,
-                                                      std::shared_ptr<Array> current) {
-    if (current->type_id() != Type::STRUCT) {
-      return Status::Invalid("Not a StructArray: ", current->ToString(),
-                             "\nMaybe a bad FieldRef? ", field_ref.ToString());
-    }
-
-    FieldPath field_path;
-    if (field_ref.IsNested() || field_ref.IsName()) {
-      ARROW_ASSIGN_OR_RAISE(field_path, field_ref.FindOne(*current->type()));
-    } else {
-      field_path = *field_ref.field_path();
-    }
-
-    for (const auto& idx : field_path.indices()) {
-      ARROW_RETURN_NOT_OK(CheckIndex(idx, *current->type()));
-      const auto& array = checked_cast<const StructArray&>(*current);
-      ARROW_ASSIGN_OR_RAISE(current, array.GetFlattenedField(idx, ctx->memory_pool()));
-    }
-    return current;
   }
 
   static Status CheckIndex(int index, const DataType& type) {
