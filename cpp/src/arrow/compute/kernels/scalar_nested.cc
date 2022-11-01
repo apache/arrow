@@ -190,19 +190,13 @@ struct ListSlice {
     const auto n_offsets = static_cast<offset_type>(
         static_cast<size_t>(list_.GetBuffer(1)->size()) / sizeof(offset_type));
 
-    // validity bitmap if set.
-    std::unique_ptr<arrow::internal::Bitmap> validity_bitmap;
-    if (list_.buffers[0].data != nullptr) {
-      arrow::internal::Bitmap bitmap{list_.buffers[0].data, list_.offset, list_.length};
-      validity_bitmap = std::make_unique<arrow::internal::Bitmap>(bitmap);
-    }
     const ArraySpan& list_values = list_.child_data[0];
 
     auto list_builder = checked_cast<BuilderType*>(&builder);
     for (auto i = 0; i < n_offsets - 1; ++i) {
       const offset_type offset = offsets[i];
       const offset_type next_offset = offsets[i + 1];
-      if (validity_bitmap != nullptr && !validity_bitmap->GetBit(i)) {
+      if (list_.IsNull(i)) {
         RETURN_NOT_OK(list_builder->AppendNull());
       } else {
         RETURN_NOT_OK(SetValues<BuilderType>(list_builder, offset, next_offset, &opts,
