@@ -2989,7 +2989,7 @@ def test_list_slice_bad_parameters():
     arr = pa.array([[1]], pa.list_(pa.int8(), 1))
     msg = r"`start`(.*) should be greater than 0 and smaller than `stop`(.*)"
     with pytest.raises(pa.ArrowInvalid, match=msg):
-        pc.list_slice(arr, -1)  # negative start?
+        pc.list_slice(arr, -1, 1)  # negative start?
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 2, 1)  # start > stop?
 
@@ -3002,10 +3002,18 @@ def test_list_slice_bad_parameters():
     with pytest.raises(NotImplementedError, match=msg):
         pc.list_slice(arr, 0, 1, step=2)
 
-    # TODO: support stop == -1; slice to end
-    msg = "Setting `stop==-1` to signify slicing to end, not yet implemented."
+    # TODO: support stop == None; slice to end
+    # This fails first at resolve, b/c it doesn't now how big the
+    # resulting FixedSizeListArray item size will be
+    msg = "Unable to produce FixedSizeListArray without `stop`"
     with pytest.raises(NotImplementedError, match=msg):
-        pc.list_slice(arr, 0, -1)
+        pc.list_slice(arr, 0, return_fixed_size_list=True)
+
+    # cont. This fails inside of kernel function; resolver doesn't
+    # need to know the item size for ListArray.
+    msg = "Slicing to end not yet implemented*"
+    with pytest.raises(NotImplementedError, match=msg):
+        pc.list_slice(arr, 0, return_fixed_size_list=False)
 
 
 def test_list_slice_non_nulls():

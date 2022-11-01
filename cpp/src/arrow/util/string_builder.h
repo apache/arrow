@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -43,6 +44,11 @@ class ARROW_EXPORT StringStreamWrapper {
 };
 
 }  // namespace detail
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, std::optional<T> const& opt) {
+  return opt ? os << opt.value() : os;
+}
 
 template <typename Head>
 void StringBuilderRecursive(std::ostream& stream, Head&& head) {

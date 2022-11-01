@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -348,13 +349,16 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
 
 class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
  public:
-  explicit ListSliceOptions(int64_t start,
-                            int64_t stop = std::numeric_limits<int64_t>::max(),
+  explicit ListSliceOptions(int64_t start, std::optional<int64_t> stop = std::nullopt,
                             int64_t step = 1, bool return_fixed_size_list = true);
   ListSliceOptions();
   static constexpr char const kTypeName[] = "ListSliceOptions";
-  /// The start, stop and step of list slicing.
-  int64_t start, stop, step;
+  /// The start of list slicing.
+  int64_t start;
+  /// Optional stop of list slicing. If not set, then slice to end. (NotImplemented)
+  std::optional<int64_t> stop;
+  /// Slicing step
+  int64_t step;
   /// Whether to return a FixedSizeListArray. If stop is after a list element's length,
   /// nulls will be appended to the requested slice size.
   bool return_fixed_size_list;

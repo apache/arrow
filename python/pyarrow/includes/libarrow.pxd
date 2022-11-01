@@ -2080,9 +2080,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CListSliceOptions \
             "arrow::compute::ListSliceOptions"(CFunctionOptions):
-        CListSliceOptions(int64_t start, int64_t stop, int64_t step, c_bool return_fixed_size_list)
+        CListSliceOptions(int64_t start, optional[int64_t] stop, 
+                          int64_t step, c_bool return_fixed_size_list)
         int64_t start
-        int64_t stop
+        optional[int64_t] stop
         int64_t step
         c_bool return_fixed_size_list
 

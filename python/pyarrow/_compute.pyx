@@ -1169,8 +1169,22 @@ class SliceOptions(_SliceOptions):
 
 
 cdef class _ListSliceOptions(FunctionOptions):
-    def _set_options(self, start, stop=-1, step=1, return_fixed_size_list=True):
-        self.wrapped.reset(new CListSliceOptions(start, stop, step, return_fixed_size_list))
+    cpdef _set_options(self, start, stop=None, step=1, return_fixed_size_list=True):
+        # NB: Assigning optional[int64_t] on stack seems available once Cython>=3 available.
+        # due to cpp_locals directive:
+        # https://cython.readthedocs.io/en/latest/src/userguide/wrapping_CPlusPlus.html#cpp-locals-directive
+        # additional ref: https://stackoverflow.com/a/73282509/4601439
+        cdef:
+            CListSliceOptions* opts
+        if stop is None:
+            opts = new CListSliceOptions(start,
+                                         <optional[int64_t]>nullopt,
+                                         step, return_fixed_size_list)
+        else:
+            opts = new CListSliceOptions(start,
+                                         <optional[int64_t]>(<int64_t>stop),
+                                         step, return_fixed_size_list)
+        self.wrapped.reset(opts)
 
 
 class ListSliceOptions(_ListSliceOptions):
@@ -1181,16 +1195,16 @@ class ListSliceOptions(_ListSliceOptions):
     ----------
     start : int
         Index to start slicing inner list elements (inclusive).
-    stop : int, default -1
+    stop : Optional[int], default None
         If given, index to stop slicing at (exclusive).
-        If not given, slicing will stop at the end.
+        If not given, slicing will stop at the end. (NotImplemented)
     step : int, default 1
         Slice step.
     return_fixed_size_list : bool, default True
         Whether to return a FixedSizeListArray.
     """
 
-    def __init__(self, start, stop=-1, step=1, return_fixed_size_list=True):
+    def __init__(self, start, stop=None, step=1, return_fixed_size_list=True):
         self._set_options(start, stop, step, return_fixed_size_list)
 
 
