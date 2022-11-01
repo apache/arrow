@@ -277,7 +277,8 @@ public class TestUtils {
     vectors.add(new IntervalDayVector("intervalDay_vector", allocator));
     vectors.add(new IntervalYearVector("intervalYear_vector", allocator));
     vectors.add(new IntervalMonthDayNanoVector("intervalMonthDayNano_vector", allocator));
-    vectors.add(new DurationVector("duration_vector", new FieldType(true, new ArrowType.Duration(TimeUnit.SECOND), null), allocator));
+    vectors.add(new DurationVector("duration_vector",
+        new FieldType(true, new ArrowType.Duration(TimeUnit.SECOND), null), allocator));
     vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
     return vectors;
   }
