@@ -147,7 +147,7 @@ create_binding_cache <- function() {
   arrow_funcs <- set_names(
     lapply(all_arrow_funs, function(fun) {
       force(fun)
-      function(...) build_expr(fun, ...)
+      function(...) Expression$create(fun, ...)
     }),
     paste0("arrow_", all_arrow_funs)
   )

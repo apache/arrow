@@ -16,6 +16,24 @@
 # under the License.
 
 register_bindings_conditional <- function() {
+  register_binding("%in%", function(x, table) {
+    # We use `is_in` here, unlike with Arrays, which use `is_in_meta_binary`
+    value_set <- Array$create(table)
+    # If possible, `table` should be the same type as `x`
+    # Try downcasting here; otherwise Acero may upcast x to table's type
+    try(
+      value_set <- cast_or_parse(value_set, x$type()),
+      silent = TRUE
+    )
+
+    expr <- Expression$create("is_in", x,
+      options = list(
+        value_set = value_set,
+        skip_nulls = TRUE
+      )
+    )
+  })
+
   register_binding("dplyr::coalesce", function(...) {
     args <- list2(...)
     if (length(args) < 1) {
