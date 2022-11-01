@@ -353,7 +353,11 @@ class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
                             int64_t step = 1, bool return_fixed_size_list = true);
   ListSliceOptions();
   static constexpr char const kTypeName[] = "ListSliceOptions";
-  int64_t start, stop, step, return_fixed_size_list;
+  /// The start, stop and step of list slicing.
+  int64_t start, stop, step;
+  /// Whether to return a FixedSizeListArray. If stop is after a list element's length,
+  /// nulls will be appended to the requested slice size.
+  bool return_fixed_size_list;
 };
 
 class ARROW_EXPORT NullOptions : public FunctionOptions {
