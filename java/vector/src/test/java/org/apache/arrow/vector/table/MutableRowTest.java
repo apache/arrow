@@ -57,9 +57,11 @@ import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
 import org.apache.arrow.vector.holders.NullableTimeNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMicroHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampMicroTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecTZHolder;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
@@ -656,6 +658,62 @@ class MutableRowTest {
       holder.value = 5;
       c.setTimeStampMilliTZ(vectorPosition, holder);
       assertEquals(5, c.getTimeStampMilliTZ(vectorPosition));
+    }
+  }
+
+  @Test
+  void setTimeStampMicroTZ() {
+    List<FieldVector> vectorList = timezoneTemporalVectors(allocator, 2);
+    int vectorPosition = 2;
+    String vectorName = "timeStampMicroTZ_vector";
+
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setTimeStampMicroTZ(vectorName, 1);
+      assertEquals(1, c.getTimeStampMicroTZ(vectorName));
+      c.setTimeStampMicroTZ(vectorName, 2);
+      assertEquals(2, c.getTimeStampMicroTZ(vectorName));
+      c.setTimeStampMicroTZ(vectorPosition, 3);
+      assertEquals(3, c.getTimeStampMicroTZ(vectorName));
+
+      // test with holder
+      NullableTimeStampMicroTZHolder holder = new NullableTimeStampMicroTZHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setTimeStampMicroTZ(vectorName, holder);
+      assertEquals(4, c.getTimeStampMicroTZ(vectorName));
+      holder.value = 5;
+      c.setTimeStampMicroTZ(vectorPosition, holder);
+      assertEquals(5, c.getTimeStampMicroTZ(vectorPosition));
+    }
+  }
+
+  @Test
+  void setTimeStampNanoTZ() {
+    List<FieldVector> vectorList = timezoneTemporalVectors(allocator, 2);
+    int vectorPosition = 3;
+    String vectorName = "timeStampNanoTZ_vector";
+
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setTimeStampNanoTZ(vectorName, 1);
+      assertEquals(1, c.getTimeStampNanoTZ(vectorName));
+      c.setTimeStampNanoTZ(vectorName, 2);
+      assertEquals(2, c.getTimeStampNanoTZ(vectorName));
+      c.setTimeStampNanoTZ(vectorPosition, 3);
+      assertEquals(3, c.getTimeStampNanoTZ(vectorName));
+
+      // test with holder
+      NullableTimeStampNanoTZHolder holder = new NullableTimeStampNanoTZHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setTimeStampNanoTZ(vectorName, holder);
+      assertEquals(4, c.getTimeStampNanoTZ(vectorName));
+      holder.value = 5;
+      c.setTimeStampNanoTZ(vectorPosition, holder);
+      assertEquals(5, c.getTimeStampNanoTZ(vectorPosition));
     }
   }
 
