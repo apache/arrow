@@ -506,47 +506,11 @@ def test_input_lifetime(unary_func_fixture):
     assert proxy_pool.bytes_allocated() == 0
 
 
-def test_aggregate_udf():
-
-    def init():
-        return pa.array([0])
-
-    def consume(ctx, x):
-        if isinstance(x, pa.Array):
-            count = len(x)
-        elif isinstance(x, pa.Scalar):
-            count = 1
-        return pc.add(pa.array([count]), ctx.state)
-
-    def merge(ctx, other_state):
-        new_state = pc.add(ctx.state, other_state)
-        return pa.array([new_state.as_py()])
-
-    def finalize(ctx):
-        return ctx.state
-
-    func_name = "simple_count"
-    unary_doc = {"summary": "count function",
-                 "description": "test agg count function"}
-
-    pc.register_scalar_aggregate_function(init,
-                                          consume,
-                                          merge,
-                                          finalize,
-                                          func_name,
-                                          unary_doc,
-                                          {"array": pa.int64()},
-                                          pa.int64())
-
-    print(pc.get_function(func_name))
-
-    print(pc.call_function(func_name, [pa.array([10, 20])]))
-    
 def test_aggregate_udf_with_custom_state():
-    
     class State:
-        def __init__(self, non_null):
+        def __init__(self, non_null=0, msg=""):
             self._non_null = non_null
+            self._msg = msg
 
         @property
         def non_null(self):
@@ -555,43 +519,49 @@ def test_aggregate_udf_with_custom_state():
         @non_null.setter
         def non_null(self, value):
             self._non_null = value
-            
+
+        @property
+        def msg(self):
+            return self._msg
+
         def __repr__(self):
             if self._non_null is None:
                 return "no values stored"
             else:
-                return "count: " + str(self._non_null)
-        
-        def next(self): 
-            return self._non_null
-        
-        def __iter__(self): 
-            return self
+                return "count: " + str(self.non_null) \
+                    + ", msg: " + str(self.msg)
 
+        def next(self):
+            print("next: ", self.msg, self.non_null)
+            return self.non_null
+
+        def __iter__(self):
+            print("iter: ", self.msg, self.non_null)
+            yield self.non_null
+
+        def __del__(self):
+            print("State.__del__, msg: " + str(self.msg))
 
     def init():
-        print(">>> Init")
-        state = State(1)
+        state = State(0, "@init")
         return state
 
     def consume(ctx, x):
-        print(">>> consume")
         if isinstance(x, pa.Array):
-            count = len(x)
+            count = pc.sum(pc.invert(pc.is_nan(x))).as_py()
         elif isinstance(x, pa.Scalar):
-            count = 1
-        print("state: ", ctx.state)
-        return pc.add(pa.array([count]), pa.array([ctx.state.non_null]))
+            if x.as_py():
+                count = 1
+        state_val = pc.add(pa.array([count]), pa.array([ctx.state.non_null]))
+        return State(state_val[0].as_py(), "@consume")
 
     def merge(ctx, other_state):
-        print(">>> merge")
-        print("os: ", other_state)
-        return pa.array([1])
+        merged_state_val = ctx.state.non_null + other_state.non_null
+        return State(merged_state_val, "@merge")
 
     def finalize(ctx):
-        print(">>> finalize")
         print(ctx.state)
-        return pa.array([2])
+        return pa.array([ctx.state.non_null])
 
     func_name = "simple_count_1"
     unary_doc = {"summary": "count function",
@@ -608,22 +578,5 @@ def test_aggregate_udf_with_custom_state():
 
     print(pc.get_function(func_name))
 
-    print(pc.call_function(func_name, [pa.array([10, 20])]))
-    
-
-
-def test_segfault_error():
-    func_name = "simple_count_x"
-    unary_doc = {"summary": "count function",
-                 "description": "test agg count function"}
-    
-    def func(ctx, x):
-        return x
-
-    pc.register_scalar_function(func,
-                                func_name,
-                                unary_doc,
-                                {"array": pa.int64()},
-                                pa.int64())
-    
-    print(pc.call_function(func_name, [pa.array([10])]))
+    print(pc.call_function(func_name, [
+          pa.array([10, 20, None, 30, None, 40])]))

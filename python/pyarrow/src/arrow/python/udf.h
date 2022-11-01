@@ -54,6 +54,8 @@ struct ARROW_PYTHON_EXPORT ScalarAggregateUdfContext {
   // TODO: do we need to standardize this
   // Meaning: do we have to Create a PythonAggregateState object or something separately.
   PyObject* state;
+
+  ~ScalarAggregateUdfContext();
 };
 
 

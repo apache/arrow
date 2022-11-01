@@ -2589,8 +2589,7 @@ cdef _scalar_agg_merge_udf_callback(merge_function, const CScalarAggregateUdfCon
     print("context: ", context)
     print("context.state: ", context.state)
     print("other_state: ", other_state)
-    print("*other_state: ", *other_state)
-    return merge_function(context, *other_state)
+    return merge_function(context, other_state)
 
 
 cdef _scalar_agg_finalize_udf_callback(finalize_function, const CScalarAggregateUdfContext& c_context):
