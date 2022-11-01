@@ -377,6 +377,8 @@ func (b *StructBuilder) unmarshalOne(dec *json.Decoder) error {
 
 			idx, ok := b.dtype.(*arrow.StructType).FieldIdx(key)
 			if !ok {
+				var extra interface{}
+				dec.Decode(&extra)
 				continue
 			}
 
