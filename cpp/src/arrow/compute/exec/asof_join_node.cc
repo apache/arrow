@@ -86,6 +86,10 @@ class ConcurrentQueue {
   T Pop() {
     std::unique_lock<std::mutex> lock(mutex_);
     cond_.wait(lock, [&] { return !queue_.empty(); });
+    return PopUnlocked();
+  }
+
+  T PopUnlocked() {
     auto item = queue_.front();
     queue_.pop();
     return item;
@@ -93,18 +97,28 @@ class ConcurrentQueue {
 
   void Push(const T& item) {
     std::unique_lock<std::mutex> lock(mutex_);
+    return PushUnlocked(item);
+  }
+
+  void PushUnlocked(const T& item) {
     queue_.push(item);
     cond_.notify_one();
   }
 
   void Clear() {
     std::unique_lock<std::mutex> lock(mutex_);
-    queue_ = std::queue<T>();
+    ClearUnlocked();
   }
 
+  void ClearUnlocked() { queue_ = std::queue<T>(); }
+
   std::optional<T> TryPop() {
-    // Try to pop the oldest value from the queue (or return nullopt if none)
     std::unique_lock<std::mutex> lock(mutex_);
+    return TryPopUnlocked();
+  }
+
+  std::optional<T> TryPopUnlocked() {
+    // Try to pop the oldest value from the queue (or return nullopt if none)
     if (queue_.empty()) {
       return std::nullopt;
     } else {
@@ -126,6 +140,9 @@ class ConcurrentQueue {
   const T& UnsyncFront() const { return queue_.front(); }
 
   size_t UnsyncSize() const { return queue_.size(); }
+
+ protected:
+  std::mutex& GetMutex() { return mutex_; }
 
  private:
   std::queue<T> queue_;
@@ -242,8 +259,8 @@ class BackpressureController : public BackpressureControl {
                          std::atomic<int32_t>& backpressure_counter)
       : node_(node), output_(output), backpressure_counter_(backpressure_counter) {}
 
-  void Pause() override { node_->PauseProducing(output_, backpressure_counter_++); }
-  void Resume() override { node_->ResumeProducing(output_, backpressure_counter_++); }
+  void Pause() override { node_->PauseProducing(output_, ++backpressure_counter_); }
+  void Resume() override { node_->ResumeProducing(output_, ++backpressure_counter_); }
 
  private:
   ExecNode* node_;
@@ -310,23 +327,27 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
       : handler_(std::move(handler)) {}
 
   T Pop() {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::Pop();
+    return ConcurrentQueue<T>::PopUnlocked();
   }
 
   void Push(const T& item) {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
-    ConcurrentQueue<T>::Push(item);
+    ConcurrentQueue<T>::PushUnlocked(item);
   }
 
   void Clear() {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
-    ConcurrentQueue<T>::Clear();
+    ConcurrentQueue<T>::ClearUnlocked();
   }
 
   std::optional<T> TryPop() {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::TryPop();
+    return ConcurrentQueue<T>::TryPopUnlocked();
   }
 
  private:
@@ -914,10 +935,29 @@ class AsofJoinNode : public ExecNode {
     }
   }
 
-  void Process() {
+  template <typename Callable>
+  struct Defer {
+    Callable callable;
+    explicit Defer(Callable callable) : callable(std::move(callable)) {}
+    ~Defer() noexcept { callable(); }
+  };
+
+  bool CheckEnded() {
+    if (state_.at(0)->Finished()) {
+      ErrorIfNotOk(plan_->ScheduleTask([this] {
+        Defer cleanup([this]() { finished_.MarkFinished(); });
+        outputs_[0]->InputFinished(this, batches_produced_);
+        return Status::OK();
+      }));
+      return false;
+    }
+    return true;
+  }
+
+  bool Process() {
     std::lock_guard<std::mutex> guard(gate_);
-    if (finished_.is_finished()) {
-      return;
+    if (!CheckEnded()) {
+      return false;
     }
 
     // Process batches while we have data
@@ -935,7 +975,7 @@ class AsofJoinNode : public ExecNode {
         }));
       } else {
         ErrorIfNotOk(result.status());
-        return;
+        return false;
       }
     }
 
@@ -944,13 +984,13 @@ class AsofJoinNode : public ExecNode {
     //
     // It may happen here in cases where InputFinished was called before we were finished
     // producing results (so we didn't know the output size at that time)
-    if (state_.at(0)->Finished()) {
-      ErrorIfNotOk(plan_->ScheduleTask([this] {
-        outputs_[0]->InputFinished(this, batches_produced_);
-        return Status::OK();
-      }));
-      finished_.MarkFinished();
+    if (!CheckEnded()) {
+      return false;
     }
+
+    // There is no more we can do now but there is still work remaining for later when
+    // more data arrives.
+    return true;
   }
 
   void ProcessThread() {
@@ -958,7 +998,9 @@ class AsofJoinNode : public ExecNode {
       if (!process_.Pop()) {
         return;
       }
-      Process();
+      if (!Process()) {
+        return;
+      }
     }
   }
 
@@ -1165,7 +1207,6 @@ class AsofJoinNode : public ExecNode {
     size_t n_by = 0;
     for (size_t i = 0; i < input_keys.size(); ++i) {
       const auto& by_key = input_keys[i].by_key;
-      std::cout << "Input: " << i << " by_key.size()=" << by_key.size() << std::endl;
       if (i == 0) {
         n_by = by_key.size();
       } else if (n_by != by_key.size()) {

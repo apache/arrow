@@ -99,6 +99,10 @@ Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen,
     bool use_threads = true);
 
+AsyncGenerator<std::optional<ExecBatch>> MakeIntegerBatchGen(
+    const std::vector<std::function<int64_t(int)>>& gens,
+    const std::shared_ptr<Schema>& schema, int num_batches, int batch_size);
+
 ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBasicBatches();
 
@@ -125,6 +129,10 @@ Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>
 ARROW_TESTING_EXPORT
 void AssertTablesEqual(const std::shared_ptr<Table>& exp,
                        const std::shared_ptr<Table>& act);
+
+ARROW_TESTING_EXPORT
+void AssertTablesEqualUnordered(const std::shared_ptr<Table>& exp,
+                                const std::shared_ptr<Table>& act);
 
 ARROW_TESTING_EXPORT
 void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,

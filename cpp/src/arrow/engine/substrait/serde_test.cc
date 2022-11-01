@@ -23,6 +23,7 @@
 #include "arrow/compute/exec/asof_join_node.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
@@ -2252,7 +2253,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   }
   ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
                        GetTableFromPlan(roundtripped_filter, exec_context, dummy_schema));
-  EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
+  compute::AssertTablesEqualUnordered(expected_table, rnd_trp_table);
 }
 
 NamedTableProvider ProvideMadeTable(

@@ -32,9 +32,21 @@ struct ConcatNodeOptions : public ExecNodeOptions {
 
 void RegisterConcatNode(ExecFactoryRegistry* registry);
 
-AsyncGenerator<std::optional<ExecBatch>> MakeNoisyDelayedGen(BatchesWithSchema src,
-                                                             std::string label,
-                                                             double delay_sec);
+// \brief Make a delaying source that is optionally noisy (prints when it emits)
+AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(
+    Iterator<std::optional<ExecBatch>> src, std::string label, double delay_sec,
+    bool noisy = false);
+
+// \brief Make a delaying source that is optionally noisy (prints when it emits)
+AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(
+    AsyncGenerator<std::optional<ExecBatch>> src, std::string label, double delay_sec,
+    bool noisy = false);
+
+// \brief Make a delaying source that is optionally noisy (prints when it emits)
+AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(BatchesWithSchema src,
+                                                        std::string label,
+                                                        double delay_sec,
+                                                        bool noisy = false);
 
 }  // namespace compute
 }  // namespace arrow

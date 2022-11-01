@@ -28,6 +28,7 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/iterator.h"
 
 namespace arrow {
 
@@ -269,37 +270,59 @@ void RegisterConcatNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("concat", ConcatNode::Make));
 }
 
-// Make a source that is both noisy (prints when it emits)
-// and slowed by some delay
-AsyncGenerator<std::optional<ExecBatch>> MakeNoisyDelayedGen(BatchesWithSchema src,
-                                                             std::string label,
-                                                             double delay_sec) {
-  std::vector<std::optional<ExecBatch>> opt_batches = ::arrow::internal::MapVector(
-      [](ExecBatch batch) { return std::make_optional(std::move(batch)); }, src.batches);
+AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(
+    Iterator<std::optional<ExecBatch>> src, std::string label, double delay_sec,
+    bool noisy) {
   struct DelayedIoGenState {
-    DelayedIoGenState(std::vector<std::optional<ExecBatch>> batches, double delay_sec,
-                      std::string label)
-        : batches(std::move(batches)), delay_sec(delay_sec), label(std::move(label)) {}
+    DelayedIoGenState(Iterator<std::optional<ExecBatch>> batch_it, double delay_sec,
+                      std::string label, bool noisy)
+        : batch_it(std::move(batch_it)),
+          delay_sec(delay_sec),
+          label(std::move(label)),
+          noisy(noisy) {}
     std::optional<ExecBatch> Next() {
-      if (index == batches.size()) {
+      Result<std::optional<ExecBatch>> opt_batch_res = batch_it.Next();
+      if (!opt_batch_res.ok()) {
         return std::nullopt;
       }
-      std::cout << label + ": asking for batch(" + std::to_string(index) + ")\n";
+      std::optional<ExecBatch> opt_batch = opt_batch_res.ValueOrDie();
+      if (!opt_batch) {
+        return std::nullopt;
+      }
+      if (noisy) {
+        std::cout << label + ": asking for batch(" + std::to_string(index) + ")\n";
+      }
       SleepFor(delay_sec);
-      return batches[index++];
+      ++index;
+      return *opt_batch;
     }
 
-    std::vector<std::optional<ExecBatch>> batches;
+    Iterator<std::optional<ExecBatch>> batch_it;
     double delay_sec;
     std::string label;
+    bool noisy;
     std::size_t index = 0;
   };
-  auto state = std::make_shared<DelayedIoGenState>(std::move(opt_batches), delay_sec,
-                                                   std::move(label));
+  auto state = std::make_shared<DelayedIoGenState>(std::move(src), delay_sec,
+                                                   std::move(label), noisy);
   return [state]() {
     return DeferNotOk(::arrow::io::default_io_context().executor()->Submit(
         [state]() { return state->Next(); }));
   };
+}
+
+AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(
+    AsyncGenerator<std::optional<ExecBatch>> src, std::string label, double delay_sec,
+    bool noisy) {
+  return MakeDelayedGen(MakeGeneratorIterator(src), label, delay_sec, noisy);
+}
+
+AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(BatchesWithSchema src,
+                                                        std::string label,
+                                                        double delay_sec, bool noisy) {
+  std::vector<std::optional<ExecBatch>> opt_batches = ::arrow::internal::MapVector(
+      [](ExecBatch batch) { return std::make_optional(std::move(batch)); }, src.batches);
+  return MakeDelayedGen(MakeVectorIterator(opt_batches), label, delay_sec, noisy);
 }
 
 }  // namespace compute

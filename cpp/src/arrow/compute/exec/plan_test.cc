@@ -1495,13 +1495,15 @@ TEST(ExecPlanExecution, BackpressureDemo) {
   BatchesWithSchema two = MakeRandomBatches(schema_two, /*num_batches=*/100);
   BatchesWithSchema three = MakeRandomBatches(schema_three, /*num_batches=*/100);
 
+  constexpr bool noisy = true;
   compute::Declaration src_one = {
-      "source", SourceNodeOptions(one.schema, MakeNoisyDelayedGen(one, "0:fast", 0.01))};
+      "source",
+      SourceNodeOptions(one.schema, MakeDelayedGen(one, "0:fast", 0.01, noisy))};
   compute::Declaration src_two = {
-      "source", SourceNodeOptions(two.schema, MakeNoisyDelayedGen(two, "1:slow", 0.1))};
+      "source", SourceNodeOptions(two.schema, MakeDelayedGen(two, "1:slow", 0.1, noisy))};
   compute::Declaration src_three = {
       "source",
-      SourceNodeOptions(three.schema, MakeNoisyDelayedGen(three, "2:fast", 0.01))};
+      SourceNodeOptions(three.schema, MakeDelayedGen(three, "2:fast", 0.01, noisy))};
 
   compute::Declaration concat = {
       "concat", {src_one, src_two, src_three}, ConcatNodeOptions()};
