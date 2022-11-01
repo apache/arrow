@@ -53,6 +53,12 @@ constexpr const char* kSubstraitComparisonFunctionsUri =
 constexpr const char* kSubstraitDatetimeFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_datetime.yaml";
+constexpr const char* kSubstraitLogarithmicFunctionsUri =
+    "https://github.com/substrait-io/substrait/blob/main/extensions/"
+    "functions_logarithmic.yaml";
+constexpr const char* kSubstraitRoundingFunctionsUri =
+    "https://github.com/substrait-io/substrait/blob/main/extensions/"
+    "functions_rounding.yaml";
 constexpr const char* kSubstraitStringFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_string.yaml";
