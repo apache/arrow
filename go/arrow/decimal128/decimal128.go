@@ -210,6 +210,29 @@ func FromFloat64(v float64, prec, scale int32) (Num, error) {
 	return fromPositiveFloat64(v, prec, scale)
 }
 
+func FromString(v string, prec, scale int32) (n Num, err error) {
+	var out *big.Float
+	// there's no strong rationale for using ToNearestAway, it's just
+	// what got me the closest equivalent values with the values
+	// that I tested with, and there isn't a good way to push
+	// an option all the way down here to control it.
+	out, _, err = big.ParseFloat(v, 10, 127, big.ToNearestAway)
+	if err != nil {
+		return
+	}
+
+	var tmp big.Int
+	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).Int(&tmp)
+	if val.BitLen() > 127 {
+		return Num{}, errors.New("bitlen too large for decimal128")
+	}
+	n = FromBigInt(val)
+	if !n.FitsInPrecision(prec) {
+		err = fmt.Errorf("val %v doesn't fit in precision %d", n, prec)
+	}
+	return
+}
+
 // ToFloat32 returns a float32 value representative of this decimal128.Num,
 // but with the given scale.
 func (n Num) ToFloat32(scale int32) float32 {
