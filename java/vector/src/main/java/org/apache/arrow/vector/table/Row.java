@@ -30,6 +30,7 @@ import java.util.NoSuchElementException;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
@@ -98,6 +99,8 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
 
 /**
+ * TODO: Modify the getters for Duration and others so that they return something better than ArrowBuf when possible
+ *
  * Row is a positionable, immutable cursor backed by a {@link Table}. 
  *
  * <p>Getters are provided for most vector types. The exceptions being {@link org.apache.arrow.vector.NullVector},
@@ -738,6 +741,26 @@ public class Row implements Iterator<Row> {
   public void getBit(int columnIndex, NullableBitHolder holder) {
     BitVector vector = (BitVector) table.getVector(columnIndex);
     vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
+   * is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * present but has a different type.
+   */
+  public long getDateMilli(String columnName) {
+    DateMilliVector vector = (DateMilliVector) table.getVector(columnName);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Returns a long from the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type.
+   */
+  public long getDateMilli(int columnIndex) {
+    DateMilliVector vector = (DateMilliVector) table.getVector(columnIndex);
+    return vector.get(rowNumber);
   }
 
   /**

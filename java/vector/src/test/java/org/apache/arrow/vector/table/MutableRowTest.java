@@ -23,6 +23,7 @@ import static org.apache.arrow.vector.table.TestUtils.intPlusVarcharColumns;
 import static org.apache.arrow.vector.table.TestUtils.intervalVectors;
 import static org.apache.arrow.vector.table.TestUtils.numericVectors;
 import static org.apache.arrow.vector.table.TestUtils.simpleTemporalVectors;
+import static org.apache.arrow.vector.table.TestUtils.timezoneTemporalVectors;
 import static org.apache.arrow.vector.table.TestUtils.twoIntColumns;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -42,6 +43,7 @@ import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
+import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
@@ -56,8 +58,10 @@ import org.apache.arrow.vector.holders.NullableTimeNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMicroHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampMilliTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampSecTZHolder;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
@@ -596,6 +600,90 @@ class MutableRowTest {
       holder.value = 5;
       c.setTimeStampNano(vectorPosition, holder);
       assertEquals(5, c.getTimeStampNano(vectorPosition));
+    }
+  }
+
+  @Test
+  void setTimeStampSecTZ() {
+    List<FieldVector> vectorList = timezoneTemporalVectors(allocator, 2);
+    int vectorPosition = 0;
+    String vectorName = "timeStampSecTZ_vector";
+
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setTimeStampSecTZ(vectorName, 1);
+      assertEquals(1, c.getTimeStampSecTZ(vectorName));
+      c.setTimeStampSecTZ(vectorName, 2);
+      assertEquals(2, c.getTimeStampSecTZ(vectorName));
+      c.setTimeStampSecTZ(vectorPosition, 3);
+      assertEquals(3, c.getTimeStampSecTZ(vectorName));
+
+      // test with holder
+      NullableTimeStampSecTZHolder holder = new NullableTimeStampSecTZHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setTimeStampSecTZ(vectorName, holder);
+      assertEquals(4, c.getTimeStampSecTZ(vectorName));
+      holder.value = 5;
+      c.setTimeStampSecTZ(vectorPosition, holder);
+      assertEquals(5, c.getTimeStampSecTZ(vectorPosition));
+    }
+  }
+
+  @Test
+  void setTimeStampMilliTZ() {
+    List<FieldVector> vectorList = timezoneTemporalVectors(allocator, 2);
+    int vectorPosition = 1;
+    String vectorName = "timeStampMilliTZ_vector";
+
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setTimeStampMilliTZ(vectorName, 1);
+      assertEquals(1, c.getTimeStampMilliTZ(vectorName));
+      c.setTimeStampMilliTZ(vectorName, 2);
+      assertEquals(2, c.getTimeStampMilliTZ(vectorName));
+      c.setTimeStampMilliTZ(vectorPosition, 3);
+      assertEquals(3, c.getTimeStampMilliTZ(vectorName));
+
+      // test with holder
+      NullableTimeStampMilliTZHolder holder = new NullableTimeStampMilliTZHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setTimeStampMilliTZ(vectorName, holder);
+      assertEquals(4, c.getTimeStampMilliTZ(vectorName));
+      holder.value = 5;
+      c.setTimeStampMilliTZ(vectorPosition, holder);
+      assertEquals(5, c.getTimeStampMilliTZ(vectorPosition));
+    }
+  }
+
+  @Test
+  void setDateMilli() {
+    List<FieldVector> vectorList = simpleTemporalVectors(allocator, 2);
+    int vectorPosition = 8;
+    String vectorName = "dateMilli_vector";
+
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setDateMilli(vectorName, 1);
+      assertEquals(1, c.getDateMilli(vectorName));
+      c.setDateMilli(vectorName, 2);
+      assertEquals(2, c.getDateMilli(vectorName));
+      c.setDateMilli(vectorPosition, 3);
+      assertEquals(3, c.getDateMilli(vectorName));
+
+      // test with holder
+      NullableDateMilliHolder holder = new NullableDateMilliHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setDateMilli(vectorName, holder);
+      assertEquals(4, c.getDateMilli(vectorName));
+      holder.value = 5;
+      c.setDateMilli(vectorPosition, holder);
+      assertEquals(5, c.getDateMilli(vectorPosition));
     }
   }
 

@@ -1620,7 +1620,7 @@ public class MutableRow extends Row {
    *
    * @return this MutableRow for chaining operations
    */
-  public MutableRow setTimeStampTZSec(String columnName, long value) {
+  public MutableRow setTimeStampSecTZ(String columnName, long value) {
     TimeStampSecTZVector v = (TimeStampSecTZVector) table.getVector(columnName);
     v.setSafe(getRowNumber(), value);
     return this;
@@ -1648,7 +1648,7 @@ public class MutableRow extends Row {
    *
    * @return this MutableRow for chaining operations
    */
-  public MutableRow setTimeStampTZSec(String columnName, NullableTimeStampSecTZHolder value) {
+  public MutableRow setTimeStampSecTZ(String columnName, NullableTimeStampSecTZHolder value) {
     TimeStampSecTZVector v = (TimeStampSecTZVector) table.getVector(columnName);
     v.setSafe(getRowNumber(), value);
     return this;
