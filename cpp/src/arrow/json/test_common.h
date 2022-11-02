@@ -57,8 +57,7 @@ using Writer = rj::Writer<StringBuffer>;
 struct GenerateOptions {
   // Probability of a field being written
   double field_probability = 1.0;
-  // Probability of a value being null. For an object's child fields, this is factored-in
-  // before `field_probability`
+  // Probability of a value being null
   double null_probability = 0.2;
   // Whether to randomize the order of written fields
   bool randomize_field_order = false;
@@ -150,22 +149,6 @@ struct GenerateImpl {
     return Status::NotImplemented("random generation of arrays of type ", t);
   }
 
-  static bool GetBool(Engine& e, double probability) {
-    return std::uniform_real_distribution<>{0, 1}(e) < probability;
-  }
-
-  static bool MaybeWriteNull(Engine& e, Writer* writer, double probability) {
-    bool outcome = GetBool(e, probability);
-    if (outcome) writer->Null();
-    return outcome;
-  }
-
-  static Status WriteValue(const DataType& type, Engine& e, Writer* writer,
-                           const GenerateOptions& options) {
-    GenerateImpl visitor = {e, *writer, options};
-    return VisitTypeInline(type, &visitor);
-  }
-
   Engine& e;
   rj::Writer<rj::StringBuffer>& writer;
   const GenerateOptions& options;
@@ -174,48 +157,48 @@ struct GenerateImpl {
 template <typename Engine>
 inline static Status Generate(const std::shared_ptr<DataType>& type, Engine& e,
                               Writer* writer, const GenerateOptions& options) {
-  using Impl = GenerateImpl<Engine>;
-  if (Impl::MaybeWriteNull(e, writer, options.null_probability)) {
+  if (std::bernoulli_distribution(options.null_probability)(e)) {
+    writer->Null();
     return Status::OK();
   }
-  return Impl::WriteValue(*type, e, writer, options);
+  GenerateImpl<Engine> visitor = {e, *writer, options};
+  return VisitTypeInline(*type, &visitor);
 }
 
 template <typename Engine>
 inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
                               Engine& e, Writer* writer, const GenerateOptions& options) {
-  using Impl = GenerateImpl<Engine>;
-
   RETURN_NOT_OK(OK(writer->StartObject()));
-  if (fields.empty()) {
-    return OK(writer->EndObject(0));
-  }
 
-  // Indices of the fields we plan to actually write, in order
-  std::vector<size_t> indices;
-  indices.reserve(static_cast<size_t>(fields.size() * options.field_probability));
+  int num_fields = 0;
+  auto write_field = [&](const Field& f) {
+    ++num_fields;
+    writer->Key(f.name().c_str());
+    return Generate(f.type(), e, writer, options);
+  };
 
-  for (size_t i = 0; i < fields.size(); ++i) {
-    if (Impl::GetBool(e, options.field_probability)) {
-      indices.push_back(i);
-    }
-  }
+  std::bernoulli_distribution bool_dist(options.field_probability);
   if (options.randomize_field_order) {
+    std::vector<size_t> indices;
+    indices.reserve(static_cast<size_t>(fields.size() * options.field_probability));
+    for (size_t i = 0; i < fields.size(); ++i) {
+      if (bool_dist(e)) {
+        indices.push_back(i);
+      }
+    }
     std::shuffle(indices.begin(), indices.end(), e);
-  }
-
-  // Scale the likelyhood of null values to account for any fields we've dropped
-  double null_probability = options.null_probability;
-  null_probability *= static_cast<double>(indices.size()) / fields.size();
-
-  for (auto i : indices) {
-    writer->Key(fields[i]->name().c_str());
-    if (!Impl::MaybeWriteNull(e, writer, null_probability)) {
-      RETURN_NOT_OK(Impl::WriteValue(*fields[i]->type(), e, writer, options));
+    for (auto i : indices) {
+      RETURN_NOT_OK(write_field(*fields[i]));
+    }
+  } else {
+    for (const auto& f : fields) {
+      if (bool_dist(e)) {
+        RETURN_NOT_OK(write_field(*f));
+      }
     }
   }
 
-  return OK(writer->EndObject(static_cast<int>(indices.size())));
+  return OK(writer->EndObject(num_fields));
 }
 
 inline static Status MakeStream(string_view src_str,
