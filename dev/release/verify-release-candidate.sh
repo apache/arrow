@@ -843,7 +843,8 @@ test_js() {
   maybe_setup_conda nodejs=16 || exit 1
 
   if ! command -v yarn &> /dev/null; then
-    npm install -g yarn
+    npm install yarn
+    PATH=$PWD/node_modules/yarn/bin:$PATH
   fi
 
   pushd js
