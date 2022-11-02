@@ -3916,8 +3916,8 @@ TEST(Substrait, RootRelationOutputNames) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  CheckRoundTripResultTableConsumer(expected_table, exec_context, buf, {},
-                                    conversion_options);
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
 }
 
 }  // namespace engine
