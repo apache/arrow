@@ -1997,9 +1997,6 @@ TEST(Substrait, AggregateBadPhase) {
 }
 
 TEST(Substrait, BasicPlanRoundTripping) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
 
@@ -2111,9 +2108,6 @@ TEST(Substrait, BasicPlanRoundTripping) {
 }
 
 TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
 
@@ -2227,9 +2221,6 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
 }
 
 TEST(Substrait, ProjectRel) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2344,9 +2335,6 @@ TEST(Substrait, ProjectRel) {
 }
 
 TEST(Substrait, ProjectRelOnFunctionWithEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2465,9 +2453,6 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
 }
 
 TEST(Substrait, ReadRelWithEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2526,9 +2511,6 @@ TEST(Substrait, ReadRelWithEmit) {
 }
 
 TEST(Substrait, FilterRelWithEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   auto dummy_schema = schema({field("A", int32()), field("B", int32()),
                               field("C", int32()), field("D", int32())});
@@ -2646,9 +2628,6 @@ TEST(Substrait, FilterRelWithEmit) {
 }
 
 TEST(Substrait, JoinRelEndToEnd) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   auto left_schema = schema({field("A", int32()), field("B", int32())});
 
@@ -2798,9 +2777,6 @@ TEST(Substrait, JoinRelEndToEnd) {
 }
 
 TEST(Substrait, JoinRelWithEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   auto left_schema = schema({field("A", int32()), field("B", int32())});
 
@@ -2952,9 +2928,6 @@ TEST(Substrait, JoinRelWithEmit) {
 }
 
 TEST(Substrait, AggregateRel) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -3063,9 +3036,6 @@ TEST(Substrait, AggregateRel) {
 }
 
 TEST(Substrait, AggregateRelEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
