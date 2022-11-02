@@ -106,6 +106,7 @@ Collate:
     'dplyr-funcs-datetime.R'
     'dplyr-funcs-doc.R'
     'dplyr-funcs-math.R'
+    'dplyr-funcs-simple.R'
     'dplyr-funcs-string.R'
     'dplyr-funcs-type.R'
     'expression.R'
@@ -141,4 +142,5 @@ Collate:
     'reexports-bit64.R'
     'reexports-tidyselect.R'
     'schema.R'
+    'udf.R'
     'util.R'

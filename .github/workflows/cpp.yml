@@ -293,18 +293,21 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows-mingw:
-    name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
+    name: AMD64 Windows MinGW ${{ matrix.msystem_upper }} C++
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    # Build may take 1h+ without cache and installing Google Cloud
-    # Storage Testbench may take 20m+ without cache.
+    # Build may take 1h+ without cache.
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        mingw-n-bits:
-          - 32
-          - 64
+        include:
+          - msystem_lower: mingw32
+            msystem_upper: MINGW32
+          - msystem_lower: mingw64
+            msystem_upper: MINGW64
+          - msystem_lower: clang64
+            msystem_upper: CLANG64
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
@@ -316,10 +319,9 @@ jobs:
       ARROW_GANDIVA: ON
       ARROW_GCS: ON
       ARROW_HDFS: OFF
-      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
+      ARROW_HOME: /${{ matrix.msystem_lower}}
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
-      ARROW_PYTHON: ON
       ARROW_S3: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
@@ -334,11 +336,12 @@ jobs:
       # -DBoost_NO_BOOST_CMAKE=ON
       BOOST_ROOT: ""
       CMAKE_ARGS: >-
-        -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
+        -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
         -DBoost_NO_BOOST_CMAKE=ON
       # We can't use unity build because we don't have enough memory on
       # GitHub Actions.
       # CMAKE_UNITY_BUILD: ON
+      GTest_SOURCE: BUNDLED
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -355,7 +358,7 @@ jobs:
           submodules: recursive
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW${{ matrix.mingw-n-bits }}
+          msystem: ${{ matrix.msystem_upper }}
           update: true
       - name: Setup MSYS2
         shell: msys2 {0}
@@ -364,8 +367,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ccache
-          key: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-
+          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-${{ matrix.msystem_lower}}-
       - name: Build
         shell: msys2 {0}
         run: |

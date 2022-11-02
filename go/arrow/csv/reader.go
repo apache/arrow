@@ -30,6 +30,8 @@ import (
 
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/decimal256"
 	"github.com/apache/arrow/go/v11/arrow/internal/debug"
 	"github.com/apache/arrow/go/v11/arrow/memory"
 )
@@ -454,6 +456,14 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseTime32(bldr, str, dt.Unit)
 		}
+	case *arrow.Decimal128Type:
+		return func(str string) {
+			r.parseDecimal128(bldr, str, dt.Precision, dt.Scale)
+		}
+	case *arrow.Decimal256Type:
+		return func(str string) {
+			r.parseDecimal256(bldr, str, dt.Precision, dt.Scale)
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -679,6 +689,36 @@ func (r *Reader) parseTime32(field array.Builder, str string, unit arrow.TimeUni
 		return
 	}
 	field.(*array.Time32Builder).Append(val)
+}
+
+func (r *Reader) parseDecimal128(field array.Builder, str string, prec, scale int32) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	val, err := decimal128.FromString(str, prec, scale)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+	field.(*array.Decimal128Builder).Append(val)
+}
+
+func (r *Reader) parseDecimal256(field array.Builder, str string, prec, scale int32) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	val, err := decimal256.FromString(str, prec, scale)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+	field.(*array.Decimal256Builder).Append(val)
 }
 
 // Retain increases the reference count by 1.

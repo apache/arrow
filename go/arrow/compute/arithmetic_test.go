@@ -324,6 +324,7 @@ func TestBinaryArithmetic(t *testing.T) {
 	suite.Run(t, &BinaryArithmeticSuite[float64]{min: -math.MaxFloat64, max: math.MaxFloat64})
 	suite.Run(t, new(Float16BinaryFuncTestSuite))
 	suite.Run(t, new(DecimalBinaryArithmeticSuite))
+	suite.Run(t, new(ScalarBinaryTemporalArithmeticSuite))
 }
 
 func TestBinaryArithmeticDispatchBest(t *testing.T) {
@@ -367,8 +368,6 @@ func TestBinaryArithmeticDispatchBest(t *testing.T) {
 }
 
 type DecimalArithmeticSuite struct {
-	suite.Suite
-
 	BinaryFuncTestSuite
 }
 
@@ -605,6 +604,105 @@ func (ds *DecimalBinaryArithmeticSuite) TestAddSubScalars() {
 		checkScalarBinary(ds.T(), "add", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(added), nil)
 		checkScalarBinary(ds.T(), "sub", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(subtracted), nil)
 	})
+}
+
+type ScalarBinaryTemporalArithmeticSuite struct {
+	BinaryFuncTestSuite
+}
+
+var (
+	date32JSON = `[0, 11016, -25932, 23148, 18262, 18261, 18260, 14609, 14610, 14612,
+	14613, 13149, 13148, 14241, 14242, 15340, null]`
+	date32JSON2 = `[365, 10650, -25901, 23118, 18263, 18259, 18260, 14609, 14610, 14612,
+	14613, 13149, 13148, 14240, 13937, 15400, null]`
+	date64JSON = `[0, 951782400000, -2240524800000, 1999987200000, 1577836800000,
+	1577750400000, 1577664000000, 1262217600000, 1262304000000, 1262476800000,
+	1262563200000, 1136073600000, 1135987200000, 1230422400000, 1230508800000,
+	1325376000000, null]`
+	date64JSON2 = `[31536000000, 920160000000, -2237846400000, 1997395200000,
+	1577923200000, 1577577600000, 1577664000000, 1262217600000, 1262304000000,
+	1262476800000, 1262563200000, 1136073600000, 1135987200000, 1230336000000,
+	1204156800000, 1330560000000, null]`
+	timeJSONs = `[59, 84203, 3560, 12800, 3905, 7810, 11715, 15620, 19525, 23430, 27335,
+	31240, 35145, 0, 0, 3723, null]`
+	timeJSONs2 = `[59, 84203, 12642, 7182, 68705, 7390, 915, 16820, 19525, 5430, 84959,
+	31207, 35145, 0, 0, 3723, null]`
+	timeJSONms = `[59123, 84203999, 3560001, 12800000, 3905001, 7810002, 11715003, 15620004,
+	19525005, 23430006, 27335000, 31240000, 35145000, 0, 0, 3723000, null]`
+	timeJSONms2 = `[59103, 84203999, 12642001, 7182000, 68705005, 7390000, 915003, 16820004,
+	19525005, 5430006, 84959000, 31207000, 35145000, 0, 0, 3723000, null]`
+	timeJSONus = `[59123456, 84203999999, 3560001001, 12800000000, 3905001000, 7810002000,
+	11715003000, 15620004132, 19525005321, 23430006163, 27335000000,
+	31240000000, 35145000000, 0, 0, 3723000000, null]`
+	timeJSONus2 = `[59103476, 84203999999, 12642001001, 7182000000, 68705005000, 7390000000,
+	915003000, 16820004432, 19525005021, 5430006163, 84959000000,
+	31207000000, 35145000000, 0, 0, 3723000000, null]`
+	timeJSONns = `[59123456789, 84203999999999, 3560001001001, 12800000000000, 3905001000000,
+	7810002000000, 11715003000000, 15620004132000, 19525005321000,
+	23430006163000, 27335000000000, 31240000000000, 35145000000000, 0, 0,
+	3723000000000, null]`
+	timeJSONns2 = `[59103476799, 84203999999909, 12642001001001, 7182000000000, 68705005000000,
+	7390000000000, 915003000000, 16820004432000, 19525005021000, 5430006163000,
+	84959000000000, 31207000000000, 35145000000000, 0, 0, 3723000000000, null]`
+)
+
+func (s *ScalarBinaryTemporalArithmeticSuite) TestTemporalAddSub() {
+	tests := []struct {
+		val1 string
+		val2 string
+		dt   arrow.DataType
+		exp  arrow.DataType
+	}{
+		{date32JSON, date32JSON2, arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Duration_s},
+		{date64JSON, date64JSON2, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Duration_ms},
+		{timeJSONs, timeJSONs2, arrow.FixedWidthTypes.Time32s, arrow.FixedWidthTypes.Duration_s},
+		{timeJSONms, timeJSONms2, arrow.FixedWidthTypes.Time32ms, arrow.FixedWidthTypes.Duration_ms},
+		{timeJSONus, timeJSONus2, arrow.FixedWidthTypes.Time64us, arrow.FixedWidthTypes.Duration_us},
+		{timeJSONns, timeJSONns2, arrow.FixedWidthTypes.Time64ns, arrow.FixedWidthTypes.Duration_ns},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.dt.String(), func() {
+			for _, checked := range []bool{true, false} {
+				s.Run(fmt.Sprintf("checked=%t", checked), func() {
+					opts := compute.ArithmeticOptions{NoCheckOverflow: !checked}
+					arr1, _, _ := array.FromJSON(s.mem, tt.dt, strings.NewReader(tt.val1))
+					defer arr1.Release()
+					arr2, _, _ := array.FromJSON(s.mem, tt.dt, strings.NewReader(tt.val2))
+					defer arr2.Release()
+
+					datum1 := &compute.ArrayDatum{Value: arr1.Data()}
+					datum2 := &compute.ArrayDatum{Value: arr2.Data()}
+
+					result, err := compute.Subtract(s.ctx, opts, datum1, datum2)
+					s.Require().NoError(err)
+					defer result.Release()
+					res := result.(*compute.ArrayDatum)
+					s.Truef(arrow.TypeEqual(tt.exp, res.Type()),
+						"expected: %s\n got: %s", tt.exp, res.Type())
+
+					out, err := compute.Add(s.ctx, opts, datum2, result)
+					s.Require().NoError(err)
+					defer out.Release()
+
+					// date32 - date32 / date64 - date64 produce durations
+					// and date + duration == timestamp so we need to cast
+					// the timestamp back to a date in that case. Otherwise
+					// we get back time32/time64 in those cases and can
+					// compare them accurately.
+					if arrow.TypeEqual(arr1.DataType(), out.(*compute.ArrayDatum).Type()) {
+						assertDatumsEqual(s.T(), datum1, out)
+					} else {
+						casted, err := compute.CastDatum(s.ctx, out, compute.SafeCastOptions(arr1.DataType()))
+						s.Require().NoError(err)
+						defer casted.Release()
+						assertDatumsEqual(s.T(), datum1, casted)
+					}
+
+				})
+			}
+		})
+	}
 }
 
 const seed = 0x94378165

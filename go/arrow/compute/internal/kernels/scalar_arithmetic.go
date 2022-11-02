@@ -17,6 +17,8 @@
 package kernels
 
 import (
+	"time"
+
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v11/arrow/decimal128"
@@ -34,6 +36,26 @@ func NullExecKernel(nargs int) exec.ScalarKernel {
 		in[i] = exec.NewIDInput(arrow.NULL)
 	}
 	return exec.NewScalarKernel(in, exec.NewOutputType(arrow.Null), NullToNullExec, nil)
+}
+
+func GetArithmeticFunctionTimeDuration(op ArithmeticOp) []exec.ScalarKernel {
+	mult := (time.Hour * 24)
+	return []exec.ScalarKernel{exec.NewScalarKernel([]exec.InputType{
+		exec.NewExactInput(arrow.FixedWidthTypes.Time32s),
+		exec.NewExactInput(&arrow.DurationType{Unit: arrow.Second})}, OutputFirstType,
+		timeDurationOp[arrow.Time32, arrow.Time32, arrow.Duration](int64(mult.Seconds()), op), nil),
+		exec.NewScalarKernel([]exec.InputType{
+			exec.NewExactInput(arrow.FixedWidthTypes.Time32ms),
+			exec.NewExactInput(&arrow.DurationType{Unit: arrow.Millisecond})}, OutputFirstType,
+			timeDurationOp[arrow.Time32, arrow.Time32, arrow.Duration](int64(mult.Milliseconds()), op), nil),
+		exec.NewScalarKernel([]exec.InputType{
+			exec.NewExactInput(arrow.FixedWidthTypes.Time64us),
+			exec.NewExactInput(&arrow.DurationType{Unit: arrow.Microsecond})}, OutputFirstType,
+			timeDurationOp[arrow.Time64, arrow.Time64, arrow.Duration](int64(mult.Microseconds()), op), nil),
+		exec.NewScalarKernel([]exec.InputType{
+			exec.NewExactInput(arrow.FixedWidthTypes.Time64ns),
+			exec.NewExactInput(&arrow.DurationType{Unit: arrow.Nanosecond})}, OutputFirstType,
+			timeDurationOp[arrow.Time64, arrow.Time64, arrow.Duration](int64(mult.Nanoseconds()), op), nil)}
 }
 
 func GetDecimalBinaryKernels(op ArithmeticOp) []exec.ScalarKernel {
@@ -58,5 +80,6 @@ func GetArithmeticKernels(op ArithmeticOp) []exec.ScalarKernel {
 			[]exec.InputType{exec.NewExactInput(ty), exec.NewExactInput(ty)},
 			exec.NewOutputType(ty), ArithmeticExec(ty.ID(), op), nil))
 	}
+
 	return append(kernels, NullExecKernel(2))
 }

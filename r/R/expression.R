@@ -15,112 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrowExports.R
-
-.unary_function_map <- list(
-  # NOTE: Each of the R functions mapped here takes exactly *one* argument, maps
-  # *directly* to an Arrow C++ compute kernel, and does not require any
-  # non-default options to be specified. More complex R function mappings are
-  # defined in dplyr-functions.R.
-
-  # functions are arranged alphabetically by name within categories
-
-  # arithmetic functions
-  "base::abs" = "abs_checked",
-  "base::ceiling" = "ceil",
-  "base::floor" = "floor",
-  "base::log10" = "log10_checked",
-  "base::log1p" = "log1p_checked",
-  "base::log2" = "log2_checked",
-  "base::sign" = "sign",
-  # trunc is defined in dplyr-functions.R
-
-  # trigonometric functions
-  "base::acos" = "acos_checked",
-  "base::asin" = "asin_checked",
-  "base::cos" = "cos_checked",
-  "base::sin" = "sin_checked",
-  "base::tan" = "tan_checked",
-
-  # logical functions
-  "!" = "invert",
-
-  # string functions
-  # nchar is defined in dplyr-functions.R
-  "stringr::str_length" = "utf8_length",
-  # str_pad is defined in dplyr-functions.R
-  # str_sub is defined in dplyr-functions.R
-  # str_to_lower is defined in dplyr-functions.R
-  # str_to_title is defined in dplyr-functions.R
-  # str_to_upper is defined in dplyr-functions.R
-  # str_trim is defined in dplyr-functions.R
-  "stringi::stri_reverse" = "utf8_reverse",
-  # substr is defined in dplyr-functions.R
-  # substring is defined in dplyr-functions.R
-  "base::tolower" = "utf8_lower",
-  "base::toupper" = "utf8_upper",
-
-  # date and time functions
-  "lubridate::day" = "day",
-  "lubridate::dst" = "is_dst",
-  "lubridate::hour" = "hour",
-  "lubridate::isoweek" = "iso_week",
-  "lubridate::epiweek" = "us_week",
-  "lubridate::isoyear" = "iso_year",
-  "lubridate::epiyear" = "us_year",
-  "lubridate::minute" = "minute",
-  "lubridate::quarter" = "quarter",
-  # second is defined in dplyr-functions.R
-  # wday is defined in dplyr-functions.R
-  "lubridate::mday" = "day",
-  "lubridate::yday" = "day_of_year",
-  "lubridate::year" = "year",
-  "lubridate::leap_year" = "is_leap_year"
-)
-
-.binary_function_map <- list(
-  # NOTE: Each of the R functions/operators mapped here takes exactly *two*
-  # arguments. Most map *directly* to an Arrow C++ compute kernel and require no
-  # non-default options, but some are modified by build_expr(). More complex R
-  # function/operator mappings are defined in dplyr-functions.R.
-  "==" = "equal",
-  "!=" = "not_equal",
-  ">" = "greater",
-  ">=" = "greater_equal",
-  "<" = "less",
-  "<=" = "less_equal",
-  "&" = "and_kleene",
-  "|" = "or_kleene",
-  "+" = "add_checked",
-  "-" = "subtract_checked",
-  "*" = "multiply_checked",
-  "/" = "divide",
-  "%/%" = "divide_checked",
-  # we don't actually use divide_checked with `%%`, rather it is rewritten to
-  # use `%/%` above.
-  "%%" = "divide_checked",
-  "^" = "power_checked",
-  "%in%" = "is_in_meta_binary",
-  "base::strrep" = "binary_repeat",
-  "stringr::str_dup" = "binary_repeat"
-)
-
-.array_function_map <- c(.unary_function_map, .binary_function_map)
-
-register_bindings_array_function_map <- function() {
-  # use a function to generate the binding so that `operator` persists
-  # beyond execution time (another option would be to use quasiquotation
-  # and unquote `operator` directly into the function expression)
-  array_function_map_factory <- function(operator) {
-    force(operator)
-    function(...) build_expr(operator, ...)
-  }
-
-  for (name in names(.array_function_map)) {
-    register_binding(name, array_function_map_factory(name))
-  }
-}
-
 #' Arrow expressions
 #'
 #' @description
@@ -134,9 +28,16 @@ register_bindings_array_function_map <- function() {
 #' evaluates to the named column in the `Dataset` against which it is evaluated.
 #'
 #' `Expression$create(function_name, ..., options)` builds a function-call
-#' `Expression` containing one or more `Expression`s.
+#' `Expression` containing one or more `Expression`s. Anything in `...` that
+#' is not already an expression will be wrapped in `Expression$scalar()`.
+#'
+#' `Expression$op(FUN, ...)` is for logical and arithmetic operators. Scalar
+#' inputs in `...` will be attempted to be cast to the common type of the
+#' `Expression`s in the call so that the types of the columns in the `Dataset`
+#' are preserved and not unnecessarily upcast, which may be expensive.
 #' @name Expression
 #' @rdname Expression
+#' @include arrowExports.R
 #' @export
 Expression <- R6Class("Expression",
   inherit = ArrowObject,
@@ -171,7 +72,13 @@ Expression$create <- function(function_name,
                               args = list(...),
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
-  assert_that(is_list_of(args, "Expression"), msg = "Expression arguments must be Expression objects")
+  # Make sure all inputs are Expressions
+  args <- lapply(args, function(x) {
+    if (!inherits(x, "Expression")) {
+      x <- Expression$scalar(x)
+    }
+    x
+  })
   expr <- compute___expr__call(function_name, args, options)
   if (length(args)) {
     expr$schema <- unify_schemas(schemas = lapply(args, function(x) x$schema))
@@ -187,83 +94,83 @@ Expression$field_ref <- function(name) {
   compute___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
-  expr <- compute___expr__scalar(Scalar$create(x))
+  if (!inherits(x, "Scalar")) {
+    x <- Scalar$create(x)
+  }
+  expr <- compute___expr__scalar(x)
   expr$schema <- schema()
   expr
 }
-
 # Wrapper around Expression$create that:
-# (1) maps R function names to Arrow C++ compute ("/" --> "divide_checked")
-# (2) wraps R input args as Array or Scalar
-build_expr <- function(FUN,
-                       ...,
-                       args = list(...),
-                       options = empty_named_list()) {
+# (1) maps R operator names to Arrow C++ compute ("/" --> "divide_checked").
+#     This is convenient for Ops.Expression, despite the special handling
+#     for the division operators inside the function
+# (2) wraps R input args as Array or Scalar and attempts to cast them to
+#     match the type of the columns/fields in the expression. This is to prevent
+#     upcasting all of the data where a simple downcast of a Scalar works.
+Expression$op <- function(FUN,
+                          ...,
+                          args = list(...)) {
   if (FUN == "-" && length(args) == 1L) {
     if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
-      return(build_expr("negate_checked", args[[1]]))
+      return(Expression$create("negate_checked", args[[1]]))
     } else {
       return(-args[[1]])
     }
   }
-  if (FUN == "%in%") {
-    # Special-case %in%, which is different from the Array function name
-    expr <- Expression$create("is_in", args[[1]],
-      options = list(
-        # If args[[2]] is already an Arrow object (like a scalar),
-        # this wouldn't work
-        value_set = Array$create(args[[2]]),
-        skip_nulls = TRUE
-      )
-    )
-  } else {
-    args <- lapply(args, function(x) {
-      if (!inherits(x, "Expression")) {
-        x <- Expression$scalar(x)
-      }
-      x
-    })
 
-    # In Arrow, "divide" is one function, which does integer division on
-    # integer inputs and floating-point division on floats
-    if (FUN == "/") {
-      # TODO: omg so many ways it's wrong to assume these types
-      args <- lapply(args, function(x) x$cast(float64()))
-    } else if (FUN == "%/%") {
-      # In R, integer division works like floor(float division)
-      out <- build_expr("/", args = args)
+  if (FUN != "%/%") {
+    # We switch %/% behavior based on the actual input types so don't
+    # try to cast scalars to match the columns
+    args <- cast_scalars_to_common_type(args)
+  }
 
-      # integer output only for all integer input
-      int_type_ids <- Type[toupper(INTEGER_TYPES)]
-      numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
-      denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+  # In Arrow, "divide" is one function, which does integer division on
+  # integer inputs and floating-point division on floats
+  if (FUN == "/") {
+    # TODO: omg so many ways it's wrong to assume these types (right?)
+    args <- lapply(args, cast, float64())
+  } else if (FUN == "%/%") {
+    # In R, integer division works like floor(float division)
+    out <- Expression$create("floor", Expression$op("/", args = args))
 
-      if (numerator_is_int && denominator_is_int) {
-        out_float <- build_expr(
-          "if_else",
-          build_expr("equal", args[[2]], 0L),
-          Scalar$create(NA_integer_),
-          build_expr("floor", out)
-        )
-        return(out_float$cast(args[[1]]$type()))
-      } else {
-        return(build_expr("floor", out))
-      }
-    } else if (FUN == "%%") {
-      return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
+    # ... but if inputs are integer, make sure we return an integer
+    int_type_ids <- Type[toupper(INTEGER_TYPES)]
+    is_int <- function(x) {
+      is.integer(x) ||
+        (inherits(x, "ArrowObject") && x$type_id() %in% int_type_ids)
     }
 
-    expr <- Expression$create(.array_function_map[[FUN]] %||% FUN, args = args, options = options)
+    if (is_int(args[[1]]) && is_int(args[[2]])) {
+      if (inherits(args[[1]], "ArrowObject")) {
+        out_type <- args[[1]]$type()
+      } else {
+        # It's an R integer
+        out_type <- int32()
+      }
+      # If args[[2]] == 0, float division returns Inf,
+      # but for integer division R returns NA, so wrap in if_else
+      out <- Expression$create(
+        "if_else",
+        Expression$op("==", args[[2]], 0L),
+        Scalar$create(NA_integer_, out_type),
+        cast(out, out_type, allow_float_truncate = TRUE)
+      )
+    }
+    return(out)
+  } else if (FUN == "%%") {
+    return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
   }
-  expr
+
+  Expression$create(.operator_map[[FUN]], args = args)
 }
 
 #' @export
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
-    build_expr(.Generic, e1)
+    Expression$create("invert", e1)
   } else {
-    build_expr(.Generic, e1, e2)
+    Expression$op(.Generic, e1, e2)
   }
 }
 
