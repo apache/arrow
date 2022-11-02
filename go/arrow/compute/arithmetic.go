@@ -228,41 +228,45 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		reg.AddFunction(fn, false)
 	}
 
-	mulFn := &arithmeticFunction{*NewScalarFunction("multiply_unchecked", Binary(), addDoc), decPromoteMultiply}
-	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpMul), kernels.GetDecimalBinaryKernels(kernels.OpMul)...) {
-		if err := mulFn.AddKernel(k); err != nil {
-			panic(err)
-		}
+	oplist := []struct {
+		funcName    string
+		op          kernels.ArithmeticOp
+		decPromote  decimalPromotion
+		commutative bool
+	}{
+		{"multiply_unchecked", kernels.OpMul, decPromoteMultiply, true},
+		{"multiply", kernels.OpMulChecked, decPromoteMultiply, true},
+		{"divide_unchecked", kernels.OpDiv, decPromoteDivide, false},
+		{"divide", kernels.OpDivChecked, decPromoteDivide, false},
 	}
 
-	reg.AddFunction(mulFn, false)
-
-	mulCheckedFn := &arithmeticFunction{*NewScalarFunction("multiply", Binary(), addDoc), decPromoteMultiply}
-	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpMulChecked), kernels.GetDecimalBinaryKernels(kernels.OpMulChecked)...) {
-		if err := mulCheckedFn.AddKernel(k); err != nil {
-			panic(err)
+	for _, o := range oplist {
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
+		for _, k := range append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...) {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
 		}
-	}
 
-	reg.AddFunction(mulCheckedFn, false)
-
-	divFn := &arithmeticFunction{*NewScalarFunction("divide_unchecked", Binary(), addDoc), decPromoteDivide}
-	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpDiv), kernels.GetDecimalBinaryKernels(kernels.OpDiv)...) {
-		if err := divFn.AddKernel(k); err != nil {
-			panic(err)
+		for _, unit := range arrow.TimeUnitValues {
+			durInput := exec.NewExactInput(&arrow.DurationType{Unit: unit})
+			i64Input := exec.NewExactInput(arrow.PrimitiveTypes.Int64)
+			durOutput := exec.NewOutputType(&arrow.DurationType{Unit: unit})
+			ex := kernels.ArithmeticExec(arrow.DURATION, o.op)
+			err := fn.AddNewKernel([]exec.InputType{durInput, i64Input}, durOutput, ex, nil)
+			if err != nil {
+				panic(err)
+			}
+			if o.commutative {
+				err = fn.AddNewKernel([]exec.InputType{i64Input, durInput}, durOutput, ex, nil)
+				if err != nil {
+					panic(err)
+				}
+			}
 		}
+
+		reg.AddFunction(fn, false)
 	}
-
-	reg.AddFunction(divFn, false)
-
-	divCheckedFn := &arithmeticFunction{*NewScalarFunction("divide", Binary(), addDoc), decPromoteDivide}
-	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpDivChecked), kernels.GetDecimalBinaryKernels(kernels.OpDivChecked)...) {
-		if err := divCheckedFn.AddKernel(k); err != nil {
-			panic(err)
-		}
-	}
-
-	reg.AddFunction(divCheckedFn, false)
 }
 
 func impl(ctx context.Context, fn string, opts ArithmeticOptions, left, right Datum) (Datum, error) {
