@@ -119,8 +119,9 @@ func (n Num) Sub(rhs Num) Num {
 }
 
 func (n Num) Mul(rhs Num) Num {
-	b := n.BigInt()
-	return FromBigInt(b.Mul(b, rhs.BigInt()))
+	hi, lo := bits.Mul64(n.lo, rhs.lo)
+	hi += (uint64(n.hi) * rhs.lo) + (n.lo * uint64(rhs.hi))
+	return Num{hi: int64(hi), lo: lo}
 }
 
 func (n Num) Div(rhs Num) (res, rem Num) {
@@ -212,11 +213,7 @@ func FromFloat64(v float64, prec, scale int32) (Num, error) {
 
 func FromString(v string, prec, scale int32) (n Num, err error) {
 	var out *big.Float
-	// there's no strong rationale for using ToNearestAway, it's just
-	// what got me the closest equivalent values with the values
-	// that I tested with, and there isn't a good way to push
-	// an option all the way down here to control it.
-	out, _, err = big.ParseFloat(v, 10, 127, big.ToNearestAway)
+	out, _, err = (&big.Float{}).SetPrec(uint(127+scale+1)).Parse(v, 10)
 	if err != nil {
 		return
 	}

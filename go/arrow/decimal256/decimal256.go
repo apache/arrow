@@ -109,18 +109,17 @@ func (n Num) Div(rhs Num) (res, rem Num) {
 }
 
 func FromString(v string, prec, scale int32) (n Num, err error) {
-	// there's no strong rationale for using ToNearestAway, it's just
-	// what got me the closest equivalent values with the values
-	// that I tested with, and there isn't a good way to push
-	// an option all the way down here to control it.
 	var out *big.Float
-	out, _, err = big.ParseFloat(v, 10, 255, big.ToNearestAway)
+	out, _, err = (&big.Float{}).SetPrec(uint(255+scale+1)).Parse(v, 10)
 	if err != nil {
 		return
 	}
 
 	var tmp big.Int
 	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).Int(&tmp)
+	if val.BitLen() > 255 {
+		return Num{}, errors.New("bitlen too large for decimal256")
+	}
 	n = FromBigInt(val)
 	if !n.FitsInPrecision(prec) {
 		err = fmt.Errorf("value %v doesn't fit in precision %d", n, prec)

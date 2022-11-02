@@ -63,6 +63,10 @@ func GetDecimalBinaryKernels(op ArithmeticOp) []exec.ScalarKernel {
 	switch op {
 	case OpAdd, OpSub, OpAddChecked, OpSubChecked:
 		outType = exec.NewComputedOutputType(resolveDecimalAddOrSubtractType)
+	case OpMul, OpMulChecked:
+		outType = exec.NewComputedOutputType(resolveDecimalMultiplyOutput)
+	case OpDiv, OpDivChecked:
+		outType = exec.NewComputedOutputType(resolveDecimalDivideOutput)
 	}
 
 	in128, in256 := exec.NewIDInput(arrow.DECIMAL128), exec.NewIDInput(arrow.DECIMAL256)

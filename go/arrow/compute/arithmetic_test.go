@@ -630,6 +630,49 @@ func (ds *DecimalBinaryArithmeticSuite) TestDispatchBest() {
 			})
 		}
 	}
+
+	{
+		fn := "divide"
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+			ds.Run(fn, func() {
+				CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+					arrow.PrimitiveTypes.Int64, &arrow.Decimal128Type{Precision: 1, Scale: 0}},
+					[]arrow.DataType{&arrow.Decimal128Type{Precision: 23, Scale: 4},
+						&arrow.Decimal128Type{Precision: 1, Scale: 0}})
+				CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+					&arrow.Decimal128Type{Precision: 1, Scale: 0}, arrow.PrimitiveTypes.Int64},
+					[]arrow.DataType{&arrow.Decimal128Type{Precision: 21, Scale: 20},
+						&arrow.Decimal128Type{Precision: 19, Scale: 0}})
+
+				CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+					&arrow.Decimal128Type{Precision: 2, Scale: 1}, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
+					[]arrow.DataType{&arrow.Decimal128Type{Precision: 6, Scale: 5},
+						&arrow.Decimal128Type{Precision: 2, Scale: 1}})
+				CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+					&arrow.Decimal256Type{Precision: 2, Scale: 1}, &arrow.Decimal256Type{Precision: 2, Scale: 1}},
+					[]arrow.DataType{&arrow.Decimal256Type{Precision: 6, Scale: 5},
+						&arrow.Decimal256Type{Precision: 2, Scale: 1}})
+				CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+					&arrow.Decimal128Type{Precision: 2, Scale: 1}, &arrow.Decimal256Type{Precision: 2, Scale: 1}},
+					[]arrow.DataType{&arrow.Decimal256Type{Precision: 6, Scale: 5},
+						&arrow.Decimal256Type{Precision: 2, Scale: 1}})
+				CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+					&arrow.Decimal256Type{Precision: 2, Scale: 1}, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
+					[]arrow.DataType{&arrow.Decimal256Type{Precision: 6, Scale: 5},
+						&arrow.Decimal256Type{Precision: 2, Scale: 1}})
+
+				CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+					&arrow.Decimal128Type{Precision: 2, Scale: 0}, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
+					[]arrow.DataType{&arrow.Decimal128Type{Precision: 7, Scale: 5},
+						&arrow.Decimal128Type{Precision: 2, Scale: 1}})
+				CheckDispatchBest(ds.T(), fn, []arrow.DataType{
+					&arrow.Decimal128Type{Precision: 2, Scale: 1}, &arrow.Decimal128Type{Precision: 2, Scale: 0}},
+					[]arrow.DataType{&arrow.Decimal128Type{Precision: 5, Scale: 4},
+						&arrow.Decimal128Type{Precision: 2, Scale: 0}})
+			})
+		}
+	}
 }
 
 func (ds *DecimalBinaryArithmeticSuite) TestAddSubtractDec128() {
@@ -746,6 +789,191 @@ func (ds *DecimalBinaryArithmeticSuite) TestAddSubScalars() {
 		subtracted := scalar.NewDecimal128Scalar(decimal128.FromI64(-222), &arrow.Decimal128Type{Precision: 20})
 		checkScalarBinary(ds.T(), "add", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(added), nil)
 		checkScalarBinary(ds.T(), "sub", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(subtracted), nil)
+	})
+}
+
+func (ds *DecimalBinaryArithmeticSuite) TestMultiply() {
+	ds.Run("array x array, decimal128", func() {
+		left, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 20, Scale: 10},
+			strings.NewReader(`["1234567890.1234567890", "-0.0000000001", "-9999999999.9999999999"]`))
+		ds.Require().NoError(err)
+		defer left.Release()
+		right, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 13, Scale: 3},
+			strings.NewReader(`["1234567890.123", "0.001", "-9999999999.999"]`))
+		ds.Require().NoError(err)
+		defer right.Release()
+		expected, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 34, Scale: 13},
+			strings.NewReader(`["1524157875323319737.98709039504701", "-0.0000000000001", "99999999999989999999.0000000000001"]`))
+		ds.Require().NoError(err)
+		defer expected.Release()
+
+		checkScalarBinary(ds.T(), "multiply_unchecked", &compute.ArrayDatum{left.Data()}, &compute.ArrayDatum{right.Data()}, &compute.ArrayDatum{expected.Data()}, nil)
+	})
+
+	ds.Run("array x array decimal256", func() {
+		left, _, err := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 30, Scale: 3},
+			strings.NewReader(`["123456789012345678901234567.890", "0.000"]`))
+		ds.Require().NoError(err)
+		defer left.Release()
+		right, _, err := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 20, Scale: 9},
+			strings.NewReader(`["-12345678901.234567890", "99999999999.999999999"]`))
+		ds.Require().NoError(err)
+		defer right.Release()
+		expected, _, err := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 51, Scale: 12},
+			strings.NewReader(`["-1524157875323883675034293577501905199.875019052100", "0.000000000000"]`))
+		ds.Require().NoError(err)
+		defer expected.Release()
+		checkScalarBinary(ds.T(), "multiply_unchecked", &compute.ArrayDatum{left.Data()}, &compute.ArrayDatum{right.Data()}, &compute.ArrayDatum{expected.Data()}, nil)
+	})
+
+	ds.Run("scalar x array", func() {
+		left, err := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 3, Scale: 2}, "3.14")
+		ds.Require().NoError(err)
+		right, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 1, Scale: 0},
+			strings.NewReader(`["1", "2", "3", "4", "5"]`))
+		ds.Require().NoError(err)
+		defer right.Release()
+		expected, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 5, Scale: 2},
+			strings.NewReader(`["3.14", "6.28", "9.42", "12.56", "15.70"]`))
+		ds.Require().NoError(err)
+		defer expected.Release()
+
+		leftDatum, rightDatum := &compute.ScalarDatum{left}, &compute.ArrayDatum{right.Data()}
+		expDatum := &compute.ArrayDatum{expected.Data()}
+
+		checkScalarBinary(ds.T(), "multiply_unchecked", leftDatum, rightDatum, expDatum, nil)
+		checkScalarBinary(ds.T(), "multiply_unchecked", rightDatum, leftDatum, expDatum, nil)
+	})
+
+	ds.Run("scalar x scalar", func() {
+		left, err := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 1}, "1")
+		ds.Require().NoError(err)
+		right, err := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 1}, "1")
+		ds.Require().NoError(err)
+		expected, err := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 3}, "1")
+		ds.Require().NoError(err)
+		checkScalarBinary(ds.T(), "multiply_unchecked", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(expected), nil)
+	})
+
+	ds.Run("decimal128 x decimal256", func() {
+		left, _ := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 3, Scale: 2}, "6.66")
+		right, _ := scalar.ParseScalar(&arrow.Decimal256Type{Precision: 3, Scale: 1}, "88.8")
+		expected, _ := scalar.ParseScalar(&arrow.Decimal256Type{Precision: 7, Scale: 3}, "591.408")
+		checkScalarBinary(ds.T(), "multiply_unchecked", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(expected), nil)
+		checkScalarBinary(ds.T(), "multiply_unchecked", compute.NewDatum(right), compute.NewDatum(left), compute.NewDatum(expected), nil)
+	})
+
+	ds.Run("decimal x float", func() {
+		left, _ := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 3}, "666")
+		right := scalar.MakeScalar(float64(888))
+		expected := scalar.MakeScalar(float64(591408))
+		checkScalarBinary(ds.T(), "multiply_unchecked", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(expected), nil)
+		checkScalarBinary(ds.T(), "multiply_unchecked", compute.NewDatum(right), compute.NewDatum(left), compute.NewDatum(expected), nil)
+	})
+
+	ds.Run("decimal x integer", func() {
+		left, _ := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 3}, "666")
+		right := scalar.MakeScalar(int64(888))
+		expected, _ := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 23}, "591408")
+		checkScalarBinary(ds.T(), "multiply_unchecked", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(expected), nil)
+	})
+}
+
+func (ds *DecimalBinaryArithmeticSuite) TestDivide() {
+	ds.Run("array / array, decimal128", func() {
+		left, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 13, Scale: 3},
+			strings.NewReader(`["1234567890.123", "0.001"]`))
+		ds.Require().NoError(err)
+		defer left.Release()
+		right, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 3, Scale: 0},
+			strings.NewReader(`["-987", "999"]`))
+		ds.Require().NoError(err)
+		defer right.Release()
+		expected, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 17, Scale: 7},
+			strings.NewReader(`["-1250828.6627386", "0.0000010"]`))
+		ds.Require().NoError(err)
+		defer expected.Release()
+
+		checkScalarBinary(ds.T(), "divide_unchecked", &compute.ArrayDatum{left.Data()}, &compute.ArrayDatum{right.Data()}, &compute.ArrayDatum{expected.Data()}, nil)
+	})
+
+	ds.Run("array / array decimal256", func() {
+		left, _, err := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 20, Scale: 10},
+			strings.NewReader(`["1234567890.1234567890", "9999999999.9999999999"]`))
+		ds.Require().NoError(err)
+		defer left.Release()
+		right, _, err := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 13, Scale: 3},
+			strings.NewReader(`["1234567890.123", "0.001"]`))
+		ds.Require().NoError(err)
+		defer right.Release()
+		expected, _, err := array.FromJSON(ds.mem, &arrow.Decimal256Type{Precision: 34, Scale: 21},
+			strings.NewReader(`["1.000000000000369999093", "9999999999999.999999900000000000000"]`))
+		ds.Require().NoError(err)
+		defer expected.Release()
+		checkScalarBinary(ds.T(), "divide_unchecked", &compute.ArrayDatum{left.Data()}, &compute.ArrayDatum{right.Data()}, &compute.ArrayDatum{expected.Data()}, nil)
+	})
+
+	ds.Run("scalar / array", func() {
+		left, err := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 1, Scale: 0}, "1")
+		ds.Require().NoError(err)
+		right, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 1, Scale: 0},
+			strings.NewReader(`["1", "2", "3", "4"]`))
+		ds.Require().NoError(err)
+		defer right.Release()
+		leftDivRight, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 5, Scale: 4},
+			strings.NewReader(`["1.0000", "0.5000", "0.3333", "0.2500"]`))
+		ds.Require().NoError(err)
+		defer leftDivRight.Release()
+		rightDivLeft, _, err := array.FromJSON(ds.mem, &arrow.Decimal128Type{Precision: 5, Scale: 4},
+			strings.NewReader(`["1.0000", "2.0000", "3.0000", "4.0000"]`))
+		ds.Require().NoError(err)
+		defer rightDivLeft.Release()
+
+		leftDatum, rightDatum := &compute.ScalarDatum{left}, &compute.ArrayDatum{right.Data()}
+
+		checkScalarBinary(ds.T(), "divide_unchecked", leftDatum, rightDatum, &compute.ArrayDatum{leftDivRight.Data()}, nil)
+		checkScalarBinary(ds.T(), "divide_unchecked", rightDatum, leftDatum, &compute.ArrayDatum{rightDivLeft.Data()}, nil)
+	})
+
+	ds.Run("scalar / scalar", func() {
+		left, err := scalar.ParseScalar(&arrow.Decimal256Type{Precision: 6, Scale: 5}, "2.71828")
+		ds.Require().NoError(err)
+		right, err := scalar.ParseScalar(&arrow.Decimal256Type{Precision: 6, Scale: 5}, "3.14159")
+		ds.Require().NoError(err)
+		expected, err := scalar.ParseScalar(&arrow.Decimal256Type{Precision: 13, Scale: 7}, "0.8652561")
+		ds.Require().NoError(err)
+		checkScalarBinary(ds.T(), "divide_unchecked", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(expected), nil)
+	})
+
+	ds.Run("decimal128 / decimal256", func() {
+		left, err := scalar.ParseScalar(&arrow.Decimal256Type{Precision: 6, Scale: 5}, "2.71828")
+		ds.Require().NoError(err)
+		right, err := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 6, Scale: 5}, "3.14159")
+		ds.Require().NoError(err)
+		leftDivRight, err := scalar.ParseScalar(&arrow.Decimal256Type{Precision: 13, Scale: 7}, "0.8652561")
+		ds.Require().NoError(err)
+		rightDivLeft, err := scalar.ParseScalar(&arrow.Decimal256Type{Precision: 13, Scale: 7}, "1.1557271")
+		ds.Require().NoError(err)
+		checkScalarBinary(ds.T(), "divide_unchecked", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(leftDivRight), nil)
+		checkScalarBinary(ds.T(), "divide_unchecked", compute.NewDatum(right), compute.NewDatum(left), compute.NewDatum(rightDivLeft), nil)
+	})
+
+	ds.Run("decimal / float", func() {
+		left, _ := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 3}, "100")
+		right := scalar.MakeScalar(float64(50))
+		leftDivRight := scalar.MakeScalar(float64(2))
+		rightDivLeft := scalar.MakeScalar(float64(0.5))
+		checkScalarBinary(ds.T(), "divide_unchecked", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(leftDivRight), nil)
+		checkScalarBinary(ds.T(), "divide_unchecked", compute.NewDatum(right), compute.NewDatum(left), compute.NewDatum(rightDivLeft), nil)
+	})
+
+	ds.Run("decimal / integer", func() {
+		left, _ := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 3}, "100")
+		right := scalar.MakeScalar(int64(50))
+		leftDivRight, _ := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 23, Scale: 20}, "2.0000000000000000000")
+		rightDivLeft, _ := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 23, Scale: 4}, "0.5000")
+		checkScalarBinary(ds.T(), "divide_unchecked", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(leftDivRight), nil)
+		checkScalarBinary(ds.T(), "divide_unchecked", compute.NewDatum(right), compute.NewDatum(left), compute.NewDatum(rightDivLeft), nil)
 	})
 }
 
