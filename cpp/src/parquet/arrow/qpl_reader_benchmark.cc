@@ -32,7 +32,6 @@
 #include "parquet/arrow/test_util.h"
 
 #include "arrow/io/memory.h"
-#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
 using arrow::Status;
@@ -77,13 +76,13 @@ std::string get_data_file(const std::string& filename) {
 // This should result in multiple pages for most primitive types
 constexpr int64_t BENCHMARK_SIZE = 10 * 1024 * 1024;
 
-static size_t countIndicesForType(std::shared_ptr<arrow::DataType> type)
-{
-    if (type->id() == arrow::Type::LIST)
-        return countIndicesForType(static_cast<arrow::ListType *>(type.get())->value_type());
+static size_t countIndicesForType(std::shared_ptr<arrow::DataType> type) {
+    if (type->id() == arrow::Type::LIST) {
+      return countIndicesForType(
+        static_cast<arrow::ListType *>(type.get())->value_type());
+    }
 
-    if (type->id() == arrow::Type::STRUCT)
-    {
+    if (type->id() == arrow::Type::STRUCT) {
         int indices = 0;
         auto * struct_type = static_cast<arrow::StructType *>(type.get());
         for (int i = 0; i != struct_type->num_fields(); ++i)
@@ -91,10 +90,10 @@ static size_t countIndicesForType(std::shared_ptr<arrow::DataType> type)
         return indices;
     }
 
-    if (type->id() == arrow::Type::MAP)
-    {
+    if (type->id() == arrow::Type::MAP) {
         auto * map_type = static_cast<arrow::MapType *>(type.get());
-        return countIndicesForType(map_type->key_type()) + countIndicesForType(map_type->item_type());
+        return countIndicesForType(map_type->key_type()) +
+                  countIndicesForType(map_type->item_type());
     }
 
     return 1;
@@ -103,30 +102,30 @@ static size_t countIndicesForType(std::shared_ptr<arrow::DataType> type)
 static void getFileReaderAndSchema(
     const std::string& file_name,
     std::unique_ptr<parquet::arrow::FileReader> & file_reader,
-    std::shared_ptr<arrow::Schema> & schema)
-{
+    std::shared_ptr<arrow::Schema> & schema) {
     auto file = get_data_file(file_name);
     std::shared_ptr<arrow::io::ReadableFile> infile;
-    PARQUET_ASSIGN_OR_THROW(infile, arrow::io::ReadableFile::Open(file, arrow::default_memory_pool()));
-    EXIT_NOT_OK(parquet::arrow::OpenFile(std::move(infile), arrow::default_memory_pool(), &file_reader));
+    PARQUET_ASSIGN_OR_THROW(infile, arrow::io::ReadableFile::Open(file,
+                             arrow::default_memory_pool()));
+    EXIT_NOT_OK(parquet::arrow::OpenFile(std::move(infile),
+                arrow::default_memory_pool(), &file_reader));
     EXIT_NOT_OK(file_reader->GetSchema(&schema));
 }
 
 
-class ParquetRowGroupReader
-{
-public:
-    ParquetRowGroupReader(){};
+class ParquetRowGroupReader {
+ public:
+    ParquetRowGroupReader(){}
 
-    void read(const std::string & filename)
-    {
+    void read(const std::string & filename) {
         if (!file_reader)
             prepareReader(filename);
 
         size_t parallel = 5;
         while (row_group_current < row_group_total) {
             std::vector<int> row_group_indexes;
-            for (; row_group_current < row_group_total && row_group_indexes.size() < parallel; ++row_group_current) {
+            for (; row_group_current < row_group_total && 
+            row_group_indexes.size() < parallel; ++row_group_current) {
                 row_group_indexes.push_back(row_group_current);
             }
 
@@ -134,7 +133,8 @@ public:
                 return;
             }
             std::shared_ptr<arrow::Table> table;
-            arrow::Status read_status = file_reader->ReadRowGroups(row_group_indexes, column_indices, &table);
+            arrow::Status read_status = file_reader->ReadRowGroups(
+                                        row_group_indexes, column_indices, &table);
             ASSERT_OK(read_status);
         }
         return;
@@ -149,8 +149,7 @@ public:
         row_group_current = 0;
 
         int index = 0;
-        for (int i = 0; i < schema->num_fields(); ++i)
-        {
+        for (int i = 0; i < schema->num_fields(); ++i) {
             /// STRUCT type require the number of indexes equal to the number of
             /// nested elements, so we should recursively
             /// count the number of indices we need for this type.
@@ -184,7 +183,8 @@ template <uint32_t rows, uint32_t row_group>
 static void BM_ReadFile(::benchmark::State& state) {
   while (state.KeepRunning()) {
     ParquetRowGroupReader reader;
-    std::string file_name = "single_column_" + std::to_string(state.range(0)) + "kw_" + std::to_string(state.range(1)) + ".parquet";
+    std::string file_name = "single_column_" + std::to_string(state.range(0)) +
+                            "kw_" + std::to_string(state.range(1)) + ".parquet";
     reader.read(file_name);
   }
 
@@ -196,7 +196,8 @@ template <uint32_t rows, uint32_t bit_width>
 static void BM_ReadFileDiffBitWidth(::benchmark::State& state) {
   while (state.KeepRunning()) {
     ParquetRowGroupReader reader;
-    std::string file_name = "sc_" + std::to_string(state.range(0)) + "kw_multibit_" + std::to_string(state.range(1)) + ".parquet";
+    std::string file_name = "sc_" + std::to_string(state.range(0)) + "kw_multibit_"
+                            + std::to_string(state.range(1)) + ".parquet";
     reader.read(file_name);
   }
 
@@ -233,4 +234,4 @@ BENCHMARK_TEMPLATE2(BM_ReadFileDiffBitWidth, 1, 2)
 
 // }  // namespace benchmark
 
-}  // namespace parquet
+}  // namespace arrow

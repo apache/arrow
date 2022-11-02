@@ -137,7 +137,8 @@ class RleDecoder {
 #ifdef ENABLE_QPL_ANALYSIS
   template <typename T>
   int GetBatchAsyncWithIAA(const T* dictionary, int32_t dictionary_length,
-                                        T* values, int batch_size, T** out, qpl_job** job, std::vector<uint8_t>** destination);                                       
+                          T* values, int batch_size, T** out, qpl_job** job,
+                          std::vector<uint8_t>** destination);
 #endif
 
   /// Like GetBatchWithDict but add spacing for null entries
@@ -612,8 +613,10 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
 
 #ifdef ENABLE_QPL_ANALYSIS
 template <typename T>
-inline int RleDecoder::GetBatchAsyncWithIAA(const T* dictionary, int32_t dictionary_length,
-                                        T* values, int batch_size, T** out, qpl_job** job, std::vector<uint8_t>** destination) {
+inline int RleDecoder::GetBatchAsyncWithIAA(const T* dictionary,
+                                            int32_t dictionary_length, T* values,
+                                            int batch_size, T** out, qpl_job** job,
+                                            std::vector<uint8_t>** destination) {
     if (bit_width_ == 1) {
       return GetBatchWithDict(dictionary, dictionary_length, values, batch_size);
     }
@@ -626,16 +629,16 @@ inline int RleDecoder::GetBatchAsyncWithIAA(const T* dictionary, int32_t diction
 
     qpl_job* async_job = *job;
     if (dictionary_length < 0xFF) {
-      async_job->out_bit_width      = qpl_ow_8;  
+      async_job->out_bit_width      = qpl_ow_8;
       *destination = new std::vector<uint8_t>(batch_size, 0);
     } else if (dictionary_length < 0xFFFF) {
-      async_job->out_bit_width      = qpl_ow_16;  
+      async_job->out_bit_width      = qpl_ow_16;
       *destination = new std::vector<uint8_t>(batch_size * 2, 0);
     } else {
-      async_job->out_bit_width      = qpl_ow_32;  
+      async_job->out_bit_width      = qpl_ow_32;
       *destination = new std::vector<uint8_t>(batch_size * 4, 0);
     }
-    
+
     auto qpl_out = *destination;
 
     async_job->op                 = qpl_op_extract;
@@ -657,7 +660,7 @@ inline int RleDecoder::GetBatchAsyncWithIAA(const T* dictionary, int32_t diction
 
     *out =  values;
     return batch_size;
-}   
+}
 #endif
 
 template <typename T>

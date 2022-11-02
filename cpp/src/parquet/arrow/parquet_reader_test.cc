@@ -45,13 +45,13 @@ using arrow::DataType;
 // namespace parquet {
 namespace arrow {
 
-static size_t countIndicesForType(std::shared_ptr<arrow::DataType> type)
-{
-    if (type->id() == arrow::Type::LIST)
-        return countIndicesForType(static_cast<arrow::ListType *>(type.get())->value_type());
+static size_t countIndicesForType(std::shared_ptr<arrow::DataType> type) {
+    if (type->id() == arrow::Type::LIST) {
+        return countIndicesForType(
+            static_cast<arrow::ListType *>(type.get())->value_type());
+    }
 
-    if (type->id() == arrow::Type::STRUCT)
-    {
+    if (type->id() == arrow::Type::STRUCT) {
         int indices = 0;
         auto * struct_type = static_cast<arrow::StructType *>(type.get());
         for (int i = 0; i != struct_type->num_fields(); ++i)
@@ -59,10 +59,10 @@ static size_t countIndicesForType(std::shared_ptr<arrow::DataType> type)
         return indices;
     }
 
-    if (type->id() == arrow::Type::MAP)
-    {
+    if (type->id() == arrow::Type::MAP) {
         auto * map_type = static_cast<arrow::MapType *>(type.get());
-        return countIndicesForType(map_type->key_type()) + countIndicesForType(map_type->item_type());
+        return countIndicesForType(map_type->key_type()) +
+                    countIndicesForType(map_type->item_type());
     }
 
     return 1;
@@ -71,29 +71,30 @@ static size_t countIndicesForType(std::shared_ptr<arrow::DataType> type)
 static void getFileReaderAndSchema(
     const std::string& file_name,
     std::unique_ptr<parquet::arrow::FileReader> & file_reader,
-    std::shared_ptr<arrow::Schema> & schema)
-{
+    std::shared_ptr<arrow::Schema> & schema) {
     auto file = parquet::test::get_data_file(file_name);
     std::shared_ptr<arrow::io::ReadableFile> infile;
-    PARQUET_ASSIGN_OR_THROW(infile, arrow::io::ReadableFile::Open(file, arrow::default_memory_pool()));
-    ASSERT_OK(parquet::arrow::OpenFile(std::move(infile), arrow::default_memory_pool(), &file_reader));
+    PARQUET_ASSIGN_OR_THROW(infile, arrow::io::ReadableFile::Open(
+                                file, arrow::default_memory_pool()));
+    ASSERT_OK(parquet::arrow::OpenFile(std::move(infile),
+                arrow::default_memory_pool(), &file_reader));
     ASSERT_OK(file_reader->GetSchema(&schema));
 }
 
-class ParquetRowGroupReader : public ::testing::Test
-{
-public:
-    ParquetRowGroupReader(){};
+class ParquetRowGroupReader : public ::testing::Test {
+ public:
+    ParquetRowGroupReader() {}
 
-    void read(const std::string & filename)
-    {
-        if (!file_reader)
+    void read(const std::string & filename) {
+        if (!file_reader) {
             prepareReader(filename);
+        }
 
         size_t parallel = 2;
         while (row_group_current < row_group_total) {
             std::vector<int> row_group_indexes;
-            for (; row_group_current < row_group_total && row_group_indexes.size() < parallel; ++row_group_current) {
+            for (; row_group_current < row_group_total &&
+                    row_group_indexes.size() < parallel; ++row_group_current) {
                 row_group_indexes.push_back(row_group_current);
             }
 
@@ -101,7 +102,8 @@ public:
                 return;
             }
             std::shared_ptr<arrow::Table> table;
-            arrow::Status read_status = file_reader->ReadRowGroups(row_group_indexes, column_indices, &table);
+            arrow::Status read_status = file_reader->ReadRowGroups(
+                        row_group_indexes, column_indices, &table);
             ASSERT_OK(read_status);
         }
         return;
@@ -116,8 +118,7 @@ public:
         row_group_current = 0;
 
         int index = 0;
-        for (int i = 0; i < schema->num_fields(); ++i)
-        {
+        for (int i = 0; i < schema->num_fields(); ++i) {
             /// STRUCT type require the number of indexes equal to the number of
             /// nested elements, so we should recursively
             /// count the number of indices we need for this type.
@@ -141,7 +142,7 @@ TEST_F(ParquetRowGroupReader, ReadParquetFile) {
   read("lineorder.parquet");
 }
 
-}
+}  // namespace arrow
 
 #ifdef ARROW_CSV
 
@@ -173,7 +174,7 @@ class TestArrowReadWithQPL : public ::testing::Test {
                              ::arrow::csv::ParseOptions::Defaults(), convert_options));
     ASSERT_OK_AND_ASSIGN(*out, csv_reader->Read());
   }
-  };
+};
 
 
 TEST_F(TestArrowReadWithQPL, ReadSnappyParquetFile) {
@@ -199,7 +200,7 @@ TEST_F(TestArrowReadWithQPL, ReadSnappyParquetFile) {
 }
 #endif
 
-}
-}
+} // namespace arrow
+} // namespace parquet
 
 

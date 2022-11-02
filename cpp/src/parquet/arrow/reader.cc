@@ -466,7 +466,7 @@ class LeafReader : public ColumnReaderImpl {
 
   bool IsOrHasRepeatedChild() const final { return false; }
 
-#ifdef ENABLE_QPL_ANALYSIS 
+#ifdef ENABLE_QPL_ANALYSIS
   Status LoadBatchAsync(int64_t records_to_read) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     out_ = nullptr;
@@ -485,8 +485,7 @@ class LeafReader : public ColumnReaderImpl {
       row_groups_records.push_back(records_read);
 
       records_to_read -= records_read;
-      
-        NextRowGroup();
+      NextRowGroup();
       ++row_group_idx;
     }
 
@@ -496,7 +495,7 @@ class LeafReader : public ColumnReaderImpl {
     }
 
     RETURN_NOT_OK(
-        TransferColumnData(record_reader_.get(), field_, descr_, ctx_->pool, &out_));                                     
+        TransferColumnData(record_reader_.get(), field_, descr_, ctx_->pool, &out_));
     return Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -505,8 +504,8 @@ class LeafReader : public ColumnReaderImpl {
   Status LoadBatch(int64_t records_to_read) final {
 #ifdef ENABLE_QPL_ANALYSIS
   ::arrow::Status status = LoadBatchAsync(records_to_read);
-  ARROW_RETURN_IF(status.ok(), status); 
-#endif    
+  ARROW_RETURN_IF(status.ok(), status);
+#endif
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     out_ = nullptr;
     record_reader_->Reset();

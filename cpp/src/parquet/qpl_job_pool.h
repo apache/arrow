@@ -32,10 +32,10 @@
 namespace parquet {
 
 /// QplJobHWPool is resource pool to provide the job objects.
-/// Job object is used for storing context information during offloading compression job to HW Accelerator.
-class QplJobHWPool
-{
-public:
+/// Job object is used for storing context information during
+//  offloading compression job to HW Accelerator.
+class QplJobHWPool {
+ public:
     QplJobHWPool();
     ~QplJobHWPool();
 
@@ -45,22 +45,22 @@ public:
     static void releaseJob(uint32_t job_id);
     static const bool & isJobPoolReady() { return job_pool_ready; }
 
-private:
+ private:
     static bool tryLockJob(uint32_t index);
     static void unLockJob(uint32_t index);
 
     /// Maximum jobs running in parallel supported by IAA hardware
-    static constexpr auto MAX_HW_JOB_NUMBER = 512;
+    static constexpr auto MAX_JOB_NUMBER = 512;
     /// Entire buffer for storing all job objects
     static std::unique_ptr<uint8_t[]> hw_jobs_buffer;
     /// Job pool for storing all job object pointers
-    static std::array<qpl_job *, MAX_HW_JOB_NUMBER> hw_job_ptr_pool;
+    static std::array<qpl_job *, MAX_JOB_NUMBER> hw_job_ptr_pool;
     /// Locks for accessing each job object pointers
-    static std::array<std::atomic_bool, MAX_HW_JOB_NUMBER> hw_job_ptr_locks;
+    static std::array<std::atomic_bool, MAX_JOB_NUMBER> job_ptr_locks;
     static bool job_pool_ready;
     std::mt19937 random_engine;
     std::uniform_int_distribution<int> distribution;
 };
-}
+} // namespace parquet
 
 #endif

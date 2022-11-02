@@ -285,7 +285,8 @@ class TypedDecoder : virtual public Decoder {
   /// at the end of the current data page.
   virtual int Decode(T* buffer, int max_values) = 0;
 #ifdef ENABLE_QPL_ANALYSIS
-  virtual int DecodeWithIAA(T* buffer, int num_values, int32_t* qpl_job_id, qpl_job** job, std::vector<uint8_t>** destination, T** out) {
+  virtual int DecodeWithIAA(T* buffer, int num_values, int32_t* qpl_job_id,
+              qpl_job** job, std::vector<uint8_t>** destination, T** out) {
     return Decode(buffer, num_values);
   }
 #endif

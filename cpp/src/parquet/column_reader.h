@@ -355,7 +355,7 @@ class PARQUET_EXPORT RecordReader {
     return;
   }
   virtual void SetCurrReadRowGroup(size_t idx) {return;}
-  virtual void FreeAsyncVector(int64_t capacity) = 0;  
+  virtual void FreeAsyncVector(int64_t capacity) = 0;
 #endif
 
  protected:
