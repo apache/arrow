@@ -67,9 +67,13 @@ group_vars.ArrowTabular <- function(x) {
 
 # the logical literal in the two functions below controls the default value of
 # the .drop argument to group_by()
-group_by_drop_default.arrow_dplyr_query <-
-  function(.tbl) .tbl$drop_empty_groups %||% TRUE
-group_by_drop_default.Dataset <- group_by_drop_default.ArrowTabular <- group_by_drop_default.RecordBatchReader <-
+group_by_drop_default.arrow_dplyr_query <- function(.tbl) {
+  .tbl$drop_empty_groups %||% TRUE
+}
+group_by_drop_default.ArrowTabular <- function(.tbl) {
+  .tbl$metadata$r$attributes$.group_by_drop %||% TRUE
+}
+group_by_drop_default.Dataset <- group_by_drop_default.RecordBatchReader <-
   function(.tbl) TRUE
 
 ungroup.arrow_dplyr_query <- function(x, ...) {
@@ -79,6 +83,22 @@ ungroup.arrow_dplyr_query <- function(x, ...) {
 }
 ungroup.Dataset <- ungroup.RecordBatchReader <- force
 ungroup.ArrowTabular <- function(x) {
-  x$metadata$r$attributes$.group_vars <- NULL
-  x
+  set_group_attributes(x, NULL, NULL)
+}
+
+# Function to call after evaluating a query (as_arrow_table()) to add back any
+# group attributes to the Schema metadata. Or to remove them, pass NULL.
+set_group_attributes <- function(tab, group_vars, .drop) {
+  # dplyr::group_vars() returns character(0)
+  # so passing NULL means unset (ungroup)
+  if (is.null(group_vars) || length(group_vars)) {
+    # Since accessing schema metadata does some work, only overwrite if needed
+    new_atts <- old_atts <- tab$metadata$r$attributes
+    new_atts[[".group_vars"]] <- group_vars
+    new_atts[[".group_by_drop"]] <- .drop
+    if (!identical(new_atts, old_atts)) {
+      tab$metadata$r$attributes <- new_atts
+    }
+  }
+  tab
 }
