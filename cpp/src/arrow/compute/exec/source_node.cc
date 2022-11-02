@@ -112,7 +112,7 @@ struct SourceNode : ExecNode {
                  lock.unlock();
 
                  return generator_().Then(
-                     [=](const std::optional<ExecBatch>& maybe_morsel)
+                     [this](const std::optional<ExecBatch>& maybe_morsel)
                          -> Future<ControlFlow<int>> {
                        std::unique_lock<std::mutex> lock(mutex_);
                        if (IsIterationEnd(maybe_morsel) || stop_requested_) {
@@ -131,7 +131,7 @@ struct SourceNode : ExecNode {
                              bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
                          batch_count_ += num_batches;
                        }
-                       RETURN_NOT_OK(plan_->ScheduleTask([=]() {
+                       RETURN_NOT_OK(plan_->ScheduleTask([=, this]() {
                          int64_t offset = 0;
                          do {
                            int64_t batch_size = std::min<int64_t>(
@@ -155,7 +155,7 @@ struct SourceNode : ExecNode {
                        }
                        return Future<ControlFlow<int>>::MakeFinished(Continue());
                      },
-                     [=](const Status& error) -> ControlFlow<int> {
+                     [this](const Status& error) -> ControlFlow<int> {
                        outputs_[0]->ErrorReceived(this, error);
                        return Break(batch_count_);
                      },

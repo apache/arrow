@@ -448,7 +448,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
   int64_t batch_size = options->batch_size;
   // Open the reader and pay the real IO cost.
   auto make_generator =
-      [=](const std::shared_ptr<parquet::arrow::FileReader>& reader) mutable
+      [=, this](const std::shared_ptr<parquet::arrow::FileReader>& reader) mutable
       -> Result<RecordBatchGenerator> {
     // Ensure that parquet_fragment has FileMetaData
     RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
