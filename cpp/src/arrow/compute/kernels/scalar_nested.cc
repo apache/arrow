@@ -247,7 +247,7 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
   } else {
     // Returning large list if that's what we got in and didn't ask for fixed size
     if (list_type->id() == Type::LARGE_LIST) {
-      return TypeHolder(large_list(list_type->value_type()));
+      return list_type;
     }
     return TypeHolder(list(list_type->value_type()));
   }
