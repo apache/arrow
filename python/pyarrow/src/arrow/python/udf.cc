@@ -16,8 +16,8 @@
 // under the License.
 
 #include "arrow/python/udf.h"
-#include "arrow/compute/function.h"
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/function.h"
 #include "arrow/python/common.h"
 
 // TODO REMOVE
@@ -31,6 +31,20 @@ using compute::ExecSpan;
 namespace py {
 
 namespace {
+
+void SetUpPythonArgs(int num_args, const ExecSpan& batch, OwnedRef& arg_tuple) {
+  for (int arg_id = 0; arg_id < num_args; arg_id++) {
+    if (batch[arg_id].is_scalar()) {
+      std::shared_ptr<Scalar> c_data = batch[arg_id].scalar->GetSharedPtr();
+      PyObject* data = wrap_scalar(c_data);
+      PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
+    } else {
+      std::shared_ptr<Array> c_data = batch[arg_id].array.ToArray();
+      PyObject* data = wrap_array(c_data);
+      PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
+    }
+  }
+}
 
 struct PythonUdf : public compute::KernelState {
   ScalarUdfWrapperCallback cb;
@@ -55,18 +69,7 @@ struct PythonUdf : public compute::KernelState {
 
     OwnedRef arg_tuple(PyTuple_New(num_args));
     RETURN_NOT_OK(CheckPyError());
-    for (int arg_id = 0; arg_id < num_args; arg_id++) {
-      if (batch[arg_id].is_scalar()) {
-        std::shared_ptr<Scalar> c_data = batch[arg_id].scalar->GetSharedPtr();
-        PyObject* data = wrap_scalar(c_data);
-        PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
-      } else {
-        std::shared_ptr<Array> c_data = batch[arg_id].array.ToArray();
-        PyObject* data = wrap_array(c_data);
-        PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
-      }
-    }
-
+    SetUpPythonArgs(num_args, batch, arg_tuple);
     OwnedRef result(cb(function->obj(), udf_context, arg_tuple.obj()));
     RETURN_NOT_OK(CheckPyError());
     // unwrapping the output for expected output type
@@ -218,17 +221,7 @@ struct PythonScalarUdfAggregatorImpl : public ScalarUdfAggregator {
     // TODO: think about guaranteeing DRY (following logic already used in ScalarUDFs)
     OwnedRef arg_tuple(PyTuple_New(num_args));
     RETURN_NOT_OK(CheckPyError());
-    for (int arg_id = 0; arg_id < num_args; arg_id++) {
-      if (batch[arg_id].is_scalar()) {
-        std::shared_ptr<Scalar> c_data = batch[arg_id].scalar->GetSharedPtr();
-        PyObject* data = wrap_scalar(c_data);
-        PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
-      } else {
-        std::shared_ptr<Array> c_data = batch[arg_id].array.ToArray();
-        PyObject* data = wrap_array(c_data);
-        PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
-      }
-    }
+    SetUpPythonArgs(num_args, batch, arg_tuple);
     OwnedRef result(consume_cb(consume_function->obj(), this->udf_context_, arg_tuple.obj()));
     RETURN_NOT_OK(CheckPyError());
     PyObject* consume_res = result.obj();
