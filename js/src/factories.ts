@@ -105,14 +105,7 @@ export function tableFromJSON<T extends Record<string, unknown>>(array: T[]): Ta
 
 /** @ignore */
 function inferType<T extends readonly unknown[]>(values: T): JavaScriptArrayDataType<T>;
-function inferType(values: unknown[], path?: string[], cache?:Map<string[], dtypes.DataType>): dtypes.DataType;
-function inferType(value: readonly unknown[], path?: string[], cache?: Map<string[], dtypes.DataType>): dtypes.DataType {
-    if(!path) {
-    	path = []
-    }
-    if(!cache) {
-    	cache = new Map()
-    }
+function inferType(value: readonly unknown[]): dtypes.DataType {
     if (value.length === 0) { return new dtypes.Null; }
     let nullsCount = 0;
     let arraysCount = 0;
@@ -146,12 +139,7 @@ function inferType(value: readonly unknown[], path?: string[], cache?: Map<strin
     if (numbersCount + nullsCount === value.length) {
         return new dtypes.Float64;
     } else if (stringsCount + nullsCount === value.length) {
-        if (cache.has(path)) {
-          return cache.get(path)!
-        }
-        const d =  new dtypes.Dictionary(new dtypes.Utf8, new dtypes.Int32);
-        cache.set(path, d)
-        return d
+        return new dtypes.Dictionary(new dtypes.Utf8, new dtypes.Int32);
     } else if (bigintsCount + nullsCount === value.length) {
         return new dtypes.Int64;
     } else if (booleansCount + nullsCount === value.length) {
@@ -160,8 +148,8 @@ function inferType(value: readonly unknown[], path?: string[], cache?: Map<strin
         return new dtypes.DateMillisecond;
     } else if (arraysCount + nullsCount === value.length) {
         const array = value as Array<unknown>[];
-        const childType = inferType(array[array.findIndex((ary) => ary != null)], path, cache);
-        if (array.every((ary) => ary == null || compareTypes(childType, inferType(ary, path, cache)))) {
+        const childType = inferType(array[array.findIndex((ary) => ary != null)]);
+        if (array.every((ary) => ary == null || compareTypes(childType, inferType(ary)))) {
             return new dtypes.List(new Field('', childType, true));
         }
     } else if (objectsCount + nullsCount === value.length) {
@@ -170,9 +158,7 @@ function inferType(value: readonly unknown[], path?: string[], cache?: Map<strin
             for (const key of Object.keys(row)) {
                 if (!fields.has(key) && row[key] != null) {
                     // use the type inferred for the first instance of a found key
-		    path.push(key)
-                    fields.set(key, new Field(key, inferType([row[key]], path, cache), true));
-		    path.pop()
+                    fields.set(key, new Field(key, inferType([row[key]]), true));
                 }
             }
         }
