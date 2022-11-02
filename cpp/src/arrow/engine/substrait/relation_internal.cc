@@ -644,7 +644,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
     case substrait::Rel::RelTypeCase::kSet: {
       const auto& set = rel.set();
-      RETURN_NOT_OK(CheckRelCommon(set));
+      RETURN_NOT_OK(CheckRelCommon(set, conversion_options));
 
       if (set.inputs_size() < 2) {
         return Status::Invalid(
@@ -655,7 +655,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       // Note: at the moment Acero only supports UNION_ALL operation
       switch (op) {
         case substrait::SetRel::SET_OP_UNSPECIFIED:
-        case substrait::SetRel::SET_OP_MINUS_PRIMARY:     
+        case substrait::SetRel::SET_OP_MINUS_PRIMARY:
         case substrait::SetRel::SET_OP_MINUS_MULTISET:
         case substrait::SetRel::SET_OP_INTERSECTION_PRIMARY:
         case substrait::SetRel::SET_OP_INTERSECTION_MULTISET:
