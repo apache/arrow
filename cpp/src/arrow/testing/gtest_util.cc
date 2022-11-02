@@ -679,7 +679,7 @@ void TestInitialized(const ArrayData& array) {
   // entire buffer data).  If not all bits are well-defined, Valgrind will
   // error with "Conditional jump or move depends on uninitialised value(s)".
   if (total_bit == 0) {
-    ++throw_away;
+    throw_away = throw_away + 1;
   }
   for (const auto& child : array.child_data) {
     TestInitialized(*child);
