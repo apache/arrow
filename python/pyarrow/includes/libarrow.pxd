@@ -2776,7 +2776,6 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
 
     cdef cppclass CScalarAggregateUdfContext" arrow::py::ScalarAggregateUdfContext":
         CMemoryPool *pool
-        int64_t batch_length
         PyObject* state
 
     cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions":

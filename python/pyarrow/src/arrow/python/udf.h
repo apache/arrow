@@ -47,14 +47,10 @@ struct ARROW_PYTHON_EXPORT ScalarUdfContext {
   int64_t batch_length;
 };
 
-
+/// \brief A context passed as the first argument of scalar aggregate UDF functions.
 struct ARROW_PYTHON_EXPORT ScalarAggregateUdfContext {
   MemoryPool* pool;
-  int64_t batch_length;
-  // TODO: do we need to standardize this
-  // Meaning: do we have to Create a PythonAggregateState object or something separately.
   PyObject* state;
-
   ~ScalarAggregateUdfContext();
 };
 

@@ -554,7 +554,7 @@ def test_aggregate_udf_with_custom_state():
     def finalize(ctx):
         return pa.array([ctx.state.non_null])
 
-    func_name = "simple_count_1"
+    func_name = "simple_count"
     unary_doc = {"summary": "count function",
                  "description": "test agg count function"}
 
@@ -567,10 +567,8 @@ def test_aggregate_udf_with_custom_state():
                                           {"array": pa.int64()},
                                           pa.int64())
 
-    print(pc.get_function(func_name))
-
-    print(pc.call_function(func_name, [
-          pa.array([10, 20, None, 30, None, 40])]))
+    assert pc.call_function(func_name, [pa.array(
+        [10, 20, None, 30, None, 40])]) == pa.array([4])
 
 
 def test_aggregate_udf_with_custom_state_multi_attr():
@@ -642,7 +640,7 @@ def test_aggregate_udf_with_custom_state_multi_attr():
         print(ctx.state)
         return pa.array([ctx.state.non_null, ctx.state.null])
 
-    func_name = "basic_count"
+    func_name = "advance_count"
     unary_doc = {"summary": "count function for null and non-null",
                  "description": "test agg count function"}
 
@@ -655,7 +653,5 @@ def test_aggregate_udf_with_custom_state_multi_attr():
                                           {"array": pa.int64()},
                                           pa.int64())
 
-    print(pc.get_function(func_name))
-
-    print(pc.call_function(func_name, [
-          pa.array([10, 20, None, 30, None, 40])]))
+    assert pc.call_function(func_name, [
+        pa.array([10, 20, None, 30, None, 40])]) == pa.array([4, 2])

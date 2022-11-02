@@ -2490,18 +2490,6 @@ cdef class ScalarAggregateUdfContext:
         self.c_context = c_context
 
     @property
-    def batch_length(self):
-        """
-        The common length of all input arguments (int).
-
-        In the case that all arguments are scalars, this value
-        is used to pass the "actual length" of the arguments,
-        e.g. because the scalar values are encoding a column
-        with a constant value.
-        """
-        return self.c_context.batch_length
-
-    @property
     def memory_pool(self):
         """
         A memory pool for allocations (:class:`MemoryPool`).
