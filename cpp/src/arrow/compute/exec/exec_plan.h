@@ -520,7 +520,7 @@ ARROW_EXPORT Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatc
     Declaration declaration, ExecContext* exec_context = default_exec_context());
 
 /// \brief Utility method to run a declaration return results as a RecordBatchReader
-Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
+ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
     Declaration declaration, BackpressureOptions backpressure_options = {},
     BackpressureMonitor** monitor = NULLPTR);
 
