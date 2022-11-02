@@ -1482,7 +1482,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       }
 
       // Read some more levels.
-      int64_t batch_size = std::min(level_batch_size, available_values_current_page());
+      int64_t batch_size =
+          std::min(level_batch_size, this->available_values_current_page());
       // No more data in column. This must be an empty page.
       // If we had exhausted the last page, HasNextInternal() must have advanced
       // to the next page. So there must be available values to process.

@@ -291,7 +291,7 @@ TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
                     &values_read);
   std::vector<int32_t> sub_values(
       values_.begin() + 2 * levels_per_page,
-      values_.begin() + static_cast<int>(2.5 * static_cast<double>(levels_per_page)));
+      values_.begin() + static_cast<int>(2.5 * levels_per_page));
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
   // 2) skip_size == page_size (skip across two pages from page 2.5 to 3.5)
@@ -301,10 +301,9 @@ TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
   reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
                     &values_read);
   sub_values.clear();
-  sub_values.insert(
-      sub_values.end(),
-      values_.begin() + static_cast<int>(3.5 * static_cast<double>(levels_per_page)),
-      values_.begin() + 4 * levels_per_page);
+  sub_values.insert(sub_values.end(),
+                    values_.begin() + static_cast<int>(3.5 * levels_per_page),
+                    values_.begin() + 4 * levels_per_page);
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
   // 3) skip_size == page_size (skip page 4 from start of the page to the end)
@@ -314,10 +313,9 @@ TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
   reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
                     &values_read);
   sub_values.clear();
-  sub_values.insert(
-      sub_values.end(),
-      values_.begin() + static_cast<int>(5 * static_cast<double>(levels_per_page)),
-      values_.begin() + 5.5 * levels_per_page);
+  sub_values.insert(sub_values.end(),
+                    values_.begin() + static_cast<int>(5.0 * levels_per_page),
+                    values_.begin() + static_cast<int>(5.5 * levels_per_page));
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
   // 4) skip_size < page_size (skip limited to a single page)
@@ -328,10 +326,9 @@ TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
   reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
                     &values_read);
   sub_values.clear();
-  sub_values.insert(
-      sub_values.end(),
-      values_.begin() + static_cast<int>(6 * static_cast<double>(levels_per_page)),
-      values_.begin() + 6.5 * levels_per_page);
+  sub_values.insert(sub_values.end(),
+                    values_.begin() + static_cast<int>(6.0 * levels_per_page),
+                    values_.begin() + static_cast<int>(6.5 * levels_per_page));
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
   // 5) skip_size = 0
