@@ -26,8 +26,8 @@
 // global namespace conflicts.
 
 #include "arrow/engine/substrait/test_util.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 

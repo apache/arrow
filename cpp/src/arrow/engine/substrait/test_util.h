@@ -25,12 +25,12 @@
 // to include each .pb.h file or else protobuf will encounter
 // global namespace conflicts.
 
-#include <gtest/gtest.h>
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/table.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 
