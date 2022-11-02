@@ -35,6 +35,8 @@ from pyarrow.tests.parquet.common import (
 from pyarrow.util import guid
 from pyarrow.vendored.version import Version
 
+import unittest.mock as mock
+
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (
@@ -1300,6 +1302,33 @@ def _test_write_to_dataset_with_partitions(base_path,
     for col in partition_by:
         output_df[col] = output_df[col].astype('category')
     tm.assert_frame_equal(output_df, input_df)
+
+
+def test_write_metadata_with_without_filesystem(tempdir):
+    meta1 = tempdir / "meta1"
+    meta2 = tempdir / "meta2"
+    count = 0
+
+    class MockLocalFileSystem(fs.LocalFileSystem):
+        """Mock fails to find attrs from direct cython ext."""
+        pass
+
+    table = pa.table({"col": range(5)})
+    filesystem = MockLocalFileSystem()
+
+    with mock.patch.object(MockLocalFileSystem,
+                           "open_output_stream",
+                           wraps=filesystem.open_output_stream) \
+            as mock_open_output_stream:
+
+        pq.write_metadata(table.schema, meta1)
+        mock_open_output_stream.assert_not_called()
+
+        # open_output_stream used before final `write_metadata_file` call
+        pq.write_metadata(table.schema, meta2, filesystem=filesystem)
+        mock_open_output_stream.assert_called()
+
+    assert meta1.read_bytes() == meta2.read_bytes()
 
 
 def _test_write_to_dataset_no_partitions(base_path,
