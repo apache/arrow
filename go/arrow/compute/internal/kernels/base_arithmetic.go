@@ -19,6 +19,7 @@ package kernels
 import (
 	"fmt"
 
+	"github.com/JohnCGriffin/overflow"
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v11/arrow/decimal128"
@@ -37,23 +38,23 @@ const (
 	OpSubChecked
 )
 
-func getGoArithmeticBinary[T exec.NumericTypes](op func(a, b T, e *error) T) binaryOps[T, T, T] {
-	return binaryOps[T, T, T]{
-		arrArr: func(_ *exec.KernelCtx, left, right, out []T) error {
+func getGoArithmeticBinary[OutT, Arg0T, Arg1T exec.NumericTypes](op func(a Arg0T, b Arg1T, e *error) OutT) binaryOps[OutT, Arg0T, Arg1T] {
+	return binaryOps[OutT, Arg0T, Arg1T]{
+		arrArr: func(_ *exec.KernelCtx, left []Arg0T, right []Arg1T, out []OutT) error {
 			var err error
 			for i := range out {
 				out[i] = op(left[i], right[i], &err)
 			}
 			return err
 		},
-		arrScalar: func(ctx *exec.KernelCtx, left []T, right T, out []T) error {
+		arrScalar: func(_ *exec.KernelCtx, left []Arg0T, right Arg1T, out []OutT) error {
 			var err error
 			for i := range out {
 				out[i] = op(left[i], right, &err)
 			}
 			return err
 		},
-		scalarArr: func(ctx *exec.KernelCtx, left T, right, out []T) error {
+		scalarArr: func(_ *exec.KernelCtx, left Arg0T, right []Arg1T, out []OutT) error {
 			var err error
 			for i := range out {
 				out[i] = op(left, right[i], &err)
@@ -118,6 +119,86 @@ func getGoArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.
 	}
 	debug.Assert(false, "invalid arithmetic op")
 	return nil
+}
+
+func timeDurationOp[OutT, Arg0T, Arg1T ~int32 | ~int64](multiple int64, op ArithmeticOp) exec.ArrayKernelExec {
+	switch op {
+	case OpAdd:
+		return ScalarBinary(getGoArithmeticBinary(func(a Arg0T, b Arg1T, e *error) OutT {
+			result := OutT(a) + OutT(b)
+			if result < 0 || multiple <= int64(result) {
+				*e = fmt.Errorf("%w: %d is not within acceptable range of [0, %d) s", arrow.ErrInvalid, result, multiple)
+			}
+			return result
+		}))
+	case OpSub:
+		return ScalarBinary(getGoArithmeticBinary(func(a Arg0T, b Arg1T, e *error) OutT {
+			result := OutT(a) - OutT(b)
+			if result < 0 || multiple <= int64(result) {
+				*e = fmt.Errorf("%w: %d is not within acceptable range of [0, %d) s", arrow.ErrInvalid, result, multiple)
+			}
+			return result
+		}))
+	case OpAddChecked:
+		shiftBy := (SizeOf[OutT]() * 8) - 1
+		// ie: uint32 does a >> 31 at the end, int32 does >> 30
+		if ^OutT(0) < 0 {
+			shiftBy--
+		}
+		return ScalarBinary(getGoArithmeticBinary(func(a Arg0T, b Arg1T, e *error) (result OutT) {
+			left, right := OutT(a), OutT(b)
+			result = left + right
+			carry := ((left & right) | ((left | right) &^ result)) >> shiftBy
+			if carry > 0 {
+				*e = errOverflow
+				return
+			}
+			if result < 0 || multiple <= int64(result) {
+				*e = fmt.Errorf("%w: %d is not within acceptable range of [0, %d) s", arrow.ErrInvalid, result, multiple)
+			}
+			return
+		}))
+	case OpSubChecked:
+		shiftBy := (SizeOf[OutT]() * 8) - 1
+		// ie: uint32 does a >> 31 at the end, int32 does >> 30
+		if ^OutT(0) < 0 {
+			shiftBy--
+		}
+		return ScalarBinary(getGoArithmeticBinary(func(a Arg0T, b Arg1T, e *error) (result OutT) {
+			left, right := OutT(a), OutT(b)
+			result = left - right
+			carry := ((^left & right) | (^(left ^ right) & result)) >> shiftBy
+			if carry > 0 {
+				*e = errOverflow
+				return
+			}
+			if result < 0 || multiple <= int64(result) {
+				*e = fmt.Errorf("%w: %d is not within acceptable range of [0, %d) s", arrow.ErrInvalid, result, multiple)
+			}
+			return
+		}))
+	}
+	return nil
+}
+
+func SubtractDate32(op ArithmeticOp) exec.ArrayKernelExec {
+	const secondsPerDay = 86400
+	switch op {
+	case OpSub:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b arrow.Time32, e *error) (result arrow.Duration) {
+			return arrow.Duration((a - b) * secondsPerDay)
+		}))
+	case OpSubChecked:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b arrow.Time32, e *error) (result arrow.Duration) {
+			result = arrow.Duration(a) - arrow.Duration(b)
+			val, ok := overflow.Mul64(int64(result), secondsPerDay)
+			if !ok {
+				*e = errOverflow
+			}
+			return arrow.Duration(val)
+		}))
+	}
+	panic("invalid op for subtractDate32")
 }
 
 type decOps[T decimal128.Num | decimal256.Num] struct {
@@ -187,11 +268,11 @@ func ArithmeticExec(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
 		return getArithmeticBinaryOpIntegral[int16](op)
 	case arrow.UINT16:
 		return getArithmeticBinaryOpIntegral[uint16](op)
-	case arrow.INT32:
+	case arrow.INT32, arrow.TIME32:
 		return getArithmeticBinaryOpIntegral[int32](op)
 	case arrow.UINT32:
 		return getArithmeticBinaryOpIntegral[uint32](op)
-	case arrow.INT64, arrow.TIMESTAMP:
+	case arrow.INT64, arrow.TIME64, arrow.DATE64, arrow.TIMESTAMP, arrow.DURATION:
 		return getArithmeticBinaryOpIntegral[int64](op)
 	case arrow.UINT64:
 		return getArithmeticBinaryOpIntegral[uint64](op)

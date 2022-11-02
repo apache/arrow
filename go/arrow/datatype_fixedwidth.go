@@ -317,6 +317,8 @@ const (
 	Nanosecond
 )
 
+var TimeUnitValues = []TimeUnit{Second, Millisecond, Microsecond, Nanosecond}
+
 func (u TimeUnit) Multiplier() time.Duration {
 	return [...]time.Duration{time.Second, time.Millisecond, time.Microsecond, time.Nanosecond}[uint(u)&3]
 }
