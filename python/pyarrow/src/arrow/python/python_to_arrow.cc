@@ -35,7 +35,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/chunked_array.h"
-#include "arrow/result_internal.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -447,7 +447,7 @@ class PyValue {
           value = internal::PyDelta_to_ms(dt);
           break;
         case TimeUnit::MICRO: {
-          ASSIGN_OR_RAISE(value, internal::PyDelta_to_us(dt));
+          ARROW_ASSIGN_OR_RAISE(value, internal::PyDelta_to_us(dt));
           break;
         }
         case TimeUnit::NANO:
@@ -456,7 +456,7 @@ class PyValue {
             RETURN_IF_PYERROR();
             RETURN_NOT_OK(internal::CIntFromPython(nanos.obj(), &value));
           } else {
-            ASSIGN_OR_RAISE(value, internal::PyDelta_to_ns(dt));
+            ARROW_ASSIGN_OR_RAISE(value, internal::PyDelta_to_ns(dt));
           }
           break;
         default:
