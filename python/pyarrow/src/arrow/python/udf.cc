@@ -25,6 +25,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using compute::ExecResult;
 using compute::ExecSpan;
 
@@ -136,19 +137,16 @@ struct ScalarUdfAggregator : public compute::KernelState {
 };
 
 arrow::Status AggregateUdfConsume(compute::KernelContext* ctx, const compute::ExecSpan& batch) {
-  return arrow::internal::checked_cast<ScalarUdfAggregator*>(ctx->state())
-      ->Consume(ctx, batch);
+  return checked_cast<ScalarUdfAggregator*>(ctx->state())->Consume(ctx, batch);
 }
 
 arrow::Status AggregateUdfMerge(compute::KernelContext* ctx, compute::KernelState&& src,
                                 compute::KernelState* dst) {
-  return arrow::internal::checked_cast<ScalarUdfAggregator*>(dst)->MergeFrom(
-      ctx, std::move(src));
+  return checked_cast<ScalarUdfAggregator*>(dst)->MergeFrom(ctx, std::move(src));
 }
 
 arrow::Status AggregateUdfFinalize(compute::KernelContext* ctx, arrow::Datum* out) {
-  return arrow::internal::checked_cast<ScalarUdfAggregator*>(ctx->state())
-      ->Finalize(ctx, out);
+  return checked_cast<ScalarUdfAggregator*>(ctx->state())->Finalize(ctx, out);
 }
 
 ScalarAggregateUdfContext::~ScalarAggregateUdfContext() {
@@ -242,7 +240,7 @@ struct PythonScalarUdfAggregatorImpl : public ScalarUdfAggregator {
   }
 
   Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) override {
-    const auto& other_state = arrow::internal::checked_cast<const PythonScalarUdfAggregatorImpl&>(src);
+    const auto& other_state = checked_cast<const PythonScalarUdfAggregatorImpl&>(src);
     return SafeCallIntoPython([&]() -> Status {
       OwnedRef result(merge_cb(merge_function->obj(), 
         this->udf_context_, other_state.owned_state_.obj()));
@@ -257,8 +255,9 @@ struct PythonScalarUdfAggregatorImpl : public ScalarUdfAggregator {
   }
 
   Status Finalize(compute::KernelContext* ctx, arrow::Datum* out) override {
+    const auto& state = checked_cast<const PythonScalarUdfAggregatorImpl&>(*ctx->state());
     return SafeCallIntoPython([&]() -> Status { 
-        OwnedRef result(finalize_cb(finalize_function->obj(), this->udf_context_));
+        OwnedRef result(finalize_cb(finalize_function->obj(), state.udf_context_));
         RETURN_NOT_OK(CheckPyError());
         // unwrapping the output for expected output type
         if (is_array(result.obj())) {

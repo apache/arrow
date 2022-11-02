@@ -2726,6 +2726,122 @@ def register_scalar_function(func, function_name, function_doc, in_types,
 
 def register_scalar_aggregate_function(init_func, consume_func, merge_func, finalize_func,
                                        function_name, function_doc, in_types, out_type):
+    """
+    Register a user-defined scalar aggregate function.
+
+    A scalar aggregate function is a set of 4 functions which formulates
+    the operation pieces of an scalar aggregation. The base behavior in 
+    terms of computation is very much similar to scalar functions.
+
+    Parameters
+    ----------
+    init_func : callable
+        A callable implementing the user-defined initialization function.
+        This function is used to set the state for the aggregate operation
+        and returns the state object.
+    consume_func : callable
+        A callable implementing the user-defined consume function.
+        The first argument is the context argument of type
+        ScalarAggregateUdfContext.
+        Then, it must take arguments equal to the number of
+        in_types defined.
+        To define a varargs function, pass a callable that takes
+        varargs. The last in_type will be the type of all varargs
+        arguments.
+
+        This function returns the updated state after consuming the 
+        received data.
+    merge_func: callable
+        A callable implementing the user-defined merge function.
+        The first argument is the context argument of type
+        ScalarAggregateUdfContext.
+        Then, the second argument it takes is an state object. 
+        This object holds the state with which the current state
+        must be merged with. The current state can be retrieved from
+        the context object which can be acessed by `context.state`.
+        The state doesn't need to be set in the Python side and it is
+        autonomously handled in the C++ backend. The updated state must
+        be returned from this function.
+    finalize_func: callable
+        A callable implementing the user-defined finalize function.
+        The first argument is the context argument of type
+        ScalarUdfContext.
+        Using the context argument the state can be extracted and return
+        type must be an array matching the `out_type`.
+    function_name : str
+        Name of the function. This name must be globally unique.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        The argument names will be used to generate
+        documentation for the function. The number of
+        arguments specified here determines the function
+        arity.
+    out_type : DataType
+        Output type of the function.
+
+    Examples
+    --------
+    >>> class State:
+    ...     def __init__(self, non_null=0):
+    ...         self._non_null = non_null
+    ... 
+    ...     @property
+    ...     def non_null(self):
+    ...         return self._non_null
+    ... 
+    ...     @non_null.setter
+    ...     def non_null(self, value):
+    ...         self._non_null = value
+    ... 
+    ...     def __repr__(self):
+    ...         if self._non_null is None:
+    ...             return "no values stored"
+    ...         else:
+    ...             return "count: " + str(self.non_null)
+
+    >>> def init():
+    ...     state = State(0)
+    ...     return state
+
+    >>> def consume(ctx, x):
+    ...     if isinstance(x, pa.Array):
+    ...         non_null = pc.sum(pc.invert(pc.is_nan(x))).as_py()
+    ...     elif isinstance(x, pa.Scalar):
+    ...         if x.as_py():
+    ...             non_null = 1
+    ...     non_null = non_null + ctx.state.non_null
+    ...     return State(non_null)
+
+    >>> def merge(ctx, other_state):
+    ...     merged_state_val = ctx.state.non_null + other_state.non_null
+    ...     return State(merged_state_val)
+
+    >>> def finalize(ctx):
+    ...     return pa.array([ctx.state.non_null])
+
+    >>> func_doc = {}
+    >>> func_doc["summary"] = "simple aggregate udf"
+    >>> func_doc["description"] = "simple count operation"
+
+    >>> pc.register_scalar_aggregate_function(init,
+    ...                                       consume,
+    ...                                       merge,
+    ...                                       finalize,
+    ...                                       func_name,
+    ...                                       unary_doc,
+    ...                                       {"array": pa.int64()},
+    ...                                       pa.int64())
+
+    >>> pc.call_function(func_name, [pa.array([10, 20, None, 30, None, 40])])
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      4
+    ]
+    """
 
     cdef:
         c_string c_func_name
