@@ -848,6 +848,10 @@ class ColumnReaderImplBase {
                               static_cast<int>(data_size));
   }
 
+  int64_t available_values_current_page() const {
+    return num_buffered_values_ - num_decoded_values_;
+  }
+
   const ColumnDescriptor* descr_;
   const int16_t max_def_level_;
   const int16_t max_rep_level_;
@@ -1150,12 +1154,14 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
 template <typename DType>
 int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
   int64_t values_to_skip = num_values_to_skip;
-  while (HasNext() && values_to_skip > 0) {
+  // Optimization: Do not call HasNext() when values_to_skip == 0.
+  while (values_to_skip > 0 && HasNext()) {
     // If the number of values to skip is more than the number of undecoded values, skip
     // the Page.
-    if (values_to_skip > (this->num_buffered_values_ - this->num_decoded_values_)) {
-      values_to_skip -= this->num_buffered_values_ - this->num_decoded_values_;
-      this->num_decoded_values_ = this->num_buffered_values_;
+    const int64_t available_values = this->available_values_current_page();
+    if (values_to_skip >= available_values) {
+      values_to_skip -= available_values;
+      this->ConsumeBufferedValues(available_values);
     } else {
       // We need to read this Page
       // Jump to the right offset in the Page
@@ -1259,10 +1265,6 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     Reset();
   }
 
-  int64_t available_values_current_page() const {
-    return this->num_buffered_values_ - this->num_decoded_values_;
-  }
-
   // Compute the values capacity in bytes for the given number of elements
   int64_t bytes_for_values(int64_t nitems) const {
     int64_t type_size = GetTypeByteSize(this->descr_->physical_type());
@@ -1301,7 +1303,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
       /// We perform multiple batch reads until we either exhaust the row group
       /// or observe the desired number of records
-      int64_t batch_size = std::min(level_batch_size, available_values_current_page());
+      int64_t batch_size =
+          std::min(level_batch_size, this->available_values_current_page());
 
       // No more data in column
       if (batch_size == 0) {
@@ -1479,7 +1482,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       }
 
       // Read some more levels.
-      int64_t batch_size = std::min(level_batch_size, available_values_current_page());
+      int64_t batch_size =
+          std::min(level_batch_size, this->available_values_current_page());
       // No more data in column. This must be an empty page.
       // If we had exhausted the last page, HasNextInternal() must have advanced
       // to the next page. So there must be available values to process.
