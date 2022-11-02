@@ -373,12 +373,25 @@ on:
 
 {% macro github_set_sccache_envvars(sccache_key_prefix = "sccache") %}
   {% set sccache_vars =  {
-            "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
             "AWS_ACCESS_KEY_ID": '${{ secrets.AWS_ACCESS_KEY_ID }}',
+            "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
             "SCCACHE_BUCKET": '${{ secrets.SCCACHE_BUCKET }}',
             "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
           }
  %}
+  {% for key, value in sccache_vars.items() %}
+  {{ key }}: "{{ value }}"
+  {% endfor %}
+{% endmacro %}
+
+{% macro azure_set_sccache_envvars(sccache_key_prefix = "sccache") %}
+  {% set sccache_vars = {
+            "AWS_ACCESS_KEY_ID": '$(AWS_ACCESS_KEY_ID)',
+            "AWS_SECRET_ACCESS_KEY": '$(AWS_SECRET_ACCESS_KEY)',
+            "SCCACHE_BUCKET": '$(SCCACHE_BUCKET)',
+            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
+          }
+  %}
   {% for key, value in sccache_vars.items() %}
   {{ key }}: "{{ value }}"
   {% endfor %}
