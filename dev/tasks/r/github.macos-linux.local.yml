@@ -39,13 +39,11 @@ jobs:
 
       - name: Configure non-autobrew dependencies (macos)
         run: |
-          cd arrow/r
           brew install openssl
           brew install sccache
         if: contains(matrix.os, 'macOS')
       - name: Configure non-autobrew dependencies (linux)
         run: |
-          cd arrow/r
           sudo apt-get update
           sudo apt install libcurl4-openssl-dev libssl-dev
           arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
