@@ -4618,7 +4618,7 @@ TEST(Substrait, CompoundEmitFilterless) {
                 "selection": {
                   "directReference": {
                     "structField": {
-                      "field": 0
+                      "field": 4
                     }
                   },
                   "rootReference": {
@@ -4952,7 +4952,7 @@ TEST(Substrait, CompoundEmitWithFilter) {
                     "selection": {
                       "directReference": {
                         "structField": {
-                          "field": 0
+                          "field": 5
                         }
                       },
                       "rootReference": {
