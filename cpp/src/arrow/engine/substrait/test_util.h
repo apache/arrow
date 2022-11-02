@@ -111,7 +111,8 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
                           compute::ExecContext& exec_context,
                           std::shared_ptr<Buffer>& buf,
                           const std::vector<int>& include_columns = {},
-                          const ConversionOptions& conversion_options = {});
+                          const ConversionOptions& conversion_options = {},
+                          const compute::SortOptions* sort_options = NULLPTR);
 
 }  // namespace engine
 }  // namespace arrow

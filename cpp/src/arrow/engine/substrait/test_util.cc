@@ -95,22 +95,33 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
                           compute::ExecContext& exec_context,
                           std::shared_ptr<Buffer>& buf,
                           const std::vector<int>& include_columns,
-                          const ConversionOptions& conversion_options) {
+                          const ConversionOptions& conversion_options,
+                          const compute::SortOptions* sort_options) {
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   ExtensionSet ext_set(ext_id_reg);
   ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set, conversion_options));
-  auto other_declrs = std::get_if<compute::Declaration>(&sink_decls[0].inputs[0]);
+  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
 
   ASSERT_OK_AND_ASSIGN(auto output_table,
-                       GetTableFromPlan(*other_declrs, exec_context, output_schema));
+                       GetTableFromPlan(other_declrs, exec_context, output_schema));
   if (!include_columns.empty()) {
     ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
   }
+  if (sort_options) {
+    ASSERT_OK_AND_ASSIGN(
+        auto sort_indices,
+        SortIndices(output_table, std::move(*sort_options), &exec_context));
+    ASSERT_OK_AND_ASSIGN(
+        auto maybe_table,
+        compute::Take(output_table, std::move(sort_indices),
+                      compute::TakeOptions::NoBoundsCheck(), &exec_context));
+    output_table = maybe_table.table();
+  }
   ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
-  EXPECT_TRUE(expected_table->Equals(*output_table));
+  AssertTablesEqual(*expected_table, *output_table);
 }
 
 }  // namespace engine
