@@ -82,9 +82,11 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("ts_ns", timestamp(TimeUnit::NANO)),
 });
 
-std::shared_ptr<DataType> StripFieldNames(std::shared_ptr<DataType> type);
+ARROW_ENGINE_EXPORT std::shared_ptr<DataType> StripFieldNames(
+    std::shared_ptr<DataType> type);
 
-inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
+ARROW_ENGINE_EXPORT inline compute::Expression UseBoringRefs(
+    const compute::Expression& expr) {
   if (expr.literal()) return expr;
 
   if (auto ref = expr.field_ref()) {
@@ -98,21 +100,20 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   return compute::Expression{std::move(modified_call)};
 }
 
-void WriteIpcData(const std::string& path,
-                  const std::shared_ptr<fs::FileSystem> file_system,
-                  const std::shared_ptr<Table> input);
+ARROW_ENGINE_EXPORT void WriteIpcData(const std::string& path,
+                                      const std::shared_ptr<fs::FileSystem> file_system,
+                                      const std::shared_ptr<Table> input);
 
-Result<std::shared_ptr<Table>> GetTableFromPlan(
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Table>> GetTableFromPlan(
     compute::Declaration& other_declrs, compute::ExecContext& exec_context,
     const std::shared_ptr<Schema>& output_schema);
 
-void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
-                          const std::shared_ptr<Table> expected_table,
-                          compute::ExecContext& exec_context,
-                          std::shared_ptr<Buffer>& buf,
-                          const std::vector<int>& include_columns = {},
-                          const ConversionOptions& conversion_options = {},
-                          const compute::SortOptions* sort_options = NULLPTR);
+ARROW_ENGINE_EXPORT void CheckRoundTripResult(
+    const std::shared_ptr<Schema> output_schema,
+    const std::shared_ptr<Table> expected_table, compute::ExecContext& exec_context,
+    std::shared_ptr<Buffer>& buf, const std::vector<int>& include_columns = {},
+    const ConversionOptions& conversion_options = {},
+    const compute::SortOptions* sort_options = NULLPTR);
 
 }  // namespace engine
 }  // namespace arrow
