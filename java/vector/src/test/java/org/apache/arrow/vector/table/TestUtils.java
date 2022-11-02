@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
@@ -371,6 +372,13 @@ public class TestUtils {
         new FieldType(true, new ArrowType.Decimal(38, 10, 128), null),
         allocator));
     vectors.forEach(vec -> generateDecimalData((DecimalVector) vec, rowCount));
+    return vectors;
+  }
+
+  static List<FieldVector> bitVector(BufferAllocator allocator, int rowCount) {
+    List<FieldVector> vectors = new ArrayList<>();
+    vectors.add(new BitVector("bit_vector", allocator));
+    vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
     return vectors;
   }
 

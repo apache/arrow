@@ -20,6 +20,7 @@ package org.apache.arrow.vector.table;
 import static org.apache.arrow.vector.table.TestUtils.FIXEDBINARY_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.VARCHAR_VECTOR_NAME_1;
+import static org.apache.arrow.vector.table.TestUtils.bitVector;
 import static org.apache.arrow.vector.table.TestUtils.decimalVector;
 import static org.apache.arrow.vector.table.TestUtils.intPlusFixedBinaryColumns;
 import static org.apache.arrow.vector.table.TestUtils.intPlusVarcharColumns;
@@ -49,6 +50,7 @@ import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
+import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
@@ -913,6 +915,35 @@ class MutableRowTest {
       PeriodDuration periodDuration2 = new PeriodDuration(Period.ofMonths(48).plusDays(24), Duration.ofNanos(202));
       c.setIntervalMonthDayNano(vectorPosition, holder);
       assertEquals(periodDuration2, c.getIntervalMonthDayNanoObj(vectorPosition));
+    }
+  }
+
+ @Test
+  void setBit() {
+    String vectorName = "bit_vector";
+    int vectorPosition = 0;
+    List<FieldVector> vectorList = bitVector(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+
+      c.setBit(vectorName, 1);
+      assertEquals(1, c.getBit(vectorName));
+      c.setBit(vectorPosition, 0);
+      assertEquals(0, c.getBit(vectorName));
+      c.setBit(vectorName, 1);
+      assertEquals(1, c.getBit(vectorName));
+
+      // test with holder
+      NullableBitHolder holder = new NullableBitHolder();
+      holder.value = 1;
+      holder.isSet = 1;
+
+      c.setBit(vectorName, holder);
+      assertEquals(1, c.getBit(vectorName));
+      holder.value = 0;
+      c.setBit(vectorPosition, holder);
+      assertEquals(0, c.getBit(vectorPosition));
     }
   }
 
