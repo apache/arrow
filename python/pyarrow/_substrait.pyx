@@ -71,8 +71,8 @@ cdef class BackpressureOptions:
         uint64_t _pause_if_above
 
     def __init__(self, resume_if_below=0, pause_if_above=0):
-        self._resume_if_below = <uint64_t>resume_if_below
-        self._pause_if_above = <uint64_t>pause_if_above
+        self._resume_if_below = resume_if_below
+        self._pause_if_above = pause_if_above
         self.options = make_shared[CBackpressureOptions](
             self._resume_if_below, self._pause_if_above)
 
