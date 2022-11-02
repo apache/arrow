@@ -29,14 +29,14 @@ NULL
 #' @section Writing bindings:
 #' * `Expression$create()` will wrap any non-Expression inputs as Scalar
 #'   Expressions. If you want to try to coerce scalar inputs to match the type
-#'   of the Expression(s) in the arguments, call `wrap_scalars(args)` on the
+#'   of the Expression(s) in the arguments, call
+#'  `cast_scalars_to_common_type(args)` on the
 #'   args. For example, `Expression$create("add", args = list(int16_field, 1))`
 #'   would result in a `float64` type output because `1` is a `double` in R.
 #'   To prevent casting all of the data in `int16_field` to float and to
 #'   preserve it as int16, do
-#'   `Expression$create("add", args = wrap_scalars(list(int16_field, 1)))`
-#' * `build_expr()` is internal, used to handle logical and arithmetic
-#'   operators. You shouldn't use it in your bindings.
+#'   `Expression$create("add",
+#'   args = cast_scalars_to_common_type(list(int16_field, 1)))`
 #' * Inside your function, you can call any other binding with `call_binding()`.
 #'
 #' @param fun_name A string containing a function name in the form `"function"` or

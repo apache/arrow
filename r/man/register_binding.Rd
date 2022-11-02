@@ -58,14 +58,13 @@ Expressions. These are the basis for the \code{.data} mask inside dplyr methods.
 \itemize{
 \item \code{Expression$create()} will wrap any non-Expression inputs as Scalar
 Expressions. If you want to try to coerce scalar inputs to match the type
-of the Expression(s) in the arguments, call \code{wrap_scalars(args)} on the
+of the Expression(s) in the arguments, call
+\code{cast_scalars_to_common_type(args)} on the
 args. For example, \code{Expression$create("add", args = list(int16_field, 1))}
 would result in a \code{float64} type output because \code{1} is a \code{double} in R.
 To prevent casting all of the data in \code{int16_field} to float and to
 preserve it as int16, do
-\code{Expression$create("add", args = wrap_scalars(list(int16_field, 1)))}
-\item \code{build_expr()} is internal, used to handle logical and arithmetic
-operators. You shouldn't use it in your bindings.
+\code{Expression$create("add", args = cast_scalars_to_common_type(list(int16_field, 1)))}
 \item Inside your function, you can call any other binding with \code{call_binding()}.
 }
 }

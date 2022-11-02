@@ -77,11 +77,10 @@
   "lubridate::leap_year" = "is_leap_year"
 )
 
-.binary_function_map <- list(
+.operator_map <- list(
   # NOTE: Each of the R functions/operators mapped here takes exactly *two*
   # arguments. Most map *directly* to an Arrow C++ compute kernel and require no
-  # non-default options, but some are modified by build_expr(). More complex R
-  # function/operator mappings are defined in dplyr-functions.R.
+  # non-default options, but some are modified in Expression$op().
   "==" = "equal",
   "!=" = "not_equal",
   ">" = "greater",
@@ -96,12 +95,12 @@
   "/" = "divide",
   "%/%" = "divide_checked",
   # we don't actually use divide_checked with `%%`, rather it is rewritten to
-  # use `%/%` above.
+  # use `%/%` in Expression$op().
   "%%" = "divide_checked",
   "^" = "power_checked"
 )
 
-.array_function_map <- c(.unary_function_map, .binary_function_map)
+.array_function_map <- c(.unary_function_map, .operator_map)
 
 register_bindings_array_function_map <- function() {
   # use a function to generate the binding so that `operator` persists
@@ -115,83 +114,26 @@ register_bindings_array_function_map <- function() {
     register_binding(name, unary_factory(.unary_function_map[[name]]))
   }
 
-  # These go through build_expr to align types
-  binary_factory <- function(operator) {
+  # These go through Expression$op() to align types
+  operator_factory <- function(operator) {
     force(operator)
-    function(...) build_expr(operator, ...)
+    function(...) Expression$op(operator, ...)
   }
 
-  for (name in names(.binary_function_map)) {
-    register_binding(name, binary_factory(name))
+  for (name in names(.operator_map)) {
+    register_binding(name, operator_factory(name))
   }
 }
 
-# Wrapper around Expression$create that:
-# (1) maps R operator names to Arrow C++ compute ("/" --> "divide_checked").
-#     This is convenient for Ops.Expression, despite the special handling
-#     for the division operators inside the function
-# (2) wraps R input args as Array or Scalar and attempts to cast them to
-#     match the type of the columns/fields in the expression. This is to prevent
-#     upcasting all of the data where a simple downcast of a Scalar works.
-build_expr <- function(FUN,
-                       ...,
-                       args = list(...),
-                       options = empty_named_list()) {
-  if (FUN == "-" && length(args) == 1L) {
-    if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
-      return(Expression$create("negate_checked", args[[1]]))
-    } else {
-      return(-args[[1]])
-    }
-  }
-
-  if (FUN != "%/%") {
-    # We switch %/% behavior based on the actual input types so don't
-    # try to cast scalars to match the columns
-    args <- wrap_scalars(args)
-  }
-
-  # In Arrow, "divide" is one function, which does integer division on
-  # integer inputs and floating-point division on floats
-  if (FUN == "/") {
-    # TODO: omg so many ways it's wrong to assume these types (right?)
-    args <- lapply(args, cast, float64())
-  } else if (FUN == "%/%") {
-    # In R, integer division works like floor(float division)
-    out <- Expression$create("floor", build_expr("/", args = args))
-
-    # ... but if inputs are integer, make sure we return an integer
-    int_type_ids <- Type[toupper(INTEGER_TYPES)]
-    is_int <- function(x) {
-      is.integer(x) ||
-        (inherits(x, "ArrowObject") && x$type_id() %in% int_type_ids)
-    }
-
-    if (is_int(args[[1]]) && is_int(args[[2]])) {
-      if (inherits(args[[1]], "ArrowObject")) {
-        out_type <- args[[1]]$type()
-      } else {
-        # It's an R integer
-        out_type <- int32()
-      }
-      # If args[[2]] == 0, float division returns Inf,
-      # but for integer division R returns NA, so wrap in if_else
-      out <- Expression$create(
-        "if_else",
-        build_expr("==", args[[2]], 0L),
-        Scalar$create(NA_integer_, out_type),
-        cast(out, out_type, allow_float_truncate = TRUE)
-      )
-    }
-    return(out)
-  } else if (FUN == "%%") {
-    return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
-  }
-
-  Expression$create(.array_function_map[[FUN]] %||% FUN, args = args, options = options)
-}
-
-wrap_scalars <- function(args) {
+# This function looks to see if there is a common type among any Expressions in
+# the args list, and if so, it tries to cast any Scalars to match that type.
+# This is so field<int16> + 1<float64> doesn't result in all values of the field
+# being upcast to float64 just because R natively does not have int16.
+#
+# Logical and arithmetic operators go through here, as do the yes/no cases of
+# if_else. You can use this in your dplyr function bindings if it's appropriate,
+# but be sure that it makes sense.
+cast_scalars_to_common_type <- function(args) {
   is_expr <- map_lgl(args, ~ inherits(., "Expression"))
   if (all(is_expr)) {
     # No wrapping is required
@@ -200,9 +142,6 @@ wrap_scalars <- function(args) {
 
   args[!is_expr] <- lapply(args[!is_expr], Scalar$create)
 
-  # There are some functions you wouldn't want going through here:
-  # * %/%: we switch behavior based on int vs. dbl in R (see build_expr)
-  # * binary_repeat, list_element: 2nd arg must be integer, Acero will handle it
   if (any(is_expr)) {
     try(
       {
@@ -228,7 +167,6 @@ common_type <- function(exprs) {
   first_type <- types[[1]]
   if (length(types) == 1 || all(map_lgl(types, ~ .$Equals(first_type)))) {
     # Functions (in our tests) that have multiple exprs to check:
-    # * case_when
     # * pmin/pmax
     return(first_type)
   }

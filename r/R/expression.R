@@ -28,7 +28,13 @@
 #' evaluates to the named column in the `Dataset` against which it is evaluated.
 #'
 #' `Expression$create(function_name, ..., options)` builds a function-call
-#' `Expression` containing one or more `Expression`s.
+#' `Expression` containing one or more `Expression`s. Anything in `...` that
+#' is not already an expression will be wrapped in `Expression$scalar()`.
+#'
+#' `Expression$op(FUN, ...)` is for logical and arithmetic operators. Scalar
+#' inputs in `...` will be attempted to be cast to the common type of the
+#' `Expression`s in the call so that the types of the columns in the `Dataset`
+#' are preserved and not unnecessarily upcast, which may be expensive.
 #' @name Expression
 #' @rdname Expression
 #' @include arrowExports.R
@@ -95,13 +101,76 @@ Expression$scalar <- function(x) {
   expr$schema <- schema()
   expr
 }
+# Wrapper around Expression$create that:
+# (1) maps R operator names to Arrow C++ compute ("/" --> "divide_checked").
+#     This is convenient for Ops.Expression, despite the special handling
+#     for the division operators inside the function
+# (2) wraps R input args as Array or Scalar and attempts to cast them to
+#     match the type of the columns/fields in the expression. This is to prevent
+#     upcasting all of the data where a simple downcast of a Scalar works.
+Expression$op <- function(FUN,
+                          ...,
+                          args = list(...)) {
+  if (FUN == "-" && length(args) == 1L) {
+    if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
+      return(Expression$create("negate_checked", args[[1]]))
+    } else {
+      return(-args[[1]])
+    }
+  }
+
+  if (FUN != "%/%") {
+    # We switch %/% behavior based on the actual input types so don't
+    # try to cast scalars to match the columns
+    args <- cast_scalars_to_common_type(args)
+  }
+
+  # In Arrow, "divide" is one function, which does integer division on
+  # integer inputs and floating-point division on floats
+  if (FUN == "/") {
+    # TODO: omg so many ways it's wrong to assume these types (right?)
+    args <- lapply(args, cast, float64())
+  } else if (FUN == "%/%") {
+    # In R, integer division works like floor(float division)
+    out <- Expression$create("floor", Expression$op("/", args = args))
+
+    # ... but if inputs are integer, make sure we return an integer
+    int_type_ids <- Type[toupper(INTEGER_TYPES)]
+    is_int <- function(x) {
+      is.integer(x) ||
+        (inherits(x, "ArrowObject") && x$type_id() %in% int_type_ids)
+    }
+
+    if (is_int(args[[1]]) && is_int(args[[2]])) {
+      if (inherits(args[[1]], "ArrowObject")) {
+        out_type <- args[[1]]$type()
+      } else {
+        # It's an R integer
+        out_type <- int32()
+      }
+      # If args[[2]] == 0, float division returns Inf,
+      # but for integer division R returns NA, so wrap in if_else
+      out <- Expression$create(
+        "if_else",
+        Expression$op("==", args[[2]], 0L),
+        Scalar$create(NA_integer_, out_type),
+        cast(out, out_type, allow_float_truncate = TRUE)
+      )
+    }
+    return(out)
+  } else if (FUN == "%%") {
+    return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
+  }
+
+  Expression$create(.operator_map[[FUN]], args = args)
+}
 
 #' @export
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
     Expression$create("invert", e1)
   } else {
-    build_expr(.Generic, e1, e2)
+    Expression$op(.Generic, e1, e2)
   }
 }
 

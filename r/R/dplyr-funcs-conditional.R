@@ -72,7 +72,7 @@ register_bindings_conditional <- function() {
     # For if_else, the first arg should be a bool Expression, and we don't
     # want to consider that when casting the other args to the same type.
     # But ideally `yes` and `no` args should be the same type.
-    args[-1] <- wrap_scalars(args[-1])
+    args[-1] <- cast_scalars_to_common_type(args[-1])
 
     Expression$create("if_else", args = args)
   })
