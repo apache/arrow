@@ -62,6 +62,8 @@ jobs:
           # if ARROW_R_DEV=TRUE. Pass `-e NOT_CRAN=false` to turn that off.
           docker-compose run {{ flags|default("") }} r
         displayName: Docker run
+        env:
+        {{ macros.azure_set_sccache_envvars()|indent(8) }}
 
       - script: |
           set -ex
