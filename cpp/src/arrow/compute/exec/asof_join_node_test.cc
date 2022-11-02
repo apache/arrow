@@ -535,6 +535,7 @@ struct BasicTest {
         large_utf8(),
         binary(),
         large_binary(),
+        boolean(),
         int8(),
         int16(),
         int32(),
@@ -559,7 +560,8 @@ struct BasicTest {
     // byte_width > 1 below allows fitting the tested data
     auto time_types = init_types(
         all_types, [](T& t) { return t->byte_width() > 1 && !is_floating(t->id()); });
-    auto key_types = init_types(all_types, [](T& t) { return !is_floating(t->id()); });
+    auto key_types = init_types(
+        all_types, [](T& t) { return !is_floating(t->id()) && t->id() != Type::BOOL; });
     auto l_types = init_types(all_types, [](T& t) { return true; });
     auto r0_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
     auto r1_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
