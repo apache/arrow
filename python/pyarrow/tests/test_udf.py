@@ -508,9 +508,8 @@ def test_input_lifetime(unary_func_fixture):
 
 def test_aggregate_udf_with_custom_state():
     class State:
-        def __init__(self, non_null=0, msg=""):
+        def __init__(self, non_null=0):
             self._non_null = non_null
-            self._msg = msg
 
         @property
         def non_null(self):
@@ -520,22 +519,14 @@ def test_aggregate_udf_with_custom_state():
         def non_null(self, value):
             self._non_null = value
 
-        @property
-        def msg(self):
-            return self._msg
-
         def __repr__(self):
             if self._non_null is None:
                 return "no values stored"
             else:
-                return "count: " + str(self.non_null) \
-                    + ", msg: " + str(self.msg)
-
-        def __del__(self):
-            print("State.__del__, msg: " + str(self.msg))
+                return "count: " + str(self.non_null)
 
     def init():
-        state = State(0, "@init")
+        state = State(0)
         return state
 
     def consume(ctx, x):
@@ -545,11 +536,11 @@ def test_aggregate_udf_with_custom_state():
             if x.as_py():
                 non_null = 1
         non_null = non_null + ctx.state.non_null
-        return State(non_null, "@consume")
+        return State(non_null)
 
     def merge(ctx, other_state):
         merged_state_val = ctx.state.non_null + other_state.non_null
-        return State(merged_state_val, "@merge")
+        return State(merged_state_val)
 
     def finalize(ctx):
         return pa.array([ctx.state.non_null])
@@ -573,10 +564,9 @@ def test_aggregate_udf_with_custom_state():
 
 def test_aggregate_udf_with_custom_state_multi_attr():
     class State:
-        def __init__(self, non_null=0, null=0, msg=""):
+        def __init__(self, non_null=0, null=0):
             self._non_null = non_null
             self._null = null
-            self._msg = msg
 
         @property
         def non_null(self):
@@ -594,28 +584,18 @@ def test_aggregate_udf_with_custom_state_multi_attr():
         def null(self, value):
             self._null = value
 
-        @property
-        def msg(self):
-            return self._msg
-
         def __repr__(self):
             if self._non_null is None:
                 return "no values stored"
             else:
                 return "non_null: " + str(self.non_null) \
-                    + ", null: " + str(self.null) \
-                    + ", msg: " + str(self.msg)
-
-        def __del__(self):
-            print("State.__del__, msg: " + str(self.msg))
+                    + ", null: " + str(self.null)
 
     def init():
-        print(">>> init")
-        state = State(0, 0, "@init")
+        state = State(0, 0)
         return state
 
     def consume(ctx, x):
-        print(">>> consume")
         null = 0
         non_null = 0
         if isinstance(x, pa.Array):
@@ -627,16 +607,14 @@ def test_aggregate_udf_with_custom_state_multi_attr():
             else:
                 null = 1
         non_null = non_null + ctx.state.non_null
-        return State(non_null, null, "@consume")
+        return State(non_null, null)
 
     def merge(ctx, other_state):
-        print(">>> merge")
         merged_st_non_null = ctx.state.non_null + other_state.non_null
         merged_st_null = ctx.state.null + other_state.null
-        return State(merged_st_non_null, merged_st_null, "@merge")
+        return State(merged_st_non_null, merged_st_null)
 
     def finalize(ctx):
-        print(">>> finalize")
         print(ctx.state)
         return pa.array([ctx.state.non_null, ctx.state.null])
 
