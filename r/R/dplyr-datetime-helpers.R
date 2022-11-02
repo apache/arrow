@@ -517,7 +517,7 @@ shift_temporal_to_week <- function(fn, x, week_start, options) {
   # are two separate helpers, one to handle date32 input and the other to
   # handle timestamps
   options$week_starts_monday <- TRUE
-  offset <- as.integer(week_start) - 1
+  offset <- as.integer(week_start) - 1L
 
   is_date32 <- inherits(x, "Date") ||
     (inherits(x, "Expression") && x$type_id() == Type$DATE32)
@@ -533,14 +533,18 @@ shift_temporal_to_week <- function(fn, x, week_start, options) {
 
 # timestamp input should remain timestamp
 shift_timestamp_to_week <- function(fn, x, offset, options) {
-  offset_seconds <- cast(
-    Scalar$create(offset * 86400L, int64()),
-    duration(unit = "s")
+  # Convert offset to duration(s) and make Expression once
+  offset_seconds <- Expression$scalar(
+    cast(
+      Scalar$create(offset * 86400L, int64()),
+      duration(unit = "s")
+    )
   )
-  shifted <- Expression$create("subtract_checked", x, offset_seconds)
-  shift_offset <- Expression$create(fn, shifted, options = options)
 
-  Expression$create("add_checked", shift_offset, offset_seconds)
+  # Subtract offset, apply round/floor/ceil, then add the offset back
+  shifted <- x - offset_seconds
+  shift_offset <- Expression$create(fn, shifted, options = options)
+  shift_offset + offset_seconds
 }
 
 # to avoid date32 types being cast to timestamp during the temporal
@@ -548,18 +552,21 @@ shift_timestamp_to_week <- function(fn, x, offset, options) {
 # use integer arithmetic: this feels inelegant, but it ensures that
 # temporal rounding functions remain type stable
 shift_date32_to_week <- function(fn, x, offset, options) {
-  # offset the date
-  offset <- Expression$scalar(Scalar$create(offset, int32()))
-  x_int <- cast(x, int32())
-  x_int_offset <- x_int - offset
-  x_offset <- cast(x_int_offset, date32())
+  # offset is R integer, make it an Expression once
+  offset <- Expression$scalar(offset)
+
+  # Subtract offset as int32, then cast back to date32
+  x_offset <- cast(
+    cast(x, int32()) - offset,
+    date32()
+  )
 
   # apply round/floor/ceil
   shift_offset <- Expression$create(fn, x_offset, options = options)
 
-  # undo offset and return
-  shift_int_offset <- cast(shift_offset, int32())
-  shift_int <- Expression$create("add_checked", shift_int_offset, offset)
-
-  cast(shift_int, date32())
+  # undo offset (as integer) and return
+  cast(
+    cast(shift_offset, int32()) + offset,
+    date32()
+  )
 }

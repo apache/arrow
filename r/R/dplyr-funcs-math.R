@@ -74,25 +74,18 @@ register_bindings_math <- function() {
   })
 
   register_binding("base::round", function(x, digits = 0) {
-    Expression$create(
-      "round",
-      x,
-      options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+    opts <- list(
+      ndigits = digits,
+      round_mode = RoundMode$HALF_TO_EVEN
     )
+    Expression$create("round", x, options = opts)
   })
 
   register_binding("base::sqrt", function(x) {
-    Expression$create(
-      "sqrt_checked",
-      x
-    )
+    Expression$create("sqrt_checked", x)
   })
 
   register_binding("base::exp", function(x) {
-    Expression$create(
-      "power_checked",
-      exp(1),
-      x
-    )
+    Expression$create("power_checked", exp(1), x)
   })
 }

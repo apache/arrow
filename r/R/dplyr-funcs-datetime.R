@@ -234,11 +234,11 @@ register_bindings_datetime_components <- function() {
   })
   register_binding("lubridate::tz", function(x) {
     if (!call_binding("is.POSIXct", x)) {
-      abort(
+      arrow_not_supported(
         paste0(
           "timezone extraction for objects of class `",
           infer_type(x)$ToString(),
-          "` not supported in Arrow"
+          "`"
         )
       )
     }
@@ -247,7 +247,7 @@ register_bindings_datetime_components <- function() {
   })
   register_binding("lubridate::semester", function(x, with_year = FALSE) {
     month <- call_binding("month", x)
-    semester <- call_binding("if_else", month <= 6, 1L, 2L)
+    semester <- Expression$create("if_else", month <= 6, 1L, 2L)
     if (with_year) {
       year <- call_binding("year", x)
       return(year + semester / 10)
@@ -401,7 +401,7 @@ register_bindings_datetime_conversion <- function() {
     y <- Expression$create("year", date)
     start <- call_binding("make_datetime", year = y, tz = "UTC")
     sofar <- call_binding("difftime", date, start, units = "secs")
-    total <- call_binding(
+    total <- Expression$create(
       "if_else",
       Expression$create("is_leap_year", date),
       Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
@@ -414,7 +414,7 @@ register_bindings_datetime_conversion <- function() {
     y <- Expression$create("floor", decimal)
 
     start <- call_binding("make_datetime", year = y, tz = tz)
-    seconds <- call_binding(
+    seconds <- Expression$create(
       "if_else",
       Expression$create("is_leap_year", start),
       Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
@@ -431,12 +431,9 @@ register_bindings_datetime_conversion <- function() {
 register_bindings_duration <- function() {
   register_binding(
     "base::difftime",
-    function(time1,
-             time2,
-             tz,
-             units = "secs") {
+    function(time1, time2, tz, units = "secs") {
       if (units != "secs") {
-        abort("`difftime()` with units other than `secs` not supported in Arrow")
+        arrow_not_supported("`difftime()` with units other than `secs`")
       }
 
       if (!missing(tz)) {
@@ -479,16 +476,14 @@ register_bindings_duration <- function() {
 
   register_binding(
     "base::as.difftime",
-    function(x,
-             format = "%X",
-             units = "secs") {
+    function(x, format = "%X", units = "secs") {
       # windows doesn't seem to like "%X"
       if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
         format <- "%H:%M:%S"
       }
 
       if (units != "secs") {
-        abort("`as.difftime()` with units other than 'secs' not supported in Arrow")
+        arrow_not_supported("`as.difftime()` with units other than 'secs'")
       }
 
       if (call_binding("is.character", x)) {
@@ -518,11 +513,9 @@ register_bindings_duration <- function() {
 register_bindings_duration_constructor <- function() {
   register_binding(
     "lubridate::make_difftime",
-    function(num = NULL,
-             units = "secs",
-             ...) {
+    function(num = NULL, units = "secs", ...) {
       if (units != "secs") {
-        abort("`make_difftime()` with units other than 'secs' not supported in Arrow")
+        arrow_not_supported("`make_difftime()` with units other than 'secs'")
       }
 
       chunks <- list(...)
@@ -531,7 +524,7 @@ register_bindings_duration_constructor <- function() {
       # passed via `...` resulting in a vector of length 2 - which is virtually
       # unusable in a dplyr pipeline. Arrow errors in this situation
       if (!is.null(num) && length(chunks) > 0) {
-        abort("`make_difftime()` with both `num` and `...` not supported in Arrow")
+        arrow_not_supported("`make_difftime()` with both `num` and `...`")
       }
 
       if (!is.null(num)) {
@@ -662,18 +655,14 @@ register_bindings_datetime_parsers <- function() {
 
   register_binding(
     "lubridate::fast_strptime",
-    function(x,
-             format,
-             tz = "UTC",
-             lt = FALSE,
-             cutoff_2000 = 68L) {
+    function(x, format, tz = "UTC", lt = FALSE, cutoff_2000 = 68L) {
       # `lt` controls the output `lt = TRUE` returns a POSIXlt (which doesn't play
       # well with mutate, for example)
       if (lt) {
         arrow_not_supported("`lt = TRUE` argument")
       }
 
-      # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16596 is done
+      # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16596
       if (cutoff_2000 != 68L) {
         arrow_not_supported("`cutoff_2000` != 68L argument")
       }
