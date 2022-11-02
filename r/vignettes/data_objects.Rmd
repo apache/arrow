@@ -18,7 +18,7 @@ The `arrow` package supplies several object classes that are used to represent d
 | Dim | Class          | How to create an instance                     | Convenience function                          |
 | --- | -------------- | ----------------------------------------------| --------------------------------------------- |
 | 0   | `Scalar`       | `Scalar$create(value, type)`                  |                                               |
-| 1   | `Array`        | `Array$create(vector, type)`                  |                                               |
+| 1   | `Array`        | `Array$create(vector, type)`                  | `as_arrow_array(x)`                           |
 | 1   | `ChunkedArray` | `ChunkedArray$create(..., type)`              | `chunked_array(..., type)`                    |
 | 2   | `RecordBatch`  | `RecordBatch$create(...)`                     | `record_batch(...)`                           |
 | 2   | `Table`        | `Table$create(...)`                           | `arrow_table(...)`                            |
