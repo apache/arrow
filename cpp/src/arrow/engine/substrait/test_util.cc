@@ -104,6 +104,7 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set, conversion_options));
   auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  ASSERT_TRUE(other_declrs.IsValid());
 
   ASSERT_OK_AND_ASSIGN(auto output_table,
                        GetTableFromPlan(other_declrs, exec_context, output_schema));

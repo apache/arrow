@@ -5023,20 +5023,24 @@ TEST(Substrait, CompoundEmitWithFilter) {
   ])"});
 
   NamedTableProvider table_provider =
-      [left_table, right_table](const std::vector<std::string>& names) {
-        std::shared_ptr<Table> output_table;
-        for (const auto& name : names) {
-          if (name == "left") {
-            output_table = left_table;
-          }
-          if (name == "right") {
-            output_table = right_table;
-          }
-        }
-        std::shared_ptr<compute::ExecNodeOptions> options =
-            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-        return compute::Declaration("table_source", {}, options, "mock_source");
-      };
+      [left_table, right_table](
+          const std::vector<std::string>& names) -> Result<compute::Declaration> {
+    std::shared_ptr<Table> output_table;
+    for (const auto& name : names) {
+      if (name == "left") {
+        output_table = left_table;
+      }
+      if (name == "right") {
+        output_table = right_table;
+      }
+    }
+    if (!output_table) {
+      return Status::Invalid("NamedTableProvider couldn't set the table");
+    }
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
