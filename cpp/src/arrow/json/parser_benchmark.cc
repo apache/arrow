@@ -104,7 +104,7 @@ static void ChunkJSONPrettyPrinted(
   options.newlines_in_values = true;
   options.explicit_schema = schema(TestFields());
 
-  auto json = GenerateTestData(options.explicit_schema, num_rows, true);
+  auto json = GenerateTestData(options.explicit_schema, num_rows, /*pretty=*/ true);
   BenchmarkJSONChunking(state, std::make_shared<Buffer>(json), options);
 }
 
@@ -187,7 +187,7 @@ static void ReadJSONBlockWithSchemaMultiThread(
   BenchmarkReadJSONBlockWithSchema(state, true);
 }
 
-static void ParseFields(benchmark::State& state) {  // NOLINT non-const reference
+static void ParseJSONFields(benchmark::State& state) {  // NOLINT non-const reference
   const bool ordered = !!state.range(0);
   const bool with_schema = !!state.range(1);
   const double sparsity = state.range(2) / 10.0;
@@ -218,9 +218,9 @@ BENCHMARK(ParseJSONBlockWithSchema);
 BENCHMARK(ReadJSONBlockWithSchemaSingleThread);
 BENCHMARK(ReadJSONBlockWithSchemaMultiThread)->UseRealTime();
 
-BENCHMARK(ParseFields)
+BENCHMARK(ParseJSONFields)
     // NOTE: "sparsity" is the proportion of missing fields from 0-10
-    ->ArgNames({"ordered", "schema", "sparsity", "n"})
+    ->ArgNames({"ordered", "schema", "sparsity", "num_fields"})
     // Ordered/unordered fields with/without an explicit schema
     ->ArgsProduct({{1, 0}, {1, 0}, {0}, {10, 100, 1000}})
     // Non-contiguous ordered fields with/without an explicit schema
