@@ -31,93 +31,119 @@ using schema::NodePtr;
 
 namespace benchmark {
 
-// Benchmarks Skip and ReadBatch API for ColumnReader with the following
-// paramenters in order:
-// - def_level: set to 0 for REQUIRED, 1 for OPTIONAL/REPEATED.
-// - rep_level: set to 1 for REPEATED, 0 otherwise.
-// - is_skip: set to 0 for benchmarking ReadBatch and 1 for Skip.
+class BenchmarkHelper {
+ public:
+  BenchmarkHelper(Repetition::type repetition, int num_pages, int levels_per_page) {
+    NodePtr type = schema::Int32("b", repetition);
+
+    if (repetition == Repetition::REQUIRED) {
+      descr_ = std::make_unique<ColumnDescriptor>(type, 0, 0);
+    } else if (repetition == Repetition::OPTIONAL) {
+      descr_ = std::make_unique<ColumnDescriptor>(type, 1, 0);
+    } else {
+      descr_ = std::make_unique<ColumnDescriptor>(type, 1, 1);
+    }
+
+    // Vectors filled with random rep/defs and values to make pages.
+    std::vector<int32_t> values;
+    std::vector<int16_t> def_levels;
+    std::vector<int16_t> rep_levels;
+    std::vector<uint8_t> data_buffer;
+    MakePages<Int32Type>(descr_.get(), num_pages, levels_per_page, def_levels, rep_levels,
+                         values, data_buffer, pages_, Encoding::PLAIN);
+  }
+
+  Int32Reader* ResetReader() {
+    std::unique_ptr<PageReader> pager;
+    pager.reset(new test::MockPageReader(pages_));
+    column_reader_ = ColumnReader::Make(descr_.get(), std::move(pager));
+    return static_cast<Int32Reader*>(column_reader_.get());
+  }
+
+ private:
+  std::vector<std::shared_ptr<Page>> pages_;
+  std::unique_ptr<ColumnDescriptor> descr_;
+  std::shared_ptr<ColumnReader> column_reader_;
+};
+
+// Benchmarks Skip for ColumnReader with the following parameters in order:
+// - repetition: 0 for REQUIRED, 1 for OPTIONAL, 2 for REPEATED.
 // - batch_size: sets how many values to read at each call.
 static void BM_Skip(::benchmark::State& state) {
-  internal::LevelInfo level_info;
-  level_info.def_level = state.range(0);
-  level_info.rep_level = state.range(1);
-  const int skip = state.range(2);
-  const int batch_size = state.range(3);
+  const auto repetition = static_cast<Repetition::type>(state.range(0));
+  const int batch_size = state.range(1);
 
-  Repetition::type repetition = Repetition::REQUIRED;
-  if (level_info.def_level > 0) {
-    repetition = Repetition::OPTIONAL;
-  }
-  if (level_info.rep_level > 0) {
-    repetition = Repetition::REPEATED;
-  }
-  NodePtr type = schema::Int32("b", repetition);
-  const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
+  BenchmarkHelper helper(repetition, /*num_pages=*/5, /*levels_per_page=*/100000);
 
-  const int num_pages = 5;
-  const int levels_per_page = 100000;
-  // Vectors filled with random rep/defs and values to make pages.
-  std::vector<int32_t> values;
-  std::vector<int16_t> def_levels;
-  std::vector<int16_t> rep_levels;
-  std::vector<uint8_t> data_buffer;
-  std::vector<std::shared_ptr<Page>> pages;
-  MakePages<Int32Type>(&descr, num_pages, levels_per_page, def_levels, rep_levels, values,
-                       data_buffer, pages, Encoding::PLAIN);
+  for (auto _ : state) {
+    state.PauseTiming();
+    Int32Reader* reader = helper.ResetReader();
+    int values_count = -1;
+    state.ResumeTiming();
+    while (values_count != 0) {
+      DoNotOptimize(values_count = reader->Skip(batch_size));
+    }
+  }
+}
+
+// Benchmarks ReadBatch for ColumnReader with the following parameters in order:
+// - repetition: 0 for REQUIRED, 1 for OPTIONAL, 2 for REPEATED.
+// - batch_size: sets how many values to read at each call.
+static void BM_ReadBatch(::benchmark::State& state) {
+  const auto repetition = static_cast<Repetition::type>(state.range(0));
+  const int batch_size = state.range(1);
+
+  BenchmarkHelper helper(repetition, /*num_pages=*/5, /*levels_per_page=*/100000);
 
   // Vectors to read the values into.
   std::vector<int32_t> read_values(batch_size, -1);
   std::vector<int16_t> read_defs(batch_size, -1);
   std::vector<int16_t> read_reps(batch_size, -1);
-
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     state.PauseTiming();
-    std::unique_ptr<PageReader> pager;
-    pager.reset(new test::MockPageReader(pages));
-    std::shared_ptr<ColumnReader> column_reader =
-        ColumnReader::Make(&descr, std::move(pager));
-    Int32Reader* reader = static_cast<Int32Reader*>(column_reader.get());
+    Int32Reader* reader = helper.ResetReader();
     int values_count = -1;
     state.ResumeTiming();
     while (values_count != 0) {
-      if (skip == 1) {
-        DoNotOptimize(values_count = reader->Skip(batch_size));
-      } else {
-        int64_t values_read = 0;
-        DoNotOptimize(values_count = reader->ReadBatch(batch_size, read_defs.data(),
-                                                       read_reps.data(),
-                                                       read_values.data(), &values_read));
-      }
+      int64_t values_read = 0;
+      DoNotOptimize(values_count =
+                        reader->ReadBatch(batch_size, read_defs.data(), read_reps.data(),
+                                          read_values.data(), &values_read));
     }
   }
 }
 
 BENCHMARK(BM_Skip)
-    ->Iterations(1000)
-    ->Args({0, 0, 0, 1})
-    ->Args({0, 0, 0, 1000})
-    ->Args({0, 0, 0, 10000})
-    ->Args({0, 0, 0, 100000})
-    ->Args({0, 0, 1, 1})
-    ->Args({0, 0, 1, 1000})
-    ->Args({0, 0, 1, 10000})
-    ->Args({0, 0, 1, 100000})
-    ->Args({1, 0, 0, 1})
-    ->Args({1, 0, 0, 1000})
-    ->Args({1, 0, 0, 10000})
-    ->Args({1, 0, 0, 100000})
-    ->Args({1, 0, 1, 1})
-    ->Args({1, 0, 1, 1000})
-    ->Args({1, 0, 1, 10000})
-    ->Args({1, 0, 1, 100000})
-    ->Args({1, 1, 0, 1})
-    ->Args({1, 1, 0, 1000})
-    ->Args({1, 1, 0, 10000})
-    ->Args({1, 1, 0, 100000})
-    ->Args({1, 1, 1, 1})
-    ->Args({1, 1, 1, 1000})
-    ->Args({1, 1, 1, 10000})
-    ->Args({1, 1, 1, 100000});
+    ->Iterations(10)
+    ->ArgNames({"Repetition", "BatchSize"})
+    ->Args({0, 100})
+    ->Args({0, 1000})
+    ->Args({0, 10000})
+    ->Args({0, 100000})
+    ->Args({1, 100})
+    ->Args({1, 1000})
+    ->Args({1, 10000})
+    ->Args({1, 100000})
+    ->Args({2, 100})
+    ->Args({2, 1000})
+    ->Args({2, 10000})
+    ->Args({2, 100000});
 
-}  // namespace benchmark
+BENCHMARK(BM_ReadBatch)
+    ->Iterations(10)
+    ->ArgNames({"Repetition", "BatchSize"})
+    ->Args({0, 100})
+    ->Args({0, 1000})
+    ->Args({0, 10000})
+    ->Args({0, 100000})
+    ->Args({1, 100})
+    ->Args({1, 1000})
+    ->Args({1, 10000})
+    ->Args({1, 100000})
+    ->Args({2, 100})
+    ->Args({2, 1000})
+    ->Args({2, 10000})
+    ->Args({2, 100000});
+
+}  // namespace bemark
 }  // namespace parquet
