@@ -28,6 +28,10 @@
 #include <gtest/gtest-matchers.h>
 #include <gtest/gtest.h>
 
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/util/json_util.h>
+#include <google/protobuf/util/type_resolver_util.h>
+
 #include "arrow/buffer.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
