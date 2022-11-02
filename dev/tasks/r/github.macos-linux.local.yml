@@ -48,6 +48,7 @@ jobs:
           cd arrow/r
           sudo apt-get update
           sudo apt install libcurl4-openssl-dev libssl-dev
+          arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
           # zstd is installed by Homebrew on GitHub Actions.
           echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
             >> "$GITHUB_ENV"

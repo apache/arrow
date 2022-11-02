@@ -42,6 +42,8 @@ jobs:
           install.packages(c("remotes", "glue", "sys"))
           remotes::install_deps("arrow/r", dependencies = TRUE)
         shell: Rscript {0}
+      - name: Install sccache
+        run: arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
       - name: Install Arrow
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}  
