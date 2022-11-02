@@ -36,7 +36,13 @@ jobs:
             -e ARROW_JAVA_TEST=OFF \
             java-jni-manylinux-2014
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
+        run: |
+          mkdir -p /tmp/arrow/java-dist/x86_64
+          cp arrow/java-dist/* /tmp/arrow/java-dist/x86_64
+          pushd /tmp
+          tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
+          popd
+          mv /tmp/arrow-shared-libs-linux.tar.gz .
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:

@@ -941,7 +941,7 @@
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib
-                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
+                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}/${os.detected.arch}
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
