@@ -64,6 +64,7 @@ Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* user_function,
                                                   const ScalarUdfOptions& options);
 
 using ScalarAggregateInitUdfWrapperCallback = std::function<PyObject*(PyObject* init_function)>;
+
 using ScalarAggregateConsumeUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_consume_func, const ScalarAggregateUdfContext& context, PyObject* inputs)>;
 
