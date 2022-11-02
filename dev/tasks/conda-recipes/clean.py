@@ -20,6 +20,7 @@ PLATFORMS = [
     "win-64",
 ]
 
+
 class CommandFailedException(Exception):
 
     def __init__(self, cmdline, output):
