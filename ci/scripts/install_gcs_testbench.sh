@@ -34,15 +34,6 @@ case "$(uname -m)" in
     ;;
 esac
 
-case "$(uname -s)-$(uname -m)" in
-  Darwin-arm64)
-    # Workaround for https://github.com/grpc/grpc/issues/28387 .
-    # Build grpcio instead of using wheel.
-    # storage-testbench 0.32.0 pins grpcio to 1.49.1.
-    ${PYTHON:-python3} -m pip install --no-binary :all: "grpcio==1.49.1"
-    ;;
-esac
-
 version=$1
 if [[ "${version}" -eq "default" ]]; then
   version="v0.32.0"
