@@ -94,6 +94,7 @@ static void BenchmarkJSONChunking(benchmark::State& state,  // NOLINT non-const 
   }
 
   state.SetBytesProcessed(state.iterations() * json->size());
+  state.counters["json_size"] = json->size();
 }
 
 static void ChunkJSONPrettyPrinted(
@@ -133,6 +134,7 @@ static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const r
     ABORT_NOT_OK(parser->Finish(&parsed));
   }
   state.SetBytesProcessed(state.iterations() * json->size());
+  state.counters["json_size"] = static_cast<double>(json->size());
 }
 
 static void ParseJSONBlockWithSchema(
@@ -160,6 +162,7 @@ static void BenchmarkJSONReading(benchmark::State& state,  // NOLINT non-const r
   }
 
   state.SetBytesProcessed(state.iterations() * json.size());
+  state.counters["json_size"] = json.size();
 }
 
 static void BenchmarkReadJSONBlockWithSchema(
@@ -190,10 +193,16 @@ static void ReadJSONBlockWithSchemaMultiThread(
 static void ParseJSONFields(benchmark::State& state) {  // NOLINT non-const reference
   const bool ordered = !!state.range(0);
   const bool with_schema = !!state.range(1);
-  const double sparsity = state.range(2) / 10.0;
+  const double sparsity = state.range(2) / 100.0;
   const auto num_fields = static_cast<int>(state.range(3));
 
-  const int32_t num_rows = 1000;
+  // This would generate approximately 400 kB of JSON data
+  int32_t num_rows = static_cast<int32_t>(2e4 / (1.0 - sparsity) / num_fields);
+  // ... however, we want enough rows to make setup/finish overhead negligible
+  num_rows = std::max<int32_t>(num_rows, 200);
+  // ... and also we want to avoid an "Exceeded maximum rows" error.
+  num_rows = std::min<int32_t>(num_rows, kMaxParserNumRows);
+  // In the end, we will empirically generate between 400 kB and 4 MB of JSON data.
 
   auto fields = GenerateTestFields(num_fields, 10);
 
@@ -219,9 +228,9 @@ BENCHMARK(ReadJSONBlockWithSchemaSingleThread);
 BENCHMARK(ReadJSONBlockWithSchemaMultiThread)->UseRealTime();
 
 BENCHMARK(ParseJSONFields)
-    // NOTE: "sparsity" is the proportion of missing fields from 0-10
+    // NOTE: "sparsity" is the percentage of missing fields
     ->ArgNames({"ordered", "schema", "sparsity", "num_fields"})
-    ->ArgsProduct({{1, 0}, {1, 0}, {0, 1, 9}, {10, 100, 1000}});
+    ->ArgsProduct({{1, 0}, {1, 0}, {0, 10, 90}, {10, 100, 1000}});
 
 }  // namespace json
 }  // namespace arrow
