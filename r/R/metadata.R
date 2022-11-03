@@ -86,9 +86,11 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
             call. = FALSE
           )
         } else {
-          x <- map2(x, columns_metadata, function(.x, .y) {
-            apply_arrow_r_metadata(.x, .y)
-          })
+          if (length(x) > 0) {
+            x <- map2(x, columns_metadata, function(.x, .y) {
+              apply_arrow_r_metadata(.x, .y)
+            })
+          }
         }
         x
       }
