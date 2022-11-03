@@ -94,7 +94,7 @@ static void BenchmarkJSONChunking(benchmark::State& state,  // NOLINT non-const 
   }
 
   state.SetBytesProcessed(state.iterations() * json->size());
-  state.counters["json_size"] = json->size();
+  state.counters["json_size"] = static_cast<double>(json->size());
 }
 
 static void ChunkJSONPrettyPrinted(
@@ -162,7 +162,7 @@ static void BenchmarkJSONReading(benchmark::State& state,  // NOLINT non-const r
   }
 
   state.SetBytesProcessed(state.iterations() * json.size());
-  state.counters["json_size"] = json.size();
+  state.counters["json_size"] = static_cast<double>(json.size());
 }
 
 static void BenchmarkReadJSONBlockWithSchema(
