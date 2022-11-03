@@ -112,7 +112,7 @@ struct SourceNode : ExecNode {
                  lock.unlock();
 
                  return generator_().Then(
-                     [=](const std::optional<ExecBatch>& maybe_morsel)
+                     [this](const std::optional<ExecBatch>& maybe_morsel)
                          -> Future<ControlFlow<int>> {
                        std::unique_lock<std::mutex> lock(mutex_);
                        if (IsIterationEnd(maybe_morsel) || stop_requested_) {
@@ -131,22 +131,23 @@ struct SourceNode : ExecNode {
                              bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
                          batch_count_ += num_batches;
                        }
-                       RETURN_NOT_OK(plan_->ScheduleTask([=]() {
-                         int64_t offset = 0;
-                         do {
-                           int64_t batch_size = std::min<int64_t>(
-                               morsel_length - offset, ExecPlan::kMaxBatchSize);
-                           // In order for the legacy batching model to work we must
-                           // not slice batches from the source
-                           if (use_legacy_batching) {
-                             batch_size = morsel_length;
-                           }
-                           ExecBatch batch = morsel.Slice(offset, batch_size);
-                           offset += batch_size;
-                           outputs_[0]->InputReceived(this, std::move(batch));
-                         } while (offset < morsel.length);
-                         return Status::OK();
-                       }));
+                       RETURN_NOT_OK(plan_->ScheduleTask(
+                           [this, use_legacy_batching, morsel, morsel_length]() {
+                             int64_t offset = 0;
+                             do {
+                               int64_t batch_size = std::min<int64_t>(
+                                   morsel_length - offset, ExecPlan::kMaxBatchSize);
+                               // In order for the legacy batching model to work we must
+                               // not slice batches from the source
+                               if (use_legacy_batching) {
+                                 batch_size = morsel_length;
+                               }
+                               ExecBatch batch = morsel.Slice(offset, batch_size);
+                               offset += batch_size;
+                               outputs_[0]->InputReceived(this, std::move(batch));
+                             } while (offset < morsel.length);
+                             return Status::OK();
+                           }));
                        lock.lock();
                        if (!backpressure_future_.is_finished()) {
                          EVENT(span_, "Source paused due to backpressure");
@@ -155,7 +156,7 @@ struct SourceNode : ExecNode {
                        }
                        return Future<ControlFlow<int>>::MakeFinished(Continue());
                      },
-                     [=](const Status& error) -> ControlFlow<int> {
+                     [this](const Status& error) -> ControlFlow<int> {
                        outputs_[0]->ErrorReceived(this, error);
                        return Break(batch_count_);
                      },
