@@ -143,7 +143,7 @@ struct ListSlice {
 
     // build output arrays and set result
     ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
-    out->value = result->data();
+    out->value = std::move(result->data());
     return Status::OK();
   }
 
@@ -166,13 +166,12 @@ struct ListSlice {
         checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
     const ArraySpan& list_ = batch[0].array;
     const ArraySpan& list_values = list_.child_data[0];
-    const offset_type n_offsets = list_values.length / list_size;
 
     auto list_builder = checked_cast<BuilderType*>(&builder);
-    for (offset_type offset = 0; offset < n_offsets * list_size;
-         offset = offset + list_size) {
+    for (auto i = 0; i < list_.length; ++i) {
+      auto offset = (i + list_.offset) * list_size;
       auto next_offset = offset + list_size;
-      if (list_.IsNull(offset / list_size)) {
+      if (list_.IsNull(i)) {
         RETURN_NOT_OK(list_builder->AppendNull());
       } else {
         RETURN_NOT_OK(SetValues<BuilderType>(list_builder, offset, next_offset, &opts,
@@ -188,13 +187,11 @@ struct ListSlice {
                                        ArrayBuilder& builder) {
     const ArraySpan& list_ = batch[0].array;
     const offset_type* offsets = list_.GetValues<offset_type>(1);
-    const auto n_offsets = static_cast<offset_type>(
-        static_cast<size_t>(list_.GetBuffer(1)->size()) / sizeof(offset_type));
 
     const ArraySpan& list_values = list_.child_data[0];
 
     auto list_builder = checked_cast<BuilderType*>(&builder);
-    for (auto i = 0; i < n_offsets - 1; ++i) {
+    for (auto i = 0; i < list_.length; ++i) {
       const offset_type offset = offsets[i];
       const offset_type next_offset = offsets[i + 1];
       if (list_.IsNull(i)) {

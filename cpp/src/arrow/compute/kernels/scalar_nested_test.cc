@@ -179,7 +179,7 @@ TEST(TestScalarNested, ListSliceBadParameters) {
   auto input = ArrayFromJSON(list(int32()), "[[1]]");
 
   // negative start
-  SliceOptions args(-1, 1);
+  ListSliceOptions args(-1, 1);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
@@ -199,6 +199,26 @@ TEST(TestScalarNested, ListSliceBadParameters) {
       Invalid,
       ::testing::HasSubstr(
           "`start`(1) should be greater than 0 and smaller than `stop`(1)"),
+      CallFunction("list_slice", {input}, &args));
+  // stop not set and FixedSizeList requested
+  args.stop = std::nullopt;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented,
+      ::testing::HasSubstr("NotImplemented: Unable to produce FixedSizeListArray without "
+                           "`stop` being set."),
+      CallFunction("list_slice", {input}, &args));
+  // stop not set and ListArray requested
+  args.stop = std::nullopt;
+  args.return_fixed_size_list = false;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("Slicing to end not yet implemented"),
+      CallFunction("list_slice", {input}, &args));
+  // step other than `1` not implmented
+  args.stop = 2;
+  args.step = 2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented,
+      ::testing::HasSubstr("Setting `step` to anything other than 1 is not supported"),
       CallFunction("list_slice", {input}, &args));
 }
 

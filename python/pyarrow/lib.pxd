@@ -25,6 +25,8 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
 
+# Will be available in Cython 3, not backported
+# ref: https://github.com/cython/cython/issues/3293#issuecomment-1223058101
 cdef extern from "<optional>" namespace "std" nogil:
     cdef cppclass nullopt_t:
         nullopt_t()
