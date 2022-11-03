@@ -93,7 +93,7 @@ set_group_attributes <- function(tab, group_vars, .drop) {
   # so passing NULL means unset (ungroup)
   if (is.null(group_vars) || length(group_vars)) {
     # Since accessing schema metadata does some work, only overwrite if needed
-    new_atts <- old_atts <- tab$metadata$r$attributes
+    new_atts <- old_atts <- tab$metadata$r$attributes %||% list()
     new_atts[[".group_vars"]] <- group_vars
     new_atts[[".group_by_drop"]] <- .drop
     if (!identical(new_atts, old_atts)) {
