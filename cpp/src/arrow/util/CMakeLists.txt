@@ -43,6 +43,7 @@ add_arrow_test(utility-test
                align_util_test.cc
                async_generator_test.cc
                async_util_test.cc
+               atfork_test.cc
                bit_block_counter_test.cc
                bit_util_test.cc
                byte_size_test.cc

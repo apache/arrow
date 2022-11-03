@@ -16,7 +16,7 @@
 // under the License.
 
 #ifndef _WIN32
-#include <sys/wait.h>
+#include <sys/types.h>
 #include <unistd.h>
 #endif
 
@@ -750,22 +750,7 @@ TEST_F(TestThreadPool, SubmitWithStopTokenCancelled) {
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
 
-class TestThreadPoolForkSafety : public TestThreadPool {
- public:
-  void CheckChildExit(int child_pid) {
-    ASSERT_GT(child_pid, 0);
-    int child_status;
-    int got_pid = waitpid(child_pid, &child_status, 0);
-    ASSERT_EQ(got_pid, child_pid);
-    if (WIFSIGNALED(child_status)) {
-      FAIL() << "Child terminated by signal " << WTERMSIG(child_status);
-    }
-    if (!WIFEXITED(child_status)) {
-      FAIL() << "Child didn't terminate normally?? Child status = " << child_status;
-    }
-    ASSERT_EQ(WEXITSTATUS(child_status), 0);
-  }
-};
+class TestThreadPoolForkSafety : public TestThreadPool {};
 
 TEST_F(TestThreadPoolForkSafety, Basics) {
   {
@@ -784,7 +769,7 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
       std::exit(st.ok() ? 0 : 2);
     } else {
       // Parent
-      CheckChildExit(child_pid);
+      AssertChildExit(child_pid);
       ASSERT_OK(pool->Shutdown());
     }
   }
@@ -806,7 +791,7 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
       std::exit(0);
     } else {
       // Parent
-      CheckChildExit(child_pid);
+      AssertChildExit(child_pid);
     }
   }
 }
@@ -851,7 +836,7 @@ TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
       std::exit(0);
     } else {
       // Parent
-      CheckChildExit(child_pid);
+      AssertChildExit(child_pid);
       ASSERT_OK(pool->Shutdown());
     }
   }
@@ -879,14 +864,14 @@ TEST_F(TestThreadPoolForkSafety, NestedChild) {
         ASSERT_OK(pool->Shutdown());
       } else {
         // Child
-        CheckChildExit(grandchild_pid);
+        AssertChildExit(grandchild_pid);
         ASSERT_FINISHES_OK_AND_EQ(7, fut);
         ASSERT_OK(pool->Shutdown());
       }
       std::exit(0);
     } else {
       // Parent
-      CheckChildExit(child_pid);
+      AssertChildExit(child_pid);
       ASSERT_OK(pool->Shutdown());
     }
   }
