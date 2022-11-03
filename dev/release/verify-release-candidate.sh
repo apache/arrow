@@ -1019,7 +1019,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10 3.11}"
   local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for python in ${python_versions}; do
@@ -1041,11 +1041,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10"
+    local python_versions="3.8 3.9 3.10 3.11"
     local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.7m 3.8 3.9 3.10"
+    local python_versions="3.7m 3.8 3.9 3.10 3.11"
     local platform_tags="macosx_10_14_x86_64"
   fi
 
@@ -1071,6 +1071,8 @@ test_macos_wheels() {
   # verify arm64 and universal2 wheels using an universal2 python binary
   # the interpreter should be installed from python.org:
   #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
+  # From Python 3.11 onwards we are not providing universal2 wheels.
+  # Only architecture specific.
   if [ "$(uname -m)" = "arm64" ]; then
     for pyver in 3.9 3.10; do
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
