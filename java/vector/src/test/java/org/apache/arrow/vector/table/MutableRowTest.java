@@ -918,7 +918,7 @@ class MutableRowTest {
     }
   }
 
- @Test
+  @Test
   void setBit() {
     String vectorName = "bit_vector";
     int vectorPosition = 0;
