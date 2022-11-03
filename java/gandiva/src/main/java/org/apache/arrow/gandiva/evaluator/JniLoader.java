@@ -69,15 +69,17 @@ class JniLoader {
 
   private static void loadGandivaLibraryFromJar(final String tmpDir)
           throws IOException, GandivaException {
-    final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
-    final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad);
+    final String libraryToLoad =
+        System.getProperty("os.arch").toLowerCase(Locale.US).replace("amd64", "x86_64") + File.separator +
+            System.mapLibraryName(LIBRARY_NAME);
+    final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad, LIBRARY_NAME);
     System.load(libraryFile.getAbsolutePath());
   }
 
 
-  private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad)
+  private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad, String libraryName)
           throws IOException, GandivaException {
-    final File temp = setupFile(tmpDir, libraryToLoad);
+    final File temp = setupFile(tmpDir, libraryName);
     try (final InputStream is = JniLoader.class.getClassLoader()
             .getResourceAsStream(libraryToLoad)) {
       if (is == null) {

@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -76,7 +77,9 @@ public final class JniLoader {
   }
 
   private void load(String name) {
-    final String libraryToLoad = System.mapLibraryName(name);
+    final String libraryToLoad =
+        System.getProperty("os.arch").toLowerCase(Locale.US).replace("amd64", "x86_64") + File.separator +
+            System.mapLibraryName(name);
     try {
       File temp = File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
       temp.deleteOnExit();

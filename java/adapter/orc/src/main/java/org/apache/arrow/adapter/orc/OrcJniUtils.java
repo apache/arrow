@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Locale;
 
 /**
  * Helper class for JNI related operations.
@@ -37,18 +38,20 @@ class OrcJniUtils {
           throws IOException, IllegalAccessException {
     synchronized (OrcJniUtils.class) {
       if (!isLoaded) {
-        final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
-        final File libraryFile = moveFileFromJarToTemp(
-                System.getProperty("java.io.tmpdir"), libraryToLoad);
+        final String libraryToLoad =
+            System.getProperty("os.arch").toLowerCase(Locale.US).replace("amd64", "x86_64") + File.separator +
+                System.mapLibraryName(LIBRARY_NAME);
+        final File libraryFile =
+            moveFileFromJarToTemp(System.getProperty("java.io.tmpdir"), libraryToLoad, LIBRARY_NAME);
         System.load(libraryFile.getAbsolutePath());
         isLoaded = true;
       }
     }
   }
 
-  private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad)
+  private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad, String libraryName)
           throws IOException {
-    final File temp = File.createTempFile(tmpDir, libraryToLoad);
+    final File temp = File.createTempFile(tmpDir, libraryName);
     try (final InputStream is = OrcReaderJniWrapper.class.getClassLoader()
             .getResourceAsStream(libraryToLoad)) {
       if (is == null) {
