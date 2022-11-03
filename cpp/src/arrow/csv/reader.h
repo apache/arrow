@@ -25,7 +25,6 @@
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/visibility.h"

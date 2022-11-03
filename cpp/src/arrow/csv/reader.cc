@@ -898,9 +898,9 @@ class StreamingReaderImpl
         ReaderMixin<InputType>::read_options_.skip_rows_after_names);
     auto parsed_block_gen =
         MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor);
-    auto preparse_gen =
+    auto predecode_gen =
         MakeSerialReadaheadGenerator(parsed_block_gen, cpu_executor->GetCapacity());
-    auto rb_gen = MakeMappedGenerator(std::move(preparse_gen), std::move(decoder_op));
+    auto rb_gen = MakeMappedGenerator(std::move(predecode_gen), std::move(decoder_op));
 
     auto self = this->shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
