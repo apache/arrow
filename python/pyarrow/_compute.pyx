@@ -1170,10 +1170,6 @@ class SliceOptions(_SliceOptions):
 
 cdef class _ListSliceOptions(FunctionOptions):
     cpdef _set_options(self, start, stop=None, step=1, return_fixed_size_list=True):
-        # NB: Assigning optional[int64_t] on stack seems available once Cython>=3 available.
-        # due to cpp_locals directive:
-        # https://cython.readthedocs.io/en/latest/src/userguide/wrapping_CPlusPlus.html#cpp-locals-directive
-        # additional ref: https://stackoverflow.com/a/73282509/4601439
         cdef:
             CListSliceOptions* opts
         if stop is None:
