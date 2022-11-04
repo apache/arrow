@@ -56,7 +56,7 @@ pip install \
   --target $PIP_SITE_PACKAGES \
   --platform $PIP_TARGET_PLATFORM \
   -r ${source_dir}/python/requirements-wheel-build.txt
-pip install "delocate>=0.9"
+pip install "delocate>=0.10.3"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}

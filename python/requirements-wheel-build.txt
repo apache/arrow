@@ -2,4 +2,4 @@ cython>=0.29.11
 oldest-supported-numpy>=0.14
 setuptools_scm
 setuptools>=58
-wheel<0.38.0
+wheel
