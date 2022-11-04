@@ -21,9 +21,17 @@ set -ex
 
 arrow_dir=${1}
 build_dir=${2}
+normalized_arch=$(arch)
+case ${normalized_arch} in
+  arm64)
+    normalized_arch=aarch_64
+    ;;
+  i386)
+    normalized_arch=x86_64
+    ;;
+esac
 # The directory where the final binaries will be stored when scripts finish
-# arm64 -> aarch_64
-dist_dir=${3}/$(arch | sed -e 's/^arm/aarch_/')
+dist_dir=${3}/${normalized_arch}
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
