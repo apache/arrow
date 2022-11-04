@@ -324,6 +324,11 @@ test_that("Can set schema on dataset", {
   expect_equal(ds$schema, expected_schema)
 })
 
+test_that("as.data.frame.Dataset", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_identical(dim(as.data.frame(ds)), c(20L, 7L))
+})
+
 test_that("dim method returns the correct number of rows and columns", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_identical(dim(ds), c(20L, 7L))
@@ -637,7 +642,9 @@ test_that("scalar aggregates with many batches (ARROW-16904)", {
   )
 })
 
-test_that("map_batches", {
+test_that("streaming map_batches into an ExecPlan", {
+  skip_if_not(CanRunWithCapturedR())
+
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
   # summarize returns arrow_dplyr_query, which gets collected into a tibble

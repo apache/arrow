@@ -121,5 +121,5 @@
   "engines": {
     "node": ">=12.0"
   },
-  "version": "10.0.0-SNAPSHOT"
+  "version": "11.0.0-SNAPSHOT"
 }

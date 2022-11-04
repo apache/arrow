@@ -96,7 +96,7 @@ def check_config(obj, config_path):
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/kszucs/arrow.')
 @click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+              help='Give the branch name explicitly, e.g. ARROW-1949.')
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
@@ -157,7 +157,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
 
 @crossbow.command()
-@click.option('--base-branch', default="master",
+@click.option('--base-branch', default=None,
               help='Set base branch for the PR.')
 @click.option('--create-pr', is_flag=True, default=False,
               help='Create GitHub Pull Request')
@@ -192,6 +192,12 @@ def verify_release_candidate(obj, base_branch, create_pr,
 
     # Redefine Arrow repo to use the correct arrow remote.
     arrow = Repo(path=obj['arrow'].path, remote_url=remote)
+
+    # Default value for base_branch is the repository's default branch name
+    if base_branch is None:
+        # Get the default branch name from the repository
+        base_branch = arrow.default_branch_name
+
     response = arrow.github_pr(title=pr_title, head=head_branch,
                                base=base_branch, body=pr_body,
                                github_token=obj['queue'].github_token,
@@ -225,7 +231,7 @@ def verify_release_candidate(obj, base_branch, create_pr,
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/kszucs/arrow.')
 @click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+              help='Give the branch name explicitly, e.g. ARROW-1949.')
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
