@@ -119,8 +119,8 @@ struct ListSlice {
 
     const ArraySpan& list_ = batch[0].array;
     const Type* list_type = checked_cast<const Type*>(list_.type);
-    const auto value_type = list_type->value_type();
-
+    const auto field_name = list_type->field(0)->name();
+    const auto value_type = list_type->field(0)->WithName(field_name);
     std::unique_ptr<ArrayBuilder> builder;
 
     // construct array values
@@ -231,19 +231,21 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
                                         const std::vector<TypeHolder>& types) {
   const auto& opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
   const auto list_type = checked_cast<const BaseListType*>(types[0].type);
+  const auto field_name = list_type->field(0)->name();
+  const auto value_type = list_type->field(0)->WithName(field_name);
   if (opts.return_fixed_size_list) {
     if (!opts.stop.has_value()) {
       return Status::NotImplemented(
           "Unable to produce FixedSizeListArray without `stop` being set.");
     }
-    return TypeHolder(fixed_size_list(
-        list_type->value_type(), static_cast<int32_t>(opts.stop.value() - opts.start)));
+    return fixed_size_list(value_type,
+                           static_cast<int32_t>(opts.stop.value() - opts.start));
   } else {
     // Returning large list if that's what we got in and didn't ask for fixed size
     if (list_type->id() == Type::LARGE_LIST) {
-      return list_type;
+      return large_list(value_type);
     }
-    return TypeHolder(list(list_type->value_type()));
+    return list(value_type);
   }
 }
 
