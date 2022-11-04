@@ -175,11 +175,25 @@ TEST(TestScalarNested, ListSliceFixedOutput) {
   }
 }
 
+TEST(TestScalarNested, ListSliceOutputEqualsInputType) {
+  // Default is to return same type as the one passed in.
+  auto inputs = {
+      ArrayFromJSON(list(int8()), "[[1, 2, 3], [4, 5], [6, null], null]"),
+      ArrayFromJSON(large_list(int8()), "[[1, 2, 3], [4, 5], [6, null], null]"),
+      ArrayFromJSON(fixed_size_list(int8(), 2), "[[1, 2], [4, 5], [6, null], null]")};
+  for (auto input : inputs) {
+    ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1);
+    auto expected = ArrayFromJSON(input->type(), "[[1, 2], [4, 5], [6, null], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
+  }
+}
+
 TEST(TestScalarNested, ListSliceBadParameters) {
   auto input = ArrayFromJSON(list(int32()), "[[1]]");
 
   // negative start
-  ListSliceOptions args(-1, 1);
+  ListSliceOptions args(/*start=*/-1, /*stop=*/1, /*step=*/1,
+                        /*return_fixed_size_list=*/true);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(

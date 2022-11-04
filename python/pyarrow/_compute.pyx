@@ -1169,17 +1169,17 @@ class SliceOptions(_SliceOptions):
 
 
 cdef class _ListSliceOptions(FunctionOptions):
-    cpdef _set_options(self, start, stop=None, step=1, return_fixed_size_list=True):
+    cpdef _set_options(self, start, stop=None, step=1, return_fixed_size_list=None):
         cdef:
             CListSliceOptions* opts
-        if stop is None:
-            opts = new CListSliceOptions(start,
-                                         <optional[int64_t]>nullopt,
-                                         step, return_fixed_size_list)
-        else:
-            opts = new CListSliceOptions(start,
-                                         <optional[int64_t]>(<int64_t>stop),
-                                         step, return_fixed_size_list)
+        opts = new CListSliceOptions(
+            start,
+            <optional[int64_t]>nullopt if stop is None \
+                else <optional[int64_t]>(<int64_t>stop),
+            step,
+            <optional[c_bool]>nullopt if return_fixed_size_list is None \
+                else <optional[c_bool]>(<c_bool>return_fixed_size_list)
+        )
         self.wrapped.reset(opts)
 
 
@@ -1196,13 +1196,14 @@ class ListSliceOptions(_ListSliceOptions):
         If not given, slicing will stop at the end. (NotImplemented)
     step : int, default 1
         Slice step.
-    return_fixed_size_list : bool, default True
+    return_fixed_size_list : bool, default None
         Whether to return a FixedSizeListArray. If true _and_ stop is after
         a list element's length, nulls will be appended to create the
-        requested slice size.
+        requested slice size. The default of `None` will return the same
+        type which was passed in.
     """
 
-    def __init__(self, start, stop=None, step=1, return_fixed_size_list=True):
+    def __init__(self, start, stop=None, step=1, return_fixed_size_list=None):
         self._set_options(start, stop, step, return_fixed_size_list)
 
 

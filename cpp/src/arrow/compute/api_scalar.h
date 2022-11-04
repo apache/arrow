@@ -350,7 +350,8 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
 class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
  public:
   explicit ListSliceOptions(int64_t start, std::optional<int64_t> stop = std::nullopt,
-                            int64_t step = 1, bool return_fixed_size_list = true);
+                            int64_t step = 1,
+                            std::optional<bool> return_fixed_size_list = std::nullopt);
   ListSliceOptions();
   static constexpr char const kTypeName[] = "ListSliceOptions";
   /// The start of list slicing.
@@ -361,7 +362,8 @@ class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
   int64_t step;
   // Whether to return a FixedSizeListArray. If true _and_ stop is after
   // a list element's length, nulls will be appended to create the requested slice size.
-  bool return_fixed_size_list;
+  // Default of `nullopt` will return whatever type it got in.
+  std::optional<bool> return_fixed_size_list;
 };
 
 class ARROW_EXPORT NullOptions : public FunctionOptions {

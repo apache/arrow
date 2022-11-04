@@ -121,10 +121,12 @@ struct ListSlice {
     const Type* list_type = checked_cast<const Type*>(list_.type);
     const auto field_name = list_type->field(0)->name();
     const auto value_type = list_type->field(0)->WithName(field_name);
+    const auto return_fixed_size_list = opts.return_fixed_size_list.value_or(
+        list_type->id() == arrow::Type::FIXED_SIZE_LIST);
     std::unique_ptr<ArrayBuilder> builder;
 
     // construct array values
-    if (opts.return_fixed_size_list) {
+    if (return_fixed_size_list) {
       RETURN_NOT_OK(MakeBuilder(
           ctx->memory_pool(),
           fixed_size_list(value_type,
@@ -233,7 +235,9 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
   const auto list_type = checked_cast<const BaseListType*>(types[0].type);
   const auto field_name = list_type->field(0)->name();
   const auto value_type = list_type->field(0)->WithName(field_name);
-  if (opts.return_fixed_size_list) {
+  const auto return_fixed_size_list =
+      opts.return_fixed_size_list.value_or(list_type->id() == Type::FIXED_SIZE_LIST);
+  if (return_fixed_size_list) {
     if (!opts.stop.has_value()) {
       return Status::NotImplemented(
           "Unable to produce FixedSizeListArray without `stop` being set.");

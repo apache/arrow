@@ -535,7 +535,8 @@ SliceOptions::SliceOptions() : SliceOptions(0, 0, 1) {}
 constexpr char SliceOptions::kTypeName[];
 
 ListSliceOptions::ListSliceOptions(int64_t start, std::optional<int64_t> stop,
-                                   int64_t step, bool return_fixed_size_list)
+                                   int64_t step,
+                                   std::optional<bool> return_fixed_size_list)
     : FunctionOptions(internal::kListSliceOptionsType),
       start(start),
       stop(stop),

@@ -2947,7 +2947,7 @@ def test_list_slice_output_fixed(start, stop, expected, value_type, list_type):
     else:
         arr = pa.array([[1, 2, 3], [4, 5], [6], None],
                        pa.list_(pa.int8())).cast(list_type(value_type()))
-    result = pc.list_slice(arr, start, stop)  # default is to return fixed size
+    result = pc.list_slice(arr, start, stop, return_fixed_size_list=True)
     pylist = result.cast(pa.list_(pa.int8(), stop-start)).to_pylist()
     assert pylist == expected
 
@@ -2985,7 +2985,7 @@ def test_list_slice_output_variable(start, stop, value_type, list_type):
     assert pylist == expected
 
 
-@pytest.mark.parametrize("return_fixed_size", (True, False))
+@pytest.mark.parametrize("return_fixed_size", (True, False, None))
 @pytest.mark.parametrize("type", (
     lambda: pa.list_(pa.field('col', pa.int8())),
     lambda: pa.list_(pa.field('col', pa.int8()), 1),
@@ -2994,6 +2994,10 @@ def test_list_slice_field_names_retained(return_fixed_size, type):
     arr = pa.array([[1]], type())
     out = pc.list_slice(arr, 0, 1, return_fixed_size_list=return_fixed_size)
     assert arr.type.field(0).name == out.type.field(0).name
+
+    # Verify out type matches in type if return_fixed_size_list==None
+    if return_fixed_size is None:
+        assert arr.type == out.type
 
 
 def test_list_slice_bad_parameters():
