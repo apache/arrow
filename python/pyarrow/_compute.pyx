@@ -1197,7 +1197,9 @@ class ListSliceOptions(_ListSliceOptions):
     step : int, default 1
         Slice step.
     return_fixed_size_list : bool, default True
-        Whether to return a FixedSizeListArray.
+        Whether to return a FixedSizeListArray. If true _and_ stop is after
+        a list element's length, nulls will be appended to create the
+        requested slice size.
     """
 
     def __init__(self, start, stop=None, step=1, return_fixed_size_list=True):

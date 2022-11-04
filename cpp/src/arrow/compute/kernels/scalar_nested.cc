@@ -268,10 +268,10 @@ void AddListSliceKernels(ScalarFunction* func) {
 }
 
 const FunctionDoc list_slice_doc(
-    "Slice list into a subset",
+    "Compute slice of list-like array",
     ("`lists` must have a list-like type.\n"
-     "Return subset array of the list, as either a variable\n"
-     "or fixed size list array."),
+     "For each list element, compute a slice, returning a new list array.\n"
+     "A variable or fixed size list array is returned, depending on options."),
     {"lists"}, "ListSliceOptions",
     /*options_required=*/true);
 
