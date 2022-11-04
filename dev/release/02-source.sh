@@ -147,7 +147,7 @@ if [ ${SOURCE_VOTE} -gt 0 ]; then
   n_resolved_issues=$(curl "${jira_url}/rest/api/2/search/?jql=${jql}" | jq ".total")
   curl_options=(--header "Accept: application/vnd.github+json")
   if [ -n "${ARROW_GITHUB_API_TOKEN:-}" ]; then
-    curl_options+=(--header "Authentication: Bearer ${ARROW_GITHUB_API_TOKEN}")
+    curl_options+=(--header "Authorization: Bearer ${ARROW_GITHUB_API_TOKEN}")
   fi
   curl_options+=(--get)
   curl_options+=(--data "state=open")
