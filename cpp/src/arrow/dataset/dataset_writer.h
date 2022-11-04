@@ -50,17 +50,12 @@ class ARROW_DS_EXPORT DatasetWriter {
   /// \param max_rows_queued max # of rows allowed to be queued before the dataset_writer
   ///                        will ask for backpressure
   static Result<std::unique_ptr<DatasetWriter>> Make(
-      FileSystemDatasetWriteOptions write_options,
+      FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,
+      std::function<void()> pause_callback, std::function<void()> resume_callback,
+      std::function<void()> finish_callback,
       uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
 
   ~DatasetWriter();
-
-  /// \brief Start the dataset writer
-  ///
-  /// The dataset writer must be started before any batches can be written.
-  ///
-  /// \param scheduler a scheduler that the dataset writer will schedule its tasks on
-  void Start(util::AsyncTaskScheduler* scheduler);
 
   /// \brief Write a batch to the dataset
   /// \param[in] batch The batch to write
@@ -86,14 +81,17 @@ class ARROW_DS_EXPORT DatasetWriter {
   /// 1000 batches go to the same directory and then the 1001st batch goes to a different
   /// directory.  The only way to get two parallel writes immediately would be to queue
   /// all 1000 pending writes to the first directory.
-  Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
-                            const std::string& directory, const std::string& prefix = "");
+  void WriteRecordBatch(std::shared_ptr<RecordBatch> batch, const std::string& directory,
+                        const std::string& prefix = "");
 
   /// Finish all pending writes and close any open files
-  Status Finish();
+  void Finish();
 
  protected:
   DatasetWriter(FileSystemDatasetWriteOptions write_options,
+                util::AsyncTaskScheduler* scheduler, std::function<void()> pause_callback,
+                std::function<void()> resume_callback,
+                std::function<void()> finish_callback,
                 uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
 
   class DatasetWriterImpl;

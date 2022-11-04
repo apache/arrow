@@ -20,7 +20,6 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 
-#include <deque>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -29,7 +28,7 @@ namespace arrow {
 
 namespace util {
 
-class ThrottleImpl : public AsyncTaskScheduler::Throttle {
+class ThrottleImpl : public ThrottledAsyncTaskScheduler::Throttle {
  public:
   explicit ThrottleImpl(int max_concurrent_cost)
       : max_concurrent_cost_(max_concurrent_cost), available_cost_(max_concurrent_cost) {}
@@ -48,37 +47,51 @@ class ThrottleImpl : public AsyncTaskScheduler::Throttle {
   }
 
   void Release(int amt) override {
-    Future<> backoff_to_fulfill;
-    {
-      std::lock_guard<std::mutex> lk(mutex_);
-      available_cost_ += amt;
-      if (backoff_.is_valid()) {
-        backoff_to_fulfill = std::move(backoff_);
-      }
+    std::unique_lock lk(mutex_);
+    available_cost_ += amt;
+    NotifyUnlocked(std::move(lk));
+  }
+
+  void Pause() override {
+    std::lock_guard lg(mutex_);
+    paused_ = true;
+    if (!backoff_.is_valid()) {
+      backoff_ = Future<>::Make();
     }
-    if (backoff_to_fulfill.is_valid()) {
-      backoff_to_fulfill.MarkFinished();
-    }
+  }
+
+  void Resume() override {
+    std::unique_lock lk(mutex_);
+    paused_ = false;
+    // Might be a useless notification if our current cost is full
+    // or no one is waiting but it should be ok.
+    NotifyUnlocked(std::move(lk));
   }
 
   int Capacity() override { return max_concurrent_cost_; }
 
  private:
+  void NotifyUnlocked(std::unique_lock<std::mutex>&& lk) {
+    if (backoff_.is_valid()) {
+      Future<> backoff_to_fulfill = std::move(backoff_);
+      lk.unlock();
+      backoff_to_fulfill.MarkFinished();
+    } else {
+      lk.unlock();
+    }
+  }
+
   std::mutex mutex_;
   int max_concurrent_cost_;
   int available_cost_;
+  bool paused_ = false;
   Future<> backoff_;
 };
-
-std::unique_ptr<AsyncTaskScheduler::Throttle> AsyncTaskScheduler::MakeThrottle(
-    int max_concurrent_cost) {
-  return std::make_unique<ThrottleImpl>(max_concurrent_cost);
-}
 
 namespace {
 
 // Very basic FIFO queue
-class FifoQueue : public AsyncTaskScheduler::Queue {
+class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
   using Task = AsyncTaskScheduler::Task;
   void Push(std::unique_ptr<Task> task) override { tasks_.push_back(std::move(task)); }
 
@@ -100,350 +113,278 @@ class FifoQueue : public AsyncTaskScheduler::Queue {
 
 class AlreadyFailedScheduler : public AsyncTaskScheduler {
  public:
-  explicit AlreadyFailedScheduler(Status failure_reason,
-                                  FnOnce<Status(Status)> finish_callback)
-      : failure_reason_(std::move(failure_reason)),
-        finish_callback_(std::move(finish_callback)) {}
-  ~AlreadyFailedScheduler() override {
-    std::ignore = std::move(finish_callback_)(failure_reason_);
-  }
+  explicit AlreadyFailedScheduler(Status failure_reason) {}
   bool AddTask(std::unique_ptr<Task> task) override { return false; }
-  std::unique_ptr<AsyncTaskScheduler::Holder> MakeSubScheduler(
-      FnOnce<Status(AsyncTaskScheduler*)> initial_task,
-      FnOnce<Status(Status)> finish_callback, Throttle* throttle,
-      std::unique_ptr<Queue> queue) override {
-    return AlreadyFailedScheduler::Make(failure_reason_, std::move(initial_task),
-                                        std::move(finish_callback));
-  }
-  static std::unique_ptr<AsyncTaskScheduler::Holder> Make(
-      Status failure, FnOnce<Status(AsyncTaskScheduler*)> initial_task,
-      FnOnce<Status(Status)> finish_callback) {
-    DCHECK(!failure.ok());
-    auto failed_scheduler = std::make_unique<AlreadyFailedScheduler>(
-        std::move(failure), std::move(finish_callback));
-    // Don't care if initial_task fails as we've already failed
-    std::ignore = std::move(initial_task)(failed_scheduler.get());
-    return std::make_unique<HolderImpl>(std::move(failed_scheduler));
-  }
-
- private:
-  class HolderImpl : public AsyncTaskScheduler::Holder {
-   public:
-    explicit HolderImpl(std::unique_ptr<AlreadyFailedScheduler> scheduler)
-        : scheduler_(std::move(scheduler)) {}
-    ~HolderImpl() override { scheduler_.reset(); }
-    void Reset() override { scheduler_.reset(); }
-    AsyncTaskScheduler* Get() override { return scheduler_.get(); }
-
-   private:
-    std::unique_ptr<AlreadyFailedScheduler> scheduler_;
-  };
-
-  Status failure_reason_;
-  FnOnce<Status(Status)> finish_callback_;
 };
 
 class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
  public:
   using Task = AsyncTaskScheduler::Task;
-  using Queue = AsyncTaskScheduler::Queue;
 
-  /// State that is shared across all schedulers in a tree.
-  struct CommonState {
-    // Used to notify all other schedulers if any scheduler aborts
-    std::atomic<bool> abort{false};
-  };
-
-  AsyncTaskSchedulerImpl(AsyncTaskSchedulerImpl* parent, std::unique_ptr<Queue> queue,
-                         Throttle* throttle, FnOnce<Status(Status)> finish_callback,
-                         StopToken stop_token)
-      : AsyncTaskScheduler(),
-        queue_(std::move(queue)),
-        throttle_(throttle),
-        finish_callback_(std::move(finish_callback)),
-        stop_token_(std::move(stop_token)) {
-    if (parent == nullptr) {
-      global_state_ = &owned_global_state_;
-      // The initial task
-      running_tasks_ = 1;
-    } else {
-      global_state_ = parent->global_state_;
-      // The initial task and the holder
-      running_tasks_ = 2;
-    }
-    if (throttle != nullptr && !queue_) {
-      queue_ = std::make_unique<FifoQueue>();
-    }
-  }
+  explicit AsyncTaskSchedulerImpl(StopToken stop_token)
+      : AsyncTaskScheduler(), stop_token_(std::move(stop_token)) {}
 
   ~AsyncTaskSchedulerImpl() {
-    DCHECK(!queue_ || queue_->Empty())
-        << " scheduler destroyed before all queued tasks finished";
     DCHECK_EQ(running_tasks_, 0) << " scheduler destroyed while tasks still running";
   }
 
   bool AddTask(std::unique_ptr<Task> task) override {
     std::unique_lock<std::mutex> lk(mutex_);
-    if (aborted_) {
-      return false;
-    }
-    if (global_state_->abort.load()) {
-      AbortUnlocked(Status::Cancelled("Another scheduler aborted"), std::move(lk));
-      return false;
-    }
     if (stop_token_.IsStopRequested()) {
       AbortUnlocked(stop_token_.Poll(), std::move(lk));
+    }
+    if (IsAborted()) {
       return false;
     }
-    if (throttle_) {
-      // If the queue isn't empty then don't even try and acquire the throttle
-      // We can safely assume it is either blocked or in the middle of trying to
-      // alert a queued task.
-      if (!queue_->Empty()) {
-        queue_->Push(std::move(task));
-        return true;
-      }
-      int latched_cost = std::min(task->cost(), throttle_->Capacity());
-      std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(latched_cost);
-      if (maybe_backoff) {
-        queue_->Push(std::move(task));
-        lk.unlock();
-        maybe_backoff->AddCallback([this](const Status&) {
-          std::unique_lock<std::mutex> lk2(mutex_);
-          ContinueTasksUnlocked(&lk2);
-        });
-      } else {
-        SubmitTaskUnlocked(std::move(task), &lk);
-      }
-    } else {
-      SubmitTaskUnlocked(std::move(task), &lk);
-    }
+    SubmitTaskUnlocked(std::move(task), std::move(lk));
     return true;
-  }
-
-  std::unique_ptr<Holder> MakeSubScheduler(
-      FnOnce<Status(AsyncTaskScheduler*)> initial_task,
-      FnOnce<Status(Status)> finish_callback, Throttle* throttle,
-      std::unique_ptr<Queue> queue) override {
-    AsyncTaskSchedulerImpl* child;
-    std::list<std::unique_ptr<AsyncTaskSchedulerImpl>>::iterator child_itr;
-    std::unique_ptr<AsyncTaskSchedulerImpl> owned_child;
-    {
-      std::lock_guard<std::mutex> lk(mutex_);
-      if (aborted_) {
-        return AlreadyFailedScheduler::Make(maybe_error_, std::move(initial_task),
-                                            std::move(finish_callback));
-      }
-      owned_child = std::make_unique<AsyncTaskSchedulerImpl>(
-          this, std::move(queue), throttle, std::move(finish_callback), stop_token_);
-      child = owned_child.get();
-      running_tasks_++;
-      sub_schedulers_.push_back(std::move(owned_child));
-      child_itr = --sub_schedulers_.end();
-    }
-
-    struct Finalizer {
-      void operator()(const Status& st) {
-        std::unique_lock<std::mutex> lk(self->mutex_);
-        FnOnce<Status(Status)> finish_callback = std::move(child->finish_callback_);
-        self->sub_schedulers_.erase(child_itr);
-        lk.unlock();
-        Status finish_st = std::move(finish_callback)(st);
-        lk.lock();
-        self->running_tasks_--;
-        if (!st.ok()) {
-          self->AbortUnlocked(st, std::move(lk));
-          return;
-        }
-        if (!finish_st.ok()) {
-          self->AbortUnlocked(finish_st, std::move(lk));
-          return;
-        }
-        self->MaybeEndUnlocked(std::move(lk));
-      }
-
-      AsyncTaskSchedulerImpl* self;
-      AsyncTaskSchedulerImpl* child;
-      std::list<std::unique_ptr<AsyncTaskSchedulerImpl>>::iterator child_itr;
-    };
-
-    Status initial_task_st = std::move(initial_task)(child);
-    child->OnTaskFinished(initial_task_st, 0, /*actual_task=*/false);
-    child->OnFinished().AddCallback(Finalizer{this, child, child_itr});
-    return std::make_unique<HolderImpl>(child);
   }
 
   Future<> OnFinished() const { return finished_; }
 
  private:
-  void ContinueTasksUnlocked(std::unique_lock<std::mutex>* lk) {
-    while (!queue_->Empty()) {
-      int next_cost = std::min(queue_->Peek().cost(), throttle_->Capacity());
-      std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(next_cost);
-      if (maybe_backoff) {
-        lk->unlock();
-        if (!maybe_backoff->TryAddCallback([this] {
-              return [this](const Status&) {
-                std::unique_lock<std::mutex> lk2(mutex_);
-                ContinueTasksUnlocked(&lk2);
-              };
-            })) {
-          lk->lock();
-          continue;
-        }
-        return;
-      } else {
-        std::unique_ptr<Task> next_task = queue_->Pop();
-        if (!SubmitTaskUnlocked(std::move(next_task), lk)) {
-          // We reached a terminal condition and there is no need to further continue
-          return;
-        }
-        lk->lock();
-      }
-    }
-  }
+  bool IsAborted() { return !maybe_error_.ok(); }
 
-  bool IsFullyFinished() { return (!queue_ || queue_->Empty()) && running_tasks_ == 0; }
+  bool IsFullyFinished() { return running_tasks_ == 0; }
 
-  bool OnTaskFinished(const Status& st, int task_cost, bool actual_task) {
+  void OnTaskFinished(const Status& st) {
     std::unique_lock<std::mutex> lk(mutex_);
     if (!st.ok()) {
       running_tasks_--;
       AbortUnlocked(st, std::move(lk));
-      return false;
+      return;
     }
-    if (global_state_->abort.load()) {
-      running_tasks_--;
-      AbortUnlocked(Status::Cancelled("Another scheduler aborted"), std::move(lk));
-      return false;
-    }
-    if (stop_token_.IsStopRequested()) {
-      running_tasks_--;
-      AbortUnlocked(stop_token_.Poll(), std::move(lk));
-      return false;
-    }
-    // It's perhaps a little odd to release the throttle here instead of at the end of
-    // this method.  However, once we decrement running_tasks_ and release the lock we
-    // are eligible for deletion and throttle_ would become invalid.
-    lk.unlock();
-    if (throttle_ && task_cost > 0) {
-      throttle_->Release(task_cost);
-    }
-    lk.lock();
     running_tasks_--;
     return MaybeEndUnlocked(std::move(lk));
   }
 
-  bool DoSubmitTask(std::unique_ptr<Task> task) {
-    int cost = task->cost();
-    if (throttle_) {
-      cost = std::min(cost, throttle_->Capacity());
-    }
-    Result<Future<>> submit_result = (*task)(this);
+  void DoSubmitTask(std::unique_ptr<Task> task) {
+    Result<Future<>> submit_result = (*task)();
     if (!submit_result.ok()) {
       std::unique_lock<std::mutex> lk(mutex_);
-      global_state_->abort.store(true);
       running_tasks_--;
       AbortUnlocked(submit_result.status(), std::move(lk));
-      return false;
+      return;
     }
     // Capture `task` to keep it alive until finished
-    if (!submit_result->TryAddCallback(
-            [this, cost, task_inner = std::move(task)]() mutable {
-              return [this, cost, task_inner2 = std::move(task_inner)](const Status& st) {
-                OnTaskFinished(st, cost, /*actual_task=*/true);
-              };
-            })) {
-      return OnTaskFinished(submit_result->status(), cost, /*actual_task=*/true);
+    if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
+          return [this, task_inner2 = std::move(task_inner)](const Status& st) {
+            OnTaskFinished(st);
+          };
+        })) {
+      return OnTaskFinished(submit_result->status());
     }
-    return true;
   }
 
-  bool MaybeEndUnlocked(std::unique_lock<std::mutex>&& lk) {
+  void MaybeEndUnlocked(std::unique_lock<std::mutex>&& lk) {
     if (IsFullyFinished()) {
       lk.unlock();
       finished_.MarkFinished(maybe_error_);
-      return false;
     } else {
-      return true;
+      // Always unlock for consistency's sake
+      lk.unlock();
     }
   }
 
   void AbortUnlocked(const Status& st, std::unique_lock<std::mutex>&& lk) {
-    if (!aborted_) {
+    DCHECK(!st.ok());
+    if (!IsAborted()) {
       maybe_error_ = st;
-      aborted_ = true;
-      if (queue_) {
-        queue_->Purge();
-      }
     }
     MaybeEndUnlocked(std::move(lk));
   }
 
-  bool SubmitTaskUnlocked(std::unique_ptr<Task> task, std::unique_lock<std::mutex>* lk) {
+  void SubmitTaskUnlocked(std::unique_ptr<Task> task, std::unique_lock<std::mutex>&& lk) {
+    if (stop_token_.IsStopRequested()) {
+      AbortUnlocked(stop_token_.Poll(), std::move(lk));
+      return;
+    }
     running_tasks_++;
-    lk->unlock();
+    lk.unlock();
     return DoSubmitTask(std::move(task));
   }
 
-  class HolderImpl : public AsyncTaskScheduler::Holder {
-   public:
-    explicit HolderImpl(AsyncTaskSchedulerImpl* scheduler)
-        : scheduler_(std::move(scheduler)) {}
-    ~HolderImpl() override { EndIfNeeded(); }
-    void Reset() override { EndIfNeeded(); }
-    AsyncTaskScheduler* Get() override {
-      DCHECK(!destroyed_);
-      return scheduler_;
-    }
-    void EndIfNeeded() {
-      if (destroyed_) {
-        return;
-      }
-      destroyed_ = true;
-      scheduler_->OnTaskFinished(Status::OK(), 0, /*actual_task=*/false);
-    }
-
-   private:
-    AsyncTaskSchedulerImpl* scheduler_;
-    bool destroyed_ = false;
-  };
-
-  bool aborted_ = false;
-  std::unique_ptr<Queue> queue_;
-  Throttle* throttle_;
-  FnOnce<Status(Status)> finish_callback_;
-
   Future<> finished_ = Future<>::Make();
-  int running_tasks_;
+  // The initial task is our first task
+  int running_tasks_ = 1;
   // Starts as ok but may transition to an error if aborted.  Will be the first
   // error that caused the abort.  If multiple errors occur, only the first is captured.
   Status maybe_error_;
   std::mutex mutex_;
-
-  std::list<std::unique_ptr<AsyncTaskSchedulerImpl>> sub_schedulers_;
-
-  // This is always initialized but only meaningful for the top-level scheduler
-  CommonState owned_global_state_;
-  CommonState* global_state_;
   StopToken stop_token_;
 
   // Allows AsyncTaskScheduler::Make to call OnTaskFinished
   friend AsyncTaskScheduler;
 };
 
+class ThrottledAsyncTaskSchedulerImpl
+    : public ThrottledAsyncTaskScheduler,
+      public std::enable_shared_from_this<ThrottledAsyncTaskSchedulerImpl> {
+ public:
+  using Queue = ThrottledAsyncTaskScheduler::Queue;
+  using Throttle = ThrottledAsyncTaskScheduler::Throttle;
+
+  ThrottledAsyncTaskSchedulerImpl(AsyncTaskScheduler* target,
+                                  std::unique_ptr<Throttle> throttle,
+                                  std::unique_ptr<Queue> queue)
+      : target_(target), throttle_(std::move(throttle)), queue_(std::move(queue)) {}
+
+  ~ThrottledAsyncTaskSchedulerImpl() { DCHECK(queue_->Empty()); }
+
+  bool AddTask(std::unique_ptr<Task> task) override {
+    std::unique_lock lk(mutex_);
+    // If the queue isn't empty then don't even try and acquire the throttle
+    // We can safely assume it is either blocked or in the middle of trying to
+    // alert a queued task.
+    if (!queue_->Empty()) {
+      queue_->Push(std::move(task));
+      return true;
+    }
+    int latched_cost = std::min(task->cost(), throttle_->Capacity());
+    std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(latched_cost);
+    if (maybe_backoff) {
+      queue_->Push(std::move(task));
+      lk.unlock();
+      maybe_backoff->AddCallback(
+          [self = shared_from_this()](const Status&) { self->ContinueTasks(); });
+      return true;
+    } else {
+      lk.unlock();
+      return SubmitTask(std::move(task), latched_cost);
+    }
+  }
+
+  void Pause() override { throttle_->Pause(); }
+  void Resume() override { throttle_->Resume(); }
+
+ private:
+  bool SubmitTask(std::unique_ptr<Task> task, int latched_cost) {
+    // Wrap the task with a wrapper that runs it and then checks to see if there are any
+    // queued tasks
+    return target_->AddSimpleTask(
+        [latched_cost, inner_task = std::move(task),
+         self = shared_from_this()]() mutable -> Result<Future<>> {
+          ARROW_ASSIGN_OR_RAISE(Future<> inner_fut, (*inner_task)());
+          return inner_fut.Then([latched_cost, self = std::move(self)] {
+            self->throttle_->Release(latched_cost);
+            self->ContinueTasks();
+          });
+        });
+  }
+
+  void ContinueTasks() {
+    std::unique_lock lk(mutex_);
+    while (!queue_->Empty()) {
+      int next_cost = std::min(queue_->Peek().cost(), throttle_->Capacity());
+      std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(next_cost);
+      if (maybe_backoff) {
+        lk.unlock();
+        if (!maybe_backoff->TryAddCallback([&] {
+              return
+                  [self = shared_from_this()](const Status&) { self->ContinueTasks(); };
+            })) {
+          lk.lock();
+          continue;
+        }
+        return;
+      } else {
+        std::unique_ptr<Task> next_task = queue_->Pop();
+        lk.unlock();
+        if (!SubmitTask(std::move(next_task), next_cost)) {
+          return;
+        }
+        lk.lock();
+      }
+    }
+  }
+
+  AsyncTaskScheduler* target_;
+  std::unique_ptr<Throttle> throttle_;
+  std::unique_ptr<Queue> queue_;
+  std::mutex mutex_;
+};
+
+class AsyncTaskGroupImpl : public AsyncTaskGroup {
+ public:
+  AsyncTaskGroupImpl(AsyncTaskScheduler* target, FnOnce<Status()> finish_cb)
+      : target_(target), state_(std::make_shared<State>(std::move(finish_cb))) {}
+
+  ~AsyncTaskGroupImpl() {
+    if (--state_->task_count == 0) {
+      Status st = std::move(state_->finish_cb)();
+      if (!st.ok()) {
+        // We can't return an invalid status from the destructor so we schedule a dummy
+        // failing task
+        target_->AddSimpleTask([st = std::move(st)]() { return st; });
+      }
+    }
+  }
+
+  bool AddTask(std::unique_ptr<Task> task) override {
+    state_->task_count++;
+    struct WrapperTask : public Task {
+      WrapperTask(std::unique_ptr<Task> target, std::shared_ptr<State> state)
+          : target(std::move(target)), state(std::move(state)) {}
+      Result<Future<>> operator()() override {
+        ARROW_ASSIGN_OR_RAISE(Future<> inner_fut, (*target)());
+        return inner_fut.Then([state = std::move(state)]() {
+          if (--state->task_count == 0) {
+            return std::move(state->finish_cb)();
+          }
+          return Status::OK();
+        });
+      }
+      int cost() const override { return target->cost(); }
+      std::unique_ptr<Task> target;
+      std::shared_ptr<State> state;
+    };
+    return target_->AddTask(std::make_unique<WrapperTask>(std::move(task), state_));
+  }
+
+ private:
+  struct State {
+    explicit State(FnOnce<Status()> finish_cb)
+        : task_count(1), finish_cb(std::move(finish_cb)) {}
+    std::atomic<int> task_count;
+    FnOnce<Status()> finish_cb;
+  };
+  AsyncTaskScheduler* target_;
+  std::shared_ptr<State> state_;
+};
+
 }  // namespace
 
 Future<> AsyncTaskScheduler::Make(FnOnce<Status(AsyncTaskScheduler*)> initial_task,
-                                  Throttle* throttle, std::unique_ptr<Queue> queue,
                                   StopToken stop_token) {
-  auto scheduler = std::make_unique<AsyncTaskSchedulerImpl>(
-      nullptr, std::move(queue), throttle, FnOnce<Status(Status)>(),
-      std::move(stop_token));
+  auto scheduler = std::make_unique<AsyncTaskSchedulerImpl>(std::move(stop_token));
   Status initial_task_st = std::move(initial_task)(scheduler.get());
-  scheduler->OnTaskFinished(initial_task_st, 0, /*actual_task=*/false);
+  scheduler->OnTaskFinished(std::move(initial_task_st));
   // Keep scheduler alive until finished
   return scheduler->OnFinished().Then([scheduler = std::move(scheduler)] {});
+}
+
+std::shared_ptr<ThrottledAsyncTaskScheduler> ThrottledAsyncTaskScheduler::Make(
+    AsyncTaskScheduler* target, int max_concurrent_cost,
+    std::unique_ptr<ThrottledAsyncTaskScheduler::Queue> maybe_queue) {
+  std::unique_ptr<ThrottledAsyncTaskScheduler::Queue> queue =
+      (maybe_queue) ? std::move(maybe_queue) : std::make_unique<FifoQueue>();
+  return std::make_shared<ThrottledAsyncTaskSchedulerImpl>(
+      target, std::make_unique<ThrottleImpl>(max_concurrent_cost), std::move(queue));
+}
+
+std::shared_ptr<ThrottledAsyncTaskScheduler>
+ThrottledAsyncTaskScheduler::MakeWithCustomThrottle(
+    AsyncTaskScheduler* target,
+    std::unique_ptr<ThrottledAsyncTaskScheduler::Throttle> throttle,
+    std::unique_ptr<ThrottledAsyncTaskScheduler::Queue> maybe_queue) {
+  std::unique_ptr<ThrottledAsyncTaskScheduler::Queue> queue =
+      (maybe_queue) ? std::move(maybe_queue) : std::make_unique<FifoQueue>();
+  return std::make_shared<ThrottledAsyncTaskSchedulerImpl>(target, std::move(throttle),
+                                                           std::move(queue));
+}
+std::unique_ptr<AsyncTaskGroup> AsyncTaskGroup::Make(AsyncTaskScheduler* target,
+                                                     FnOnce<Status()> finish_cb) {
+  return std::make_unique<AsyncTaskGroupImpl>(target, std::move(finish_cb));
 }
 
 }  // namespace util
