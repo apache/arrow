@@ -15,6 +15,7 @@
 // limitations under the License.
 
 #include <arch.h>
+#include <math.h>
 #include <stdint.h>
 #include "types.h"
 #include "vendored/safe-math.h"
@@ -31,14 +32,16 @@ enum class optype : int8_t {
     ADD,
     SUB,
     MUL,
-    DIV,
+    DIV,    
+    ABSOLUTE_VALUE,
 
     // this impl doesn't actually perform any overflow checks as we need
     // to only run overflow checks on non-null entries
     ADD_CHECKED,
     SUB_CHECKED,
     MUL_CHECKED,
-    DIV_CHECKED,
+    DIV_CHECKED,    
+    ABSOLUTE_VALUE_CHECKED,
 };
 
 struct Add {
@@ -125,6 +128,42 @@ struct MultiplyChecked {
     }
 };
 
+struct AbsoluteValue {
+    template <typename T, typename Arg>
+    static constexpr T Call(Arg input) {
+        if constexpr(is_same_v<Arg, float>) {
+            *(((int*)&input)+0) &= 0x7fffffff;
+            return input;
+        } else if constexpr(is_same_v<Arg, double>) {
+            *(((int*)&input)+1) &= 0x7fffffff;
+            return input;
+        } else if constexpr(is_unsigned_v<Arg>) {
+            return input;
+        } else {
+            const auto mask = input >> (sizeof(Arg) * CHAR_BIT - 1);
+            return (input + mask) ^ mask;
+        }
+    }
+};
+
+struct AbsoluteValueChecked {
+    template <typename T, typename Arg>
+    static constexpr T Call(Arg input) {
+        if constexpr(is_same_v<Arg, float>) {
+            *(((int*)&input)+0) &= 0x7fffffff;
+            return input;            
+        } else if constexpr(is_same_v<Arg, double>) {
+            *(((int*)&input)+1) &= 0x7fffffff;
+            return input;
+        } else if constexpr(is_unsigned_v<Arg>) {
+            return input;
+        } else {
+            const auto mask = input >> (sizeof(Arg) * CHAR_BIT - 1);
+            return (input + mask) ^ mask;
+        }
+    }
+};
+
 template <typename T, typename Op>
 struct arithmetic_op_arr_arr_impl {
     static inline void exec(const void* in_left, const void* in_right, void* out, const int len) {
@@ -164,6 +203,17 @@ struct arithmetic_op_scalar_arr_impl {
     }
 };
 
+template <typename T, typename Op>
+struct arithmetic_unary_op_impl {
+    static inline void exec(const void* arg, const void* nil, void* out, const int len) {
+        const T* input = reinterpret_cast<const T*>(arg);
+        T* output = reinterpret_cast<T*>(out);
+
+        for (int i = 0; i < len; ++i) {
+            output[i] = Op::template Call<T, T>(input[i]);
+        }
+    }
+};
 
 template <typename Op, template<typename...> typename Impl>
 static inline void arithmetic_op(const int type, const void* in_left, const void* in_right, void* output, const int len) {
@@ -211,8 +261,12 @@ static inline void arithmetic_impl(const int type, const int8_t op, const void* 
     case optype::MUL:
         return arithmetic_op<Multiply, Impl>(type, in_left, in_right, out, len);
     case optype::MUL_CHECKED:
-        return arithmetic_op<MultiplyChecked, Impl>(type, in_left, in_right, out, len);    
-    default: 
+        return arithmetic_op<MultiplyChecked, Impl>(type, in_left, in_right, out, len);        
+    case optype::ABSOLUTE_VALUE:
+        return arithmetic_op<AbsoluteValue, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);
+    case optype::ABSOLUTE_VALUE_CHECKED:    
+        return arithmetic_op<AbsoluteValueChecked, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);
+    default:
         // don't implement divide here as we can only divide on non-null entries
         // so we can avoid dividing by zero
         break;

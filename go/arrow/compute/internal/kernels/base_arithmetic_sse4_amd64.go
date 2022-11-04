@@ -24,6 +24,10 @@ import (
 	"github.com/apache/arrow/go/v11/arrow"
 )
 
+func arithmeticUnarySSE4(typ arrow.Type, op ArithmeticOp, input, out []byte, len int) {
+	_arithmetic_sse4(int(typ), int8(op), unsafe.Pointer(&input[0]), nil, unsafe.Pointer(&out[0]), len)
+}
+
 //go:noescape
 func _arithmetic_sse4(typ int, op int8, inLeft, inRight, out unsafe.Pointer, len int)
 

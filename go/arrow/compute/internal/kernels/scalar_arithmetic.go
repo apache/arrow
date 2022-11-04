@@ -70,14 +70,14 @@ func GetDecimalBinaryKernels(op ArithmeticOp) []exec.ScalarKernel {
 	}
 
 	in128, in256 := exec.NewIDInput(arrow.DECIMAL128), exec.NewIDInput(arrow.DECIMAL256)
-	exec128, exec256 := getArithmeticBinaryDecimal[decimal128.Num](op), getArithmeticBinaryDecimal[decimal256.Num](op)
+	exec128, exec256 := getArithmeticDecimal[decimal128.Num](op), getArithmeticDecimal[decimal256.Num](op)
 	return []exec.ScalarKernel{
 		exec.NewScalarKernel([]exec.InputType{in128, in128}, outType, exec128, nil),
 		exec.NewScalarKernel([]exec.InputType{in256, in256}, outType, exec256, nil),
 	}
 }
 
-func GetArithmeticKernels(op ArithmeticOp) []exec.ScalarKernel {
+func GetArithmeticBinaryKernels(op ArithmeticOp) []exec.ScalarKernel {
 	kernels := make([]exec.ScalarKernel, 0)
 	for _, ty := range numericTypes {
 		kernels = append(kernels, exec.NewScalarKernel(
@@ -86,4 +86,27 @@ func GetArithmeticKernels(op ArithmeticOp) []exec.ScalarKernel {
 	}
 
 	return append(kernels, NullExecKernel(2))
+}
+
+func GetDecimalUnaryKernels(op ArithmeticOp) []exec.ScalarKernel {
+	outType := OutputFirstType
+	in128 := exec.NewIDInput(arrow.DECIMAL128)
+	in256 := exec.NewIDInput(arrow.DECIMAL256)
+
+	exec128, exec256 := getArithmeticDecimal[decimal128.Num](op), getArithmeticDecimal[decimal256.Num](op)
+	return []exec.ScalarKernel{
+		exec.NewScalarKernel([]exec.InputType{in128}, outType, exec128, nil),
+		exec.NewScalarKernel([]exec.InputType{in256}, outType, exec256, nil),
+	}
+}
+
+func GetArithmeticUnaryKernels(op ArithmeticOp) []exec.ScalarKernel {
+	kernels := make([]exec.ScalarKernel, 0)
+	for _, ty := range numericTypes {
+		kernels = append(kernels, exec.NewScalarKernel(
+			[]exec.InputType{exec.NewExactInput(ty)}, exec.NewOutputType(ty),
+			ArithmeticExec(ty.ID(), op), nil))
+	}
+
+	return append(kernels, NullExecKernel(1))
 }

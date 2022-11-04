@@ -62,31 +62,67 @@ func getSSE4ArithmeticBinaryNumeric[T exec.NumericTypes](op ArithmeticOp) binary
 	}
 }
 
-func getArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+func getArithmeticOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
 	if op >= OpAddChecked || op == OpDiv {
-		// integral checked funcs need to use ScalarBinaryNotNull
-		return getGoArithmeticBinaryOpIntegral[T](op)
+		// integral checked funcs need to use NotNull versions
+		return getGoArithmeticOpIntegral[T](op)
 	}
 
 	if cpu.X86.HasAVX2 {
-		return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
+		switch op {
+		case OpAdd, OpSub:
+			return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
+		case OpAbsoluteValue:
+			typ := exec.GetType[T]()
+			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
+				arithmeticUnaryAvx2(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		}
 	} else if cpu.X86.HasSSE42 {
-		return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
+		switch op {
+		case OpAdd, OpSub:
+			return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
+		case OpAbsoluteValue:
+			typ := exec.GetType[T]()
+			return ScalarUnary(func(ctx *exec.KernelCtx, arg, out []T) error {
+				arithmeticUnarySSE4(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		}
 	}
 
-	return getGoArithmeticBinaryOpIntegral[T](op)
+	return getGoArithmeticOpIntegral[T](op)
 }
 
-func getArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+func getArithmeticOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
 	if op == OpDiv || op == OpDivChecked {
-		return getGoArithmeticBinaryOpFloating[T](op)
+		return getGoArithmeticOpFloating[T](op)
 	}
 
 	if cpu.X86.HasAVX2 {
-		return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
+		switch op {
+		case OpAdd, OpSub, OpAddChecked, OpSubChecked:
+			return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
+		case OpAbsoluteValue, OpAbsoluteValueChecked:
+			typ := exec.GetType[T]()
+			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
+				arithmeticUnaryAvx2(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		}
 	} else if cpu.X86.HasSSE42 {
-		return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
+		switch op {
+		case OpAdd, OpSub, OpAddChecked, OpSubChecked:
+			return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
+		case OpAbsoluteValue, OpAbsoluteValueChecked:
+			typ := exec.GetType[T]()
+			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
+				arithmeticUnarySSE4(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		}
 	}
 
-	return getGoArithmeticBinaryOpFloating[T](op)
+	return getGoArithmeticOpFloating[T](op)
 }

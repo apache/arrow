@@ -97,7 +97,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 	for _, o := range ops {
 		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
-		kns := append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
+		kns := append(kernels.GetArithmeticBinaryKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
 		kns = append(kns, kernels.GetArithmeticFunctionTimeDuration(o.op)...)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
@@ -140,7 +140,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 	for _, o := range ops {
 		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
-		kns := append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
+		kns := append(kernels.GetArithmeticBinaryKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
 		kns = append(kns, kernels.GetArithmeticFunctionTimeDuration(o.op)...)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
@@ -267,6 +267,25 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 		reg.AddFunction(fn, false)
 	}
+
+	ops = []struct {
+		funcName   string
+		op         kernels.ArithmeticOp
+		decPromote decimalPromotion
+	}{
+		{"abs_unchecked", kernels.OpAbsoluteValue, decPromoteNone},
+		{"abs", kernels.OpAbsoluteValueChecked, decPromoteNone},
+	}
+
+	for _, o := range ops {
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Unary(), addDoc), decPromoteNone}
+		kns := append(kernels.GetArithmeticUnaryKernels(o.op), kernels.GetDecimalUnaryKernels(o.op)...)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
+	}
 }
 
 func impl(ctx context.Context, fn string, opts ArithmeticOptions, left, right Datum) (Datum, error) {
@@ -321,4 +340,18 @@ func Multiply(ctx context.Context, opts ArithmeticOptions, left, right Datum) (D
 // overflows.
 func Divide(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
 	return impl(ctx, "divide", opts, left, right)
+}
+
+// AbsoluteValue returns the AbsoluteValue for each element in the input
+// argument. It accepts either a scalar or an array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// performance is faster if not explicitly checking for overflows but
+// will error on an overflow if CheckOverflow is true.
+func AbsoluteValue(ctx context.Context, opts ArithmeticOptions, input Datum) (Datum, error) {
+	fn := "abs"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, input)
 }

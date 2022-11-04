@@ -30,6 +30,10 @@ var (
 	MaxDecimal128 = New(542101086242752217, 687399551400673280-1)
 )
 
+func GetMaxValue(prec int32) Num {
+	return scaleMultipliers[prec].Sub(FromU64(1))
+}
+
 // Num represents a signed 128-bit integer in two's complement.
 // Calculations wrap around and overflow is ignored.
 //
