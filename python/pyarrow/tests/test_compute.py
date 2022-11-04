@@ -2985,6 +2985,17 @@ def test_list_slice_output_variable(start, stop, value_type, list_type):
     assert pylist == expected
 
 
+@pytest.mark.parametrize("fixed_size_list", (True, False))
+@pytest.mark.parametrize("type", (
+    lambda: pa.list_(pa.struct([('col', pa.int8())])),
+    lambda: pa.list_(pa.struct([('col', pa.int8())]), 1),
+    lambda: pa.large_list(pa.struct([('col', pa.int8())]))))
+def test_list_slice_fields_retained(fixed_size_list, type):
+    arr = pa.array([[{'col': 1}]], type())
+    out = pc.list_slice(arr, 0, 1, return_fixed_size_list=fixed_size_list)
+    assert arr.type.field(0) == out.type.field(0)
+
+
 def test_list_slice_bad_parameters():
     arr = pa.array([[1]], pa.list_(pa.int8(), 1))
     msg = r"`start`(.*) should be greater than 0 and smaller than `stop`(.*)"
