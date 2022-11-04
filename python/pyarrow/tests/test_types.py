@@ -864,7 +864,7 @@ def test_timedelta_overflow():
         pa.scalar(d)
 
     # microsecond resolution, overflow
-    d = datetime.timedelta(days=106751992, seconds=14454, microseconds=775807)
+    d = datetime.timedelta(days=106751991, seconds=14454, microseconds=775808)
     with pytest.raises(pa.ArrowInvalid):
         pa.scalar(d)
 
