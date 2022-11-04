@@ -41,8 +41,6 @@ if [ $arch = "arm64" ]; then
   export CMAKE_OSX_ARCHITECTURES="arm64"
 elif [ $arch = "x86_64" ]; then
   export CMAKE_OSX_ARCHITECTURES="x86_64"
-elif [ $arch = "universal2" ]; then
-  export CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
 else
   echo "Unexpected architecture: $arch"
   exit 1
@@ -58,7 +56,7 @@ pip install \
   --target $PIP_SITE_PACKAGES \
   --platform $PIP_TARGET_PLATFORM \
   -r ${source_dir}/python/requirements-wheel-build.txt
-pip install "delocate>=0.9"
+pip install "delocate>=0.10.3"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
