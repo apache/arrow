@@ -359,8 +359,8 @@ class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
   std::optional<int64_t> stop;
   /// Slicing step
   int64_t step;
-  /// Whether to return a FixedSizeListArray. If stop is after a list element's length,
-  /// nulls will be appended to the requested slice size.
+  // Whether to return a FixedSizeListArray. If true _and_ stop is after
+  // a list element's length, nulls will be appended to create the requested slice size.
   bool return_fixed_size_list;
 };
 
