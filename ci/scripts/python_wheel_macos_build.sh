@@ -41,8 +41,6 @@ if [ $arch = "arm64" ]; then
   export CMAKE_OSX_ARCHITECTURES="arm64"
 elif [ $arch = "x86_64" ]; then
   export CMAKE_OSX_ARCHITECTURES="x86_64"
-elif [ $arch = "universal2" ]; then
-  export CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
 else
   echo "Unexpected architecture: $arch"
   exit 1

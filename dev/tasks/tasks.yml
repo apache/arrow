@@ -501,18 +501,6 @@ tasks:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_11_0_arm64.whl
 {% endfor %}
 
-{% for python_version, python_tag in [("3.9", "cp39"), ("3.10", "cp310")] %}
-  wheel-macos-big-sur-{{ python_tag }}-universal2:
-    ci: github
-    template: python-wheels/github.osx.arm64.yml
-    params:
-      arch: universal2
-      python_version: "{{ python_version }}"
-      macos_deployment_target: "10.14"
-    artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_10_14_universal2.whl
-{% endfor %}
-
 {############################ Python sdist ####################################}
 
   python-sdist:
