@@ -63,9 +63,16 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: "10.13"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
+      - name: Set up Python
+        if: |
+          !contains({{ '${{ matrix.platform.runs_on }}' }}, 'self-hosted')
+        uses: actions/setup-python@v4
+        with:
+          cache: 'pip'
+          python-version: 3.8
       - name: Install Archery
         shell: bash
-        run: python3 -m pip install -e arrow/dev/archery[all]
+        run: pip install -e arrow/dev/archery[all]
       - name: Install dependencies
         run: |
           brew bundle --file=arrow/cpp/Brewfile
@@ -83,7 +90,7 @@ jobs:
         run: |
           set -e
           # make brew Java available to CMake
-          if [ {{ '"${{ matrix.platform.arch }}"' }} = "aarch_64" ]; then
+          if [ {{ arch }} }} = "aarch_64" ]; then
             export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
           fi
           arrow/ci/scripts/java_jni_macos_build.sh \
