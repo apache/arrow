@@ -111,7 +111,7 @@ class SourceTest < Test::Unit::TestCase
                      "&head=apache:release-#{@release_version}-rc0")
     verify_pr_url = nil
     headers = {
-      "Accept""Accept" => "application/vnd.github+json",
+      "Accept" => "application/vnd.github+json",
     }
     github_token = ENV["ARROW_GITHUB_API_TOKEN"]
     if github_token
