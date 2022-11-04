@@ -57,7 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: 'macos-latest', arch: "x86_64"}
+          - { runs_on: ["macos-latest"], arch: "x86_64"}
           - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "aarch_64" }
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.13"
@@ -65,7 +65,7 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
         if: |
-          !contains({{ '${{ matrix.platform.runs_on }}' }}, 'self-hosted')
+          !contains(matrix.platform.runs_on, 'self-hosted')
         uses: actions/setup-python@v4
         with:
           cache: 'pip'
