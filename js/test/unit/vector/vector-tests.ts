@@ -16,7 +16,7 @@
 // under the License.
 
 import {
-    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Utf8, util, Vector, vectorFromArray
+    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Timestamp, TimeUnit, Utf8, util, Vector, vectorFromArray
 } from 'apache-arrow';
 
 describe(`makeVectorFromArray`, () => {
@@ -209,6 +209,34 @@ describe(`ListVector`, () => {
             expect(vector.get(i)!.toJSON()).toEqual(value);
         }
     });
+});
+
+describe(`toArray()`, () => {
+    test(`when some data blobs have been padded`, () => {
+        const d1 = vectorFromArray([...Array(16).keys()]);
+        const d2 = vectorFromArray([...Array(10).keys()]);
+
+        // Padding has been added
+        expect(d2.length < d2.data.length)
+
+        const vector = new Vector([d1, d2]);
+
+        // This used to crash with "RangeError: offset is out of bounds"
+        // https://issues.apache.org/jira/browse/ARROW-18247
+        const array = vector.toArray();
+        expect(array).toHaveLength(26);
+    });
+
+    test(`when stride is 2`, () => {
+        let d1 = vectorFromArray([0, 1, 2], new Timestamp(TimeUnit.MILLISECOND)).data[0];
+        let d2 = vectorFromArray([3, 4, 5], new Timestamp(TimeUnit.MILLISECOND)).data[0];
+
+        const vector = new Vector([d1, d2]);
+
+        let array = Array.from(vector.toArray());
+        expect(array).toHaveLength(6 * 2);
+        expect(Array.from(array)).toMatchObject([0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0]);
+    })
 });
 
 // Creates some basic tests for the given vector.
