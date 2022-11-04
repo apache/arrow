@@ -23,8 +23,6 @@
 #include <string>
 #include <vector>
 
-#include <google/protobuf/any.pb.h>
-
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
@@ -69,14 +67,9 @@ using NamedTableProvider =
     std::function<Result<compute::Declaration>(const std::vector<std::string>&)>;
 static NamedTableProvider kDefaultNamedTableProvider;
 
-class ARROW_ENGINE_EXPORT ExtensionProvider {
- public:
-  static std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider;
-  virtual ~ExtensionProvider() = default;
-  virtual Result<DeclarationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
-                                          const google::protobuf::Any& rel,
-                                          const ExtensionSet& ext_set) = 0;
-};
+class ExtensionProvider;
+
+ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionProvider> default_extension_provider();
 
 /// Options that control the conversion between Substrait and Acero representations of a
 /// plan.
@@ -88,8 +81,7 @@ struct ARROW_ENGINE_EXPORT ConversionOptions {
   /// The default behavior will return an invalid status if the plan has any
   /// named table relations.
   NamedTableProvider named_table_provider = kDefaultNamedTableProvider;
-  std::shared_ptr<ExtensionProvider> extension_provider =
-      ExtensionProvider::kDefaultExtensionProvider;
+  std::shared_ptr<ExtensionProvider> extension_provider = default_extension_provider();
 };
 
 }  // namespace engine

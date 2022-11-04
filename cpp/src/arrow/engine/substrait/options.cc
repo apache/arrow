@@ -22,6 +22,7 @@
 #include "arrow/compute/exec/asof_join_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/options_internal.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "substrait/extension_rels.pb.h"
 
@@ -108,6 +109,10 @@ class DefaultExtensionProvider : public ExtensionProvider {
 
 std::shared_ptr<ExtensionProvider> ExtensionProvider::kDefaultExtensionProvider =
     std::make_shared<DefaultExtensionProvider>();
+
+std::shared_ptr<ExtensionProvider> default_extension_provider() {
+  return ExtensionProvider::kDefaultExtensionProvider;
+}
 
 }  // namespace engine
 }  // namespace arrow

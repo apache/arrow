@@ -44,6 +44,7 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/options_internal.h"
 #include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/engine/substrait/util.h"
