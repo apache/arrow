@@ -427,7 +427,8 @@ tasks:
 {% for python_version, python_tag, abi_tag in [("3.7", "cp37", "cp37m"),
                                                ("3.8", "cp38", "cp38"),
                                                ("3.9", "cp39", "cp39"),
-                                               ("3.10", "cp310", "cp310")] %}
+                                               ("3.10", "cp310", "cp310"),
+                                               ("3.11", "cp311", "cp311")] %}
 
 {############################## Wheel Linux ##################################}
 
@@ -488,7 +489,7 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-macosx_11_0_arm64.whl
 
-{% for python_version, python_tag in [("3.9", "cp39"), ("3.10", "cp310")] %}
+{% for python_version, python_tag in [("3.9", "cp39"), ("3.10", "cp310"), ("3.11", "cp311")] %}
   wheel-macos-big-sur-{{ python_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.arm64.yml
@@ -498,16 +499,6 @@ tasks:
       macos_deployment_target: "11.0"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_11_0_arm64.whl
-
-  wheel-macos-big-sur-{{ python_tag }}-universal2:
-    ci: github
-    template: python-wheels/github.osx.arm64.yml
-    params:
-      arch: universal2
-      python_version: "{{ python_version }}"
-      macos_deployment_target: "10.14"
-    artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_10_14_universal2.whl
 {% endfor %}
 
 {############################ Python sdist ####################################}
@@ -1193,7 +1184,7 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-cpp-thread-sanitizer
 
-{% for python_version in ["3.7", "3.8", "3.9", "3.10"] %}
+{% for python_version in ["3.7", "3.8", "3.9", "3.10", "3.11"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
