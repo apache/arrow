@@ -229,18 +229,15 @@ struct ListSlice {
 
 Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
                                         const std::vector<TypeHolder>& types) {
-  const auto start = OptionsWrapper<ListSliceOptions>::Get(ctx).start;
-  const auto stop = OptionsWrapper<ListSliceOptions>::Get(ctx).stop;
-  const auto return_fixed_size_list =
-      OptionsWrapper<ListSliceOptions>::Get(ctx).return_fixed_size_list;
+  const auto& opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
   const auto list_type = checked_cast<const BaseListType*>(types[0].type);
-  if (return_fixed_size_list) {
-    if (!stop.has_value()) {
+  if (opts.return_fixed_size_list) {
+    if (!opts.stop.has_value()) {
       return Status::NotImplemented(
           "Unable to produce FixedSizeListArray without `stop` being set.");
     }
-    return TypeHolder(fixed_size_list(list_type->value_type(),
-                                      static_cast<int32_t>(stop.value() - start)));
+    return TypeHolder(fixed_size_list(
+        list_type->value_type(), static_cast<int32_t>(opts.stop.value() - opts.start)));
   } else {
     // Returning large list if that's what we got in and didn't ask for fixed size
     if (list_type->id() == Type::LARGE_LIST) {
