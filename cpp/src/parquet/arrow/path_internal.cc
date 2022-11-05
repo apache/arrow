@@ -868,8 +868,6 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
                              GetLeafCount(), ")");
     }
 
-    DCHECK_GE(leaf_index, 0);
-    DCHECK_LT(leaf_index, GetLeafCount());
     return WritePath(root_range_, &path_builder_->paths()[leaf_index], context,
                      std::move(write_leaf_callback));
   }
