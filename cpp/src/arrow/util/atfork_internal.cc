@@ -57,7 +57,6 @@ void MaintainHandlersUnlocked() {
 }
 
 void BeforeFork() {
-  ARROW_LOG(INFO) << "BeforeFork";
   // Lock the mutex and keep it locked until the end of AfterForkParent(),
   // to avoid multiple concurrent forks and atforks.
   g_mutex.lock();
@@ -73,15 +72,13 @@ void BeforeFork() {
   // XXX can the handler call RegisterAtFork()?
   for (auto&& handler : g_handlers_while_forking) {
     if (handler.handler->before) {
-      ARROW_LOG(INFO) << "BeforeFork: calling handler";
       handler.token = handler.handler->before();
     }
   }
 }
 
 void AfterForkParent() {
-  // The mutex was already locked by BeforeFork()
-  ARROW_LOG(INFO) << "AfterForkParent";
+  // The mutex was locked by BeforeFork()
 
   auto handlers = std::move(g_handlers_while_forking);
   g_handlers_while_forking.clear();
@@ -99,13 +96,11 @@ void AfterForkParent() {
 }
 
 void AfterForkChild() {
-  ARROW_LOG(INFO) << "AfterForkChild";
   // Need to reinitialize the mutex as it is probably invalid.  Also, the
   // old mutex destructor may fail.
   // Fortunately, we are a single thread in the child process by now, so no
   // additional synchronization is needed.
   new (&g_mutex) std::mutex;
-  //   std::unique_lock<std::mutex> lock(g_mutex);
 
   auto handlers = std::move(g_handlers_while_forking);
   g_handlers_while_forking.clear();
@@ -116,10 +111,6 @@ void AfterForkChild() {
       handler.handler->child_after(std::move(handler.token));
     }
   }
-
-  //   lock.unlock();
-  // handlers will be destroyed here without the mutex locked, so that
-  // any action taken by destructors might call RegisterAtFork
 }
 
 struct AtForkInitializer {
@@ -129,7 +120,6 @@ struct AtForkInitializer {
     if (r != 0) {
       IOErrorFromErrno(r, "Error when calling pthread_atfork: ").Abort();
     }
-    ARROW_LOG(INFO) << "pthread_atfork ok";
 #endif
   }
 };

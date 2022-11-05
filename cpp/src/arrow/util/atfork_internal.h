@@ -31,6 +31,9 @@ struct ARROW_EXPORT AtForkHandler {
   using CallbackBefore = std::function<std::any()>;
   using CallbackAfter = std::function<void(std::any)>;
 
+  // The before-fork callback can return an arbitrary token (wrapped in std::any)
+  // that will passed as-is to after-fork callbacks.  This can ensure that any
+  // resource necessary for after-fork handling is kept alive.
   CallbackBefore before;
   CallbackAfter parent_after;
   CallbackAfter child_after;
@@ -47,6 +50,8 @@ struct ARROW_EXPORT AtForkHandler {
         child_after(std::move(child_after)) {}
 };
 
+// Register the given at-fork handlers. Their intended lifetime should be tracked by
+// calling code using an owning shared_ptr.
 ARROW_EXPORT
 void RegisterAtFork(std::weak_ptr<AtForkHandler>);
 
