@@ -80,8 +80,7 @@ public class JniLoader {
 
   private void load(String name) {
     final String libraryToLoad =
-        System.getProperty("os.arch").toLowerCase(Locale.US).replace("amd64", "x86_64") + File.separator +
-            System.mapLibraryName(name);
+      getNormalizedArch() + File.separator + System.mapLibraryName(name);
     try {
       File temp = File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
       temp.deleteOnExit();
@@ -95,5 +94,20 @@ public class JniLoader {
     } catch (IOException e) {
       throw new IllegalStateException("error loading native libraries: " + e);
     }
+  }
+
+  private String getNormalizedArch(void) {
+    String arch = System.getProperty("os.arch").toLowerCase(Locale.US);
+    switch (arch) {
+    case "amd64":
+      arch = "x86_64";
+      break;
+    case "aarch64":
+      arch = "aarch_64";
+      break;
+    default:
+      break;
+    }
+    return arch;
   }
 }

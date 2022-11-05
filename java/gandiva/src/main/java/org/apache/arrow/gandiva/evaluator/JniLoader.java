@@ -71,12 +71,25 @@ class JniLoader {
   private static void loadGandivaLibraryFromJar(final String tmpDir)
           throws IOException, GandivaException {
     final String libraryToLoad =
-        System.getProperty("os.arch").toLowerCase(Locale.US).replace("amd64", "x86_64") + File.separator +
-            System.mapLibraryName(LIBRARY_NAME);
+      getNormalizedArch() + File.separator + System.mapLibraryName(LIBRARY_NAME);
     final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad, LIBRARY_NAME);
     System.load(libraryFile.getAbsolutePath());
   }
 
+  private static String getNormalizedArch(void) {
+    String arch = System.getProperty("os.arch").toLowerCase(Locale.US);
+    switch (arch) {
+    case "amd64":
+      arch = "x86_64";
+      break;
+    case "aarch64":
+      arch = "aarch_64";
+      break;
+    default:
+      break;
+    }
+    return arch;
+  }
 
   private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad, String libraryName)
           throws IOException, GandivaException {
