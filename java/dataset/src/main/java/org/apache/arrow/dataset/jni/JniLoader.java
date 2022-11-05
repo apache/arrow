@@ -95,7 +95,7 @@ public final class JniLoader {
     }
   }
 
-  private String getNormalizedArch(void) {
+  private String getNormalizedArch() {
     String arch = System.getProperty("os.arch").toLowerCase(Locale.US);
     switch (arch) {
     case "amd64":

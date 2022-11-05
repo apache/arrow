@@ -48,7 +48,7 @@ class OrcJniUtils {
     }
   }
 
-  private static String getNormalizedArch(void) {
+  private static String getNormalizedArch() {
     String arch = System.getProperty("os.arch").toLowerCase(Locale.US);
     switch (arch) {
     case "amd64":
