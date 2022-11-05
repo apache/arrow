@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <any>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -27,17 +28,20 @@ namespace arrow {
 namespace internal {
 
 struct ARROW_EXPORT AtForkHandler {
-  using Callback = std::function<void()>;
+  using CallbackBefore = std::function<std::any()>;
+  using CallbackAfter = std::function<void(std::any)>;
 
-  Callback before;
-  Callback parent_after;
-  Callback child_after;
+  CallbackBefore before;
+  CallbackAfter parent_after;
+  CallbackAfter child_after;
 
   AtForkHandler() = default;
 
-  explicit AtForkHandler(Callback child_after) : child_after(std::move(child_after)) {}
+  explicit AtForkHandler(CallbackAfter child_after)
+      : child_after(std::move(child_after)) {}
 
-  AtForkHandler(Callback before, Callback parent_after, Callback child_after)
+  AtForkHandler(CallbackBefore before, CallbackAfter parent_after,
+                CallbackAfter child_after)
       : before(std::move(before)),
         parent_after(std::move(parent_after)),
         child_after(std::move(child_after)) {}

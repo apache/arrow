@@ -21,6 +21,7 @@
 #include <mutex>
 #include <random>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #ifndef _WIN32
@@ -46,26 +47,32 @@ using testing::UnorderedElementsAreArray;
 
 class TestAtFork : public ::testing::Test {
  public:
-  using Callback = typename AtForkHandler::Callback;
+  using CallbackBefore = typename AtForkHandler::CallbackBefore;
+  using CallbackAfter = typename AtForkHandler::CallbackAfter;
 
-  Callback PushBefore(int v) {
+  CallbackBefore PushBefore(int v) {
     return [this, v]() {
       std::lock_guard<std::mutex> lock(mutex_);
       before_.push_back(v);
+      return v;
     };
   }
 
-  Callback PushParentAfter(int v) {
-    return [this, v]() {
+  CallbackAfter PushParentAfter(int w) {
+    return [this, w](std::any token) {
+      const int* v = std::any_cast<int>(&token);
+      ASSERT_NE(v, nullptr);
       std::lock_guard<std::mutex> lock(mutex_);
-      parent_after_.push_back(v);
+      parent_after_.emplace_back(*v + w);
     };
   }
 
-  Callback PushChildAfter(int v) {
-    return [this, v]() {
+  CallbackAfter PushChildAfter(int w) {
+    return [this, w](std::any token) {
+      const int* v = std::any_cast<int>(&token);
+      ASSERT_NE(v, nullptr);
       // Mutex may be invalid and child is single-thread anyway
-      child_after_.push_back(v);
+      child_after_.push_back(*v + w);
     };
   }
 
@@ -134,10 +141,10 @@ TEST_F(TestAtFork, SingleThread) {
   RunInChild([&]() {
     ASSERT_THAT(before_, ElementsAre(1, 2));
     ASSERT_THAT(parent_after_, ElementsAre());
-    ASSERT_THAT(child_after_, ElementsAre(22, 21));
+    ASSERT_THAT(child_after_, ElementsAre(2 + 22, 1 + 21));
   });
   ASSERT_THAT(before_, ElementsAre(1, 2));
-  ASSERT_THAT(parent_after_, ElementsAre(12, 11));
+  ASSERT_THAT(parent_after_, ElementsAre(2 + 12, 1 + 11));
   ASSERT_THAT(child_after_, ElementsAre());
   Reset();
 
@@ -147,10 +154,10 @@ TEST_F(TestAtFork, SingleThread) {
   RunInChild([&]() {
     ASSERT_THAT(before_, ElementsAre(2));
     ASSERT_THAT(parent_after_, ElementsAre());
-    ASSERT_THAT(child_after_, ElementsAre(22));
+    ASSERT_THAT(child_after_, ElementsAre(2 + 22));
   });
   ASSERT_THAT(before_, ElementsAre(2));
-  ASSERT_THAT(parent_after_, ElementsAre(12));
+  ASSERT_THAT(parent_after_, ElementsAre(2 + 12));
   ASSERT_THAT(child_after_, ElementsAre());
   Reset();
 
@@ -167,10 +174,10 @@ TEST_F(TestAtFork, SingleThread) {
   RunInChild([&]() {
     ASSERT_THAT(before_, ElementsAre(3, 4));
     ASSERT_THAT(parent_after_, ElementsAre());
-    ASSERT_THAT(child_after_, ElementsAre(24, 23));
+    ASSERT_THAT(child_after_, ElementsAre(4 + 24, 3 + 23));
   });
   ASSERT_THAT(before_, ElementsAre(3, 4));
-  ASSERT_THAT(parent_after_, ElementsAre(14, 13));
+  ASSERT_THAT(parent_after_, ElementsAre(4 + 14, 3 + 13));
   ASSERT_THAT(child_after_, ElementsAre());
 }
 
@@ -190,7 +197,7 @@ TEST_F(TestAtFork, MultipleThreads) {
   auto check_values_in_child = [&]() {
     std::vector<int> expected_child;
     for (const auto v : before_) {
-      expected_child.push_back(v + kChildAfterAddend);
+      expected_child.push_back(v + v + kChildAfterAddend);
     }
     // The handlers that were alive on this fork() are a subset of the handlers
     // that were called at any point in the parent.
@@ -224,7 +231,7 @@ TEST_F(TestAtFork, MultipleThreads) {
 
   std::vector<int> expected_parent;
   for (const auto v : before_) {
-    expected_parent.push_back(v + kParentAfterAddend);
+    expected_parent.push_back(v + v + kParentAfterAddend);
   }
   // The handlers that were called after fork are the same that were called
   // before fork; however, their overall order is undefined as multiple fork()
@@ -259,21 +266,22 @@ TEST_F(TestAtFork, NestedChild) {
     RunInChild([&]() {
       ASSERT_THAT(before_, ElementsAre(1, 3));
       ASSERT_THAT(parent_after_, ElementsAre());
-      ASSERT_THAT(child_after_, ElementsAre(23, 21));
+      ASSERT_THAT(child_after_, ElementsAre(3 + 23, 1 + 21));
     });
 
     ASSERT_THAT(before_, ElementsAre(1, 3));
-    ASSERT_THAT(parent_after_, ElementsAre(13, 11));
+    ASSERT_THAT(parent_after_, ElementsAre(3 + 13, 1 + 11));
     ASSERT_THAT(child_after_, ElementsAre());
   });
 
   ASSERT_THAT(before_, ElementsAre(1, 2));
-  ASSERT_THAT(parent_after_, ElementsAre(12, 11));
+  ASSERT_THAT(parent_after_, ElementsAre(2 + 12, 1 + 11));
   ASSERT_THAT(child_after_, ElementsAre());
 }
 
 #endif  // !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) ||
         //   defined(THREAD_SANITIZER))
+
 #endif  // !defined(_WIN32)
 
 #ifdef _WIN32

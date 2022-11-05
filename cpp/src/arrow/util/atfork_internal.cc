@@ -34,12 +34,20 @@ namespace internal {
 
 namespace {
 
-std::mutex g_mutex;
+struct RunningHandler {
+  // A temporary owning copy of a handler, to make sure that a handler
+  // that runs before fork can still run after fork.
+  std::shared_ptr<AtForkHandler> handler;
+  // The token returned by the before-fork handler, to pass to after-fork handlers.
+  std::any token;
 
+  explicit RunningHandler(std::shared_ptr<AtForkHandler> handler)
+      : handler(std::move(handler)) {}
+};
+
+std::mutex g_mutex;
 std::vector<std::weak_ptr<AtForkHandler>> g_handlers;
-// A temporary owning copy of handlers, to make sure that any handlers
-// that run before fork can still run after fork.
-std::vector<std::shared_ptr<AtForkHandler>> g_handlers_while_forking;
+std::vector<RunningHandler> g_handlers_while_forking;
 
 void MaintainHandlersUnlocked() {
   auto it = std::remove_if(
@@ -50,19 +58,23 @@ void MaintainHandlersUnlocked() {
 
 void BeforeFork() {
   ARROW_LOG(INFO) << "BeforeFork";
-  // Lock the mutex and keep it locked during the actual fork()
+  // Lock the mutex and keep it locked until the end of AfterForkParent(),
+  // to avoid multiple concurrent forks and atforks.
   g_mutex.lock();
+
+  DCHECK(g_handlers_while_forking.empty());  // AfterForkParent clears it
 
   for (const auto& weak_handler : g_handlers) {
     if (auto handler = weak_handler.lock()) {
-      g_handlers_while_forking.push_back(std::move(handler));
+      g_handlers_while_forking.emplace_back(std::move(handler));
     }
   }
+
   // XXX can the handler call RegisterAtFork()?
   for (auto&& handler : g_handlers_while_forking) {
-    if (handler->before) {
+    if (handler.handler->before) {
       ARROW_LOG(INFO) << "BeforeFork: calling handler";
-      handler->before();
+      handler.token = handler.handler->before();
     }
   }
 }
@@ -72,11 +84,12 @@ void AfterForkParent() {
   ARROW_LOG(INFO) << "AfterForkParent";
 
   auto handlers = std::move(g_handlers_while_forking);
+  g_handlers_while_forking.clear();
   // Execute handlers in reverse order
   for (auto it = handlers.rbegin(); it != handlers.rend(); ++it) {
     auto&& handler = *it;
-    if (handler->parent_after) {
-      handler->parent_after();
+    if (handler.handler->parent_after) {
+      handler.handler->parent_after(std::move(handler.token));
     }
   }
 
@@ -92,18 +105,19 @@ void AfterForkChild() {
   // Fortunately, we are a single thread in the child process by now, so no
   // additional synchronization is needed.
   new (&g_mutex) std::mutex;
-  std::unique_lock<std::mutex> lock(g_mutex);
+  //   std::unique_lock<std::mutex> lock(g_mutex);
 
   auto handlers = std::move(g_handlers_while_forking);
+  g_handlers_while_forking.clear();
   // Execute handlers in reverse order
   for (auto it = handlers.rbegin(); it != handlers.rend(); ++it) {
     auto&& handler = *it;
-    if (handler->child_after) {
-      handler->child_after();
+    if (handler.handler->child_after) {
+      handler.handler->child_after(std::move(handler.token));
     }
   }
 
-  lock.unlock();
+  //   lock.unlock();
   // handlers will be destroyed here without the mutex locked, so that
   // any action taken by destructors might call RegisterAtFork
 }
