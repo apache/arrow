@@ -438,7 +438,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
         writer_version_(writer_version),
         file_decryptor_(std::move(file_decryptor)) {
     if (ARROW_PREDICT_FALSE(row_group_->columns.size() >
-                            std::numeric_limits<int>::max())) {
+                            static_cast<size_t>(std::numeric_limits<int>::max()))) {
       throw ParquetException("Row group had too many columns: ",
                              row_group_->columns.size());
     }
