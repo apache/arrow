@@ -153,7 +153,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
                        StopToken stop_token = StopToken::Unstoppable());
 };
 
-class ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
+class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
  public:
   /// An interface for a task queue
   ///
@@ -263,7 +263,7 @@ class ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
 /// For example, when scanning, we need to keep the file reader alive while all scan
 /// tasks run for a given file, and then we can gracefully close it when we finish the
 /// file.
-class AsyncTaskGroup : public AsyncTaskScheduler {
+class ARROW_EXPORT AsyncTaskGroup : public AsyncTaskScheduler {
  public:
   /// Destructor for the task group
   ///
