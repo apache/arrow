@@ -82,8 +82,7 @@ jobs:
           # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
           # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
           brew uninstall aws-sdk-cpp
-          brew install openjdk@11
-          brew install sccache
+          brew bundle --file=arrow/java/Brewfile
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
