@@ -99,14 +99,14 @@ public class JniLoader {
   private String getNormalizedArch() {
     String arch = System.getProperty("os.arch").toLowerCase(Locale.US);
     switch (arch) {
-    case "amd64":
-      arch = "x86_64";
-      break;
-    case "aarch64":
-      arch = "aarch_64";
-      break;
-    default:
-      break;
+      case "amd64":
+        arch = "x86_64";
+        break;
+      case "aarch64":
+        arch = "aarch_64";
+        break;
+      default:
+        break;
     }
     return arch;
   }
