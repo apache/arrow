@@ -207,13 +207,9 @@ struct ThreadPool::State {
 
   // At-fork machinery
 
-  void BeforeFork() {
-    mutex_.lock();
-  }
+  void BeforeFork() { mutex_.lock(); }
 
-  void ParentAfterFork() {
-    mutex_.unlock();
-  }
+  void ParentAfterFork() { mutex_.unlock(); }
 
   void ChildAfterFork() {
     int desired_capacity = desired_capacity_;
@@ -314,20 +310,23 @@ ThreadPool::ThreadPool()
   // atfork handlers.
 #if !(defined(_WIN32) || defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND))
   state_->atfork_handler_ = std::make_shared<AtForkHandler>(
-      /*before=*/ [weak_state = std::weak_ptr<ThreadPool::State>(sp_state_)]() {
+      /*before=*/
+      [weak_state = std::weak_ptr<ThreadPool::State>(sp_state_)]() {
         auto state = weak_state.lock();
         if (state) {
           state->BeforeFork();
         }
         return state;  // passed to after-forkers
       },
-      /*parent_after=*/ [](std::any token) {
+      /*parent_after=*/
+      [](std::any token) {
         auto state = std::any_cast<std::shared_ptr<ThreadPool::State>>(token);
         if (state) {
           state->ParentAfterFork();
         }
       },
-      /*child_after=*/ [](std::any token) {
+      /*child_after=*/
+      [](std::any token) {
         auto state = std::any_cast<std::shared_ptr<ThreadPool::State>>(token);
         if (state) {
           state->ChildAfterFork();
