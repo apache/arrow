@@ -90,7 +90,7 @@ jobs:
         run: |
           set -e
           # make brew Java available to CMake
-          if [ {{ arch }} }} = "aarch_64" ]; then
+          if [ "{{ arch }}" = "aarch_64" ]; then
             export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
           fi
           arrow/ci/scripts/java_jni_macos_build.sh \
