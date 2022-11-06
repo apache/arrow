@@ -447,8 +447,8 @@ Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
 
 /// \brief One-shot executor provider for all types of functions.
 ///
-/// Does kernel dispatch and type checking while iteration of ChunkedArray inputs
-/// and wrapping of outputs are deferred to the executor.
+/// This function creates and initializes a `FunctionExecutor` appropriate
+/// for the given function name, input types and function options.
 ARROW_EXPORT
 Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
     const std::string& func_name, std::vector<TypeHolder> in_types,
