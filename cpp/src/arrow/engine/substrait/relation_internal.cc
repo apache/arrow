@@ -380,7 +380,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         std::shared_ptr<Field> project_field;
         ARROW_ASSIGN_OR_RAISE(compute::Expression des_expr,
                               FromProto(expr, ext_set, conversion_options));
-        auto bound_expr = des_expr.Bind(*input.output_schema);
+        auto bound_expr =
+            des_expr.Bind(*input.output_schema, compute::default_exec_context());
         if (auto* expr_call = bound_expr->call()) {
           project_field = field(expr_call->function_name,
                                 expr_call->kernel->signature->out_type().type());
@@ -702,7 +703,8 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
   auto filter_expr = filter_node_options.filter_expression;
   compute::Expression bound_expression;
   if (!filter_expr.IsBound()) {
-    ARROW_ASSIGN_OR_RAISE(bound_expression, filter_expr.Bind(*schema));
+    ARROW_ASSIGN_OR_RAISE(bound_expression,
+                          filter_expr.Bind(*schema, compute::default_exec_context()));
   }
 
   if (declaration.inputs.size() == 0) {

@@ -194,7 +194,8 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
         scan_options->projected_schema = std::move(projection_descr.schema);
         scan_options->projection = projection_descr.expression;
         ARROW_ASSIGN_OR_RAISE(scan_options->projection,
-                              scan_options->projection.Bind(*projected_schema));
+                              scan_options->projection.Bind(
+                                  *projected_schema, compute::default_exec_context()));
       } else {
         // if projected_fields are not found, we default to creating the projected_schema
         // and projection from the dataset_schema.

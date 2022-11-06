@@ -193,7 +193,9 @@ class DatasetFixtureMixin : public ::testing::Test {
 
   void AssertDatasetAsyncFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
                                         bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto predicate, options_->filter.Bind(*dataset->schema()));
+    ASSERT_OK_AND_ASSIGN(
+        auto predicate,
+        options_->filter.Bind(*dataset->schema(), compute::default_exec_context()));
     ASSERT_OK_AND_ASSIGN(auto gen, dataset->GetFragmentsAsync(predicate))
 
     ASSERT_FINISHES_OK(VisitAsyncGenerator(
