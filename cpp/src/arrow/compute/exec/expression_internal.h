@@ -23,6 +23,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/cast_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -30,6 +31,8 @@
 
 namespace arrow {
 namespace compute {
+
+using internal::GetCastFunction;
 
 struct KnownFieldValues {
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
@@ -41,21 +44,21 @@ inline const Expression::Call* CallNotNull(const Expression& expr) {
   return call;
 }
 
-inline std::vector<ValueDescr> GetDescriptors(const std::vector<Expression>& exprs) {
-  std::vector<ValueDescr> descrs(exprs.size());
+inline std::vector<TypeHolder> GetTypes(const std::vector<Expression>& exprs) {
+  std::vector<TypeHolder> types(exprs.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
     DCHECK(exprs[i].IsBound());
-    descrs[i] = exprs[i].descr();
+    types[i] = exprs[i].type();
   }
-  return descrs;
+  return types;
 }
 
-inline std::vector<ValueDescr> GetDescriptors(const std::vector<Datum>& values) {
-  std::vector<ValueDescr> descrs(values.size());
+inline std::vector<TypeHolder> GetTypes(const std::vector<Datum>& values) {
+  std::vector<TypeHolder> types(values.size());
   for (size_t i = 0; i < values.size(); ++i) {
-    descrs[i] = values[i].descr();
+    types[i] = values[i].type();
   }
-  return descrs;
+  return types;
 }
 
 struct Comparison {
@@ -279,56 +282,9 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
     return exec_context->func_registry()->GetFunction(call.function_name);
   }
   // XXX this special case is strange; why not make "cast" a ScalarFunction?
-  const auto& to_type =
+  const TypeHolder& to_type =
       ::arrow::internal::checked_cast<const compute::CastOptions&>(*call.options).to_type;
-  return compute::GetCastFunction(to_type);
-}
-
-/// Modify an Expression with pre-order and post-order visitation.
-/// `pre` will be invoked on each Expression. `pre` will visit Calls before their
-/// arguments, `post_call` will visit Calls (and no other Expressions) after their
-/// arguments. Visitors should return the Identical expression to indicate no change; this
-/// will prevent unnecessary construction in the common case where a modification is not
-/// possible/necessary/...
-///
-/// If an argument was modified, `post_call` visits a reconstructed Call with the modified
-/// arguments but also receives a pointer to the unmodified Expression as a second
-/// argument. If no arguments were modified the unmodified Expression* will be nullptr.
-template <typename PreVisit, typename PostVisitCall>
-Result<Expression> Modify(Expression expr, const PreVisit& pre,
-                          const PostVisitCall& post_call) {
-  ARROW_ASSIGN_OR_RAISE(expr, Result<Expression>(pre(std::move(expr))));
-
-  auto call = expr.call();
-  if (!call) return expr;
-
-  bool at_least_one_modified = false;
-  std::vector<Expression> modified_arguments;
-
-  for (size_t i = 0; i < call->arguments.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto modified_argument,
-                          Modify(call->arguments[i], pre, post_call));
-
-    if (Identical(modified_argument, call->arguments[i])) {
-      continue;
-    }
-
-    if (!at_least_one_modified) {
-      modified_arguments = call->arguments;
-      at_least_one_modified = true;
-    }
-
-    modified_arguments[i] = std::move(modified_argument);
-  }
-
-  if (at_least_one_modified) {
-    // reconstruct the call expression with the modified arguments
-    auto modified_call = *call;
-    modified_call.arguments = std::move(modified_arguments);
-    return post_call(Expression(std::move(modified_call)), &expr);
-  }
-
-  return post_call(std::move(expr), nullptr);
+  return GetCastFunction(*to_type);
 }
 
 }  // namespace compute

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
@@ -219,25 +217,29 @@ test_that("filter() with between()", {
       filter(dbl >= int, dbl <= dbl2)
   )
 
-  expect_error(
-    tbl %>%
-      record_batch() %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(between(dbl, 1, "2")) %>%
-      collect()
+      collect(),
+    tbl
   )
 
-  expect_error(
-    tbl %>%
-      record_batch() %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(between(dbl, 1, NA)) %>%
-      collect()
+      collect(),
+    tbl
   )
 
-  expect_error(
-    tbl %>%
-      record_batch() %>%
-      filter(between(chr, 1, 2)) %>%
-      collect()
+  expect_warning(
+    compare_dplyr_binding(
+      .input %>%
+        filter(between(chr, 1, 2)) %>%
+        collect(),
+      tbl
+    ),
+    # the dplyr version warns:
+    "NAs introduced by coercion"
   )
 })
 
@@ -291,7 +293,7 @@ test_that("filter environment scope", {
     tbl
   )
   isShortString <- function(x) nchar(x) < 10
-  skip("TODO: 14071")
+  skip("TODO: ARROW-14071")
   compare_dplyr_binding(
     .input %>%
       select(-fct) %>%
@@ -377,7 +379,9 @@ test_that("filter() with .data pronoun", {
   compare_dplyr_binding(
     .input %>%
       filter(.data$dbl > 4) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      # use "quoted" strings instead of .data pronoun where tidyselect is used
+      # .data pronoun deprecated in select in tidyselect 1.2
+      select("chr", "int", "lgl") %>%
       collect(),
     tbl
   )
@@ -385,7 +389,7 @@ test_that("filter() with .data pronoun", {
   compare_dplyr_binding(
     .input %>%
       filter(is.na(.data$lgl)) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      select("chr", "int", "lgl") %>%
       collect(),
     tbl
   )
@@ -395,17 +399,44 @@ test_that("filter() with .data pronoun", {
   compare_dplyr_binding(
     .input %>%
       filter(.data$dbl > .env$chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      select("chr", "int", "lgl") %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter() with namespaced functions", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(dplyr::between(dbl, 1, 2)) %>%
       collect(),
     tbl
   )
 
-  skip("test now faulty - code no longer gives error & outputs a empty tibble")
-  # but there is an error if we don't override the masking with `.env`
-  compare_dplyr_error(
+  skip_if_not_available("utf8proc")
+  compare_dplyr_binding(
     .input %>%
-      filter(.data$dbl > chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      filter(dbl > 2, stringr::str_length(verses) > 25) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter() with across()", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(if_any(ends_with("l"), ~ is.na(.))) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(
+        false == FALSE,
+        if_all(everything(), ~ !is.na(.)),
+        int > 2
+      ) %>%
       collect(),
     tbl
   )

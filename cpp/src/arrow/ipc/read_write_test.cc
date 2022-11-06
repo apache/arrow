@@ -59,7 +59,6 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using internal::GetByteWidth;
 using internal::TemporaryDir;
 
 namespace ipc {
@@ -382,7 +381,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
     ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ipc-test-"));
   }
 
-  std::string TempFile(util::string_view file) {
+  std::string TempFile(std::string_view file) {
     return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToString();
   }
 
@@ -892,7 +891,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ipc-recursion-limits-test-"));
   }
 
-  std::string TempFile(util::string_view file) {
+  std::string TempFile(std::string_view file) {
     return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToString();
   }
 

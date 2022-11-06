@@ -16,7 +16,7 @@
 # under the License.
 
 # this travis configuration can be used to submit cron scheduled tasks
-# 1. copy this file to one of crossbow's branch (master for example) with
+# 1. copy this file to one of crossbow's branches with
 #    filename .travis.yml
 # 2. setup daily cron jobs for that particular branch, see travis'
 #    documentation https://docs.travis-ci.com/user/cron-jobs/
@@ -36,7 +36,7 @@ before_install:
     - |
       echo ""
       echo "Installing a fresh version of Miniconda."
-      MINICONDA_URL="https://repo.continuum.io/miniconda"
+      MINICONDA_URL="https://repo.anaconda.com/miniconda"
       MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh"
       curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
       bash $MINICONDA_FILE -b

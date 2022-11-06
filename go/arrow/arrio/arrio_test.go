@@ -23,11 +23,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/arrio"
-	"github.com/apache/arrow/go/v9/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v9/arrow/ipc"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/arrio"
+	"github.com/apache/arrow/go/v11/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v11/arrow/ipc"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 type copyKind int
@@ -64,11 +64,7 @@ func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *
 }
 
 func TestCopy(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-copy-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for _, tc := range []struct {
 		name     string

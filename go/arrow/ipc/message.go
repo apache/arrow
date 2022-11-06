@@ -22,9 +22,9 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 // MetadataVersion represents the Arrow metadata version.

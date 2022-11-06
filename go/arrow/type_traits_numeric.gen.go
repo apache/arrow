@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow/endian"
+	"github.com/apache/arrow/go/v11/arrow/endian"
 )
 
 var (

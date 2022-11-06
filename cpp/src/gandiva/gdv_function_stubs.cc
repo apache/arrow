@@ -26,7 +26,6 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/double_conversion.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
 
 #include "gandiva/encrypt_utils.h"
@@ -121,7 +120,7 @@ bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
   }
   gandiva::InHolder<std::string>* holder =
       reinterpret_cast<gandiva::InHolder<std::string>*>(ptr);
-  return holder->HasValue(arrow::util::string_view(data, data_len));
+  return holder->HasValue(std::string_view(data, data_len));
 }
 
 int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
@@ -130,8 +129,21 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   auto buffer = reinterpret_cast<arrow::ResizableBuffer*>(data_ptr);
   int32_t offset = static_cast<int32_t>(buffer->size());
 
-  // This also sets the size in the buffer.
-  auto status = buffer->Resize(offset + entry_len, false /*shrink*/);
+  auto new_size = offset + entry_len;
+  // preallocation, double the size to amortize costs
+  if (buffer->capacity() < new_size) {
+    auto status =
+        buffer->Reserve(std::max(buffer->capacity() * 2, static_cast<int64_t>(new_size)));
+    if (!status.ok()) {
+      auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+
+      context->set_error_msg(status.message().c_str());
+      return -1;
+    }
+  }
+
+  // This only sets the size in the buffer due to preallocation.
+  auto status = buffer->Resize(new_size, false /*shrink*/);
   if (!status.ok()) {
     gandiva::ExecutionContext* context =
         reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
@@ -206,8 +218,7 @@ const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t
     return "";
   }
   // use arrow method to encode base64 string
-  std::string encoded_str =
-      arrow::util::base64_encode(arrow::util::string_view(in, in_len));
+  std::string encoded_str = arrow::util::base64_encode(std::string_view(in, in_len));
   *out_len = static_cast<int32_t>(encoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(
@@ -234,8 +245,7 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     return "";
   }
   // use arrow method to decode base64 string
-  std::string decoded_str =
-      arrow::util::base64_decode(arrow::util::string_view(in, in_len));
+  std::string decoded_str = arrow::util::base64_decode(std::string_view(in, in_len));
   *out_len = static_cast<int32_t>(decoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(
@@ -557,6 +567,125 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   return out;
 }
 
+GANDIVA_EXPORT
+const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t data_len,
+                                     const char* upper, int32_t upper_length,
+                                     const char* lower, int32_t lower_length,
+                                     const char* num, int32_t num_length,
+                                     int32_t* out_len) {
+  if (data_len <= 0) {
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32_t max_length =
+      std::max(upper_length, std::max(lower_length, num_length)) * data_len;
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_length));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return nullptr;
+  }
+
+  bool has_multi_byte = false;
+  for (int i = 0; i < data_len; i++) {
+    unsigned char char_single_byte = data[i];
+    if (char_single_byte > 127) {
+      // found a multi-byte utf-8 char
+      has_multi_byte = true;
+      break;
+    }
+  }
+
+  if (!has_multi_byte) {
+    int out_index = 0;
+    for (int i = 0; i < data_len; ++i) {
+      unsigned char char_single_byte = data[i];
+      if (char_single_byte >= 'A' && char_single_byte <= 'Z') {
+        memcpy(out + out_index, upper, upper_length);
+        out_index += upper_length;
+      } else if (char_single_byte >= 'a' && char_single_byte <= 'z') {
+        memcpy(out + out_index, lower, lower_length);
+        out_index += lower_length;
+      } else if (isdigit(char_single_byte)) {
+        memcpy(out + out_index, num, num_length);
+        out_index += num_length;
+      } else {
+        out[out_index] = char_single_byte;
+        out_index++;
+      }
+    }
+    *out_len = out_index;
+    return out;
+  }
+
+  utf8proc_int32_t utf8_char;
+  int bytes_read = 0;
+  int32_t out_index = 0;
+  while (bytes_read < data_len) {
+    auto char_len =
+        utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
+                         data_len, &utf8_char);
+    switch (utf8proc_category(utf8_char)) {
+      case UTF8PROC_CATEGORY_LU:
+        memcpy(out + out_index, upper, upper_length);
+        out_index += upper_length;
+        break;
+      case UTF8PROC_CATEGORY_LT:
+        memcpy(out + out_index, upper, upper_length);
+        out_index += upper_length;
+        break;
+      case UTF8PROC_CATEGORY_LL:
+        memcpy(out + out_index, lower, lower_length);
+        out_index += lower_length;
+        break;
+      case UTF8PROC_CATEGORY_LO:
+        memcpy(out + out_index, lower, lower_length);
+        out_index += lower_length;
+        break;
+      case UTF8PROC_CATEGORY_ND:
+        memcpy(out + out_index, num, num_length);
+        out_index += num_length;
+        break;
+      case UTF8PROC_CATEGORY_NL:
+        memcpy(out + out_index, num, num_length);
+        out_index += num_length;
+        break;
+      case UTF8PROC_CATEGORY_NO:
+        memcpy(out + out_index, num, num_length);
+        out_index += num_length;
+        break;
+      default:
+        memcpy(out + out_index, data + bytes_read, char_len);
+        out_index += static_cast<int>(char_len);
+        break;
+    }
+    bytes_read += static_cast<int>(char_len);
+  }
+  *out_len = out_index;
+  return out;
+}
+
+GANDIVA_EXPORT
+const char* mask_utf8_utf8_utf8(int64_t context, const char* in, int32_t length,
+                                const char* upper, int32_t upper_len, const char* lower,
+                                int32_t lower_len, int32_t* out_len) {
+  return mask_utf8_utf8_utf8_utf8(context, in, length, upper, upper_len, lower, lower_len,
+                                  "n", 1, out_len);
+}
+
+GANDIVA_EXPORT
+const char* mask_utf8_utf8(int64_t context, const char* in, int32_t length,
+                           const char* upper, int32_t upper_len, int32_t* out_len) {
+  return mask_utf8_utf8_utf8_utf8(context, in, length, upper, upper_len, "x", 1, "n", 1,
+                                  out_len);
+}
+
+GANDIVA_EXPORT
+const char* mask_utf8(int64_t context, const char* in, int32_t length, int32_t* out_len) {
+  return mask_utf8_utf8_utf8_utf8(context, in, length, "X", 1, "x", 1, "n", 1, out_len);
+}
+
 int64_t gdv_fn_to_date_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
                                  const char* data, int data_len, bool in1_validity,
                                  const char* pattern, int pattern_len, bool in2_validity,
@@ -611,6 +740,83 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
   auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+GANDIVA_EXPORT
+gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds,
+                                        const char* timezone, gdv_int32 length) {
+  using arrow_vendored::date::locate_zone;
+  using arrow_vendored::date::sys_time;
+  using std::chrono::milliseconds;
+
+  sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
+  try {
+    const auto local_tz = locate_zone(std::string(timezone, length));
+    gdv_timestamp offset = local_tz->get_info(tp).offset.count() * 1000;
+    return time_miliseconds - static_cast<gdv_timestamp>(offset);
+  } catch (...) {
+    std::string e_msg = std::string(timezone, length) + " is an invalid time zone name.";
+    gdv_fn_context_set_error_msg(context, e_msg.c_str());
+    return 0;
+  }
+}
+
+GANDIVA_EXPORT
+gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
+                                          gdv_timestamp time_miliseconds,
+                                          const char* timezone, gdv_int32 length) {
+  using arrow_vendored::date::sys_time;
+  using arrow_vendored::date::zoned_time;
+  using std::chrono::milliseconds;
+
+  const sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
+  try {
+    const zoned_time<milliseconds> local_tz{std::string(timezone, length), tp};
+    gdv_timestamp offset = local_tz.get_time_zone()->get_info(tp).offset.count() * 1000;
+    return time_miliseconds + static_cast<gdv_timestamp>(offset);
+  } catch (...) {
+    std::string e_msg = std::string(timezone, length) + " is an invalid time zone name.";
+    gdv_fn_context_set_error_msg(context, e_msg.c_str());
+    return 0;
+  }
+}
+
+GANDIVA_EXPORT
+const char* gdv_mask_show_first_n_utf8_int32(int64_t context, const char* data,
+                                             int32_t data_len, int32_t n_to_show,
+                                             int32_t* out_len) {
+  utf8proc_int32_t utf8_char_buffer;
+  int num_of_chars = static_cast<int>(
+      utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
+                         &utf8_char_buffer, 1, UTF8PROC_STABLE));
+
+  if (num_of_chars < 0) {
+    gdv_fn_context_set_error_msg(context, utf8proc_errmsg(num_of_chars));
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32_t n_to_mask = num_of_chars - n_to_show;
+  return gdv_mask_last_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
+}
+
+GANDIVA_EXPORT
+const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
+                                            int32_t data_len, int32_t n_to_show,
+                                            int32_t* out_len) {
+  utf8proc_int32_t utf8_char_buffer;
+  int num_of_chars = static_cast<int>(
+      utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
+                         &utf8_char_buffer, 1, UTF8PROC_STABLE));
+
+  if (num_of_chars < 0) {
+    gdv_fn_context_set_error_msg(context, utf8proc_errmsg(num_of_chars));
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32_t n_to_mask = num_of_chars - n_to_show;
+  return gdv_mask_first_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
 }
 }
 
@@ -963,5 +1169,104 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_cast_intervalyear_utf8_int32", types->i32_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8_int32));
+
+  // to_utc_timezone_timestamp
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // timestamp
+      types->i8_ptr_type(),  // timezone
+      types->i32_type()      // length
+  };
+
+  engine->AddGlobalMappingForFunc("to_utc_timezone_timestamp",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(to_utc_timezone_timestamp));
+
+  // from_utc_timezone_timestamp
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // timestamp
+      types->i8_ptr_type(),  // timezone
+      types->i32_type()      // length
+  };
+
+  engine->AddGlobalMappingForFunc("from_utc_timezone_timestamp",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(from_utc_timezone_timestamp));
+
+  // mask-show-n
+  mask_args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i32_type(),     // n_to_show
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_mask_show_first_n_utf8_int32", types->i8_ptr_type() /*return_type*/, mask_args,
+      reinterpret_cast<void*>(gdv_mask_show_first_n_utf8_int32));
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_mask_show_last_n_utf8_int32", types->i8_ptr_type() /*return_type*/, mask_args,
+      reinterpret_cast<void*>(gdv_mask_show_last_n_utf8_int32));
+
+  // mask_utf8_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i8_ptr_type(),  // upper
+      types->i32_type(),     // upper_len
+      types->i8_ptr_type(),  // lower
+      types->i32_type(),     // lower_len
+      types->i8_ptr_type(),  // num
+      types->i32_type(),     // num_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("mask_utf8_utf8_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(mask_utf8_utf8_utf8_utf8));
+
+  // mask_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i8_ptr_type(),  // upper
+      types->i32_type(),     // upper_len
+      types->i8_ptr_type(),  // lower
+      types->i32_type(),     // lower_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("mask_utf8_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(mask_utf8_utf8_utf8));
+
+  // mask_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i8_ptr_type(),  // upper
+      types->i32_type(),     // upper_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("mask_utf8_utf8", types->i8_ptr_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(mask_utf8_utf8));
+
+  // mask_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("mask_utf8", types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(mask_utf8));
 }
 }  // namespace gandiva

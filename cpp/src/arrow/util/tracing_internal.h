@@ -36,7 +36,6 @@
 
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/tracing.h"
 #include "arrow/util/visibility.h"
 
@@ -106,60 +105,66 @@ AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(AsyncGenerator<T> wrapped) 
   return PropagateSpanThroughAsyncGenerator(std::move(wrapped), std::move(span));
 }
 
-class SpanImpl {
+class SpanImpl : public ::arrow::util::tracing::SpanDetails {
  public:
-  opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span;
+  ~SpanImpl() override = default;
+  opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span;
 };
+
+opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
+    ::arrow::util::tracing::SpanDetails* span);
+
+const opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
+    const ::arrow::util::tracing::SpanDetails* span);
+
+opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& RewrapSpan(
+    ::arrow::util::tracing::SpanDetails* span,
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span);
 
 opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
     const util::tracing::Span& parent_span);
 
-#define START_SPAN(target_span, ...)                                                \
-  auto opentelemetry_scope##__LINE__ =                                              \
-      ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                      \
-          target_span                                                               \
-              .Set(::arrow::util::tracing::Span::Impl{                              \
-                  ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__)}) \
-              .span)
+#define START_SPAN(target_span, ...)                           \
+  auto opentelemetry_scope##__LINE__ =                         \
+      ::arrow::internal::tracing::GetTracer()->WithActiveSpan( \
+          ::arrow::internal::tracing::RewrapSpan(              \
+              target_span.details.get(),                       \
+              ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__)))
 
-#define START_SPAN_WITH_PARENT(target_span, parent_span, ...)                           \
-  auto opentelemetry_scope##__LINE__ =                                                  \
-      ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                          \
-          target_span                                                                   \
-              .Set(::arrow::util::tracing::Span::Impl{                                  \
-                  ::arrow::internal::tracing::GetTracer()->StartSpan(                   \
-                      __VA_ARGS__,                                                      \
-                      ::arrow::internal::tracing::SpanOptionsWithParent(parent_span))}) \
-              .span)
+#define START_SPAN_WITH_PARENT(target_span, parent_span, ...)     \
+  auto opentelemetry_scope##__LINE__ =                            \
+      ::arrow::internal::tracing::GetTracer()->WithActiveSpan(    \
+          ::arrow::internal::tracing::RewrapSpan(                 \
+              target_span.details.get(),                          \
+                                                                  \
+              ::arrow::internal::tracing::GetTracer()->StartSpan( \
+                  __VA_ARGS__,                                    \
+                  ::arrow::internal::tracing::SpanOptionsWithParent(parent_span))))
 
-#define START_COMPUTE_SPAN(target_span, ...) \
-  START_SPAN(target_span, __VA_ARGS__);      \
-  target_span.Get().span->SetAttribute(      \
-      "arrow.memory_pool_bytes", ::arrow::default_memory_pool()->bytes_allocated())
+#define START_COMPUTE_SPAN(target_span, ...)                        \
+  START_SPAN(target_span, __VA_ARGS__);                             \
+  ::arrow::internal::tracing::UnwrapSpan(target_span.details.get()) \
+      ->SetAttribute("arrow.memory_pool_bytes",                     \
+                     ::arrow::default_memory_pool()->bytes_allocated())
 
 #define START_COMPUTE_SPAN_WITH_PARENT(target_span, parent_span, ...) \
   START_SPAN_WITH_PARENT(target_span, parent_span, __VA_ARGS__);      \
-  target_span.Get().span->SetAttribute(                               \
-      "arrow.memory_pool_bytes", ::arrow::default_memory_pool()->bytes_allocated())
+  ::arrow::internal::tracing::UnwrapSpan(target_span.details.get())   \
+      ->SetAttribute("arrow.memory_pool_bytes",                       \
+                     ::arrow::default_memory_pool()->bytes_allocated())
 
-#define EVENT(target_span, ...) target_span.Get().span->AddEvent(__VA_ARGS__)
+#define EVENT(target_span, ...) \
+  ::arrow::internal::tracing::UnwrapSpan(target_span.details.get())->AddEvent(__VA_ARGS__)
 
-#define MARK_SPAN(target_span, status) \
-  ::arrow::internal::tracing::MarkSpan(status, target_span.Get().span.get())
+#define MARK_SPAN(target_span, status)  \
+  ::arrow::internal::tracing::MarkSpan( \
+      status, ::arrow::internal::tracing::UnwrapSpan(target_span.details.get()).get())
 
-#define END_SPAN(target_span) target_span.Get().span->End()
+#define END_SPAN(target_span) \
+  ::arrow::internal::tracing::UnwrapSpan(target_span.details.get())->End()
 
-#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture) \
-  target_future = target_future.Then(                                             \
-      [target_capture]() {                                                        \
-        MARK_SPAN(target_span, Status::OK());                                     \
-        END_SPAN(target_span);                                                    \
-      },                                                                          \
-      [target_capture](const Status& st) {                                        \
-        MARK_SPAN(target_span, st);                                               \
-        END_SPAN(target_span);                                                    \
-        return st;                                                                \
-      })
+#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future) \
+  target_future.SetSpan(&target_span)
 
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)                                \
   generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator( \
@@ -192,7 +197,7 @@ class SpanImpl {};
 #define MARK_SPAN(target_span, status)
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)
-#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture)
+#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future)
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)
 #define WRAP_ASYNC_GENERATOR(generator)
 #define WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator, name)

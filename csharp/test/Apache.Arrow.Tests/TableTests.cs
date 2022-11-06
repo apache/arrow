@@ -60,7 +60,7 @@ namespace Apache.Arrow.Tests
 
             Table table1 = Table.TableFromRecordBatches(recordBatch1.Schema, recordBatches);
             Assert.Equal(20, table1.RowCount);
-            Assert.Equal(21, table1.ColumnCount);
+            Assert.Equal(23, table1.ColumnCount);
 
             FixedSizeBinaryType type = new FixedSizeBinaryType(17);
             Field newField1 = new Field(type.Name, type, false);

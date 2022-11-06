@@ -93,13 +93,13 @@ TEST(TestCumulativeSum, ScalarInput) {
                      ArrayFromJSON(ty, "[null]"), &has_start_no_skip);
 
     CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[0]"), &no_start_do_skip);
+                     ArrayFromJSON(ty, "[null]"), &no_start_do_skip);
     CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[0]"), &no_start_do_skip);
+                     ArrayFromJSON(ty, "[null]"), &no_start_do_skip);
     CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[10]"), &has_start_do_skip);
+                     ArrayFromJSON(ty, "[null]"), &has_start_do_skip);
     CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[10]"), &has_start_do_skip);
+                     ArrayFromJSON(ty, "[null]"), &has_start_do_skip);
   }
 }
 
@@ -108,7 +108,6 @@ using testing::HasSubstr;
 template <typename ArrowType>
 void CheckCumulativeSumUnsignedOverflow() {
   using CType = typename TypeTraits<ArrowType>::CType;
-  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
   using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
 
   CumulativeSumOptions pos_overflow(1);
@@ -126,17 +125,13 @@ void CheckCumulativeSumUnsignedOverflow() {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, HasSubstr("overflow"),
-      CallFunction("cumulative_sum_checked", {ScalarType(max)}, &pos_overflow));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, HasSubstr("overflow"),
       CallFunction("cumulative_sum_checked", {max_arr}, &pos_overflow));
-  CheckVectorUnary("cumulative_sum", ScalarType(max), min_arr, &pos_overflow);
+  CheckVectorUnary("cumulative_sum", max_arr, min_arr, &pos_overflow);
 }
 
 template <typename ArrowType>
 void CheckCumulativeSumSignedOverflow() {
   using CType = typename TypeTraits<ArrowType>::CType;
-  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
   using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
 
   CheckCumulativeSumUnsignedOverflow<ArrowType>();
@@ -153,14 +148,10 @@ void CheckCumulativeSumSignedOverflow() {
   builder.Reset();
   ASSERT_OK(builder.Append(min));
   ASSERT_OK(builder.Finish(&min_arr));
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, HasSubstr("overflow"),
-      CallFunction("cumulative_sum_checked", {ScalarType(min)}, &neg_overflow));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, HasSubstr("overflow"),
       CallFunction("cumulative_sum_checked", {min_arr}, &neg_overflow));
-  CheckVectorUnary("cumulative_sum", ScalarType(min), max_arr, &neg_overflow);
+  CheckVectorUnary("cumulative_sum", min_arr, max_arr, &neg_overflow);
 }
 
 TEST(TestCumulativeSum, IntegerOverflow) {

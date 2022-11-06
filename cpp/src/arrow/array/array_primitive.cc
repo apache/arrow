@@ -58,18 +58,9 @@ int64_t BooleanArray::false_count() const {
 int64_t BooleanArray::true_count() const {
   if (data_->null_count.load() != 0) {
     DCHECK(data_->buffers[0]);
-    internal::BinaryBitBlockCounter bit_counter(data_->buffers[0]->data(), data_->offset,
-                                                data_->buffers[1]->data(), data_->offset,
-                                                data_->length);
-    int64_t count = 0;
-    while (true) {
-      internal::BitBlockCount block = bit_counter.NextAndWord();
-      if (block.length == 0) {
-        break;
-      }
-      count += block.popcount;
-    }
-    return count;
+    return internal::CountAndSetBits(data_->buffers[0]->data(), data_->offset,
+                                     data_->buffers[1]->data(), data_->offset,
+                                     data_->length);
   } else {
     return internal::CountSetBits(data_->buffers[1]->data(), data_->offset,
                                   data_->length);

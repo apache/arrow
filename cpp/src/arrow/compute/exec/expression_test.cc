@@ -30,7 +30,6 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/make_unique.h"
 
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
@@ -86,7 +85,7 @@ void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
   }
 }
 
-const auto no_change = util::nullopt;
+const auto no_change = std::nullopt;
 
 TEST(ExpressionUtils, Comparison) {
   auto Expect = [](Result<std::string> expected, Datum l, Datum r) {
@@ -122,7 +121,7 @@ TEST(ExpressionUtils, Comparison) {
 }
 
 TEST(ExpressionUtils, StripOrderPreservingCasts) {
-  auto Expect = [](Expression expr, util::optional<Expression> expected_stripped) {
+  auto Expect = [](Expression expr, std::optional<Expression> expected_stripped) {
     ASSERT_OK_AND_ASSIGN(expr,
                          expr.Bind(*kBoringSchema, compute::default_exec_context()));
     if (!expected_stripped) {
@@ -245,7 +244,7 @@ class WidgetifyOptionsType : public FunctionOptionsType {
   }
   std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
     const auto& opts = static_cast<const WidgetifyOptions&>(options);
-    return arrow::internal::make_unique<WidgetifyOptions>(opts.really);
+    return std::make_unique<WidgetifyOptions>(opts.really);
   }
 };
 WidgetifyOptions::WidgetifyOptions(bool really)
@@ -288,8 +287,7 @@ TEST(Expression, ToString) {
       "allow_time_overflow=false, allow_decimal_truncate=false, "
       "allow_float_truncate=false, allow_invalid_utf8=false})");
 
-  // NB: corrupted for nullary functions but we don't have any of those
-  EXPECT_EQ(call("widgetify", {}).ToString(), "widgetif)");
+  EXPECT_EQ(call("widgetify", {}).ToString(), "widgetify()");
   EXPECT_EQ(
       call("widgetify", {literal(1)}, std::make_shared<WidgetifyOptions>()).ToString(),
       "widgetify(1, widgetify)");
@@ -316,6 +314,11 @@ TEST(Expression, ToString) {
                 })
                 .ToString(),
             "{a=a, renamed_a=a, three=3, b=" + in_12.ToString() + "}");
+
+  EXPECT_EQ(call("round", {literal(3.14)}, compute::RoundOptions()).ToString(),
+            "round(3.14, {ndigits=0, round_mode=HALF_TO_EVEN})");
+  EXPECT_EQ(call("random", {}, compute::RandomOptions()).ToString(),
+            "random({initializer=SystemRandom, seed=0})");
 }
 
 TEST(Expression, Equality) {
@@ -498,13 +501,13 @@ TEST(Expression, BindLiteral) {
            Datum(ArrayFromJSON(int32(), "[1,2,3]")),
        }) {
     // literals are always considered bound
-    auto expr = literal(dat);
-    EXPECT_EQ(expr.descr(), dat.descr());
+    Expression expr = literal(dat);
+    EXPECT_TRUE(dat.type()->Equals(*expr.type()));
     EXPECT_TRUE(expr.IsBound());
   }
 }
 
-void ExpectBindsTo(Expression expr, util::optional<Expression> expected,
+void ExpectBindsTo(Expression expr, std::optional<Expression> expected,
                    Expression* bound_out = nullptr,
                    const Schema& schema = *kBoringSchema) {
   if (!expected) {
@@ -523,13 +526,13 @@ void ExpectBindsTo(Expression expr, util::optional<Expression> expected,
 }
 
 TEST(Expression, BindFieldRef) {
-  // an unbound field_ref does not have the output ValueDescr set
+  // an unbound field_ref does not have the output type set
   auto expr = field_ref("alpha");
-  EXPECT_EQ(expr.descr(), ValueDescr{});
+  EXPECT_EQ(expr.type(), nullptr);
   EXPECT_FALSE(expr.IsBound());
 
   ExpectBindsTo(field_ref("i32"), no_change, &expr);
-  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
+  EXPECT_TRUE(expr.type()->Equals(*int32()));
 
   // if the field is not found, an error will be raised
   ASSERT_RAISES(
@@ -549,11 +552,11 @@ TEST(Expression, BindNestedFieldRef) {
 
   ExpectBindsTo(field_ref(FieldRef("a", "b")), no_change, &expr, schema);
   EXPECT_TRUE(expr.IsBound());
-  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
+  EXPECT_TRUE(expr.type()->Equals(*int32()));
 
   ExpectBindsTo(field_ref(FieldRef(FieldPath({0, 0}))), no_change, &expr, schema);
   EXPECT_TRUE(expr.IsBound());
-  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
+  EXPECT_TRUE(expr.type()->Equals(*int32()));
 
   ASSERT_RAISES(
       Invalid,
@@ -570,7 +573,7 @@ TEST(Expression, BindCall) {
   EXPECT_FALSE(expr.IsBound());
 
   ExpectBindsTo(expr, no_change, &expr);
-  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
+  EXPECT_TRUE(expr.type()->Equals(*int32()));
 
   ExpectBindsTo(call("add", {field_ref("f32"), literal(3)}),
                 call("add", {field_ref("f32"), literal(3.0F)}));
@@ -619,7 +622,7 @@ TEST(Expression, BindNestedCall) {
   ASSERT_OK_AND_ASSIGN(expr, expr.Bind(Schema({field("a", int32()), field("b", int32()),
                                                field("c", int32()), field("d", int32())}),
                                        compute::default_exec_context()));
-  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
+  EXPECT_TRUE(expr.type()->Equals(*int32()));
   EXPECT_TRUE(expr.IsBound());
 }
 
@@ -627,7 +630,7 @@ TEST(Expression, ExecuteFieldRef) {
   auto ExpectRefIs = [](FieldRef ref, Datum in, Datum expected) {
     auto expr = field_ref(ref);
 
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr(), compute::default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.type(), compute::default_exec_context()));
     ASSERT_OK_AND_ASSIGN(Datum actual,
                          ExecuteScalarExpression(expr, Schema(in.type()->fields()), in));
 
@@ -728,8 +731,8 @@ Result<Datum> NaiveExecuteScalarExpression(const Expression& expr, const Datum& 
   compute::ExecContext exec_context;
   ARROW_ASSIGN_OR_RAISE(auto function, GetFunction(*call, &exec_context));
 
-  auto descrs = GetDescriptors(call->arguments);
-  ARROW_ASSIGN_OR_RAISE(auto expected_kernel, function->DispatchExact(descrs));
+  std::vector<TypeHolder> types = GetTypes(call->arguments);
+  ARROW_ASSIGN_OR_RAISE(auto expected_kernel, function->DispatchExact(types));
 
   EXPECT_EQ(call->kernel, expected_kernel);
   return function->Execute(arguments, call->options.get(), &exec_context);
@@ -738,7 +741,7 @@ Result<Datum> NaiveExecuteScalarExpression(const Expression& expr, const Datum& 
 void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
   std::shared_ptr<Schema> schm;
   if (in.is_value()) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr(), compute::default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.type(), compute::default_exec_context()));
     schm = schema(in.type()->fields());
   } else {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*in.schema(), compute::default_exec_context()));

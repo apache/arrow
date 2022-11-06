@@ -22,7 +22,7 @@ build_features <- c(
 )
 
 force_tests <- function() {
-  identical(tolower(Sys.getenv("ARROW_R_force_tests()")), "true")
+  identical(tolower(Sys.getenv("ARROW_R_FORCE_TESTS")), "true")
 }
 
 skip_if_not_available <- function(feature) {
@@ -92,12 +92,12 @@ skip_on_linux_devel <- function() {
   }
 }
 
-skip_if_r_version <- function(r_version) {
+skip_on_r_older_than <- function(r_version) {
   if (force_tests()) {
     return()
   }
 
-  if (getRversion() <= r_version) {
+  if (getRversion() < r_version) {
     skip(paste("R version:", getRversion()))
   }
 }
@@ -109,6 +109,17 @@ process_is_running <- function(x) {
     return(TRUE)
   }
 
-  cmd <- sprintf("ps aux | grep '%s' | grep -v grep", x)
-  tryCatch(system(cmd, ignore.stdout = TRUE) == 0, error = function(e) FALSE)
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    # Batch scripts (CMD.exe) doesn't provide a command that shows the original
+    # call arguments, which we need for testbench since it's launched from Python.
+    inner_cmd <- paste("WMIC path win32_process get Commandline",
+                       sprintf("| Select-String %s", x),
+                       "| Select-String powershell.exe -NotMatch")
+    cmd <- sprintf("powershell -command \"%s\"", inner_cmd)
+    tryCatch(length(system(cmd, intern = TRUE, show.output.on.console = FALSE)) > 0,
+      error = function(e) FALSE)
+  } else {
+    cmd <- sprintf("ps aux | grep '%s' | grep -v grep", x)
+    tryCatch(system(cmd, ignore.stdout = TRUE) == 0, error = function(e) FALSE)
+  }
 }

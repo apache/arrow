@@ -137,10 +137,10 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   private void initialize(VectorSchemaRoot root) throws SQLException {
     for (int i = 1; i <= consumers.length; i++) {
-      ArrowType arrowType = config.getJdbcToArrowTypeConverter()
-          .apply(new JdbcFieldInfo(resultSet.getMetaData(), i));
+      final JdbcFieldInfo columnFieldInfo = JdbcToArrowUtils.getJdbcFieldInfoForColumn(rsmd, i, config);
+      ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(columnFieldInfo);
       consumers[i - 1] = JdbcToArrowUtils.getConsumer(
-          arrowType, i, isColumnNullable(resultSet, i), root.getVector(i - 1), config);
+          arrowType, i, isColumnNullable(resultSet.getMetaData(), i, columnFieldInfo), root.getVector(i - 1), config);
     }
   }
 
@@ -183,13 +183,14 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   }
 
   /**
-   * Clean up resources.
+   * Clean up resources ONLY WHEN THE {@link VectorSchemaRoot} HOLDING EACH BATCH IS REUSED. If a new VectorSchemaRoot
+   * is created for each batch, each root must be closed manually by the client code.
    */
   @Override
   public void close() {
     if (config.isReuseVectorSchemaRoot()) {
       nextBatch.close();
+      compositeConsumer.close();
     }
-    compositeConsumer.close();
   }
 }

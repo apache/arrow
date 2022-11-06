@@ -4,7 +4,13 @@
 \alias{register_binding}
 \title{Register compute bindings}
 \usage{
-register_binding(fun_name, fun, registry = nse_funcs)
+register_binding(
+  fun_name,
+  fun,
+  registry = nse_funcs,
+  update_cache = FALSE,
+  notes = character(0)
+)
 }
 \arguments{
 \item{fun_name}{A string containing a function name in the form \code{"function"} or
@@ -17,6 +23,17 @@ This function must accept \code{Expression} objects as arguments and return
 
 \item{registry}{An environment in which the functions should be
 assigned.}
+
+\item{update_cache}{Update .cache$functions at the time of registration.
+the default is FALSE because the majority of usage is to register
+bindings at package load, after which we create the cache once. The
+reason why .cache$functions is needed in addition to nse_funcs for
+non-aggregate functions could be revisited...it is currently used
+as the data mask in mutate, filter, and aggregate (but not
+summarise) because the data mask has to be a list.}
+
+\item{notes}{string for the docs: note any limitations or differences in
+behavior between the Arrow version and the R function.}
 
 \item{agg_fun}{An aggregate function or \code{NULL} to un-register a previous
 aggregate function. This function must accept \code{Expression} objects as
@@ -38,18 +55,18 @@ Expressions. These are the basis for the \code{.data} mask inside dplyr methods.
 }
 \section{Writing bindings}{
 
-When to use \code{build_expr()} vs. \code{Expression$create()}?
-
-Use \code{build_expr()} if you need to
 \itemize{
-\item map R function names to Arrow C++ functions
-\item wrap R inputs (vectors) as Array/Scalar
+\item \code{Expression$create()} will wrap any non-Expression inputs as Scalar
+Expressions. If you want to try to coerce scalar inputs to match the type
+of the Expression(s) in the arguments, call
+\code{cast_scalars_to_common_type(args)} on the
+args. For example, \code{Expression$create("add", args = list(int16_field, 1))}
+would result in a \code{float64} type output because \code{1} is a \code{double} in R.
+To prevent casting all of the data in \code{int16_field} to float and to
+preserve it as int16, do
+\code{Expression$create("add", args = cast_scalars_to_common_type(list(int16_field, 1)))}
+\item Inside your function, you can call any other binding with \code{call_binding()}.
 }
-
-\code{Expression$create()} is lower level. Most of the bindings use it
-because they manage the preparation of the user-provided inputs
-and don't need or don't want to the automatic conversion of R objects
-to \link{Scalar}.
 }
 
 \keyword{internal}

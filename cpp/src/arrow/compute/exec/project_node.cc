@@ -21,6 +21,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/datum.h"
@@ -40,9 +41,8 @@ namespace {
 class ProjectNode : public MapNode {
  public:
   ProjectNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs,
-              bool async_mode)
-      : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
+              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs)
+      : MapNode(plan, std::move(inputs), std::move(output_schema)),
         exprs_(std::move(exprs)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -67,12 +67,11 @@ class ProjectNode : public MapNode {
         ARROW_ASSIGN_OR_RAISE(
             expr, expr.Bind(*inputs[0]->output_schema(), plan->exec_context()));
       }
-      fields[i] = field(std::move(names[i]), expr.type());
+      fields[i] = field(std::move(names[i]), expr.type()->GetSharedPtr());
       ++i;
     }
     return plan->EmplaceNode<ProjectNode>(plan, std::move(inputs),
-                                          schema(std::move(fields)), std::move(exprs),
-                                          project_options.async_mode);
+                                          schema(std::move(fields)), std::move(exprs));
   }
 
   const char* kind_name() const override { return "ProjectNode"; }
@@ -82,7 +81,7 @@ class ProjectNode : public MapNode {
     for (size_t i = 0; i < exprs_.size(); ++i) {
       util::tracing::Span span;
       START_COMPUTE_SPAN(span, "Project",
-                         {{"project.descr", exprs_[i].descr().ToString()},
+                         {{"project.type", exprs_[i].type()->ToString()},
                           {"project.length", target.length},
                           {"project.expression", exprs_[i].ToString()}});
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,

@@ -37,7 +37,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/trie.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"  // IWYU pragma: keep
 
 namespace arrow {
@@ -96,16 +96,13 @@ Status InitializeTrie(const std::vector<std::string>& inputs, Trie* trie) {
 
 // Presize a builder based on parser contents
 template <typename BuilderType>
-enable_if_t<!is_base_binary_type<typename BuilderType::TypeClass>::value, Status>
-PresizeBuilder(const BlockParser& parser, BuilderType* builder) {
-  return builder->Resize(parser.num_rows());
-}
-
-// Same, for variable-sized binary builders
-template <typename T>
-Status PresizeBuilder(const BlockParser& parser, BaseBinaryBuilder<T>* builder) {
+Status PresizeBuilder(const BlockParser& parser, BuilderType* builder) {
   RETURN_NOT_OK(builder->Resize(parser.num_rows()));
-  return builder->ReserveData(parser.num_bytes());
+  if constexpr (is_base_binary_type<typename BuilderType::TypeClass>::value) {
+    return builder->ReserveData(parser.num_bytes());
+  } else {
+    return Status::OK();
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -125,8 +122,8 @@ struct ValueDecoder {
     if (quoted && !options_.quoted_strings_can_be_null) {
       return false;
     }
-    return null_trie_.Find(
-               util::string_view(reinterpret_cast<const char*>(data), size)) >= 0;
+    return null_trie_.Find(std::string_view(reinterpret_cast<const char*>(data), size)) >=
+           0;
   }
 
  protected:
@@ -166,7 +163,7 @@ struct FixedSizeBinaryValueDecoder : public ValueDecoder {
 
 template <bool CheckUTF8>
 struct BinaryValueDecoder : public ValueDecoder {
-  using value_type = util::string_view;
+  using value_type = std::string_view;
 
   using ValueDecoder::ValueDecoder;
 
@@ -176,7 +173,7 @@ struct BinaryValueDecoder : public ValueDecoder {
   }
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
-    if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8(data, size))) {
+    if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8Inline(data, size))) {
       return Status::Invalid("CSV conversion error to ", type_->ToString(),
                              ": invalid UTF8 data");
     }
@@ -195,19 +192,15 @@ struct BinaryValueDecoder : public ValueDecoder {
 // Value decoder for integers, floats and temporals
 //
 
-template <typename T, typename Enable = void>
-struct StringConverterFromOptions {
-  static arrow::internal::StringConverter<T> Make(const ConvertOptions&) {
+template <typename T>
+static arrow::internal::StringConverter<T> MakeStringConverter(
+    const ConvertOptions& options) {
+  if constexpr (is_floating_type<T>::value) {
+    return arrow::internal::StringConverter<T>{options.decimal_point};
+  } else {
     return arrow::internal::StringConverter<T>{};
   }
-};
-
-template <typename T>
-struct StringConverterFromOptions<T, enable_if_floating_point<T>> {
-  static arrow::internal::StringConverter<T> Make(const ConvertOptions& options) {
-    return arrow::internal::StringConverter<T>{options.decimal_point};
-  }
-};
+}
 
 template <typename T>
 struct NumericValueDecoder : public ValueDecoder {
@@ -217,7 +210,7 @@ struct NumericValueDecoder : public ValueDecoder {
                       const ConvertOptions& options)
       : ValueDecoder(type, options),
         concrete_type_(checked_cast<const T&>(*type)),
-        string_converter_(StringConverterFromOptions<T>::Make(options)) {}
+        string_converter_(MakeStringConverter<T>(options)) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     // XXX should quoted values be allowed at all?
@@ -252,12 +245,12 @@ struct BooleanValueDecoder : public ValueDecoder {
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     // XXX should quoted values be allowed at all?
-    if (false_trie_.Find(util::string_view(reinterpret_cast<const char*>(data), size)) >=
+    if (false_trie_.Find(std::string_view(reinterpret_cast<const char*>(data), size)) >=
         0) {
       *out = false;
       return Status::OK();
     }
-    if (ARROW_PREDICT_TRUE(true_trie_.Find(util::string_view(
+    if (ARROW_PREDICT_TRUE(true_trie_.Find(std::string_view(
                                reinterpret_cast<const char*>(data), size)) >= 0)) {
       *out = true;
       return Status::OK();
@@ -288,7 +281,7 @@ struct DecimalValueDecoder : public ValueDecoder {
     TrimWhiteSpace(&data, &size);
     Decimal128 decimal;
     int32_t precision, scale;
-    util::string_view view(reinterpret_cast<const char*>(data), size);
+    std::string_view view(reinterpret_cast<const char*>(data), size);
     RETURN_NOT_OK(Decimal128::FromString(view, &decimal, &precision, &scale));
     if (precision > type_precision_) {
       return Status::Invalid("Error converting '", view, "' to ", type_->ToString(),

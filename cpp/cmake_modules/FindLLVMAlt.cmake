@@ -19,6 +19,10 @@
 #
 #  find_package(LLVMAlt)
 
+if(LLVMAlt_FOUND)
+  return()
+endif()
+
 if(DEFINED LLVM_ROOT)
   # if llvm source is set to conda then prefer conda llvm over system llvm even
   # if the system one is newer
@@ -36,22 +40,30 @@ if(DEFINED LLVM_ROOT)
 endif()
 
 if(NOT LLVM_FOUND)
-  set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
-  if(LLVM_BREW_PREFIX)
-    list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
-  endif()
+  foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
+    set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
 
-  foreach(HINT ${LLVM_HINTS})
-    foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
-      find_package(LLVM
-                   ${ARROW_LLVM_VERSION}
-                   CONFIG
-                   HINTS
-                   ${HINT})
-      if(LLVM_FOUND)
-        break()
+    if(APPLE)
+      find_program(BREW brew)
+      if(BREW)
+        string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_LLVM_VERSION_MAJOR
+                             "${ARROW_LLVM_VERSION}")
+        execute_process(COMMAND ${BREW} --prefix "llvm@${ARROW_LLVM_VERSION_MAJOR}"
+                        OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+        list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
       endif()
-    endforeach()
+    endif()
+
+    find_package(LLVM
+                 ${ARROW_LLVM_VERSION}
+                 CONFIG
+                 HINTS
+                 ${LLVM_HINTS})
+
+    if(LLVM_FOUND)
+      break()
+    endif()
   endforeach()
 endif()
 
@@ -76,12 +88,14 @@ if(LLVM_FOUND)
                      clang-${LLVM_VERSION_MAJOR} clang
                HINTS ${LLVM_TOOLS_BINARY_DIR})
 
-  add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
-
-  set_target_properties(LLVM::LLVM_INTERFACE
+  add_library(LLVM::LLVM_HEADERS INTERFACE IMPORTED)
+  set_target_properties(LLVM::LLVM_HEADERS
                         PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${LLVM_INCLUDE_DIRS}"
-                                   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}"
-                                   INTERFACE_LINK_LIBRARIES "${LLVM_LIBS}")
+                                   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}")
+
+  add_library(LLVM::LLVM_LIBS INTERFACE IMPORTED)
+  set_target_properties(LLVM::LLVM_LIBS PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                   "${LLVM_LIBS}")
 endif()
 
 mark_as_advanced(CLANG_EXECUTABLE LLVM_LINK_EXECUTABLE)

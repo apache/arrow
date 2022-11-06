@@ -24,6 +24,11 @@
 #include "openssl/evp.h"
 
 namespace gandiva {
+
+GANDIVA_EXPORT
+const char* gdv_sha512_hash(int64_t context, const void* message, size_t message_length,
+                            int32_t* out_length);
+
 GANDIVA_EXPORT
 const char* gdv_sha256_hash(int64_t context, const void* message, size_t message_length,
                             int32_t* out_length);

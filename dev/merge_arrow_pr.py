@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -54,7 +53,7 @@ try:
     import jira.exceptions
 except ImportError:
     print("Could not find jira library. "
-          "Run 'sudo pip install jira' to install.")
+          "Run 'pip install jira' to install.")
     print("Exiting without trying to close the associated JIRA.")
     sys.exit(1)
 
@@ -116,7 +115,7 @@ def fix_version_from_branch(branch, versions):
         return [x for x in versions if x.name.startswith(branch_ver)][-1]
 
 
-# We can merge both ARROW and PARQUET patchesa
+# We can merge both ARROW and PARQUET patches
 SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
 PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
                     for project in SUPPORTED_PROJECTS]
@@ -139,16 +138,23 @@ class JiraIssue(object):
     def current_fix_versions(self):
         return self.issue.fields.fixVersions
 
-    def get_candidate_fix_versions(self, merge_branches=('master',)):
+    @classmethod
+    def sort_versions(cls, versions):
+        def version_tuple(x):
+            # Parquet versions are something like cpp-1.2.0
+            numeric_version = x.name.split("-", 1)[-1]
+            return tuple(int(_) for _ in numeric_version.split("."))
+        return sorted(versions, key=version_tuple, reverse=True)
+
+    def get_candidate_fix_versions(self, merge_branches=('master',),
+                                   maintenance_branches=()):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
         all_versions = self.jira_con.project_versions(self.project)
         unreleased_versions = [x for x in all_versions
                                if not x.raw['released']]
 
-        unreleased_versions = sorted(unreleased_versions,
-                                     key=lambda x: x.name, reverse=True)
-
         mainline_versions = self._filter_mainline_versions(unreleased_versions)
+        mainline_versions = self.sort_versions(mainline_versions)
 
         mainline_non_patch_versions = []
         for v in mainline_versions:
@@ -160,11 +166,18 @@ class JiraIssue(object):
             # If there is a non-patch release, suggest that instead
             mainline_versions = mainline_non_patch_versions
 
+        mainline_versions = self._filter_maintenance_versions(
+            mainline_versions, maintenance_branches
+        )
         default_fix_versions = [
             fix_version_from_branch(x, mainline_versions).name
             for x in merge_branches]
 
         return all_versions, default_fix_versions
+
+    def _filter_maintenance_versions(self, versions, maintenance_branches):
+        return [v for v in versions
+                if f"maint-{v.name}" not in maintenance_branches]
 
     def _filter_mainline_versions(self, versions):
         if self.project == 'PARQUET':
@@ -264,6 +277,10 @@ class GitHubAPI(object):
         return get_json("%s/pulls/%s/commits" % (self.github_api, number),
                         headers=self.headers)
 
+    def get_branches(self):
+        return get_json("%s/branches" % (self.github_api),
+                        headers=self.headers)
+
     def merge_pr(self, number, commit_title, commit_message):
         url = f'{self.github_api}/pulls/{number}/merge'
         payload = {
@@ -344,6 +361,11 @@ class PullRequest(object):
     def is_mergeable(self):
         return bool(self._pr_data["mergeable"])
 
+    @property
+    def maintenance_branches(self):
+        return [x["name"] for x in self._github_api.get_branches()
+                if x["name"].startswith("maint-")]
+
     def _get_jira(self):
         if self.title.startswith("MINOR:"):
             return None
@@ -375,7 +397,8 @@ class PullRequest(object):
             email = author['email']
             return f'{name} <{email}>'
         commit_authors = [format_commit_author(commit) for commit in commits]
-        co_authored_by_re = re.compile(r'^Co-authored-by:\s*(.*)')
+        co_authored_by_re = re.compile(
+            r'^Co-authored-by:\s*(.*)', re.MULTILINE)
 
         def extract_co_authors(commit):
             message = commit['commit']['message']
@@ -403,7 +426,9 @@ class PullRequest(object):
         commit_title = f'{self.title} (#{self.number})'
         commit_message_chunks = []
         if self.body is not None:
-            commit_message_chunks.append(self.body)
+            # avoid github user name references by inserting a space after @
+            body = re.sub(r"@(\w+)", "@ \\1", self.body)
+            commit_message_chunks.append(body)
 
         committer_name = run_cmd("git config --get user.name").strip()
         committer_email = run_cmd("git config --get user.email").strip()
@@ -462,9 +487,11 @@ def get_primary_author(cmd, distinct_authors):
     return primary_author, distinct_other_authors
 
 
-def prompt_for_fix_version(cmd, jira_issue):
+def prompt_for_fix_version(cmd, jira_issue, maintenance_branches=()):
     (all_versions,
-     default_fix_versions) = jira_issue.get_candidate_fix_versions()
+     default_fix_versions) = jira_issue.get_candidate_fix_versions(
+        maintenance_branches=maintenance_branches
+    )
 
     default_fix_versions = ",".join(default_fix_versions)
 
@@ -565,7 +592,8 @@ def cli():
            "https://github.com/apache/" + PROJECT_NAME + "/pull",
            pr_num))
 
-    fix_versions_json = prompt_for_fix_version(cmd, pr.jira_issue)
+    fix_versions_json = prompt_for_fix_version(cmd, pr.jira_issue,
+                                               pr.maintenance_branches)
     pr.jira_issue.resolve(fix_versions_json, jira_comment)
 
 

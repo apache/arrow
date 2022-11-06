@@ -17,17 +17,25 @@
 package csv_test
 
 import (
+	"bufio"
 	"bytes"
+	ecsv "encoding/csv"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/csv"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/csv"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/decimal256"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+)
+
+const (
+	separator = ';'
+	nullVal   = "null"
 )
 
 func Example_writer() {
@@ -121,25 +129,71 @@ func Example_writer() {
 	// rec[9]["str"]: ["str-9"]
 }
 
+var (
+	fullData = [][]string{
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256"},
+		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45"},
+		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0"},
+		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+	}
+	bananaData = [][]string{
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256"},
+		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45"},
+		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0"},
+		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+	}
+)
+
 func TestCSVWriter(t *testing.T) {
 	tests := []struct {
-		name   string
-		header bool
-	}{{
-		name:   "Noheader",
-		header: false,
-	}, {
-		name:   "Header",
-		header: true,
-	}}
+		name       string
+		header     bool
+		boolFormat func(bool) string
+		data       [][]string
+	}{
+		{
+			name:   "Noheader",
+			header: false,
+			data:   fullData[1:],
+		},
+		{
+			name:   "header",
+			header: true,
+			data:   fullData,
+		},
+		{
+			name:   "Header with bool fmt",
+			header: true,
+			boolFormat: func(b bool) string {
+				if b {
+					return "BANANA"
+				}
+				return "MANGO"
+			},
+			data: bananaData,
+		}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			testCSVWriter(t, test.header)
+			testCSVWriter(t, test.data, test.header, test.boolFormat)
 		})
 	}
 }
 
-func testCSVWriter(t *testing.T, writeHeader bool) {
+func genTimestamps(unit arrow.TimeUnit) []arrow.Timestamp {
+	out := []arrow.Timestamp{}
+	for _, input := range []string{"2014-07-28 15:04:05", "2016-09-08 15:04:05", "2021-09-18 15:04:05"} {
+		ts, err := arrow.TimestampFromString(input, unit)
+		if err != nil {
+			panic(fmt.Errorf("could not convert %s to arrow.Timestamp err=%s", input, err))
+		}
+		out = append(out, ts)
+	}
+	return out
+}
+
+func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bool) string) {
 	f := new(bytes.Buffer)
 
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -158,6 +212,11 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
 			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "ts_s", Type: arrow.FixedWidthTypes.Timestamp_s},
+			{Name: "d32", Type: arrow.FixedWidthTypes.Date32},
+			{Name: "d64", Type: arrow.FixedWidthTypes.Date64},
+			{Name: "dec128", Type: &arrow.Decimal128Type{Precision: 5, Scale: 2}},
+			{Name: "dec256", Type: &arrow.Decimal256Type{Precision: 5, Scale: 2}},
 		},
 		nil,
 	)
@@ -177,6 +236,11 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 	b.Field(9).(*array.Float32Builder).AppendValues([]float32{0.0, 0.1, 0.2}, nil)
 	b.Field(10).(*array.Float64Builder).AppendValues([]float64{0.0, 0.1, 0.2}, nil)
 	b.Field(11).(*array.StringBuilder).AppendValues([]string{"str-0", "str-1", "str-2"}, nil)
+	b.Field(12).(*array.TimestampBuilder).AppendValues(genTimestamps(arrow.Second), nil)
+	b.Field(13).(*array.Date32Builder).AppendValues([]arrow.Date32{17304, 19304, 20304}, nil)
+	b.Field(14).(*array.Date64Builder).AppendValues([]arrow.Date64{1840400000000, 1940400000000, 2040400000000}, nil)
+	b.Field(15).(*array.Decimal128Builder).AppendValues([]decimal128.Num{decimal128.FromI64(-12345), decimal128.FromI64(0), decimal128.FromI64(12345)}, nil)
+	b.Field(16).(*array.Decimal256Builder).AppendValues([]decimal256.Num{decimal256.FromI64(-12345), decimal256.FromI64(0), decimal256.FromI64(12345)}, nil)
 
 	for _, field := range b.Fields() {
 		field.AppendNull()
@@ -186,10 +250,11 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 	defer rec.Release()
 
 	w := csv.NewWriter(f, schema,
-		csv.WithComma(';'),
+		csv.WithComma(separator),
 		csv.WithCRLF(false),
 		csv.WithHeader(writeHeader),
-		csv.WithNullWriter("null"),
+		csv.WithNullWriter(nullVal),
+		csv.WithBoolWriter(fmtr),
 	)
 	err := w.Write(rec)
 	if err != nil {
@@ -206,19 +271,48 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 		t.Fatal(err)
 	}
 
-	want := `true;-1;-1;-1;-1;0;0;0;0;0;0;str-0
-false;0;0;0;0;1;1;1;1;0.1;0.1;str-1
-true;1;1;1;1;2;2;2;2;0.2;0.2;str-2
-null;null;null;null;null;null;null;null;null;null;null;null
-`
-
-	if writeHeader {
-		want = "bool;i8;i16;i32;i64;u8;u16;u32;u64;f32;f64;str\n" + want
+	bdata, err := expectedOutout(data)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	if got, want := f.String(), want; strings.Compare(got, want) != 0 {
-		t.Fatalf("invalid output:\ngot=%s\nwant=%s\n", got, want)
+	if err = matchCSV(bdata.Bytes(), f.Bytes()); err != nil {
+		t.Fatal(err)
 	}
+}
+
+func expectedOutout(data [][]string) (*bytes.Buffer, error) {
+	b := bytes.NewBuffer(nil)
+	w := ecsv.NewWriter(b)
+	w.Comma = separator
+	w.UseCRLF = false
+	return b, w.WriteAll(data)
+}
+
+func matchCSV(expected, test []byte) error {
+	expectedScanner := bufio.NewScanner(bytes.NewReader(expected))
+	testScanner := bufio.NewScanner(bytes.NewReader(test))
+	line := 0
+	for expectedScanner.Scan() && testScanner.Scan() {
+		if expectedScanner.Text() != testScanner.Text() {
+			return fmt.Errorf("expected=%s != test=%s line=%d", expectedScanner.Text(), testScanner.Text(), line)
+		}
+		line++
+	}
+
+	if expectedScanner.Scan() {
+		return fmt.Errorf("expected unprocessed:%s", expectedScanner.Text())
+	}
+
+	if testScanner.Scan() {
+		return fmt.Errorf("test unprocessed:%s", testScanner.Text())
+	}
+
+	if err := expectedScanner.Err(); err != nil {
+		return err
+	}
+
+	return testScanner.Err()
 }
 
 func BenchmarkWrite(b *testing.B) {
@@ -239,6 +333,8 @@ func BenchmarkWrite(b *testing.B) {
 			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
 			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "dec128", Type: &arrow.Decimal128Type{Precision: 4, Scale: 3}},
+			{Name: "dec128", Type: &arrow.Decimal256Type{Precision: 4, Scale: 3}},
 		},
 		nil,
 	)
@@ -260,6 +356,8 @@ func BenchmarkWrite(b *testing.B) {
 		bldr.Field(9).(*array.Float32Builder).Append(float32(i))
 		bldr.Field(10).(*array.Float64Builder).Append(float64(i))
 		bldr.Field(11).(*array.StringBuilder).Append(fmt.Sprintf("str-%d", i))
+		bldr.Field(12).(*array.Decimal128Builder).Append(decimal128.FromI64(int64(i)))
+		bldr.Field(13).(*array.Decimal256Builder).Append(decimal256.FromI64(int64(i)))
 	}
 
 	rec := bldr.NewRecord()

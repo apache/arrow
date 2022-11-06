@@ -42,16 +42,26 @@ module Arrow
     end
 
     private
+    def precision
+      @precision ||= value_data_type.precision
+    end
+
+    def scale
+      @scale ||= value_data_type.scale
+    end
+
     def normalize_value(value)
       case value
-      when String
-        Decimal128.new(value)
-      when Float
-        Decimal128.new(value.to_s)
       when BigDecimal
-        Decimal128.new(value.to_s)
+        if value.nan? or value.infinite?
+          message = "can't use #{value} as an Arrow::Decimal128Array value"
+          raise FloatDomainError, message
+        end
+        integer, decimal = value.to_s("f").split(".", 2)
+        decimal = decimal[0, scale].ljust(scale, "0")
+        Decimal128.new("#{integer}.#{decimal}")
       else
-        value
+        Decimal128.try_convert(value) || value
       end
     end
   end

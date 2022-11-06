@@ -103,7 +103,6 @@
 
 #ifdef _WIN32
 #include <psapi.h>
-#include <windows.h>
 
 #elif __APPLE__
 #include <mach/mach.h>
@@ -495,7 +494,7 @@ namespace {
 
 Result<NativePathString> NativeReal(const NativePathString& path) {
 #if _WIN32
-  std::array<wchar_t, _MAX_PATH> resolved;
+  std::array<wchar_t, _MAX_PATH> resolved = {};
   if (_wfullpath(const_cast<wchar_t*>(path.c_str()), resolved.data(), resolved.size()) ==
       nullptr) {
     return IOErrorFromWinError(errno, "Failed to resolve real path");
@@ -1003,10 +1002,7 @@ FileDescriptor& FileDescriptor::operator=(FileDescriptor&& other) {
 }
 
 void FileDescriptor::CloseFromDestructor(int fd) {
-  auto st = FileClose(fd);
-  if (!st.ok()) {
-    ARROW_LOG(WARNING) << "Failed to close file descriptor: " << st.ToString();
-  }
+  ARROW_WARN_NOT_OK(FileClose(fd), "Failed to close file descriptor");
 }
 
 FileDescriptor::~FileDescriptor() {
@@ -1080,24 +1076,15 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
   FileDescriptor fd;
 
 #if defined(_WIN32)
-  int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
   DWORD desired_access = GENERIC_WRITE;
   DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
   DWORD creation_disposition = OPEN_ALWAYS;
 
-  if (append) {
-    oflag |= _O_APPEND;
-  }
-
   if (truncate) {
-    oflag |= _O_TRUNC;
     creation_disposition = CREATE_ALWAYS;
   }
 
-  if (write_only) {
-    oflag |= _O_WRONLY;
-  } else {
-    oflag |= _O_RDWR;
+  if (!write_only) {
     desired_access |= GENERIC_READ;
   }
 
@@ -1273,12 +1260,7 @@ class SelfPipeImpl : public SelfPipe {
     return pipe_.wfd.Close();
   }
 
-  ~SelfPipeImpl() {
-    auto st = Shutdown();
-    if (!st.ok()) {
-      ARROW_LOG(WARNING) << "On self-pipe destruction: " << st.ToString();
-    }
-  }
+  ~SelfPipeImpl() { ARROW_WARN_NOT_OK(Shutdown(), "On self-pipe destruction"); }
 
  protected:
   Status ClosedPipe() const { return Status::Invalid("Self-pipe closed"); }
@@ -1551,7 +1533,7 @@ static inline int64_t pread_compat(int fd, void* buf, int64_t nbytes, int64_t po
 #if defined(_WIN32)
   HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
   DWORD dwBytesRead = 0;
-  OVERLAPPED overlapped = {0};
+  OVERLAPPED overlapped = {};
   overlapped.Offset = static_cast<uint32_t>(pos);
   overlapped.OffsetHigh = static_cast<uint32_t>(pos >> 32);
 
@@ -1876,7 +1858,9 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
       [&](const NativePathString& base_dir) -> Result<std::unique_ptr<TemporaryDir>> {
     Status st;
     for (int attempt = 0; attempt < 3; ++attempt) {
-      PlatformFilename fn(base_dir + kNativeSep + base_name + kNativeSep);
+      PlatformFilename fn_base_dir(base_dir);
+      PlatformFilename fn_base_name(base_name + kNativeSep);
+      PlatformFilename fn = fn_base_dir.Join(fn_base_name);
       auto result = CreateDir(fn);
       if (!result.ok()) {
         // Probably a permissions error or a non-existing base_dir
@@ -1913,10 +1897,8 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
 TemporaryDir::TemporaryDir(PlatformFilename&& path) : path_(std::move(path)) {}
 
 TemporaryDir::~TemporaryDir() {
-  Status st = DeleteDirTree(path_).status();
-  if (!st.ok()) {
-    ARROW_LOG(WARNING) << "When trying to delete temporary directory: " << st;
-  }
+  ARROW_WARN_NOT_OK(DeleteDirTree(path_).status(),
+                    "When trying to delete temporary directory");
 }
 
 SignalHandler::SignalHandler() : SignalHandler(static_cast<Callback>(nullptr)) {}

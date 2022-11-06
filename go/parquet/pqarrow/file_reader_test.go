@@ -24,13 +24,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/file"
-	"github.com/apache/arrow/go/v9/parquet/pqarrow"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v11/parquet/file"
+	"github.com/apache/arrow/go/v11/parquet/pqarrow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -190,4 +190,29 @@ func TestRecordReaderSerial(t *testing.T) {
 	rec, err = rr.Read()
 	assert.Same(t, io.EOF, err)
 	assert.Nil(t, rec)
+}
+
+func TestFileReaderWriterMetadata(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	tbl := makeDateTimeTypesTable(mem, true, true)
+	defer tbl.Release()
+
+	meta := arrow.NewMetadata([]string{"foo", "bar"}, []string{"bar", "baz"})
+	sc := arrow.NewSchema(tbl.Schema().Fields(), &meta)
+
+	var buf bytes.Buffer
+	writer, err := pqarrow.NewFileWriter(sc, &buf, nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteTable(tbl, tbl.NumRows()))
+	require.NoError(t, writer.Close())
+
+	pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()), file.WithReadProps(parquet.NewReaderProperties(mem)))
+	require.NoError(t, err)
+	defer pf.Close()
+
+	kvMeta := pf.MetaData().KeyValueMetadata()
+	assert.Equal(t, []string{"foo", "bar"}, kvMeta.Keys())
+	assert.Equal(t, []string{"bar", "baz"}, kvMeta.Values())
 }

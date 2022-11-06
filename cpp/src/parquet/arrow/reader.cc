@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -35,7 +36,6 @@
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
@@ -994,7 +994,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
       }
     }
 
-    *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
+    *out = std::make_unique<RowGroupRecordBatchReader>(
         ::arrow::MakeVectorIterator(std::move(batches)), std::move(batch_schema));
 
     return Status::OK();
@@ -1038,7 +1038,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
             [table, table_reader] { return table_reader->Next(); });
       });
 
-  *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
+  *out = std::make_unique<RowGroupRecordBatchReader>(
       ::arrow::MakeFlattenIterator(std::move(batches)), std::move(batch_schema));
 
   return Status::OK();
@@ -1109,9 +1109,12 @@ class RowGroupGenerator {
     } else {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
       if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
-      row_group_read = ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
-        return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
-      });
+      row_group_read =
+          ready.Then([this, reader, row_group,
+                      column_indices = std::move(
+                          column_indices)]() -> ::arrow::Future<RecordBatchGenerator> {
+            return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
+          });
     }
     in_flight_reads_.push({std::move(row_group_read), num_rows});
   }

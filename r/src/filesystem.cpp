@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
+#include "./safe-call-into-r.h"
 
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
@@ -33,6 +34,13 @@ const char* r6_class_name<fs::FileSystem>::get(
     return "LocalFileSystem";
   } else if (type_name == "s3") {
     return "S3FileSystem";
+  } else if (type_name == "gcs") {
+    return "GcsFileSystem";
+    // Uncomment these once R6 classes for these filesystems are added
+    // } else if (type_name == "abfs") {
+    //   return "AzureBlobFileSystem";
+    // } else if (type_name == "hdfs") {
+    //   return "HadoopFileSystem";
   } else if (type_name == "subtree") {
     return "SubTreeFileSystem";
   } else {
@@ -64,7 +72,9 @@ void fs___FileInfo__set_path(const std::shared_ptr<fs::FileInfo>& x,
 }
 
 // [[arrow::export]]
-int64_t fs___FileInfo__size(const std::shared_ptr<fs::FileInfo>& x) { return x->size(); }
+r_vec_size fs___FileInfo__size(const std::shared_ptr<fs::FileInfo>& x) {
+  return r_vec_size(x->size());
+}
 
 // [[arrow::export]]
 void fs___FileInfo__set_size(const std::shared_ptr<fs::FileInfo>& x, int64_t size) {
@@ -230,7 +240,7 @@ std::string fs___FileSystem__type_name(
 // [[arrow::export]]
 std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create() {
   // Affects OpenInputFile/OpenInputStream
-  auto io_context = arrow::io::IOContext(gc_memory_pool());
+  auto io_context = MainRThread::GetInstance().CancellableIOContext();
   return std::make_shared<fs::LocalFileSystem>(io_context);
 }
 
@@ -282,7 +292,8 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
     std::string session_token = "", std::string role_arn = "",
     std::string session_name = "", std::string external_id = "", int load_frequency = 900,
     std::string region = "", std::string endpoint_override = "", std::string scheme = "",
-    std::string proxy_options = "", bool background_writes = true) {
+    std::string proxy_options = "", bool background_writes = true,
+    bool allow_bucket_creation = false, bool allow_bucket_deletion = false) {
   // We need to ensure that S3 is initialized before we start messing with the
   // options
   StopIfNotOk(fs::EnsureS3Initialized());
@@ -321,13 +332,90 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   /// default true
   s3_opts.background_writes = background_writes;
 
-  auto io_context = arrow::io::IOContext(gc_memory_pool());
+  s3_opts.allow_bucket_creation = allow_bucket_creation;
+  s3_opts.allow_bucket_deletion = allow_bucket_deletion;
+
+  auto io_context = MainRThread::GetInstance().CancellableIOContext();
   return ValueOrStop(fs::S3FileSystem::Make(s3_opts, io_context));
 }
 
 // [[s3::export]]
 std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& fs) {
   return fs->region();
+}
+
+#endif
+
+#if defined(ARROW_R_WITH_GCS)
+
+#include <arrow/filesystem/gcsfs.h>
+
+std::shared_ptr<arrow::KeyValueMetadata> strings_to_kvm(cpp11::strings metadata);
+
+// [[gcs::export]]
+std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
+                                                            cpp11::list options) {
+  fs::GcsOptions gcs_opts;
+
+  // Handle auth (anonymous, credentials, default)
+  // (validation/internal coherence handled in R)
+  if (anonymous) {
+    gcs_opts = fs::GcsOptions::Anonymous();
+  } else if (!Rf_isNull(options["access_token"])) {
+    // Convert POSIXct timestamp seconds to nanoseconds
+    std::chrono::nanoseconds ns_count(
+        static_cast<int64_t>(cpp11::as_cpp<double>(options["expiration"])) * 1000000000);
+    auto expiration_timepoint =
+        fs::TimePoint(std::chrono::duration_cast<fs::TimePoint::duration>(ns_count));
+    gcs_opts = fs::GcsOptions::FromAccessToken(
+        cpp11::as_cpp<std::string>(options["access_token"]), expiration_timepoint);
+    // TODO(ARROW-16885): implement FromImpersonatedServiceAccount
+    // } else if (base_credentials != "") {
+    //   // static GcsOptions FromImpersonatedServiceAccount(
+    //   // const GcsCredentials& base_credentials, const std::string&
+    //   target_service_account);
+    //   // TODO: construct GcsCredentials
+    //   gcs_opts = fs::GcsOptions::FromImpersonatedServiceAccount(base_credentials,
+    //                                                             target_service_account);
+  } else if (!Rf_isNull(options["json_credentials"])) {
+    gcs_opts = fs::GcsOptions::FromServiceAccountCredentials(
+        cpp11::as_cpp<std::string>(options["json_credentials"]));
+  } else {
+    gcs_opts = fs::GcsOptions::Defaults();
+  }
+
+  // Handle other attributes
+  if (!Rf_isNull(options["endpoint_override"])) {
+    gcs_opts.endpoint_override = cpp11::as_cpp<std::string>(options["endpoint_override"]);
+  }
+
+  if (!Rf_isNull(options["scheme"])) {
+    gcs_opts.scheme = cpp11::as_cpp<std::string>(options["scheme"]);
+  }
+
+  // /// \brief Location to use for creating buckets.
+  if (!Rf_isNull(options["default_bucket_location"])) {
+    gcs_opts.default_bucket_location =
+        cpp11::as_cpp<std::string>(options["default_bucket_location"]);
+  }
+  // /// \brief If set used to control total time allowed for retrying underlying
+  // /// errors.
+  // ///
+  // /// The default policy is to retry for up to 15 minutes.
+  if (!Rf_isNull(options["retry_limit_seconds"])) {
+    gcs_opts.retry_limit_seconds = cpp11::as_cpp<double>(options["retry_limit_seconds"]);
+  }
+
+  // /// \brief Default metadata for OpenOutputStream.
+  // ///
+  // /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
+  if (!Rf_isNull(options["default_metadata"])) {
+    gcs_opts.default_metadata = strings_to_kvm(options["default_metadata"]);
+  }
+
+  auto io_context = MainRThread::GetInstance().CancellableIOContext();
+  // TODO(ARROW-16884): update when this returns Result
+  return fs::GcsFileSystem::Make(gcs_opts, io_context);
 }
 
 #endif

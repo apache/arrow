@@ -118,8 +118,9 @@ class LocalBinaryTask < BinaryTask
     end
 
     case target
-    when "centos-8-stream"
-      image = "quay.io/centos/centos:stream8"
+    when /\Acentos-(\d+)-stream\z/
+      centos_stream_version = $1
+      image = "quay.io/centos/centos:stream#{centos_stream_version}"
     else
       case platform
       when "linux/arm64"
@@ -205,7 +206,7 @@ class LocalBinaryTask < BinaryTask
         @packages.each do |package|
           package_repositories = "#{package}/apt/repositories"
           next unless File.exist?(package_repositories)
-          sh("rsync", "-a", "#{package_repositories}/", repositories_dir)
+          sh("rsync", "-av", "#{package_repositories}/", repositories_dir)
         end
         Dir.glob("#{repositories_dir}/ubuntu/pool/*") do |code_name_dir|
           universe_dir = "#{code_name_dir}/universe"
@@ -237,11 +238,15 @@ class LocalBinaryTask < BinaryTask
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-9",
+      # "almalinux-9-aarch64",
       "almalinux-8",
       # "almalinux-8-aarch64",
       "amazon-linux-2",
       # "amazon-linux-2-aarch64",
-      "centos-8-stream-8",
+      "centos-9-stream",
+      # "centos-9-stream-aarch64",
+      "centos-8-stream",
       # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
@@ -257,7 +262,7 @@ class LocalBinaryTask < BinaryTask
         @packages.each do |package|
           package_repositories = "#{package}/yum/repositories"
           next unless File.exist?(package_repositories)
-          sh("rsync", "-a", "#{package_repositories}/", repositories_dir)
+          sh("rsync", "-av", "#{package_repositories}/", repositories_dir)
         end
         rpm_sign(repositories_dir)
         base_dir = "nonexistent"

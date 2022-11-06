@@ -40,6 +40,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Map;
 
 public class ResultSetUtility {
@@ -266,9 +267,9 @@ public class ResultSetUtility {
   }
 
   public static class MockResultSetMetaData extends ThrowingResultSetMetaData {
-    private ArrayList<MockColumnMetaData> columns;
+    private final List<MockColumnMetaData> columns;
 
-    public MockResultSetMetaData(ArrayList<MockColumnMetaData> columns) {
+    public MockResultSetMetaData(List<MockColumnMetaData> columns) {
       this.columns = columns;
     }
 
@@ -491,6 +492,9 @@ public class ResultSetUtility {
     }
 
     public BigDecimal getBigDecimal() throws SQLException {
+      if (value == null) {
+        return null;
+      }
       try {
         return new BigDecimal(getValueAsString());
       } catch (Exception ex) {
@@ -499,10 +503,16 @@ public class ResultSetUtility {
     }
 
     public String getString() throws SQLException {
+      if (value == null) {
+        return null;
+      }
       return getValueAsString();
     }
 
     public boolean getBoolean() throws SQLException {
+      if (value == null) {
+        return false;
+      }
       try {
         return (boolean) value;
       } catch (Exception ex) {
@@ -511,6 +521,9 @@ public class ResultSetUtility {
     }
 
     public int getInt() throws SQLException {
+      if (value == null) {
+        return 0;
+      }
       try {
         return Integer.parseInt(getValueAsString());
       } catch (Exception ex) {
@@ -519,6 +532,9 @@ public class ResultSetUtility {
     }
 
     public long getLong() throws SQLException {
+      if (value == null) {
+        return 0L;
+      }
       try {
         return Long.parseLong(getValueAsString());
       } catch (Exception ex) {
@@ -527,6 +543,9 @@ public class ResultSetUtility {
     }
 
     public double getDouble() throws SQLException {
+      if (value == null) {
+        return 0.0;
+      }
       try {
         return Double.parseDouble(getValueAsString());
       } catch (Exception ex) {
@@ -535,6 +554,9 @@ public class ResultSetUtility {
     }
 
     public Date getDate() throws SQLException {
+      if (value == null) {
+        return null;
+      }
       try {
         return Date.valueOf(getValueAsString());
       } catch (Exception ex) {
@@ -543,6 +565,9 @@ public class ResultSetUtility {
     }
 
     public Time getTime() throws SQLException {
+      if (value == null) {
+        return null;
+      }
       try {
         return Time.valueOf(getValueAsString());
       } catch (Exception ex) {
@@ -551,6 +576,9 @@ public class ResultSetUtility {
     }
 
     public Timestamp getTimestamp() throws SQLException {
+      if (value == null) {
+        return null;
+      }
       try {
         return Timestamp.valueOf(getValueAsString());
       } catch (Exception ex) {
@@ -558,7 +586,10 @@ public class ResultSetUtility {
       }
     }
 
-    public Float getFloat() throws SQLException {
+    public float getFloat() throws SQLException {
+      if (value == null) {
+        return 0.0f;
+      }
       try {
         return Float.parseFloat(getValueAsString());
       } catch (Exception ex) {
@@ -567,6 +598,9 @@ public class ResultSetUtility {
     }
 
     public short getShort() throws SQLException {
+      if (value == null) {
+        return 0;
+      }
       try {
         return Short.parseShort(getValueAsString());
       } catch (Exception ex) {

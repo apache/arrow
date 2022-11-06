@@ -351,8 +351,7 @@ uint8_t* PlasmaClient::Impl::LookupOrMmap(int fd, int store_fd_val, int64_t map_
   if (entry != mmap_table_.end()) {
     return entry->second->pointer();
   } else {
-    mmap_table_[store_fd_val] =
-        std::unique_ptr<ClientMmapTableEntry>(new ClientMmapTableEntry(fd, map_size));
+    mmap_table_[store_fd_val] = std::make_unique<ClientMmapTableEntry>(fd, map_size);
     return mmap_table_[store_fd_val]->pointer();
   }
 }
@@ -392,8 +391,7 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
   if (elem == objects_in_use_.end()) {
     // Add this object ID to the hash table of object IDs in use. The
     // corresponding call to free happens in PlasmaClient::Release.
-    objects_in_use_[object_id] =
-        std::unique_ptr<ObjectInUseEntry>(new ObjectInUseEntry());
+    objects_in_use_[object_id] = std::make_unique<ObjectInUseEntry>();
     objects_in_use_[object_id]->object = *object;
     objects_in_use_[object_id]->count = 0;
     objects_in_use_[object_id]->is_sealed = is_sealed;
@@ -676,7 +674,7 @@ Status PlasmaClient::Impl::Get(const std::vector<ObjectID>& object_ids,
                                int64_t timeout_ms, std::vector<ObjectBuffer>* out) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
-  const auto wrap_buffer = [=](const ObjectID& object_id,
+  const auto wrap_buffer = [&](const ObjectID& object_id,
                                const std::shared_ptr<Buffer>& buffer) {
     return std::make_shared<PlasmaBuffer>(shared_from_this(), object_id, buffer);
   };

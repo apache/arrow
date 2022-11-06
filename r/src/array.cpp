@@ -69,7 +69,10 @@ void arrow::r::validate_slice_length(R_xlen_t length, int64_t available) {
     cpp11::stop("Slice 'length' cannot be negative");
   }
   if (length > available) {
-    cpp11::warning("Slice 'length' greater than available length");
+    // For an unknown reason, cpp11::warning() crashes here; however, this
+    // should throw an exception if Rf_warning() jumps, so we need
+    // cpp11::safe[]().
+    cpp11::safe[Rf_warning]("Slice 'length' greater than available length");
   }
 }
 
@@ -244,15 +247,15 @@ int32_t ListArray__value_length(const std::shared_ptr<arrow::ListArray>& array,
 }
 
 // [[arrow::export]]
-int64_t LargeListArray__value_length(const std::shared_ptr<arrow::LargeListArray>& array,
-                                     int64_t i) {
-  return array->value_length(i);
+r_vec_size LargeListArray__value_length(
+    const std::shared_ptr<arrow::LargeListArray>& array, int64_t i) {
+  return r_vec_size(array->value_length(i));
 }
 
 // [[arrow::export]]
-int64_t FixedSizeListArray__value_length(
+r_vec_size FixedSizeListArray__value_length(
     const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i) {
-  return array->value_length(i);
+  return r_vec_size(array->value_length(i));
 }
 
 // [[arrow::export]]
@@ -262,15 +265,15 @@ int32_t ListArray__value_offset(const std::shared_ptr<arrow::ListArray>& array,
 }
 
 // [[arrow::export]]
-int64_t LargeListArray__value_offset(const std::shared_ptr<arrow::LargeListArray>& array,
-                                     int64_t i) {
-  return array->value_offset(i);
+r_vec_size LargeListArray__value_offset(
+    const std::shared_ptr<arrow::LargeListArray>& array, int64_t i) {
+  return r_vec_size(array->value_offset(i));
 }
 
 // [[arrow::export]]
-int64_t FixedSizeListArray__value_offset(
+r_vec_size FixedSizeListArray__value_offset(
     const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i) {
-  return array->value_offset(i);
+  return r_vec_size(array->value_offset(i));
 }
 
 // [[arrow::export]]
@@ -319,8 +322,8 @@ bool Array__Same(const std::shared_ptr<arrow::Array>& x,
 }
 
 // [[arrow::export]]
-int64_t Array__ReferencedBufferSize(const std::shared_ptr<arrow::Array>& x) {
-  return ValueOrStop(arrow::util::ReferencedBufferSize(*x));
+r_vec_size Array__ReferencedBufferSize(const std::shared_ptr<arrow::Array>& x) {
+  return r_vec_size(ValueOrStop(arrow::util::ReferencedBufferSize(*x)));
 }
 
 // [[arrow::export]]

@@ -129,15 +129,51 @@ test_that("write_parquet() can truncate timestamps", {
   expect_equal(as.data.frame(tab), as.data.frame(new))
 })
 
-test_that("make_valid_version()", {
-  expect_equal(make_valid_version("1.0"), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version("2.0"), ParquetVersionType$PARQUET_2_0)
+test_that("make_valid_parquet_version()", {
+  expect_equal(
+    make_valid_parquet_version("1.0"),
+    ParquetVersionType$PARQUET_1_0
+  )
+  expect_deprecated(
+    expect_equal(
+      make_valid_parquet_version("2.0"),
+      ParquetVersionType$PARQUET_2_0
+    )
+  )
+  expect_equal(
+    make_valid_parquet_version("2.4"),
+    ParquetVersionType$PARQUET_2_4
+  )
+  expect_equal(
+    make_valid_parquet_version("2.6"),
+    ParquetVersionType$PARQUET_2_6
+  )
+  expect_equal(
+    make_valid_parquet_version("latest"),
+    ParquetVersionType$PARQUET_2_6
+  )
 
-  expect_equal(make_valid_version(1), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version(2), ParquetVersionType$PARQUET_2_0)
+  expect_equal(make_valid_parquet_version(1), ParquetVersionType$PARQUET_1_0)
+  expect_deprecated(
+    expect_equal(make_valid_parquet_version(2), ParquetVersionType$PARQUET_2_0)
+  )
+  expect_equal(make_valid_parquet_version(1.0), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_parquet_version(2.4), ParquetVersionType$PARQUET_2_4)
+})
 
-  expect_equal(make_valid_version(1.0), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version(2.0), ParquetVersionType$PARQUET_2_0)
+test_that("make_valid_parquet_version() input validation", {
+  expect_error(
+    make_valid_parquet_version("0.3.14"),
+    "`version` must be one of"
+  )
+  expect_error(
+    make_valid_parquet_version(NULL),
+    "`version` must be one of"
+  )
+  expect_error(
+    make_valid_parquet_version(c("2", "4")),
+    "`version` must be one of"
+  )
 })
 
 test_that("write_parquet() defaults to snappy compression", {
@@ -147,6 +183,22 @@ test_that("write_parquet() defaults to snappy compression", {
   write_parquet(mtcars, tmp1)
   write_parquet(mtcars, tmp2, compression = "snappy")
   expect_equal(file.size(tmp1), file.size(tmp2))
+})
+
+test_that("write_parquet() does not detect compression from filename", {
+  # TODO(ARROW-17221): should this be supported?
+  without <- tempfile(fileext = ".parquet")
+  with_gz <- tempfile(fileext = ".parquet.gz")
+  write_parquet(mtcars, without)
+  write_parquet(mtcars, with_gz)
+  expect_equal(file.size(with_gz), file.size(without))
+})
+
+test_that("read_parquet() handles (ignores) compression in filename", {
+  df <- tibble::tibble(x = 1:5)
+  f <- tempfile(fileext = ".parquet.gz")
+  write_parquet(df, f)
+  expect_equal(read_parquet(f), df)
 })
 
 test_that("Factors are preserved when writing/reading from Parquet", {
@@ -239,7 +291,7 @@ test_that("write_parquet() handles version argument", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  purrr::walk(list("1.0", "2.0", 1.0, 2.0, 1L, 2L), ~ {
+  purrr::walk(list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L), ~ {
     write_parquet(df, tf, version = .x)
     expect_identical(read_parquet(tf), df)
   })

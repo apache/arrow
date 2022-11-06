@@ -225,8 +225,11 @@ test_that("read_csv_arrow() can read timestamps", {
   # time zones are being read in as time zone-naive, hence ignore_attr = "tzone"
   expect_equal(tbl, df, ignore_attr = "tzone")
 
-  df <- read_csv_arrow(tf, col_types = "T", col_names = "time", skip = 1)
-  expect_equal(tbl, df, ignore_attr = "tzone")
+  # work with schema to specify timestamp with time zone type
+  tbl <- tibble::tibble(time = "1970-01-01T12:00:00+12:00")
+  write.csv(tbl, tf, row.names = FALSE)
+  df <- read_csv_arrow(tf, col_types = schema(time = timestamp(unit = "us", timezone = "UTC")))
+  expect_equal(df, tibble::tibble(time = as.POSIXct("1970-01-01 00:00:00", tz = "UTC")))
 })
 
 test_that("read_csv_arrow(timestamp_parsers=)", {
@@ -293,9 +296,7 @@ test_that("more informative error when reading a CSV with headers and schema", {
 })
 
 test_that("read_csv_arrow() and write_csv_arrow() accept connection objects", {
-  # connections with csv need RunWithCapturedR, which is not available
-  # in R <= 3.4.4
-  skip_if_r_version("3.4.4")
+  skip_if_not(CanRunWithCapturedR())
 
   tf <- tempfile()
   on.exit(unlink(tf))
@@ -568,8 +569,6 @@ test_that("read/write compressed file successfully", {
   skip_if_not_available("gzip")
   tfgz <- tempfile(fileext = ".csv.gz")
   tf <- tempfile(fileext = ".csv")
-  on.exit(unlink(tf))
-  on.exit(unlink(tfgz))
 
   write_csv_arrow(tbl, tf)
   write_csv_arrow(tbl, tfgz)
@@ -577,6 +576,29 @@ test_that("read/write compressed file successfully", {
 
   expect_identical(
     read_csv_arrow(tfgz),
+    tbl
+  )
+  skip_if_not_available("lz4")
+  tflz4 <- tempfile(fileext = ".csv.lz4")
+  write_csv_arrow(tbl, tflz4)
+  expect_false(file.size(tfgz) == file.size(tflz4))
+  expect_identical(
+    read_csv_arrow(tflz4),
+    tbl
+  )
+})
+
+test_that("read/write compressed filesystem path", {
+  skip_if_not_available("zstd")
+  tfzst <- tempfile(fileext = ".csv.zst")
+  fs <- LocalFileSystem$create()$path(tfzst)
+  write_csv_arrow(tbl, fs)
+
+  tf <- tempfile(fileext = ".csv")
+  write_csv_arrow(tbl, tf)
+  expect_lt(file.size(tfzst), file.size(tf))
+  expect_identical(
+    read_csv_arrow(fs),
     tbl
   )
 })
@@ -590,4 +612,16 @@ test_that("read_csv_arrow() can read sub-second timestamps with col_types T sett
   df <- read_csv_arrow(tf, col_types = "T", col_names = "time", skip = 1)
   expected <- as.POSIXct(tbl$time, tz = "UTC")
   expect_equal(df$time, expected, ignore_attr = "tzone")
+})
+
+test_that("Shows an error message when trying to read a timestamp with time zone with col_types = T (ARROW-17429)", {
+  tbl <- tibble::tibble(time = c("1970-01-01T12:00:00+12:00"))
+  csv_file <- tempfile()
+  on.exit(unlink(csv_file))
+  write.csv(tbl, csv_file, row.names = FALSE)
+
+  expect_error(
+    read_csv_arrow(csv_file, col_types = "T", col_names = "time", skip = 1),
+    "CSV conversion error to timestamp\\[ns\\]: expected no zone offset in"
+  )
 })

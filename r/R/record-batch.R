@@ -196,8 +196,8 @@ rbind.RecordBatch <- function(...) {
 }
 
 cbind_check_length <- function(inputs, call = caller_env()) {
-  sizes <- map_int(inputs, NROW)
-  ok_lengths <- sizes %in% c(head(sizes, 1), 1L)
+  sizes <- map_dbl(inputs, NROW)
+  ok_lengths <- sizes %in% c(head(sizes, 1), 1)
   if (!all(ok_lengths)) {
     first_bad_one <- which.min(ok_lengths)
     abort(

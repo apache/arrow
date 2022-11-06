@@ -252,7 +252,7 @@ class PackageTask
     components = target.split("-")
     if components[0, 2] == ["amazon", "linux"]
       components[0, 2] = components[0, 2].join("-")
-    elsif components[0, 3] == ["centos", "8", "stream"]
+    elsif components.values_at(0, 2) == ["centos", "stream"]
       components[1, 2] = components[1, 2].join("-")
     end
     if components.size >= 3
@@ -280,8 +280,6 @@ class PackageTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-buster",
-      # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
       "debian-bookworm",
@@ -290,8 +288,6 @@ class PackageTask
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
-      "ubuntu-impish",
-      # "ubuntu-impish-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
     ]
@@ -434,6 +430,8 @@ VERSION=#{@deb_upstream_version}
       # "almalinux-8-arch64",
       "amazon-linux-2",
       # "amazon-linux-2-arch64",
+      "centos-9-stream",
+      # "centos-9-stream-aarch64",
       "centos-8-stream",
       # "centos-8-stream-aarch64",
       "centos-7",

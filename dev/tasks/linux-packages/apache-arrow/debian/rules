@@ -21,24 +21,27 @@ override_dh_auto_configure:
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
 	fi;							\
-	if python3 -c 'import numpy' > /dev/null 2>&1; then	\
-	  ARROW_PYTHON=ON;					\
+	if [ $$(arch) = "x86_64" ]; then				\
+	  ARROW_FLIGHT=ON;					\
+	  ARROW_FLIGHT_SQL=ON;					\
 	else							\
-	  ARROW_PYTHON=OFF;					\
+	  ARROW_FLIGHT=OFF;					\
+	  ARROW_FLIGHT_SQL=OFF;					\
 	fi;							\
 	dh_auto_configure					\
 	  --sourcedirectory=cpp					\
 	  --builddirectory=cpp_build				\
 	  --buildsystem=cmake+ninja				\
 	  --							\
+	  -DARROW_BUILD_UTILITIES=ON				\
 	  -DARROW_COMPUTE=ON					\
 	  -DARROW_CSV=ON					\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_DATASET=ON					\
 	  -DARROW_FILESYSTEM=ON					\
-	  -DARROW_FLIGHT=ON					\
+	  -DARROW_FLIGHT=$${ARROW_FLIGHT}			\
+	  -DARROW_FLIGHT_SQL=$${ARROW_FLIGHT_SQL}		\
 	  -DARROW_GANDIVA=ON					\
-	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_GCS=ON					\
 	  -DARROW_HDFS=ON					\
 	  -DARROW_JSON=ON					\
@@ -47,7 +50,6 @@ override_dh_auto_configure:
 	  -DARROW_PACKAGE_KIND=deb				\
 	  -DARROW_PARQUET=ON					\
 	  -DARROW_PLASMA=$${ARROW_PLASMA}			\
-	  -DARROW_PYTHON=$${ARROW_PYTHON}			\
 	  -DARROW_S3=ON						\
 	  -DARROW_USE_CCACHE=OFF				\
 	  -DARROW_WITH_BROTLI=ON				\
@@ -57,11 +59,9 @@ override_dh_auto_configure:
 	  -DARROW_WITH_ZLIB=ON					\
 	  -DARROW_WITH_ZSTD=ON					\
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
-	  -DCMAKE_UNITY_BUILD=ON				\
 	  -DCUDAToolkit_ROOT=/usr				\
-	  -DPARQUET_REQUIRE_ENCRYPTION=ON			\
-	  -DPythonInterp_FIND_VERSION=ON			\
-	  -DPythonInterp_FIND_VERSION_MAJOR=3
+	  -DPARQUET_BUILD_EXECUTABLES=ON			\
+	  -DPARQUET_REQUIRE_ENCRYPTION=ON
 
 override_dh_auto_build:
 	dh_auto_build				\
@@ -75,7 +75,7 @@ override_dh_auto_build:
 	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
 	  -Darrow_cpp_build_dir=../cpp_build		\
 	  -Dgtk_doc=true				\
-	  -Dvala=true
+	  -Dvapi=true
 	env							\
 	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE)	\
 	    dh_auto_build					\

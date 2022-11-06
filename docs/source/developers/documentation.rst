@@ -30,7 +30,7 @@ If you're using Conda, the required software can be installed in a single line:
 
 .. code-block:: shell
 
-   conda install -c conda-forge --file=ci/conda_env_sphinx.txt
+   conda install -c conda-forge --file=arrow/ci/conda_env_sphinx.txt
 
 Otherwise, you'll first need to install `Doxygen <http://www.doxygen.nl/>`_
 yourself (for example from your distribution's official repositories, if
@@ -39,7 +39,7 @@ following command:
 
 .. code-block:: shell
 
-   pip install -r docs/requirements.txt
+   pip install -r arrow/docs/requirements.txt
 
 Building
 --------
@@ -55,7 +55,7 @@ These two steps are mandatory and must be executed in order.
 
    .. code-block:: shell
 
-      pushd cpp/apidoc
+      pushd arrow/cpp/apidoc
       doxygen
       popd
 
@@ -71,7 +71,7 @@ These two steps are mandatory and must be executed in order.
 
    .. code-block:: shell
 
-      pushd docs
+      pushd arrow/docs
       make html
       popd
 
@@ -82,8 +82,8 @@ These two steps are mandatory and must be executed in order.
    will also not build without CUDA support having been built.
 
 After these steps are completed, the documentation is rendered in HTML
-format in ``docs/_build/html``.  In particular, you can point your browser
-at ``docs/_build/html/index.html`` to read the docs and review any changes
+format in ``arrow/docs/_build/html``.  In particular, you can point your browser
+at ``arrow/docs/_build/html/index.html`` to read the docs and review any changes
 you made.
 
 Building with Docker
@@ -109,13 +109,19 @@ You can build documentation in a single directory without needing to install
 all of the pre-requisites by installing sphinx, setting up a temporary
 index in the directory you want to build and then building that directory.
 
-The example below shows how to do this in the ``developers`` directory.
+The example below shows how to do this in the ``arrow/docs/source/developers`` directory.
 
 Install ``sphinx``:
 
 .. code-block:: shell
 
    pip install sphinx
+
+Navigate to the ``arrow/docs`` directory:
+
+.. code-block:: shell
+
+   cd arrow/docs
 
 Create an temporary index file ``temp_index.rst`` file in the target directory:
 

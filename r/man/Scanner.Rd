@@ -21,8 +21,6 @@ named list of expressions
 \item \code{filter}: A \code{Expression} to filter the scanned rows by, or \code{TRUE} (default)
 to keep all rows.
 \item \code{use_threads}: logical: should scanning use multithreading? Default \code{TRUE}
-\item \code{use_async}: logical: deprecated, this field no longer has any effect on
-behavior.
 \item \code{...}: Additional arguments, currently ignored
 }
 }
@@ -32,12 +30,11 @@ behavior.
 \code{ScannerBuilder} has the following methods:
 \itemize{
 \item \verb{$Project(cols)}: Indicate that the scan should only return columns given
-by \code{cols}, a character vector of column names
+by \code{cols}, a character vector of column names or a named list of \link{Expression}.
 \item \verb{$Filter(expr)}: Filter rows by an \link{Expression}.
 \item \verb{$UseThreads(threads)}: logical: should the scan use multithreading?
 The method's default input is \code{TRUE}, but you must call the method to enable
 multithreading because the scanner default is \code{FALSE}.
-\item \verb{$UseAsync(use_async)}: logical: deprecated, has no effect
 \item \verb{$BatchSize(batch_size)}: integer: Maximum row count of scanned record
 batches, default is 32K. If scanned record batches are overflowing memory
 then this method can be called to reduce their size.
@@ -49,3 +46,28 @@ then this method can be called to reduce their size.
 query and returns an Arrow \link{Table}.
 }
 
+\examples{
+\dontshow{if (arrow_with_dataset() & arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+# Set up directory for examples
+tf <- tempfile()
+dir.create(tf)
+on.exit(unlink(tf))
+
+write_dataset(mtcars, tf, partitioning="cyl")
+
+ds <- open_dataset(tf)
+
+scan_builder <- ds$NewScan()
+scan_builder$Filter(Expression$field_ref("hp") > 100)
+scan_builder$Project(list(hp_times_ten = 10 * Expression$field_ref("hp")))
+
+# Once configured, call $Finish()
+scanner <- scan_builder$Finish()
+
+# Can get results as a table
+as.data.frame(scanner$ToTable())
+
+# Or as a RecordBatchReader
+scanner$ToRecordBatchReader()
+\dontshow{\}) # examplesIf}
+}

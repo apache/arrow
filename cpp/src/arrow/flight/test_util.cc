@@ -30,11 +30,12 @@
 // We need Windows fixes before including Boost
 #include "arrow/util/windows_compatibility.h"
 
-#include <boost/filesystem.hpp>
-// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
-// boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
-// cpp/cmake_modules/BuildUtils.cmake for details.
 #include <gtest/gtest.h>
+#include <boost/filesystem.hpp>
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
+// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
+// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
+// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
 #include <boost/process.hpp>
 
 #include "arrow/array.h"
@@ -89,6 +90,25 @@ Status ResolveCurrentExecutable(fs::path* out) {
   }
 }
 
+class ErrorRecordBatchReader : public RecordBatchReader {
+ public:
+  ErrorRecordBatchReader() : schema_(arrow::schema({})) {}
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+    *out = nullptr;
+    return Status::OK();
+  }
+
+  Status Close() override {
+    // This should be propagated over DoGet to the client
+    return Status::IOError("Expected error");
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+};
 }  // namespace
 
 void TestServer::Start(const std::vector<std::string>& extra_args) {
@@ -185,7 +205,7 @@ class FlightTestServer : public FlightServerBase {
       // For test purposes, if we get criteria, return no results
       flights.clear();
     }
-    *listings = std::unique_ptr<FlightListing>(new SimpleFlightListing(flights));
+    *listings = std::make_unique<SimpleFlightListing>(flights);
     return Status::OK();
   }
 
@@ -201,7 +221,7 @@ class FlightTestServer : public FlightServerBase {
 
     for (const auto& info : flights) {
       if (info.descriptor().Equals(request)) {
-        *out = std::unique_ptr<FlightInfo>(new FlightInfo(info));
+        *out = std::make_unique<FlightInfo>(info);
         return Status::OK();
       }
     }
@@ -221,15 +241,19 @@ class FlightTestServer : public FlightServerBase {
       // Make batch > 2GiB in size
       ARROW_ASSIGN_OR_RAISE(auto batch, VeryLargeBatch());
       ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
-      *data_stream =
-          std::unique_ptr<FlightDataStream>(new RecordBatchStream(std::move(reader)));
+      *data_stream = std::make_unique<RecordBatchStream>(std::move(reader));
+      return Status::OK();
+    }
+    if (request.ticket == "ticket-stream-error") {
+      auto reader = std::make_shared<ErrorRecordBatchReader>();
+      *data_stream = std::make_unique<RecordBatchStream>(std::move(reader));
       return Status::OK();
     }
 
     std::shared_ptr<RecordBatchReader> batch_reader;
     RETURN_NOT_OK(GetBatchForFlight(request, &batch_reader));
 
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
+    *data_stream = std::make_unique<RecordBatchStream>(batch_reader);
     return Status::OK();
   }
 
@@ -440,13 +464,13 @@ class FlightTestServer : public FlightServerBase {
       result.body = Buffer::FromString(std::move(value));
       results.push_back(result);
     }
-    *out = std::unique_ptr<ResultStream>(new SimpleResultStream(std::move(results)));
+    *out = std::make_unique<SimpleResultStream>(std::move(results));
     return Status::OK();
   }
 
   Status RunAction2(std::unique_ptr<ResultStream>* out) {
     // Empty
-    *out = std::unique_ptr<ResultStream>(new SimpleResultStream({}));
+    *out = std::make_unique<SimpleResultStream>(std::vector<Result>{});
     return Status::OK();
   }
 
@@ -474,8 +498,7 @@ class FlightTestServer : public FlightServerBase {
 
     for (const auto& info : flights) {
       if (info.descriptor().Equals(request)) {
-        *schema =
-            std::unique_ptr<SchemaResult>(new SchemaResult(info.serialized_schema()));
+        *schema = std::make_unique<SchemaResult>(info.serialized_schema());
         return Status::OK();
       }
     }
@@ -484,7 +507,7 @@ class FlightTestServer : public FlightServerBase {
 };
 
 std::unique_ptr<FlightServerBase> ExampleTestServer() {
-  return std::unique_ptr<FlightServerBase>(new FlightTestServer);
+  return std::make_unique<FlightTestServer>();
 }
 
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,

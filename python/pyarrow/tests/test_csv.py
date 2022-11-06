@@ -654,6 +654,16 @@ class BaseTestCSV(abc.ABC):
         expected_rows = [InvalidRow(2, 1, row_num(2), "c")]
         assert parse_opts.invalid_row_handler.rows == expected_rows
 
+        # Test ser/de
+        parse_opts.invalid_row_handler = InvalidRowHandler('skip')
+        parse_opts = pickle.loads(pickle.dumps(parse_opts))
+
+        table = self.read_bytes(rows, parse_options=parse_opts)
+        assert table.to_pydict() == {
+            'a': ["d", "i"],
+            'b': ["e", "j"],
+        }
+
 
 class BaseCSVTableRead(BaseTestCSV):
 
@@ -1908,3 +1918,19 @@ def test_read_csv_reference_cycle():
     with util.disabled_gc():
         wr = inner()
         assert wr() is None
+
+
+@pytest.mark.parametrize("type_factory", (
+    lambda: pa.decimal128(20, 1),
+    lambda: pa.decimal128(38, 15),
+    lambda: pa.decimal256(20, 1),
+    lambda: pa.decimal256(76, 10),
+))
+def test_write_csv_decimal(tmpdir, type_factory):
+    type = type_factory()
+    table = pa.table({"col": pa.array([1, 2]).cast(type)})
+
+    write_csv(table, tmpdir / "out.csv")
+    out = read_csv(tmpdir / "out.csv")
+
+    assert out.column('col').cast(type) == table.column('col')

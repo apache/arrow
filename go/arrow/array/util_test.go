@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -24,13 +25,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/goccy/go-json"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var typemap = map[arrow.DataType]reflect.Type{
@@ -127,6 +129,27 @@ func TestStringsJSON(t *testing.T) {
 			defer expected.Release()
 
 			arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.BinaryTypes.String, strings.NewReader(tt.jsonstring))
+			assert.NoError(t, err)
+			defer arr.Release()
+
+			assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+			data, err := json.Marshal(arr)
+			assert.NoError(t, err)
+			assert.JSONEq(t, tt.jsonstring, string(data))
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run("large json "+tt.jsonstring, func(t *testing.T) {
+			bldr := array.NewLargeStringBuilder(memory.DefaultAllocator)
+			defer bldr.Release()
+
+			bldr.AppendValues(tt.values, tt.valids)
+			expected := bldr.NewLargeStringArray()
+			defer expected.Release()
+
+			arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.BinaryTypes.LargeString, strings.NewReader(tt.jsonstring))
 			assert.NoError(t, err)
 			defer arr.Release()
 
@@ -434,4 +457,68 @@ func TestArrRecordsJSONRoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStructBuilderJSONUnknownNested(t *testing.T) {
+	dt := arrow.StructOf(
+		arrow.Field{Name: "region", Type: arrow.BinaryTypes.String},
+		arrow.Field{Name: "model", Type: arrow.PrimitiveTypes.Int32},
+		arrow.Field{Name: "sales", Type: arrow.PrimitiveTypes.Float32})
+
+	const data = `[
+		{"region": "NY", "model": "3", "sales": 742.0},
+		{"region": "CT", "model": "5", "sales": 742.0}
+	]`
+
+	const dataWithExtra = `[
+		{"region": "NY", "model": "3", "sales": 742.0, "extra": 1234},
+		{"region": "CT", "model": "5", "sales": 742.0, "extra_array": [1234], "extra_obj": {"nested": ["deeply"]}}
+	]`
+
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	arr, _, err := array.FromJSON(mem, dt, strings.NewReader(data))
+	require.NoError(t, err)
+	require.NotNil(t, arr)
+	defer arr.Release()
+
+	arr2, _, err := array.FromJSON(mem, dt, strings.NewReader(dataWithExtra))
+	require.NoError(t, err)
+	require.NotNil(t, arr2)
+	defer arr2.Release()
+
+	assert.Truef(t, array.Equal(arr, arr2), "expected: %s\n actual: %s", arr, arr2)
+}
+
+func TestRecordBuilderUnmarshalJSONExtraFields(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "region", Type: arrow.BinaryTypes.String},
+		{Name: "model", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "sales", Type: arrow.PrimitiveTypes.Float32},
+	}, nil)
+
+	bldr := array.NewRecordBuilder(mem, schema)
+	defer bldr.Release()
+
+	const data = `{"region": "NY", "model": "3", "sales": 742.0, "extra": 1234}
+	{"region": "NY", "model": "3", "sales": 742.0, "extra_array": [1234], "extra_obj": {"nested": ["deeply"]}}`
+
+	s := bufio.NewScanner(strings.NewReader(data))
+	require.True(t, s.Scan())
+	require.NoError(t, bldr.UnmarshalJSON(s.Bytes()))
+
+	rec1 := bldr.NewRecord()
+	defer rec1.Release()
+
+	require.True(t, s.Scan())
+	require.NoError(t, bldr.UnmarshalJSON(s.Bytes()))
+
+	rec2 := bldr.NewRecord()
+	defer rec2.Release()
+
+	assert.Truef(t, array.RecordEqual(rec1, rec2), "expected: %s\nactual: %s", rec1, rec2)
 }

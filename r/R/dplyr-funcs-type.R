@@ -23,62 +23,69 @@ register_bindings_type <- function() {
   register_bindings_type_format()
 }
 
-register_bindings_type_cast <- function() {
-  register_binding("cast", function(x, target_type, safe = TRUE, ...) {
-    opts <- cast_options(safe, ...)
-    opts$to_type <- as_type(target_type)
-    Expression$create("cast", x, options = opts)
-  })
+#' Change the type of an array or column
+#'
+#' This is a wrapper around the `$cast()` method that many Arrow objects have.
+#' It is more convenient to call inside `dplyr` pipelines than the method.
+#'
+#' @param x an `Array`, `Table`, `Expression`, or similar Arrow data object.
+#' @param to [DataType] to cast to; for [Table] and [RecordBatch],
+#' it should be a [Schema].
+#' @param safe logical: only allow the type conversion if no data is lost
+#' (truncation, overflow, etc.). Default is `TRUE`.
+#' @param ... specific `CastOptions` to set
+#' @return An [Expression]
+#'
+#' @examples
+#' \dontrun{
+#' mtcars %>%
+#'   arrow_table() %>%
+#'   mutate(cyl = cast(cyl, string()))
+#' }
+#' @keywords internal
+#' @seealso [`data-type`] for a list of [DataType] to be used with `to`.
+#' @seealso [Arrow C++ CastOptions documentation](https://arrow.apache.org/docs/cpp/api/compute.html?highlight=castoptions#arrow%3A%3Acompute%3A%3ACastOptions) # nolint
+#' for the list of supported CastOptions.
+cast <- function(x, to, safe = TRUE, ...) {
+  if (!inherits(x, "ArrowObject")) {
+    x <- Scalar$create(x)
+  }
+  x$cast(to, safe = safe, ...)
+}
 
-  register_binding("dictionary_encode", function(x,
-                                                 null_encoding_behavior = c("mask", "encode")) {
-    behavior <- toupper(match.arg(null_encoding_behavior))
-    null_encoding_behavior <- NullEncodingBehavior[[behavior]]
-    Expression$create(
-      "dictionary_encode",
-      x,
-      options = list(null_encoding_behavior = null_encoding_behavior)
-    )
-  })
+register_bindings_type_cast <- function() {
+  register_binding("arrow::cast", cast)
 
   # as.* type casting functions
-  # as.factor() is mapped in expression.R
-  register_binding("as.character", function(x) {
-    build_expr("cast", x, options = cast_options(to_type = string()))
+  # as.factor() is not supported
+  register_binding("base::as.character", function(x) {
+    cast(x, string())
   })
-  register_binding("as.double", function(x) {
-    build_expr("cast", x, options = cast_options(to_type = float64()))
+  register_binding("base::as.double", function(x) {
+    cast(x, float64())
   })
-  register_binding("as.integer", function(x) {
-    build_expr(
-      "cast",
-      x,
-      options = cast_options(
-        to_type = int32(),
-        allow_float_truncate = TRUE,
-        allow_decimal_truncate = TRUE
-      )
+  register_binding("base::as.integer", function(x) {
+    cast(x,
+      int32(),
+      allow_float_truncate = TRUE,
+      allow_decimal_truncate = TRUE
     )
   })
-  register_binding("as.integer64", function(x) {
-    build_expr(
-      "cast",
-      x,
-      options = cast_options(
-        to_type = int64(),
-        allow_float_truncate = TRUE,
-        allow_decimal_truncate = TRUE
-      )
+  register_binding("bit64::as.integer64", function(x) {
+    cast(x,
+      int64(),
+      allow_float_truncate = TRUE,
+      allow_decimal_truncate = TRUE
     )
   })
-  register_binding("as.logical", function(x) {
-    build_expr("cast", x, options = cast_options(to_type = boolean()))
+  register_binding("base::as.logical", function(x) {
+    cast(x, boolean())
   })
-  register_binding("as.numeric", function(x) {
-    build_expr("cast", x, options = cast_options(to_type = float64()))
+  register_binding("base::as.numeric", function(x) {
+    cast(x, float64())
   })
 
-  register_binding("is", function(object, class2) {
+  register_binding("methods::is", function(object, class2) {
     if (is.string(class2)) {
       switch(class2,
         # for R data types, pass off to is.*() functions
@@ -103,7 +110,9 @@ register_bindings_type_cast <- function() {
   })
 
   # Create a data frame/tibble/struct column
-  register_binding("tibble", function(..., .rows = NULL, .name_repair = NULL) {
+  register_binding("tibble::tibble", function(...,
+                                              .rows = NULL,
+                                              .name_repair = NULL) {
     if (!is.null(.rows)) arrow_not_supported(".rows")
     if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
 
@@ -113,137 +122,147 @@ register_bindings_type_cast <- function() {
     # it is difficult to replicate the .name_repair semantics and expanding of
     # unnamed data frame arguments in the same way that the tibble() constructor
     # does.
-    args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
+    args <- dots_list(..., .named = TRUE, .homonyms = "error")
 
-    build_expr(
+    Expression$create(
       "make_struct",
       args = unname(args),
       options = list(field_names = names(args))
     )
   })
 
-  register_binding("data.frame", function(..., row.names = NULL,
-                                          check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
-                                          stringsAsFactors = FALSE) {
-    # we need a specific value of stringsAsFactors because the default was
-    # TRUE in R <= 3.6
-    if (!identical(stringsAsFactors, FALSE)) {
-      arrow_not_supported("stringsAsFactors = TRUE")
-    }
-
-    # ignore row.names and check.rows with a warning
-    if (!is.null(row.names)) arrow_not_supported("row.names")
-    if (!is.null(check.rows)) arrow_not_supported("check.rows")
-
-    args <- rlang::dots_list(..., .named = fix.empty.names)
-    if (is.null(names(args))) {
-      names(args) <- rep("", length(args))
-    }
-
-    if (identical(check.names, TRUE)) {
-      if (identical(fix.empty.names, TRUE)) {
-        names(args) <- make.names(names(args), unique = TRUE)
-      } else {
-        name_emtpy <- names(args) == ""
-        names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+  register_binding(
+    "base::data.frame",
+    function(...,
+             row.names = NULL,
+             check.rows = NULL,
+             check.names = TRUE,
+             fix.empty.names = TRUE,
+             stringsAsFactors = FALSE) {
+      # we need a specific value of stringsAsFactors because the default was
+      # TRUE in R <= 3.6
+      if (!identical(stringsAsFactors, FALSE)) {
+        arrow_not_supported("stringsAsFactors = TRUE")
       }
-    }
 
-    build_expr(
-      "make_struct",
-      args = unname(args),
-      options = list(field_names = names(args))
+      # ignore row.names and check.rows with a warning
+      if (!is.null(row.names)) arrow_not_supported("row.names")
+      if (!is.null(check.rows)) arrow_not_supported("check.rows")
+
+      args <- dots_list(..., .named = fix.empty.names)
+      if (is.null(names(args))) {
+        names(args) <- rep("", length(args))
+      }
+
+      if (identical(check.names, TRUE)) {
+        if (identical(fix.empty.names, TRUE)) {
+          names(args) <- make.names(names(args), unique = TRUE)
+        } else {
+          name_emtpy <- names(args) == ""
+          names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+        }
+      }
+
+      Expression$create(
+        "make_struct",
+        args = unname(args),
+        options = list(field_names = names(args))
+      )
+    },
+    notes = c(
+      "`row.names` and `check.rows` arguments not supported;",
+      "`stringsAsFactors` must be `FALSE`"
     )
-  })
+  )
 }
 
 register_bindings_type_inspect <- function() {
   # is.* type functions
-  register_binding("is.character", function(x) {
+  register_binding("base::is.character", function(x) {
     is.character(x) || (inherits(x, "Expression") &&
       x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
   })
-  register_binding("is.numeric", function(x) {
+  register_binding("base::is.numeric", function(x) {
     is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
       "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
       "DECIMAL128", "DECIMAL256"
     )])
   })
-  register_binding("is.double", function(x) {
+  register_binding("base::is.double", function(x) {
     is.double(x) || (inherits(x, "Expression") && x$type_id() == Type["DOUBLE"])
   })
-  register_binding("is.integer", function(x) {
+  register_binding("base::is.integer", function(x) {
     is.integer(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
       "UINT64", "INT64"
     )])
   })
-  register_binding("is.integer64", function(x) {
+  register_binding("bit64::is.integer64", function(x) {
     inherits(x, "integer64") || (inherits(x, "Expression") && x$type_id() == Type["INT64"])
   })
-  register_binding("is.logical", function(x) {
+  register_binding("base::is.logical", function(x) {
     is.logical(x) || (inherits(x, "Expression") && x$type_id() == Type["BOOL"])
   })
-  register_binding("is.factor", function(x) {
+  register_binding("base::is.factor", function(x) {
     is.factor(x) || (inherits(x, "Expression") && x$type_id() == Type["DICTIONARY"])
   })
-  register_binding("is.list", function(x) {
+  register_binding("base::is.list", function(x) {
     is.list(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "LIST", "FIXED_SIZE_LIST", "LARGE_LIST"
     )])
   })
 
   # rlang::is_* type functions
-  register_binding("is_character", function(x, n = NULL) {
+  register_binding("rlang::is_character", function(x, n = NULL) {
     assert_that(is.null(n))
     call_binding("is.character", x)
   })
-  register_binding("is_double", function(x, n = NULL, finite = NULL) {
+  register_binding("rlang::is_double", function(x, n = NULL, finite = NULL) {
     assert_that(is.null(n) && is.null(finite))
     call_binding("is.double", x)
   })
-  register_binding("is_integer", function(x, n = NULL) {
+  register_binding("rlang::is_integer", function(x, n = NULL) {
     assert_that(is.null(n))
     call_binding("is.integer", x)
   })
-  register_binding("is_list", function(x, n = NULL) {
+  register_binding("rlang::is_list", function(x, n = NULL) {
     assert_that(is.null(n))
     call_binding("is.list", x)
   })
-  register_binding("is_logical", function(x, n = NULL) {
+  register_binding("rlang::is_logical", function(x, n = NULL) {
     assert_that(is.null(n))
     call_binding("is.logical", x)
   })
 }
 
 register_bindings_type_elementwise <- function() {
-  register_binding("is.na", function(x) {
-    build_expr("is_null", x, options = list(nan_is_null = TRUE))
+  register_binding("base::is.na", function(x) {
+    Expression$create("is_null", x, options = list(nan_is_null = TRUE))
   })
 
-  register_binding("is.nan", function(x) {
+  register_binding("base::is.nan", function(x) {
     if (is.double(x) || (inherits(x, "Expression") &&
       x$type_id() %in% TYPES_WITH_NAN)) {
       # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
       # use that to simplify the code here (ARROW-13366)
-      build_expr("is_nan", x) & build_expr("is_valid", x)
+      Expression$create("is_nan", x) & Expression$create("is_valid", x)
     } else {
       Expression$scalar(FALSE)
     }
   })
 
-  register_binding("between", function(x, left, right) {
+  register_binding("dplyr::between", function(x, left, right) {
     x >= left & x <= right
   })
 
-  register_binding("is.finite", function(x) {
+  register_binding("base::is.finite", function(x) {
     is_fin <- Expression$create("is_finite", x)
     # for compatibility with base::is.finite(), return FALSE for NA_real_
     is_fin & !call_binding("is.na", is_fin)
   })
 
-  register_binding("is.infinite", function(x) {
+  register_binding("base::is.infinite", function(x) {
     is_inf <- Expression$create("is_inf", x)
     # for compatibility with base::is.infinite(), return FALSE for NA_real_
     is_inf & !call_binding("is.na", is_inf)
@@ -251,7 +270,7 @@ register_bindings_type_elementwise <- function() {
 }
 
 register_bindings_type_format <- function() {
-  register_binding("format", function(x, ...) {
+  register_binding("base::format", function(x, ...) {
     # We use R's format if we get a single R object here since we don't (yet)
     # support all of the possible options for casting to string
     if (!inherits(x, "Expression")) {
@@ -262,7 +281,7 @@ register_bindings_type_format <- function() {
       x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]) {
       binding_format_datetime(x, ...)
     } else {
-      build_expr("cast", x, options = cast_options(to_type = string()))
+      cast(x, string())
     }
   })
 }

@@ -15,7 +15,7 @@
     <parent>
         <artifactId>arrow-java-root</artifactId>
         <groupId>org.apache.arrow</groupId>
-        <version>9.0.0-SNAPSHOT</version>
+        <version>11.0.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -24,16 +24,11 @@
 
     <packaging>pom</packaging>
 
-    <properties>
-        <dep.grpc.version>1.44.1</dep.grpc.version>
-        <dep.netty-tcnative.version>2.0.46.Final</dep.netty-tcnative.version>
-        <dep.protobuf.version>3.19.4</dep.protobuf.version>
-    </properties>
-
     <modules>
         <module>flight-core</module>
         <module>flight-grpc</module>
         <module>flight-sql</module>
+        <module>flight-sql-jdbc-driver</module>
         <module>flight-integration-tests</module>
     </modules>
 
@@ -46,10 +41,10 @@
                     <version>0.6.1</version>
                     <configuration>
                         <protocArtifact>
-                            com.google.protobuf:protoc:${dep.protobuf.version}:exe:${os.detected.classifier}
+                            com.google.protobuf:protoc:${dep.protobuf-bom.version}:exe:${os.detected.classifier}
                         </protocArtifact>
                         <pluginId>grpc-java</pluginId>
-                        <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc.version}:exe:${os.detected.classifier}
+                        <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc-bom.version}:exe:${os.detected.classifier}
                         </pluginArtifact>
                     </configuration>
                 </plugin>

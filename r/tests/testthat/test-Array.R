@@ -180,6 +180,11 @@ test_that("Array support null type (ARROW-7064)", {
   expect_array_roundtrip(vctrs::unspecified(10), null())
 })
 
+test_that("Array support 0-length NULL vectors (Arrow-17543)", {
+  expect_type_equal(Array$create(c()), null())
+  expect_type_equal(Array$create(NULL), null())
+})
+
 test_that("Array supports logical vectors (ARROW-3341)", {
   # with NA
   x <- sample(c(TRUE, FALSE, NA), 1000, replace = TRUE)
@@ -526,7 +531,6 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   type <- struct(x = float64(), y = int16())
   a <- Array$create(df, type = type)
   expect_type_equal(a$type, type)
-
   type <- struct(x = float64(), y = int16(), z = int32())
   expect_error(
     Array$create(df, type = type),
@@ -785,7 +789,7 @@ test_that("Handling string data with embedded nuls", {
   # The behavior of the warnings/errors is slightly different with and without
   # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
   # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_if_r_version("3.5.0")
+  skip_on_r_older_than("3.6")
 
   # no error on conversion, because altrep laziness
   v <- expect_error(as.vector(array_with_nul), NA)
@@ -845,7 +849,6 @@ test_that("Array$create() should have helpful error", {
   int <- integer(0)
   num <- numeric(0)
   char <- character(0)
-  expect_error(Array$create(list()), "Requires at least one element to infer")
   expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
   expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
 
@@ -1025,6 +1028,14 @@ test_that("as_arrow_array() default method calls Array$create()", {
   )
 })
 
+test_that("as_arrow_array respects `type` argument (ARROW-17620)", {
+  df <- tibble::tibble(x = 1:10, y = 1:10)
+  type <- struct(x = float64(), y = int16())
+  a <- Array$create(df, type = type)
+
+  expect_type_equal(a, as_arrow_array(df, type = type))
+})
+
 test_that("as_arrow_array() works for Array", {
   array <- Array$create(logical(), type = null())
   expect_identical(as_arrow_array(array), array)
@@ -1110,7 +1121,7 @@ test_that("as_arrow_array() works for nested extension types", {
   nested_plain <- tibble::tibble(x = 1:5)
   extension_array <- vctrs_extension_array(nested_plain)
   expect_equal(
-    as_arrow_array(nested, type = extension_array$type),
+    as_arrow_array(nested_plain, type = extension_array$type),
     extension_array
   )
 })
@@ -1139,7 +1150,7 @@ test_that("Array$create() calls as_arrow_array() for nested extension types", {
   nested_plain <- tibble::tibble(x = 1:5)
   extension_array <- vctrs_extension_array(nested_plain)
   expect_equal(
-    Array$create(nested, type = extension_array$type),
+    Array$create(nested_plain, type = extension_array$type),
     extension_array
   )
 })
@@ -1157,6 +1168,69 @@ test_that("as_arrow_array() default method errors", {
   expect_snapshot_error(Array$create(vec, type = float64()))
   expect_snapshot_error(
     RecordBatch$create(col = vec, schema = schema(col = float64()))
+  )
+})
+
+test_that("as_arrow_array() works for blob::blob()", {
+  skip_if_not_installed("blob")
+
+  # empty
+  expect_r6_class(as_arrow_array(blob::blob()), "Array")
+  expect_equal(
+    as_arrow_array(blob::blob()),
+    as_arrow_array(list(), type = binary())
+  )
+
+  # all null
+  expect_equal(
+    as_arrow_array(blob::blob(NULL, NULL)),
+    as_arrow_array(list(NULL, NULL), type = binary())
+  )
+
+  expect_equal(
+    as_arrow_array(blob::blob(as.raw(1:5), NULL)),
+    as_arrow_array(list(as.raw(1:5), NULL), type = binary())
+  )
+
+  expect_equal(
+    as_arrow_array(blob::blob(as.raw(1:5)), type = large_binary()),
+    as_arrow_array(list(as.raw(1:5)), type = large_binary())
+  )
+
+  expect_snapshot_error(
+    as_arrow_array(blob::blob(as.raw(1:5)), type = int32())
+  )
+})
+
+test_that("as_arrow_array() works for vctrs::list_of()", {
+  # empty
+  expect_r6_class(as_arrow_array(vctrs::list_of(.ptype = integer())), "Array")
+  expect_equal(
+    as_arrow_array(vctrs::list_of(.ptype = integer())),
+    as_arrow_array(list(), type = list_of(int32()))
+  )
+
+  # all NULL
+  expect_equal(
+    as_arrow_array(vctrs::list_of(NULL, NULL, .ptype = integer())),
+    as_arrow_array(list(NULL, NULL), type = list_of(int32()))
+  )
+
+  expect_equal(
+    as_arrow_array(vctrs::list_of(1:5, NULL, .ptype = integer())),
+    as_arrow_array(list(1:5, NULL), type = list_of(int32()))
+  )
+
+  expect_equal(
+    as_arrow_array(
+      vctrs::list_of(1:5, .ptype = integer()),
+      type = large_list_of(int32())
+    ),
+    as_arrow_array(list(1:5), type = large_list_of(int32()))
+  )
+
+  expect_snapshot_error(
+    as_arrow_array(vctrs::list_of(1:5, .ptype = integer()), type = int32())
   )
 })
 

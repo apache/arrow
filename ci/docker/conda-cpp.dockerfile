@@ -22,21 +22,29 @@ FROM ${repo}:${arch}-conda
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 
+# Unless overriden use Python 3.10
+# Google GCS fails building with Python 3.11 at the moment.
+ARG python=3.10
+
 # install the required conda packages into the test environment
 COPY ci/conda_env_cpp.txt \
      ci/conda_env_gandiva.txt \
      /arrow/ci/
-RUN mamba install \
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
+        python=${python} \
         valgrind && \
     mamba clean --all
 
 # We want to install the GCS testbench using the same Python binary that the Conda code will use.
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
@@ -59,7 +67,6 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
-    CMAKE_CXX_STANDARD=17 \
     GTest_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \

@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
+	"sync"
 
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v9/parquet/metadata"
-	"golang.org/x/exp/mmap"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v11/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v11/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -48,47 +49,8 @@ type Reader struct {
 	metadata      *metadata.FileMetaData
 	footerOffset  int64
 	fileDecryptor encryption.FileDecryptor
-}
 
-// an adapter for mmap'd files
-type mmapAdapter struct {
-	*mmap.ReaderAt
-
-	pos int64
-}
-
-func (m *mmapAdapter) Close() error {
-	return m.ReaderAt.Close()
-}
-
-func (m *mmapAdapter) ReadAt(p []byte, off int64) (int, error) {
-	return m.ReaderAt.ReadAt(p, off)
-}
-
-func (m *mmapAdapter) Read(p []byte) (n int, err error) {
-	n, err = m.ReaderAt.ReadAt(p, m.pos)
-	m.pos += int64(n)
-	return
-}
-
-func (m *mmapAdapter) Seek(offset int64, whence int) (int64, error) {
-	newPos, offs := int64(0), offset
-	switch whence {
-	case io.SeekStart:
-		newPos = offs
-	case io.SeekCurrent:
-		newPos = m.pos + offs
-	case io.SeekEnd:
-		newPos = int64(m.ReaderAt.Len()) + offs
-	}
-	if newPos < 0 {
-		return 0, xerrors.New("negative result pos")
-	}
-	if newPos > int64(m.ReaderAt.Len()) {
-		return 0, xerrors.New("new position exceeds size of file")
-	}
-	m.pos = newPos
-	return newPos, nil
+	bufferPool sync.Pool
 }
 
 type ReadOption func(*Reader)
@@ -119,11 +81,10 @@ func OpenParquetFile(filename string, memoryMap bool, opts ...ReadOption) (*Read
 
 	var err error
 	if memoryMap {
-		rdr, err := mmap.Open(filename)
+		source, err = mmapOpen(filename)
 		if err != nil {
 			return nil, err
 		}
-		source = &mmapAdapter{rdr, 0}
 	} else {
 		source, err = os.Open(filename)
 		if err != nil {
@@ -156,11 +117,29 @@ func NewParquetReader(r parquet.ReaderAtSeeker, opts ...ReadOption) (*Reader, er
 		f.props = parquet.NewReaderProperties(memory.NewGoAllocator())
 	}
 
+	f.bufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := memory.NewResizableBuffer(f.props.Allocator())
+			runtime.SetFinalizer(buf, func(obj *memory.Buffer) {
+				obj.Release()
+			})
+			return buf
+		},
+	}
+
 	if f.metadata == nil {
 		return f, f.parseMetaData()
 	}
 
 	return f, nil
+}
+
+// BufferPool returns the internal buffer pool being utilized by this reader.
+// This is primarily for use by the pqarrow.FileReader or anything that builds
+// on top of the Reader and constructs their own ColumnReaders (like the
+// RecordReader)
+func (f *Reader) BufferPool() *sync.Pool {
+	return &f.bufferPool
 }
 
 // Close will close the current reader, and if the underlying reader being used
@@ -333,5 +312,6 @@ func (f *Reader) RowGroup(i int) *RowGroupReader {
 		r:             f.r,
 		sourceSz:      f.footerOffset,
 		fileDecryptor: f.fileDecryptor,
+		bufferPool:    &f.bufferPool,
 	}
 }

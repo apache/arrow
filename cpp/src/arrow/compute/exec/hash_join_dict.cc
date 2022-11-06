@@ -127,7 +127,7 @@ static Result<std::shared_ptr<ArrayData>> ConvertImp(
   } else {
     const auto& scalar = input.scalar_as<arrow::internal::PrimitiveScalarBase>();
     if (scalar.is_valid) {
-      const util::string_view data = scalar.view();
+      const std::string_view data = scalar.view();
       DCHECK_EQ(data.size(), sizeof(FROM));
       const FROM from = *reinterpret_cast<const FROM*>(data.data());
       const TO to_value = static_cast<TO>(from);
@@ -224,8 +224,8 @@ Status HashJoinDictBuild::Init(ExecContext* ctx, std::shared_ptr<Array> dictiona
 
   // Initialize encoder
   internal::RowEncoder encoder;
-  std::vector<ValueDescr> encoder_types;
-  encoder_types.emplace_back(value_type_, ValueDescr::ARRAY);
+  std::vector<TypeHolder> encoder_types;
+  encoder_types.emplace_back(value_type_);
   encoder.Init(encoder_types, ctx);
 
   // Encode all dictionary values
@@ -234,8 +234,7 @@ Status HashJoinDictBuild::Init(ExecContext* ctx, std::shared_ptr<Array> dictiona
     return Status::Invalid(
         "Dictionary length in hash join must fit into signed 32-bit integer.");
   }
-  ExecBatch batch({dictionary->data()}, length);
-  RETURN_NOT_OK(encoder.EncodeAndAppend(batch));
+  RETURN_NOT_OK(encoder.EncodeAndAppend(ExecSpan({*dictionary->data()}, length)));
 
   std::vector<int32_t> entries_to_take;
 
@@ -286,8 +285,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapInputValues(
   // Initialize encoder
   //
   internal::RowEncoder encoder;
-  std::vector<ValueDescr> encoder_types;
-  encoder_types.emplace_back(value_type_, ValueDescr::ARRAY);
+  std::vector<TypeHolder> encoder_types = {value_type_};
   encoder.Init(encoder_types, ctx);
 
   // Encode all
@@ -296,7 +294,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapInputValues(
   bool is_scalar = values.is_scalar();
   int64_t encoded_length = is_scalar ? 1 : batch_length;
   ExecBatch batch({values}, encoded_length);
-  RETURN_NOT_OK(encoder.EncodeAndAppend(batch));
+  RETURN_NOT_OK(encoder.EncodeAndAppend(ExecSpan(batch)));
 
   // Allocate output buffers
   //
@@ -423,11 +421,10 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictProbe::RemapInput(
             remapped_ids_,
             opt_build_side->RemapInputValues(ctx, Datum(dict->data()), dict->length()));
       } else {
-        std::vector<ValueDescr> encoder_types;
-        encoder_types.emplace_back(dict_type.value_type(), ValueDescr::ARRAY);
+        std::vector<TypeHolder> encoder_types = {dict_type.value_type()};
         encoder_.Init(encoder_types, ctx);
-        ExecBatch batch({dict->data()}, dict->length());
-        RETURN_NOT_OK(encoder_.EncodeAndAppend(batch));
+        RETURN_NOT_OK(
+            encoder_.EncodeAndAppend(ExecSpan({*dict->data()}, dict->length())));
       }
     }
 
@@ -517,14 +514,14 @@ void HashJoinDictBuildMulti::InitEncoder(
     const SchemaProjectionMaps<HashJoinProjection>& proj_map, RowEncoder* encoder,
     ExecContext* ctx) {
   int num_cols = proj_map.num_cols(HashJoinProjection::KEY);
-  std::vector<ValueDescr> data_types(num_cols);
+  std::vector<TypeHolder> data_types(num_cols);
   for (int icol = 0; icol < num_cols; ++icol) {
     std::shared_ptr<DataType> data_type =
         proj_map.data_type(HashJoinProjection::KEY, icol);
     if (HashJoinDictBuild::KeyNeedsProcessing(data_type)) {
       data_type = HashJoinDictBuild::DataTypeAfterRemapping();
     }
-    data_types[icol] = ValueDescr(data_type, ValueDescr::ARRAY);
+    data_types[icol] = data_type;
   }
   encoder->Init(data_types, ctx);
 }
@@ -547,7 +544,7 @@ Status HashJoinDictBuildMulti::EncodeBatch(
                                       proj_map.data_type(HashJoinProjection::KEY, icol)));
     }
   }
-  return encoder->EncodeAndAppend(projected);
+  return encoder->EncodeAndAppend(ExecSpan(projected));
 }
 
 Status HashJoinDictBuildMulti::PostDecode(
@@ -611,7 +608,7 @@ void HashJoinDictProbeMulti::InitEncoder(
     const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, RowEncoder* encoder,
     ExecContext* ctx) {
   int num_cols = proj_map_probe.num_cols(HashJoinProjection::KEY);
-  std::vector<ValueDescr> data_types(num_cols);
+  std::vector<TypeHolder> data_types(num_cols);
   for (int icol = 0; icol < num_cols; ++icol) {
     std::shared_ptr<DataType> data_type =
         proj_map_probe.data_type(HashJoinProjection::KEY, icol);
@@ -620,7 +617,7 @@ void HashJoinDictProbeMulti::InitEncoder(
     if (HashJoinDictProbe::KeyNeedsProcessing(data_type, build_data_type)) {
       data_type = HashJoinDictProbe::DataTypeAfterRemapping(build_data_type);
     }
-    data_types[icol] = ValueDescr(data_type, ValueDescr::ARRAY);
+    data_types[icol] = data_type;
   }
   encoder->Init(data_types, ctx);
 }
@@ -656,7 +653,7 @@ Status HashJoinDictProbeMulti::EncodeBatch(
   }
 
   local_state.post_remap_encoder.Clear();
-  RETURN_NOT_OK(local_state.post_remap_encoder.EncodeAndAppend(projected));
+  RETURN_NOT_OK(local_state.post_remap_encoder.EncodeAndAppend(ExecSpan(projected)));
   *out_encoder = &local_state.post_remap_encoder;
 
   return Status::OK();

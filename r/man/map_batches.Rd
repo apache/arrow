@@ -4,7 +4,7 @@
 \alias{map_batches}
 \title{Apply a function to a stream of RecordBatches}
 \usage{
-map_batches(X, FUN, ..., .data.frame = NULL)
+map_batches(X, FUN, ..., .schema = NULL, .lazy = TRUE, .data.frame = NULL)
 }
 \arguments{
 \item{X}{A \code{Dataset} or \code{arrow_dplyr_query} object, as returned by the
@@ -15,6 +15,13 @@ batch. It must return a RecordBatch or something coercible to one via
 `as_record_batch()'.}
 
 \item{...}{Additional arguments passed to \code{FUN}}
+
+\item{.schema}{An optional \code{\link[=schema]{schema()}}. If NULL, the schema will be inferred
+from the first batch.}
+
+\item{.lazy}{Use \code{TRUE} to evaluate \code{FUN} lazily as batches are read from
+the result; use \code{FALSE} to evaluate \code{FUN} on all batches before returning
+the reader.}
 
 \item{.data.frame}{Deprecated argument, ignored}
 }
@@ -30,10 +37,6 @@ without having to hold the entire Dataset in memory at once. You can include
 stream of data in Arrow after it.
 }
 \details{
-Note that, unlike the core dplyr methods that are implemented in the Arrow
-query engine, \code{map_batches()} is not lazy: it starts evaluating on the data
-when you call it, even if you send its result to another pipeline function.
-
 This is experimental and not recommended for production use. It is also
 single-threaded and runs in R not C++, so it won't be as fast as core
 Arrow methods.

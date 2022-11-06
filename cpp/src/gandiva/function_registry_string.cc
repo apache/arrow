@@ -87,11 +87,13 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("soundex", {}, DataTypeVector{utf8()}, utf8(), kResultNullInternal,
                      "soundex_utf8", NativeFunction::kNeedsContext),
 
-      NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                     "gdv_fn_upper_utf8", NativeFunction::kNeedsContext),
+      NativeFunction("upper", {"ucase"}, DataTypeVector{utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_upper_utf8",
+                     NativeFunction::kNeedsContext),
 
-      NativeFunction("lower", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                     "gdv_fn_lower_utf8", NativeFunction::kNeedsContext),
+      NativeFunction("lower", {"lcase"}, DataTypeVector{utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_lower_utf8",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("initcap", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "gdv_fn_initcap_utf8",
@@ -509,8 +511,37 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext),
 
       NativeFunction("instr", {}, DataTypeVector{utf8(), utf8()}, int32(),
-                     kResultNullIfNull, "instr_utf8")};
+                     kResultNullIfNull, "instr_utf8"),
 
+      NativeFunction("translate", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "translate_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("substring_index", {}, DataTypeVector{utf8(), utf8(), int32()},
+                     utf8(), kResultNullIfNull, "gdv_fn_substring_index",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("mask_show_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "gdv_mask_show_first_n_utf8_int32",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("mask_show_last_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "gdv_mask_show_last_n_utf8_int32",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("mask", {}, DataTypeVector{utf8(), utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "mask_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("mask", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "mask_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("mask", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "mask_utf8_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("mask", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "mask_utf8", NativeFunction::kNeedsContext)};
   return string_fn_registry_;
 }
 

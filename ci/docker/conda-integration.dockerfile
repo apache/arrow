@@ -27,7 +27,8 @@ ARG go=1.15
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
-RUN mamba install -q \
+
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
         "python>=3.7" \
         numpy \
@@ -62,6 +63,7 @@ ENV ARROW_BUILD_INTEGRATION=ON \
     ARROW_DATASET=OFF \
     ARROW_FILESYSTEM=OFF \
     ARROW_FLIGHT=ON \
+    ARROW_FLIGHT_SQL=ON \
     ARROW_GANDIVA=OFF \
     ARROW_HDFS=OFF \
     ARROW_JEMALLOC=OFF \

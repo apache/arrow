@@ -52,8 +52,9 @@ class CppConfiguration:
                  # Components
                  with_compute=None, with_csv=None, with_cuda=None,
                  with_dataset=None, with_filesystem=None, with_flight=None,
-                 with_gandiva=None, with_hdfs=None, with_hiveserver2=None,
-                 with_ipc=True, with_json=None, with_jni=None,
+                 with_gandiva=None, with_gcs=None, with_hdfs=None,
+                 with_hiveserver2=None,
+                 with_ipc=True, with_json=None,
                  with_mimalloc=None, with_jemalloc=None,
                  with_parquet=None, with_plasma=None, with_python=True,
                  with_r=None, with_s3=None,
@@ -95,11 +96,11 @@ class CppConfiguration:
         self.with_filesystem = with_filesystem
         self.with_flight = with_flight
         self.with_gandiva = with_gandiva
+        self.with_gcs = with_gcs
         self.with_hdfs = with_hdfs
         self.with_hiveserver2 = with_hiveserver2
         self.with_ipc = with_ipc
         self.with_json = with_json
-        self.with_jni = with_jni
         self.with_mimalloc = with_mimalloc
         self.with_jemalloc = with_jemalloc
         self.with_parquet = with_parquet
@@ -132,8 +133,14 @@ class CppConfiguration:
             self.with_parquet = coalesce(with_parquet, True)
 
         if self.with_python:
-            self.with_zlib = coalesce(with_zlib, True)
+            self.with_compute = coalesce(with_compute, True)
+            self.with_csv = coalesce(with_csv, True)
+            self.with_dataset = coalesce(with_dataset, True)
+            self.with_filesystem = coalesce(with_filesystem, True)
+            self.with_hdfs = coalesce(with_hdfs, True)
+            self.with_json = coalesce(with_json, True)
             self.with_lz4 = coalesce(with_lz4, True)
+            self.with_zlib = coalesce(with_zlib, True)
 
         if self.with_dataset:
             self.with_filesystem = coalesce(with_filesystem, True)
@@ -218,16 +225,14 @@ class CppConfiguration:
         yield ("ARROW_FILESYSTEM", truthifier(self.with_filesystem))
         yield ("ARROW_FLIGHT", truthifier(self.with_flight))
         yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
-        yield ("ARROW_PARQUET", truthifier(self.with_parquet))
+        yield ("ARROW_GCS", truthifier(self.with_gcs))
         yield ("ARROW_HDFS", truthifier(self.with_hdfs))
-        yield ("ARROW_HIVESERVER2", truthifier(self.with_hiveserver2))
         yield ("ARROW_IPC", truthifier(self.with_ipc))
         yield ("ARROW_JSON", truthifier(self.with_json))
-        yield ("ARROW_JNI", truthifier(self.with_jni))
         yield ("ARROW_MIMALLOC", truthifier(self.with_mimalloc))
         yield ("ARROW_JEMALLOC", truthifier(self.with_jemalloc))
+        yield ("ARROW_PARQUET", truthifier(self.with_parquet))
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
-        yield ("ARROW_PYTHON", truthifier(self.with_python))
         yield ("ARROW_S3", truthifier(self.with_s3))
 
         # Compressions

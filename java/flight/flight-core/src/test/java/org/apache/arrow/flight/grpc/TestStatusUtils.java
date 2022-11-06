@@ -19,8 +19,8 @@ package org.apache.arrow.flight.grpc;
 
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightStatusCode;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import io.grpc.Metadata;
 import io.grpc.Status;
@@ -40,12 +40,12 @@ public class TestStatusUtils {
 
     CallStatus callStatus = StatusUtils.fromGrpcStatusAndTrailers(status, trailers);
 
-    Assert.assertEquals(FlightStatusCode.CANCELLED, callStatus.code());
-    Assert.assertTrue(callStatus.metadata().containsKey(":status"));
-    Assert.assertEquals("502", callStatus.metadata().get(":status"));
-    Assert.assertTrue(callStatus.metadata().containsKey("date"));
-    Assert.assertEquals("Fri, 13 Sep 2015 11:23:58 GMT", callStatus.metadata().get("date"));
-    Assert.assertTrue(callStatus.metadata().containsKey("content-type"));
-    Assert.assertEquals("text/html", callStatus.metadata().get("content-type"));
+    Assertions.assertEquals(FlightStatusCode.CANCELLED, callStatus.code());
+    Assertions.assertTrue(callStatus.metadata().containsKey(":status"));
+    Assertions.assertEquals("502", callStatus.metadata().get(":status"));
+    Assertions.assertTrue(callStatus.metadata().containsKey("date"));
+    Assertions.assertEquals("Fri, 13 Sep 2015 11:23:58 GMT", callStatus.metadata().get("date"));
+    Assertions.assertTrue(callStatus.metadata().containsKey("content-type"));
+    Assertions.assertEquals("text/html", callStatus.metadata().get("content-type"));
   }
 }

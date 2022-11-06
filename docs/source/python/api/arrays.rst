@@ -127,3 +127,4 @@ classes may expose data type-specific methods or properties.
    MapScalar
    StructScalar
    UnionScalar
+   ExtensionScalar

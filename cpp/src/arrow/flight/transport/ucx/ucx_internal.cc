@@ -19,6 +19,7 @@
 
 #include <array>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
@@ -28,7 +29,6 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -180,7 +180,7 @@ arrow::Result<HeadersFrame> HeadersFrame::Parse(std::unique_ptr<Buffer> buffer) 
       return Status::Invalid("Buffer underflow, expected key ", i + 1, " to have length ",
                              key_length, ", but only ", (end - payload), " bytes remain");
     }
-    const util::string_view key(reinterpret_cast<const char*>(payload), key_length);
+    const std::string_view key(reinterpret_cast<const char*>(payload), key_length);
     payload += key_length;
 
     if (ARROW_PREDICT_FALSE((end - payload) < value_length)) {
@@ -188,7 +188,7 @@ arrow::Result<HeadersFrame> HeadersFrame::Parse(std::unique_ptr<Buffer> buffer) 
                              " to have length ", value_length, ", but only ",
                              (end - payload), " bytes remain");
     }
-    const util::string_view value(reinterpret_cast<const char*>(payload), value_length);
+    const std::string_view value(reinterpret_cast<const char*>(payload), value_length);
     payload += value_length;
     result.headers_.emplace_back(key, value);
   }
@@ -243,7 +243,7 @@ arrow::Result<HeadersFrame> HeadersFrame::Make(
   return Make(all_headers);
 }
 
-arrow::Result<util::string_view> HeadersFrame::Get(const std::string& key) {
+arrow::Result<std::string_view> HeadersFrame::Get(const std::string& key) {
   for (const auto& pair : headers_) {
     if (pair.first == key) return pair.second;
   }
@@ -252,7 +252,7 @@ arrow::Result<util::string_view> HeadersFrame::Get(const std::string& key) {
 
 Status HeadersFrame::GetStatus(Status* out) {
   static const std::string kUnknownMessage = "Server did not send status message header";
-  util::string_view code_str, message_str;
+  std::string_view code_str, message_str;
   auto status = Get(kHeaderStatus).Value(&code_str);
   if (!status.ok()) {
     return Status::KeyError("Server did not send status code header ", kHeaderStatusCode);
@@ -273,8 +273,8 @@ Status HeadersFrame::GetStatus(Status* out) {
   }
   *out = transport_status.ToStatus();
 
-  util::string_view detail_str, bin_str;
-  util::optional<std::string> message, detail_message, detail_bin;
+  std::string_view detail_str, bin_str;
+  std::optional<std::string> message, detail_message, detail_bin;
   if (!Get(kHeaderStatusCode).Value(&code_str).ok()) {
     // No Arrow status sent, go with the transport status
     return Status::OK();
@@ -363,7 +363,7 @@ Status PayloadHeaderFrame::ToFlightData(internal::FlightData* data) {
       return Status::Invalid("Buffer is too small: expected ", offset + size,
                              " bytes but have ", buffer->size());
     }
-    util::string_view desc(reinterpret_cast<const char*>(buffer->data() + offset), size);
+    std::string_view desc(reinterpret_cast<const char*>(buffer->data() + offset), size);
     data->descriptor.reset(new FlightDescriptor());
     ARROW_ASSIGN_OR_RAISE(*data->descriptor, FlightDescriptor::Deserialize(desc));
     offset += size;
@@ -621,7 +621,7 @@ class UcpCallDriver::Impl {
       // Preliminary profiling shows ~5% overhead just from mapping the buffer
       // alone (on Infiniband; it seems to be trivial for shared memory)
       request_param.datatype = ucp_dt_make_contig(1);
-      pending_send = arrow::internal::make_unique<PendingContigSend>();
+      pending_send = std::make_unique<PendingContigSend>();
       auto* pending_contig = reinterpret_cast<PendingContigSend*>(pending_send.get());
 
       const int64_t body_length = std::max<int64_t>(payload.ipc_message.body_length, 1);
@@ -654,7 +654,7 @@ class UcpCallDriver::Impl {
     } else {
       // IOV - let UCX use scatter-gather path
       request_param.datatype = UCP_DATATYPE_IOV;
-      pending_send = arrow::internal::make_unique<PendingIovSend>();
+      pending_send = std::make_unique<PendingIovSend>();
       auto* pending_iov = reinterpret_cast<PendingIovSend*>(pending_send.get());
 
       pending_iov->payload = payload;
@@ -910,8 +910,7 @@ class UcpCallDriver::Impl {
       // never use Then/AddCallback on a Future<> from ReadFrameAsync,
       // because we might run the callback synchronously (which might
       // free the buffer) when we call Push here.
-      frame->buffer =
-          arrow::internal::make_unique<UcxDataBuffer>(worker_, data, data_length);
+      frame->buffer = std::make_unique<UcxDataBuffer>(worker_, data, data_length);
       Push(std::move(frame));
       return UCS_INPROGRESS;
     }

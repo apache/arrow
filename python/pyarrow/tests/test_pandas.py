@@ -69,7 +69,7 @@ def _alltypes_example(size=100):
         # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
         # us, ns
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]'),
+                              dtype='datetime64[ms]').astype("datetime64[ns]"),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
@@ -149,6 +149,22 @@ class TestConvertMetadata:
         table = pa.Table.from_pandas(df)
         assert table.field(0).name == '0'
 
+    def test_non_string_columns_with_index(self):
+        df = pd.DataFrame({0: [1.0, 2.0, 3.0], 1: [4.0, 5.0, 6.0]})
+        df = df.set_index(0)
+
+        # assert that the from_pandas raises the warning
+        with pytest.warns(UserWarning):
+            table = pa.Table.from_pandas(df)
+            assert table.field(0).name == '1'
+
+        expected = df.copy()
+        # non-str index name will be converted to str
+        expected.index.name = str(expected.index.name)
+        with pytest.warns(UserWarning):
+            _check_pandas_roundtrip(df, expected=expected,
+                                    preserve_index=True)
+
     def test_from_pandas_with_columns(self):
         df = pd.DataFrame({0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]},
                           columns=[1, 0])
@@ -226,7 +242,7 @@ class TestConvertMetadata:
         with pytest.warns(None) as record:
             _check_pandas_roundtrip(df, preserve_index=True)
 
-        assert len(record) == 0
+        assert len(record) == 0, [r.message for r in record]
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
@@ -277,7 +293,7 @@ class TestConvertMetadata:
         with pytest.warns(None) as record:
             _check_pandas_roundtrip(df, preserve_index=True)
 
-        assert len(record) == 0
+        assert len(record) == 0, [r.message for r in record]
 
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
@@ -1000,7 +1016,7 @@ class TestConvertDateTimeLikeTypes:
                 '2007-07-13T01:23:34.123',
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
+                dtype='datetime64[ms]').astype("datetime64[ns]")
         })
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
@@ -2702,7 +2718,7 @@ class TestConvertMisc:
         cases.append(boolean_objects)
 
         cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
-                               dtype='datetime64[ms]')
+                               dtype='datetime64[ms]').astype("datetime64[ns]")
                      .reshape(N, K).copy())
 
         strided_mask = (random_numbers > 0).astype(bool)[:, 0]
@@ -3797,10 +3813,11 @@ def test_dictionary_from_pandas_specified_type():
     with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
 
-    # mismatching order -> raise error (for now a deprecation warning)
+    # mismatching order -> raise error
     typ = pa.dictionary(
         index_type=pa.int8(), value_type=pa.string(), ordered=True)
-    with pytest.warns(FutureWarning, match="The 'ordered' flag of the passed"):
+    msg = "The 'ordered' flag of the passed categorical values "
+    with pytest.raises(ValueError, match=msg):
         result = pa.array(cat, type=typ)
     assert result.to_pylist() == ['a', 'b']
 
@@ -4455,5 +4472,29 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
         assert result[0] == expected
 
 
+def test_timestamp_as_object_fixed_offset():
+    # ARROW-16547 to_pandas with timestamp_as_object=True and FixedOffset
+    pytz = pytest.importorskip("pytz")
+    import datetime
+    timezone = pytz.FixedOffset(120)
+    dt = timezone.localize(datetime.datetime(2022, 5, 12, 16, 57))
+
+    table = pa.table({"timestamp_col": pa.array([dt])})
+    result = table.to_pandas(timestamp_as_object=True)
+    assert pa.table(result) == table
+
+
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
+
+
+def test_does_not_mutate_timedelta_dtype():
+    expected = np.dtype('m8')
+
+    assert np.dtype(np.timedelta64) == expected
+
+    df = pd.DataFrame({"a": [np.timedelta64()]})
+    t = pa.Table.from_pandas(df)
+    t.to_pandas()
+
+    assert np.dtype(np.timedelta64) == expected

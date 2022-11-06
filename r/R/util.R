@@ -93,6 +93,15 @@ all_funs <- function(expr) {
     expr <- quo_get_expr(expr)
   }
   names <- all.names(expr)
+  # if we have namespace-qualified functions, we rebuild the function name with
+  # the `pkg::` prefix
+  if ("::" %in% names) {
+    for (i in seq_along(names)) {
+      if (names[i] == "::") {
+        names[i] <- paste0(names[i + 1], names[i], names[i + 2])
+      }
+    }
+  }
   names[map_lgl(names, ~ is_function(expr, .))]
 }
 
@@ -125,8 +134,7 @@ read_compressed_error <- function(e) {
   stop(e)
 }
 
-handle_parquet_io_error <- function(e, format, call) {
-  msg <- conditionMessage(e)
+handle_parquet_io_error <- function(msg, call, format) {
   if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
     # If length(format) > 1, that means it is (almost certainly) the default/not specified value
     # so let the user know that they should specify the actual (not parquet) format
@@ -134,8 +142,8 @@ handle_parquet_io_error <- function(e, format, call) {
       msg,
       i = "Did you mean to specify a 'format' other than the default (parquet)?"
     )
+    abort(msg, call = call)
   }
-  abort(msg, call = call)
 }
 
 as_writable_table <- function(x) {
@@ -145,7 +153,7 @@ as_writable_table <- function(x) {
       abort(
         "Object must be coercible to an Arrow Table using `as_arrow_table()`",
         parent = e,
-        call = rlang::caller_env(2)
+        call = caller_env(2)
       )
     }
   )
@@ -158,7 +166,7 @@ as_writable_table <- function(x) {
 #' @keywords internal
 recycle_scalars <- function(arrays) {
   # Get lengths of items in arrays
-  arr_lens <- map_int(arrays, NROW)
+  arr_lens <- map_dbl(arrays, NROW)
 
   is_scalar <- arr_lens == 1
 
@@ -196,9 +204,7 @@ repeat_value_as_array <- function(object, n) {
   return(Scalar$create(object)$as_array(n))
 }
 
-handle_csv_read_error <- function(e, schema, call) {
-  msg <- conditionMessage(e)
-
+handle_csv_read_error <- function(msg, call, schema) {
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     msg <- c(
       msg,
@@ -208,10 +214,39 @@ handle_csv_read_error <- function(e, schema, call) {
         "header being read in as data."
       )
     )
+    abort(msg, call = call)
   }
-  abort(msg, call = call)
+}
+
+handle_augmented_field_misuse <- function(msg, call) {
+  if (grepl("No match for FieldRef.Name(__filename)", msg, fixed = TRUE)) {
+    msg <- c(
+      msg,
+      i = paste(
+        "`add_filename()` or use of the `__filename` augmented field can only",
+        "be used with with Dataset objects, and can only be added before doing",
+        "an aggregation or a join."
+      )
+    )
+    abort(msg, call = call)
+  }
 }
 
 is_compressed <- function(compression) {
   !identical(compression, "uncompressed")
+}
+
+# handler function which checks for a number of different read errors
+augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
+  msg <- conditionMessage(e)
+
+  if (!is.null(schema)) {
+    handle_csv_read_error(msg, call, schema)
+  }
+  if (!is.null(format)) {
+    handle_parquet_io_error(msg, call, format)
+  }
+
+  handle_augmented_field_misuse(msg, call)
+  abort(msg, call = call)
 }

@@ -22,10 +22,10 @@ package cdata
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/arrio"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/arrio"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -223,6 +223,15 @@ func ExportArrowRecordBatch(rb arrow.Record, out *CArrowArray, outSchema *CArrow
 // you do not leak memory and prevent unwanted, undefined or strange behaviors.
 func ExportArrowArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	exportArray(arr, out, outSchema)
+}
+
+// ExportRecordReader populates the CArrowArrayStream that is passed in with the appropriate
+// callbacks to be a working ArrowArrayStream utilizing the passed in RecordReader. The
+// CArrowArrayStream takes ownership of the RecordReader until the consumer calls the release
+// callback, as such it is unnecesary to call Release on the passed in reader unless it has
+// previously been retained.
+func ExportRecordReader(reader array.RecordReader, out *CArrowArrayStream) {
+	exportStream(reader, out)
 }
 
 // ReleaseCArrowArray calls ArrowArrayRelease on the passed in cdata array

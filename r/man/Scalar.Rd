@@ -17,12 +17,14 @@ The \code{Scalar$create()} factory method instantiates a \code{Scalar} and takes
 }
 
 \section{Usage}{
-\preformatted{a <- Scalar$create(x)
+
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{a <- Scalar$create(x)
 length(a)
 
 print(a)
 a == a
-}
+}\if{html}{\out{</div>}}
 }
 
 \section{Methods}{

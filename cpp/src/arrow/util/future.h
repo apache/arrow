@@ -21,6 +21,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -29,9 +30,10 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/config.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
+#include "arrow/util/tracing.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -263,6 +265,10 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
   static std::unique_ptr<FutureImpl> Make();
   static std::unique_ptr<FutureImpl> MakeFinished(FutureState state);
 
+#ifdef ARROW_WITH_OPENTELEMETRY
+  void SetSpan(util::tracing::Span* span) { span_ = span; }
+#endif
+
   // Future API
   void MarkFinished();
   void MarkFailed();
@@ -278,10 +284,6 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
   bool TryAddCallback(const std::function<Callback()>& callback_factory,
                       CallbackOptions opts);
 
-  // Waiter API
-  inline FutureState SetWaiter(FutureWaiter* w, int future_num);
-  inline void RemoveWaiter(FutureWaiter* w);
-
   std::atomic<FutureState> state_{FutureState::PENDING};
 
   // Type erased storage for arbitrary results
@@ -294,63 +296,9 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
     CallbackOptions options;
   };
   std::vector<CallbackRecord> callbacks_;
-};
-
-// An object that waits on multiple futures at once.  Only one waiter
-// can be registered for each future at any time.
-class ARROW_EXPORT FutureWaiter {
- public:
-  enum Kind : int8_t { ANY, ALL, ALL_OR_FIRST_FAILED, ITERATE };
-
-  // HUGE_VAL isn't constexpr on Windows
-  // https://social.msdn.microsoft.com/Forums/vstudio/en-US/47e8b9ff-b205-4189-968e-ee3bc3e2719f/constexpr-compile-error?forum=vclanguage
-  static const double kInfinity;
-
-  static std::unique_ptr<FutureWaiter> Make(Kind kind, std::vector<FutureImpl*> futures);
-
-  template <typename FutureType>
-  static std::unique_ptr<FutureWaiter> Make(Kind kind,
-                                            const std::vector<FutureType>& futures) {
-    return Make(kind, ExtractFutures(futures));
-  }
-
-  virtual ~FutureWaiter();
-
-  bool Wait(double seconds = kInfinity);
-  int WaitAndFetchOne();
-
-  std::vector<int> MoveFinishedFutures();
-
- protected:
-  // Extract FutureImpls from Futures
-  template <typename FutureType,
-            typename Enable = std::enable_if<!std::is_pointer<FutureType>::value>>
-  static std::vector<FutureImpl*> ExtractFutures(const std::vector<FutureType>& futures) {
-    std::vector<FutureImpl*> base_futures(futures.size());
-    for (int i = 0; i < static_cast<int>(futures.size()); ++i) {
-      base_futures[i] = futures[i].impl_.get();
-    }
-    return base_futures;
-  }
-
-  // Extract FutureImpls from Future pointers
-  template <typename FutureType>
-  static std::vector<FutureImpl*> ExtractFutures(
-      const std::vector<FutureType*>& futures) {
-    std::vector<FutureImpl*> base_futures(futures.size());
-    for (int i = 0; i < static_cast<int>(futures.size()); ++i) {
-      base_futures[i] = futures[i]->impl_.get();
-    }
-    return base_futures;
-  }
-
-  FutureWaiter();
-  ARROW_DISALLOW_COPY_AND_ASSIGN(FutureWaiter);
-
-  inline void MarkFutureFinishedUnlocked(int future_num, FutureState state);
-
-  friend class FutureImpl;
-  friend class ConcreteFutureImpl;
+#ifdef ARROW_WITH_OPENTELEMETRY
+  util::tracing::Span* span_ = NULLPTR;
+#endif
 };
 
 // ---------------------------------------------------------------------
@@ -365,10 +313,9 @@ class ARROW_EXPORT FutureWaiter {
 /// status, possibly after running a computation function.
 ///
 /// The consumer API allows querying a Future's current state, wait for it
-/// to complete, or wait on multiple Futures at once (using WaitForAll,
-/// WaitForAny or AsCompletedIterator).
+/// to complete, and composing futures with callbacks.
 template <typename T>
-class ARROW_MUST_USE_TYPE Future {
+class [[nodiscard]] Future {
  public:
   using ValueType = T;
   using SyncType = typename detail::SyncType<T>::type;
@@ -377,6 +324,10 @@ class ARROW_MUST_USE_TYPE Future {
   // for a valid Future.  This constructor is mostly for the convenience
   // of being able to presize a vector of Futures.
   Future() = default;
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+  void SetSpan(util::tracing::Span* span) { impl_->SetSpan(span); }
+#endif
 
   // Consumer API
 
@@ -431,9 +382,7 @@ class ARROW_MUST_USE_TYPE Future {
   /// \brief Wait for the Future to complete
   void Wait() const {
     CheckValid();
-    if (!IsFutureFinished(impl_->state())) {
-      impl_->Wait();
-    }
+    impl_->Wait();
   }
 
   /// \brief Wait for the Future to complete, or for the timeout to expire
@@ -443,9 +392,6 @@ class ARROW_MUST_USE_TYPE Future {
   /// concurrently.
   bool Wait(double seconds) const {
     CheckValid();
-    if (IsFutureFinished(impl_->state())) {
-      return true;
-    }
     return impl_->Wait(seconds);
   }
 
@@ -563,7 +509,7 @@ class ARROW_MUST_USE_TYPE Future {
   template <typename CallbackFactory,
             typename OnComplete = detail::result_of_t<CallbackFactory()>,
             typename Callback = WrapOnComplete<OnComplete>>
-  bool TryAddCallback(const CallbackFactory& callback_factory,
+  bool TryAddCallback(CallbackFactory callback_factory,
                       CallbackOptions opts = CallbackOptions::Defaults()) const {
     return impl_->TryAddCallback([&]() { return Callback{callback_factory()}; }, opts);
   }
@@ -727,7 +673,6 @@ class ARROW_MUST_USE_TYPE Future {
 
   std::shared_ptr<FutureImpl> impl_;
 
-  friend class FutureWaiter;
   friend struct detail::ContinueFuture;
 
   template <typename U>
@@ -775,28 +720,6 @@ static Future<T> DeferNotOk(Result<Future<T>> maybe_future) {
     return Future<T>::MakeFinished(std::move(maybe_future).status());
   }
   return std::move(maybe_future).MoveValueUnsafe();
-}
-
-/// \brief Wait for all the futures to end, or for the given timeout to expire.
-///
-/// `true` is returned if all the futures completed before the timeout was reached,
-/// `false` otherwise.
-template <typename T>
-inline bool WaitForAll(const std::vector<Future<T>>& futures,
-                       double seconds = FutureWaiter::kInfinity) {
-  auto waiter = FutureWaiter::Make(FutureWaiter::ALL, futures);
-  return waiter->Wait(seconds);
-}
-
-/// \brief Wait for all the futures to end, or for the given timeout to expire.
-///
-/// `true` is returned if all the futures completed before the timeout was reached,
-/// `false` otherwise.
-template <typename T>
-inline bool WaitForAll(const std::vector<Future<T>*>& futures,
-                       double seconds = FutureWaiter::kInfinity) {
-  auto waiter = FutureWaiter::Make(FutureWaiter::ALL, futures);
-  return waiter->Wait(seconds);
 }
 
 /// \brief Create a Future which completes when all of `futures` complete.
@@ -854,46 +777,22 @@ Future<> AllComplete(const std::vector<Future<>>& futures);
 ARROW_EXPORT
 Future<> AllFinished(const std::vector<Future<>>& futures);
 
-/// \brief Wait for one of the futures to end, or for the given timeout to expire.
-///
-/// The indices of all completed futures are returned.  Note that some futures
-/// may not be in the returned set, but still complete concurrently.
-template <typename T>
-inline std::vector<int> WaitForAny(const std::vector<Future<T>>& futures,
-                                   double seconds = FutureWaiter::kInfinity) {
-  auto waiter = FutureWaiter::Make(FutureWaiter::ANY, futures);
-  waiter->Wait(seconds);
-  return waiter->MoveFinishedFutures();
-}
-
-/// \brief Wait for one of the futures to end, or for the given timeout to expire.
-///
-/// The indices of all completed futures are returned.  Note that some futures
-/// may not be in the returned set, but still complete concurrently.
-template <typename T>
-inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
-                                   double seconds = FutureWaiter::kInfinity) {
-  auto waiter = FutureWaiter::Make(FutureWaiter::ANY, futures);
-  waiter->Wait(seconds);
-  return waiter->MoveFinishedFutures();
-}
-
 /// @}
 
 struct Continue {
   template <typename T>
-  operator util::optional<T>() && {  // NOLINT explicit
+  operator std::optional<T>() && {  // NOLINT explicit
     return {};
   }
 };
 
 template <typename T = internal::Empty>
-util::optional<T> Break(T break_value = {}) {
-  return util::optional<T>{std::move(break_value)};
+std::optional<T> Break(T break_value = {}) {
+  return std::optional<T>{std::move(break_value)};
 }
 
 template <typename T = internal::Empty>
-using ControlFlow = util::optional<T>;
+using ControlFlow = std::optional<T>;
 
 /// \brief Loop through an asynchronous sequence
 ///

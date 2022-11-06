@@ -21,19 +21,19 @@
 
 Red Arrow Flight is the Ruby bindings of Apache Arrow Flight. Red Arrow Flight is based on GObject Introspection.
 
-[Apache Arrow Flight](https://arrow.apache.org/) is one of Apache Arrow components to read and write semantic flights stored in different locations and formats.
+[Apache Arrow Flight](https://arrow.apache.org/docs/format/Flight.html) is one of Apache Arrow components to read and write semantic flights stored in different locations and formats.
 
 [GObject Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection) is a middleware for language bindings of C library. GObject Introspection can generate language bindings automatically at runtime.
 
-Red Arrow Flight uses [Apache Arrow Flight GLib](https://github.com/apache/arrow/tree/master/c_glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Apache Arrow Flight.
+Red Arrow Flight uses [Apache Arrow Flight GLib](https://github.com/apache/arrow/tree/master/c_glib/arrow-flight-glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Apache Arrow Flight.
 
-Apache Arrow Flight GLib is a C wrapper for [Apache Arrow Flight C++](https://github.com/apache/arrow/tree/master/cpp). GObject Introspection can't use Apache Arrow Flight C++ directly. Apache Arrow Flight GLib is a bridge between Apache Arrow Flight C++ and GObject Introspection.
+Apache Arrow Flight GLib is a C wrapper for [Apache Arrow Flight C++](https://github.com/apache/arrow/tree/master/cpp/src/arrow/flight). GObject Introspection can't use Apache Arrow Flight C++ directly. Apache Arrow Flight GLib is a bridge between Apache Arrow Flight C++ and GObject Introspection.
 
 gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Arrow Flight uses GObject Introspection via gobject-introspection gem.
 
 ## Install
 
-Install Apache Arrow Flight GLib before install Red Arrow Flight. Install Apache Arrow GLib before install Red Arrow. See [Apache Arrow install document](https://arrow.apache.org/install/) for details.
+Install Apache Arrow Flight GLib before install Red Arrow Flight. See [Apache Arrow install document](https://arrow.apache.org/install/) for details.
 
 Install Red Arrow Flight after you install Apache Arrow Flight GLib:
 

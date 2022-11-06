@@ -426,12 +426,17 @@ class UniquePtr:
 
 class Variant:
     """
-    A arrow::util::Variant<...>.
+    A `std::variant<...>`.
     """
 
     def __init__(self, val):
         self.val = val
-        self.index = int(self.val['index_'])
+        try:
+            # libstdc++ internals
+            self.index = val['_M_index']
+        except gdb.error:
+            # fallback for other C++ standard libraries
+            self.index = gdb.parse_and_eval(f"{for_evaluation(val)}.index()")
         try:
             self.value_type = self.val.type.template_argument(self.index)
         except RuntimeError:
@@ -451,7 +456,7 @@ class Variant:
 
 class StdString:
     """
-    A `std::string` (or possibly `string_view`) value.
+    A `std::string` (or possibly `std::string_view`) value.
     """
 
     def __init__(self, val):
@@ -1406,13 +1411,12 @@ class FixedSizeBinaryScalarPrinter(BaseBinaryScalarPrinter):
 
     def to_string(self):
         size = self.type['byte_width_']
-        if not self.is_valid:
-            return f"{self._format_type()} of size {size}, null value"
         bufptr = BufferPtr(SharedPtr(self.val['value']).get())
         if bufptr.data is None:
             return f"{self._format_type()} of size {size}, <unallocated>"
+        nullness = '' if self.is_valid else 'null with '
         return (f"{self._format_type()} of size {size}, "
-                f"value {self._format_buf(bufptr)}")
+                f"{nullness}value {self._format_buf(bufptr)}")
 
 
 class DictionaryScalarPrinter(ScalarPrinter):
@@ -1450,6 +1454,8 @@ class StructScalarPrinter(ScalarPrinter):
         return 'map'
 
     def children(self):
+        if not self.is_valid:
+            return None
         eval_fields = StdVector(self.type['children_'])
         eval_values = StdVector(self.val['value'])
         for field, value in zip(eval_fields, eval_values):
@@ -1463,7 +1469,24 @@ class StructScalarPrinter(ScalarPrinter):
         return f"{self._format_type()}"
 
 
-class UnionScalarPrinter(ScalarPrinter):
+class SparseUnionScalarPrinter(ScalarPrinter):
+    """
+    Pretty-printer for arrow::UnionScalar and subclasses.
+    """
+
+    def to_string(self):
+        type_code = self.val['type_code'].cast(gdb.lookup_type('int'))
+        if not self.is_valid:
+            return (f"{self._format_type()} of type {self.type}, "
+                    f"type code {type_code}, null value")
+        eval_values = StdVector(self.val['value'])
+        child_id = self.val['child_id'].cast(gdb.lookup_type('int'))
+        return (f"{self._format_type()} of type code {type_code}, "
+                f"value {deref(eval_values[child_id])}")
+
+
+
+class DenseUnionScalarPrinter(ScalarPrinter):
     """
     Pretty-printer for arrow::UnionScalar and subclasses.
     """
@@ -1968,10 +1991,16 @@ class StructTypeClass(DataTypeClass):
     scalar_printer = StructScalarPrinter
 
 
-class UnionTypeClass(DataTypeClass):
+class DenseUnionTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = UnionTypePrinter
-    scalar_printer = UnionScalarPrinter
+    scalar_printer = DenseUnionScalarPrinter
+
+
+class SparseUnionTypeClass(DataTypeClass):
+    is_parametric = True
+    type_printer = UnionTypePrinter
+    scalar_printer = SparseUnionScalarPrinter
 
 
 class DictionaryTypeClass(DataTypeClass):
@@ -2037,8 +2066,8 @@ type_traits_by_id = {
     Type.MAP: DataTypeTraits(MapTypeClass, 'MapType'),
 
     Type.STRUCT: DataTypeTraits(StructTypeClass, 'StructType'),
-    Type.SPARSE_UNION: DataTypeTraits(UnionTypeClass, 'SparseUnionType'),
-    Type.DENSE_UNION: DataTypeTraits(UnionTypeClass, 'DenseUnionType'),
+    Type.SPARSE_UNION: DataTypeTraits(SparseUnionTypeClass, 'SparseUnionType'),
+    Type.DENSE_UNION: DataTypeTraits(DenseUnionTypeClass, 'DenseUnionType'),
 
     Type.DICTIONARY: DataTypeTraits(DictionaryTypeClass, 'DictionaryType'),
     Type.EXTENSION: DataTypeTraits(ExtensionTypeClass, 'ExtensionType'),
@@ -2132,67 +2161,6 @@ class ResultPrinter(StatusPrinter):
             inner = data_ptr.reinterpret_cast(
                 data_type.pointer()).dereference()
         return f"arrow::Result<{data_type}>({inner})"
-
-
-class StringViewPrinter:
-    """
-    Pretty-printer for arrow::util::string_view.
-    """
-
-    def __init__(self, name, val):
-        self.val = val
-
-    def to_string(self):
-        size = int(self.val['size_'])
-        if size == 0:
-            return f"arrow::util::string_view of size 0"
-        else:
-            data = bytes_literal(self.val['data_'], size)
-            return f"arrow::util::string_view of size {size}, {data}"
-
-
-class OptionalPrinter:
-    """
-    Pretty-printer for arrow::util::optional.
-    """
-
-    def __init__(self, name, val):
-        self.val = val
-
-    def to_string(self):
-        data_type = self.val.type.template_argument(0)
-        # XXX We rely on internal details of our vendored optional<T>
-        # implementation, as inlined methods may not be callable from gdb.
-        if not self.val['has_value_']:
-            inner = "nullopt"
-        else:
-            data_ptr = self.val['contained']['data'].address
-            assert data_ptr
-            inner = data_ptr.reinterpret_cast(
-                data_type.pointer()).dereference()
-        return f"arrow::util::optional<{data_type}>({inner})"
-
-
-class VariantPrinter:
-    """
-    Pretty-printer for arrow::util::Variant.
-    """
-
-    def __init__(self, name, val):
-        self.val = val
-        self.variant = Variant(val)
-
-    def to_string(self):
-        if self.variant.value_type is None:
-            return "arrow::util::Variant (uninitialized or corrupt)"
-        type_desc = (f"arrow::util::Variant of index {self.variant.index} "
-                     f"(actual type {self.variant.value_type})")
-
-        value = self.variant.value
-        if value is None:
-            return (f"{type_desc}, unavailable value")
-        else:
-            return (f"{type_desc}, value {value}")
 
 
 class FieldPrinter:
@@ -2412,11 +2380,6 @@ printers = {
     "arrow::SimpleTable": TablePrinter,
     "arrow::Status": StatusPrinter,
     "arrow::Table": TablePrinter,
-    "arrow::util::optional": OptionalPrinter,
-    "arrow::util::string_view": StringViewPrinter,
-    "arrow::util::Variant": VariantPrinter,
-    "nonstd::optional_lite::optional": OptionalPrinter,
-    "nonstd::sv_lite::basic_string_view": StringViewPrinter,
 }
 
 
@@ -2481,4 +2444,5 @@ def main():
     objfile.pretty_printers.append(arrow_pretty_print)
 
 
-main()
+if __name__ == '__main__':
+    main()

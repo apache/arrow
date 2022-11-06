@@ -345,6 +345,10 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
   return MakeNullScalar(value);
 }
 
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const TypeHolder& value) {
+  return GenericToScalar(value.GetSharedPtr());
+}
+
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     const std::shared_ptr<Scalar>& value) {
   return value;
@@ -426,6 +430,12 @@ static inline enable_if_same_result<T, SortKey> GenericFromScalar(
 
 template <typename T>
 static inline enable_if_same_result<T, std::shared_ptr<DataType>> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
+  return value->type;
+}
+
+template <typename T>
+static inline enable_if_same_result<T, TypeHolder> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
   return value->type;
 }
@@ -637,13 +647,13 @@ const FunctionOptionsType* GetFunctionOptionsType(const Properties&... propertie
     }
     Result<std::unique_ptr<FunctionOptions>> FromStructScalar(
         const StructScalar& scalar) const override {
-      auto options = std::unique_ptr<Options>(new Options());
+      auto options = std::make_unique<Options>();
       RETURN_NOT_OK(
           FromStructScalarImpl<Options>(options.get(), scalar, properties_).status_);
       return std::move(options);
     }
     std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
-      auto out = std::unique_ptr<Options>(new Options());
+      auto out = std::make_unique<Options>();
       CopyImpl<Options>(out.get(), checked_cast<const Options&>(options), properties_);
       return std::move(out);
     }

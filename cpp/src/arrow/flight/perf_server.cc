@@ -198,7 +198,7 @@ class FlightPerfServer : public FlightServerBase {
     FlightInfo::Data data;
     RETURN_NOT_OK(
         MakeFlightInfo(*perf_schema_, request, endpoints, total_records, -1, &data));
-    *info = std::unique_ptr<FlightInfo>(new FlightInfo(data));
+    *info = std::make_unique<FlightInfo>(data);
     return Status::OK();
   }
 
@@ -228,7 +228,7 @@ class FlightPerfServer : public FlightServerBase {
                   std::unique_ptr<ResultStream>* result) override {
     if (action.type == "ping") {
       std::shared_ptr<Buffer> buf = Buffer::FromString("ok");
-      *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+      *result = std::make_unique<SimpleResultStream>(std::vector<Result>{Result{buf}});
       return Status::OK();
     }
     return Status::NotImplemented(action.type);

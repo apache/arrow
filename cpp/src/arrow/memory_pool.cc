@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/memory_pool.h"
+#include "arrow/memory_pool_internal.h"
 
 #include <algorithm>  // IWYU pragma: keep
 #include <atomic>
@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #if defined(sun) || defined(__sun)
 #include <stdlib.h>
@@ -35,11 +36,11 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/debug.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
-#include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
@@ -48,66 +49,23 @@
 #include <malloc.h>
 #endif
 
-#ifdef ARROW_JEMALLOC
-// Needed to support jemalloc 3 and 4
-#define JEMALLOC_MANGLE
-// Explicitly link to our version of jemalloc
-#include "jemalloc_ep/dist/include/jemalloc/jemalloc.h"
-#endif
-
 #ifdef ARROW_MIMALLOC
 #include <mimalloc.h>
 #endif
 
-#ifdef ARROW_JEMALLOC
-
-// Compile-time configuration for jemalloc options.
-// Note the prefix ("je_arrow_") must match the symbol prefix given when
-// building jemalloc.
-// See discussion in https://github.com/jemalloc/jemalloc/issues/1621
-
-// ARROW-6910(wesm): we found that jemalloc's default behavior with respect to
-// dirty / muzzy pages (see definitions of these in the jemalloc documentation)
-// conflicted with user expectations, and would even cause memory use problems
-// in some cases. By enabling the background_thread option and reducing the
-// decay time from 10 seconds to 1 seconds, memory is released more
-// aggressively (and in the background) to the OS. This can be configured
-// further by using the arrow::jemalloc_set_decay_ms API
-
-#undef USE_JEMALLOC_BACKGROUND_THREAD
-#ifndef __APPLE__
-// ARROW-6977: jemalloc's background_thread isn't always enabled on macOS
-#define USE_JEMALLOC_BACKGROUND_THREAD
-#endif
-
-// In debug mode, add memory poisoning on alloc / free
-#ifdef NDEBUG
-#define JEMALLOC_DEBUG_OPTIONS ""
-#else
-#define JEMALLOC_DEBUG_OPTIONS ",junk:true"
-#endif
-
-const char* je_arrow_malloc_conf =
-    ("oversize_threshold:0"
-#ifdef USE_JEMALLOC_BACKGROUND_THREAD
-     ",dirty_decay_ms:1000"
-     ",muzzy_decay_ms:1000"
-     ",background_thread:true"
-#else
-     // ARROW-6994: return memory immediately to the OS if the
-     // background_thread option isn't available
-     ",dirty_decay_ms:0"
-     ",muzzy_decay_ms:0"
-#endif
-     JEMALLOC_DEBUG_OPTIONS);  // NOLINT: whitespace/parens
-
-#endif  // ARROW_JEMALLOC
-
 namespace arrow {
 
-namespace {
+namespace memory_pool {
 
-constexpr size_t kAlignment = 64;
+namespace internal {
+
+alignas(kAlignment) int64_t zero_size_area[1] = {kDebugXorSuffix};
+
+}  // namespace internal
+
+}  // namespace memory_pool
+
+namespace {
 
 constexpr char kDefaultBackendEnvVar[] = "ARROW_DEFAULT_MEMORY_POOL";
 constexpr char kDebugMemoryEnvVar[] = "ARROW_DEBUG_MEMORY_POOL";
@@ -145,8 +103,8 @@ const std::vector<SupportedBackend>& SupportedBackends() {
 
 // Return the MemoryPoolBackend selected by the user through the
 // ARROW_DEFAULT_MEMORY_POOL environment variable, if any.
-util::optional<MemoryPoolBackend> UserSelectedBackend() {
-  static auto user_selected_backend = []() -> util::optional<MemoryPoolBackend> {
+std::optional<MemoryPoolBackend> UserSelectedBackend() {
+  static auto user_selected_backend = []() -> std::optional<MemoryPoolBackend> {
     auto unsupported_backend = [](const std::string& name) {
       std::vector<std::string> supported;
       for (const auto backend : SupportedBackends()) {
@@ -187,14 +145,6 @@ MemoryPoolBackend DefaultBackend() {
   struct SupportedBackend default_backend = SupportedBackends().front();
   return default_backend.backend;
 }
-
-static constexpr int64_t kDebugXorSuffix = -0x181fe80e0b464188LL;
-
-// A static piece of memory for 0-size allocations, so as to return
-// an aligned non-null pointer.  Note the correct value for DebugAllocator
-// checks is hardcoded.
-alignas(kAlignment) static int64_t zero_size_area[1] = {kDebugXorSuffix};
-static uint8_t* const kZeroSizeArea = reinterpret_cast<uint8_t*>(&zero_size_area);
 
 using MemoryDebugHandler = std::function<void(uint8_t* ptr, int64_t size, const Status&)>;
 
@@ -276,9 +226,11 @@ class DebugAllocator {
  public:
   static Status AllocateAligned(int64_t size, uint8_t** out) {
     if (size == 0) {
-      *out = kZeroSizeArea;
+      *out = memory_pool::internal::kZeroSizeArea;
     } else {
       ARROW_ASSIGN_OR_RAISE(int64_t raw_size, RawSize(size));
+      DCHECK(raw_size > size) << "bug in raw size computation: " << raw_size
+                              << " for size " << size;
       RETURN_NOT_OK(WrappedAllocator::AllocateAligned(raw_size, out));
       InitAllocatedArea(*out, size);
     }
@@ -289,17 +241,19 @@ class DebugAllocator {
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     CheckAllocatedArea(*ptr, old_size, "reallocation");
-    if (*ptr == kZeroSizeArea) {
+    if (*ptr == memory_pool::internal::kZeroSizeArea) {
       return AllocateAligned(new_size, ptr);
     }
     if (new_size == 0) {
       // Note that an overflow check isn't needed as `old_size` is supposed to have
       // been successfully passed to AllocateAligned() before.
       WrappedAllocator::DeallocateAligned(*ptr, old_size + kOverhead);
-      *ptr = kZeroSizeArea;
+      *ptr = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
     ARROW_ASSIGN_OR_RAISE(int64_t raw_new_size, RawSize(new_size));
+    DCHECK(raw_new_size > new_size)
+        << "bug in raw size computation: " << raw_new_size << " for size " << new_size;
     RETURN_NOT_OK(
         WrappedAllocator::ReallocateAligned(old_size + kOverhead, raw_new_size, ptr));
     InitAllocatedArea(*ptr, new_size);
@@ -308,7 +262,7 @@ class DebugAllocator {
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size) {
     CheckAllocatedArea(ptr, size, "deallocation");
-    if (ptr != kZeroSizeArea) {
+    if (ptr != memory_pool::internal::kZeroSizeArea) {
       WrappedAllocator::DeallocateAligned(ptr, size + kOverhead);
     }
   }
@@ -323,12 +277,13 @@ class DebugAllocator {
 
   static void InitAllocatedArea(uint8_t* ptr, int64_t size) {
     DCHECK_NE(size, 0);
-    util::SafeStore(ptr + size, size ^ kDebugXorSuffix);
+    util::SafeStore(ptr + size, size ^ memory_pool::internal::kDebugXorSuffix);
   }
 
   static void CheckAllocatedArea(uint8_t* ptr, int64_t size, const char* context) {
     // Check that memory wasn't clobbered at the end of the allocated area.
-    int64_t stored_size = kDebugXorSuffix ^ util::SafeLoadAs<int64_t>(ptr + size);
+    int64_t stored_size =
+        memory_pool::internal::kDebugXorSuffix ^ util::SafeLoadAs<int64_t>(ptr + size);
     if (ARROW_PREDICT_FALSE(stored_size != size)) {
       auto st = Status::Invalid("Wrong size on ", context, ": given size = ", size,
                                 ", actual size = ", stored_size);
@@ -346,30 +301,33 @@ class SystemAllocator {
   // (as of May 2016 64 bytes)
   static Status AllocateAligned(int64_t size, uint8_t** out) {
     if (size == 0) {
-      *out = kZeroSizeArea;
+      *out = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
 #ifdef _WIN32
     // Special code path for Windows
     *out = reinterpret_cast<uint8_t*>(
-        _aligned_malloc(static_cast<size_t>(size), kAlignment));
+        _aligned_malloc(static_cast<size_t>(size), memory_pool::internal::kAlignment));
     if (!*out) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
 #elif defined(sun) || defined(__sun)
-    *out = reinterpret_cast<uint8_t*>(memalign(kAlignment, static_cast<size_t>(size)));
+    *out = reinterpret_cast<uint8_t*>(
+        memalign(memory_pool::internal::kAlignment, static_cast<size_t>(size)));
     if (!*out) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
 #else
-    const int result = posix_memalign(reinterpret_cast<void**>(out), kAlignment,
-                                      static_cast<size_t>(size));
+    const int result =
+        posix_memalign(reinterpret_cast<void**>(out), memory_pool::internal::kAlignment,
+                       static_cast<size_t>(size));
     if (result == ENOMEM) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
 
     if (result == EINVAL) {
-      return Status::Invalid("invalid alignment parameter: ", kAlignment);
+      return Status::Invalid("invalid alignment parameter: ",
+                             memory_pool::internal::kAlignment);
     }
 #endif
     return Status::OK();
@@ -377,13 +335,13 @@ class SystemAllocator {
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
-    if (previous_ptr == kZeroSizeArea) {
+    if (previous_ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(old_size, 0);
       return AllocateAligned(new_size, ptr);
     }
     if (new_size == 0) {
       DeallocateAligned(previous_ptr, old_size);
-      *ptr = kZeroSizeArea;
+      *ptr = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
     // Note: We cannot use realloc() here as it doesn't guarantee alignment.
@@ -404,7 +362,7 @@ class SystemAllocator {
   }
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size) {
-    if (ptr == kZeroSizeArea) {
+    if (ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
 #ifdef _WIN32
@@ -424,59 +382,6 @@ class SystemAllocator {
   }
 };
 
-#ifdef ARROW_JEMALLOC
-
-// Helper class directing allocations to the jemalloc allocator.
-class JemallocAllocator {
- public:
-  static Status AllocateAligned(int64_t size, uint8_t** out) {
-    if (size == 0) {
-      *out = kZeroSizeArea;
-      return Status::OK();
-    }
-    *out = reinterpret_cast<uint8_t*>(
-        mallocx(static_cast<size_t>(size), MALLOCX_ALIGN(kAlignment)));
-    if (*out == NULL) {
-      return Status::OutOfMemory("malloc of size ", size, " failed");
-    }
-    return Status::OK();
-  }
-
-  static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
-    uint8_t* previous_ptr = *ptr;
-    if (previous_ptr == kZeroSizeArea) {
-      DCHECK_EQ(old_size, 0);
-      return AllocateAligned(new_size, ptr);
-    }
-    if (new_size == 0) {
-      DeallocateAligned(previous_ptr, old_size);
-      *ptr = kZeroSizeArea;
-      return Status::OK();
-    }
-    *ptr = reinterpret_cast<uint8_t*>(
-        rallocx(*ptr, static_cast<size_t>(new_size), MALLOCX_ALIGN(kAlignment)));
-    if (*ptr == NULL) {
-      *ptr = previous_ptr;
-      return Status::OutOfMemory("realloc of size ", new_size, " failed");
-    }
-    return Status::OK();
-  }
-
-  static void DeallocateAligned(uint8_t* ptr, int64_t size) {
-    if (ptr == kZeroSizeArea) {
-      DCHECK_EQ(size, 0);
-    } else {
-      dallocx(ptr, MALLOCX_ALIGN(kAlignment));
-    }
-  }
-
-  static void ReleaseUnused() {
-    mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
-  }
-};
-
-#endif  // defined(ARROW_JEMALLOC)
-
 #ifdef ARROW_MIMALLOC
 
 // Helper class directing allocations to the mimalloc allocator.
@@ -484,11 +389,11 @@ class MimallocAllocator {
  public:
   static Status AllocateAligned(int64_t size, uint8_t** out) {
     if (size == 0) {
-      *out = kZeroSizeArea;
+      *out = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
     *out = reinterpret_cast<uint8_t*>(
-        mi_malloc_aligned(static_cast<size_t>(size), kAlignment));
+        mi_malloc_aligned(static_cast<size_t>(size), memory_pool::internal::kAlignment));
     if (*out == NULL) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
@@ -499,17 +404,17 @@ class MimallocAllocator {
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
-    if (previous_ptr == kZeroSizeArea) {
+    if (previous_ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(old_size, 0);
       return AllocateAligned(new_size, ptr);
     }
     if (new_size == 0) {
       DeallocateAligned(previous_ptr, old_size);
-      *ptr = kZeroSizeArea;
+      *ptr = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
-    *ptr = reinterpret_cast<uint8_t*>(
-        mi_realloc_aligned(previous_ptr, static_cast<size_t>(new_size), kAlignment));
+    *ptr = reinterpret_cast<uint8_t*>(mi_realloc_aligned(
+        previous_ptr, static_cast<size_t>(new_size), memory_pool::internal::kAlignment));
     if (*ptr == NULL) {
       *ptr = previous_ptr;
       return Status::OutOfMemory("realloc of size ", new_size, " failed");
@@ -518,7 +423,7 @@ class MimallocAllocator {
   }
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size) {
-    if (ptr == kZeroSizeArea) {
+    if (ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
       mi_free(ptr);
@@ -624,13 +529,15 @@ class SystemDebugMemoryPool : public BaseMemoryPoolImpl<DebugAllocator<SystemAll
 };
 
 #ifdef ARROW_JEMALLOC
-class JemallocMemoryPool : public BaseMemoryPoolImpl<JemallocAllocator> {
+class JemallocMemoryPool
+    : public BaseMemoryPoolImpl<memory_pool::internal::JemallocAllocator> {
  public:
   std::string backend_name() const override { return "jemalloc"; }
 };
 
 class JemallocDebugMemoryPool
-    : public BaseMemoryPoolImpl<DebugAllocator<JemallocAllocator>> {
+    : public BaseMemoryPoolImpl<
+          DebugAllocator<memory_pool::internal::JemallocAllocator>> {
  public:
   std::string backend_name() const override { return "jemalloc"; }
 };
@@ -758,29 +665,32 @@ MemoryPool* default_memory_pool() {
   }
 }
 
-#define RETURN_IF_JEMALLOC_ERROR(ERR)                  \
-  do {                                                 \
-    if (err != 0) {                                    \
-      return Status::UnknownError(std::strerror(ERR)); \
-    }                                                  \
-  } while (0)
-
+#ifndef ARROW_JEMALLOC
 Status jemalloc_set_decay_ms(int ms) {
-#ifdef ARROW_JEMALLOC
-  ssize_t decay_time_ms = static_cast<ssize_t>(ms);
-
-  int err = mallctl("arenas.dirty_decay_ms", nullptr, nullptr, &decay_time_ms,
-                    sizeof(decay_time_ms));
-  RETURN_IF_JEMALLOC_ERROR(err);
-  err = mallctl("arenas.muzzy_decay_ms", nullptr, nullptr, &decay_time_ms,
-                sizeof(decay_time_ms));
-  RETURN_IF_JEMALLOC_ERROR(err);
-
-  return Status::OK();
-#else
-  return Status::Invalid("jemalloc support is not built");
-#endif
+  return Status::NotImplemented("jemalloc support is not built");
 }
+
+Result<int64_t> jemalloc_get_stat(const char* name) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Status jemalloc_peak_reset() {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Status jemalloc_stats_print(const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Status jemalloc_stats_print(std::function<void(const char*)> write_cb, const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Result<std::string> jemalloc_stats_string(const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+#endif
 
 ///////////////////////////////////////////////////////////////////////
 // LoggingMemoryPool implementation
@@ -968,7 +878,7 @@ class PoolBuffer final : public ResizableBuffer {
     } else {
       mm = CPUDevice::memory_manager(pool);
     }
-    return std::unique_ptr<PoolBuffer>(new PoolBuffer(std::move(mm), pool));
+    return std::make_unique<PoolBuffer>(std::move(mm), pool);
   }
 
  private:

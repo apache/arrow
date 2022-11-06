@@ -22,8 +22,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 var (
@@ -159,6 +159,58 @@ func WithNullWriter(null string) Option {
 	}
 }
 
+// WithBoolWriter override the default bool formatter with a function that returns
+// a string representaton of bool states. i.e. True, False, 1, 0
+func WithBoolWriter(fmtr func(bool) string) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Writer:
+			if fmtr != nil {
+				cfg.boolFormatter = fmtr
+			}
+		default:
+			panic(fmt.Errorf("arrow/csv: WithBoolWriter unknown config type %T", cfg))
+		}
+	}
+}
+
+// WithColumnTypes allows specifying optional per-column types (disabling
+// type inference on those columns).
+//
+// Will panic if used in conjunction with an explicit schema.
+func WithColumnTypes(types map[string]arrow.DataType) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Reader:
+			if cfg.schema != nil {
+				panic(fmt.Errorf("%w: cannot use WithColumnTypes with explicit schema", arrow.ErrInvalid))
+			}
+			cfg.columnTypes = types
+		default:
+			panic(fmt.Errorf("%w: WithColumnTypes only allowed for csv reader", arrow.ErrInvalid))
+		}
+	}
+}
+
+// WithIncludeColumns indicates the names of the columns from the CSV file
+// that should actually be read and converted (in the slice's order).
+// If set and non-empty, columns not in this slice will be ignored.
+//
+// Will panic if used in conjunction with an explicit schema.
+func WithIncludeColumns(cols []string) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Reader:
+			if cfg.schema != nil {
+				panic(fmt.Errorf("%w: cannot use WithIncludeColumns with explicit schema", arrow.ErrInvalid))
+			}
+			cfg.columnFilter = cols
+		default:
+			panic(fmt.Errorf("%w: WithIncludeColumns only allowed on csv Reader", arrow.ErrInvalid))
+		}
+	}
+}
+
 func validate(schema *arrow.Schema) {
 	for i, f := range schema.Fields() {
 		switch ft := f.Type.(type) {
@@ -168,6 +220,8 @@ func validate(schema *arrow.Schema) {
 		case *arrow.Float32Type, *arrow.Float64Type:
 		case *arrow.StringType:
 		case *arrow.TimestampType:
+		case *arrow.Date32Type, *arrow.Date64Type:
+		case *arrow.Decimal128Type, *arrow.Decimal256Type:
 		default:
 			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}

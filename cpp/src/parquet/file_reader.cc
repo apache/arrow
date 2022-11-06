@@ -208,10 +208,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
 
+    // Prior to Arrow 3.0.0, is_compressed was always set to false in column headers,
+    // even if compression was used. See ARROW-17100.
+    bool always_compressed = file_metadata_->writer_version().VersionLt(
+        ApplicationVersion::PARQUET_CPP_10353_FIXED_VERSION());
+
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              properties_.memory_pool());
+                              always_compressed, properties_.memory_pool());
     }
 
     if (file_decryptor_ == nullptr) {
@@ -233,7 +238,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                         static_cast<int16_t>(i), meta_decryptor, data_decryptor);
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              properties_.memory_pool(), &ctx);
+                              always_compressed, properties_.memory_pool(), &ctx);
     }
 
     // The column is encrypted with its own key
@@ -248,7 +253,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                       static_cast<int16_t>(i), meta_decryptor, data_decryptor);
     return PageReader::Open(stream, col->num_values(), col->compression(),
-                            properties_.memory_pool(), &ctx);
+                            always_compressed, properties_.memory_pool(), &ctx);
   }
 
  private:
@@ -429,7 +434,8 @@ class SerializedFile : public ParquetFileReader::Contents {
     END_PARQUET_CATCH_EXCEPTIONS
     // Assumes this is kept alive externally
     return source_->ReadAsync(source_size_ - footer_read_size, footer_read_size)
-        .Then([=](const std::shared_ptr<::arrow::Buffer>& footer_buffer)
+        .Then([this,
+               footer_read_size](const std::shared_ptr<::arrow::Buffer>& footer_buffer)
                   -> ::arrow::Future<> {
           uint32_t metadata_len;
           BEGIN_PARQUET_CATCH_EXCEPTIONS
@@ -447,7 +453,8 @@ class SerializedFile : public ParquetFileReader::Contents {
                                                     footer_read_size, metadata_len);
           }
           return source_->ReadAsync(metadata_start, metadata_len)
-              .Then([=](const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
+              .Then([this, footer_buffer, footer_read_size, metadata_len](
+                        const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
                 return ParseMaybeEncryptedMetaDataAsync(footer_buffer, metadata_buffer,
                                                         footer_read_size, metadata_len);
               });
@@ -473,7 +480,8 @@ class SerializedFile : public ParquetFileReader::Contents {
       int64_t metadata_start = read_size.first;
       metadata_len = read_size.second;
       return source_->ReadAsync(metadata_start, metadata_len)
-          .Then([=](const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
+          .Then([this, metadata_len, is_encrypted_footer](
+                    const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
             // Continue and read the file footer
             return ParseMetaDataFinal(metadata_buffer, metadata_len, is_encrypted_footer);
           });

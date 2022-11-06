@@ -848,8 +848,8 @@ class StreamReaderServer(threading.Thread):
             connection.close()
 
     def get_result(self):
-        return(self._schema, self._table if self._do_read_all
-               else self._batches)
+        return (self._schema, self._table if self._do_read_all
+                else self._batches)
 
 
 class SocketStreamFixture(IpcFixture):
@@ -1100,23 +1100,6 @@ def test_schema_serialization_with_metadata():
     assert recons_schema.metadata == schema_metadata
     assert recons_schema[0].metadata is None
     assert recons_schema[1].metadata == field_metadata
-
-
-def test_deprecated_pyarrow_ns_apis():
-    table = pa.table([pa.array([1, 2, 3, 4])], names=['a'])
-    sink = pa.BufferOutputStream()
-    with pa.ipc.new_stream(sink, table.schema) as writer:
-        writer.write(table)
-
-    with pytest.warns(FutureWarning,
-                      match="please use pyarrow.ipc.open_stream"):
-        pa.open_stream(sink.getvalue())
-
-    sink = pa.BufferOutputStream()
-    with pa.ipc.new_file(sink, table.schema) as writer:
-        writer.write(table)
-    with pytest.warns(FutureWarning, match="please use pyarrow.ipc.open_file"):
-        pa.open_file(sink.getvalue())
 
 
 def write_file(batch, sink):

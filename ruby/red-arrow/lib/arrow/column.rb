@@ -96,5 +96,9 @@ module Arrow
     def uniq
       @data.uniq
     end
+
+    def cast(target_data_type, options: nil)
+      @data.cast(target_data_type, options: options)
+    end
   end
 end

@@ -19,7 +19,8 @@
 
 distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   if (.keep_all == TRUE) {
-    # After ARROW-13993 is merged, we can implement this (ARROW-14045)
+    # TODO(ARROW-14045): the function is called "hash_one" (from ARROW-13993)
+    # May need to call it: `summarize(x = one(x), ...)` for x in non-group cols
     arrow_not_supported("`distinct()` with `.keep_all = TRUE`")
   }
 

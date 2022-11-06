@@ -18,11 +18,12 @@ package file
 
 import (
 	"fmt"
+	"sync"
 
-	"github.com/apache/arrow/go/v9/internal/utils"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v9/parquet/metadata"
+	"github.com/apache/arrow/go/v11/internal/utils"
+	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v11/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v11/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -38,6 +39,8 @@ type RowGroupReader struct {
 	rgMetadata    *metadata.RowGroupMetaData
 	props         *parquet.ReaderProperties
 	fileDecryptor encryption.FileDecryptor
+
+	bufferPool *sync.Pool
 }
 
 // MetaData returns the metadata of the current Row Group
@@ -55,17 +58,17 @@ func (r *RowGroupReader) ByteSize() int64 { return r.rgMetadata.TotalByteSize() 
 // Column returns a column reader for the requested (0-indexed) column
 //
 // panics if passed a column not in the range [0, NumColumns)
-func (r *RowGroupReader) Column(i int) ColumnChunkReader {
+func (r *RowGroupReader) Column(i int) (ColumnChunkReader, error) {
 	if i >= r.NumColumns() || i < 0 {
-		panic(fmt.Errorf("parquet: trying to read column index %d but row group metadata only has %d columns", i, r.rgMetadata.NumColumns()))
+		return nil, fmt.Errorf("parquet: trying to read column index %d but row group metadata only has %d columns", i, r.rgMetadata.NumColumns())
 	}
 
 	descr := r.fileMetadata.Schema.Column(i)
 	pageRdr, err := r.GetColumnPageReader(i)
 	if err != nil {
-		panic(fmt.Errorf("parquet: unable to initialize page reader: %w", err))
+		return nil, fmt.Errorf("parquet: unable to initialize page reader: %w", err)
 	}
-	return NewColumnReader(descr, pageRdr, r.props.Allocator())
+	return NewColumnReader(descr, pageRdr, r.props.Allocator(), r.bufferPool), nil
 }
 
 func (r *RowGroupReader) GetColumnPageReader(i int) (PageReader, error) {

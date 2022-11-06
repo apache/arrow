@@ -101,5 +101,12 @@ module Arrow
     def unique
       compute("unique")
     end
+
+    def cast(target_data_type, options: nil)
+      casted_chunks = chunks.collect do |chunk|
+        chunk.cast(target_data_type, options)
+      end
+      self.class.new(casted_chunks)
+    end
   end
 end

@@ -593,15 +593,16 @@ test_that("DataType$code()", {
   expect_code_roundtrip(dictionary(index_type = int8(), value_type = large_utf8()))
   expect_code_roundtrip(dictionary(index_type = int8(), ordered = TRUE))
 
-  skip("until rlang 1.0")
-  expect_snapshot({
-    (expect_error(
-      DayTimeInterval__initialize()$code()
-    ))
-    (expect_error(
-      struct(a = DayTimeInterval__initialize())$code()
-    ))
-  })
+  skip_if(packageVersion("rlang") < 1)
+  # Are these unsupported for a reason?
+  expect_error(
+    eval(DayTimeInterval__initialize()$code()),
+    "Unsupported type"
+  )
+  expect_error(
+    eval(struct(a = DayTimeInterval__initialize())$code()),
+    "Unsupported type"
+  )
 })
 
 test_that("as_data_type() works for DataType", {

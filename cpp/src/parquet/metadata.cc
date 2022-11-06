@@ -21,13 +21,13 @@
 #include <cinttypes>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
@@ -55,6 +55,15 @@ const ApplicationVersion& ApplicationVersion::PARQUET_CPP_FIXED_STATS_VERSION() 
 
 const ApplicationVersion& ApplicationVersion::PARQUET_MR_FIXED_STATS_VERSION() {
   static ApplicationVersion version("parquet-mr", 1, 10, 0);
+  return version;
+}
+
+const ApplicationVersion& ApplicationVersion::PARQUET_CPP_10353_FIXED_VERSION() {
+  // parquet-cpp versions released prior to Arrow 3.0 would write DataPageV2 pages
+  // with is_compressed==0 but still write compressed data. (See: ARROW-10353).
+  // Parquet 1.5.1 had this problem, and after that we switched to the
+  // application name "parquet-cpp-arrow", so this version is fake.
+  static ApplicationVersion version("parquet-cpp", 2, 0, 0);
   return version;
 }
 
@@ -681,8 +690,10 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
-    if (!schema()->Equals(*other->schema())) {
-      throw ParquetException("AppendRowGroups requires equal schemas.");
+    std::ostringstream diff_output;
+    if (!schema()->Equals(*other->schema(), &diff_output)) {
+      auto msg = "AppendRowGroups requires equal schemas.\n" + diff_output.str();
+      throw ParquetException(msg);
     }
 
     // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop
@@ -1041,8 +1052,8 @@ class ApplicationVersionParser {
 
  private:
   bool IsSpace(const std::string& string, const size_t& offset) {
-    auto target = ::arrow::util::string_view(string).substr(offset, 1);
-    return target.find_first_of(spaces_) != ::arrow::util::string_view::npos;
+    auto target = ::std::string_view(string).substr(offset, 1);
+    return target.find_first_of(spaces_) != ::std::string_view::npos;
   }
 
   void RemovePrecedingSpaces(const std::string& string, size_t& start,

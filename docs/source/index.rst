@@ -74,12 +74,15 @@ target environment.**
 
    format/Versioning
    format/Columnar
+   format/CanonicalExtensions
    format/Flight
    format/FlightSql
    format/Integration
    format/CDataInterface
    format/CStreamInterface
+   format/ADBC
    format/Other
+   format/Glossary
 
 .. _toc.development:
 
@@ -99,4 +102,3 @@ target environment.**
    developers/benchmarks
    developers/documentation
    developers/release
-   developers/computeir

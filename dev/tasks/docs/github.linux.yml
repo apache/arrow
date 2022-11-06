@@ -1,0 +1,63 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+{% set pr_number = pr_number|replace("Unset", arrow.branch) %}
+{{ macros.github_header() }}
+
+jobs:
+  test:
+    name: Docs Preview 
+    runs-on: ubuntu-latest
+{{ macros.github_set_env(env) }}
+    steps:
+      {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
+      {{ macros.github_install_archery()|indent }}
+
+      - name: Execute Docker Build
+        shell: bash
+        env:
+          ARROW_JAVA_SKIP_GIT_PLUGIN: true
+        run: |
+          archery docker run \
+            -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
+            {{ flags|default("") }} \
+            {{ image }} \
+            {{ command|default("") }}
+      - name: Checkout Crossbow
+        uses: actions/checkout@v3
+        with:
+          ref: {{ default_branch|default("master") }}
+          path: crossbow
+          fetch-depth: 1
+      - name: Prepare docs
+        run: |
+          # build files are created by the docker user
+          sudo chown -R ${USER}: build
+          # These are only used while generating the page
+          rm -rf build/docs/.doctrees
+      - name: Upload preview to S3
+        env:
+          {%- raw %}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CROSSBOW_DOCS_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CROSSBOW_DOCS_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET_REGION }} 
+          BUCKET: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET }}
+          {% endraw %}
+        run: |
+          aws s3 cp build/docs/ $BUCKET/pr_docs/{{ pr_number }}/ --recursive
+          echo ":open_book: You can find the preview here: http://crossbow.voltrondata.com/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY

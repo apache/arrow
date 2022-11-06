@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -120,4 +120,27 @@ func TestGetZeroBasedValueOffsets(t *testing.T) {
 	require.NoError(t, err)
 	defer offsets.Release()
 	assert.Equal(t, 20, offsets.Len(), "trim trailing offsets after slice")
+}
+
+func TestWriterCatchPanic(t *testing.T) {
+	alloc := memory.NewGoAllocator()
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "s", Type: arrow.BinaryTypes.String},
+	}, nil)
+
+	b := array.NewRecordBuilder(alloc, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.StringBuilder).AppendValues([]string{"foo", "bar", "baz"}, nil)
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	// mess up the first offset for the string column
+	offsetBuf := rec.Column(0).Data().Buffers()[1]
+	bitutil.SetBitsTo(offsetBuf.Bytes(), 0, 32, true)
+
+	buf := new(bytes.Buffer)
+
+	writer := NewWriter(buf, WithSchema(schema))
+	assert.EqualError(t, writer.Write(rec), "arrow/ipc: unknown error while writing: runtime error: slice bounds out of range [-1:]")
 }

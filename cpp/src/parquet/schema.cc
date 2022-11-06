@@ -794,13 +794,23 @@ void SchemaDescriptor::Init(NodePtr schema) {
   }
 }
 
-bool SchemaDescriptor::Equals(const SchemaDescriptor& other) const {
+bool SchemaDescriptor::Equals(const SchemaDescriptor& other,
+                              std::ostream* diff_output) const {
   if (this->num_columns() != other.num_columns()) {
+    if (diff_output != nullptr) {
+      *diff_output << "This schema has " << this->num_columns() << " columns, other has "
+                   << other.num_columns();
+    }
     return false;
   }
 
   for (int i = 0; i < this->num_columns(); ++i) {
     if (!this->Column(i)->Equals(*other.Column(i))) {
+      if (diff_output != nullptr) {
+        *diff_output << "The two columns with index " << i << " differ." << std::endl
+                     << this->Column(i)->ToString() << std::endl
+                     << other.Column(i)->ToString() << std::endl;
+      }
       return false;
     }
   }

@@ -24,7 +24,7 @@
 #endif
 
 #include "arrow/compute/kernels/scalar_string_internal.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -342,7 +342,7 @@ void AddUtf8StringPredicates(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_UTF8PROC
 
 struct FunctionalCaseMappingTransform : public StringTransformBase {
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     EnsureUtf8LookupTablesFilled();
     return Status::OK();
   }
@@ -524,7 +524,7 @@ struct Utf8NormalizeBase {
 
   // Try to decompose the given UTF8 string into the codepoints space,
   // returning the number of codepoints output.
-  Result<int64_t> DecomposeIntoScratch(util::string_view v) {
+  Result<int64_t> DecomposeIntoScratch(std::string_view v) {
     auto decompose = [&]() {
       return utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(v.data()),
                                 v.size(),
@@ -544,7 +544,7 @@ struct Utf8NormalizeBase {
     return res;
   }
 
-  Result<int64_t> Decompose(util::string_view v, BufferBuilder* data_builder) {
+  Result<int64_t> Decompose(std::string_view v, BufferBuilder* data_builder) {
     if (::arrow::util::ValidateAscii(v)) {
       // Fast path: normalization is a no-op
       RETURN_NOT_OK(data_builder->Append(v.data(), v.size()));
@@ -602,34 +602,29 @@ struct Utf8NormalizeExec : public Utf8NormalizeBase {
 
   using Utf8NormalizeBase::Utf8NormalizeBase;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = State::Get(ctx);
     Utf8NormalizeExec exec{options};
-    if (batch[0].kind() == Datum::ARRAY) {
-      return exec.ExecArray(ctx, *batch[0].array(), out);
-    } else {
-      DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
-      return exec.ExecScalar(ctx, *batch[0].scalar(), out);
-    }
-  }
 
-  Status ExecArray(KernelContext* ctx, const ArrayData& array, Datum* out) {
+    const ArraySpan& array = batch[0].array;
     BufferBuilder data_builder(ctx->memory_pool());
 
     const offset_type* in_offsets = array.GetValues<offset_type>(1);
     if (array.length > 0) {
       RETURN_NOT_OK(data_builder.Reserve(in_offsets[array.length] - in_offsets[0]));
     }
+
     // Output offsets are preallocated
-    offset_type* out_offsets = out->mutable_array()->GetMutableValues<offset_type>(1);
+    ArrayData* output = out->array_data().get();
+    offset_type* out_offsets = output->GetMutableValues<offset_type>(1);
 
     int64_t offset = 0;
     *out_offsets++ = static_cast<offset_type>(offset);
 
-    RETURN_NOT_OK(VisitArrayDataInline<Type>(
+    RETURN_NOT_OK(VisitArraySpanInline<Type>(
         array,
-        [&](util::string_view v) {
-          ARROW_ASSIGN_OR_RAISE(auto n_bytes, Decompose(v, &data_builder));
+        [&](std::string_view v) {
+          ARROW_ASSIGN_OR_RAISE(auto n_bytes, exec.Decompose(v, &data_builder));
           offset += n_bytes;
           *out_offsets++ = static_cast<offset_type>(offset);
           return Status::OK();
@@ -639,22 +634,7 @@ struct Utf8NormalizeExec : public Utf8NormalizeBase {
           return Status::OK();
         }));
 
-    ArrayData* output = out->mutable_array();
-    RETURN_NOT_OK(data_builder.Finish(&output->buffers[2]));
-    return Status::OK();
-  }
-
-  Status ExecScalar(KernelContext* ctx, const Scalar& scalar, Datum* out) {
-    if (scalar.is_valid) {
-      const auto& string_scalar = checked_cast<const ScalarType&>(scalar);
-      auto* out_scalar = checked_cast<ScalarType*>(out->scalar().get());
-
-      BufferBuilder data_builder(ctx->memory_pool());
-      RETURN_NOT_OK(Decompose(string_scalar.view(), &data_builder));
-      RETURN_NOT_OK(data_builder.Finish(&out_scalar->value));
-      out_scalar->is_valid = true;
-    }
-    return Status::OK();
+    return data_builder.Finish(&output->buffers[2]);
   }
 };
 
@@ -676,7 +656,7 @@ void AddUtf8StringNormalize(FunctionRegistry* registry) {
 // String length
 
 struct Utf8Length {
-  template <typename OutValue, typename Arg0Value = util::string_view>
+  template <typename OutValue, typename Arg0Value = std::string_view>
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     auto str = reinterpret_cast<const uint8_t*>(val.data());
     auto strlen = val.size();
@@ -766,7 +746,7 @@ struct UTF8TrimTransform : public StringTransformBase {
 
   explicit UTF8TrimTransform(const UTF8TrimState& state) : state_(state) {}
 
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     return state_.status_;
   }
 
@@ -807,7 +787,7 @@ using UTF8RTrim = StringTransformExecWithState<Type, UTF8TrimTransform<false, tr
 
 template <bool TrimLeft, bool TrimRight>
 struct UTF8TrimWhitespaceTransform : public StringTransformBase {
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     EnsureUtf8LookupTablesFilled();
     return Status::OK();
   }
@@ -920,7 +900,7 @@ struct Utf8PadTransform : public StringTransformBase {
 
   explicit Utf8PadTransform(const PadOptions& options) : options_(options) {}
 
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
     auto strlen = options_.padding.size();
     if (util::UTF8Length(str, str + strlen) != 1) {

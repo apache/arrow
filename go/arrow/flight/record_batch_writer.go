@@ -19,9 +19,9 @@ package flight
 import (
 	"bytes"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/ipc"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/ipc"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 // DataStreamWriter is an interface that represents an Arrow Flight stream
@@ -58,6 +58,12 @@ func (f *flightPayloadWriter) Close() error { return nil }
 type Writer struct {
 	*ipc.Writer
 	pw *flightPayloadWriter
+}
+
+// WriteMetadata writes a payload message to the stream containing only
+// the specified app metadata.
+func (w *Writer) WriteMetadata(appMetadata []byte) error {
+	return w.pw.w.Send(&FlightData{AppMetadata: appMetadata})
 }
 
 // SetFlightDescriptor sets the flight descriptor into the next payload that will
@@ -106,4 +112,8 @@ func SerializeSchema(rec *arrow.Schema, mem memory.Allocator) []byte {
 	w := ipc.NewWriter(&buf, ipc.WithSchema(rec), ipc.WithAllocator(mem))
 	w.Close()
 	return buf.Bytes()
+}
+
+type MetadataWriter interface {
+	WriteMetadata([]byte) error
 }

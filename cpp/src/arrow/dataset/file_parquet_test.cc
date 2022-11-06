@@ -218,6 +218,8 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
 
 TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
 
+TEST_F(TestParquetFileFormat, FragmentEquals) { TestFragmentEquals(); }
+
 TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
   constexpr int64_t kNumRowGroups = 16;
   constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
@@ -229,7 +231,7 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
 
   auto fragment = MakeFragment(*source);
 
-  ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(kTotalNumRows),
+  ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(kTotalNumRows),
                             fragment->CountRows(literal(true), options));
 
   for (int i = 1; i <= kNumRowGroups; i++) {
@@ -239,20 +241,20 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     ASSERT_OK_AND_ASSIGN(
         predicate, predicate.Bind(*reader->schema(), compute::default_exec_context()));
     auto expected = i * (i + 1) / 2;
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected),
                               fragment->CountRows(predicate, options));
 
     predicate = and_(less_equal(field_ref("i64"), literal(i)),
                      greater_equal(field_ref("i64"), literal(i)));
     ASSERT_OK_AND_ASSIGN(
         predicate, predicate.Bind(*reader->schema(), compute::default_exec_context()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(i),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(field_ref("i64"), literal(i));
     ASSERT_OK_AND_ASSIGN(
         predicate, predicate.Bind(*reader->schema(), compute::default_exec_context()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(i),
                               fragment->CountRows(predicate, options));
   }
 
@@ -279,19 +281,19 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     ASSERT_OK_AND_ASSIGN(auto predicate,
                          greater_equal(field_ref("i64"), literal(1))
                              .Bind(*dataset_schema, compute::default_exec_context()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(4),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
                               fragment->CountRows(predicate, options));
 
     ASSERT_OK_AND_ASSIGN(
         predicate,
         is_null(field_ref("i64")).Bind(*dataset_schema, compute::default_exec_context()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(3),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(3),
                               fragment->CountRows(predicate, options));
 
     ASSERT_OK_AND_ASSIGN(predicate,
                          is_valid(field_ref("i64"))
                              .Bind(*dataset_schema, compute::default_exec_context()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(4),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
                               fragment->CountRows(predicate, options));
   }
 }

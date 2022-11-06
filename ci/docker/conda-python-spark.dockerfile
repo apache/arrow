@@ -23,7 +23,7 @@ FROM ${repo}:${arch}-conda-python-${python}
 ARG jdk=8
 ARG maven=3.5
 
-RUN mamba install -q \
+RUN mamba install -q -y \
         openjdk=${jdk} \
         maven=${maven} \
         pandas && \
@@ -37,7 +37,11 @@ RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
-    ARROW_PYTHON=ON \
-    ARROW_HDFS=ON \
     ARROW_BUILD_TESTS=OFF \
+    ARROW_COMPUTE=ON \
+    ARROW_CSV=ON \
+    ARROW_DATASET=ON \
+    ARROW_FILESYSTEM=ON \
+    ARROW_HDFS=ON \
+    ARROW_JSON=ON \
     SPARK_VERSION=${spark}

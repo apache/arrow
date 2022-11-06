@@ -80,6 +80,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<TimestampArray>,
             IArrowArrayVisitor<Date32Array>,
             IArrowArrayVisitor<Date64Array>,
+            IArrowArrayVisitor<Time32Array>,
+            IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
@@ -114,6 +116,8 @@ namespace Apache.Arrow.Tests
             public void Visit(TimestampArray array) => CompareArrays(array);
             public void Visit(Date32Array array) => CompareArrays(array);
             public void Visit(Date64Array array) => CompareArrays(array);
+            public void Visit(Time32Array array) => CompareArrays(array);
+            public void Visit(Time64Array array) => CompareArrays(array);
             public void Visit(ListArray array) => CompareArrays(array);
             public void Visit(FixedSizeBinaryArray array) => CompareArrays(array);
             public void Visit(Decimal128Array array) => CompareArrays(array);

@@ -28,6 +28,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <thread>
 #include <utility>
 
@@ -39,7 +40,6 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -127,10 +127,7 @@ struct FlightServerBase::Impl {
     }
     auto instance = running_instance_.load();
     if (instance != nullptr) {
-      auto status = instance->transport_->Shutdown();
-      if (!status.ok()) {
-        ARROW_LOG(WARNING) << "Error shutting down server: " << status.ToString();
-      }
+      ARROW_WARN_NOT_OK(instance->transport_->Shutdown(), "Error shutting down server");
     }
   }
 };
@@ -326,6 +323,8 @@ class RecordBatchStream::RecordBatchStreamImpl {
     }
   }
 
+  Status Close() { return reader_->Close(); }
+
  private:
   Status GetNextDictionary(FlightPayload* payload) {
     const auto& it = dictionaries_[dictionary_index_++];
@@ -347,13 +346,18 @@ class RecordBatchStream::RecordBatchStreamImpl {
 FlightMetadataWriter::~FlightMetadataWriter() = default;
 
 FlightDataStream::~FlightDataStream() {}
+Status FlightDataStream::Close() { return Status::OK(); }
 
 RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
                                      const ipc::IpcWriteOptions& options) {
   impl_.reset(new RecordBatchStreamImpl(reader, options));
 }
 
-RecordBatchStream::~RecordBatchStream() {}
+RecordBatchStream::~RecordBatchStream() {
+  ARROW_WARN_NOT_OK(impl_->Close(), "Failed to close FlightDataStream");
+}
+
+Status RecordBatchStream::Close() { return impl_->Close(); }
 
 std::shared_ptr<Schema> RecordBatchStream::schema() { return impl_->schema(); }
 

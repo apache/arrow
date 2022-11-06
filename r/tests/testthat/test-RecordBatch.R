@@ -626,7 +626,7 @@ test_that("Handling string data with embedded nuls", {
   # The behavior of the warnings/errors is slightly different with and without
   # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
   # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_if_r_version("3.5.0")
+  skip_on_r_older_than("3.6")
   df <- as.data.frame(batch_with_nul)
 
   expect_error(
@@ -642,19 +642,24 @@ test_that("Handling string data with embedded nuls", {
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
-    expect_warning(
-      expect_equal(
-        as.data.frame(batch_with_nul)$b,
-        c("person", "woman", "man", "camera", "tv"),
-        ignore_attr = TRUE
-      ),
-      "Stripping '\\0' (nul) from character vector",
-      fixed = TRUE
+    # Because expect_equal() may call identical(x, y) more than once,
+    # the string with a nul may be created more than once and multiple
+    # warnings may be issued.
+    suppressWarnings(
+      expect_warning(
+        expect_equal(
+          as.data.frame(batch_with_nul)$b,
+          c("person", "woman", "man", "camera", "tv"),
+          ignore_attr = TRUE
+        ),
+        "Stripping '\\0' (nul) from character vector",
+        fixed = TRUE
+      )
     )
   })
 })
 
-test_that("ARROW-11769/ARROW-13860 - grouping preserved in record batch creation", {
+test_that("ARROW-11769/ARROW-13860/ARROW-17085 - grouping preserved in record batch creation", {
   skip_if_not_available("dataset")
   library(dplyr, warn.conflicts = FALSE)
 
@@ -672,6 +677,12 @@ test_that("ARROW-11769/ARROW-13860 - grouping preserved in record batch creation
   )
   expect_identical(
     tbl %>%
+      record_batch() %>%
+      group_vars(),
+    group_vars(tbl)
+  )
+  expect_identical(
+    tbl %>%
       group_by(fct, fct2) %>%
       record_batch() %>%
       group_vars(),
@@ -683,7 +694,7 @@ test_that("ARROW-11769/ARROW-13860 - grouping preserved in record batch creation
       record_batch() %>%
       ungroup() %>%
       group_vars(),
-    NULL
+    character()
   )
   expect_identical(
     tbl %>%

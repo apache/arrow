@@ -23,12 +23,14 @@
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
-int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
-  return x->num_columns();
+r_vec_size Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
+  return r_vec_size(x->num_columns());
 }
 
 // [[arrow::export]]
-int Table__num_rows(const std::shared_ptr<arrow::Table>& x) { return x->num_rows(); }
+r_vec_size Table__num_rows(const std::shared_ptr<arrow::Table>& x) {
+  return r_vec_size(x->num_rows());
+}
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>& x) {
@@ -301,8 +303,22 @@ std::shared_ptr<arrow::Table> Table__from_record_batches(
 }
 
 // [[arrow::export]]
-int64_t Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table) {
-  return ValueOrStop(arrow::util::ReferencedBufferSize(*table));
+std::shared_ptr<arrow::Table> Table__from_schema(
+    const std::shared_ptr<arrow::Schema>& schema) {
+  int64_t num_fields = schema->num_fields();
+
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
+  for (int i = 0; i < num_fields; i++) {
+    auto maybe_column = arrow::ChunkedArray::Make({}, schema->field(i)->type());
+    columns[i] = ValueOrStop(maybe_column);
+  }
+
+  return (arrow::Table::Make(schema, std::move(columns)));
+}
+
+// [[arrow::export]]
+r_vec_size Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table) {
+  return r_vec_size(ValueOrStop(arrow::util::ReferencedBufferSize(*table)));
 }
 
 // [[arrow::export]]

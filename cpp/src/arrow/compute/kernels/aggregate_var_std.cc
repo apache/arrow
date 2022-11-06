@@ -54,19 +54,19 @@ struct VarStdState {
   // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Two-pass_algorithm
   template <typename T = ArrowType>
   enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4)> Consume(
-      const ArrayType& array) {
-    this->all_valid = array.null_count() == 0;
-    int64_t count = array.length() - array.null_count();
+      const ArraySpan& array) {
+    this->all_valid = array.GetNullCount() == 0;
+    int64_t count = array.length - array.GetNullCount();
     if (count == 0 || (!this->all_valid && !options.skip_nulls)) {
       return;
     }
 
     using SumType = typename internal::GetSumType<T>::SumType;
-    SumType sum = internal::SumArray<CType, SumType, SimdLevel::NONE>(*array.data());
+    SumType sum = internal::SumArray<CType, SumType, SimdLevel::NONE>(array);
 
     const double mean = ToDouble(sum) / count;
     const double m2 = internal::SumArray<CType, double, SimdLevel::NONE>(
-        *array.data(), [this, mean](CType value) {
+        array, [this, mean](CType value) {
           const double v = ToDouble(value);
           return (v - mean) * (v - mean);
         });
@@ -79,29 +79,30 @@ struct VarStdState {
   // int32/16/8: textbook one pass algorithm with integer arithmetic
   template <typename T = ArrowType>
   enable_if_t<is_integer_type<T>::value && (sizeof(CType) <= 4)> Consume(
-      const ArrayType& array) {
+      const ArraySpan& array) {
     // max number of elements that sum will not overflow int64 (2Gi int32 elements)
     // for uint32:    0 <= sum < 2^63 (int64 >= 0)
     // for int32: -2^62 <= sum < 2^62
     constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
 
-    this->all_valid = array.null_count() == 0;
+    this->all_valid = array.GetNullCount() == 0;
     if (!this->all_valid && !options.skip_nulls) return;
     int64_t start_index = 0;
-    int64_t valid_count = array.length() - array.null_count();
+    int64_t valid_count = array.length - array.GetNullCount();
 
+    ArraySpan slice = array;
     while (valid_count > 0) {
       // process in chunks that overflow will never happen
-      const auto slice = array.Slice(start_index, max_length);
-      const int64_t count = slice->length() - slice->null_count();
-      start_index += max_length;
+      slice.SetSlice(start_index + array.offset,
+                     std::min(max_length, array.length - start_index));
+      const int64_t count = slice.length - slice.GetNullCount();
+      start_index += slice.length;
       valid_count -= count;
 
       if (count > 0) {
         IntegerVarStd<ArrowType> var_std;
-        const ArrayData& data = *slice->data();
-        const CType* values = data.GetValues<CType>(1);
-        VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+        const CType* values = slice.GetValues<CType>(1);
+        VisitSetBitRunsVoid(slice.buffers[0].data, slice.offset, slice.length,
                             [&](int64_t pos, int64_t len) {
                               for (int64_t i = 0; i < len; ++i) {
                                 const auto value = values[pos + i];
@@ -166,12 +167,11 @@ struct VarStdImpl : public ScalarAggregator {
                       const VarianceOptions& options, VarOrStd return_type)
       : out_type(out_type), state(decimal_scale, options), return_type(return_type) {}
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
-      ArrayType array(batch[0].array());
-      this->state.Consume(array);
+      this->state.Consume(batch[0].array);
     } else {
-      this->state.Consume(*batch[0].scalar(), batch.length);
+      this->state.Consume(*batch[0].scalar, batch.length);
     }
     return Status::OK();
   }

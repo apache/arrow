@@ -38,6 +38,8 @@
 #include <arrow/dataset/type_fwd.h>
 #endif
 
+#include <arrow/compute/exec/options.h>
+
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
 #include <arrow/ipc/type_fwd.h>
@@ -57,6 +59,8 @@ class ExecNode;
 
 }  // namespace compute
 }  // namespace arrow
+
+class ExecPlanReader;
 
 #if defined(ARROW_R_WITH_PARQUET)
 #include <parquet/type_fwd.h>
@@ -92,8 +96,8 @@ class UnwindProtectDetail : public StatusDetail {
   virtual std::string ToString() const { return "R code execution error"; }
 };
 
-static inline Status StatusUnwindProtect(SEXP token) {
-  return Status::Invalid("R code execution error")
+static inline Status StatusUnwindProtect(SEXP token, std::string reason = "") {
+  return Status::Invalid("R code execution error (", reason, ")")
       .WithDetail(std::make_shared<UnwindProtectDetail>(token));
 }
 

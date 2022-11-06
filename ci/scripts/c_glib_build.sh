@@ -24,7 +24,7 @@ build_dir=${2}/c_glib
 build_root=${2}
 
 : ${ARROW_GLIB_WERROR:=false}
-: ${ARROW_GLIB_VALA:=true}
+: ${ARROW_GLIB_VAPI:=true}
 : ${BUILD_DOCS_C_GLIB:=OFF}
 with_gtk_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
 
@@ -39,7 +39,7 @@ mkdir -p ${build_dir}
 meson --prefix=$ARROW_HOME \
       --libdir=lib \
       -Dgtk_doc=${with_gtk_doc} \
-      -Dvala=${ARROW_GLIB_VALA} \
+      -Dvapi=${ARROW_GLIB_VAPI} \
       -Dwerror=${ARROW_GLIB_WERROR} \
       ${build_dir} \
       ${source_dir}

@@ -31,7 +31,7 @@ C++ API
 
 .. default-domain:: cpp
 
-The Arrow C++ header files are bundled with a pyarrow installation.
+The Arrow C++ and PyArrow C++ header files are bundled with a pyarrow installation.
 To get the absolute path to this directory (like ``numpy.get_include()``), use:
 
 .. code-block:: python
@@ -50,11 +50,18 @@ This will not include other parts of the Arrow API, which you will need
 to include yourself (for example ``arrow/api.h``).
 
 When building C extensions that use the Arrow C++ libraries, you must add
-appropriate linker flags. We have provided functions ``pyarrow.get_libraries``
-and ``pyarrow.get_library_dirs`` which return a list of library names and
+appropriate linker flags. We have provided functions ``pa.get_libraries``
+and ``pa.get_library_dirs`` which return a list of library names and
 likely library install locations (if you installed pyarrow with pip or
 conda). These must be included when declaring your C extensions with
 setuptools (see below).
+
+.. note::
+
+   The PyArrow-specific C++ code is now a part of the PyArrow source tree
+   and not Arrow C++. That means the header files and ``arrow_python`` library
+   are not necessarily installed in the same location as that of Arrow C++ and
+   will no longer be automatically findable by CMake.
 
 Initializing the API
 ~~~~~~~~~~~~~~~~~~~~
@@ -434,12 +441,7 @@ To build this module, you will need a slightly customized ``setup.py`` file
         ext.library_dirs.extend(pa.get_library_dirs())
 
         if os.name == 'posix':
-            ext.extra_compile_args.append('-std=c++11')
-
-        # Try uncommenting the following line on Linux
-        # if you get weird linker errors or runtime crashes
-        # ext.define_macros.append(("_GLIBCXX_USE_CXX11_ABI", "0"))
-
+            ext.extra_compile_args.append('-std=c++17')
 
     setup(ext_modules=ext_modules)
 
@@ -472,12 +474,7 @@ Toolchain Compatibility (Linux)
 
 The Python wheels for Linux are built using the
 `PyPA manylinux images <https://quay.io/organization/pypa>`_ which use
-the CentOS `devtoolset-8` or `devtoolset-9` depending on which manylinux
-wheel version (2010 or 2014) is being used. In addition to the other notes
+the CentOS `devtoolset-9`. In addition to the other notes
 above, if you are compiling C++ using these shared libraries, you will need
 to make sure you use a compatible toolchain as well or you might see a
 segfault during runtime.
-
-Also, if you encounter errors when linking or loading the library, consider
-setting the ``_GLIBCXX_USE_CXX11_ABI`` preprocessor macro to ``0``
-(for example by adding ``-D_GLIBCXX_USE_CXX11_ABI=0`` to ``CFLAGS``).

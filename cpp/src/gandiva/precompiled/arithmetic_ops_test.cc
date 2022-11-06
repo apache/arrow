@@ -81,6 +81,14 @@ TEST(TestArithmeticOps, TestMod) {
   EXPECT_NEAR(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 9.2, 3.7), 1.8,
               acceptable_abs_error);
   EXPECT_FALSE(context.has_error());
+
+  context.Reset();
+  EXPECT_EQ(mod_uint32_uint32(10, 3), 1);
+  EXPECT_FALSE(context.has_error());
+
+  context.Reset();
+  EXPECT_EQ(mod_uint64_uint64(10, 3), 1);
+  EXPECT_FALSE(context.has_error());
 }
 
 TEST(TestArithmeticOps, TestNegativeDecimal) {
@@ -275,6 +283,14 @@ TEST(TestArithmeticOps, TestDiv) {
 
   EXPECT_EQ(div_float32_float32(reinterpret_cast<gdv_int64>(&context), 1010.1010f, 2.1f),
             481.0f);
+  EXPECT_EQ(context.has_error(), false);
+  context.Reset();
+
+  EXPECT_EQ(div_uint32_uint32(reinterpret_cast<gdv_int64>(&context), 101, 111), 0);
+  EXPECT_EQ(context.has_error(), false);
+  context.Reset();
+
+  EXPECT_EQ(div_uint64_uint64(reinterpret_cast<gdv_int64>(&context), 101, 111), 0);
   EXPECT_EQ(context.has_error(), false);
   context.Reset();
 }
@@ -574,6 +590,83 @@ TEST(TestArithmeticOps, TestBigIntCastFloatDouble) {
   EXPECT_EQ(castBIGINT_float64(-999999.99999999999999999999999), -1000000);
   EXPECT_EQ(castBIGINT_float64(INT32_MAX), 2147483647);
   EXPECT_EQ(castBIGINT_float64(-2147483647), -2147483647);
+}
+
+TEST(TestArithmeticOps, TestSignIntFloatDouble) {
+  // sign from int32
+  EXPECT_EQ(sign_int32(43), 1);
+  EXPECT_EQ(sign_int32(-54), -1);
+  EXPECT_EQ(sign_int32(63), 1);
+  EXPECT_EQ(sign_int32(INT32_MAX), 1);
+  EXPECT_EQ(sign_int32(INT32_MIN), -1);
+
+  // sign from int64
+  EXPECT_EQ(sign_int64(90), 1);
+  EXPECT_EQ(sign_int64(-7), -1);
+  EXPECT_EQ(sign_int64(INT64_MAX), 1);
+  EXPECT_EQ(sign_int64(INT64_MIN), -1);
+
+  // sign from floats
+  EXPECT_EQ(sign_float32(6.6f), 1.0f);
+  EXPECT_EQ(sign_float32(-6.6f), -1.0f);
+  EXPECT_EQ(sign_float32(-6.3f), -1.0f);
+  EXPECT_EQ(sign_float32(0.0f), 0.0f);
+  EXPECT_EQ(sign_float32(-0.0f), 0.0f);
+  EXPECT_EQ(sign_float32(INFINITY), 1.0f);
+  EXPECT_EQ(sign_float32(-INFINITY), -1.0f);
+
+  // sign from doubles
+  EXPECT_EQ(sign_float64(6.6), 1.0);
+  EXPECT_EQ(sign_float64(-6.6), -1.0);
+  EXPECT_EQ(sign_float64(-6.3), -1.0);
+  EXPECT_EQ(sign_float64(0.0), 0);
+  EXPECT_EQ(sign_float64(-0), 0);
+  EXPECT_EQ(sign_float64(999999.99999999999999999999999), 1.0);
+  EXPECT_EQ(sign_float64(-999999.99999999999999999999999), -1.0);
+  EXPECT_EQ(sign_float64(INFINITY), 1.0);
+  EXPECT_EQ(sign_float64(-INFINITY), -1.0);
+  EXPECT_TRUE(std::isnan(sign_float64(std::numeric_limits<double>::quiet_NaN())));
+  EXPECT_EQ(sign_float64(-2147483647), -1.0);
+}
+
+TEST(TestArithmeticOps, TestCeilingFloatDouble) {
+  // ceiling from floats
+  EXPECT_EQ(ceiling_float32(6.6f), 7.0f);
+  EXPECT_EQ(ceiling_float32(-6.6f), -6.0f);
+  EXPECT_EQ(ceiling_float32(-6.3f), -6.0f);
+  EXPECT_EQ(ceiling_float32(0.0f), 0.0f);
+  EXPECT_EQ(ceiling_float32(-0), 0.0);
+
+  // ceiling from doubles
+  EXPECT_EQ(ceiling_float64(6.6), 7.0);
+  EXPECT_EQ(ceiling_float64(-6.6), -6.0);
+  EXPECT_EQ(ceiling_float64(-6.3), -6.0);
+  EXPECT_EQ(ceiling_float64(0.0), 0.0);
+  EXPECT_EQ(ceiling_float64(-0), 0.0);
+  EXPECT_EQ(ceiling_float64(999999.99999999999999999999999), 1000000.0);
+  EXPECT_EQ(ceiling_float64(-999999.99999999999999999999999), -1000000.0);
+  EXPECT_EQ(ceiling_float64(2147483647.7), 2147483648.0);
+  EXPECT_EQ(ceiling_float64(-2147483647), -2147483647.0);
+}
+
+TEST(TestArithmeticOps, TestFloorFloatDouble) {
+  // ceiling from floats
+  EXPECT_EQ(floor_float32(6.6f), 6.0f);
+  EXPECT_EQ(floor_float32(-6.6f), -7.0f);
+  EXPECT_EQ(floor_float32(-6.3f), -7.0f);
+  EXPECT_EQ(floor_float32(0.0f), 0.0f);
+  EXPECT_EQ(floor_float32(-0), 0.0);
+
+  // ceiling from doubles
+  EXPECT_EQ(floor_float64(6.6), 6.0);
+  EXPECT_EQ(floor_float64(-6.6), -7.0);
+  EXPECT_EQ(floor_float64(-6.3), -7.0);
+  EXPECT_EQ(floor_float64(0.0), 0.0);
+  EXPECT_EQ(floor_float64(-0), 0.0);
+  EXPECT_EQ(floor_float64(999999.99999999999999999999999), 1000000.0);
+  EXPECT_EQ(floor_float64(-999999.99999999999999999999999), -1000000.0);
+  EXPECT_EQ(floor_float64(2147483647.7), 2147483647.0);
+  EXPECT_EQ(floor_float64(-2147483647), -2147483647.0);
 }
 
 }  // namespace gandiva

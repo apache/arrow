@@ -25,6 +25,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
 
 namespace arrow {
@@ -33,7 +34,7 @@ using internal::StringFormatter;
 
 class StringAppender {
  public:
-  Status operator()(util::string_view v) {
+  Status operator()(std::string_view v) {
     string_.append(v.data(), v.size());
     return Status::OK();
   }
@@ -279,6 +280,94 @@ TEST(Formatting, Double) {
   AssertFormatting(formatter, -HUGE_VAL, "-inf");
 }
 
+template <typename T>
+void TestDecimalFormatter() {
+  struct TestParam {
+    int64_t test_value;
+    int32_t scale;
+    std::string expected_string;
+  };
+
+  // Borrow from Decimal::ToString test
+  const auto decimalTestData = std::vector<TestParam>{
+      {0, -1, "0.E+1"},
+      {0, 0, "0"},
+      {0, 1, "0.0"},
+      {0, 6, "0.000000"},
+      {2, 7, "2.E-7"},
+      {2, -1, "2.E+1"},
+      {2, 0, "2"},
+      {2, 1, "0.2"},
+      {2, 6, "0.000002"},
+      {-2, 7, "-2.E-7"},
+      {-2, 7, "-2.E-7"},
+      {-2, -1, "-2.E+1"},
+      {-2, 0, "-2"},
+      {-2, 1, "-0.2"},
+      {-2, 6, "-0.000002"},
+      {-2, 7, "-2.E-7"},
+      {123, -3, "1.23E+5"},
+      {123, -1, "1.23E+3"},
+      {123, 1, "12.3"},
+      {123, 0, "123"},
+      {123, 5, "0.00123"},
+      {123, 8, "0.00000123"},
+      {123, 9, "1.23E-7"},
+      {123, 10, "1.23E-8"},
+      {-123, -3, "-1.23E+5"},
+      {-123, -1, "-1.23E+3"},
+      {-123, 1, "-12.3"},
+      {-123, 0, "-123"},
+      {-123, 5, "-0.00123"},
+      {-123, 8, "-0.00000123"},
+      {-123, 9, "-1.23E-7"},
+      {-123, 10, "-1.23E-8"},
+      {1000000000, -3, "1.000000000E+12"},
+      {1000000000, -1, "1.000000000E+10"},
+      {1000000000, 0, "1000000000"},
+      {1000000000, 1, "100000000.0"},
+      {1000000000, 5, "10000.00000"},
+      {1000000000, 15, "0.000001000000000"},
+      {1000000000, 16, "1.000000000E-7"},
+      {1000000000, 17, "1.000000000E-8"},
+      {-1000000000, -3, "-1.000000000E+12"},
+      {-1000000000, -1, "-1.000000000E+10"},
+      {-1000000000, 0, "-1000000000"},
+      {-1000000000, 1, "-100000000.0"},
+      {-1000000000, 5, "-10000.00000"},
+      {-1000000000, 15, "-0.000001000000000"},
+      {-1000000000, 16, "-1.000000000E-7"},
+      {-1000000000, 17, "-1.000000000E-8"},
+      {1234567890123456789LL, -3, "1.234567890123456789E+21"},
+      {1234567890123456789LL, -1, "1.234567890123456789E+19"},
+      {1234567890123456789LL, 0, "1234567890123456789"},
+      {1234567890123456789LL, 1, "123456789012345678.9"},
+      {1234567890123456789LL, 5, "12345678901234.56789"},
+      {1234567890123456789LL, 24, "0.000001234567890123456789"},
+      {1234567890123456789LL, 25, "1.234567890123456789E-7"},
+      {-1234567890123456789LL, -3, "-1.234567890123456789E+21"},
+      {-1234567890123456789LL, -1, "-1.234567890123456789E+19"},
+      {-1234567890123456789LL, 0, "-1234567890123456789"},
+      {-1234567890123456789LL, 1, "-123456789012345678.9"},
+      {-1234567890123456789LL, 5, "-12345678901234.56789"},
+      {-1234567890123456789LL, 24, "-0.000001234567890123456789"},
+      {-1234567890123456789LL, 25, "-1.234567890123456789E-7"},
+  };
+
+  for (const auto& data : decimalTestData) {
+    const auto type = T(T::kMaxPrecision, data.scale);
+    StringFormatter<T> formatter(&type);
+    using value_type = typename TypeTraits<T>::CType;
+
+    AssertFormatting(formatter, value_type(data.test_value), data.expected_string);
+  }
+}
+
+TEST(Formatting, Decimals) {
+  TestDecimalFormatter<Decimal128Type>();
+  TestDecimalFormatter<Decimal256Type>();
+}
+
 TEST(Formatting, Date32) {
   StringFormatter<Date32Type> formatter;
 
@@ -312,7 +401,8 @@ TEST(Formatting, Date64) {
 
 TEST(Formatting, Time32) {
   {
-    StringFormatter<Time32Type> formatter(time32(TimeUnit::SECOND));
+    auto ty = time32(TimeUnit::SECOND);
+    StringFormatter<Time32Type> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "00:00:00");
     AssertFormatting(formatter, 1, "00:00:01");
@@ -321,7 +411,8 @@ TEST(Formatting, Time32) {
   }
 
   {
-    StringFormatter<Time32Type> formatter(time32(TimeUnit::MILLI));
+    auto ty = time32(TimeUnit::MILLI);
+    StringFormatter<Time32Type> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "00:00:00.000");
     AssertFormatting(formatter, 1, "00:00:00.001");
@@ -334,7 +425,8 @@ TEST(Formatting, Time32) {
 
 TEST(Formatting, Time64) {
   {
-    StringFormatter<Time64Type> formatter(time64(TimeUnit::MICRO));
+    auto ty = time64(TimeUnit::MICRO);
+    StringFormatter<Time64Type> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "00:00:00.000000");
     AssertFormatting(formatter, 1, "00:00:00.000001");
@@ -345,7 +437,8 @@ TEST(Formatting, Time64) {
   }
 
   {
-    StringFormatter<Time64Type> formatter(time64(TimeUnit::NANO));
+    auto ty = time64(TimeUnit::NANO);
+    StringFormatter<Time64Type> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "00:00:00.000000000");
     AssertFormatting(formatter, 1, "00:00:00.000000001");
@@ -358,7 +451,8 @@ TEST(Formatting, Time64) {
 
 TEST(Formatting, Timestamp) {
   {
-    StringFormatter<TimestampType> formatter(timestamp(TimeUnit::SECOND));
+    auto ty = timestamp(TimeUnit::SECOND);
+    StringFormatter<TimestampType> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00");
     AssertFormatting(formatter, 1, "1970-01-01 00:00:01");
@@ -373,7 +467,8 @@ TEST(Formatting, Timestamp) {
   }
 
   {
-    StringFormatter<TimestampType> formatter(timestamp(TimeUnit::MILLI));
+    auto ty = timestamp(TimeUnit::MILLI);
+    StringFormatter<TimestampType> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000");
     AssertFormatting(formatter, 1000L + 1, "1970-01-01 00:00:01.001");
@@ -388,7 +483,8 @@ TEST(Formatting, Timestamp) {
   }
 
   {
-    StringFormatter<TimestampType> formatter(timestamp(TimeUnit::MICRO));
+    auto ty = timestamp(TimeUnit::MICRO);
+    StringFormatter<TimestampType> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000");
     AssertFormatting(formatter, 1000000LL + 1, "1970-01-01 00:00:01.000001");
@@ -407,7 +503,8 @@ TEST(Formatting, Timestamp) {
   }
 
   {
-    StringFormatter<TimestampType> formatter(timestamp(TimeUnit::NANO));
+    auto ty = timestamp(TimeUnit::NANO);
+    StringFormatter<TimestampType> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000000");
     AssertFormatting(formatter, 1000000000LL + 1, "1970-01-01 00:00:01.000000001");
@@ -436,7 +533,8 @@ TEST(Formatting, Interval) {
   const int64_t max_int64 = std::numeric_limits<int64_t>::max();
   const int64_t min_int64 = std::numeric_limits<int64_t>::min();
   {
-    StringFormatter<MonthIntervalType> formatter(month_interval());
+    auto ty = month_interval();
+    StringFormatter<MonthIntervalType> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "0M");
     AssertFormatting(formatter, -1, "-1M");
@@ -444,7 +542,8 @@ TEST(Formatting, Interval) {
     AssertFormatting(formatter, max_int32, "2147483647M");
   }
   {
-    StringFormatter<DayTimeIntervalType> formatter(day_time_interval());
+    auto ty = day_time_interval();
+    StringFormatter<DayTimeIntervalType> formatter(ty.get());
 
     AssertFormatting(formatter, DayMilliseconds{0, 0}, "0d0ms");
     AssertFormatting(formatter, DayMilliseconds{-1, -1}, "-1d-1ms");
@@ -454,7 +553,8 @@ TEST(Formatting, Interval) {
                      "2147483647d2147483647ms");
   }
   {
-    StringFormatter<MonthDayNanoIntervalType> formatter(month_day_nano_interval());
+    auto ty = month_day_nano_interval();
+    StringFormatter<MonthDayNanoIntervalType> formatter(ty.get());
 
     AssertFormatting(formatter, MonthDayNanos{0, 0, 0}, "0M0d0ns");
     AssertFormatting(formatter, MonthDayNanos{-1, -1, -1}, "-1M-1d-1ns");

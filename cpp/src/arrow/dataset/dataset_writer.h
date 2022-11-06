@@ -50,7 +50,7 @@ class ARROW_DS_EXPORT DatasetWriter {
   /// \param max_rows_queued max # of rows allowed to be queued before the dataset_writer
   ///                        will ask for backpressure
   static Result<std::unique_ptr<DatasetWriter>> Make(
-      FileSystemDatasetWriteOptions write_options,
+      FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,
       uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
 
   ~DatasetWriter();
@@ -83,14 +83,15 @@ class ARROW_DS_EXPORT DatasetWriter {
                             const std::string& directory, const std::string& prefix = "");
 
   /// Finish all pending writes and close any open files
-  Future<> Finish();
+  Status Finish();
 
  protected:
   DatasetWriter(FileSystemDatasetWriteOptions write_options,
+                util::AsyncTaskScheduler* scheduler,
                 uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
 
   class DatasetWriterImpl;
-  std::unique_ptr<DatasetWriterImpl, util::DestroyingDeleter<DatasetWriterImpl>> impl_;
+  std::unique_ptr<DatasetWriterImpl> impl_;
 };
 
 }  // namespace internal

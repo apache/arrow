@@ -24,7 +24,7 @@ ARG python=3.8
 COPY ci/conda_env_python.txt \
      ci/conda_env_sphinx.txt \
      /arrow/ci/
-RUN mamba install -q \
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
         --file arrow/ci/conda_env_sphinx.txt \
         $([ "$python" == "3.7" ] && echo "pickle5") \
@@ -32,10 +32,19 @@ RUN mamba install -q \
         nomkl && \
     mamba clean --all
 
-ENV ARROW_PYTHON=ON \
-    ARROW_BUILD_STATIC=OFF \
+# XXX The GCS testbench was already installed in conda-cpp.dockerfile,
+# but we changed the installed Python version above, so we need to reinstall it.
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+
+ENV ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
+    ARROW_COMPUTE=ON \
+    ARROW_CSV=ON \
+    ARROW_DATASET=ON \
+    ARROW_FILESYSTEM=ON \
+    ARROW_HDFS=ON \
+    ARROW_JSON=ON \
     ARROW_TENSORFLOW=ON \
-    ARROW_USE_GLOG=OFF \
-    ARROW_HDFS=ON
+    ARROW_USE_GLOG=OFF

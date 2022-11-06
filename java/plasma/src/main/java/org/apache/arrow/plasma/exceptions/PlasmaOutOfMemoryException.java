@@ -19,7 +19,10 @@ package org.apache.arrow.plasma.exceptions;
 
 /**
  * Indicates no more memory is available in Plasma.
+ *
+ * @deprecated Plasma is deprecated since 10.0.0. Plasma will not be released from Apache Arrow 12.0.0 or so.
  */
+@Deprecated
 public class PlasmaOutOfMemoryException extends RuntimeException {
 
   public PlasmaOutOfMemoryException(String message) {

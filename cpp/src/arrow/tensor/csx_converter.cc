@@ -52,8 +52,8 @@ class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
     RETURN_NOT_OK(::arrow::internal::CheckSparseIndexMaximumValue(index_value_type_,
                                                                   tensor_.shape()));
 
-    const int index_elsize = GetByteWidth(*index_value_type_);
-    const int value_elsize = GetByteWidth(*tensor_.type());
+    const int index_elsize = index_value_type_->byte_width();
+    const int value_elsize = tensor_.type()->byte_width();
 
     const int64_t ndim = tensor_.ndim();
     if (ndim > 2) {
@@ -166,11 +166,11 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSXMatrix(
   const auto* indptr_data = indptr->raw_data();
   const auto* indices_data = indices->raw_data();
 
-  const int indptr_elsize = GetByteWidth(*indptr->type());
-  const int indices_elsize = GetByteWidth(*indices->type());
+  const int indptr_elsize = indptr->type()->byte_width();
+  const int indices_elsize = indices->type()->byte_width();
 
   const auto& fw_value_type = checked_cast<const FixedWidthType&>(*value_type);
-  const int value_elsize = GetByteWidth(fw_value_type);
+  const int value_elsize = fw_value_type.byte_width();
   ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                         AllocateBuffer(value_elsize * tensor_size, pool));
   auto values = values_buffer->mutable_data();

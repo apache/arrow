@@ -21,8 +21,9 @@
 #include <arrow/ipc/writer.h>
 
 // [[arrow::export]]
-int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message) {
-  return message->body_length();
+r_vec_size ipc___Message__body_length(
+    const std::unique_ptr<arrow::ipc::Message>& message) {
+  return r_vec_size(message->body_length());
 }
 
 // [[arrow::export]]
@@ -38,8 +39,8 @@ std::shared_ptr<arrow::Buffer> ipc___Message__body(
 }
 
 // [[arrow::export]]
-int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message) {
-  return message->Verify();
+r_vec_size ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message) {
+  return r_vec_size(message->Verify());
 }
 
 // [[arrow::export]]

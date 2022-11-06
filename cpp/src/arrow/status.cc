@@ -131,6 +131,12 @@ void Status::Abort(const std::string& message) const {
   std::abort();
 }
 
+void Status::Warn() const { ARROW_LOG(WARNING) << ToString(); }
+
+void Status::Warn(const std::string& message) const {
+  ARROW_LOG(WARNING) << message << ": " << ToString();
+}
+
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 void Status::AddContextLine(const char* filename, int line, const char* expr) {
   ARROW_CHECK(!ok()) << "Cannot add context line to ok status";

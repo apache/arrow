@@ -17,6 +17,7 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.function.Function;
@@ -59,6 +60,9 @@ public final class JdbcToArrowConfig {
   private final Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
   private final Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex;
   private final Map<String, JdbcFieldInfo> explicitTypesByColumnName;
+  private final Map<String, String> schemaMetadata;
+  private final Map<Integer, Map<String, String>> columnMetadataByColumnIndex;
+  private final RoundingMode bigDecimalRoundingMode;
   /**
    * The maximum rowCount to read each time when partially convert data.
    * Default value is 1024 and -1 means disable partial read.
@@ -87,7 +91,20 @@ public final class JdbcToArrowConfig {
         /* reuse vector schema root */ false,
         /* array sub-types by column index */ null,
         /* array sub-types by column name */ null,
-        DEFAULT_TARGET_BATCH_SIZE, null);
+        DEFAULT_TARGET_BATCH_SIZE, null, null);
+  }
+
+  JdbcToArrowConfig(
+          BufferAllocator allocator,
+          Calendar calendar,
+          boolean includeMetadata,
+          boolean reuseVectorSchemaRoot,
+          Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
+          Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
+          int targetBatchSize,
+          Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
+    this(allocator, calendar, includeMetadata, reuseVectorSchemaRoot, arraySubTypesByColumnIndex,
+        arraySubTypesByColumnName, targetBatchSize, jdbcToArrowTypeConverter, null);
   }
 
   /**
@@ -101,6 +118,7 @@ public final class JdbcToArrowConfig {
    * @param reuseVectorSchemaRoot Whether to reuse the vector schema root for each data load.
    * @param arraySubTypesByColumnIndex The type of the JDBC array at the column index (1-based).
    * @param arraySubTypesByColumnName  The type of the JDBC array at the column name.
+   * @param targetBatchSize The target batch size to be used in preallcation of the resulting vectors.
    * @param jdbcToArrowTypeConverter The function that maps JDBC field type information to arrow type. If set to null,
    *                                 the default mapping will be used, which is defined as:
    *  <ul>
@@ -132,6 +150,9 @@ public final class JdbcToArrowConfig {
    *    <li>STRUCT --> ArrowType.Struct</li>
    *    <li>NULL --> ArrowType.Null</li>
    *  </ul>
+   * @param bigDecimalRoundingMode The java.math.RoundingMode to be used in coercion of a BigDecimal from a
+   *                               ResultSet having a scale which does not match that of the target vector. Use null
+   *                               (default value) to require strict scale matching.
    */
   JdbcToArrowConfig(
       BufferAllocator allocator,
@@ -141,7 +162,8 @@ public final class JdbcToArrowConfig {
       Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
       int targetBatchSize,
-      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
+      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
+      RoundingMode bigDecimalRoundingMode) {
 
     this(
         allocator,
@@ -153,7 +175,10 @@ public final class JdbcToArrowConfig {
         targetBatchSize,
         jdbcToArrowTypeConverter,
         null,
-        null);
+        null,
+        null,
+        null,
+        bigDecimalRoundingMode);
   }
 
   JdbcToArrowConfig(
@@ -166,7 +191,10 @@ public final class JdbcToArrowConfig {
       int targetBatchSize,
       Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
       Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex,
-      Map<String, JdbcFieldInfo> explicitTypesByColumnName) {
+      Map<String, JdbcFieldInfo> explicitTypesByColumnName,
+      Map<String, String> schemaMetadata,
+      Map<Integer, Map<String, String>> columnMetadataByColumnIndex,
+      RoundingMode bigDecimalRoundingMode) {
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
     this.allocator = allocator;
     this.calendar = calendar;
@@ -177,10 +205,13 @@ public final class JdbcToArrowConfig {
     this.targetBatchSize = targetBatchSize;
     this.explicitTypesByColumnIndex = explicitTypesByColumnIndex;
     this.explicitTypesByColumnName = explicitTypesByColumnName;
+    this.schemaMetadata = schemaMetadata;
+    this.columnMetadataByColumnIndex = columnMetadataByColumnIndex;
+    this.bigDecimalRoundingMode = bigDecimalRoundingMode;
 
     // set up type converter
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
-        jdbcFieldInfo -> JdbcToArrowUtils.getArrowTypeFromJdbcType(jdbcFieldInfo, calendar);
+        (jdbcFieldInfo) -> JdbcToArrowUtils.getArrowTypeFromJdbcType(jdbcFieldInfo, calendar);
   }
 
   /**
@@ -287,5 +318,24 @@ public final class JdbcToArrowConfig {
     } else {
       return explicitTypesByColumnName.get(name);
     }
+  }
+
+  /**
+   * Return schema level metadata or null if not provided.
+   */
+  public Map<String, String> getSchemaMetadata() {
+    return schemaMetadata;
+  }
+
+  /**
+   * Return metadata from columnIndex->meta map on per field basis
+   * or null if not provided.
+   */
+  public Map<Integer, Map<String, String>> getColumnMetadataByColumnIndex() {
+    return columnMetadataByColumnIndex;
+  }
+
+  public RoundingMode getBigDecimalRoundingMode() {
+    return bigDecimalRoundingMode;
   }
 }

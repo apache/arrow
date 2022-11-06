@@ -24,10 +24,13 @@
 #'
 #' @section Methods:
 #'
-#' TODO
+#' - `$ToString()`: String representation of the DataType
+#' - `$Equals(other)`: Is the DataType equal to `other`
+#' - `$fields()`: The children fields associated with this type
 #'
 #' @rdname DataType
 #' @name DataType
+#' @seealso [`data-type`]
 DataType <- R6Class("DataType",
   inherit = ArrowObject,
   public = list(
@@ -57,6 +60,8 @@ INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
 FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")
 
 #' Infer the arrow Array type from an R object
+#'
+#' [type()] is deprecated in favor of [infer_type()].
 #'
 #' @param x an R object (usually a vector) to be converted to an [Array] or
 #'   [ChunkedArray].
@@ -106,6 +111,20 @@ infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
     }
   } else {
     Array__infer_type(x)
+  }
+}
+
+#' @export
+infer_type.vctrs_list_of <- function(x, ...) {
+  list_of(infer_type(attr(x, "ptype")))
+}
+
+#' @export
+infer_type.blob <- function(x, ...) {
+  if (sum(lengths(x)) > .Machine$integer.max) {
+    large_binary()
+  } else {
+    binary()
   }
 }
 

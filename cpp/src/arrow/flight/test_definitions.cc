@@ -237,6 +237,21 @@ void DataTest::TestDoGetLargeBatch() {
   Ticket ticket{"ticket-large-batch-1"};
   CheckDoGet(ticket, expected_batches);
 }
+// Ensure FlightDataStream/RecordBatchStream::Close errors are propagated
+void DataTest::TestFlightDataStreamError() {
+  Ticket ticket{"ticket-stream-error"};
+
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(ticket));
+  Status status;
+  while (true) {
+    FlightStreamChunk chunk;
+    status = stream->Next().Value(&chunk);
+    if (!chunk.data) break;
+    if (!status.ok()) break;
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
+                                  status);
+}
 void DataTest::TestOverflowServerBatch() {
   // Regression test for ARROW-13253
   // N.B. this is rather a slow and memory-hungry test
@@ -839,8 +854,8 @@ Status AppMetadataTestServer::DoGet(const ServerCallContext& context,
     RETURN_NOT_OK(ExampleIntBatches(&batches));
   }
   ARROW_ASSIGN_OR_RAISE(auto batch_reader, RecordBatchReader::Make(batches));
-  *data_stream = std::unique_ptr<FlightDataStream>(new NumberingStream(
-      std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader))));
+  *data_stream = std::make_unique<NumberingStream>(
+      std::make_unique<RecordBatchStream>(batch_reader));
   return Status::OK();
 }
 Status AppMetadataTestServer::DoPut(const ServerCallContext& context,
@@ -996,7 +1011,7 @@ class IpcOptionsTestServer : public FlightServerBase {
     RecordBatchVector batches;
     RETURN_NOT_OK(ExampleNestedBatches(&batches));
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make(batches));
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    *data_stream = std::make_unique<RecordBatchStream>(reader);
     return Status::OK();
   }
 
@@ -1185,7 +1200,7 @@ class CudaTestServer : public FlightServerBase {
                std::unique_ptr<FlightDataStream>* data_stream) override {
     RETURN_NOT_OK(ExampleIntBatches(&batches_));
     ARROW_ASSIGN_OR_RAISE(auto batch_reader, RecordBatchReader::Make(batches_));
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
+    *data_stream = std::make_unique<RecordBatchStream>(batch_reader);
     return Status::OK();
   }
 

@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+# nolint start: cyclocomp_linter,
 ExecPlan <- R6Class("ExecPlan",
   inherit = ArrowObject,
   public = list(
@@ -73,8 +73,6 @@ ExecPlan <- R6Class("ExecPlan",
       group_vars <- dplyr::group_vars(.data)
       grouped <- length(group_vars) > 0
 
-      # Collect the target names first because we have to add back the group vars
-      target_names <- names(.data)
       .data <- ensure_group_vars(.data)
       .data <- ensure_arrange_vars(.data) # this sets .data$temp_columns
 
@@ -115,10 +113,15 @@ ExecPlan <- R6Class("ExecPlan",
           })
         }
 
+        .data$aggregations <- imap(.data$aggregations, function(x, name) {
+          # Embed the name inside the aggregation objects. `target` and `name`
+          # are the same because we just Project()ed the data that way above
+          x[["name"]] <- x[["target"]] <- name
+          x
+        })
+
         node <- node$Aggregate(
-          options = map(.data$aggregations, ~ .[c("fun", "options")]),
-          target_names = names(.data$aggregations),
-          out_field_names = names(.data$aggregations),
+          options = .data$aggregations,
           key_names = group_vars
         )
 
@@ -139,24 +142,25 @@ ExecPlan <- R6Class("ExecPlan",
         }
       } else {
         # If any columns are derived, reordered, or renamed we need to Project
-        # If there are aggregations, the projection was already handled above
+        # If there are aggregations, the projection was already handled above.
         # We have to project at least once to eliminate some junk columns
         # that the ExecPlan adds:
         # __fragment_index, __batch_index, __last_in_fragment
-        # Presumably extraneous repeated projection of the same thing
-        # (as when we've done collapse() and not projected after) is cheap/no-op
+        #
+        # $Project() will check whether we actually need to project, so that
+        # repeated projection of the same thing
+        # (as when we've done collapse() and not projected after) is avoided
         projection <- c(.data$selected_columns, .data$temp_columns)
         node <- node$Project(projection)
         if (!is.null(.data$join)) {
           right_node <- self$Build(.data$join$right_data)
-          left_output <- names(.data)
-          right_output <- setdiff(names(.data$join$right_data), .data$join$by)
+
           node <- node$Join(
             type = .data$join$type,
             right_node = right_node,
             by = .data$join$by,
-            left_output = left_output,
-            right_output = right_output,
+            left_output = .data$join$left_output,
+            right_output = .data$join$right_output,
             left_suffix = .data$join$suffix[[1]],
             right_suffix = .data$join$suffix[[2]]
           )
@@ -179,7 +183,6 @@ ExecPlan <- R6Class("ExecPlan",
           temp_columns = names(.data$temp_columns)
         )
       }
-
       # This is only safe because we are going to evaluate queries that end
       # with head/tail first, then evaluate any subsequent query as a new query
       if (!is.null(.data$head)) {
@@ -194,7 +197,7 @@ ExecPlan <- R6Class("ExecPlan",
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
-      # created in ExecPlan_run
+      # created in ExecPlan_build
       sorting <- node$extras$sort %||% list()
       select_k <- node$extras$head %||% -1L
       has_sorting <- length(sorting) > 0
@@ -226,14 +229,11 @@ ExecPlan <- R6Class("ExecPlan",
         if (!is.null(slice_size)) {
           out <- head(out, slice_size)
         }
-        # Can we now tell `self$Stop()` to StopProducing? We already have
-        # everything we need for the head (but it seems to segfault: ARROW-14329)
       } else if (!is.null(node$extras$tail)) {
         # TODO(ARROW-16630): proper BottomK support
         # Reverse the row order to get back what we expect
-        out <- out$read_table()
+        out <- as_arrow_table(out)
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
-        # Put back into RBR
         out <- as_record_batch_reader(out)
       }
 
@@ -242,7 +242,7 @@ ExecPlan <- R6Class("ExecPlan",
       # happens in the end (SinkNode) so nothing comes after it.
       # TODO(ARROW-16631): move into ExecPlan
       if (length(node$extras$sort$temp_columns) > 0) {
-        tab <- out$read_table()
+        tab <- as_arrow_table(out)
         tab <- tab[, setdiff(names(tab), node$extras$sort$temp_columns), drop = FALSE]
         out <- as_record_batch_reader(tab)
       }
@@ -258,9 +258,13 @@ ExecPlan <- R6Class("ExecPlan",
         ...
       )
     },
-    Stop = function() ExecPlan_StopProducing(self)
+    ToString = function() {
+      ExecPlan_ToString(self)
+    }
   )
 )
+# nolint end.
+
 ExecPlan$create <- function(use_threads = option_use_threads()) {
   ExecPlan_create(use_threads)
 }
@@ -295,7 +299,11 @@ ExecNode <- R6Class("ExecNode",
     Project = function(cols) {
       if (length(cols)) {
         assert_is_list_of(cols, "Expression")
-        self$preserve_extras(ExecNode_Project(self, cols, names(cols)))
+        if (needs_projection(cols, self$schema)) {
+          self$preserve_extras(ExecNode_Project(self, cols, names(cols)))
+        } else {
+          self
+        }
       } else {
         self$preserve_extras(ExecNode_Project(self, character(0), character(0)))
       }
@@ -304,9 +312,9 @@ ExecNode <- R6Class("ExecNode",
       assert_is(expr, "Expression")
       self$preserve_extras(ExecNode_Filter(self, expr))
     },
-    Aggregate = function(options, target_names, out_field_names, key_names) {
+    Aggregate = function(options, key_names) {
       out <- self$preserve_extras(
-        ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
+        ExecNode_Aggregate(self, options, key_names)
       )
       # dplyr drops top-level attributes when you call summarize()
       out$extras$source_schema$metadata[["r"]]$attributes <- NULL
@@ -336,6 +344,23 @@ ExecNode <- R6Class("ExecNode",
   )
 )
 
+ExecPlanReader <- R6Class("ExecPlanReader",
+  inherit = RecordBatchReader,
+  public = list(
+    batches = function() ExecPlanReader__batches(self),
+    read_table = function() Table__from_ExecPlanReader(self),
+    Plan = function() ExecPlanReader__Plan(self),
+    PlanStatus = function() ExecPlanReader__PlanStatus(self),
+    ToString = function() {
+      sprintf(
+        "<Status: %s>\n\n%s\n\nSee $Plan() for details.",
+        self$PlanStatus(),
+        super$ToString()
+      )
+    }
+  )
+)
+
 do_exec_plan_substrait <- function(substrait_plan) {
   if (is.string(substrait_plan)) {
     substrait_plan <- substrait__internal__SubstraitFromJSON(substrait_plan)
@@ -347,4 +372,14 @@ do_exec_plan_substrait <- function(substrait_plan) {
 
   plan <- ExecPlan$create()
   ExecPlan_run_substrait(plan, substrait_plan)
+}
+
+needs_projection <- function(projection, schema) {
+  # Check whether `projection` would do anything to data with the given `schema`
+  field_names <- set_names(map_chr(projection, ~ .$field_name), NULL)
+
+  # We need to apply `projection` if:
+  !all(nzchar(field_names)) || # Any of the Expressions are not FieldRefs
+    !identical(field_names, names(projection)) || # Any fields are renamed
+    !identical(field_names, names(schema)) # The fields are reordered
 }

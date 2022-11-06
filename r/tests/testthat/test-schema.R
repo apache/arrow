@@ -43,12 +43,11 @@ test_that("Schema$code()", {
     schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
   )
 
-  skip("until rlang 1.0")
-  expect_snapshot({
-    (expect_error(
-      schema(x = int32(), y = DayTimeInterval__initialize())$code()
-    ))
-  })
+  skip_if(packageVersion("rlang") < 1)
+  expect_error(
+    eval(schema(x = int32(), y = DayTimeInterval__initialize())$code()),
+    "Unsupported type"
+  )
 })
 
 test_that("Schema with non-nullable fields", {

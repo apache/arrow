@@ -21,11 +21,12 @@
 
 #include <utf8proc.h>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/util/double_conversion.h"
-#include "arrow/util/string_view.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"
 
 #include "gandiva/engine.h"
@@ -101,7 +102,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \
-    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {     \
+    arrow::Status status = formatter(value, [&](std::string_view v) {             \
       int64_t size = static_cast<int64_t>(v.size());                              \
       *out_len = static_cast<int32_t>(len < size ? len : size);                   \
       memcpy(ret, v.data(), *out_len);                                            \
@@ -137,7 +138,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \
-    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {     \
+    arrow::Status status = formatter(value, [&](std::string_view v) {             \
       int64_t size = static_cast<int64_t>(v.size());                              \
       *out_len = static_cast<int32_t>(len < size ? len : size);                   \
       memcpy(ret, v.data(), *out_len);                                            \
@@ -335,6 +336,94 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
   return out;
 }
 
+// Substring_index
+GDV_FORCE_INLINE
+const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt_len,
+                                   const char* pat, int32_t pat_len, int32_t cnt,
+                                   int32_t* out_len) {
+  if (txt_len == 0 || pat_len == 0 || cnt == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, txt_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  std::vector<int> lps(pat_len);
+  int len = 0;
+
+  lps[0] = 0;  // lps[0] is always 0
+
+  // the loop calculates lps[i] for i = 1 to M-1
+  int i = 1;
+  while (i < pat_len) {
+    if (pat[i] == pat[len]) {
+      len++;
+      lps[i] = len;
+      i++;
+    } else {
+      // (pat[i] != pat[len])
+      // This is tricky. Consider the example.
+      // AAACAAAA and i = 7. The idea is similar
+      // to search step.
+      if (len != 0) {
+        len = lps[len - 1];
+
+        // Also, note that we do not increment
+        // i here
+      } else {
+        // if (len == 0)
+        lps[i] = 0;
+        i++;
+      }
+    }
+  }
+
+  std::vector<int> occ;
+
+  i = 0;      // index for txt[]
+  int j = 0;  // index for pat[]
+  while (i < txt_len) {
+    if (pat[j] == txt[i]) {
+      j++;
+      i++;
+    }
+
+    if (j == pat_len) {
+      occ.push_back(i - j);
+      j = lps[j - 1];
+    } else if (i < txt_len && pat[j] != txt[i]) {
+      // mismatch after j matches
+      // Do not match lps[0..lps[j-1]] characters,
+      // they will match anyway
+      if (j != 0)
+        j = lps[j - 1];
+      else
+        i = i + 1;
+    }
+  }
+
+  if (static_cast<int32_t>(abs(cnt)) <= static_cast<int32_t>(occ.size()) && cnt > 0) {
+    memcpy(out, txt, occ[cnt - 1]);
+    *out_len = occ[cnt - 1];
+    return out;
+  } else if (static_cast<int32_t>(abs(cnt)) <= static_cast<int32_t>(occ.size()) &&
+             cnt < 0) {
+    int32_t temp = static_cast<int32_t>(abs(cnt));
+    memcpy(out, txt + occ[temp - 1] + pat_len, txt_len - occ[temp - 1] - pat_len);
+    *out_len = txt_len - occ[temp - 1] - pat_len;
+    return out;
+  } else {
+    *out_len = txt_len;
+    memcpy(out, txt, txt_len);
+    return out;
+  }
+}
+
 // Any codepoint, except the ones for lowercase letters, uppercase letters,
 // titlecase letters, decimal digits and letter numbers categories will be
 // considered as word separators.
@@ -448,6 +537,222 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 
   *out_len = out_idx;
   return out;
+}
+GANDIVA_EXPORT
+const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in_len,
+                                     const char* from, int32_t from_len, const char* to,
+                                     int32_t to_len, int32_t* out_len) {
+  if (in_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  if (from_len <= 0) {
+    *out_len = in_len;
+    return in;
+  }
+
+  // This variable is to control if there are multi-byte utf8 entries
+  bool has_multi_byte = false;
+
+  // This variable is to store the final result
+  char* result;
+  int result_len;
+
+  // Searching multi-bytes in In
+  for (int i = 0; i < in_len; i++) {
+    unsigned char char_single_byte = in[i];
+    if (char_single_byte > 127) {
+      // found a multi-byte utf-8 char
+      has_multi_byte = true;
+      break;
+    }
+  }
+
+  // Searching multi-bytes in From
+  if (!has_multi_byte) {
+    for (int i = 0; i < from_len; i++) {
+      unsigned char char_single_byte = from[i];
+      if (char_single_byte > 127) {
+        // found a multi-byte utf-8 char
+        has_multi_byte = true;
+        break;
+      }
+    }
+  }
+
+  // Searching multi-bytes in To
+  if (!has_multi_byte) {
+    for (int i = 0; i < to_len; i++) {
+      unsigned char char_single_byte = to[i];
+      if (char_single_byte > 127) {
+        // found a multi-byte utf-8 char
+        has_multi_byte = true;
+        break;
+      }
+    }
+  }
+
+  // If there are no multibytes in the input, work only with char
+  if (!has_multi_byte) {
+    // This variable is for receive the substitutions
+    result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));
+
+    if (result == nullptr) {
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not allocate memory for output string");
+      *out_len = 0;
+      return "";
+    }
+    result_len = 0;
+
+    // Creating a Map to mark substitutions to make
+    std::unordered_map<char, char> subs_list;
+
+    // This variable is for controlling the position in entry TO, for never repeat the
+    // changes
+    int start_compare;
+
+    if (to_len > 0) {
+      start_compare = 0;
+    } else {
+      start_compare = -1;
+    }
+
+    // If the position in TO is out of range, this variable will be associated to map
+    // list, to mark deletion positions
+    const char empty = '\0';
+
+    for (int in_for = 0; in_for < in_len; in_for++) {
+      if (subs_list.find(in[in_for]) != subs_list.end()) {
+        if (subs_list[in[in_for]] != empty) {
+          // If exist in map, only add the correspondent value in result
+          result[result_len] = subs_list[in[in_for]];
+          result_len++;
+        }
+      } else {
+        for (int from_for = 0; from_for <= from_len; from_for++) {
+          if (from_for == from_len) {
+            // If it's not in the FROM list, just add it to the map and the result.
+            subs_list.insert(std::pair<char, char>(in[in_for], in[in_for]));
+            result[result_len] = in[in_for];
+            result_len++;
+            break;
+          }
+          if (in[in_for] != from[from_for]) {
+            // If this character does not exist in FROM list, don't need treatment
+            continue;
+          } else if (start_compare == -1 || start_compare == to_len) {
+            // If exist but the start_compare is out of range, add to map as empty, to
+            // deletion later
+            subs_list.insert(std::pair<char, char>(in[in_for], empty));
+            break;
+          } else {
+            // If exist and the start_compare is in range, add to map with the
+            // corresponding TO in position start_compare
+            subs_list.insert(std::pair<char, char>(in[in_for], to[start_compare]));
+            result[result_len] = subs_list[in[in_for]];
+            result_len++;
+            start_compare++;
+            break;  // for ignore duplicates entries in FROM, ex: ("adad")
+          }
+        }
+      }
+    }
+  } else {  // If there are no multibytes in the input, work with std::strings
+    // This variable is for receive the substitutions, malloc is in_len * 4 to receive
+    // possible inputs with 4 bytes
+    result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len * 4));
+
+    if (result == nullptr) {
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not allocate memory for output string");
+      *out_len = 0;
+      return "";
+    }
+    result_len = 0;
+
+    // This map is std::string to store multi-bytes entries
+    std::unordered_map<std::string, std::string> subs_list;
+
+    // This variable is for controlling the position in entry TO, for never repeat the
+    // changes
+    int start_compare;
+
+    if (to_len > 0) {
+      start_compare = 0;
+    } else {
+      start_compare = -1;
+    }
+
+    // If the position in TO is out of range, this variable will be associated to map
+    // list, to mark deletion positions
+    const std::string empty = "";
+
+    // This variables is to control len of multi-bytes entries
+    int len_char_in = 0;
+    int len_char_from = 0;
+    int len_char_to = 0;
+
+    for (int in_for = 0; in_for < in_len; in_for += len_char_in) {
+      // Updating len to char in this position
+      len_char_in = gdv_fn_utf8_char_length(in[in_for]);
+      // Making copy to std::string with length for this char position
+      std::string insert_copy_key(in + in_for, len_char_in);
+      if (subs_list.find(insert_copy_key) != subs_list.end()) {
+        if (subs_list[insert_copy_key] != empty) {
+          // If exist in map, only add the correspondent value in result
+          memcpy(result + result_len, subs_list[insert_copy_key].c_str(),
+                 subs_list[insert_copy_key].length());
+          result_len += static_cast<int>(subs_list[insert_copy_key].length());
+        }
+      } else {
+        for (int from_for = 0; from_for <= from_len; from_for += len_char_from) {
+          // Updating len to char in this position
+          len_char_from = gdv_fn_utf8_char_length(from[from_for]);
+          // Making copy to std::string with length for this char position
+          std::string copy_from_compare(from + from_for, len_char_from);
+          if (from_for == from_len) {
+            // If it's not in the FROM list, just add it to the map and the result.
+            std::string insert_copy_value(in + in_for, len_char_in);
+            // Insert in map to next loops
+            subs_list.insert(
+                std::pair<std::string, std::string>(insert_copy_key, insert_copy_value));
+            memcpy(result + result_len, subs_list[insert_copy_key].c_str(),
+                   subs_list[insert_copy_key].length());
+            result_len += static_cast<int>(subs_list[insert_copy_key].length());
+            break;
+          }
+
+          if (insert_copy_key != copy_from_compare) {
+            // If this character does not exist in FROM list, don't need treatment
+            continue;
+          } else if (start_compare == -1 || start_compare >= to_len) {
+            // If exist but the start_compare is out of range, add to map as empty, to
+            // deletion later
+            subs_list.insert(std::pair<std::string, std::string>(insert_copy_key, empty));
+            break;
+          } else {
+            // If exist and the start_compare is in range, add to map with the
+            // corresponding TO in position start_compare
+            len_char_to = gdv_fn_utf8_char_length(to[start_compare]);
+            std::string insert_copy_value(to + start_compare, len_char_to);
+            // Insert in map to next loops
+            subs_list.insert(
+                std::pair<std::string, std::string>(insert_copy_key, insert_copy_value));
+            memcpy(result + result_len, subs_list[insert_copy_key].c_str(),
+                   subs_list[insert_copy_key].length());
+            result_len += static_cast<int>(subs_list[insert_copy_key].length());
+            start_compare += len_char_to;
+            break;  // for ignore duplicates entries in FROM, ex: ("adad")
+          }
+        }
+      }
+    }
+  }
+
+  *out_len = result_len;
+  return result;
 }
 }
 
@@ -638,6 +943,21 @@ void ExportedStringFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_upper_utf8));
 
+  // gdv_fn_substring_index
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // txt
+      types->i32_type(),      // txt_len
+      types->i8_ptr_type(),   // pat
+      types->i32_type(),      // pat_len
+      types->i32_type(),      // cnt
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_substring_index",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_substring_index));
+
   // gdv_fn_initcap_utf8
   args = {
       types->i64_type(),     // context
@@ -649,5 +969,21 @@ void ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_initcap_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
+
+  // translate_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // const char*
+      types->i32_type(),     // value_length
+      types->i8_ptr_type(),  // const char*
+      types->i32_type(),     // value_length
+      types->i8_ptr_type(),  // const char*
+      types->i32_type(),     // value_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("translate_utf8_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(translate_utf8_utf8_utf8));
 }
 }  // namespace gandiva

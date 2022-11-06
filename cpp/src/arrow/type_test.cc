@@ -128,6 +128,12 @@ TEST(TestField, Equals) {
   AssertFieldEqual(f0, f0_with_meta1);
   AssertFieldEqual(f0, f0_with_meta2);
   AssertFieldEqual(f0_with_meta1, f0_with_meta2);
+
+  // operator==(), where check_metadata == false
+  ASSERT_EQ(f0, f0_other);
+  ASSERT_NE(f0, f0_nn);
+  ASSERT_EQ(f0, f0_with_meta1);
+  ASSERT_EQ(f0_with_meta1, f0_with_meta2);
 }
 
 #define ASSERT_COMPATIBLE_IMPL(NAME, TYPE, PLURAL)                        \
@@ -472,6 +478,8 @@ TEST_F(TestSchema, Basics) {
   auto schema3 = std::make_shared<Schema>(fields3);
   AssertSchemaEqual(schema, schema2);
   AssertSchemaNotEqual(schema, schema3);
+  ASSERT_EQ(*schema, *schema2);
+  ASSERT_NE(*schema, *schema3);
 
   ASSERT_EQ(schema->fingerprint(), schema2->fingerprint());
   ASSERT_NE(schema->fingerprint(), schema3->fingerprint());
@@ -1820,5 +1828,48 @@ TEST(TypesTest, TestDecimalEquals) {
   AssertTypeNotEqual(t5, t8);
   AssertTypeNotEqual(t5, t10);
 }
+
+#define TEST_PREDICATE(all_types, type_predicate)                 \
+  for (auto type : all_types) {                                   \
+    ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \
+  }
+
+TEST(TypesTest, TestMembership) {
+  std::vector<std::shared_ptr<DataType>> all_types;
+  for (auto type : NumericTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : TemporalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : IntervalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : PrimitiveTypes()) {
+    all_types.push_back(type);
+  }
+  TEST_PREDICATE(all_types, is_integer);
+  TEST_PREDICATE(all_types, is_signed_integer);
+  TEST_PREDICATE(all_types, is_unsigned_integer);
+  TEST_PREDICATE(all_types, is_floating);
+  TEST_PREDICATE(all_types, is_numeric);
+  TEST_PREDICATE(all_types, is_decimal);
+  TEST_PREDICATE(all_types, is_primitive);
+  TEST_PREDICATE(all_types, is_base_binary_like);
+  TEST_PREDICATE(all_types, is_binary_like);
+  TEST_PREDICATE(all_types, is_large_binary_like);
+  TEST_PREDICATE(all_types, is_binary);
+  TEST_PREDICATE(all_types, is_string);
+  TEST_PREDICATE(all_types, is_temporal);
+  TEST_PREDICATE(all_types, is_interval);
+  TEST_PREDICATE(all_types, is_dictionary);
+  TEST_PREDICATE(all_types, is_fixed_size_binary);
+  TEST_PREDICATE(all_types, is_fixed_width);
+  TEST_PREDICATE(all_types, is_list_like);
+  TEST_PREDICATE(all_types, is_nested);
+  TEST_PREDICATE(all_types, is_union);
+}
+
+#undef TEST_PREDICATE
 
 }  // namespace arrow

@@ -53,6 +53,22 @@ G_BEGIN_DECLS
  * Since: 5.0.0
  */
 
+
+/**
+ * GAFlightHeaderFunc:
+ * @name: A header name.
+ * @value: The value corresponding to the name.
+ * @user_data: User data passed to gaflight_call_options_foreach_header()
+ *   and so on.
+ *
+ * It is called with each header name/value pair, together with the
+ * @user_data parameter which is passed to
+ * gaflight_call_options_foreach_header() and so on.
+ *
+ * Since: 9.0.0
+ */
+
+
 typedef struct GAFlightCriteriaPrivate_ {
   arrow::flight::Criteria criteria;
   GBytes *expression;

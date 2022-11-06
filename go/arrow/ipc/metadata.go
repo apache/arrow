@@ -18,14 +18,16 @@ package ipc
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/endian"
+	"github.com/apache/arrow/go/v11/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
@@ -65,7 +67,8 @@ type fileBlock struct {
 	Meta   int32
 	Body   int64
 
-	r io.ReaderAt
+	r   io.ReaderAt
+	mem memory.Allocator
 }
 
 func fileBlocksToFB(b *flatbuffers.Builder, blocks []fileBlock, start startVecFunc) flatbuffers.UOffsetT {
@@ -80,12 +83,18 @@ func fileBlocksToFB(b *flatbuffers.Builder, blocks []fileBlock, start startVecFu
 
 func (blk fileBlock) NewMessage() (*Message, error) {
 	var (
-		err error
-		buf []byte
-		r   = blk.section()
+		err  error
+		buf  []byte
+		body *memory.Buffer
+		meta *memory.Buffer
+		r    = blk.section()
 	)
 
-	buf = make([]byte, blk.Meta)
+	meta = memory.NewResizableBuffer(blk.mem)
+	meta.Resize(int(blk.Meta))
+	defer meta.Release()
+
+	buf = meta.Bytes()
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return nil, fmt.Errorf("arrow/ipc: could not read message metadata: %w", err)
@@ -102,14 +111,18 @@ func (blk fileBlock) NewMessage() (*Message, error) {
 		prefix = 4
 	}
 
-	meta := memory.NewBufferBytes(buf[prefix:]) // drop buf-size already known from blk.Meta
+	// drop buf-size already known from blk.Meta
+	meta = memory.SliceBuffer(meta, prefix, int(blk.Meta)-prefix)
+	defer meta.Release()
 
-	buf = make([]byte, blk.Body)
+	body = memory.NewResizableBuffer(blk.mem)
+	defer body.Release()
+	body.Resize(int(blk.Body))
+	buf = body.Bytes()
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return nil, fmt.Errorf("arrow/ipc: could not read message body: %w", err)
 	}
-	body := memory.NewBufferBytes(buf)
 
 	return NewMessage(meta, body), nil
 }
@@ -273,6 +286,15 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.DecimalStart(fv.b)
 		flatbuf.DecimalAddPrecision(fv.b, dt.Precision)
 		flatbuf.DecimalAddScale(fv.b, dt.Scale)
+		flatbuf.DecimalAddBitWidth(fv.b, 128)
+		fv.offset = flatbuf.DecimalEnd(fv.b)
+
+	case *arrow.Decimal256Type:
+		fv.dtype = flatbuf.TypeDecimal
+		flatbuf.DecimalStart(fv.b)
+		flatbuf.DecimalAddPrecision(fv.b, dt.Precision)
+		flatbuf.DecimalAddScale(fv.b, dt.Scale)
+		flatbuf.DecimalAddBitWidth(fv.b, 256)
 		fv.offset = flatbuf.DecimalEnd(fv.b)
 
 	case *arrow.FixedSizeBinaryType:
@@ -286,10 +308,20 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.BinaryStart(fv.b)
 		fv.offset = flatbuf.BinaryEnd(fv.b)
 
+	case *arrow.LargeBinaryType:
+		fv.dtype = flatbuf.TypeLargeBinary
+		flatbuf.LargeBinaryStart(fv.b)
+		fv.offset = flatbuf.LargeBinaryEnd(fv.b)
+
 	case *arrow.StringType:
 		fv.dtype = flatbuf.TypeUtf8
 		flatbuf.Utf8Start(fv.b)
 		fv.offset = flatbuf.Utf8End(fv.b)
+
+	case *arrow.LargeStringType:
+		fv.dtype = flatbuf.TypeLargeUtf8
+		flatbuf.LargeUtf8Start(fv.b)
+		fv.offset = flatbuf.LargeUtf8End(fv.b)
 
 	case *arrow.Date32Type:
 		fv.dtype = flatbuf.TypeDate
@@ -348,6 +380,12 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
 
+	case *arrow.LargeListType:
+		fv.dtype = flatbuf.TypeLargeList
+		fv.kids = append(fv.kids, fieldToFB(fv.b, fv.pos.Child(0), dt.ElemField(), fv.memo))
+		flatbuf.LargeListStart(fv.b)
+		fv.offset = flatbuf.LargeListEnd(fv.b)
+
 	case *arrow.FixedSizeListType:
 		fv.dtype = flatbuf.TypeFixedSizeList
 		fv.kids = append(fv.kids, fieldToFB(fv.b, fv.pos.Child(0), dt.ElemField(), fv.memo))
@@ -396,6 +434,33 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 	case *arrow.DictionaryType:
 		field.Type = dt.ValueType
 		fv.visit(field)
+
+	case arrow.UnionType:
+		fv.dtype = flatbuf.TypeUnion
+		offsets := make([]flatbuffers.UOffsetT, len(dt.Fields()))
+		for i, field := range dt.Fields() {
+			offsets[i] = fieldToFB(fv.b, fv.pos.Child(int32(i)), field, fv.memo)
+		}
+
+		codes := dt.TypeCodes()
+		flatbuf.UnionStartTypeIdsVector(fv.b, len(codes))
+
+		for i := len(codes) - 1; i >= 0; i-- {
+			fv.b.PlaceInt32(int32(codes[i]))
+		}
+		fbTypeIDs := fv.b.EndVector(len(dt.TypeCodes()))
+		flatbuf.UnionStart(fv.b)
+		switch dt.Mode() {
+		case arrow.SparseMode:
+			flatbuf.UnionAddMode(fv.b, flatbuf.UnionModeSparse)
+		case arrow.DenseMode:
+			flatbuf.UnionAddMode(fv.b, flatbuf.UnionModeDense)
+		default:
+			panic("invalid union mode")
+		}
+		flatbuf.UnionAddTypeIds(fv.b, fbTypeIDs)
+		fv.offset = flatbuf.UnionEnd(fv.b)
+		fv.kids = append(fv.kids, offsets...)
 
 	default:
 		err := fmt.Errorf("arrow/ipc: invalid data type %v", dt)
@@ -617,6 +682,12 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 	case flatbuf.TypeUtf8:
 		return arrow.BinaryTypes.String, nil
 
+	case flatbuf.TypeLargeBinary:
+		return arrow.BinaryTypes.LargeBinary, nil
+
+	case flatbuf.TypeLargeUtf8:
+		return arrow.BinaryTypes.LargeString, nil
+
 	case flatbuf.TypeBool:
 		return arrow.FixedWidthTypes.Boolean, nil
 
@@ -625,6 +696,13 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 			return nil, fmt.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
 		}
 		dt := arrow.ListOfField(children[0])
+		return dt, nil
+
+	case flatbuf.TypeLargeList:
+		if len(children) != 1 {
+			return nil, fmt.Errorf("arrow/ipc: LargeList must have exactly 1 child field (got=%d)", len(children))
+		}
+		dt := arrow.LargeListOfField(children[0])
 		return dt, nil
 
 	case flatbuf.TypeFixedSizeList:
@@ -638,6 +716,40 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 
 	case flatbuf.TypeStruct_:
 		return arrow.StructOf(children...), nil
+
+	case flatbuf.TypeUnion:
+		var dt flatbuf.Union
+		dt.Init(data.Bytes, data.Pos)
+		var (
+			mode    arrow.UnionMode
+			typeIDs []arrow.UnionTypeCode
+		)
+
+		switch dt.Mode() {
+		case flatbuf.UnionModeSparse:
+			mode = arrow.SparseMode
+		case flatbuf.UnionModeDense:
+			mode = arrow.DenseMode
+		}
+
+		typeIDLen := dt.TypeIdsLength()
+
+		if typeIDLen == 0 {
+			for i := range children {
+				typeIDs = append(typeIDs, int8(i))
+			}
+		} else {
+			for i := 0; i < typeIDLen; i++ {
+				id := dt.TypeIds(i)
+				code := arrow.UnionTypeCode(id)
+				if int32(code) != id {
+					return nil, errors.New("union type id out of bounds")
+				}
+				typeIDs = append(typeIDs, code)
+			}
+		}
+
+		return arrow.UnionOf(mode, children, typeIDs), nil
 
 	case flatbuf.TypeTime:
 		var dt flatbuf.Time
@@ -768,7 +880,14 @@ func floatToFB(b *flatbuffers.Builder, bw int32) flatbuffers.UOffsetT {
 }
 
 func decimalFromFB(data flatbuf.Decimal) (arrow.DataType, error) {
-	return &arrow.Decimal128Type{Precision: data.Precision(), Scale: data.Scale()}, nil
+	switch data.BitWidth() {
+	case 128:
+		return &arrow.Decimal128Type{Precision: data.Precision(), Scale: data.Scale()}, nil
+	case 256:
+		return &arrow.Decimal256Type{Precision: data.Precision(), Scale: data.Scale()}, nil
+	default:
+		return nil, fmt.Errorf("arrow/ipc: invalid decimal bitwidth: %d", data.BitWidth())
+	}
 }
 
 func timeFromFB(data flatbuf.Time) (arrow.DataType, error) {
@@ -911,7 +1030,7 @@ func schemaFromFB(schema *flatbuf.Schema, memo *dictutils.Memo) (*arrow.Schema, 
 		return nil, fmt.Errorf("arrow/ipc: could not convert schema metadata from flatbuf: %w", err)
 	}
 
-	return arrow.NewSchema(fields, &md), nil
+	return arrow.NewSchemaWithEndian(fields, &md, endian.Endianness(schema.Endianness())), nil
 }
 
 func schemaToFB(b *flatbuffers.Builder, schema *arrow.Schema, memo *dictutils.Mapper) flatbuffers.UOffsetT {
@@ -930,7 +1049,7 @@ func schemaToFB(b *flatbuffers.Builder, schema *arrow.Schema, memo *dictutils.Ma
 	metaFB := metadataToFB(b, schema.Metadata(), flatbuf.SchemaStartCustomMetadataVector)
 
 	flatbuf.SchemaStart(b)
-	flatbuf.SchemaAddEndianness(b, flatbuf.EndiannessLittle)
+	flatbuf.SchemaAddEndianness(b, flatbuf.Endianness(schema.Endianness()))
 	flatbuf.SchemaAddFields(b, fieldsFB)
 	flatbuf.SchemaAddCustomMetadata(b, metaFB)
 	offset := flatbuf.SchemaEnd(b)

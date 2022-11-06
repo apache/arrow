@@ -81,7 +81,7 @@ class RecordBatchReader;
 class Table;
 
 struct Datum;
-struct ValueDescr;
+struct TypeHolder;
 
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
 using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
@@ -410,49 +410,52 @@ struct Type {
   };
 };
 
+/// \brief Get a vector of all type ids
+ARROW_EXPORT std::vector<Type::type> AllTypeIds();
+
 /// \defgroup type-factories Factory functions for creating data types
 ///
 /// Factory functions for creating data types
 /// @{
 
 /// \brief Return a NullType instance
-std::shared_ptr<DataType> ARROW_EXPORT null();
+ARROW_EXPORT const std::shared_ptr<DataType>& null();
 /// \brief Return a BooleanType instance
-std::shared_ptr<DataType> ARROW_EXPORT boolean();
+ARROW_EXPORT const std::shared_ptr<DataType>& boolean();
 /// \brief Return a Int8Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int8();
+ARROW_EXPORT const std::shared_ptr<DataType>& int8();
 /// \brief Return a Int16Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int16();
+ARROW_EXPORT const std::shared_ptr<DataType>& int16();
 /// \brief Return a Int32Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int32();
+ARROW_EXPORT const std::shared_ptr<DataType>& int32();
 /// \brief Return a Int64Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int64();
+ARROW_EXPORT const std::shared_ptr<DataType>& int64();
 /// \brief Return a UInt8Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint8();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint8();
 /// \brief Return a UInt16Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint16();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint16();
 /// \brief Return a UInt32Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint32();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint32();
 /// \brief Return a UInt64Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint64();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint64();
 /// \brief Return a HalfFloatType instance
-std::shared_ptr<DataType> ARROW_EXPORT float16();
+ARROW_EXPORT const std::shared_ptr<DataType>& float16();
 /// \brief Return a FloatType instance
-std::shared_ptr<DataType> ARROW_EXPORT float32();
+ARROW_EXPORT const std::shared_ptr<DataType>& float32();
 /// \brief Return a DoubleType instance
-std::shared_ptr<DataType> ARROW_EXPORT float64();
+ARROW_EXPORT const std::shared_ptr<DataType>& float64();
 /// \brief Return a StringType instance
-std::shared_ptr<DataType> ARROW_EXPORT utf8();
+ARROW_EXPORT const std::shared_ptr<DataType>& utf8();
 /// \brief Return a LargeStringType instance
-std::shared_ptr<DataType> ARROW_EXPORT large_utf8();
+ARROW_EXPORT const std::shared_ptr<DataType>& large_utf8();
 /// \brief Return a BinaryType instance
-std::shared_ptr<DataType> ARROW_EXPORT binary();
+ARROW_EXPORT const std::shared_ptr<DataType>& binary();
 /// \brief Return a LargeBinaryType instance
-std::shared_ptr<DataType> ARROW_EXPORT large_binary();
+ARROW_EXPORT const std::shared_ptr<DataType>& large_binary();
 /// \brief Return a Date32Type instance
-std::shared_ptr<DataType> ARROW_EXPORT date32();
+ARROW_EXPORT const std::shared_ptr<DataType>& date32();
 /// \brief Return a Date64Type instance
-std::shared_ptr<DataType> ARROW_EXPORT date64();
+ARROW_EXPORT const std::shared_ptr<DataType>& date64();
 
 /// \brief Create a FixedSizeBinaryType instance.
 ARROW_EXPORT
@@ -514,16 +517,16 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value
                                           int32_t list_size);
 /// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
 /// built in time classes).
-std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
+ARROW_EXPORT std::shared_ptr<DataType> duration(TimeUnit::type unit);
 
 /// \brief Return a DayTimeIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
+ARROW_EXPORT std::shared_ptr<DataType> day_time_interval();
 
 /// \brief Return a MonthIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT month_interval();
+ARROW_EXPORT std::shared_ptr<DataType> month_interval();
 
 /// \brief Return a MonthDayNanoIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT month_day_nano_interval();
+ARROW_EXPORT std::shared_ptr<DataType> month_day_nano_interval();
 
 /// \brief Create a TimestampType instance from its unit
 ARROW_EXPORT
@@ -536,32 +539,32 @@ std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& time
 /// \brief Create a 32-bit time type instance
 ///
 /// Unit can be either SECOND or MILLI
-std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
+ARROW_EXPORT std::shared_ptr<DataType> time32(TimeUnit::type unit);
 
 /// \brief Create a 64-bit time type instance
 ///
 /// Unit can be either MICRO or NANO
-std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
+ARROW_EXPORT std::shared_ptr<DataType> time64(TimeUnit::type unit);
 
 /// \brief Create a StructType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-struct_(const std::vector<std::shared_ptr<Field>>& fields);
+ARROW_EXPORT std::shared_ptr<DataType> struct_(
+    const std::vector<std::shared_ptr<Field>>& fields);
 
 /// \brief Create a SparseUnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT sparse_union(FieldVector child_fields,
+ARROW_EXPORT std::shared_ptr<DataType> sparse_union(FieldVector child_fields,
                                                     std::vector<int8_t> type_codes = {});
 /// \brief Create a SparseUnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-sparse_union(const ArrayVector& children, std::vector<std::string> field_names = {},
-             std::vector<int8_t> type_codes = {});
+ARROW_EXPORT std::shared_ptr<DataType> sparse_union(
+    const ArrayVector& children, std::vector<std::string> field_names = {},
+    std::vector<int8_t> type_codes = {});
 
 /// \brief Create a DenseUnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT dense_union(FieldVector child_fields,
+ARROW_EXPORT std::shared_ptr<DataType> dense_union(FieldVector child_fields,
                                                    std::vector<int8_t> type_codes = {});
 /// \brief Create a DenseUnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-dense_union(const ArrayVector& children, std::vector<std::string> field_names = {},
-            std::vector<int8_t> type_codes = {});
+ARROW_EXPORT std::shared_ptr<DataType> dense_union(
+    const ArrayVector& children, std::vector<std::string> field_names = {},
+    std::vector<int8_t> type_codes = {});
 
 /// \brief Create a DictionaryType instance
 /// \param[in] index_type the type of the dictionary indices (must be
@@ -587,9 +590,9 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
 /// \param type the field value type
 /// \param nullable whether the values are nullable, default true
 /// \param metadata any custom key-value metadata, default null
-std::shared_ptr<Field> ARROW_EXPORT
-field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
-      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+ARROW_EXPORT std::shared_ptr<Field> field(
+    std::string name, std::shared_ptr<DataType> type, bool nullable = true,
+    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// \brief Create a Field instance with metadata
 ///
@@ -598,9 +601,9 @@ field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
 /// \param name the field name
 /// \param type the field value type
 /// \param metadata any custom key-value metadata
-std::shared_ptr<Field> ARROW_EXPORT
-field(std::string name, std::shared_ptr<DataType> type,
-      std::shared_ptr<const KeyValueMetadata> metadata);
+ARROW_EXPORT std::shared_ptr<Field> field(
+    std::string name, std::shared_ptr<DataType> type,
+    std::shared_ptr<const KeyValueMetadata> metadata);
 
 /// \brief Create a Schema instance
 ///

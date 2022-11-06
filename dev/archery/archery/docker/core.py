@@ -16,7 +16,7 @@
 # under the License.
 
 import os
-import re
+import shlex
 import subprocess
 from io import StringIO
 
@@ -24,6 +24,7 @@ from dotenv import dotenv_values
 from ruamel.yaml import YAML
 
 from ..utils.command import Command, default_bin
+from ..utils.source import arrow_path
 from ..compat import _ensure_path
 
 
@@ -40,12 +41,6 @@ def flatten(node, parents=None):
             yield from flatten(value, parents=parents + [key])
     else:
         raise TypeError(node)
-
-
-def _sanitize_command(cmd):
-    if isinstance(cmd, list):
-        cmd = " ".join(cmd)
-    return re.sub(r"\s+", " ", cmd)
 
 
 _arch_short_mapping = {
@@ -100,12 +95,12 @@ class ComposeConfig:
         """
         yaml = YAML()
         with config_path.open() as fp:
-            config = yaml.load(fp)
+            self.raw_config = yaml.load(fp)
 
-        services = config['services'].keys()
-        self.hierarchy = dict(flatten(config.get('x-hierarchy', {})))
-        self.limit_presets = config.get('x-limit-presets', {})
-        self.with_gpus = config.get('x-with-gpus', [])
+        services = self.raw_config['services'].keys()
+        self.hierarchy = dict(flatten(self.raw_config.get('x-hierarchy', {})))
+        self.limit_presets = self.raw_config.get('x-limit-presets', {})
+        self.with_gpus = self.raw_config.get('x-with-gpus', [])
         nodes = self.hierarchy.keys()
         errors = []
 
@@ -219,7 +214,8 @@ class DockerCompose(Command):
                 )
             )
 
-    def pull(self, service_name, pull_leaf=True, using_docker=False):
+    def pull(self, service_name, pull_leaf=True, using_docker=False,
+             ignore_pull_failures=True):
         def _pull(service):
             args = ['pull']
             if service['image'] in self.pull_memory:
@@ -229,10 +225,14 @@ class DockerCompose(Command):
                 try:
                     self._execute_docker(*args, service['image'])
                 except Exception as e:
-                    # better --ignore-pull-failures handling
-                    print(e)
+                    if ignore_pull_failures:
+                        # better --ignore-pull-failures handling
+                        print(e)
+                    else:
+                        raise
             else:
-                args.append('--ignore-pull-failures')
+                if ignore_pull_failures:
+                    args.append('--ignore-pull-failures')
                 self._execute_compose(*args, service['name'])
 
             self.pull_memory.add(service['image'])
@@ -289,7 +289,7 @@ class DockerCompose(Command):
 
                 args.extend([
                     '--output', 'type=docker',
-                    '-f', service['build']['dockerfile'],
+                    '-f', arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
                     service['build'].get('context', '.')
                 ])
@@ -301,7 +301,7 @@ class DockerCompose(Command):
                 for img in cache_from:
                     args.append('--cache-from="{}"'.format(img))
                 args.extend([
-                    '-f', service['build']['dockerfile'],
+                    '-f', arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
                     service['build'].get('context', '.')
                 ])
@@ -342,7 +342,8 @@ class DockerCompose(Command):
 
             # append env variables from the compose conf
             for k, v in service.get('environment', {}).items():
-                args.extend(['-e', '{}={}'.format(k, v)])
+                if v is not None:
+                    args.extend(['-e', '{}={}'.format(k, v)])
 
             # append volumes from the compose conf
             for v in service.get('volumes', []):
@@ -376,10 +377,13 @@ class DockerCompose(Command):
             if command is not None:
                 args.append(command)
             else:
-                # replace whitespaces from the preformatted compose command
-                cmd = _sanitize_command(service.get('command', ''))
+                cmd = service.get('command', '')
                 if cmd:
-                    args.append(cmd)
+                    # service command might be already defined as a list
+                    # on the docker-compose yaml file.
+                    if isinstance(cmd, list):
+                        cmd = shlex.join(cmd)
+                    args.extend(shlex.split(cmd))
 
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)
@@ -414,3 +418,22 @@ class DockerCompose(Command):
 
     def images(self):
         return sorted(self.config.hierarchy.keys())
+
+    def info(self, key_name, filters=None, prefix=' '):
+        output = []
+        for key, value in key_name.items():
+            if hasattr(value, 'items'):
+                temp_filters = filters
+                if key == filters or filters is None:
+                    output.append(f'{prefix} {key}')
+                    # Keep showing this specific key
+                    # as parent matched filter
+                    temp_filters = None
+                output.extend(self.info(value, temp_filters, prefix + "  "))
+            else:
+                if key == filters or filters is None:
+                    output.append(
+                        f'{prefix} {key}: ' +
+                        f'{value if value is not None else "<inherited>"}'
+                    )
+        return output

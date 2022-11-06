@@ -67,7 +67,7 @@ test_that("IPC/Feather format data", {
 
   # Collecting virtual partition column works
   expect_equal(
-    ds %>% arrange(part) %>% pull(part),
+    ds %>% arrange(part) %>% pull(part) %>% as.vector(),
     c(rep(3, 10), rep(4, 10))
   )
 })
@@ -306,7 +306,7 @@ test_that("Simple interface for datasets", {
 
   # Collecting virtual partition column works
   expect_equal(
-    ds %>% arrange(part) %>% pull(part),
+    ds %>% arrange(part) %>% pull(part) %>% as.vector(),
     c(rep(1, 10), rep(2, 10))
   )
 })
@@ -322,6 +322,11 @@ test_that("Can set schema on dataset", {
 
   ds$schema <- expected_schema
   expect_equal(ds$schema, expected_schema)
+})
+
+test_that("as.data.frame.Dataset", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_identical(dim(as.data.frame(ds)), c(20L, 7L))
 })
 
 test_that("dim method returns the correct number of rows and columns", {
@@ -618,7 +623,28 @@ test_that("UnionDataset handles InMemoryDatasets", {
   expect_equal(actual, expected)
 })
 
-test_that("map_batches", {
+test_that("scalar aggregates with many batches (ARROW-16904)", {
+  tf <- tempfile()
+  write_parquet(data.frame(x = 1:100), tf, chunk_size = 20)
+
+  ds <- open_dataset(tf)
+  replicate(100, ds %>% summarize(min(x)) %>% pull())
+
+  expect_true(
+    all(
+      replicate(100, ds %>% summarize(min(x)) %>% pull() %>% as.vector()) == 1
+    )
+  )
+  expect_true(
+    all(
+      replicate(100, ds %>% summarize(max(x)) %>% pull() %>% as.vector()) == 100
+    )
+  )
+})
+
+test_that("streaming map_batches into an ExecPlan", {
+  skip_if_not(CanRunWithCapturedR())
+
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
   # summarize returns arrow_dplyr_query, which gets collected into a tibble
@@ -639,6 +665,7 @@ test_that("map_batches", {
       select(int, lgl) %>%
       map_batches(~ record_batch(nrows = .$num_rows)) %>%
       pull(nrows) %>%
+      as.vector() %>%
       sort(),
     c(5, 10)
   )
@@ -678,6 +705,92 @@ test_that("map_batches", {
   )
 })
 
+test_that("map_batches with explicit schema", {
+  fun_with_dots <- function(batch, first_col, first_col_val) {
+    record_batch(
+      !!first_col := first_col_val,
+      b = batch$a$cast(float64())
+    )
+  }
+
+  empty_reader <- RecordBatchReader$create(
+    batches = list(),
+    schema = schema(a = int32())
+  )
+  expect_equal(
+    map_batches(
+      empty_reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value",
+      .schema = schema(first_col_name = string(), b = float64())
+    )$read_table(),
+    arrow_table(first_col_name = character(), b = double())
+  )
+
+  reader <- RecordBatchReader$create(
+    batches = list(
+      record_batch(a = 1, b = "two"),
+      record_batch(a = 2, b = "three")
+    )
+  )
+  expect_equal(
+    map_batches(
+      reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value",
+      .schema = schema(first_col_name = string(), b = float64())
+    )$read_table(),
+    arrow_table(
+      first_col_name = c("first_col_value", "first_col_value"),
+      b = as.numeric(1:2)
+    )
+  )
+})
+
+test_that("map_batches without explicit schema", {
+  fun_with_dots <- function(batch, first_col, first_col_val) {
+    record_batch(
+      !!first_col := first_col_val,
+      b = batch$a$cast(float64())
+    )
+  }
+
+  empty_reader <- RecordBatchReader$create(
+    batches = list(),
+    schema = schema(a = int32())
+  )
+  expect_error(
+    map_batches(
+      empty_reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value"
+    )$read_table(),
+    "Can't infer schema"
+  )
+
+  reader <- RecordBatchReader$create(
+    batches = list(
+      record_batch(a = 1, b = "two"),
+      record_batch(a = 2, b = "three")
+    )
+  )
+  expect_equal(
+    map_batches(
+      reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value"
+    )$read_table(),
+    arrow_table(
+      first_col_name = c("first_col_value", "first_col_value"),
+      b = as.numeric(1:2)
+    )
+  )
+})
+
 test_that("head/tail", {
   # head/tail with no query are still deterministic order
   ds <- open_dataset(dataset_dir)
@@ -701,6 +814,43 @@ test_that("head/tail", {
   expect_error(head(ds, -1)) # Not yet implemented
   expect_error(tail(ds, -1)) # Not yet implemented
 })
+
+
+test_that("unique()", {
+  ds <- open_dataset(dataset_dir)
+  in_r_mem <- rbind(df1, df2)
+  at <- arrow_table(in_r_mem)
+  rbr <- as_record_batch_reader(in_r_mem)
+
+  expect_s3_class(unique(ds), "arrow_dplyr_query")
+  expect_s3_class(unique(at), "arrow_dplyr_query")
+  expect_s3_class(unique(rbr), "arrow_dplyr_query")
+
+  # on a arrow_dplyr_query
+  adq_eg <- ds %>%
+    select(fct) %>%
+    unique()
+  expect_s3_class(adq_eg, "arrow_dplyr_query")
+
+  # order not set by distinct so some sorting required
+  expect_equal(sort(collect(unique(ds))$int), sort(unique(in_r_mem)$int))
+
+  # on a arrow table
+  expect_equal(
+    at %>%
+      unique() %>%
+      collect(),
+    unique(in_r_mem)
+  )
+  expect_equal(
+    rbr %>%
+      unique() %>%
+      collect(),
+    unique(in_r_mem)
+  )
+  expect_snapshot_error(unique(arrow_table(in_r_mem), incomparables = TRUE))
+})
+
 
 test_that("Dataset [ (take by index)", {
   ds <- open_dataset(dataset_dir)
@@ -798,24 +948,6 @@ test_that("Scanner$ScanBatches", {
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
-
-  expect_deprecated(ds$NewScan()$UseAsync(TRUE), paste(
-    "The function",
-    "'UseAsync' is deprecated and will be removed in a future release."
-  ))
-  expect_deprecated(ds$NewScan()$UseAsync(FALSE), paste(
-    "The function",
-    "'UseAsync' is deprecated and will be removed in a future release."
-  ))
-
-  expect_deprecated(Scanner$create(ds, use_async = TRUE), paste(
-    "The parameter 'use_async' is deprecated and will be removed in a future",
-    "release."
-  ))
-  expect_deprecated(Scanner$create(ds, use_async = FALSE), paste(
-    "The parameter 'use_async' is deprecated and will be removed in a future",
-    "release."
-  ))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {
@@ -1015,7 +1147,6 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
   delete_arrow_array_stream(stream_ptr)
 })
 
-
 test_that("Filter parquet dataset with is.na ARROW-15312", {
   ds_path <- make_temp_dir()
 
@@ -1055,7 +1186,8 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1073,7 +1205,8 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1089,7 +1222,8 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1107,7 +1241,8 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1141,7 +1276,8 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1157,7 +1293,8 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1171,7 +1308,8 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1187,7 +1325,8 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 })
@@ -1231,5 +1370,101 @@ test_that("FileSystemFactoryOptions input validation", {
       'of file paths: "selector_ignore_prefixes"'
     ),
     fixed = TRUE
+  )
+})
+
+test_that("can add in augmented fields", {
+  ds <- open_dataset(hive_dir)
+
+  observed <- ds %>%
+    mutate(file_name = add_filename()) %>%
+    collect()
+
+  expect_named(
+    observed,
+    c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file_name")
+  )
+
+  expect_equal(
+    sort(unique(observed$file_name)),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+
+  error_regex <- paste(
+    "`add_filename()` or use of the `__filename` augmented field can only",
+    "be used with with Dataset objects, and can only be added before doing",
+    "an aggregation or a join."
+  )
+
+  # errors appropriately with ArrowTabular objects
+  expect_error(
+    arrow_table(mtcars) %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # errors appropriately with aggregation
+  expect_error(
+    ds %>%
+      summarise(max_int = max(int)) %>%
+      mutate(file_name = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # joins to tables
+  another_table <- select(example_data, int, dbl2)
+  expect_error(
+    ds %>%
+      left_join(another_table, by = "int") %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # and on joins to datasets
+  another_dataset_dir <- tempfile()
+  on.exit(unlink(another_dataset_dir, recursive = TRUE))
+  another_dataset <- write_dataset(another_table, another_dataset_dir)
+
+  expect_error(
+    ds %>%
+      left_join(open_dataset(another_dataset_dir), by = "int") %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # this hits the implicit_schema path by joining afterwards
+  join_after <- ds %>%
+    mutate(file = add_filename()) %>%
+    left_join(open_dataset(another_dataset_dir), by = "int") %>%
+    collect()
+
+  expect_named(
+    join_after,
+    c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file", "dbl2")
+  )
+
+  expect_equal(
+    sort(unique(join_after$file)),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+
+  # another test on the explicit_schema path
+  summarise_after <- ds %>%
+    mutate(file = add_filename()) %>%
+    group_by(file) %>%
+    summarise(max_int = max(int)) %>%
+    collect()
+
+  expect_equal(
+    sort(summarise_after$file),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
   )
 })

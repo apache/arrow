@@ -149,7 +149,9 @@ def test_option_class_equality():
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.CumulativeSumOptions(start=0, skip_nulls=False),
         pc.QuantileOptions(),
-        pc.RandomOptions(10),
+        pc.RandomOptions(),
+        pc.RankOptions(sort_keys="ascending",
+                       null_placement="at_start", tiebreaker="max"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -368,6 +370,12 @@ def test_mode_array():
     mode = pc.mode(arr, skip_nulls=False, min_count=5)
     assert len(mode) == 0
 
+    arr = pa.array([True, False])
+    mode = pc.mode(arr, n=2)
+    assert len(mode) == 2
+    assert mode[0].as_py() == {"mode": False, "count": 1}
+    assert mode[1].as_py() == {"mode": True, "count": 1}
+
 
 def test_mode_chunked_array():
     # ARROW-9917
@@ -384,6 +392,14 @@ def test_mode_chunked_array():
     arr = pa.chunked_array((), type='int64')
     assert arr.num_chunks == 0
     assert len(pc.mode(arr)) == 0
+
+
+def test_empty_chunked_array():
+    msg = "cannot construct ChunkedArray from empty vector and omitted type"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pa.chunked_array([])
+
+    pa.chunked_array([], type=pa.int8())
 
 
 def test_variance():
@@ -729,31 +745,6 @@ def test_generated_docstrings():
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         """)
-    # Nullary with options
-    assert pc.random.__doc__ == textwrap.dedent("""\
-        Generate numbers in the range [0, 1).
-
-        Generated values are uniformly-distributed, double-precision """ +
-                                                """in range [0, 1).
-        Length of generated data, algorithm and seed can be changed """ +
-                                                """via RandomOptions.
-
-        Parameters
-        ----------
-        length : int
-            Number of random values to generate.
-        initializer : int or str
-            How to initialize the underlying random generator.
-            If an integer is given, it is used as a seed.
-            If "system" is given, the random generator is initialized with
-            a system-specific source of (hopefully true) randomness.
-            Other values are invalid.
-        options : pyarrow.compute.RandomOptions, optional
-            Alternative way of passing options.
-        memory_pool : pyarrow.MemoryPool, optional
-            If not passed, will allocate memory from the default memory pool.
-        """)
-    # With custom examples
     assert pc.filter.__doc__ == textwrap.dedent("""\
         Filter with a boolean selection filter.
 
@@ -822,7 +813,7 @@ def test_generated_signatures():
     assert str(sig) == "(indices, /, *values, memory_pool=None)"
     # Nullary with options
     sig = inspect.signature(pc.random)
-    assert str(sig) == ("(length, *, initializer='system', "
+    assert str(sig) == ("(n, *, initializer='system', "
                         "options=None, memory_pool=None)")
 
 
@@ -1703,12 +1694,32 @@ def test_logical():
 
 
 def test_cast():
+    arr = pa.array([1, 2, 3, 4], type='int64')
+    options = pc.CastOptions(pa.int8())
+
+    with pytest.raises(TypeError):
+        pc.cast(arr, target_type=None)
+
+    with pytest.raises(ValueError):
+        pc.cast(arr, 'int32', options=options)
+
+    with pytest.raises(ValueError):
+        pc.cast(arr, safe=True, options=options)
+
+    assert pc.cast(arr, options=options) == pa.array(
+        [1, 2, 3, 4], type='int8')
+
     arr = pa.array([2 ** 63 - 1], type='int64')
+    allow_overflow_options = pc.CastOptions(
+        pa.int32(), allow_int_overflow=True)
 
     with pytest.raises(pa.ArrowInvalid):
         pc.cast(arr, 'int32')
 
     assert pc.cast(arr, 'int32', safe=False) == pa.array([-1], type='int32')
+
+    assert pc.cast(arr, options=allow_overflow_options) == pa.array(
+        [-1], type='int32')
 
     arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
@@ -1718,6 +1729,37 @@ def test_cast():
     expected = pa.array([["1", "2"], ["3", "4", "5"]],
                         type=pa.list_(pa.utf8()))
     assert pc.cast(arr, expected.type) == expected
+
+
+@pytest.mark.parametrize('value_type', numerical_arrow_types)
+def test_fsl_to_fsl_cast(value_type):
+    # Different field name and different type.
+    cast_type = pa.list_(pa.field("element", value_type), 2)
+
+    dtype = pa.int32()
+    type = pa.list_(pa.field("values", dtype), 2)
+
+    fsl = pa.FixedSizeListArray.from_arrays(
+        pa.array([1, 2, 3, 4, 5, 6], type=dtype), type=type)
+    assert cast_type == fsl.cast(cast_type).type
+
+    # Different field name and different type (with null values).
+    fsl = pa.FixedSizeListArray.from_arrays(
+        pa.array([1, None, None, 4, 5, 6], type=dtype), type=type)
+    assert cast_type == fsl.cast(cast_type).type
+
+    # Null FSL type.
+    dtype = pa.null()
+    type = pa.list_(pa.field("values", dtype), 2)
+    fsl = pa.FixedSizeListArray.from_arrays(
+        pa.array([None, None, None, None, None, None], type=dtype), type=type)
+    assert cast_type == fsl.cast(cast_type).type
+
+    # Different sized FSL
+    cast_type = pa.list_(pa.field("element", value_type), 3)
+    err_msg = 'Size of FixedSizeList is not the same.'
+    with pytest.raises(pa.lib.ArrowTypeError, match=err_msg):
+        fsl.cast(cast_type)
 
 
 def test_strptime():
@@ -2743,6 +2785,56 @@ def test_random():
         pc.random(100, initializer=[])
 
 
+@pytest.mark.parametrize(
+    "tiebreaker,expected_values",
+    [("min", [3, 1, 4, 6, 4, 6, 1]),
+     ("max", [3, 2, 5, 7, 5, 7, 2]),
+     ("first", [3, 1, 4, 6, 5, 7, 2]),
+     ("dense", [2, 1, 3, 4, 3, 4, 1])]
+)
+def test_rank_options_tiebreaker(tiebreaker, expected_values):
+    arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
+    rank_options = pc.RankOptions(sort_keys="ascending",
+                                  null_placement="at_end",
+                                  tiebreaker=tiebreaker)
+    result = pc.rank(arr, options=rank_options)
+    expected = pa.array(expected_values, type=pa.uint64())
+    assert result.equals(expected)
+
+
+def test_rank_options():
+    arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
+    expected = pa.array([3, 1, 4, 6, 5, 7, 2], type=pa.uint64())
+
+    # Ensure rank can be called without specifying options
+    result = pc.rank(arr)
+    assert result.equals(expected)
+
+    # Ensure default RankOptions
+    result = pc.rank(arr, options=pc.RankOptions())
+    assert result.equals(expected)
+
+    # Ensure sort_keys tuple usage
+    result = pc.rank(arr, options=pc.RankOptions(
+        sort_keys=[("b", "ascending")])
+    )
+    assert result.equals(expected)
+
+    result = pc.rank(arr, null_placement="at_start")
+    expected_at_start = pa.array([5, 3, 6, 1, 7, 2, 4], type=pa.uint64())
+    assert result.equals(expected_at_start)
+
+    result = pc.rank(arr, sort_keys="descending")
+    expected_descending = pa.array([3, 4, 1, 6, 2, 7, 5], type=pa.uint64())
+    assert result.equals(expected_descending)
+
+    with pytest.raises(ValueError,
+                       match=r'"NonExisting" is not a valid tiebreaker'):
+        pc.RankOptions(sort_keys="descending",
+                       null_placement="at_end",
+                       tiebreaker="NonExisting")
+
+
 def test_expression_serialization():
     a = pc.scalar(1)
     b = pc.scalar(1.1)
@@ -2822,9 +2914,18 @@ def test_expression_call_function():
     assert str(pc.round(field, ndigits=1)) == \
         "round(field, {ndigits=1, round_mode=HALF_TO_EVEN})"
 
-    # mixed types are not (yet) allowed
-    with pytest.raises(TypeError):
-        pc.add(field, 1)
+    # Will convert non-expression arguments if possible
+    assert str(pc.add(field, 1)) == "add(field, 1)"
+    assert str(pc.add(field, pa.scalar(1))) == "add(field, 1)"
 
-    with pytest.raises(TypeError):
-        pc.add(1, field)
+    # Invalid pc.scalar input gives original erorr message
+    msg = "only other expressions allowed as arguments"
+    with pytest.raises(TypeError, match=msg):
+        pc.add(field, object)
+
+
+def test_cast_table_raises():
+    table = pa.table({'a': [1, 2]})
+
+    with pytest.raises(pa.lib.ArrowInvalid):
+        pc.cast(table, pa.int64())

@@ -36,6 +36,10 @@
 #include "arrow/gpu/cuda_api.h"
 #endif
 
+#ifndef _PLASMA_NO_DEPRECATE
+#warning "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so."
+#endif
+
 namespace plasma {
 
 enum class ObjectLocation : int32_t { Local, Remote, NotFound };
@@ -74,7 +78,8 @@ class ARROW_EXPORT UniqueID {
   uint8_t id_[kUniqueIDSize];
 };
 
-static_assert(std::is_pod<UniqueID>::value, "UniqueID must be plain old data");
+static_assert(std::is_trivial_v<UniqueID> && std::is_standard_layout_v<UniqueID>,
+              "UniqueID must be plain old data");
 
 typedef UniqueID ObjectID;
 

@@ -85,6 +85,20 @@ test_that("infer_type() can infer nested extension types", {
   )
 })
 
+test_that("infer_type() can infer vctrs::list_of() types", {
+  expect_equal(infer_type(vctrs::list_of(.ptype = integer())), list_of(int32()))
+})
+
+test_that("infer_type() can infer blob type", {
+  skip_if_not_installed("blob")
+
+  expect_equal(infer_type(blob::blob()), binary())
+
+  big_ish_raw <- raw(2 ^ 20)
+  big_ish_blob <- blob::new_blob(rep(list(big_ish_raw), 2049))
+  expect_equal(infer_type(big_ish_blob), large_binary())
+})
+
 test_that("DataType$Equals", {
   a <- int32()
   b <- int32()
@@ -282,5 +296,48 @@ test_that("infer_type() infers type for vctrs", {
   expect_equal(
     infer_type(vec),
     vctrs_extension_type(vec[integer(0)])
+  )
+})
+
+test_that("type() is deprecated", {
+  a <- Array$create(1:10)
+  expect_deprecated(
+    a_type <- type(a),
+    "infer_type"
+  )
+  expect_equal(a_type, a$type)
+})
+
+test_that("infer_type() infers type for lists of raw() as binary()", {
+  expect_equal(
+    infer_type(list(raw())),
+    binary()
+  )
+
+  expect_equal(
+    infer_type(list(NULL, raw(), raw())),
+    binary()
+  )
+})
+
+test_that("infer_type() infers type for lists starting with NULL - ARROW-17639", {
+  null_start_list <- list(NULL, c(2, 3), c(4, 5))
+
+  expect_equal(
+    infer_type(null_start_list),
+    list_of(float64())
+  )
+
+  totally_null_list <- list(NULL, NULL, NULL)
+
+  expect_equal(
+    infer_type(totally_null_list),
+    list_of(null())
+  )
+
+  empty_list <- list()
+  expect_equal(
+    infer_type(empty_list),
+    list_of(null())
   )
 })

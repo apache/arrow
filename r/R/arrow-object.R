@@ -31,14 +31,16 @@ ArrowObject <- R6Class("ArrowObject",
       }
       assign(".:xp:.", xp, envir = self)
     },
-    print = function(...) {
+    class_title = function() {
       if (!is.null(self$.class_title)) {
         # Allow subclasses to override just printing the class name first
         class_title <- self$.class_title()
       } else {
         class_title <- class(self)[[1]]
       }
-      cat(class_title, "\n", sep = "")
+    },
+    print = function(...) {
+      cat(self$class_title(), "\n", sep = "")
       if (!is.null(self$ToString)) {
         cat(self$ToString(), "\n", sep = "")
       }

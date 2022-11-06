@@ -22,13 +22,13 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/small_vector.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace compute {
@@ -55,7 +55,7 @@ class ARROW_EXPORT Expression {
     std::shared_ptr<Function> function;
     const Kernel* kernel = NULLPTR;
     std::shared_ptr<KernelState> kernel_state;
-    ValueDescr descr;
+    TypeHolder type;
 
     void ComputeHash();
   };
@@ -72,7 +72,7 @@ class ARROW_EXPORT Expression {
   /// Any state necessary for execution will be initialized and returned.
   /// The exec_ctx provides the function registry used to lookup kernels and may also
   /// be used during expression simplification to evaluate constant functions.
-  Result<Expression> Bind(const ValueDescr& in, ExecContext* exec_ctx) const;
+  Result<Expression> Bind(const TypeHolder& in, ExecContext* exec_ctx) const;
   Result<Expression> Bind(const Schema& in_schema, ExecContext* exec_ctx) const;
 
   // XXX someday
@@ -84,8 +84,8 @@ class ARROW_EXPORT Expression {
   // Result<ExpressionState> CloneState() const;
   // Status SetState(ExpressionState);
 
-  /// Return true if all an expression's field references have explicit ValueDescr and all
-  /// of its functions' kernels are looked up.
+  /// Return true if all an expression's field references have explicit types
+  /// and all of its functions' kernels are looked up.
   bool IsBound() const;
 
   /// Return true if this expression is composed only of Scalar literals, field
@@ -102,6 +102,8 @@ class ARROW_EXPORT Expression {
   // XXX someday
   // Result<PipelineGraph> GetPipelines();
 
+  bool is_valid() const { return impl_ != NULLPTR; }
+
   /// Access a Call or return nullptr if this expression is not a call
   const Call* call() const;
   /// Access a Datum or return nullptr if this expression is not a literal
@@ -109,9 +111,8 @@ class ARROW_EXPORT Expression {
   /// Access a FieldRef or return nullptr if this expression is not a field_ref
   const FieldRef* field_ref() const;
 
-  /// The type and shape to which this expression will evaluate
-  ValueDescr descr() const;
-  const std::shared_ptr<DataType>& type() const;
+  /// The type to which this expression will evaluate
+  const DataType* type() const;
   // XXX someday
   // NullGeneralization::type nullable() const;
 
@@ -119,7 +120,7 @@ class ARROW_EXPORT Expression {
     FieldRef ref;
 
     // post-bind properties
-    ValueDescr descr;
+    TypeHolder type;
     ::arrow::internal::SmallVector<int, 2> indices;
   };
   const Parameter* parameter() const;
@@ -130,16 +131,16 @@ class ARROW_EXPORT Expression {
   explicit Expression(Parameter parameter);
 
  private:
-  using Impl = util::Variant<Datum, Parameter, Call>;
+  using Impl = std::variant<Datum, Parameter, Call>;
   std::shared_ptr<Impl> impl_;
 
-  ARROW_EXPORT friend bool Identical(const Expression& l, const Expression& r);
-
-  ARROW_EXPORT friend void PrintTo(const Expression&, std::ostream*);
+  ARROW_FRIEND_EXPORT friend bool Identical(const Expression& l, const Expression& r);
 };
 
 inline bool operator==(const Expression& l, const Expression& r) { return l.Equals(r); }
 inline bool operator!=(const Expression& l, const Expression& r) { return !l.Equals(r); }
+
+ARROW_EXPORT void PrintTo(const Expression&, std::ostream*);
 
 // Factories
 
@@ -229,7 +230,8 @@ Result<Expression> SimplifyWithGuarantee(Expression,
 /// RecordBatch which may have missing or incorrectly ordered columns.
 /// Missing fields will be replaced with null scalars.
 ARROW_EXPORT Result<ExecBatch> MakeExecBatch(const Schema& full_schema,
-                                             const Datum& partial);
+                                             const Datum& partial,
+                                             Expression guarantee = literal(true));
 
 /// Execute a scalar expression against the provided state and input ExecBatch. This
 /// expression must be bound.

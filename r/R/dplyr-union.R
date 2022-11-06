@@ -21,7 +21,7 @@ union.arrow_dplyr_query <- function(x, y, ...) {
   x <- as_adq(x)
   y <- as_adq(y)
 
-  distinct(union_all(x, y))
+  dplyr::distinct(dplyr::union_all(x, y))
 }
 
 union.Dataset <- union.ArrowTabular <- union.RecordBatchReader <- union.arrow_dplyr_query

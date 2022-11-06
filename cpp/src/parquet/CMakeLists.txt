@@ -106,9 +106,11 @@ endfunction()
 
 if(ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
+  set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static
                                        ${ARROW_STATIC_LINK_LIBS})
 else()
+  set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS)
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
@@ -178,17 +180,28 @@ set(PARQUET_SRCS
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
   list(APPEND PARQUET_SRCS level_comparison_avx2.cc level_conversion_bmi2.cc)
+  # We need CXX_FLAGS_RELEASE here to prevent the one-definition-rule
+  # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CXX_FLAGS_RELEASE
+  # will force inlining as much as possible.
+  # See also: ARROW-15664 and ARROW-15678
   set_source_files_properties(level_comparison_avx2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${ARROW_AVX2_FLAG}")
+                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                         COMPILE_FLAGS
+                                         "${ARROW_AVX2_FLAG} ${CXX_FLAGS_RELEASE}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
   # imply BMI2.
+  #
+  # We need CXX_FLAGS_RELEASE here to prevent the one-definition-rule
+  # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CXX_FLAGS_RELEASE
+  # will force inlining as much as possible.
+  # See also: ARROW-15664 and ARROW-15678
   set_source_files_properties(level_conversion_bmi2.cc
                               PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                          COMPILE_FLAGS
-                                         "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2 -mbmi2")
+                                         "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2 -mbmi2 ${CXX_FLAGS_RELEASE}"
+  )
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
@@ -218,8 +231,11 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
 
   # Link publicly with parquet_static (because internal users need to
   # transitively link all dependencies)
-  set(PARQUET_STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS} thrift::thrift)
-endif(NOT PARQUET_MINIMAL_DEPENDENCY)
+  list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
+  if(NOT THRIFT_VENDORED)
+    list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
+  endif()
+endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set(PARQUET_SHARED_LINK_FLAGS
@@ -243,8 +259,12 @@ add_arrow_lib(parquet
               ${PARQUET_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS
               ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
+              SHARED_INSTALL_INTERFACE_LIBS
+              Arrow::arrow_shared
               STATIC_LINK_LIBS
-              ${PARQUET_STATIC_LINK_LIBS})
+              ${PARQUET_STATIC_LINK_LIBS}
+              STATIC_INSTALL_INTERFACE_LIBS
+              ${PARQUET_STATIC_INSTALL_INTERFACE_LIBS})
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
@@ -264,10 +284,8 @@ endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
   # ARROW-4848: Static Parquet lib needs to import static symbols on Windows
-  target_compile_definitions(parquet_static PUBLIC ARROW_STATIC)
+  target_compile_definitions(parquet_static PUBLIC PARQUET_STATIC)
 endif()
-
-add_dependencies(parquet ${PARQUET_LIBRARIES} thrift::thrift)
 
 add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${Thrift_VERSION_MAJOR})
 add_definitions(-DPARQUET_THRIFT_VERSION_MINOR=${Thrift_VERSION_MINOR})

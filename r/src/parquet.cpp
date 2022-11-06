@@ -148,9 +148,9 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups2(
 }
 
 // [[parquet::export]]
-int64_t parquet___arrow___FileReader__num_rows(
+r_vec_size parquet___arrow___FileReader__num_rows(
     const std::shared_ptr<parquet::arrow::FileReader>& reader) {
-  return reader->parquet_reader()->metadata()->num_rows();
+  return r_vec_size(reader->parquet_reader()->metadata()->num_rows());
 }
 
 // [[parquet::export]]

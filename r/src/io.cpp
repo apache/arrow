@@ -51,9 +51,9 @@ void io___OutputStream__Close(const std::shared_ptr<arrow::io::OutputStream>& x)
 // ------ arrow::io::RandomAccessFile
 
 // [[arrow::export]]
-int64_t io___RandomAccessFile__GetSize(
+r_vec_size io___RandomAccessFile__GetSize(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
-  return ValueOrStop(x->GetSize());
+  return r_vec_size(ValueOrStop(x->GetSize()));
 }
 
 // [[arrow::export]]
@@ -69,9 +69,9 @@ void io___RandomAccessFile__Seek(const std::shared_ptr<arrow::io::RandomAccessFi
 }
 
 // [[arrow::export]]
-int64_t io___RandomAccessFile__Tell(
+r_vec_size io___RandomAccessFile__Tell(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
-  return ValueOrStop(x->Tell());
+  return r_vec_size(ValueOrStop(x->Tell()));
 }
 
 // [[arrow::export]]
@@ -161,8 +161,9 @@ void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream,
 // ------- arrow::io::OutputStream
 
 // [[arrow::export]]
-int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& stream) {
-  return ValueOrStop(stream->Tell());
+r_vec_size io___OutputStream__Tell(
+    const std::shared_ptr<arrow::io::OutputStream>& stream) {
+  return r_vec_size(ValueOrStop(stream->Tell()));
 }
 
 // ------ arrow::io::FileOutputStream
@@ -183,9 +184,9 @@ std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(
 }
 
 // [[arrow::export]]
-int64_t io___BufferOutputStream__capacity(
+r_vec_size io___BufferOutputStream__capacity(
     const std::shared_ptr<arrow::io::BufferOutputStream>& stream) {
-  return stream->capacity();
+  return r_vec_size(stream->capacity());
 }
 
 // [[arrow::export]]
@@ -195,9 +196,9 @@ std::shared_ptr<arrow::Buffer> io___BufferOutputStream__Finish(
 }
 
 // [[arrow::export]]
-int64_t io___BufferOutputStream__Tell(
+r_vec_size io___BufferOutputStream__Tell(
     const std::shared_ptr<arrow::io::BufferOutputStream>& stream) {
-  return ValueOrStop(stream->Tell());
+  return r_vec_size(ValueOrStop(stream->Tell()));
 }
 
 // [[arrow::export]]
@@ -222,8 +223,8 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
 
     closed_ = true;
 
-    return SafeCallIntoRVoid(
-        [&]() { cpp11::package("base")["close"](connection_sexp_); });
+    return SafeCallIntoRVoid([&]() { cpp11::package("base")["close"](connection_sexp_); },
+                             "close() on R connection");
   }
 
   arrow::Result<int64_t> Tell() const {
@@ -231,10 +232,12 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    return SafeCallIntoR<int64_t>([&]() {
-      cpp11::sexp result = cpp11::package("base")["seek"](connection_sexp_);
-      return cpp11::as_cpp<int64_t>(result);
-    });
+    return SafeCallIntoR<int64_t>(
+        [&]() {
+          cpp11::sexp result = cpp11::package("base")["seek"](connection_sexp_);
+          return cpp11::as_cpp<int64_t>(result);
+        },
+        "tell() on R connection");
   }
 
   bool closed() const { return closed_; }
@@ -250,17 +253,19 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    return SafeCallIntoR<int64_t>([&] {
-      cpp11::function read_bin = cpp11::package("base")["readBin"];
-      cpp11::writable::raws ptype((R_xlen_t)0);
-      cpp11::integers n = cpp11::as_sexp<int>(nbytes);
+    return SafeCallIntoR<int64_t>(
+        [&] {
+          cpp11::function read_bin = cpp11::package("base")["readBin"];
+          cpp11::writable::raws ptype((R_xlen_t)0);
+          cpp11::integers n = cpp11::as_sexp<int>(nbytes);
 
-      cpp11::sexp result = read_bin(connection_sexp_, ptype, n);
+          cpp11::sexp result = read_bin(connection_sexp_, ptype, n);
 
-      int64_t result_size = cpp11::safe[Rf_xlength](result);
-      memcpy(out, cpp11::safe[RAW](result), result_size);
-      return result_size;
-    });
+          int64_t result_size = cpp11::safe[Rf_xlength](result);
+          memcpy(out, cpp11::safe[RAW](result), result_size);
+          return result_size;
+        },
+        "readBin() on R connection");
   }
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> ReadBase(int64_t nbytes) {
@@ -277,13 +282,15 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    return SafeCallIntoRVoid([&]() {
-      cpp11::writable::raws data_raw(nbytes);
-      memcpy(cpp11::safe[RAW](data_raw), data, nbytes);
+    return SafeCallIntoRVoid(
+        [&]() {
+          cpp11::writable::raws data_raw(nbytes);
+          memcpy(cpp11::safe[RAW](data_raw), data, nbytes);
 
-      cpp11::function write_bin = cpp11::package("base")["writeBin"];
-      write_bin(data_raw, connection_sexp_);
-    });
+          cpp11::function write_bin = cpp11::package("base")["writeBin"];
+          write_bin(data_raw, connection_sexp_);
+        },
+        "writeBin() on R connection");
   }
 
   arrow::Status SeekBase(int64_t pos) {
@@ -291,9 +298,11 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
-    return SafeCallIntoRVoid([&]() {
-      cpp11::package("base")["seek"](connection_sexp_, cpp11::as_sexp<double>(pos));
-    });
+    return SafeCallIntoRVoid(
+        [&]() {
+          cpp11::package("base")["seek"](connection_sexp_, cpp11::as_sexp<double>(pos));
+        },
+        "seek() on R connection");
   }
 
  private:
@@ -304,10 +313,12 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return true;
     }
 
-    auto is_open_result = SafeCallIntoR<bool>([&]() {
-      cpp11::sexp result = cpp11::package("base")["isOpen"](connection_sexp_);
-      return cpp11::as_cpp<bool>(result);
-    });
+    auto is_open_result = SafeCallIntoR<bool>(
+        [&]() {
+          cpp11::sexp result = cpp11::package("base")["isOpen"](connection_sexp_);
+          return cpp11::as_cpp<bool>(result);
+        },
+        "isOpen() on R connection");
 
     if (!is_open_result.ok()) {
       closed_ = true;

@@ -365,7 +365,7 @@ struct Converter_String : public Converter {
     }
 
     if (nul_was_stripped) {
-      cpp11::warning("Stripping '\\0' (nul) from character vector");
+      cpp11::safe[Rf_warning]("Stripping '\\0' (nul) from character vector");
     }
 
     return Status::OK();
@@ -374,11 +374,11 @@ struct Converter_String : public Converter {
   bool Parallel() const { return false; }
 
  private:
-  static SEXP r_string_from_view(arrow::util::string_view view) {
+  static SEXP r_string_from_view(std::string_view view) {
     return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
   }
 
-  static SEXP r_string_from_view_strip_nul(arrow::util::string_view view,
+  static SEXP r_string_from_view_strip_nul(std::string_view view,
                                            bool* nul_was_stripped) {
     const char* old_string = view.data();
 
@@ -391,7 +391,7 @@ struct Converter_String : public Converter {
 
         if (nul_count == 1) {
           // first nul spotted: allocate stripped string storage
-          stripped_string = view.to_string();
+          stripped_string = std::string(view);
           stripped_len = i;
         }
 
@@ -706,7 +706,7 @@ class Converter_Dictionary : public Converter {
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
     if (dictionary_->type_id() != Type::STRING) {
-      cpp11::warning("Coercing dictionary values to R character factor levels");
+      cpp11::safe[Rf_warning]("Coercing dictionary values to R character factor levels");
     }
 
     SEXP vec = PROTECT(Converter::Convert(dictionary_));
@@ -1188,7 +1188,7 @@ bool ArraysCanFitInteger(ArrayVector arrays) {
   auto i32 = arrow::int32();
   for (const auto& array : arrays) {
     if (all_can_fit) {
-      all_can_fit = arrow::IntegersCanFit(arrow::Datum(array), *i32).ok();
+      all_can_fit = arrow::IntegersCanFit(*array->data(), *i32).ok();
     }
   }
   return all_can_fit;

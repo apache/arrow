@@ -27,16 +27,17 @@ NULL
 #' Expressions. These are the basis for the `.data` mask inside dplyr methods.
 #'
 #' @section Writing bindings:
-#' When to use `build_expr()` vs. `Expression$create()`?
-#'
-#' Use `build_expr()` if you need to
-#' - map R function names to Arrow C++ functions
-#' - wrap R inputs (vectors) as Array/Scalar
-#'
-#' `Expression$create()` is lower level. Most of the bindings use it
-#' because they manage the preparation of the user-provided inputs
-#' and don't need or don't want to the automatic conversion of R objects
-#' to [Scalar].
+#' * `Expression$create()` will wrap any non-Expression inputs as Scalar
+#'   Expressions. If you want to try to coerce scalar inputs to match the type
+#'   of the Expression(s) in the arguments, call
+#'  `cast_scalars_to_common_type(args)` on the
+#'   args. For example, `Expression$create("add", args = list(int16_field, 1))`
+#'   would result in a `float64` type output because `1` is a `double` in R.
+#'   To prevent casting all of the data in `int16_field` to float and to
+#'   preserve it as int16, do
+#'   `Expression$create("add",
+#'   args = cast_scalars_to_common_type(list(int16_field, 1)))`
+#' * Inside your function, you can call any other binding with `call_binding()`.
 #'
 #' @param fun_name A string containing a function name in the form `"function"` or
 #'   `"package::function"`. The package name is currently not used but
@@ -50,30 +51,83 @@ NULL
 #'   - `fun`: string function name
 #'   - `data`: `Expression` (these are all currently a single field)
 #'   - `options`: list of function options, as passed to call_function
+#' @param update_cache Update .cache$functions at the time of registration.
+#'   the default is FALSE because the majority of usage is to register
+#'   bindings at package load, after which we create the cache once. The
+#'   reason why .cache$functions is needed in addition to nse_funcs for
+#'   non-aggregate functions could be revisited...it is currently used
+#'   as the data mask in mutate, filter, and aggregate (but not
+#'   summarise) because the data mask has to be a list.
 #' @param registry An environment in which the functions should be
 #'   assigned.
-#'
+#' @param notes string for the docs: note any limitations or differences in
+#'   behavior between the Arrow version and the R function.
 #' @return The previously registered binding or `NULL` if no previously
 #'   registered function existed.
 #' @keywords internal
-#'
-register_binding <- function(fun_name, fun, registry = nse_funcs) {
-  name <- gsub("^.*?::", "", fun_name)
-  namespace <- gsub("::.*$", "", fun_name)
+register_binding <- function(fun_name,
+                             fun,
+                             registry = nse_funcs,
+                             update_cache = FALSE,
+                             notes = character(0)) {
+  unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
-  previous_fun <- if (name %in% names(registry)) registry[[name]] else NULL
+  previous_fun <- registry[[unqualified_name]]
 
-  if (is.null(fun) && !is.null(previous_fun)) {
-    rm(list = name, envir = registry, inherits = FALSE)
-  } else {
-    registry[[name]] <- fun
+  # if the unqualified name exists in the registry, warn
+  if (!is.null(previous_fun) && !identical(fun, previous_fun)) {
+    warn(
+      paste0(
+        "A \"",
+        unqualified_name,
+        "\" binding already exists in the registry and will be overwritten."
+      )
+    )
+  }
+
+  # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed
+  # unqualified_name and fun_name will be the same if not prefixed
+  registry[[unqualified_name]] <- fun
+  registry[[fun_name]] <- fun
+
+  .cache$docs[[fun_name]] <- notes
+
+  if (update_cache) {
+    fun_cache <- .cache$functions
+    fun_cache[[unqualified_name]] <- fun
+    fun_cache[[fun_name]] <- fun
+    .cache$functions <- fun_cache
   }
 
   invisible(previous_fun)
 }
 
-register_binding_agg <- function(fun_name, agg_fun, registry = agg_funcs) {
-  register_binding(fun_name, agg_fun, registry = registry)
+unregister_binding <- function(fun_name, registry = nse_funcs,
+                               update_cache = FALSE) {
+  unqualified_name <- sub("^.*?:{+}", "", fun_name)
+  previous_fun <- registry[[unqualified_name]]
+
+  rm(
+    list = unique(c(fun_name, unqualified_name)),
+    envir = registry,
+    inherits = FALSE
+  )
+
+  if (update_cache) {
+    fun_cache <- .cache$functions
+    fun_cache[[unqualified_name]] <- NULL
+    fun_cache[[fun_name]] <- NULL
+    .cache$functions <- fun_cache
+  }
+
+  invisible(previous_fun)
+}
+
+register_binding_agg <- function(fun_name,
+                                 agg_fun,
+                                 registry = agg_funcs,
+                                 notes = character(0)) {
+  register_binding(fun_name, agg_fun, registry = registry, notes = notes)
 }
 
 # Supports functions and tests that call previously-defined bindings
@@ -85,16 +139,16 @@ call_binding_agg <- function(fun_name, ...) {
   agg_funcs[[fun_name]](...)
 }
 
-# Called in .onLoad()
 create_binding_cache <- function() {
-  arrow_funcs <- list()
+  # Called in .onLoad()
+  .cache$docs <- list()
 
   # Register all available Arrow Compute functions, namespaced as arrow_fun.
   all_arrow_funs <- list_compute_functions()
   arrow_funcs <- set_names(
     lapply(all_arrow_funs, function(fun) {
       force(fun)
-      function(...) build_expr(fun, ...)
+      function(...) Expression$create(fun, ...)
     }),
     paste0("arrow_", all_arrow_funs)
   )
@@ -107,6 +161,7 @@ create_binding_cache <- function() {
   register_bindings_math()
   register_bindings_string()
   register_bindings_type()
+  register_bindings_augmented()
 
   # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)
@@ -116,3 +171,17 @@ create_binding_cache <- function() {
 nse_funcs <- new.env(parent = emptyenv())
 agg_funcs <- new.env(parent = emptyenv())
 .cache <- new.env(parent = emptyenv())
+
+# we register 2 versions of the "::" binding - one for use with nse_funcs
+# (registered below) and another one for use with agg_funcs (registered in
+# dplyr-summarize.R)
+nse_funcs[["::"]] <- function(lhs, rhs) {
+  lhs_name <- as.character(substitute(lhs))
+  rhs_name <- as.character(substitute(rhs))
+
+  fun_name <- paste0(lhs_name, "::", rhs_name)
+
+  # if we do not have a binding for pkg::fun, then fall back on to the
+  # regular pkg::fun function
+  nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
+}

@@ -44,7 +44,7 @@ namespace internal {
 Status ComputeRowMajorStrides(const FixedWidthType& type,
                               const std::vector<int64_t>& shape,
                               std::vector<int64_t>* strides) {
-  const int byte_width = GetByteWidth(type);
+  const int byte_width = type.byte_width();
   const size_t ndim = shape.size();
 
   int64_t remaining = 0;
@@ -75,7 +75,7 @@ Status ComputeRowMajorStrides(const FixedWidthType& type,
 Status ComputeColumnMajorStrides(const FixedWidthType& type,
                                  const std::vector<int64_t>& shape,
                                  std::vector<int64_t>* strides) {
-  const int byte_width = internal::GetByteWidth(type);
+  const int byte_width = type.byte_width();
   const size_t ndim = shape.size();
 
   int64_t total = 0;
@@ -183,7 +183,7 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
         "offsets computed from shape and strides would not fit in 64-bit integer");
   }
 
-  const int byte_width = internal::GetByteWidth(*type);
+  const int byte_width = type->byte_width();
   if (largest_offset > data->size() - byte_width) {
     return Status::Invalid("strides must not involve buffer over run");
   }

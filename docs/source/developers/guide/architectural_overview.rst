@@ -39,5 +39,31 @@ For an Architectural Overview of Arrow's libraries please
 refer to:
 
 - :ref:`py_arch_overview`
-- R package Architectural Overview (in progress, see
-  `issue ARROW-14280 <https://issues.apache.org/jira/browse/ARROW-14280>`_)
+- R package Architecture can be found on this page.
+
+
+R package Architectural Overview
+--------------------------------
+
+.. figure:: /developers/images/R_architectural_overview.png
+   :alt: Main parts of R package architecture: dplyr-*,
+         dplyr-funcs*, tools, tests and src/.
+
+* The ``r/R/dplyr-*`` files define the verbs used in a regular
+  dplyr syntax on Arrow objects.
+* The ``r/R/dplyr-funcs*`` files define bindings to Arrow C++
+  functions that can be used with already defined dplyr verbs.
+* All the C++ code connected to the R package lives in ``arrow/r/src``.
+  It also includes C++ code which connects libarrow (the Arrow C++
+  library) and the R code in package.
+* If the libarrow source package is bundled with R package using
+  ``make sync-cpp`` command then it will be included in the
+  ``r/tools/cpp`` folder.
+
+**Additionally**
+
+* The ``r/man`` directory includes generated R documentation that
+  shouldn't be updated directly but in the corresponding ``.R`` file.
+* The vignettes are
+  `"a long-form guide to the package" <https://r-pkgs.org/vignettes.html#introduction>`_
+  and can be found in ``r/vignettes``.

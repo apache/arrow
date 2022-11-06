@@ -22,6 +22,9 @@ package org.apache.arrow.dataset.file;
  */
 public enum FileFormat {
   PARQUET(0),
+  ARROW_IPC(1),
+  ORC(2),
+  CSV(3),
   NONE(-1);
 
   private final int id;

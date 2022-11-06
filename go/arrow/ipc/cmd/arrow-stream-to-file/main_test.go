@@ -19,19 +19,14 @@ package main
 import (
 	"io"
 	"io/ioutil"
-	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 func TestStreamToFile(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-stream-to-file-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
@@ -60,6 +55,7 @@ func TestStreamToFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer o.Close()
 
 			err = processStream(o, f)
 			if err != nil {

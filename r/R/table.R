@@ -134,6 +134,11 @@ Table$create <- function(..., schema = NULL) {
   if (is.null(names(dots))) {
     names(dots) <- rep_len("", length(dots))
   }
+
+  if (length(dots) == 0 && inherits(schema, "Schema")) {
+    return(Table__from_schema(schema))
+  }
+
   stopifnot(length(dots) > 0)
 
   if (all_record_batches(dots)) {
@@ -317,4 +322,34 @@ as_arrow_table.RecordBatch <- function(x, ..., schema = NULL) {
 #' @export
 as_arrow_table.data.frame <- function(x, ..., schema = NULL) {
   Table$create(x, schema = schema)
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.RecordBatchReader <- function(x, ...) {
+  x$read_table()
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.Dataset <- function(x, ...) {
+  Scanner$create(x)$ToTable()
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.arrow_dplyr_query <- function(x, ...) {
+  out <- as_arrow_table(as_record_batch_reader(x))
+  # arrow_dplyr_query holds group_by information. Set it on the table metadata.
+  set_group_attributes(
+    out,
+    dplyr::group_vars(x),
+    dplyr::group_by_drop_default(x)
+  )
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.Schema <- function(x, ...) {
+  Table__from_schema(x)
 }

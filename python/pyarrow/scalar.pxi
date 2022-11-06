@@ -35,16 +35,16 @@ cdef class Scalar(_Weakrefable):
         cdef:
             Scalar self
             Type type_id = wrapped.get().type.get().id()
+            shared_ptr[CDataType] sp_data_type = wrapped.get().type
 
         if type_id == _Type_NA:
             return _NULL
 
-        try:
-            typ = _scalar_classes[type_id]
-        except KeyError:
+        if type_id not in _scalar_classes:
             raise NotImplementedError(
-                "Wrapping scalar of type " +
-                frombytes(wrapped.get().type.get().ToString()))
+                "Wrapping scalar of type " + frombytes(sp_data_type.get().ToString()))
+
+        typ = get_scalar_class_from_type(sp_data_type)
         self = typ.__new__(typ)
         self.init(wrapped)
 
@@ -836,19 +836,6 @@ cdef class DictionaryScalar(Scalar):
         """
         return self.value.as_py() if self.is_valid else None
 
-    @property
-    def index_value(self):
-        warnings.warn("`index_value` property is deprecated as of 1.0.0"
-                      "please use the `index` property instead",
-                      FutureWarning)
-        return self.index
-
-    @property
-    def dictionary_value(self):
-        warnings.warn("`dictionary_value` property is deprecated as of 1.0.0, "
-                      "please use the `value` property instead", FutureWarning)
-        return self.value
-
 
 cdef class UnionScalar(Scalar):
     """
@@ -860,8 +847,14 @@ cdef class UnionScalar(Scalar):
         """
         Return underlying value as a scalar.
         """
-        cdef CUnionScalar* sp = <CUnionScalar*> self.wrapped.get()
-        return Scalar.wrap(sp.value) if sp.is_valid else None
+        cdef CSparseUnionScalar* sp
+        cdef CDenseUnionScalar* dp
+        if self.type.id == _Type_SPARSE_UNION:
+            sp = <CSparseUnionScalar*> self.wrapped.get()
+            return Scalar.wrap(sp.value[sp.child_id]) if sp.is_valid else None
+        else:
+            dp = <CDenseUnionScalar*> self.wrapped.get()
+            return Scalar.wrap(dp.value) if dp.is_valid else None
 
     def as_py(self):
         """
@@ -896,9 +889,7 @@ cdef class ExtensionScalar(Scalar):
         """
         Return this scalar as a Python object.
         """
-        # XXX should there be a hook to wrap the result in a custom class?
-        value = self.value
-        return None if value is None else value.as_py()
+        return None if self.value is None else self.value.as_py()
 
     @staticmethod
     def from_storage(BaseExtensionType typ, value):
@@ -918,6 +909,7 @@ cdef class ExtensionScalar(Scalar):
         """
         cdef:
             shared_ptr[CExtensionScalar] sp_scalar
+            shared_ptr[CScalar] sp_storage
             CExtensionScalar* ext_scalar
 
         if value is None:
@@ -931,12 +923,15 @@ cdef class ExtensionScalar(Scalar):
         else:
             storage = scalar(value, typ.storage_type)
 
-        sp_scalar = make_shared[CExtensionScalar](typ.sp_type)
-        ext_scalar = sp_scalar.get()
-        ext_scalar.is_valid = storage is not None and storage.is_valid
-        if ext_scalar.is_valid:
-            ext_scalar.value = pyarrow_unwrap_scalar(storage)
-        check_status(ext_scalar.Validate())
+        cdef c_bool is_valid = storage is not None and storage.is_valid
+        if is_valid:
+            sp_storage = pyarrow_unwrap_scalar(storage)
+        else:
+            sp_storage = MakeNullScalar((<DataType> typ.storage_type).sp_type)
+        sp_scalar = make_shared[CExtensionScalar](sp_storage, typ.sp_type,
+                                                  is_valid)
+        with nogil:
+            check_status(sp_scalar.get().Validate())
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 
@@ -977,6 +972,19 @@ cdef dict _scalar_classes = {
     _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalScalar,
     _Type_EXTENSION: ExtensionScalar,
 }
+
+
+cdef object get_scalar_class_from_type(
+        const shared_ptr[CDataType]& sp_data_type):
+    cdef CDataType* data_type = sp_data_type.get()
+    if data_type == NULL:
+        raise ValueError('Scalar data type was NULL')
+
+    if data_type.id() == _Type_EXTENSION:
+        py_ext_data_type = pyarrow_wrap_data_type(sp_data_type)
+        return py_ext_data_type.__arrow_ext_scalar_class__()
+    else:
+        return _scalar_classes[data_type.id()]
 
 
 def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):

@@ -462,7 +462,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
-  friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
+  ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
 
   ThreadPool();
 

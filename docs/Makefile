@@ -256,14 +256,19 @@ dummy:
 python:
 	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/python $(BUILDDIR)/html/python
 	@echo
-	@echo "Build finished. The HTML files are in $(BUILLDIR)/html/python"
+	@echo "Build finished. The HTML files are in $(BUILDDIR)/html/python"
 
 java_tutorial:
 	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/java $(BUILDDIR)/html/tutorial/java
 	@echo
-	@echo "Build finished. The HTML files are in $(BUILLDIR)/html/tutorial/java"
+	@echo "Build finished. The HTML files are in $(BUILDDIR)/html/tutorial/java"
 
 java_dev:
 	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/developers/java $(BUILDDIR)/html/developers/java
 	@echo
-	@echo "Build finished. The HTML files are in $(BUILLDIR)/html/developers/java"
+	@echo "Build finished. The HTML files are in $(BUILDDIR)/html/developers/java"
+
+java:
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/java $(BUILDDIR)/html/java
+	@echo
+	@echo "Build finished. The HTML files are in $(BUILDDIR)/html/java"

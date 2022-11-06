@@ -17,8 +17,8 @@
 package parquet
 
 import (
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/parquet/compress"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/parquet/compress"
 )
 
 // Constants for default property values used for the default reader, writer and column props.
@@ -46,7 +46,7 @@ const (
 	DefaultStatsEnabled = true
 	// If the stats are larger than 4K the writer will skip writing them out anyways.
 	DefaultMaxStatsSize int64 = 4096
-	DefaultCreatedBy          = "parquet-go version 9.0.0-SNAPSHOT"
+	DefaultCreatedBy          = "parquet-go version 11.0.0-SNAPSHOT"
 	DefaultRootName           = "schema"
 )
 
@@ -109,7 +109,7 @@ func WithDictionaryDefault(dict bool) WriterProperty {
 // WithDictionaryFor allows enabling or disabling dictionary encoding for a given column path string
 func WithDictionaryFor(path string, dict bool) WriterProperty {
 	return func(cfg *writerPropConfig) {
-		cfg.dictEnabled[path] = true
+		cfg.dictEnabled[path] = dict
 	}
 }
 

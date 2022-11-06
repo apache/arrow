@@ -204,7 +204,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
         raise
 
 
-def read_feather(source, columns=None, use_threads=True, memory_map=True):
+def read_feather(source, columns=None, use_threads=True, memory_map=False):
     """
     Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
     feather.read_table.
@@ -212,6 +212,7 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
     Parameters
     ----------
     source : str file path, or file-like object
+        You can use MemoryMappedFile as source, for explicitly use memory map.
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
@@ -219,8 +220,8 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
         Whether to parallelize reading using multiple threads. If false the
         restriction is used in the conversion to Pandas as well as in the
         reading from Feather format.
-    memory_map : boolean, default True
-        Use memory mapping when opening file on disk
+    memory_map : boolean, default False
+        Use memory mapping when opening file on disk, when source is a str.
 
     Returns
     -------
@@ -232,18 +233,19 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
         use_threads=use_threads).to_pandas(use_threads=use_threads))
 
 
-def read_table(source, columns=None, memory_map=True, use_threads=True):
+def read_table(source, columns=None, memory_map=False, use_threads=True):
     """
     Read a pyarrow.Table from Feather format
 
     Parameters
     ----------
     source : str file path, or file-like object
+        You can use MemoryMappedFile as source, for explicitly use memory map.
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
-    memory_map : boolean, default True
-        Use memory mapping when opening file on disk
+    memory_map : boolean, default False
+        Use memory mapping when opening file on disk, when source is a str
     use_threads : bool, default True
         Whether to parallelize reading using multiple threads.
 

@@ -70,7 +70,7 @@ enum class S3CredentialsKind : int8_t {
 };
 
 /// Pure virtual class for describing custom S3 retry strategies
-class S3RetryStrategy {
+class ARROW_EXPORT S3RetryStrategy {
  public:
   virtual ~S3RetryStrategy() = default;
 
@@ -90,6 +90,12 @@ class S3RetryStrategy {
   /// Returns the time in milliseconds the S3 client should sleep for until retrying.
   virtual int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
                                                 int64_t attempted_retries) = 0;
+  /// Returns a stock AWS Default retry strategy.
+  static std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(
+      int64_t max_attempts);
+  /// Returns a stock AWS Standard retry strategy.
+  static std::shared_ptr<S3RetryStrategy> GetAwsStandardRetryStrategy(
+      int64_t max_attempts);
 };
 
 /// Options for the S3FileSystem implementation.
@@ -102,6 +108,17 @@ struct ARROW_EXPORT S3Options {
   /// the region (environment variables, configuration profile, EC2 metadata
   /// server).
   std::string region;
+
+  /// \brief Socket connection timeout, in seconds
+  ///
+  /// If negative, the AWS SDK default value is used (typically 1 second).
+  double connect_timeout = -1;
+
+  /// \brief Socket read timeout on Windows and macOS, in seconds
+  ///
+  /// If negative, the AWS SDK default value is used (typically 3 seconds).
+  /// This option is ignored on non-Windows, non-macOS systems.
+  double request_timeout = -1;
 
   /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?
@@ -116,7 +133,7 @@ struct ARROW_EXPORT S3Options {
   /// Optional external idenitifer to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
-  int load_frequency;
+  int load_frequency = 900;
 
   /// If connection is through a proxy, set options here
   S3ProxyOptions proxy_options;
@@ -129,6 +146,17 @@ struct ARROW_EXPORT S3Options {
 
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
+
+  /// Whether to allow creation of buckets
+  ///
+  /// When S3FileSystem creates new buckets, it does not pass any non-default settings.
+  /// In AWS S3, the bucket and all objects will be not publicly visible, and there
+  /// will be no bucket policies and no resource tags. To have more control over how
+  /// buckets are created, use a different API to create them.
+  bool allow_bucket_creation = false;
+
+  /// Whether to allow deletion of buckets
+  bool allow_bucket_deletion = false;
 
   /// \brief Default metadata for OpenOutputStream.
   ///

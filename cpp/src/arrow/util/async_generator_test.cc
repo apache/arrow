@@ -19,6 +19,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <random>
 #include <thread>
 #include <unordered_set>
@@ -31,7 +32,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/vector.h"
 
@@ -333,7 +333,7 @@ TEST(TestAsyncUtil, MapAsync) {
   std::vector<TestInt> input = {1, 2, 3};
   auto generator = util::AsyncVectorIt(input);
   std::function<Future<TestStr>(const TestInt&)> mapper = [](const TestInt& in) {
-    return SleepAsync(1e-3).Then([in]() { return TestStr(std::to_string(in.value)); });
+    return SleepABitAsync().Then([in]() { return TestStr(std::to_string(in.value)); });
   };
   auto mapped = MakeMappedGenerator(std::move(generator), mapper);
   std::vector<TestStr> expected{"1", "2", "3"};
@@ -705,6 +705,7 @@ TEST_P(MergedGeneratorTestFixture, MergedLimitedSubscriptions) {
   AssertGeneratorExhausted(merged);
 }
 
+#ifndef ARROW_VALGRIND
 TEST_P(MergedGeneratorTestFixture, MergedStress) {
   constexpr int NGENERATORS = 10;
   constexpr int NITEMS = 10;
@@ -739,6 +740,7 @@ TEST_P(MergedGeneratorTestFixture, MergedParallelStress) {
     ASSERT_EQ(NITEMS * NGENERATORS, items.size());
   }
 }
+#endif
 
 TEST_P(MergedGeneratorTestFixture, MergedRecursion) {
   // Regression test for an edge case in MergedGenerator. Ensure if
@@ -760,6 +762,25 @@ TEST_P(MergedGeneratorTestFixture, MergedRecursion) {
   for (const auto& fut : pulls) {
     ASSERT_FINISHES_OK_AND_EQ(TestInt(42), fut);
   }
+}
+
+TEST_P(MergedGeneratorTestFixture, DeepOuterGeneratorStackOverflow) {
+  // Simulate a very deep and very quick outer generator that yields simple
+  // inner generators.  Everything completes synchronously.  This is to
+  // try and provoke a stack overflow the simulates ARROW-16692
+  constexpr int kNumItems = 10000;
+  constexpr int kMaxSubscriptions = 8;
+  std::vector<AsyncGenerator<TestInt>> inner_generators;
+  for (int i = 0; i < kNumItems; i++) {
+    inner_generators.push_back(MakeVectorGenerator<TestInt>({}));
+  }
+  AsyncGenerator<AsyncGenerator<TestInt>> outer_generator =
+      MakeVectorGenerator(inner_generators);
+  AsyncGenerator<TestInt> merged =
+      MakeMergedGenerator(outer_generator, kMaxSubscriptions);
+  ASSERT_FINISHES_OK_AND_ASSIGN(std::vector<TestInt> collected,
+                                CollectAsyncGenerator(std::move(merged)));
+  ASSERT_TRUE(collected.empty());
 }
 
 INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, MergedGeneratorTestFixture,
@@ -1827,7 +1848,7 @@ TEST(PushGenerator, CloseEarly) {
 }
 
 TEST(PushGenerator, DanglingProducer) {
-  util::optional<PushGenerator<TestInt>> gen;
+  std::optional<PushGenerator<TestInt>> gen;
   gen.emplace();
   auto producer = gen->producer();
 

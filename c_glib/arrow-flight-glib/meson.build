@@ -56,11 +56,12 @@ arrow_flight_glib = declare_dependency(link_with: libarrow_flight_glib,
                                        dependencies: dependencies)
 
 pkgconfig.generate(libarrow_flight_glib,
+                   description: 'C API for Apache Arrow Flight based on GLib',
                    filebase: 'arrow-flight-glib',
                    name: 'Apache Arrow Flight GLib',
-                   description: 'C API for Apache Arrow Flight based on GLib',
-                   version: version,
-                   requires: ['arrow-glib', 'arrow-flight'])
+                   requires: ['arrow-glib', 'arrow-flight'],
+                   variables: pkgconfig_variables,
+                   version: version)
 
 if have_gi
   flight_glib_gir = \
@@ -71,6 +72,7 @@ if have_gi
                          '--warn-all',
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                        ],
+                       fatal_warnings: gi_fatal_warnings,
                        header: 'arrow-flight-glib/arrow-flight-glib.h',
                        identifier_prefix: 'GAFlight',
                        includes: [
@@ -83,12 +85,13 @@ if have_gi
                        symbol_prefix: 'gaflight')
 
   if generate_vapi
-    gnome.generate_vapi('arrow-flight-glib',
-                        install: true,
-                        packages: [
-                          arrow_glib_vapi,
-                          'gio-2.0',
-                        ],
-                        sources: [flight_glib_gir[0]])
+    flight_glib_vapi = \
+      gnome.generate_vapi('arrow-flight-glib',
+                          install: true,
+                          packages: [
+                            arrow_glib_vapi,
+                            'gio-2.0',
+                          ],
+                          sources: [flight_glib_gir[0]])
   endif
 endif

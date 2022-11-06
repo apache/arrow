@@ -56,21 +56,21 @@ Status CopyStream(const std::shared_ptr<io::InputStream>& src,
   return Status::OK();
 }
 
-Status PathNotFound(const std::string& path) {
+Status PathNotFound(std::string_view path) {
   return Status::IOError("Path does not exist '", path, "'")
       .WithDetail(StatusDetailFromErrno(ENOENT));
 }
 
-Status NotADir(const std::string& path) {
+Status NotADir(std::string_view path) {
   return Status::IOError("Not a directory: '", path, "'")
       .WithDetail(StatusDetailFromErrno(ENOTDIR));
 }
 
-Status NotAFile(const std::string& path) {
+Status NotAFile(std::string_view path) {
   return Status::IOError("Not a regular file: '", path, "'");
 }
 
-Status InvalidDeleteDirContents(const std::string& path) {
+Status InvalidDeleteDirContents(std::string_view path) {
   return Status::Invalid(
       "DeleteDirContents called on invalid path '", path, "'. ",
       "If you wish to delete the root directory's contents, call DeleteRootDirContents.");
@@ -78,12 +78,13 @@ Status InvalidDeleteDirContents(const std::string& path) {
 
 Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
                                  const std::string& glob) {
+  // TODO: ARROW-17640
   // The candidate entries at the current depth level.
   // We start with the filesystem root.
   FileInfoVector results{FileInfo("", FileType::Directory)};
   // The exact tail that will later require matching with candidate entries
   std::string current_tail;
-
+  auto is_leading_slash = HasLeadingSlash(glob);
   auto split_glob = SplitAbstractPath(glob, '/');
 
   // Process one depth level at once, from root to leaf
@@ -103,6 +104,9 @@ Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
         selector.base_dir = current_tail.empty()
                                 ? res.path()
                                 : ConcatAbstractPath(res.path(), current_tail);
+        if (is_leading_slash) {
+          selector.base_dir = EnsureLeadingSlash(selector.base_dir);
+        }
         ARROW_ASSIGN_OR_RAISE(auto entries, filesystem->GetFileInfo(selector));
         Globber globber(ConcatAbstractPath(selector.base_dir, glob_component));
         for (auto&& entry : entries) {

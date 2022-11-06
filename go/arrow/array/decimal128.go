@@ -25,11 +25,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -126,6 +126,8 @@ func NewDecimal128Builder(mem memory.Allocator, dtype *arrow.Decimal128Type) *De
 	}
 }
 
+func (b *Decimal128Builder) Type() arrow.DataType { return b.dtype }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Decimal128Builder) Release() {
@@ -158,6 +160,10 @@ func (b *Decimal128Builder) UnsafeAppend(v decimal128.Num) {
 func (b *Decimal128Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Decimal128Builder) AppendEmptyValue() {
+	b.Append(decimal128.Num{})
 }
 
 func (b *Decimal128Builder) UnsafeAppendBoolToBitmap(isValid bool) {
@@ -259,25 +265,25 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 		return err
 	}
 
-	var out *big.Float
-
 	switch v := t.(type) {
 	case float64:
-		out = big.NewFloat(v)
+		val, err := decimal128.FromFloat64(v, b.dtype.Precision, b.dtype.Scale)
+		if err != nil {
+			return err
+		}
+		b.Append(val)
 	case string:
-		// there's no strong rationale for using ToNearestAway, it's just
-		// what got me the closest equivalent values with the values
-		// that I tested with, and there isn't a good way to push
-		// an option all the way down here to control it.
-		out, _, err = big.ParseFloat(v, 10, 128, big.ToNearestAway)
+		val, err := decimal128.FromString(v, b.dtype.Precision, b.dtype.Scale)
 		if err != nil {
 			return err
 		}
+		b.Append(val)
 	case json.Number:
-		out, _, err = big.ParseFloat(v.String(), 10, 128, big.ToNearestAway)
+		val, err := decimal128.FromString(v.String(), b.dtype.Precision, b.dtype.Scale)
 		if err != nil {
 			return err
 		}
+		b.Append(val)
 	case nil:
 		b.AppendNull()
 		return nil
@@ -289,8 +295,6 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 	}
 
-	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(b.dtype.Scale)))).Int(nil)
-	b.Append(decimal128.FromBigInt(val))
 	return nil
 }
 

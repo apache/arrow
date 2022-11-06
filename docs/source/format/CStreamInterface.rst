@@ -23,11 +23,6 @@
 The Arrow C stream interface
 ============================
 
-.. warning::
-   This interface is experimental and may evolve based on feedback from
-   early users.  ABI stability is not guaranteed yet.  Feel free to
-   `contact us <https://arrow.apache.org/community/>`__.
-
 The C stream interface builds on the structures defined in the
 :ref:`C data interface <c-data-interface>` and combines them into a higher-level
 specification so as to ease the communication of streaming data within a single

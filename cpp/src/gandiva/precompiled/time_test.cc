@@ -962,6 +962,10 @@ TEST(TestTime, TestToTimestamp) {
   EXPECT_EQ(ts, to_timestamp_float32(1));
   EXPECT_EQ(ts, to_timestamp_float64(1));
 
+  ts = StringToTimestamp("2021-07-14 09:31:39");
+  EXPECT_EQ(ts, to_timestamp_int32(1626255099));
+  EXPECT_EQ(ts, to_timestamp_int64(1626255099));
+
   ts = StringToTimestamp("1970-01-01 00:01:00");
   EXPECT_EQ(ts, to_timestamp_int32(60));
   EXPECT_EQ(ts, to_timestamp_int64(60));

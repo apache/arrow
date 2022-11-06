@@ -17,12 +17,130 @@
   under the License.
 -->
 
-# arrow 8.0.0.9000
+# arrow 10.0.0.9000
 
-* `lubridate::parse_date_time()` datetime parser:
-  * currently parses only `orders` with year, month, and day components. In a future release `orders` support for other datetime components (such as hours, minutes, seconds, etc) will be added.
-  * strings with no separators (e.g. `"20210917"`) could be ambiguous and are not yet supported.
-  * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
+# arrow 10.0.0
+
+## Arrow dplyr queries
+
+Several new functions can be used in queries:
+
+* `dplyr::across()` can be used to apply the same computation across multiple
+  columns, and the `where()` selection helper is supported in `across()`;
+* `add_filename()` can be used to get the filename a row came from (only
+  available when querying `?Dataset`);
+* Added five functions in the `slice_*` family: `dplyr::slice_min()`,
+  `dplyr::slice_max()`, `dplyr::slice_head()`, `dplyr::slice_tail()`, and
+  `dplyr::slice_sample()`.
+
+The package now has documentation that lists all `dplyr` methods and R function
+mappings that are supported on Arrow data, along with notes about any
+differences in functionality between queries evaluated in R versus in Acero, the
+Arrow query engine. See `?acero`.
+
+A few new features and bugfixes were implemented for joins:
+
+* Extension arrays are now supported in joins, allowing, for example, joining
+  datasets that contain [geoarrow](https://paleolimbot.github.io/geoarrow/) data.
+* The `keep` argument is now supported, allowing separate columns for the left
+  and right hand side join keys in join output. Full joins now coalesce the
+  join keys (when `keep = FALSE`), avoiding the issue where the join keys would
+  be all `NA` for rows in the right hand side without any matches on the left.
+
+Some changes to improve the consistency of the API:
+
+* In a future release, calling `dplyr::pull()` will return a `?ChunkedArray`
+  instead of an R vector by default. The current default behavior is deprecated.
+  To update to the new behavior now, specify `pull(as_vector = FALSE)` or set
+  `options(arrow.pull_as_vector = FALSE)` globally.
+* Calling `dplyr::compute()` on a query that is grouped returns a `?Table`
+  instead of a query object.
+
+Finally, long-running queries can now be cancelled and will abort their
+computation immediately.
+
+## Arrays and tables
+
+`as_arrow_array()` can now take `blob::blob` and `?vctrs::list_of`, which
+convert to binary and list arrays, respectively. Also fixed an issue where
+`as_arrow_array()` ignored type argument when passed a `StructArray`.
+
+The `unique()` function works on `?Table`, `?RecordBatch`, `?Dataset`, and
+`?RecordBatchReader`.
+
+## Reading and writing
+
+`write_feather()` can take `compression = FALSE` to choose writing uncompressed files.
+
+Also, a breaking change for IPC files in `write_dataset()`: passing
+`"ipc"` or  `"feather"` to `format` will now write files with `.arrow`
+extension instead of `.ipc` or `.feather`.
+
+## Installation
+
+As of version 10.0.0, `arrow` requires C++17 to build. This means that:
+
+* On Windows, you need `R >= 4.0`. Version 9.0.0 was the last version to support
+  R 3.6.
+* On CentOS 7, you can build the latest version of `arrow`,
+  but you first need to install a newer compiler than the default system compiler,
+  gcc 4.8. See `vignette("install", package = "arrow")` for guidance.
+  Note that you only need the newer compiler to build `arrow`:
+  installing a binary package, as from RStudio Package Manager,
+  or loading a package you've already installed works fine with the system defaults.
+
+# arrow 9.0.0
+
+## Arrow dplyr queries
+
+* New dplyr verbs:
+  * `dplyr::union` and `dplyr::union_all` (ARROW-15622)
+  * `dplyr::glimpse` (ARROW-16776)
+  * `show_exec_plan()` can be added to the end of a dplyr pipeline to show the underlying plan, similar to `dplyr::show_query()`. `dplyr::show_query()` and `dplyr::explain()` also work and show the same output, but may change in the future. (ARROW-15016)
+* User-defined functions are supported in queries. Use `register_scalar_function()` to create them. (ARROW-16444)
+* `map_batches()` returns a `RecordBatchReader` and requires that the function it maps returns something coercible to a `RecordBatch` through the `as_record_batch()` S3 function. It can also run in streaming fashion if passed `.lazy = TRUE`. (ARROW-15271, ARROW-16703)
+* Functions can be called with package namespace prefixes (e.g. `stringr::`, `lubridate::`) within queries. For example, `stringr::str_length` will now dispatch to the same kernel as `str_length`. (ARROW-14575)
+* Support for new functions:
+  * `lubridate::parse_date_time()` datetime parser: (ARROW-14848, ARROW-16407)
+    * `orders` with year, month, day, hours, minutes, and seconds components are supported.
+    * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
+  * `lubridate` date and datetime parsers such as `lubridate::ymd()`, `lubridate::yq()`, and `lubridate::ymd_hms()` (ARROW-16394, ARROW-16516, ARROW-16395)
+  * `lubridate::fast_strptime()` (ARROW-16439)
+  * `lubridate::floor_date()`, `lubridate::ceiling_date()`, and `lubridate::round_date()` (ARROW-14821)
+  * `strptime()` supports the `tz` argument to pass timezones. (ARROW-16415)
+  * `lubridate::qday()` (day of quarter)
+  * `exp()` and `sqrt()`. (ARROW-16871)
+* Bugfixes:
+  * Count distinct now gives correct result across multiple row groups. (ARROW-16807)
+  * Aggregations over partition columns return correct results. (ARROW-16700)
+
+## Reading and writing
+
+* New functions `read_ipc_file()` and `write_ipc_file()` are added.
+  These functions are almost the same as `read_feather()` and `write_feather()`,
+  but differ in that they only target IPC files (Feather V2 files), not Feather V1 files.
+* `read_arrow()` and `write_arrow()`, deprecated since 1.0.0 (July 2020), have been removed.
+  Instead of these, use the `read_ipc_file()` and `write_ipc_file()` for IPC files, or,
+  `read_ipc_stream()` and `write_ipc_stream()` for IPC streams. (ARROW-16268)
+* `write_parquet()` now defaults to writing Parquet format version 2.4 (was 1.0). Previously deprecated arguments `properties` and `arrow_properties` have been removed; if you need to deal with these lower-level properties objects directly, use `ParquetFileWriter`, which `write_parquet()` wraps. (ARROW-16715)
+* UnionDatasets can unify schemas of multiple InMemoryDatasets with varying
+  schemas. (ARROW-16085)
+* `write_dataset()` preserves all schema metadata again. In 8.0.0, it would drop most metadata, breaking packages such as sfarrow. (ARROW-16511)
+* Reading and writing functions (such as `write_csv_arrow()`) will automatically (de-)compress data if the file path contains a compression extension (e.g. `"data.csv.gz"`). This works locally as well as on remote filesystems like S3 and GCS. (ARROW-16144)
+* `FileSystemFactoryOptions` can be provided to `open_dataset()`, allowing you to pass options such as which file prefixes to ignore. (ARROW-15280)
+* By default, `S3FileSystem` will not create or delete buckets. To enable that, pass the configuration option `allow_bucket_creation` or `allow_bucket_deletion`. (ARROW-15906)
+* `GcsFileSystem` and `gs_bucket()` allow connecting to Google Cloud Storage. (ARROW-13404, ARROW-16887)
+
+
+## Arrays and tables
+
+* Table and RecordBatch `$num_rows()` method returns a double (previously integer), avoiding integer overflow on larger tables. (ARROW-14989, ARROW-16977)
+
+## Packaging
+
+* The `arrow.dev_repo` for nightly builds of the R package and prebuilt
+  libarrow binaries is now https://nightlies.apache.org/arrow/r/.
+* Brotli and BZ2 are shipped with MacOS binaries. BZ2 is shipped with Windows binaries. (ARROW-16828)
 
 # arrow 8.0.0
 
@@ -51,7 +169,7 @@
 
 ## Enhancements to date and time support
 
-* `read_csv_arrow()`'s readr-style type `T` is mapped to `timestamp(unit = "ns")` 
+* `read_csv_arrow()`'s readr-style type `T` is mapped to `timestamp(unit = "ns")`
   instead of `timestamp(unit = "s")`.
 * For Arrow dplyr queries, added additional `{lubridate}` features and fixes:
   * New component extraction functions:
@@ -77,7 +195,7 @@
   * `strptime()` returns `NA` instead of erroring in case of format mismatch,
     just like `base::strptime()`.
 * Timezone operations are supported on Windows if the
-  [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
+  [tzdb package](https://cran.r-project.org/package=tzdb) is also
   installed.
 
 ## Extensibility
@@ -87,14 +205,14 @@
   record batches, arrays, chunked arrays, record batch readers, schemas, and
   data types. This allows other packages to define custom conversions from their
   types to Arrow objects, including extension arrays.
-* Custom [extension types and arrays](https://arrow.apache.org/docs/format/Columnar.html#extension-types) 
+* Custom [extension types and arrays](https://arrow.apache.org/docs/format/Columnar.html#extension-types)
   can be created and registered, allowing other packages to
   define their own array types. Extension arrays wrap regular Arrow array types and
   provide customized behavior and/or storage. See description and an example with
   `?new_extension_type`.
-* Implemented a generic extension type and as_arrow_array() methods for all objects where     
-  `vctrs::vec_is()` returns TRUE (i.e., any object that can be used as a column in a 
-  `tibble::tibble()`), provided that the underlying `vctrs::vec_data()` can be converted 
+* Implemented a generic extension type and as_arrow_array() methods for all objects where
+  `vctrs::vec_is()` returns TRUE (i.e., any object that can be used as a column in a
+  `tibble::tibble()`), provided that the underlying `vctrs::vec_data()` can be converted
   to an Arrow Array.
 
 ## Concatenation Support

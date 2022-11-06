@@ -38,6 +38,8 @@ namespace Apache.Arrow.Tests
             TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(10).Append(20).Append(30));
             TestArrayBuilder<FloatArray, FloatArray.Builder>(x => x.Append(10).Append(20).Append(30));
             TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).Append(30));
+            TestArrayBuilder<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).Append(30));
+            TestArrayBuilder<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).Append(30));
         }
 
         [Fact]
@@ -54,6 +56,8 @@ namespace Apache.Arrow.Tests
             TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
             TestArrayBuilder<FloatArray, FloatArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
             TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<Time32Array, Time32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<Time64Array, Time64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
         }
 
         [Fact]
@@ -218,6 +222,72 @@ namespace Apache.Arrow.Tests
                 value = array.GetTimestamp(0);
                 Assert.NotNull(value);
                 Assert.Equal(now.Truncate(TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond)), value.Value);
+            }
+        }
+
+        public class Time32ArrayBuilder
+        {
+            [Fact]
+            public void ProducesExpectedArray()
+            {
+                var time32Type = new Time32Type(TimeUnit.Second);
+                var array = new Time32Array.Builder(time32Type)
+                    .Append(1)
+                    .Build();
+
+                Assert.Equal(1, array.Length);
+                var valueSeconds = array.GetSeconds(0);
+                Assert.NotNull(valueSeconds);
+                Assert.Equal(1, valueSeconds.Value);
+                var valueMilliSeconds = array.GetMilliSeconds(0);
+                Assert.NotNull(valueMilliSeconds);
+                Assert.Equal(1_000, valueMilliSeconds.Value);
+
+                time32Type = new Time32Type(TimeUnit.Millisecond);
+                array = new Time32Array.Builder(time32Type)
+                    .Append(1_000)
+                    .Build();
+
+                Assert.Equal(1, array.Length);
+                valueSeconds = array.GetSeconds(0);
+                Assert.NotNull(valueSeconds);
+                Assert.Equal(1, valueSeconds.Value);
+                valueMilliSeconds = array.GetMilliSeconds(0);
+                Assert.NotNull(valueMilliSeconds);
+                Assert.Equal(1_000, valueMilliSeconds.Value);
+            }
+        }
+
+        public class Time64ArrayBuilder
+        {
+            [Fact]
+            public void ProducesExpectedArray()
+            {
+                var time64Type = new Time64Type(TimeUnit.Microsecond);
+                var array = new Time64Array.Builder(time64Type)
+                    .Append(1_000_000)
+                    .Build();
+
+                Assert.Equal(1, array.Length);
+                var valueMicroSeconds = array.GetMicroSeconds(0);
+                Assert.NotNull(valueMicroSeconds);
+                Assert.Equal(1_000_000, valueMicroSeconds.Value);
+                var valueNanoSeconds = array.GetNanoSeconds(0);
+                Assert.NotNull(valueNanoSeconds);
+                Assert.Equal(1_000_000_000, valueNanoSeconds.Value);
+
+                time64Type = new Time64Type(TimeUnit.Nanosecond);
+                array = new Time64Array.Builder(time64Type)
+                    .Append(1_000_000_000)
+                    .Build();
+
+                Assert.Equal(1, array.Length);
+                valueMicroSeconds = array.GetMicroSeconds(0);
+                Assert.NotNull(valueMicroSeconds);
+                Assert.Equal(1_000_000, valueMicroSeconds.Value);
+                valueNanoSeconds = array.GetNanoSeconds(0);
+                Assert.NotNull(valueNanoSeconds);
+                Assert.Equal(1_000_000_000, valueNanoSeconds.Value);
             }
         }
 

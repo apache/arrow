@@ -20,7 +20,9 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -45,9 +47,6 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/optional.h"
-#include "arrow/util/string_view.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
@@ -58,6 +57,7 @@ using internal::BitmapReader;
 using internal::checked_cast;
 using internal::FirstTimeBitmapWriter;
 using internal::GenerateBitsUnrolled;
+using internal::VisitBitBlocks;
 using internal::VisitBitBlocksVoid;
 using internal::VisitTwoBitBlocksVoid;
 
@@ -74,7 +74,7 @@ struct OptionsWrapper : public KernelState {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<OptionsWrapper>(*options);
+      return std::make_unique<OptionsWrapper>(*options);
     }
 
     return Status::Invalid(
@@ -100,8 +100,7 @@ struct KernelStateFromFunctionOptions : public KernelState {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<KernelStateFromFunctionOptions>(ctx,
-                                                                            *options);
+      return std::make_unique<KernelStateFromFunctionOptions>(ctx, *options);
     }
 
     return Status::Invalid(
@@ -135,7 +134,7 @@ struct GetViewType<Type, enable_if_has_c_type<Type>> {
 template <typename Type>
 struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
                                      is_fixed_size_binary_type<Type>::value>> {
-  using T = util::string_view;
+  using T = std::string_view;
   using PhysicalType = T;
 
   static T LogicalValue(PhysicalType value) { return value; }
@@ -144,7 +143,7 @@ struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
 template <>
 struct GetViewType<Decimal128Type> {
   using T = Decimal128;
-  using PhysicalType = util::string_view;
+  using PhysicalType = std::string_view;
 
   static T LogicalValue(PhysicalType value) {
     return Decimal128(reinterpret_cast<const uint8_t*>(value.data()));
@@ -156,7 +155,7 @@ struct GetViewType<Decimal128Type> {
 template <>
 struct GetViewType<Decimal256Type> {
   using T = Decimal256;
-  using PhysicalType = util::string_view;
+  using PhysicalType = std::string_view;
 
   static T LogicalValue(PhysicalType value) {
     return Decimal256(reinterpret_cast<const uint8_t*>(value.data()));
@@ -237,7 +236,7 @@ struct ArrayIterator<Type, enable_if_c_number_or_decimal<Type>> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
   const T* values;
 
-  explicit ArrayIterator(const ArrayData& data) : values(data.GetValues<T>(1)) {}
+  explicit ArrayIterator(const ArraySpan& arr) : values(arr.GetValues<T>(1)) {}
   T operator()() { return *values++; }
 };
 
@@ -245,8 +244,8 @@ template <typename Type>
 struct ArrayIterator<Type, enable_if_boolean<Type>> {
   BitmapReader reader;
 
-  explicit ArrayIterator(const ArrayData& data)
-      : reader(data.buffers[1]->data(), data.offset, data.length) {}
+  explicit ArrayIterator(const ArraySpan& arr)
+      : reader(arr.buffers[1].data, arr.offset, arr.length) {}
   bool operator()() {
     bool out = reader.IsSet();
     reader.Next();
@@ -257,23 +256,22 @@ struct ArrayIterator<Type, enable_if_boolean<Type>> {
 template <typename Type>
 struct ArrayIterator<Type, enable_if_base_binary<Type>> {
   using offset_type = typename Type::offset_type;
-  const ArrayData& arr;
+  const ArraySpan& arr;
   const offset_type* offsets;
   offset_type cur_offset;
   const char* data;
   int64_t position;
 
-  explicit ArrayIterator(const ArrayData& arr)
+  explicit ArrayIterator(const ArraySpan& arr)
       : arr(arr),
-        offsets(reinterpret_cast<const offset_type*>(arr.buffers[1]->data()) +
-                arr.offset),
+        offsets(reinterpret_cast<const offset_type*>(arr.buffers[1].data) + arr.offset),
         cur_offset(offsets[0]),
-        data(reinterpret_cast<const char*>(arr.buffers[2]->data())),
+        data(reinterpret_cast<const char*>(arr.buffers[2].data)),
         position(0) {}
 
-  util::string_view operator()() {
+  std::string_view operator()() {
     offset_type next_offset = offsets[++position];
-    auto result = util::string_view(data + cur_offset, next_offset - cur_offset);
+    auto result = std::string_view(data + cur_offset, next_offset - cur_offset);
     cur_offset = next_offset;
     return result;
   }
@@ -281,19 +279,19 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
 
 template <>
 struct ArrayIterator<FixedSizeBinaryType> {
-  const ArrayData& arr;
+  const ArraySpan& arr;
   const char* data;
   const int32_t width;
   int64_t position;
 
-  explicit ArrayIterator(const ArrayData& arr)
+  explicit ArrayIterator(const ArraySpan& arr)
       : arr(arr),
-        data(reinterpret_cast<const char*>(arr.buffers[1]->data())),
-        width(checked_cast<const FixedSizeBinaryType&>(*arr.type).byte_width()),
+        data(reinterpret_cast<const char*>(arr.buffers[1].data)),
+        width(arr.type->byte_width()),
         position(arr.offset) {}
 
-  util::string_view operator()() {
-    auto result = util::string_view(data + position * width, width);
+  std::string_view operator()() {
+    auto result = std::string_view(data + position * width, width);
     position++;
     return result;
   }
@@ -309,7 +307,7 @@ struct OutputArrayWriter<Type, enable_if_c_number_or_decimal<Type>> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
   T* values;
 
-  explicit OutputArrayWriter(ArrayData* data) : values(data->GetMutableValues<T>(1)) {}
+  explicit OutputArrayWriter(ArraySpan* data) : values(data->GetValues<T>(1)) {}
 
   void Write(T value) { *values++ = value; }
 
@@ -331,7 +329,7 @@ template <typename Type>
 struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
   using T = typename Type::c_type;
   static T Unbox(const Scalar& val) {
-    util::string_view view =
+    std::string_view view =
         checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
     DCHECK_EQ(view.size(), sizeof(T));
     return *reinterpret_cast<const T*>(view.data());
@@ -340,22 +338,25 @@ struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
 
 template <typename Type>
 struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
-  static util::string_view Unbox(const Scalar& val) {
-    if (!val.is_valid) return util::string_view();
-    return util::string_view(*checked_cast<const BaseBinaryScalar&>(val).value);
+  using T = std::string_view;
+  static T Unbox(const Scalar& val) {
+    if (!val.is_valid) return std::string_view();
+    return checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
   }
 };
 
 template <>
 struct UnboxScalar<Decimal128Type> {
-  static const Decimal128& Unbox(const Scalar& val) {
+  using T = Decimal128;
+  static const T& Unbox(const Scalar& val) {
     return checked_cast<const Decimal128Scalar&>(val).value;
   }
 };
 
 template <>
 struct UnboxScalar<Decimal256Type> {
-  static const Decimal256& Unbox(const Scalar& val) {
+  using T = Decimal256;
+  static const T& Unbox(const Scalar& val) {
     return checked_cast<const Decimal256Scalar&>(val).value;
   }
 };
@@ -397,14 +398,14 @@ struct BoxScalar<Decimal256Type> {
   static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
 };
 
-// A VisitArrayDataInline variant that calls its visitor function with logical
-// values, such as Decimal128 rather than util::string_view.
+// A VisitArraySpanInline variant that calls its visitor function with logical
+// values, such as Decimal128 rather than std::string_view.
 
 template <typename T, typename VisitFunc, typename NullFunc>
-static typename arrow::internal::call_traits::enable_if_return<VisitFunc, void>::type
-VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
+static typename ::arrow::internal::call_traits::enable_if_return<VisitFunc, void>::type
+VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
                        NullFunc&& null_func) {
-  VisitArrayDataInline<T>(
+  VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
         valid_func(GetViewType<T>::LogicalValue(std::move(v)));
@@ -413,10 +414,10 @@ VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
 }
 
 template <typename T, typename VisitFunc, typename NullFunc>
-static typename arrow::internal::call_traits::enable_if_return<VisitFunc, Status>::type
-VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
+static typename ::arrow::internal::call_traits::enable_if_return<VisitFunc, Status>::type
+VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
                        NullFunc&& null_func) {
-  return VisitArrayDataInline<T>(
+  return VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
         return valid_func(GetViewType<T>::LogicalValue(std::move(v)));
@@ -427,7 +428,7 @@ VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
 // Like VisitArrayValuesInline, but for binary functions.
 
 template <typename Arg0Type, typename Arg1Type, typename VisitFunc, typename NullFunc>
-static void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& arr1,
+static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& arr1,
                                       VisitFunc&& valid_func, NullFunc&& null_func) {
   ArrayIterator<Arg0Type> arr0_it(arr0);
   ArrayIterator<Arg1Type> arr1_it(arr1);
@@ -441,23 +442,17 @@ static void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& ar
     arr1_it();
     null_func();
   };
-  VisitTwoBitBlocksVoid(arr0.buffers[0], arr0.offset, arr1.buffers[0], arr1.offset,
-                        arr0.length, std::move(visit_valid), std::move(visit_null));
+  VisitTwoBitBlocksVoid(arr0.buffers[0].data, arr0.offset, arr1.buffers[0].data,
+                        arr1.offset, arr0.length, std::move(visit_valid),
+                        std::move(visit_null));
 }
 
 // ----------------------------------------------------------------------
 // Reusable type resolvers
 
-Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs);
-Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descrs);
-Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args);
-
-// ----------------------------------------------------------------------
-// Generate an array kernel given template classes
-
-Status ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out);
-
-ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec);
+Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types);
+Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types);
+Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>& types);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
@@ -482,9 +477,8 @@ ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec);
 const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes();
 
 // ----------------------------------------------------------------------
-// "Applicators" take an operator definition (which may be scalar-valued or
-// array-valued) and creates an ArrayKernelExec which can be used to add an
-// ArrayKernel to a Function.
+// "Applicators" take an operator definition and creates an ArrayKernelExec
+// which can be used to add a kernel to a Function.
 
 namespace applicator {
 
@@ -493,50 +487,28 @@ namespace applicator {
 //
 // Operator must implement
 //
-// static Status Call(KernelContext*, const ArrayData& in, ArrayData* out)
-// static Status Call(KernelContext*, const Scalar& in, Scalar* out)
+// static Status Call(KernelContext*, const ArraySpan& arg0, const ArraySpan& arg1,
+//                    * out)
+// static Status Call(KernelContext*, const ArraySpan& arg0, const Scalar& arg1,
+//                    ExecResult* out)
+// static Status Call(KernelContext*, const Scalar& arg0, const ArraySpan& arg1,
+//                    ExecResult* out)
 template <typename Operator>
-static Status SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  if (batch[0].kind() == Datum::SCALAR) {
-    return Operator::Call(ctx, *batch[0].scalar(), out->scalar().get());
-  } else if (batch.length > 0) {
-    return Operator::Call(ctx, *batch[0].array(), out->mutable_array());
-  }
-  return Status::OK();
-}
-
-// Generate an ArrayKernelExec given a functor that handles all of its own
-// iteration, etc.
-//
-// Operator must implement
-//
-// static Status Call(KernelContext*, const ArrayData& arg0, const ArrayData& arg1,
-//                    ArrayData* out)
-// static Status Call(KernelContext*, const ArrayData& arg0, const Scalar& arg1,
-//                    ArrayData* out)
-// static Status Call(KernelContext*, const Scalar& arg0, const ArrayData& arg1,
-//                    ArrayData* out)
-// static Status Call(KernelContext*, const Scalar& arg0, const Scalar& arg1,
-//                    Scalar* out)
-template <typename Operator>
-static Status SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+static Status SimpleBinary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (batch.length == 0) return Status::OK();
 
-  if (batch[0].kind() == Datum::ARRAY) {
-    if (batch[1].kind() == Datum::ARRAY) {
-      return Operator::Call(ctx, *batch[0].array(), *batch[1].array(),
-                            out->mutable_array());
+  if (batch[0].is_array()) {
+    if (batch[1].is_array()) {
+      return Operator::Call(ctx, batch[0].array, batch[1].array, out);
     } else {
-      return Operator::Call(ctx, *batch[0].array(), *batch[1].scalar(),
-                            out->mutable_array());
+      return Operator::Call(ctx, batch[0].array, *batch[1].scalar, out);
     }
   } else {
-    if (batch[1].kind() == Datum::ARRAY) {
-      return Operator::Call(ctx, *batch[0].scalar(), *batch[1].array(),
-                            out->mutable_array());
+    if (batch[1].is_array()) {
+      return Operator::Call(ctx, *batch[0].scalar, batch[1].array, out);
     } else {
-      return Operator::Call(ctx, *batch[0].scalar(), *batch[1].scalar(),
-                            out->scalar().get());
+      DCHECK(false);
+      return Status::Invalid("Should be unreachable");
     }
   }
 }
@@ -551,10 +523,8 @@ struct OutputAdapter;
 template <typename Type>
 struct OutputAdapter<Type, enable_if_boolean<Type>> {
   template <typename Generator>
-  static Status Write(KernelContext*, Datum* out, Generator&& generator) {
-    ArrayData* out_arr = out->mutable_array();
-    auto out_bitmap = out_arr->buffers[1]->mutable_data();
-    GenerateBitsUnrolled(out_bitmap, out_arr->offset, out_arr->length,
+  static Status Write(KernelContext*, ArraySpan* out, Generator&& generator) {
+    GenerateBitsUnrolled(out->buffers[1].data, out->offset, out->length,
                          std::forward<Generator>(generator));
     return Status::OK();
   }
@@ -565,11 +535,10 @@ struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
 
   template <typename Generator>
-  static Status Write(KernelContext*, Datum* out, Generator&& generator) {
-    ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<T>(1);
+  static Status Write(KernelContext*, ArraySpan* out, Generator&& generator) {
+    T* out_data = out->GetValues<T>(1);
     // TODO: Is this as fast as a more explicitly inlined function?
-    for (int64_t i = 0; i < out_arr->length; ++i) {
+    for (int64_t i = 0; i < out->length; ++i) {
       *out_data++ = generator();
     }
     return Status::OK();
@@ -579,7 +548,7 @@ struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
 template <typename Type>
 struct OutputAdapter<Type, enable_if_base_binary<Type>> {
   template <typename Generator>
-  static Status Write(KernelContext* ctx, Datum* out, Generator&& generator) {
+  static Status Write(KernelContext* ctx, ArraySpan* out, Generator&& generator) {
     return Status::NotImplemented("NYI");
   }
 };
@@ -607,35 +576,16 @@ struct ScalarUnary {
   using OutValue = typename GetOutputType<OutType>::T;
   using Arg0Value = typename GetViewType<Arg0Type>::T;
 
-  static Status ExecArray(KernelContext* ctx, const ArrayData& arg0, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    DCHECK(batch[0].is_array());
+    const ArraySpan& arg0 = batch[0].array;
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
-    RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value>(ctx, arg0_it(), &st);
-    }));
+    RETURN_NOT_OK(
+        OutputAdapter<OutType>::Write(ctx, out->array_span(), [&]() -> OutValue {
+          return Op::template Call<OutValue, Arg0Value>(ctx, arg0_it(), &st);
+        }));
     return st;
-  }
-
-  static Status ExecScalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
-    Status st = Status::OK();
-    Scalar* out_scalar = out->scalar().get();
-    if (arg0.is_valid) {
-      Arg0Value arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      out_scalar->is_valid = true;
-      BoxScalar<OutType>::Box(Op::template Call<OutValue, Arg0Value>(ctx, arg0_val, &st),
-                              out_scalar);
-    } else {
-      out_scalar->is_valid = false;
-    }
-    return st;
-  }
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::ARRAY) {
-      return ExecArray(ctx, *batch[0].array(), out);
-    } else {
-      return ExecScalar(ctx, *batch[0].scalar(), out);
-    }
   }
 };
 
@@ -654,8 +604,8 @@ struct ScalarUnaryNotNullStateful {
 
   template <typename Type, typename Enable = void>
   struct ArrayExec {
-    static Status Exec(const ThisType& functor, KernelContext* ctx,
-                       const ExecBatch& batch, Datum* out) {
+    static Status Exec(const ThisType& functor, KernelContext* ctx, const ExecSpan& batch,
+                       ExecResult* out) {
       ARROW_LOG(FATAL) << "Missing ArrayExec specialization for output type "
                        << out->type();
       return Status::NotImplemented("NYI");
@@ -664,11 +614,10 @@ struct ScalarUnaryNotNullStateful {
 
   template <typename Type>
   struct ArrayExec<Type, enable_if_c_number_or_decimal<Type>> {
-    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
-                       Datum* out) {
+    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
+                       ExecResult* out) {
       Status st = Status::OK();
-      ArrayData* out_arr = out->mutable_array();
-      auto out_data = out_arr->GetMutableValues<OutValue>(1);
+      auto out_data = out->array_span()->GetValues<OutValue>(1);
       VisitArrayValuesInline<Arg0Type>(
           arg0,
           [&](Arg0Value v) {
@@ -684,8 +633,8 @@ struct ScalarUnaryNotNullStateful {
 
   template <typename Type>
   struct ArrayExec<Type, enable_if_base_binary<Type>> {
-    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
-                       Datum* out) {
+    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
+                       ExecResult* out) {
       // NOTE: This code is not currently used by any kernels and has
       // suboptimal performance because it's recomputing the validity bitmap
       // that is already computed by the kernel execution layer. Consider
@@ -706,12 +655,12 @@ struct ScalarUnaryNotNullStateful {
 
   template <typename Type>
   struct ArrayExec<Type, enable_if_t<is_boolean_type<Type>::value>> {
-    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
-                       Datum* out) {
+    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
+                       ExecResult* out) {
       Status st = Status::OK();
-      ArrayData* out_arr = out->mutable_array();
-      FirstTimeBitmapWriter out_writer(out_arr->buffers[1]->mutable_data(),
-                                       out_arr->offset, out_arr->length);
+      ArraySpan* out_arr = out->array_span();
+      FirstTimeBitmapWriter out_writer(out_arr->buffers[1].data, out_arr->offset,
+                                       out_arr->length);
       VisitArrayValuesInline<Arg0Type>(
           arg0,
           [&](Arg0Value v) {
@@ -730,23 +679,9 @@ struct ScalarUnaryNotNullStateful {
     }
   };
 
-  Status Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
-    Status st = Status::OK();
-    if (arg0.is_valid) {
-      Arg0Value arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      BoxScalar<OutType>::Box(
-          this->op.template Call<OutValue, Arg0Value>(ctx, arg0_val, &st),
-          out->scalar().get());
-    }
-    return st;
-  }
-
-  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::ARRAY) {
-      return ArrayExec<OutType>::Exec(*this, ctx, *batch[0].array(), out);
-    } else {
-      return Scalar(ctx, *batch[0].scalar(), out);
-    }
+  Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    DCHECK(batch[0].is_array());
+    return ArrayExec<OutType>::Exec(*this, ctx, batch[0].array, out);
   }
 };
 
@@ -758,7 +693,7 @@ struct ScalarUnaryNotNull {
   using OutValue = typename GetOutputType<OutType>::T;
   using Arg0Value = typename GetViewType<Arg0Type>::T;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // Seed kernel with dummy state
     ScalarUnaryNotNullStateful<OutType, Arg0Type, Op> kernel({});
     return kernel.Exec(ctx, batch, out);
@@ -790,67 +725,58 @@ struct ScalarBinary {
   using Arg0Value = typename GetViewType<Arg0Type>::T;
   using Arg1Value = typename GetViewType<Arg1Type>::T;
 
-  static Status ArrayArray(KernelContext* ctx, const ArrayData& arg0,
-                           const ArrayData& arg1, Datum* out) {
+  static Status ArrayArray(KernelContext* ctx, const ArraySpan& arg0,
+                           const ArraySpan& arg1, ExecResult* out) {
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
-    RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(), arg1_it(),
-                                                               &st);
-    }));
+    RETURN_NOT_OK(
+        OutputAdapter<OutType>::Write(ctx, out->array_span(), [&]() -> OutValue {
+          return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(),
+                                                                   arg1_it(), &st);
+        }));
     return st;
   }
 
-  static Status ArrayScalar(KernelContext* ctx, const ArrayData& arg0, const Scalar& arg1,
-                            Datum* out) {
+  static Status ArrayScalar(KernelContext* ctx, const ArraySpan& arg0, const Scalar& arg1,
+                            ExecResult* out) {
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
     auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-    RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(), arg1_val,
-                                                               &st);
-    }));
+    RETURN_NOT_OK(
+        OutputAdapter<OutType>::Write(ctx, out->array_span(), [&]() -> OutValue {
+          return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(),
+                                                                   arg1_val, &st);
+        }));
     return st;
   }
 
-  static Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArrayData& arg1,
-                            Datum* out) {
+  static Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArraySpan& arg1,
+                            ExecResult* out) {
     Status st = Status::OK();
     auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
-    RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, arg1_it(),
-                                                               &st);
-    }));
+    RETURN_NOT_OK(
+        OutputAdapter<OutType>::Write(ctx, out->array_span(), [&]() -> OutValue {
+          return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val,
+                                                                   arg1_it(), &st);
+        }));
     return st;
   }
 
-  static Status ScalarScalar(KernelContext* ctx, const Scalar& arg0, const Scalar& arg1,
-                             Datum* out) {
-    Status st = Status::OK();
-    if (out->scalar()->is_valid) {
-      auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-      BoxScalar<OutType>::Box(
-          Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, arg1_val, &st),
-          out->scalar().get());
-    }
-    return st;
-  }
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::ARRAY) {
-      if (batch[1].kind() == Datum::ARRAY) {
-        return ArrayArray(ctx, *batch[0].array(), *batch[1].array(), out);
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    if (batch[0].is_array()) {
+      if (batch[1].is_array()) {
+        return ArrayArray(ctx, batch[0].array, batch[1].array, out);
       } else {
-        return ArrayScalar(ctx, *batch[0].array(), *batch[1].scalar(), out);
+        return ArrayScalar(ctx, batch[0].array, *batch[1].scalar, out);
       }
     } else {
-      if (batch[1].kind() == Datum::ARRAY) {
-        return ScalarArray(ctx, *batch[0].scalar(), *batch[1].array(), out);
+      if (batch[1].is_array()) {
+        return ScalarArray(ctx, *batch[0].scalar, batch[1].array, out);
       } else {
-        return ScalarScalar(ctx, *batch[0].scalar(), *batch[1].scalar(), out);
+        DCHECK(false);
+        return Status::Invalid("Should be unreachable");
       }
     }
   }
@@ -870,10 +796,10 @@ struct ScalarBinaryNotNullStateful {
 
   // NOTE: In ArrayExec<Type>, Type is really OutputType
 
-  Status ArrayArray(KernelContext* ctx, const ArrayData& arg0, const ArrayData& arg1,
-                    Datum* out) {
+  Status ArrayArray(KernelContext* ctx, const ArraySpan& arg0, const ArraySpan& arg1,
+                    ExecResult* out) {
     Status st = Status::OK();
-    OutputArrayWriter<OutType> writer(out->mutable_array());
+    OutputArrayWriter<OutType> writer(out->array_span());
     VisitTwoArrayValuesInline<Arg0Type, Arg1Type>(
         arg0, arg1,
         [&](Arg0Value u, Arg1Value v) {
@@ -883,10 +809,11 @@ struct ScalarBinaryNotNullStateful {
     return st;
   }
 
-  Status ArrayScalar(KernelContext* ctx, const ArrayData& arg0, const Scalar& arg1,
-                     Datum* out) {
+  Status ArrayScalar(KernelContext* ctx, const ArraySpan& arg0, const Scalar& arg1,
+                     ExecResult* out) {
     Status st = Status::OK();
-    OutputArrayWriter<OutType> writer(out->mutable_array());
+    ArraySpan* out_span = out->array_span();
+    OutputArrayWriter<OutType> writer(out_span);
     if (arg1.is_valid) {
       const auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
       VisitArrayValuesInline<Arg0Type>(
@@ -897,15 +824,16 @@ struct ScalarBinaryNotNullStateful {
           },
           [&]() { writer.WriteNull(); });
     } else {
-      writer.WriteAllNull(out->mutable_array()->length);
+      writer.WriteAllNull(out_span->length);
     }
     return st;
   }
 
-  Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArrayData& arg1,
-                     Datum* out) {
+  Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArraySpan& arg1,
+                     ExecResult* out) {
     Status st = Status::OK();
-    OutputArrayWriter<OutType> writer(out->mutable_array());
+    ArraySpan* out_span = out->array_span();
+    OutputArrayWriter<OutType> writer(out_span);
     if (arg0.is_valid) {
       const auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
       VisitArrayValuesInline<Arg1Type>(
@@ -916,36 +844,24 @@ struct ScalarBinaryNotNullStateful {
           },
           [&]() { writer.WriteNull(); });
     } else {
-      writer.WriteAllNull(out->mutable_array()->length);
+      writer.WriteAllNull(out_span->length);
     }
     return st;
   }
 
-  Status ScalarScalar(KernelContext* ctx, const Scalar& arg0, const Scalar& arg1,
-                      Datum* out) {
-    Status st = Status::OK();
-    if (arg0.is_valid && arg1.is_valid) {
-      const auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      const auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-      BoxScalar<OutType>::Box(
-          op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, arg1_val, &st),
-          out->scalar().get());
-    }
-    return st;
-  }
-
-  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::ARRAY) {
-      if (batch[1].kind() == Datum::ARRAY) {
-        return ArrayArray(ctx, *batch[0].array(), *batch[1].array(), out);
+  Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    if (batch[0].is_array()) {
+      if (batch[1].is_array()) {
+        return ArrayArray(ctx, batch[0].array, batch[1].array, out);
       } else {
-        return ArrayScalar(ctx, *batch[0].array(), *batch[1].scalar(), out);
+        return ArrayScalar(ctx, batch[0].array, *batch[1].scalar, out);
       }
     } else {
-      if (batch[1].kind() == Datum::ARRAY) {
-        return ScalarArray(ctx, *batch[0].scalar(), *batch[1].array(), out);
+      if (batch[1].is_array()) {
+        return ScalarArray(ctx, *batch[0].scalar, batch[1].array, out);
       } else {
-        return ScalarScalar(ctx, *batch[0].scalar(), *batch[1].scalar(), out);
+        DCHECK(false);
+        return Status::Invalid("Should be unreachable");
       }
     }
   }
@@ -961,7 +877,7 @@ struct ScalarBinaryNotNull {
   using Arg0Value = typename GetViewType<Arg0Type>::T;
   using Arg1Value = typename GetViewType<Arg1Type>::T;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // Seed kernel with dummy state
     ScalarBinaryNotNullStateful<OutType, Arg0Type, Arg1Type, Op> kernel({});
     return kernel.Exec(ctx, batch, out);
@@ -997,7 +913,7 @@ using ScalarBinaryNotNullStatefulEqualTypes =
 //
 // template <typename Type0, typename Type1, Args...>
 // struct FUNCTOR {
-//   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+//   static void Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 //     // IMPLEMENTATION
 //   }
 // };
@@ -1029,9 +945,27 @@ struct GetTypeId {
 
 }  // namespace detail
 
+template <typename KernelType>
+struct FailFunctor {};
+
+template <>
+struct FailFunctor<ArrayKernelExec> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    return Status::NotImplemented("This kernel is malformed");
+  }
+};
+
+template <>
+struct FailFunctor<VectorKernel::ChunkedExec> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return Status::NotImplemented("This kernel is malformed");
+  }
+};
+
 // GD for numeric types (integer and floating point)
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateNumeric(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename Type0,
+          typename KernelType = ArrayKernelExec, typename... Args>
+KernelType GenerateNumeric(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1055,7 +989,7 @@ ArrayKernelExec GenerateNumeric(detail::GetTypeId get_id) {
       return Generator<Type0, DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
@@ -1071,7 +1005,7 @@ ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
       return Generator<Type0, DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1099,7 +1033,7 @@ ArrayKernelExec GenerateInteger(detail::GetTypeId get_id) {
       return Generator<Type0, UInt64Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1130,12 +1064,13 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
       return Generator<Type0, UInt64Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
-template <template <typename...> class KernelGenerator, typename Op, typename... Args>
-ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
+template <template <typename...> class KernelGenerator, typename Op,
+          typename KernelType = ArrayKernelExec, typename... Args>
+KernelType ArithmeticExecFromOp(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<Int8Type, Int8Type, Op, Args...>::Exec;
@@ -1161,12 +1096,13 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<DoubleType, DoubleType, Op, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
-template <template <typename... Args> class Generator, typename... Args>
-ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
+template <typename ReturnType, template <typename... Args> class Generator,
+          typename... Args>
+ReturnType GeneratePhysicalNumericGeneric(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Int8Type, Args...>::Exec;
@@ -1196,8 +1132,12 @@ ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
       return Generator<DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
+}
+template <template <typename... Args> class Generator, typename... Args>
+ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
+  return GeneratePhysicalNumericGeneric<ArrayKernelExec, Generator, Args...>(get_id);
 }
 
 // Generate a kernel given a templated functor for decimal types
@@ -1210,7 +1150,7 @@ ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
       return Generator<Decimal256Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1230,7 +1170,7 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
       return Generator<Type0, Int64Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1241,8 +1181,9 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
 // bits).
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename... Args>
-ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename KernelType = ArrayKernelExec,
+          typename... Args>
+KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::NA:
       return Generator<NullType, Args...>::Exec;
@@ -1274,13 +1215,14 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
       return Generator<MonthDayNanoIntervalType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
 // similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
-template <template <typename...> class Generator, typename... Args>
-ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename KernelType = ArrayKernelExec,
+          typename... Args>
+KernelType GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
@@ -1290,7 +1232,7 @@ ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
       return Generator<LargeBinaryType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
@@ -1308,7 +1250,7 @@ ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
       return Generator<LargeStringType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1329,7 +1271,7 @@ ArrayKernelExec GenerateVarBinaryBase(detail::GetTypeId get_id) {
       return Generator<Type0, LargeBinaryType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1347,7 +1289,7 @@ ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
       return Generator<Type0, LargeStringType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1371,7 +1313,7 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
       return Generator<Type0, TimestampType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1387,7 +1329,7 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
       return Generator<Type0, Decimal256Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1395,41 +1337,41 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
 // ----------------------------------------------------------------------
 
 ARROW_EXPORT
-void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs);
+void EnsureDictionaryDecoded(std::vector<TypeHolder>* types);
 
 ARROW_EXPORT
-void EnsureDictionaryDecoded(ValueDescr* begin, size_t count);
+void EnsureDictionaryDecoded(TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs);
+void ReplaceNullWithOtherType(std::vector<TypeHolder>* types);
 
 ARROW_EXPORT
-void ReplaceNullWithOtherType(ValueDescr* begin, size_t count);
+void ReplaceNullWithOtherType(TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-void ReplaceTypes(const std::shared_ptr<DataType>&, std::vector<ValueDescr>* descrs);
+void ReplaceTypes(const TypeHolder& replacement, std::vector<TypeHolder>* types);
 
 ARROW_EXPORT
-void ReplaceTypes(const std::shared_ptr<DataType>&, ValueDescr* descrs, size_t count);
+void ReplaceTypes(const TypeHolder& replacement, TypeHolder* types, size_t count);
 
 ARROW_EXPORT
-void ReplaceTemporalTypes(TimeUnit::type unit, std::vector<ValueDescr>* descrs);
+void ReplaceTemporalTypes(TimeUnit::type unit, std::vector<TypeHolder>* types);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
+TypeHolder CommonNumeric(const std::vector<TypeHolder>& types);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
+TypeHolder CommonNumeric(const TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count);
+TypeHolder CommonTemporal(const TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-bool CommonTemporalResolution(const ValueDescr* begin, size_t count,
+bool CommonTemporalResolution(const TypeHolder* begin, size_t count,
                               TimeUnit::type* finest_unit);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count);
+TypeHolder CommonBinary(const TypeHolder* begin, size_t count);
 
 /// How to promote decimal precision/scale in CastBinaryDecimalArgs.
 enum class DecimalPromotion : uint8_t {
@@ -1442,15 +1384,15 @@ enum class DecimalPromotion : uint8_t {
 /// to not necessarily identical types, but types which are compatible
 /// for the given operator (add/multiply/divide).
 ARROW_EXPORT
-Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<ValueDescr>* descrs);
+Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>* types);
 
 /// Given one or more arguments, at least one of which is decimal,
 /// promote all to an identical type.
 ARROW_EXPORT
-Status CastDecimalArgs(ValueDescr* begin, size_t count);
+Status CastDecimalArgs(TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-bool HasDecimal(const std::vector<ValueDescr>& descrs);
+bool HasDecimal(const std::vector<TypeHolder>& types);
 
 }  // namespace internal
 }  // namespace compute

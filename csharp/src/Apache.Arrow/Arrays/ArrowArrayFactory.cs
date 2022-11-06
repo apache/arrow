@@ -65,6 +65,10 @@ namespace Apache.Arrow
                     return new Date64Array(data);
                 case ArrowTypeId.Date32:
                     return new Date32Array(data);
+                case ArrowTypeId.Time32:
+                    return new Time32Array(data);
+                case ArrowTypeId.Time64:
+                    return new Time64Array(data);
                 case ArrowTypeId.Decimal128:
                     return new Decimal128Array(data);
                 case ArrowTypeId.Decimal256:
@@ -74,8 +78,6 @@ namespace Apache.Arrow
                 case ArrowTypeId.HalfFloat:
                 case ArrowTypeId.Interval:
                 case ArrowTypeId.Map:
-                case ArrowTypeId.Time32:
-                case ArrowTypeId.Time64:
                 default:
                     throw new NotSupportedException($"An ArrowArray cannot be built for type {data.DataType.TypeId}.");
             }

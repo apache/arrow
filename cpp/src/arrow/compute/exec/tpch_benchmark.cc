@@ -22,13 +22,14 @@
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/tpch_node.h"
 #include "arrow/testing/future_util.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 namespace compute {
 namespace internal {
 
-std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sink_gen,
+std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<std::optional<ExecBatch>>* sink_gen,
                                   int scale_factor) {
   ExecContext* ctx = default_exec_context();
   *ctx = ExecContext(default_memory_pool(), arrow::internal::GetCpuThreadPool());
@@ -74,23 +75,21 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
       "sum_charge",   "avg_qty",      "avg_price", "avg_disc"};
   ProjectNodeOptions project_opts(std::move(projection_list), std::move(project_names));
 
-  ScalarAggregateOptions sum_opts = ScalarAggregateOptions::Defaults();
-  CountOptions count_opts(CountOptions::CountMode::ALL);
-  std::vector<arrow::compute::internal::Aggregate> aggs = {
-      {"hash_sum", &sum_opts},  {"hash_sum", &sum_opts},    {"hash_sum", &sum_opts},
-      {"hash_sum", &sum_opts},  {"hash_mean", &sum_opts},   {"hash_mean", &sum_opts},
-      {"hash_mean", &sum_opts}, {"hash_count", &count_opts}};
-
-  std::vector<FieldRef> to_aggregate = {"sum_qty",    "sum_base_price", "sum_disc_price",
-                                        "sum_charge", "avg_qty",        "avg_price",
-                                        "avg_disc",   "sum_qty"};
-
-  std::vector<std::string> names = {"sum_qty",    "sum_base_price", "sum_disc_price",
-                                    "sum_charge", "avg_qty",        "avg_price",
-                                    "avg_disc",   "count_order"};
+  auto sum_opts =
+      std::make_shared<ScalarAggregateOptions>(ScalarAggregateOptions::Defaults());
+  auto count_opts = std::make_shared<CountOptions>(CountOptions::CountMode::ALL);
+  std::vector<arrow::compute::Aggregate> aggs = {
+      {"hash_sum", sum_opts, "sum_qty", "sum_qty"},
+      {"hash_sum", sum_opts, "sum_base_price", "sum_base_price"},
+      {"hash_sum", sum_opts, "sum_disc_price", "sum_disc_price"},
+      {"hash_sum", sum_opts, "sum_charge", "sum_charge"},
+      {"hash_mean", sum_opts, "avg_qty", "avg_qty"},
+      {"hash_mean", sum_opts, "avg_price", "avg_price"},
+      {"hash_mean", sum_opts, "avg_disc", "avg_disc"},
+      {"hash_count", count_opts, "sum_qty", "count_order"}};
 
   std::vector<FieldRef> keys = {"l_returnflag", "l_linestatus"};
-  AggregateNodeOptions agg_opts(aggs, to_aggregate, names, keys);
+  AggregateNodeOptions agg_opts(aggs, keys);
 
   SortKey l_returnflag_key("l_returnflag");
   SortKey l_linestatus_key("l_linestatus");
@@ -111,7 +110,7 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
 static void BM_Tpch_Q1(benchmark::State& st) {
   for (auto _ : st) {
     st.PauseTiming();
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     std::shared_ptr<ExecPlan> plan = Plan_Q1(&sink_gen, static_cast<int>(st.range(0)));
     st.ResumeTiming();
     auto fut = StartAndCollect(plan.get(), sink_gen);

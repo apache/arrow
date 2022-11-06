@@ -20,13 +20,13 @@ import (
 	"bytes"
 	"reflect"
 
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/internal/bitutils"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/debug"
-	format "github.com/apache/arrow/go/v9/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/utils"
-	"github.com/apache/arrow/go/v9/parquet/schema"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/internal/bitutils"
+	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v11/parquet/internal/debug"
+	format "github.com/apache/arrow/go/v11/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v11/parquet/internal/utils"
+	"github.com/apache/arrow/go/v11/parquet/schema"
 	"golang.org/x/xerrors"
 )
 

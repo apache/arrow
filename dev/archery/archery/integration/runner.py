@@ -35,8 +35,8 @@ from .tester_rust import RustTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
 from .tester_csharp import CSharpTester
-from .util import (ARROW_ROOT_DEFAULT, guid, SKIP_ARROW, SKIP_FLIGHT,
-                   printer)
+from .util import guid, SKIP_ARROW, SKIP_FLIGHT, printer
+from ..utils.source import ARROW_ROOT_DEFAULT
 from . import datagen
 
 
@@ -134,21 +134,18 @@ class IntegrationRunner(object):
                 skip.add("Java")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
                 skip.add("C#")
-                skip.add("Go")
                 skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
             if prefix == '2.0.0-compression':
                 skip.add("C#")
                 skip.add("JS")
-                skip.add("Rust")
 
             # See https://github.com/apache/arrow/pull/9822 for how to
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
                 skip.add("C#")
-                skip.add("Go")
 
             quirks = set()
             if prefix in {'0.14.1', '0.17.1',
@@ -432,11 +429,15 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "middleware",
             description="Ensure headers are propagated via middleware.",
-            skip={"Rust"}   # TODO(ARROW-10961): tonic upgrade needed
         ),
         Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
+            skip={"Rust"}
+        ),
+        Scenario(
+            "flight_sql:extension",
+            description="Ensure Flight SQL extensions work as expected.",
             skip={"Rust", "Go"}
         ),
     ]

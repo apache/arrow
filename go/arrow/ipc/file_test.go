@@ -19,20 +19,15 @@ package ipc_test
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 func TestFile(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-file-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
@@ -53,11 +48,7 @@ func TestFile(t *testing.T) {
 }
 
 func TestFileCompressed(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-file-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	compressTypes := []flatbuf.CompressionType{
 		flatbuf.CompressionTypeLZ4_FRAME, flatbuf.CompressionTypeZSTD,

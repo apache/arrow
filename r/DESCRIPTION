@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 8.0.0.9000
+Version: 10.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -26,11 +26,12 @@ URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://issues.apache.org/jira/projects/ARROW/issues
 Encoding: UTF-8
 Language: en-US
-SystemRequirements: C++11; for AWS S3 support on Linux, libcurl and openssl (optional)
+SystemRequirements: C++17; for AWS S3 support on Linux, libcurl and openssl (optional)
 Biarch: true
 Imports:
     assertthat,
     bit64 (>= 0.9-7),
+    glue,
     methods,
     purrr,
     R6,
@@ -40,10 +41,12 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.1
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
+    blob,
+    cli,
     DBI,
     dbplyr,
     decor,
@@ -53,11 +56,13 @@ Suggests:
     hms,
     knitr,
     lubridate,
+    pillar,
     pkgload,
     reticulate,
     rmarkdown,
     stringi,
     stringr,
+    sys,
     testthat (>= 3.1.0),
     tibble,
     tzdb,
@@ -88,8 +93,8 @@ Collate:
     'dataset-partition.R'
     'dataset-scan.R'
     'dataset-write.R'
-    'deprecated.R'
     'dictionary.R'
+    'dplyr-across.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'
     'dplyr-count.R'
@@ -97,17 +102,22 @@ Collate:
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
+    'dplyr-funcs-augmented.R'
     'dplyr-funcs-conditional.R'
     'dplyr-funcs-datetime.R'
+    'dplyr-funcs-doc.R'
     'dplyr-funcs-math.R'
+    'dplyr-funcs-simple.R'
     'dplyr-funcs-string.R'
     'dplyr-funcs-type.R'
     'expression.R'
     'dplyr-funcs.R'
+    'dplyr-glimpse.R'
     'dplyr-group-by.R'
     'dplyr-join.R'
     'dplyr-mutate.R'
     'dplyr-select.R'
+    'dplyr-slice.R'
     'dplyr-summarize.R'
     'dplyr-union.R'
     'record-batch.R'
@@ -133,4 +143,5 @@ Collate:
     'reexports-bit64.R'
     'reexports-tidyselect.R'
     'schema.R'
+    'udf.R'
     'util.R'

@@ -44,6 +44,7 @@ arrow_info <- function() {
       parquet = arrow_with_parquet(),
       json = arrow_with_json(),
       s3 = arrow_with_s3(),
+      gcs = arrow_with_gcs(),
       utf8proc = "utf8_upper" %in% compute_funcs,
       re2 = "replace_substring_regex" %in% compute_funcs,
       vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
@@ -81,12 +82,6 @@ arrow_available <- function() {
 #' @rdname arrow_info
 #' @export
 arrow_with_dataset <- function() {
-  if (on_old_windows()) {
-    # 32-bit rtools 3.5 does not properly implement the std::thread expectations
-    # but we can't just disable ARROW_DATASET in that build,
-    # so report it as "off" here.
-    return(FALSE)
-  }
   tryCatch(.Call(`_dataset_available`), error = function(e) {
     return(FALSE)
   })
@@ -112,6 +107,14 @@ arrow_with_parquet <- function() {
 #' @export
 arrow_with_s3 <- function() {
   tryCatch(.Call(`_s3_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
+#' @rdname arrow_info
+#' @export
+arrow_with_gcs <- function() {
+  tryCatch(.Call(`_gcs_available`), error = function(e) {
     return(FALSE)
   })
 }
@@ -150,7 +153,7 @@ print.arrow_info <- function(x, ...) {
     mimalloc = "mimalloc" %in% x$memory_pool$available_backends
   ))
   if (some_features_are_off(x$capabilities) && identical(tolower(Sys.info()[["sysname"]]), "linux")) {
-    # Only on linux because (e.g.) we disable certain features on purpose on rtools35 and solaris
+    # Only on linux because (e.g.) we disable certain features on purpose on rtools35
     cat(
       "To reinstall with more optional capabilities enabled, see\n",
       "  https://arrow.apache.org/docs/r/articles/install.html\n\n"

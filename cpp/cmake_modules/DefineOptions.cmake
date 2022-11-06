@@ -50,6 +50,18 @@ function(list_join lst glue out)
 endfunction()
 
 macro(define_option name description default)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args DEPENDS)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   check_description_length(${name} ${description})
   list_join(description "\n" multiline_description)
 
@@ -59,6 +71,7 @@ macro(define_option name description default)
   set("${name}_OPTION_DESCRIPTION" ${description})
   set("${name}_OPTION_DEFAULT" ${default})
   set("${name}_OPTION_TYPE" "bool")
+  set("${name}_OPTION_DEPENDS" ${ARG_DEPENDS})
 endmacro()
 
 macro(define_option_string name description default)
@@ -79,6 +92,48 @@ macro(define_option_string name description default)
   if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
     set_property(CACHE ${name} PROPERTY STRINGS "${name}_OPTION_POSSIBLE_VALUES")
   endif()
+endmacro()
+
+# Topological sort by Tarjan's algorithm.
+set(ARROW_BOOL_OPTION_DEPENDENCIES_TSORTED)
+macro(tsort_bool_option_dependencies_visit option_name)
+  if("${${option_name}_TSORT_STATUS}" STREQUAL "VISITING")
+    message(FATAL_ERROR "Cyclic option dependency is detected: ${option_name}")
+  elseif("${${option_name}_TSORT_STATUS}" STREQUAL "")
+    set(${option_name}_TSORT_STATUS "VISITING")
+    foreach(needed_option_name ${${option_name}_OPTION_DEPENDS})
+      tsort_bool_option_dependencies_visit(${needed_option_name})
+    endforeach()
+    set(${option_name}_TSORT_STATUS "VISITED")
+    list(INSERT ARROW_BOOL_OPTION_DEPENDENCIES_TSORTED 0 ${option_name})
+  endif()
+endmacro()
+macro(tsort_bool_option_dependencies)
+  foreach(category ${ARROW_OPTION_CATEGORIES})
+    foreach(option_name ${ARROW_${category}_OPTION_NAMES})
+      if("${${option_name}_OPTION_TYPE}" STREQUAL "bool")
+        if("${${option_name}_TSORT_STATUS}" STREQUAL "")
+          tsort_bool_option_dependencies_visit(${option_name})
+        endif()
+      endif()
+    endforeach()
+  endforeach()
+endmacro()
+
+macro(resolve_option_dependencies)
+  if(MSVC_TOOLCHAIN)
+    # Plasma using glog is not fully tested on windows.
+    set(ARROW_USE_GLOG OFF)
+  endif()
+
+  tsort_bool_option_dependencies()
+  foreach(option_name ${ARROW_BOOL_OPTION_DEPENDENCIES_TSORTED})
+    if(${${option_name}})
+      foreach(depended_option_name ${${option_name}_OPTION_DEPENDS})
+        set(${depended_option_name} ON)
+      endforeach()
+    endif()
+  endforeach()
 endmacro()
 
 # Top level cmake dir
@@ -109,7 +164,13 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
 
+  define_option(ARROW_POSITION_INDEPENDENT_CODE
+                "Whether to create position-independent target" ON)
+
   define_option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
+
+  define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available),;\
+takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
 
@@ -124,6 +185,10 @@ if(ARROW_DEFINE_OPTIONS)
                        "AVX2"
                        "AVX512"
                        "NEON"
+                       "SVE" # size agnostic SVE
+                       "SVE128" # fixed size SVE
+                       "SVE256" # "
+                       "SVE512" # "
                        "DEFAULT")
 
   define_option_string(ARROW_RUNTIME_SIMD_LEVEL
@@ -135,17 +200,6 @@ if(ARROW_DEFINE_OPTIONS)
                        "AVX512"
                        "MAX")
 
-  # Arm64 architectures and extensions can lead to exploding combinations.
-  # So set it directly through cmake command line.
-  #
-  # If you change this, you need to change the definition in
-  # python/CMakeLists.txt too.
-  define_option_string(ARROW_ARMV8_ARCH
-                       "Arm64 arch and extensions"
-                       "armv8-a" # Default
-                       "armv8-a"
-                       "armv8-a+crc+crypto")
-
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 
   define_option(ARROW_RPATH_ORIGIN "Build Arrow libraries with RATH set to \$ORIGIN" OFF)
@@ -155,19 +209,34 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
 
+  define_option(ARROW_WITH_MUSL "Whether the system libc is musl or not" OFF)
+
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
 
   define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples" OFF)
 
-  define_option(ARROW_BUILD_TESTS "Build the Arrow googletest unit tests" OFF)
+  define_option(ARROW_BUILD_TESTS
+                "Build the Arrow googletest unit tests"
+                OFF
+                DEPENDS
+                ARROW_IPC
+                ARROW_TESTING)
 
   define_option(ARROW_ENABLE_TIMING_TESTS "Enable timing-sensitive tests" ON)
 
-  define_option(ARROW_BUILD_INTEGRATION "Build the Arrow integration test executables"
-                OFF)
+  define_option(ARROW_BUILD_INTEGRATION
+                "Build the Arrow integration test executables"
+                OFF
+                DEPENDS
+                ARROW_TESTING)
 
-  define_option(ARROW_BUILD_BENCHMARKS "Build the Arrow micro benchmarks" OFF)
+  define_option(ARROW_BUILD_BENCHMARKS
+                "Build the Arrow micro benchmarks"
+                OFF
+                DEPENDS
+                ARROW_IPC
+                ARROW_TESTING)
 
   # Reference benchmarks are used to compare to naive implementation, or
   # discover various hardware limits.
@@ -192,7 +261,11 @@ if(ARROW_DEFINE_OPTIONS)
                        "shared"
                        "static")
 
-  define_option(ARROW_FUZZING "Build Arrow Fuzzing executables" OFF)
+  define_option(ARROW_FUZZING
+                "Build Arrow Fuzzing executables"
+                OFF
+                DEPENDS
+                ARROW_TESTING)
 
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
@@ -227,27 +300,44 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_CSV "Build the Arrow CSV Parser Module" OFF)
 
-  define_option(ARROW_CUDA "Build the Arrow CUDA extensions (requires CUDA toolkit)" OFF)
+  define_option(ARROW_CUDA
+                "Build the Arrow CUDA extensions (requires CUDA toolkit)"
+                OFF
+                DEPENDS
+                ARROW_IPC)
 
-  define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
-
-  define_option(ARROW_SUBSTRAIT "Build the Arrow Substrait Consumer Module" OFF)
+  define_option(ARROW_DATASET
+                "Build the Arrow Dataset Modules"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
+                ARROW_FILESYSTEM)
 
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
   define_option(ARROW_FLIGHT
-                "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)" OFF)
+                "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)"
+                OFF
+                DEPENDS
+                ARROW_IPC)
 
-  define_option(ARROW_FLIGHT_SQL "Build the Arrow Flight SQL extension" OFF)
+  define_option(ARROW_FLIGHT_SQL
+                "Build the Arrow Flight SQL extension"
+                OFF
+                DEPENDS
+                ARROW_FLIGHT)
 
-  define_option(ARROW_GANDIVA "Build the Gandiva libraries" OFF)
+  define_option(ARROW_GANDIVA
+                "Build the Gandiva libraries"
+                OFF
+                DEPENDS
+                ARROW_WITH_RE2
+                ARROW_WITH_UTF8PROC)
 
   define_option(ARROW_GCS
                 "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
-
-  define_option(ARROW_HIVESERVER2 "Build the HiveServer2 client and Arrow adapter" OFF)
 
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
@@ -263,29 +353,66 @@ if(ARROW_DEFINE_OPTIONS)
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
   endif()
 
-  define_option(ARROW_JNI "Build the Arrow JNI lib" OFF)
-
   define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" OFF)
 
   define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
 
-  define_option(ARROW_PARQUET "Build the Parquet libraries" OFF)
+  define_option(ARROW_PARQUET
+                "Build the Parquet libraries"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
+                ARROW_IPC)
 
-  define_option(ARROW_ORC "Build the Arrow ORC adapter" OFF)
+  define_option(ARROW_ORC
+                "Build the Arrow ORC adapter"
+                OFF
+                DEPENDS
+                ARROW_WITH_LZ4
+                ARROW_WITH_SNAPPY
+                ARROW_WITH_ZLIB
+                ARROW_WITH_ZSTD)
 
   define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
 
-  define_option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
-
-  define_option(ARROW_PYTHON "Build the Arrow CPython extensions" OFF)
+  define_option(ARROW_PYTHON
+                "Build some components needed by PyArrow.;\
+(This is a deprecated option. Use CMake presets instead.)"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
+                ARROW_CSV
+                ARROW_DATASET
+                ARROW_FILESYSTEM
+                ARROW_HDFS
+                ARROW_JSON)
 
   define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
 
-  define_option(ARROW_SKYHOOK "Build the Skyhook libraries" OFF)
+  define_option(ARROW_SKYHOOK
+                "Build the Skyhook libraries"
+                OFF
+                DEPENDS
+                ARROW_DATASET
+                ARROW_PARQUET
+                ARROW_WITH_LZ4
+                ARROW_WITH_SNAPPY)
+
+  define_option(ARROW_SUBSTRAIT
+                "Build the Arrow Substrait Consumer Module"
+                OFF
+                DEPENDS
+                ARROW_DATASET
+                ARROW_IPC
+                ARROW_PARQUET)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
-  define_option(ARROW_TESTING "Build the Arrow testing libraries" OFF)
+  define_option(ARROW_TESTING
+                "Build the Arrow testing libraries"
+                OFF
+                DEPENDS
+                ARROW_JSON)
 
   #----------------------------------------------------------------------
   set_option_category("Thirdparty toolchain")
@@ -344,6 +471,10 @@ if(ARROW_DEFINE_OPTIONS)
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_GRPC_USE_SHARED "Rely on gRPC shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
+  define_option(ARROW_JEMALLOC_USE_SHARED
+                "Rely on jemalloc shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
@@ -460,8 +591,6 @@ Always OFF if building binaries" OFF)
   #----------------------------------------------------------------------
   set_option_category("Gandiva")
 
-  define_option(ARROW_GANDIVA_JAVA "Build the Gandiva JNI wrappers" OFF)
-
   # ARROW-3860: Temporary workaround
   define_option(ARROW_GANDIVA_STATIC_LIBSTDCPP
                 "Include -static-libstdc++ -static-libgcc when linking with;Gandiva static libraries"
@@ -485,6 +614,8 @@ that have not been built"
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)
+
+  resolve_option_dependencies()
 endif()
 
 macro(validate_config)
@@ -550,6 +681,9 @@ macro(config_summary_message)
 
   endforeach()
 
+  if(ARROW_PYTHON)
+    message(WARNING "ARROW_PYTHON is deprecated. Use CMake presets instead.")
+  endif()
 endmacro()
 
 macro(config_summary_json)

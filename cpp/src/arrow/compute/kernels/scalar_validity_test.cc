@@ -67,12 +67,6 @@ TEST_F(TestBooleanValidityKernels, IsValidIsNullNullType) {
                    ArrayFromJSON(boolean(), "[null, null, null, null, null]"));
 }
 
-TEST_F(TestBooleanValidityKernels, ArrayIsValidBufferPassthruOptimization) {
-  Datum arg = ArrayFromJSON(boolean(), "[null, 1, 0, null]");
-  ASSERT_OK_AND_ASSIGN(auto validity, arrow::compute::IsValid(arg));
-  ASSERT_EQ(validity.array()->buffers[1], arg.array()->buffers[0]);
-}
-
 TEST_F(TestBooleanValidityKernels, IsNull) {
   auto ty = type_singleton();
   NullOptions default_options;

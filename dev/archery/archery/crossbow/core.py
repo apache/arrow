@@ -28,6 +28,7 @@ import uuid
 from io import StringIO
 from pathlib import Path
 from datetime import date
+import warnings
 
 import jinja2
 from ruamel.yaml import YAML
@@ -133,7 +134,7 @@ def _render_jinja_template(searchpath, template, params):
 
 # configurations for setting up branch skipping
 # - appveyor has a feature to skip builds without an appveyor.yml
-# - travis reads from the master branch and applies the rules
+# - travis reads from the default branch and applies the rules
 # - circle requires the configuration to be present on all branch, even ones
 #   that are configured to be skipped
 # - azure skips branches without azure-pipelines.yml by default
@@ -209,12 +210,16 @@ def _git_ssh_to_https(url):
 
 
 def _parse_github_user_repo(remote_url):
-    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', remote_url)
+    # TODO: use a proper URL parser instead?
+    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git|/)?$', remote_url)
     if m is None:
-        raise CrossbowError(
-            "Unable to parse the github owner and repository from the "
-            "repository's remote url '{}'".format(remote_url)
-        )
+        # Perhaps it's simply "username/reponame"?
+        m = re.match(r'^(\w+)/(\w+)$', remote_url)
+        if m is None:
+            raise CrossbowError(
+                f"Unable to parse the github owner and repository from the "
+                f"repository's remote url {remote_url!r}"
+            )
     user, repo = m.group(1), m.group(2)
     return user, repo
 
@@ -357,6 +362,29 @@ class Repo:
         return pygit2.Signature(self.user_name, self.user_email,
                                 int(time.time()))
 
+    @property
+    def default_branch_name(self):
+        default_branch_name = os.getenv("ARCHERY_DEFAULT_BRANCH")
+
+        if default_branch_name is None:
+            try:
+                ref_obj = self.repo.references["refs/remotes/origin/HEAD"]
+                target_name = ref_obj.target
+                target_name_tokenized = target_name.split("/")
+                default_branch_name = target_name_tokenized[-1]
+            except KeyError:
+                # TODO: ARROW-18011 to track changing the hard coded default
+                # value from "master" to "main".
+                default_branch_name = "master"
+                warnings.warn('Unable to determine default branch name: '
+                              'ARCHERY_DEFAULT_BRANCH environment variable is '
+                              'not set. Git repository does not contain a '
+                              '\'refs/remotes/origin/HEAD\'reference. Setting '
+                              'the default branch name to ' +
+                              default_branch_name, RuntimeWarning)
+
+        return default_branch_name
+
     def create_tree(self, files):
         builder = self.repo.TreeBuilder()
 
@@ -378,7 +406,7 @@ class Repo:
         if parents is None:
             # by default use the main branch as the base of the new branch
             # required to reuse github actions cache across crossbow tasks
-            commit, _ = self.repo.resolve_refish("master")
+            commit, _ = self.repo.resolve_refish(self.default_branch_name)
             parents = [commit.id]
         tree_id = self.create_tree(files)
 
@@ -542,6 +570,27 @@ class Repo:
                         'Unsupported upload method {}'.format(method)
                     )
 
+    def github_pr(self, title, head=None, base=None, body=None,
+                  github_token=None, create=False):
+        # Default value for base is the default_branch_name
+        base = self.default_branch_name if base is None else base
+        github_token = github_token or self.github_token
+        repo = self.as_github_repo(github_token=github_token)
+        if create:
+            return repo.create_pull(title=title, base=base, head=head,
+                                    body=body)
+        else:
+            # Retrieve open PR for base and head.
+            # There should be a single open one with that title.
+            for pull in repo.pull_requests(state="open", head=head,
+                                           base=base):
+                if title in pull.title:
+                    return pull
+            raise CrossbowError(
+                f"Pull request with Title: {title!r} not found "
+                f"in repository {repo.full_name!r}"
+            )
+
 
 class Queue(Repo):
 
@@ -641,7 +690,7 @@ class Queue(Repo):
             raise CrossbowError('`job.branch` is automatically generated, '
                                 'thus it must be blank')
 
-        job._queue = self
+        job.queue = self
         if increment_job_id:
             # auto increment and set next job id, e.g. build-85
             job.branch = self._next_job_id(prefix)
@@ -657,6 +706,7 @@ class Queue(Repo):
             params = {
                 **job.params,
                 "arrow": job.target,
+                "job": job,
                 "queue_remote_url": self.remote_url
             }
             files = task.render_files(job.template_searchpath, params=params)
@@ -677,7 +727,7 @@ def get_version(root, **kwargs):
 
     # query the calculated version based on the git tags
     kwargs['describe_command'] = (
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
     )
     version = parse_git_version(root, **kwargs)
     tag = str(version.tag)
@@ -714,14 +764,19 @@ class Target(Serializable):
     (currently only an email address where the notification should be sent).
     """
 
-    def __init__(self, head, branch, remote, version, email=None):
+    def __init__(self, head, branch, remote, version, r_version, email=None):
         self.head = head
         self.email = email
         self.branch = branch
         self.remote = remote
         self.github_repo = "/".join(_parse_github_user_repo(remote))
         self.version = version
+        self.r_version = r_version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
+        self.no_rc_r_version = re.sub(r'-rc\d+\Z', '', r_version)
+        # TODO(ARROW-17552): Remove "master" from default_branch after
+        #                    migration to "main".
+        self.default_branch = ['main', 'master']
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
         #
         # > A pre-release version number MAY be denoted by appending an
@@ -735,6 +790,14 @@ class Target(Serializable):
         #   '0.16.1-dev10'
         self.no_rc_semver_version = \
             re.sub(r'\.(dev\d+)\Z', r'-\1', self.no_rc_version)
+        # Substitute dev version for SNAPSHOT
+        #
+        # Example:
+        #
+        # '10.0.0.dev235' ->
+        # '10.0.0-SNAPSHOT'
+        self.no_rc_snapshot_version = re.sub(
+            r'\.(dev\d+)$', '-SNAPSHOT', self.no_rc_version)
 
     @classmethod
     def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
@@ -756,8 +819,44 @@ class Target(Serializable):
         if email is None:
             email = repo.user_email
 
+        version_dev_match = re.match(r".*\.dev(\d+)$", version)
+        if version_dev_match:
+            with open(f"{repo.path}/r/DESCRIPTION") as description_file:
+                description = description_file.read()
+                r_version_pattern = re.compile(r"^Version:\s*(.*)$",
+                                               re.MULTILINE)
+                r_version = re.findall(r_version_pattern, description)[0]
+            if r_version:
+                version_dev = int(version_dev_match[1])
+                # "1_0000_00_00 +" is for generating a greater version
+                # than YYYYMMDD. For example, 1_0000_00_01
+                # (version_dev == 1 case) is greater than 2022_10_16.
+                #
+                # Why do we need a greater version than YYYYMMDD? It's
+                # for keeping backward compatibility. We used
+                # MAJOR.MINOR.PATCH.YYYYMMDD as our nightly package
+                # version. (See also ARROW-16403). If we use "9000 +
+                # version_dev" here, a developer that used
+                # 9.0.0.20221016 can't upgrade to the later nightly
+                # package unless we release 10.0.0. Because 9.0.0.9234
+                # or something is less than 9.0.0.20221016.
+                r_version_dev = 1_0000_00_00 + version_dev
+                # version: 10.0.0.dev234
+                # r_version: 9.0.0.9000
+                # -> 9.0.0.100000234
+                r_version = re.sub(r"\.9000\Z", f".{r_version_dev}", r_version)
+            else:
+                r_version = version
+        else:
+            r_version = version
+
         return cls(head=head, email=email, branch=branch, remote=remote,
-                   version=version)
+                   version=version, r_version=r_version)
+
+    def is_default_branch(self):
+        # TODO(ARROW-17552): Switch the condition to "is" instead of "in"
+        #                    once "master" is removed from "default_branch".
+        return self.branch in self.default_branch
 
 
 class Task(Serializable):
@@ -772,7 +871,7 @@ class Task(Serializable):
     submitting the job to a queue.
     """
 
-    def __init__(self, ci, template, artifacts=None, params=None):
+    def __init__(self, name, ci, template, artifacts=None, params=None):
         assert ci in {
             'circle',
             'travis',
@@ -781,6 +880,7 @@ class Task(Serializable):
             'github',
             'drone',
         }
+        self.name = name
         self.ci = ci
         self.template = template
         self.artifacts = artifacts or []
@@ -993,6 +1093,7 @@ class Job(Serializable):
         params = {
             **self.params,
             "arrow": self.target,
+            "job": self,
             **(params or {})
         }
         for task_name, task in self.tasks.items():
@@ -1059,14 +1160,19 @@ class Job(Serializable):
 
         # instantiate the tasks
         tasks = {}
-        versions = {'version': target.version,
-                    'no_rc_version': target.no_rc_version,
-                    'no_rc_semver_version': target.no_rc_semver_version}
+        versions = {
+            'version': target.version,
+            'no_rc_version': target.no_rc_version,
+            'no_rc_semver_version': target.no_rc_semver_version,
+            'no_rc_snapshot_version': target.no_rc_snapshot_version,
+            'r_version': target.r_version,
+            'no_rc_r_version': target.no_rc_r_version,
+        }
         for task_name, task in task_definitions.items():
+            task = task.copy()
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
-            tasks[task_name] = Task(artifacts=artifacts, **task)
-
+            tasks[task_name] = Task(task_name, artifacts=artifacts, **task)
         return cls(target=target, tasks=tasks, params=params,
                    template_searchpath=config.template_searchpath)
 
@@ -1201,7 +1307,7 @@ class Config(dict):
         # validate that the tasks are constructible
         for task_name, task in self['tasks'].items():
             try:
-                Task(**task)
+                Task(task_name, **task)
             except Exception as e:
                 raise CrossbowError(
                     'Unable to construct a task object from the '
@@ -1209,22 +1315,33 @@ class Config(dict):
                     'is: `{}`'.format(task_name, str(e))
                 )
 
+        # Get the default branch name from the repository
+        arrow_source_dir = ArrowSources.find()
+        repo = Repo(arrow_source_dir.path)
+
         # validate that the defined tasks are renderable, in order to to that
         # define the required object with dummy data
         target = Target(
             head='e279a7e06e61c14868ca7d71dea795420aea6539',
-            branch='master',
+            branch=repo.default_branch_name,
             remote='https://github.com/apache/arrow',
             version='1.0.0dev123',
+            r_version='0.13.0.100000123',
             email='dummy@example.ltd'
         )
+        job = Job.from_config(config=self,
+                              target=target,
+                              tasks=self['tasks'],
+                              groups=self['groups'],
+                              params={})
 
         for task_name, task in self['tasks'].items():
-            task = Task(**task)
+            task = Task(task_name, **task)
             files = task.render_files(
                 self.template_searchpath,
                 params=dict(
                     arrow=target,
+                    job=job,
                     queue_remote_url='https://github.com/org/crossbow'
                 )
             )

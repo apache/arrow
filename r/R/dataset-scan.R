@@ -33,19 +33,16 @@
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
-#' * `use_async`: logical: deprecated, this field no longer has any effect on
-#'    behavior.
 #' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
 #'
 #' - `$Project(cols)`: Indicate that the scan should only return columns given
-#' by `cols`, a character vector of column names
+#' by `cols`, a character vector of column names or a named list of [Expression].
 #' - `$Filter(expr)`: Filter rows by an [Expression].
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
-#' - `$UseAsync(use_async)`: logical: deprecated, has no effect
 #' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
 #' batches, default is 32K. If scanned record batches are overflowing memory
 #' then this method can be called to reduce their size.
@@ -56,6 +53,28 @@
 #' query and returns an Arrow [Table].
 #' @rdname Scanner
 #' @name Scanner
+#' @examplesIf arrow_with_dataset() & arrow_with_parquet()
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#'
+#' write_dataset(mtcars, tf, partitioning="cyl")
+#'
+#' ds <- open_dataset(tf)
+#'
+#' scan_builder <- ds$NewScan()
+#' scan_builder$Filter(Expression$field_ref("hp") > 100)
+#' scan_builder$Project(list(hp_times_ten = 10 * Expression$field_ref("hp")))
+#'
+#' # Once configured, call $Finish()
+#' scanner <- scan_builder$Finish()
+#'
+#' # Can get results as a table
+#' as.data.frame(scanner$ToTable())
+#'
+#' # Or as a RecordBatchReader
+#' scanner$ToRecordBatchReader()
 #' @export
 Scanner <- R6Class("Scanner",
   inherit = ArrowObject,
@@ -73,18 +92,10 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
-                           use_async = NULL,
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
   stop_if_no_datasets()
-
-  if (!is.null(use_async)) {
-    .Deprecated(msg = paste(
-      "The parameter 'use_async' is deprecated",
-      "and will be removed in a future release."
-    ))
-  }
 
   if (inherits(dataset, "arrow_dplyr_query")) {
     if (is_collapsed(dataset)) {
@@ -146,9 +157,14 @@ names.Scanner <- function(x) names(x$schema)
 
 #' @export
 head.Scanner <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires a scan itself
   assert_that(n >= 0)
-  dataset___Scanner__head(x, n)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
+  dataset___Scanner__head(x, floor(n))
 }
 
 #' @export
@@ -157,8 +173,13 @@ tail.Scanner <- function(x, n = 6L, ...) {
 }
 
 tail_from_batches <- function(batches, n) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires a scan itself
-  assert_that(n >= 0) # For now
+  assert_that(n >= 0)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   result <- list()
   batch_num <- 0
   # Given a list of batches, iterate from the back
@@ -181,10 +202,6 @@ tail_from_batches <- function(batches, n) {
 #' `map_batches()` in a dplyr pipeline and do additional dplyr methods on the
 #' stream of data in Arrow after it.
 #'
-#' Note that, unlike the core dplyr methods that are implemented in the Arrow
-#' query engine, `map_batches()` is not lazy: it starts evaluating on the data
-#' when you call it, even if you send its result to another pipeline function.
-#'
 #' This is experimental and not recommended for production use. It is also
 #' single-threaded and runs in R not C++, so it won't be as fast as core
 #' Arrow methods.
@@ -194,11 +211,16 @@ tail_from_batches <- function(batches, n) {
 #' @param FUN A function or `purrr`-style lambda expression to apply to each
 #' batch. It must return a RecordBatch or something coercible to one via
 #' `as_record_batch()'.
+#' @param .schema An optional [schema()]. If NULL, the schema will be inferred
+#'   from the first batch.
+#' @param .lazy Use `TRUE` to evaluate `FUN` lazily as batches are read from
+#'   the result; use `FALSE` to evaluate `FUN` on all batches before returning
+#'   the reader.
 #' @param ... Additional arguments passed to `FUN`
 #' @param .data.frame Deprecated argument, ignored
 #' @return An `arrow_dplyr_query`.
 #' @export
-map_batches <- function(X, FUN, ..., .data.frame = NULL) {
+map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = TRUE, .data.frame = NULL) {
   if (!is.null(.data.frame)) {
     warning(
       "The .data.frame argument is deprecated. ",
@@ -208,25 +230,57 @@ map_batches <- function(X, FUN, ..., .data.frame = NULL) {
   }
   FUN <- as_mapper(FUN)
   reader <- as_record_batch_reader(X)
+  dots <- list2(...)
 
-  # TODO: for future consideration
-  # * Move eval to C++ and make it a generator so it can stream, not block
-  # * Accept an output schema argument: with that, we could make this lazy (via collapse)
-  batch <- reader$read_next_batch()
-  res <- vector("list", 1024)
-  i <- 0L
-  while (!is.null(batch)) {
-    i <- i + 1L
-    res[[i]] <- as_record_batch(FUN(batch, ...))
+  # If no schema is supplied, we have to evaluate the first batch here
+  if (is.null(.schema)) {
     batch <- reader$read_next_batch()
+    if (is.null(batch)) {
+      abort("Can't infer schema from a RecordBatchReader with zero batches")
+    }
+
+    first_result <- as_record_batch(do.call(FUN, c(list(batch), dots)))
+    .schema <- first_result$schema
+    fun <- function() {
+      if (!is.null(first_result)) {
+        result <- first_result
+        first_result <<- NULL
+        result
+      } else {
+        batch <- reader$read_next_batch()
+        if (is.null(batch)) {
+          NULL
+        } else {
+          as_record_batch(
+            do.call(FUN, c(list(batch), dots)),
+            schema = .schema
+          )
+        }
+      }
+    }
+  } else {
+    fun <- function() {
+      batch <- reader$read_next_batch()
+      if (is.null(batch)) {
+        return(NULL)
+      }
+
+      as_record_batch(
+        do.call(FUN, c(list(batch), dots)),
+        schema = .schema
+      )
+    }
   }
 
-  # Trim list back
-  if (i < length(res)) {
-    res <- res[seq_len(i)]
+  reader_out <- as_record_batch_reader(fun, schema = .schema)
+  if (!.lazy) {
+    reader_out <- RecordBatchReader$create(
+      batches = reader_out$batches(),
+      schema = .schema
+    )
   }
 
-  RecordBatchReader$create(batches = res)
+  reader_out
 }
 
 #' @usage NULL
@@ -256,13 +310,6 @@ ScannerBuilder <- R6Class("ScannerBuilder",
     },
     UseThreads = function(threads = option_use_threads()) {
       dataset___ScannerBuilder__UseThreads(self, threads)
-      self
-    },
-    UseAsync = function(use_async = TRUE) {
-      .Deprecated(msg = paste(
-        "The function 'UseAsync' is deprecated and",
-        "will be removed in a future release."
-      ))
       self
     },
     BatchSize = function(batch_size) {

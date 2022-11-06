@@ -30,6 +30,9 @@ G_BEGIN_DECLS
  * @title: Object related classes
  * @include: plasma-glib/plasma-glib.h
  *
+ * Apache Arrow Plasma C GLib is deprecated since 10.0.0. This will be
+ * removed from 12.0.0 or so.
+ *
  * #GPlasmaObjectID is a class for an object ID.
  *
  * #GPlasmaObject is a base class for an object stored in plasma store.

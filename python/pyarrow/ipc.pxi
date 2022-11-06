@@ -106,12 +106,12 @@ cdef class IpcReadOptions(_Weakrefable):
 
     Parameters
     ----------
-    use_threads : bool
-        Whether to use the global CPU thread pool to parallelize any
-        computational tasks like decompression.
     ensure_native_endian : bool
         Whether to convert incoming data to platform-native endianness.
         Default is true.
+    use_threads : bool
+        Whether to use the global CPU thread pool to parallelize any
+        computational tasks like decompression.
     included_fields : list
         If empty (the default), return all deserialized fields.
         If non-empty, the values are the indices of fields to read on
@@ -243,9 +243,14 @@ cdef class IpcWriteOptions(_Weakrefable):
         if value is None:
             self.c_options.codec.reset()
         elif isinstance(value, str):
+            codec_type = _ensure_compression(value)
+            if codec_type != CCompressionType_ZSTD and codec_type != CCompressionType_LZ4_FRAME:
+                raise ValueError("Compression type must be lz4, zstd or None")
             self.c_options.codec = shared_ptr[CCodec](GetResultValue(
-                CCodec.Create(_ensure_compression(value))).release())
+                CCodec.Create(codec_type)).release())
         elif isinstance(value, Codec):
+            if value.name != "lz4" and value.name != "zstd":
+                raise ValueError("Compression type must be lz4, zstd or None")
             self.c_options.codec = (<Codec>value).wrapped
         else:
             raise TypeError(
@@ -401,7 +406,8 @@ cdef class MessageReader(_Weakrefable):
     @staticmethod
     def open_stream(source):
         """
-        Open stream from source.
+        Open stream from source, if you want to use memory map use
+        MemoryMappedFile as source.
 
         Parameters
         ----------
@@ -597,7 +603,7 @@ class _ReadPandasMixin:
 cdef class RecordBatchReader(_Weakrefable):
     """Base class for reading stream of record batches.
 
-    Record batch readers function as iterators of record batches that also 
+    Record batch readers function as iterators of record batches that also
     provide the schema (without the need to get any batches).
 
     Warnings
@@ -607,9 +613,9 @@ cdef class RecordBatchReader(_Weakrefable):
 
     Notes
     -----
-    To import and export using the Arrow C stream interface, use the 
+    To import and export using the Arrow C stream interface, use the
     ``_import_from_c`` and ``_export_from_c`` methods. However, keep in mind this
-    interface is experimental and intended for expert users.
+    interface is intended for expert users.
 
     Examples
     --------
@@ -654,15 +660,6 @@ cdef class RecordBatchReader(_Weakrefable):
 
         return pyarrow_wrap_schema(c_schema)
 
-    def get_next_batch(self):
-        """DEPRECATED: return the next record batch.
-
-        Use read_next_batch instead."""
-        import warnings
-        warnings.warn('Please use read_next_batch instead of '
-                      'get_next_batch', FutureWarning)
-        return self.read_next_batch()
-
     def read_next_batch(self):
         """
         Read next RecordBatch from the stream.
@@ -701,11 +698,18 @@ cdef class RecordBatchReader(_Weakrefable):
 
     read_pandas = _ReadPandasMixin.read_pandas
 
+    def close(self):
+        """
+        Release any resources associated with the reader.
+        """
+        with nogil:
+            check_status(self.reader.get().Close())
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        self.close()
 
     def _export_to_c(self, out_ptr):
         """
@@ -847,7 +851,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         except TypeError:
             pass
 
-        get_reader(source, True, &self.file)
+        get_reader(source, False, &self.file)
 
         cdef int64_t offset = 0
         if footer_offset is not None:
@@ -1089,7 +1093,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     if isinstance(obj, Message):
         raise NotImplementedError(type(obj))
 
-    get_reader(obj, True, &cpp_file)
+    get_reader(obj, False, &cpp_file)
 
     if dictionary_memo is not None:
         arg_dict_memo = dictionary_memo.memo

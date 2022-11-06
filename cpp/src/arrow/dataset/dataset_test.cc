@@ -17,6 +17,8 @@
 
 #include "arrow/dataset/dataset.h"
 
+#include <optional>
+
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/partition.h"
@@ -24,7 +26,6 @@
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/stl.h"
 #include "arrow/testing/generator.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace dataset {
@@ -143,6 +144,34 @@ TEST_F(TestInMemoryDataset, HandlesDifferingSchemas) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError, testing::HasSubstr("fields had matching names but differing types"),
       scanner->ToTable());
+}
+
+TEST_F(TestInMemoryDataset, GetFragmentsSync) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kNumberBatches = 16;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+
+  auto dataset = std::make_shared<InMemoryDataset>(
+      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
+
+  AssertDatasetFragmentsEqual(reader.get(), dataset.get());
+}
+
+TEST_F(TestInMemoryDataset, GetFragmentsAsync) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kNumberBatches = 16;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+
+  auto dataset = std::make_shared<InMemoryDataset>(
+      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
+
+  AssertDatasetAsyncFragmentsEqual(reader.get(), dataset.get());
 }
 
 class TestUnionDataset : public DatasetFixtureMixin {};
@@ -485,7 +514,7 @@ inline std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> na
 
 class TestSchemaUnification : public TestUnionDataset {
  public:
-  using i32 = util::optional<int32_t>;
+  using i32 = std::optional<int32_t>;
   using PathAndContent = std::vector<std::pair<std::string, std::string>>;
 
   void SetUp() override {
@@ -595,7 +624,7 @@ class TestSchemaUnification : public TestUnionDataset {
   std::shared_ptr<Dataset> dataset_;
 };
 
-using util::nullopt;
+using std::nullopt;
 
 TEST_F(TestSchemaUnification, SelectStar) {
   // This is a `SELECT * FROM dataset` where it ensures:

@@ -17,41 +17,16 @@
 
 module Arrow
   class TimestampDataType
-    alias_method :initialize_raw, :initialize
-    private :initialize_raw
-
-    # Creates a new {Arrow::TimestampDataType}.
-    #
-    # @overload initialize(unit)
-    #
-    #   @param unit [Arrow::TimeUnit, Symbol] The unit of the
-    #     timestamp data type.
-    #
-    #   @example Create a timestamp data type with Arrow::TimeUnit
-    #     Arrow::TimestampDataType.new(Arrow::TimeUnit::MILLI)
-    #
-    #   @example Create a timestamp data type with Symbol
-    #     Arrow::TimestampDataType.new(:milli)
-    #
-    # @overload initialize(description)
-    #
-    #   @param description [Hash] The description of the timestamp data
-    #     type. It must have `:unit` value.
-    #
-    #   @option description [Arrow::TimeUnit, Symbol] :unit The unit of
-    #     the timestamp data type.
-    #
-    #   @example Create a timestamp data type with Arrow::TimeUnit
-    #     Arrow::TimestampDataType.new(unit: Arrow::TimeUnit::MILLI)
-    #
-    #   @example Create a timestamp data type with Symbol
-    #     Arrow::TimestampDataType.new(unit: :milli)
-    def initialize(unit)
-      if unit.is_a?(Hash)
-        description = unit
-        unit = description[:unit]
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when Symbol, Arrow::TimeUnit
+          new(value)
+        else
+          super
+        end
       end
-      initialize_raw(unit)
     end
   end
 end

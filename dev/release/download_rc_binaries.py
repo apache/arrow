@@ -195,7 +195,8 @@ if __name__ == '__main__':
                               'to only download certain files'))
     parser.add_argument('--dest', type=str, default=os.getcwd(),
                         help='The output folder for the downloaded files')
-    parser.add_argument('--num_parallel', type=int, default=8,
+    parser.add_argument('--num_parallel', type=int,
+                        default=DEFAULT_PARALLEL_DOWNLOADS,
                         help='The number of concurrent downloads to do')
     parser.add_argument('--package_type', type=str, default=None,
                         help='The package type to be downloaded')

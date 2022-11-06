@@ -369,7 +369,6 @@ static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
     DataMember("count_from_zero", &WeekOptions::count_from_zero),
     DataMember("first_week_is_fully_in_year", &WeekOptions::first_week_is_fully_in_year));
 static auto kRandomOptionsType = GetFunctionOptionsType<RandomOptions>(
-    DataMember("length", &RandomOptions::length),
     DataMember("initializer", &RandomOptions::initializer),
     DataMember("seed", &RandomOptions::seed));
 
@@ -583,12 +582,11 @@ WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
       first_week_is_fully_in_year(first_week_is_fully_in_year) {}
 constexpr char WeekOptions::kTypeName[];
 
-RandomOptions::RandomOptions(int64_t length, Initializer initializer, uint64_t seed)
+RandomOptions::RandomOptions(Initializer initializer, uint64_t seed)
     : FunctionOptions(internal::kRandomOptionsType),
-      length(length),
       initializer(initializer),
       seed(seed) {}
-RandomOptions::RandomOptions() : RandomOptions(0, SystemRandom, 0) {}
+RandomOptions::RandomOptions() : RandomOptions(SystemRandom, 0) {}
 constexpr char RandomOptions::kTypeName[];
 
 namespace internal {

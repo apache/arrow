@@ -31,7 +31,7 @@ std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
       std::make_shared<arrow::csv::WriteOptions>(arrow::csv::WriteOptions::Defaults());
   res->include_header = cpp11::as_cpp<bool>(options["include_header"]);
   res->batch_size = cpp11::as_cpp<int>(options["batch_size"]);
-  res->io_context = arrow::io::IOContext(gc_memory_pool());
+  res->io_context = MainRThread::GetInstance().CancellableIOContext();
   return res;
 }
 
@@ -154,24 +154,17 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
-  return ValueOrStop(arrow::csv::TableReader::Make(arrow::io::IOContext(gc_memory_pool()),
-                                                   input, *read_options, *parse_options,
-                                                   *convert_options));
+  return ValueOrStop(arrow::csv::TableReader::Make(
+      MainRThread::GetInstance().CancellableIOContext(), input, *read_options,
+      *parse_options, *convert_options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
-#if !defined(HAS_SAFE_CALL_INTO_R)
-  return ValueOrStop(table_reader->Read());
-#else
-  const auto& io_context = arrow::io::default_io_context();
-  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
-    return DeferNotOk(
-        io_context.executor()->Submit([&]() { return table_reader->Read(); }));
-  });
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return table_reader->Read(); });
   return ValueOrStop(result);
-#endif
 }
 
 // [[arrow::export]]
