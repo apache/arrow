@@ -1860,6 +1860,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CMemoryPool* memory_pool() const
         CExecutor* executor()
 
+    cdef CExecContext* default_exec_context()
+
     cdef cppclass CKernelSignature" arrow::compute::KernelSignature":
         c_string ToString() const
 
