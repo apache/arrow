@@ -240,6 +240,9 @@ class ARROW_EXPORT Function {
   virtual Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* values) const;
 
   /// \brief Get a function executor with a best-matching kernel
+  ///
+  /// The returned executor will by default work with the default FunctionOptions
+  /// and KernelContext. If you want to change that, call `FunctionExecutor::Init`.
   virtual Result<std::shared_ptr<FunctionExecutor>> GetBestExecutor(
       std::vector<TypeHolder> inputs) const;
 
