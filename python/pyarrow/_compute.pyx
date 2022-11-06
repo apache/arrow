@@ -2432,7 +2432,7 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
         return _true
 
     return GetResultValue(filter.unwrap().Bind(
-        deref(pyarrow_unwrap_schema(schema).get())))
+        deref(pyarrow_unwrap_schema(schema).get()), default_exec_context()))
 
 
 cdef class ScalarUdfContext:
