@@ -83,22 +83,25 @@ class TableXchg(DataFrameXchg):
         return self._df.column_names
 
     def get_column(self, i: int) -> PyArrowColumn:
-        return self._df.column(i)
+        return PyArrowColumn(self._df.column(i),
+                             allow_copy=self._allow_copy)
 
     def get_column_by_name(self, name: str) -> PyArrowColumn:
-        return self._df.column(name)
+        return PyArrowColumn(self._df.column(name),
+                             allow_copy=self._allow_copy)
 
     def get_columns(self) -> Iterable[PyArrowColumn]:
-        return self._df.columns
+        return PyArrowColumn(self._df.columns,
+                             allow_copy=self._allow_copy)
 
     def select_columns(self, indices: Sequence[int]) -> TableXchg:
         return TableXchg(
-            self._df.select(indices), self._nan_as_null, self._allow_copy
+            self._df.select(list(indices)), self._nan_as_null, self._allow_copy
         )
 
     def select_columns_by_name(self, names: Sequence[str]) -> TableXchg:
         return TableXchg(
-            self._df.select(names), self._nan_as_null, self._allow_copy
+            self._df.select(list(names)), self._nan_as_null, self._allow_copy
         )
 
     def get_chunks(self, n_chunks: Optional[int] = None) -> Iterable[TableXchg]:

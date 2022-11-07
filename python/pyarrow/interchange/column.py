@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import (Dict, Any)
+from typing import (Dict, Tuple, Any)
 
 import pyarrow as pa
 
@@ -23,8 +23,47 @@ from pyarrow.interchange.buffer import PyArrowBuffer
 from pyarrow.interchange.dataframe_protocol import (
     Column,
     ColumnBuffers,
+    ColumnNullType,
     DtypeKind,
 )
+
+
+_PYARROW_KINDS = {
+    pa.int8(): (DtypeKind.INT, "c"),
+    pa.int16(): (DtypeKind.INT, "s"),
+    pa.int32(): (DtypeKind.INT, "i"),
+    pa.int64(): (DtypeKind.INT, "l"),
+    pa.uint8(): (DtypeKind.UINT, "C"),
+    pa.uint16(): (DtypeKind.UINT, "S"),
+    pa.uint32(): (DtypeKind.UINT, "I"),
+    pa.uint64(): (DtypeKind.UINT, "L"),
+    pa.float16(): (DtypeKind.FLOAT, "e"),
+    pa.float32(): (DtypeKind.FLOAT, "f"),
+    pa.float64(): (DtypeKind.FLOAT, "g"),
+    pa.bool_(): (DtypeKind.BOOL, "b"),
+    pa.string(): (DtypeKind.STRING, "u"),  # utf-8
+    pa.large_string(): (DtypeKind.STRING, "U"),
+    # Resoulution:
+    #   - seconds -> 's'
+    #   - milliseconds -> 'm'
+    #   - microseconds -> 'u'
+    #   - nanoseconds -> 'n'
+    pa.timestamp(): (DtypeKind.DATETIME, "ts{resolution}:{tz}"),
+    pa.dictionary(): (DtypeKind.CATEGORICAL, "L")
+}
+
+
+class Endianness:
+    """Enum indicating the byte-order of a data-type."""
+
+    LITTLE = "<"
+    BIG = ">"
+    NATIVE = "="
+    NA = "|"
+
+
+class NoBufferPresent(Exception):
+    """Exception to signal that there is no requested buffer."""
 
 
 class PyArrowColumn(Column):
@@ -44,20 +83,22 @@ class PyArrowColumn(Column):
         Note: doesn't deal with extension arrays yet, just assume a regular
         Series/ndarray for now.
         """
-        pass
+        # Store the column as a private attribute
+        self._col = column
+        self._allow_copy = allow_copy
 
     def size(self) -> int:
         """
         Size of the column, in elements.
         """
-        pass
+        return self._col.to_numpy().size
 
     @property
     def offset(self) -> int:
         """
-        Offset of first element. Always zero.
+        Offset of first element.
         """
-        pass
+        return self._col.offset
 
     @property
     def dtype(self) -> tuple[DtypeKind, int, str, str]:
@@ -87,18 +128,13 @@ class PyArrowColumn(Column):
             - Data types not included: complex, Arrow-style null, binary,
               decimal, and nested (list, struct, map, union) dtypes.
         """
-        pass
+        dtype = self._col.type
+        kind, f_string = _PYARROW_KINDS.get(dtype, (None, None))
+        if kind is None:
+            raise ValueError(f"Data type {dtype} not supported by interchange protocol")
+        bit_width = self._col.nbytes * 8
 
-    def _dtype_from_arrowdtype(self, dtype) -> tuple[DtypeKind, int, str, str]:
-        """
-        See `self.dtype` for details.
-        """
-        # Note: 'c' (complex) not handled yet (not in array spec v1).
-        #       'b', 'B' (bytes), 'S', 'a', (old-style string) 'V' (void) not
-        #       handled datetime and timedelta both map to datetime
-        #       (is timedelta handled?)
-
-        pass
+        return kind, bit_width, f_string, Endianness.NATIVE
 
     @property
     def describe_categorical(self):
@@ -118,18 +154,27 @@ class PyArrowColumn(Column):
                              cat1, cat2, ...). None if not a dictionary-style
                              categorical.
         """
-        pass
+        if pa.types.is_dictionary(self._col.type):
+            raise TypeError(
+                "describe_categorical only works on a column with categorical dtype!"
+            )
+
+        return {
+            "is_ordered": True,
+            "is_dictionary": True,
+            "categories": PyArrowColumn(self._col.dictionary),
+        }
 
     @property
     def describe_null(self):
-        pass
+        return ColumnNullType.USE_BYTEMASK, 0
 
     @property
     def null_count(self) -> int:
         """
         Number of null elements. Should always be known.
         """
-        pass
+        return self._col.null_count
 
     @property
     def metadata(self) -> Dict[str, Any]:
@@ -142,14 +187,24 @@ class PyArrowColumn(Column):
         """
         Return the number of chunks the column consists of.
         """
-        pass
+        return 1
 
-    # def get_chunks(self, n_chunks: int | None = None):
-    #     """
-    #     Return an iterator yielding the chunks.
-    #     See `DataFrame.get_chunks` for details on ``n_chunks``.
-    #     """
-    #     pass
+    def get_chunks(self, n_chunks: int | None = None):
+        """
+        Return an iterator yielding the chunks.
+        See `DataFrame.get_chunks` for details on ``n_chunks``.
+        """
+        if n_chunks and n_chunks > 1:
+            size = self.size()
+            step = size // n_chunks
+            if size % n_chunks != 0:
+                step += 1
+            for start in range(0, step * n_chunks, step):
+                yield PyArrowColumn(
+                    self._col.slice(start,step), self._allow_copy
+                )
+        else:
+            yield self
 
     def get_buffers(self) -> ColumnBuffers:
         """
@@ -170,7 +225,23 @@ class PyArrowColumn(Column):
                          if the data buffer does not have an associated offsets
                          buffer.
         """
-        pass
+        buffers: ColumnBuffers = {
+            "data": self._get_data_buffer(),
+            "validity": None,
+            "offsets": None,
+        }
+
+        try:
+            buffers["validity"] = self._get_validity_buffer()
+        except NoBufferPresent:
+            pass
+
+        try:
+            buffers["offsets"] = self._get_offsets_buffer()
+        except NoBufferPresent:
+            pass
+
+        return buffers
 
     def _get_data_buffer(
         self,
@@ -178,7 +249,11 @@ class PyArrowColumn(Column):
         """
         Return the buffer containing the data and the buffer's associated dtype.
         """
-        pass
+        len = len(self._col.buffers())
+        if len == 2:
+            return PyArrowBuffer(self._col.buffers()[1]), self.dtype
+        elif len == 3:
+            return PyArrowBuffer(self._col.buffers()[2]), self.dtype
 
     def _get_validity_buffer(self) -> tuple[PyArrowBuffer, Any]:
         """
@@ -186,7 +261,15 @@ class PyArrowColumn(Column):
         the buffer's associated dtype.
         Raises NoBufferPresent if null representation is not a bit or byte mask.
         """
-        pass
+        # Define the dtype of the returned buffer
+        dtype = (DtypeKind.BOOL, 8, "b", Endianness.NATIVE)
+        buff = self._col.buffers()[0]
+        if buff:
+            return PyArrowBuffer(buff), dtype
+
+        raise NoBufferPresent(
+            "There are no missing values so "
+            "does not have a separate mask")
 
     def _get_offsets_buffer(self) -> tuple[PyArrowBuffer, Any]:
         """
@@ -195,4 +278,13 @@ class PyArrowColumn(Column):
         Raises NoBufferPresent if the data buffer does not have an associated
         offsets buffer.
         """
-        pass
+        len = len(self._col.buffers())
+        if len == 2:
+            raise NoBufferPresent(
+                "This column has a fixed-length dtype so "
+                "it does not have an offsets buffer"
+            )
+        elif len == 3:
+            # Define the dtype of the returned buffer
+            dtype = (DtypeKind.INT, 64, "L", Endianness.NATIVE)
+            return PyArrowBuffer(self._col.buffers()[2]), dtype
