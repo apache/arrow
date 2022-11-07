@@ -674,7 +674,7 @@ Status PlasmaClient::Impl::Get(const std::vector<ObjectID>& object_ids,
                                int64_t timeout_ms, std::vector<ObjectBuffer>* out) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
-  const auto wrap_buffer = [=](const ObjectID& object_id,
+  const auto wrap_buffer = [&](const ObjectID& object_id,
                                const std::shared_ptr<Buffer>& buffer) {
     return std::make_shared<PlasmaBuffer>(shared_from_this(), object_id, buffer);
   };

@@ -1282,6 +1282,7 @@ test_that("date works in arrow", {
 test_that("date() errors with unsupported inputs", {
   # Use InMemoryDataset here so that abandon_ship() errors instead of warns.
   # The lubridate version errors too.
+  skip_if_not_available("dataset")
   expect_error(
     example_data %>%
       InMemoryDataset$create() %>%

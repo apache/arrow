@@ -1019,7 +1019,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10 3.11}"
   local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for python in ${python_versions}; do
@@ -1041,11 +1041,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10"
+    local python_versions="3.8 3.9 3.10 3.11"
     local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.7m 3.8 3.9 3.10"
+    local python_versions="3.7m 3.8 3.9 3.10 3.11"
     local platform_tags="macosx_10_14_x86_64"
   fi
 
@@ -1067,26 +1067,6 @@ test_macos_wheels() {
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
-
-  # verify arm64 and universal2 wheels using an universal2 python binary
-  # the interpreter should be installed from python.org:
-  #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
-  if [ "$(uname -m)" = "arm64" ]; then
-    for pyver in 3.9 3.10; do
-      local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
-
-      # create and activate a virtualenv for testing as arm64
-      for arch in "arm64" "x86_64"; do
-        show_header "Testing Python ${pyver} universal2 wheel on ${arch}"
-        VENV_ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
-        # install pyarrow's universal2 wheel
-        pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
-        # check the imports and execute the unittests
-        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
-          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
-      done
-    done
-  fi
 }
 
 test_wheels() {

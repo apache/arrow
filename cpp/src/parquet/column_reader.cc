@@ -1360,7 +1360,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     int64_t levels_remaining = levels_written_ - gap;
 
-    auto left_shift = [=](::arrow::ResizableBuffer* buffer) {
+    auto left_shift = [&](::arrow::ResizableBuffer* buffer) {
       int16_t* data = reinterpret_cast<int16_t*>(buffer->mutable_data());
       std::copy(data + levels_position_, data + levels_written_,
                 data + start_levels_position);

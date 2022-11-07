@@ -100,7 +100,8 @@ class AddTester {
 
   void SpawnTasks(ThreadPool* pool, AddTaskFunc add_func) {
     for (int i = 0; i < nadds_; ++i) {
-      ASSERT_OK(pool->Spawn([=] { add_func(xs_[i], ys_[i], &outs_[i]); }, stop_token_));
+      ASSERT_OK(pool->Spawn([this, add_func, i] { add_func(xs_[i], ys_[i], &outs_[i]); },
+                            stop_token_));
     }
   }
 
