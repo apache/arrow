@@ -177,6 +177,77 @@ TEST_F(TestPageSerde, DataPageV1) {
   ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
 }
 
+// Creates a number of pages and skips some of them with the skip page callback.
+TEST_F(TestPageSerde, TestSkipPageByCallback) {
+  int num_pages = 10;
+  int stats_size = 512;
+  int total_rows = 0;
+  std::vector<format::DataPageHeader> data_page_headers;
+  for (int i = 0; i < num_pages; ++i) {
+    // Vary the number of rows to produce different headers.
+    int32_t num_rows = i + 100;
+    total_rows += num_rows;
+    int data_size = i + 1024;
+    AddDummyStats(stats_size, data_page_header_, /* fill_all_stats = */ true);
+    data_page_header_.num_values = num_rows;
+    ASSERT_NO_FATAL_FAILURE(
+        WriteDataPageHeader(/*max_serialized_len=*/1024, data_size, data_size));
+    data_page_headers.push_back(data_page_header_);
+    // Also write data, to make sure we skip the data correctly.
+    std::vector<uint8_t> faux_data(data_size);
+    ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+  }
+  EndStream();
+
+  {  // Read all pages.
+    auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
+    page_reader_ = PageReader::Open(stream, total_rows, Compression::UNCOMPRESSED);
+
+    auto skip_all_pages = [](const format::PageHeader& header) -> bool { return false; };
+
+    page_reader_->set_skip_page_callback(skip_all_pages);
+    for (int i = 0; i < num_pages; ++i) {
+      std::shared_ptr<Page> current_page = page_reader_->NextPage();
+      ASSERT_NO_FATAL_FAILURE(
+          CheckDataPageHeader(data_page_headers[i], current_page.get()));
+    }
+    ASSERT_EQ(page_reader_->NextPage(), nullptr);
+  }
+  {  // Skip all pages.
+    auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
+    page_reader_ = PageReader::Open(stream, total_rows, Compression::UNCOMPRESSED);
+
+    auto skip_all_pages = [](const format::PageHeader& header) -> bool { return true; };
+
+    page_reader_->set_skip_page_callback(skip_all_pages);
+    std::shared_ptr<Page> current_page = page_reader_->NextPage();
+    ASSERT_EQ(page_reader_->NextPage(), nullptr);
+  }
+  {  // Skip every other page.
+    auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
+    page_reader_ = PageReader::Open(stream, total_rows, Compression::UNCOMPRESSED);
+
+    // Skip pages with even number of values.
+    auto skip_all_pages = [](const format::PageHeader& header) -> bool {
+      if (header.data_page_header.num_values % 2 == 0) return true;
+      return false;
+    };
+
+    page_reader_->set_skip_page_callback(skip_all_pages);
+
+    for (int i = 0; i < num_pages; ++i) {
+      // Only pages with odd number of values are read.
+      if (i % 2 != 0) {
+        std::shared_ptr<Page> current_page = page_reader_->NextPage();
+        ASSERT_NO_FATAL_FAILURE(
+            CheckDataPageHeader(data_page_headers[i], current_page.get()));
+      }
+    }
+    // We should have exhausted reading the pages by reading the odd pages only.
+    ASSERT_EQ(page_reader_->NextPage(), nullptr);
+  }
+}
+
 TEST_F(TestPageSerde, DataPageV2) {
   int stats_size = 512;
   const int32_t num_rows = 4444;

@@ -253,6 +253,13 @@ class SerializedPageReader : public PageReader {
 
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
+  bool set_skip_page_callback(
+      std::function<bool(const format::PageHeader&)> skip_page_callback) override {
+    skip_page_callback_ = skip_page_callback;
+    has_skip_page_callback_ = true;
+    return true;
+  }
+
  private:
   void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor, int8_t module_type,
                         const std::string& page_aad);
@@ -304,6 +311,9 @@ class SerializedPageReader : public PageReader {
   std::string data_page_header_aad_;
   // Encryption
   std::shared_ptr<ResizableBuffer> decryption_buffer_;
+  // Callback that decides if we should skip a page or not.
+  std::function<bool(const format::PageHeader&)> skip_page_callback_;
+  bool has_skip_page_callback_ = false;
 };
 
 void SerializedPageReader::InitDecryption() {
@@ -377,6 +387,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         }
       }
     }
+
     // Advance the stream offset
     PARQUET_THROW_NOT_OK(stream_->Advance(header_size));
 
@@ -385,6 +396,16 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     if (compressed_len < 0 || uncompressed_len < 0) {
       throw ParquetException("Invalid page header");
     }
+
+   // Once we have the header, we will call the skip_page_call_back_ to
+   // determine if we should be skipping this page. If yes, we will advance the
+   // stream to the next page.
+   if(has_skip_page_callback_) {
+     if (skip_page_callback_(current_page_header_)) {
+       PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
+       return NextPage();
+     }
+   }
 
     if (crypto_ctx_.data_decryptor != nullptr) {
       UpdateDecryption(crypto_ctx_.data_decryptor, encryption::kDictionaryPage,

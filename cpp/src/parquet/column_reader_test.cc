@@ -644,6 +644,7 @@ TEST_F(TestPrimitiveReader, TestNonDictionaryEncodedPagesWithExposeEncoding) {
   pages_.clear();
 }
 
+<<<<<<< Updated upstream
 class RecordReaderTest : public ::testing::Test {
  public:
   const int32_t kNullValue = -1;
@@ -1209,6 +1210,19 @@ TEST(RecordReaderByteArrayTest, SkipByteArray) {
     ASSERT_EQ(expected_values[i].compare(binary_array->GetView(i - 30)), 0);
     ASSERT_EQ(def_levels[i] == 0, binary_array->IsNull(i - 30));
   }
+}
+
+TEST_F(TestPrimitiveReader, TestSkipPageByCallback) {
+  int levels_per_page = 100;
+  int num_pages = 5;
+  max_def_level_ = 0;
+  max_rep_level_ = 0;
+  NodePtr type = schema::Int32("b", Repetition::REQUIRED);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+  MakePages<Int32Type>(&descr, num_pages, levels_per_page, def_levels_, rep_levels_,
+                       values_, data_buffer_, pages_, Encoding::PLAIN);
+  InitReader(&descr);
+//  auto skip_all_pages = [](const format::PageHeader& header) -> bool { return true; };
 }
 
 }  // namespace test

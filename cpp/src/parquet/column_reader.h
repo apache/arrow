@@ -28,6 +28,7 @@
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+#include "parquet/thrift_internal.h"  // IWYU pragma: keep
 
 namespace arrow {
 
@@ -114,6 +115,17 @@ class PARQUET_EXPORT PageReader {
                                           const ReaderProperties& properties,
                                           bool always_compressed = false,
                                           const CryptoContext* ctx = NULLPTR);
+
+  // @returns: true if the skip callback was successfully set. Returns false
+  // if the callback was not set or not supported.
+  // If supported, NextPage() will use this callback to determine if it should
+  // return or skip and move to the next page. If the callback function returns
+  // true the page must be skipped.
+  // \note API EXPERIMENTAL
+  virtual bool set_skip_page_callback(
+      std::function<bool(const format::PageHeader&)> skip_page_callback) {
+    return false;
+  }
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise
