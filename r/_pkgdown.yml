@@ -119,7 +119,6 @@ articles:
       - data_objects
       - data_types
       - metadata
-      - package_conventions
 
   - title: Installation
     navbar: Installation

@@ -24,7 +24,7 @@ This low-level interface allows you to interact with the Arrow C++ library in a 
 
 All the examples used in this article rely on this high-level interface.
 
-To learn more, see the article on [package conventions](./package_conventions.html).
+For developers interested in learning more about the package structure, see the [developer guide](./developing.html).
 
 
 ## Tabular data in Arrow 
