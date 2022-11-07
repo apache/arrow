@@ -156,10 +156,13 @@ find_package_handle_standard_args(
 
 if(ThriftAlt_FOUND)
   set(Thrift_VERSION ${ThriftAlt_VERSION})
-  if(ARROW_THRIFT_USE_SHARED)
-    add_library(thrift::thrift SHARED IMPORTED)
-  else()
-    add_library(thrift::thrift STATIC IMPORTED)
+  # Reuse partially defined thrift::thrift by ThriftConfig.cmake.
+  if(NOT TARGET thrift::thrift)
+    if(ARROW_THRIFT_USE_SHARED)
+      add_library(thrift::thrift SHARED IMPORTED)
+    else()
+      add_library(thrift::thrift STATIC IMPORTED)
+    endif()
   endif()
   set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${ThriftAlt_LIB}"
