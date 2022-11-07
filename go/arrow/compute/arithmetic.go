@@ -81,6 +81,44 @@ func (fn *arithmeticFunction) DispatchBest(vals ...arrow.DataType) (exec.Kernel,
 	return fn.DispatchExact(vals...)
 }
 
+// an arithmetic function which promotes integers and decimal
+// arguments to doubles.
+type arithmeticFloatingPointFunc struct {
+	arithmeticFunction
+}
+
+func (fn *arithmeticFloatingPointFunc) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	return execInternal(ctx, fn, opts, -1, args...)
+}
+
+func (fn *arithmeticFloatingPointFunc) DispatchBest(vals ...arrow.DataType) (exec.Kernel, error) {
+	if err := fn.checkArity(len(vals)); err != nil {
+		return nil, err
+	}
+
+	if kn, err := fn.DispatchExact(vals...); err == nil {
+		return kn, nil
+	}
+
+	ensureDictionaryDecoded(vals...)
+
+	if len(vals) == 2 {
+		replaceNullWithOtherType(vals...)
+	}
+
+	for i, v := range vals {
+		if arrow.IsInteger(v.ID()) || arrow.IsDecimal(v.ID()) {
+			vals[i] = arrow.PrimitiveTypes.Float64
+		}
+	}
+
+	if dt := commonNumeric(vals...); dt != nil {
+		replaceTypes(dt, vals...)
+	}
+
+	return fn.DispatchExact(vals...)
+}
+
 var (
 	addDoc FunctionDoc
 )
@@ -275,6 +313,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	}{
 		{"abs_unchecked", kernels.OpAbsoluteValue, decPromoteNone},
 		{"abs", kernels.OpAbsoluteValueChecked, decPromoteNone},
+		{"negate_unchecked", kernels.OpNegate, decPromoteNone},
 	}
 
 	for _, o := range ops {
@@ -285,6 +324,37 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 				panic(err)
 			}
 		}
+	}
+
+	fn := &arithmeticFunction{*NewScalarFunction("negate", Unary(), addDoc), decPromoteNone}
+	kns := append(kernels.GetArithmeticUnarySignedKernels(kernels.OpNegateChecked), kernels.GetDecimalUnaryKernels(kernels.OpNegateChecked)...)
+	for _, k := range kns {
+		if err := fn.AddKernel(k); err != nil {
+			panic(err)
+		}
+	}
+
+	reg.AddFunction(fn, false)
+
+	ops = []struct {
+		funcName   string
+		op         kernels.ArithmeticOp
+		decPromote decimalPromotion
+	}{
+		{"sqrt_unchecked", kernels.OpSqrt, decPromoteNone},
+		{"sqrt", kernels.OpSqrtChecked, decPromoteNone},
+	}
+
+	for _, o := range ops {
+		fn := &arithmeticFloatingPointFunc{arithmeticFunction{*NewScalarFunction(o.funcName, Unary(), addDoc), decPromoteNone}}
+		kns := kernels.GetArithmeticUnaryFloatingPointKernels(o.op)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
+
+		reg.AddFunction(fn, false)
 	}
 }
 
@@ -350,6 +420,19 @@ func Divide(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Dat
 // will error on an overflow if CheckOverflow is true.
 func AbsoluteValue(ctx context.Context, opts ArithmeticOptions, input Datum) (Datum, error) {
 	fn := "abs"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, input)
+}
+
+// Negate returns a result containing the negation of each element in the
+// input argument. It accepts either a scalar or an array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// or to throw an error on unsigned types.
+func Negate(ctx context.Context, opts ArithmeticOptions, input Datum) (Datum, error) {
+	fn := "negate"
 	if opts.NoCheckOverflow {
 		fn += "_unchecked"
 	}

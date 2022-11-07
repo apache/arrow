@@ -72,7 +72,7 @@ func getArithmeticOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) 
 		switch op {
 		case OpAdd, OpSub:
 			return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
-		case OpAbsoluteValue:
+		case OpAbsoluteValue, OpNegate:
 			typ := exec.GetType[T]()
 			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
 				arithmeticUnaryAvx2(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
@@ -83,7 +83,7 @@ func getArithmeticOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) 
 		switch op {
 		case OpAdd, OpSub:
 			return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
-		case OpAbsoluteValue:
+		case OpAbsoluteValue, OpNegate:
 			typ := exec.GetType[T]()
 			return ScalarUnary(func(ctx *exec.KernelCtx, arg, out []T) error {
 				arithmeticUnarySSE4(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
@@ -104,7 +104,7 @@ func getArithmeticOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKer
 		switch op {
 		case OpAdd, OpSub, OpAddChecked, OpSubChecked:
 			return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
-		case OpAbsoluteValue, OpAbsoluteValueChecked:
+		case OpAbsoluteValue, OpAbsoluteValueChecked, OpNegate, OpNegateChecked:
 			typ := exec.GetType[T]()
 			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
 				arithmeticUnaryAvx2(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
@@ -115,7 +115,7 @@ func getArithmeticOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKer
 		switch op {
 		case OpAdd, OpSub, OpAddChecked, OpSubChecked:
 			return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
-		case OpAbsoluteValue, OpAbsoluteValueChecked:
+		case OpAbsoluteValue, OpAbsoluteValueChecked, OpNegate, OpNegateChecked:
 			typ := exec.GetType[T]()
 			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
 				arithmeticUnarySSE4(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))

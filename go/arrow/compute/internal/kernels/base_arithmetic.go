@@ -37,12 +37,16 @@ const (
 	OpMul
 	OpDiv
 	OpAbsoluteValue
+	OpNegate
+	OpSqrt
 
 	OpAddChecked
 	OpSubChecked
 	OpMulChecked
 	OpDivChecked
 	OpAbsoluteValueChecked
+	OpNegateChecked
+	OpSqrtChecked
 )
 
 func getGoArithmeticBinary[OutT, Arg0T, Arg1T exec.NumericTypes](op func(a Arg0T, b Arg1T, e *error) OutT) binaryOps[OutT, Arg0T, Arg1T] {
@@ -72,8 +76,9 @@ func getGoArithmeticBinary[OutT, Arg0T, Arg1T exec.NumericTypes](op func(a Arg0T
 }
 
 var (
-	errOverflow  = fmt.Errorf("%w: overflow", arrow.ErrInvalid)
-	errDivByZero = fmt.Errorf("%w: divide by zero", arrow.ErrInvalid)
+	errOverflow     = fmt.Errorf("%w: overflow", arrow.ErrInvalid)
+	errDivByZero    = fmt.Errorf("%w: divide by zero", arrow.ErrInvalid)
+	errNegativeSqrt = fmt.Errorf("%w: square root of negative number", arrow.ErrInvalid)
 )
 
 func getGoArithmeticOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
@@ -110,6 +115,13 @@ func getGoArithmeticOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp
 		}
 		return ScalarUnary(func(_ *exec.KernelCtx, arg []T, out []T) error {
 			copy(out, arg)
+			return nil
+		})
+	case OpNegate:
+		return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
+			for i, v := range arg {
+				out[i] = -v
+			}
 			return nil
 		})
 	case OpAddChecked:
@@ -204,6 +216,21 @@ func getGoArithmeticOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp
 			copy(out, arg)
 			return nil
 		})
+	case OpNegateChecked:
+		if ones := ^T(0); ones < 0 {
+			min := MinOf[T]()
+			// signed
+			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
+				for i, v := range arg {
+					if v != min {
+						out[i] = -v
+					} else {
+						return errOverflow
+					}
+				}
+				return nil
+			})
+		}
 	}
 	debug.Assert(false, "invalid arithmetic op")
 	return nil
@@ -220,7 +247,7 @@ func getGoArithmeticOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayK
 		})
 	}
 
-	if op >= OpAddChecked {
+	if op >= OpAddChecked && op != OpSqrtChecked {
 		op -= OpAddChecked // floating checked is the same as floating unchecked
 	}
 	switch op {
@@ -240,6 +267,28 @@ func getGoArithmeticOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayK
 				out[i] = T(math.Abs(float64(v)))
 			}
 			return nil
+		})
+	case OpNegate:
+		return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
+			for i, v := range arg {
+				out[i] = -v
+			}
+			return nil
+		})
+	case OpSqrt:
+		return ScalarUnary(func(_ *exec.KernelCtx, arg, out []T) error {
+			for i, v := range arg {
+				out[i] = T(math.Sqrt(float64(v)))
+			}
+			return nil
+		})
+	case OpSqrtChecked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg T, e *error) T {
+			if arg < 0 {
+				*e = errNegativeSqrt
+				return T(math.NaN())
+			}
+			return T(math.Sqrt(float64(arg)))
 		})
 	}
 	debug.Assert(false, "invalid arithmetic op")
@@ -332,6 +381,7 @@ type decOps[T decimal128.Num | decimal256.Num] struct {
 	Div func(T, T) T
 	Mul func(T, T) T
 	Abs func(T) T
+	Neg func(T) T
 }
 
 var dec128Ops = decOps[decimal128.Num]{
@@ -343,6 +393,7 @@ var dec128Ops = decOps[decimal128.Num]{
 		return a
 	},
 	Abs: func(a decimal128.Num) decimal128.Num { return a.Abs() },
+	Neg: func(a decimal128.Num) decimal128.Num { return a.Negate() },
 }
 
 var dec256Ops = decOps[decimal256.Num]{
@@ -354,6 +405,7 @@ var dec256Ops = decOps[decimal256.Num]{
 		return a
 	},
 	Abs: func(a decimal256.Num) decimal256.Num { return a.Abs() },
+	Neg: func(a decimal256.Num) decimal256.Num { return a.Negate() },
 }
 
 func getArithmeticOpDecimalImpl[T decimal128.Num | decimal256.Num](op ArithmeticOp, fns decOps[T]) exec.ArrayKernelExec {
@@ -386,6 +438,10 @@ func getArithmeticOpDecimalImpl[T decimal128.Num | decimal256.Num](op Arithmetic
 	case OpAbsoluteValue:
 		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg T, _ *error) T {
 			return fns.Abs(arg)
+		})
+	case OpNegate:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg T, _ *error) T {
+			return fns.Neg(arg)
 		})
 	}
 	debug.Assert(false, "unimplemented arithemtic op")

@@ -110,3 +110,25 @@ func GetArithmeticUnaryKernels(op ArithmeticOp) []exec.ScalarKernel {
 
 	return append(kernels, NullExecKernel(1))
 }
+
+func GetArithmeticUnarySignedKernels(op ArithmeticOp) []exec.ScalarKernel {
+	kernels := make([]exec.ScalarKernel, 0)
+	for _, ty := range append(signedIntTypes, floatingTypes...) {
+		kernels = append(kernels, exec.NewScalarKernel(
+			[]exec.InputType{exec.NewExactInput(ty)}, exec.NewOutputType(ty),
+			ArithmeticExec(ty.ID(), op), nil))
+	}
+
+	return append(kernels, NullExecKernel(1))
+}
+
+func GetArithmeticUnaryFloatingPointKernels(op ArithmeticOp) []exec.ScalarKernel {
+	kernels := make([]exec.ScalarKernel, 0)
+	for _, ty := range floatingTypes {
+		kernels = append(kernels, exec.NewScalarKernel(
+			[]exec.InputType{exec.NewExactInput(ty)}, exec.NewOutputType(ty),
+			ArithmeticExec(ty.ID(), op), nil))
+	}
+
+	return append(kernels, NullExecKernel(1))
+}

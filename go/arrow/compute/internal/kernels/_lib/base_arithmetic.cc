@@ -17,6 +17,7 @@
 #include <arch.h>
 #include <math.h>
 #include <stdint.h>
+#include <limits.h>
 #include "types.h"
 #include "vendored/safe-math.h"
 
@@ -34,6 +35,8 @@ enum class optype : int8_t {
     MUL,
     DIV,    
     ABSOLUTE_VALUE,
+    NEGATE,
+    SQRT,
 
     // this impl doesn't actually perform any overflow checks as we need
     // to only run overflow checks on non-null entries
@@ -42,6 +45,8 @@ enum class optype : int8_t {
     MUL_CHECKED,
     DIV_CHECKED,    
     ABSOLUTE_VALUE_CHECKED,
+    NEGATE_CHECKED,
+    SQRT_CHECKED,
 };
 
 struct Add {
@@ -164,6 +169,33 @@ struct AbsoluteValueChecked {
     }
 };
 
+struct Negate {
+    template <typename T, typename Arg>
+    static constexpr T Call(Arg input) {
+        if constexpr(is_floating_point_v<Arg>) {
+            return -input;
+        } else if constexpr(is_unsigned_v<Arg>) {
+            return ~input + 1;
+        } else {
+            return -input;
+        }
+    }
+};
+
+struct NegateChecked {
+    template <typename T, typename Arg>
+    static constexpr T Call(Arg input) {
+        static_assert(is_same_v<T, Arg>, "");
+        if constexpr(is_floating_point_v<Arg>) {
+            return -input;
+        } else if constexpr(is_unsigned_v<Arg>) {
+            return 0;
+        } else {
+            return -input;
+        }
+    }
+};
+
 template <typename T, typename Op>
 struct arithmetic_op_arr_arr_impl {
     static inline void exec(const void* in_left, const void* in_right, void* out, const int len) {
@@ -266,6 +298,11 @@ static inline void arithmetic_impl(const int type, const int8_t op, const void* 
         return arithmetic_op<AbsoluteValue, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);
     case optype::ABSOLUTE_VALUE_CHECKED:    
         return arithmetic_op<AbsoluteValueChecked, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);
+    case optype::NEGATE:
+        return arithmetic_op<Negate, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);
+    case optype::NEGATE_CHECKED:
+        return arithmetic_op<NegateChecked, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);    
+
     default:
         // don't implement divide here as we can only divide on non-null entries
         // so we can avoid dividing by zero
