@@ -324,6 +324,8 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 				panic(err)
 			}
 		}
+
+		reg.AddFunction(fn, false)
 	}
 
 	fn := &arithmeticFunction{*NewScalarFunction("negate", Unary(), addDoc), decPromoteNone}
