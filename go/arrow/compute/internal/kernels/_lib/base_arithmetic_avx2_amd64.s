@@ -1,7 +1,27 @@
 	.text
 	.intel_syntax noprefix
 	.file	"base_arithmetic.cc"
-	.globl	arithmetic_avx2                 # -- Begin function arithmetic_avx2
+	.section	.rodata.cst32,"aM",@progbits,32
+	.p2align	5                               # -- Begin function arithmetic_avx2
+.LCPI0_0:
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.text
+	.globl	arithmetic_avx2
 	.p2align	4, 0x90
 	.type	arithmetic_avx2,@function
 arithmetic_avx2:                        # @arithmetic_avx2
@@ -9,617 +29,1008 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	push	rbp
 	mov	rbp, rsp
 	and	rsp, -8
-	cmp	sil, 1
-	jg	.LBB0_10
+	cmp	sil, 3
+	jg	.LBB0_11
 # %bb.1:
 	test	sil, sil
-	je	.LBB0_19
+	je	.LBB0_21
 # %bb.2:
 	cmp	sil, 1
-	jne	.LBB0_537
+	je	.LBB0_287
 # %bb.3:
-	cmp	edi, 6
-	jg	.LBB0_291
-# %bb.4:
-	cmp	edi, 3
-	jle	.LBB0_5
-# %bb.285:
-	cmp	edi, 4
-	je	.LBB0_324
-# %bb.286:
-	cmp	edi, 5
-	je	.LBB0_336
-# %bb.287:
-	cmp	edi, 6
-	jne	.LBB0_537
-# %bb.288:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.289:
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_348
-# %bb.290:
-	xor	esi, esi
-	jmp	.LBB0_353
-.LBB0_10:
 	cmp	sil, 2
-	je	.LBB0_152
-# %bb.11:
-	cmp	sil, 3
-	jne	.LBB0_537
+	jne	.LBB0_825
+# %bb.4:
+	cmp	edi, 6
+	jg	.LBB0_559
+# %bb.5:
+	cmp	edi, 3
+	jle	.LBB0_6
+# %bb.553:
+	cmp	edi, 4
+	je	.LBB0_602
+# %bb.554:
+	cmp	edi, 5
+	je	.LBB0_614
+# %bb.555:
+	cmp	edi, 6
+	jne	.LBB0_825
+# %bb.556:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.557:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_626
+# %bb.558:
+	xor	esi, esi
+.LBB0_631:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_633
+.LBB0_632:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rcx + 4*rsi]
+	imul	edi, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_632
+.LBB0_633:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_634:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rcx + 4*rsi]
+	imul	eax, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 4]
+	imul	eax, dword ptr [rdx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 8]
+	imul	eax, dword ptr [rdx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 12]
+	imul	eax, dword ptr [rdx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_634
+	jmp	.LBB0_825
+.LBB0_11:
+	cmp	sil, 4
+	je	.LBB0_154
 # %bb.12:
-	cmp	edi, 6
-	jg	.LBB0_417
+	cmp	sil, 5
+	je	.LBB0_420
 # %bb.13:
-	cmp	edi, 3
-	jle	.LBB0_14
-# %bb.411:
-	cmp	edi, 4
-	je	.LBB0_450
-# %bb.412:
-	cmp	edi, 5
-	je	.LBB0_462
-# %bb.413:
+	cmp	sil, 6
+	jne	.LBB0_825
+# %bb.14:
 	cmp	edi, 6
-	jne	.LBB0_537
-# %bb.414:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.415:
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_474
-# %bb.416:
-	xor	esi, esi
-	jmp	.LBB0_479
-.LBB0_19:
-	cmp	edi, 6
-	jg	.LBB0_32
-# %bb.20:
-	cmp	edi, 3
-	jle	.LBB0_21
-# %bb.26:
-	cmp	edi, 4
-	je	.LBB0_65
-# %bb.27:
-	cmp	edi, 5
-	je	.LBB0_77
-# %bb.28:
-	cmp	edi, 6
-	jne	.LBB0_537
-# %bb.29:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.30:
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_89
-# %bb.31:
-	xor	esi, esi
-	jmp	.LBB0_94
-.LBB0_152:
-	cmp	edi, 6
-	jg	.LBB0_165
-# %bb.153:
-	cmp	edi, 3
-	jle	.LBB0_154
-# %bb.159:
-	cmp	edi, 4
-	je	.LBB0_198
-# %bb.160:
-	cmp	edi, 5
-	je	.LBB0_210
-# %bb.161:
-	cmp	edi, 6
-	jne	.LBB0_537
-# %bb.162:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.163:
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_222
-# %bb.164:
-	xor	esi, esi
-	jmp	.LBB0_227
-.LBB0_291:
-	cmp	edi, 8
-	jle	.LBB0_292
-# %bb.297:
-	cmp	edi, 9
-	je	.LBB0_378
-# %bb.298:
-	cmp	edi, 11
-	je	.LBB0_390
-# %bb.299:
-	cmp	edi, 12
-	jne	.LBB0_537
-# %bb.300:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.301:
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jae	.LBB0_402
-# %bb.302:
-	xor	esi, esi
-	jmp	.LBB0_407
-.LBB0_417:
-	cmp	edi, 8
-	jle	.LBB0_418
-# %bb.423:
-	cmp	edi, 9
-	je	.LBB0_504
-# %bb.424:
-	cmp	edi, 11
-	je	.LBB0_516
-# %bb.425:
-	cmp	edi, 12
-	jne	.LBB0_537
-# %bb.426:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.427:
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jae	.LBB0_528
-# %bb.428:
-	xor	esi, esi
-	jmp	.LBB0_533
-.LBB0_32:
-	cmp	edi, 8
-	jle	.LBB0_33
-# %bb.38:
-	cmp	edi, 9
-	je	.LBB0_119
-# %bb.39:
-	cmp	edi, 11
-	je	.LBB0_131
-# %bb.40:
-	cmp	edi, 12
-	jne	.LBB0_537
-# %bb.41:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.42:
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jae	.LBB0_143
-# %bb.43:
-	xor	esi, esi
-	jmp	.LBB0_148
-.LBB0_165:
-	cmp	edi, 8
-	jle	.LBB0_166
-# %bb.171:
-	cmp	edi, 9
-	je	.LBB0_252
-# %bb.172:
-	cmp	edi, 11
-	je	.LBB0_264
-# %bb.173:
-	cmp	edi, 12
-	jne	.LBB0_537
-# %bb.174:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.175:
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jae	.LBB0_276
-# %bb.176:
-	xor	esi, esi
-	jmp	.LBB0_281
-.LBB0_5:
-	cmp	edi, 2
-	je	.LBB0_303
-# %bb.6:
-	cmp	edi, 3
-	jne	.LBB0_537
-# %bb.7:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.8:
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jae	.LBB0_315
-# %bb.9:
-	xor	esi, esi
-	jmp	.LBB0_320
-.LBB0_14:
-	cmp	edi, 2
-	je	.LBB0_429
+	jg	.LBB0_695
 # %bb.15:
 	cmp	edi, 3
-	jne	.LBB0_537
-# %bb.16:
+	jle	.LBB0_16
+# %bb.689:
+	cmp	edi, 4
+	je	.LBB0_738
+# %bb.690:
+	cmp	edi, 5
+	je	.LBB0_750
+# %bb.691:
+	cmp	edi, 6
+	jne	.LBB0_825
+# %bb.692:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.17:
+	jle	.LBB0_825
+# %bb.693:
 	mov	r10d, r9d
-	cmp	r9d, 128
-	jae	.LBB0_441
-# %bb.18:
+	cmp	r9d, 32
+	jae	.LBB0_762
+# %bb.694:
 	xor	esi, esi
-	jmp	.LBB0_446
+.LBB0_767:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_769
+.LBB0_768:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rcx + 4*rsi]
+	imul	edi, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_768
+.LBB0_769:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_770:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rcx + 4*rsi]
+	imul	eax, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 4]
+	imul	eax, dword ptr [rdx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 8]
+	imul	eax, dword ptr [rdx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 12]
+	imul	eax, dword ptr [rdx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_770
+	jmp	.LBB0_825
 .LBB0_21:
-	cmp	edi, 2
-	je	.LBB0_44
+	cmp	edi, 6
+	jg	.LBB0_34
 # %bb.22:
 	cmp	edi, 3
-	jne	.LBB0_537
-# %bb.23:
+	jle	.LBB0_23
+# %bb.28:
+	cmp	edi, 4
+	je	.LBB0_67
+# %bb.29:
+	cmp	edi, 5
+	je	.LBB0_79
+# %bb.30:
+	cmp	edi, 6
+	jne	.LBB0_825
+# %bb.31:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.24:
+	jle	.LBB0_825
+# %bb.32:
 	mov	r10d, r9d
-	cmp	r9d, 128
-	jae	.LBB0_56
-# %bb.25:
+	cmp	r9d, 32
+	jae	.LBB0_91
+# %bb.33:
 	xor	esi, esi
-	jmp	.LBB0_61
+	jmp	.LBB0_96
+.LBB0_287:
+	cmp	edi, 6
+	jg	.LBB0_300
+# %bb.288:
+	cmp	edi, 3
+	jle	.LBB0_289
+# %bb.294:
+	cmp	edi, 4
+	je	.LBB0_333
+# %bb.295:
+	cmp	edi, 5
+	je	.LBB0_345
+# %bb.296:
+	cmp	edi, 6
+	jne	.LBB0_825
+# %bb.297:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.298:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_357
+# %bb.299:
+	xor	esi, esi
+.LBB0_362:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_364
+.LBB0_363:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rdx + 4*rsi]
+	sub	edi, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_363
+.LBB0_364:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_365:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rdx + 4*rsi]
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 4]
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 8]
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 12]
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_365
+	jmp	.LBB0_825
 .LBB0_154:
-	cmp	edi, 2
-	je	.LBB0_177
+	cmp	edi, 6
+	jg	.LBB0_167
 # %bb.155:
 	cmp	edi, 3
-	jne	.LBB0_537
-# %bb.156:
+	jle	.LBB0_156
+# %bb.161:
+	cmp	edi, 4
+	je	.LBB0_200
+# %bb.162:
+	cmp	edi, 5
+	je	.LBB0_212
+# %bb.163:
+	cmp	edi, 6
+	jne	.LBB0_825
+# %bb.164:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.157:
+	jle	.LBB0_825
+# %bb.165:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_224
+# %bb.166:
+	xor	esi, esi
+	jmp	.LBB0_229
+.LBB0_420:
+	cmp	edi, 6
+	jg	.LBB0_433
+# %bb.421:
+	cmp	edi, 3
+	jle	.LBB0_422
+# %bb.427:
+	cmp	edi, 4
+	je	.LBB0_466
+# %bb.428:
+	cmp	edi, 5
+	je	.LBB0_478
+# %bb.429:
+	cmp	edi, 6
+	jne	.LBB0_825
+# %bb.430:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.431:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_490
+# %bb.432:
+	xor	esi, esi
+.LBB0_495:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_497
+.LBB0_496:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rdx + 4*rsi]
+	sub	edi, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_496
+.LBB0_497:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_498:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rdx + 4*rsi]
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 4]
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 8]
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 12]
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_498
+	jmp	.LBB0_825
+.LBB0_559:
+	cmp	edi, 8
+	jle	.LBB0_560
+# %bb.565:
+	cmp	edi, 9
+	je	.LBB0_656
+# %bb.566:
+	cmp	edi, 11
+	je	.LBB0_668
+# %bb.567:
+	cmp	edi, 12
+	jne	.LBB0_825
+# %bb.568:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.569:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_680
+# %bb.570:
+	xor	esi, esi
+.LBB0_685:
+	mov	rdi, rsi
+	not	rdi
+	add	rdi, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_687
+.LBB0_686:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
+	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_686
+.LBB0_687:
+	cmp	rdi, 3
+	jb	.LBB0_825
+.LBB0_688:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
+	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 8] # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 8]
+	vmovsd	qword ptr [r8 + 8*rsi + 8], xmm0
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 16] # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 16]
+	vmovsd	qword ptr [r8 + 8*rsi + 16], xmm0
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 24] # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 24]
+	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_688
+	jmp	.LBB0_825
+.LBB0_695:
+	cmp	edi, 8
+	jle	.LBB0_696
+# %bb.701:
+	cmp	edi, 9
+	je	.LBB0_792
+# %bb.702:
+	cmp	edi, 11
+	je	.LBB0_804
+# %bb.703:
+	cmp	edi, 12
+	jne	.LBB0_825
+# %bb.704:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.705:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_816
+# %bb.706:
+	xor	esi, esi
+.LBB0_821:
+	mov	rdi, rsi
+	not	rdi
+	add	rdi, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_823
+.LBB0_822:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
+	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_822
+.LBB0_823:
+	cmp	rdi, 3
+	jb	.LBB0_825
+.LBB0_824:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
+	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 8] # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 8]
+	vmovsd	qword ptr [r8 + 8*rsi + 8], xmm0
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 16] # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 16]
+	vmovsd	qword ptr [r8 + 8*rsi + 16], xmm0
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 24] # xmm0 = mem[0],zero
+	vmulsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 24]
+	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_824
+	jmp	.LBB0_825
+.LBB0_34:
+	cmp	edi, 8
+	jle	.LBB0_35
+# %bb.40:
+	cmp	edi, 9
+	je	.LBB0_121
+# %bb.41:
+	cmp	edi, 11
+	je	.LBB0_133
+# %bb.42:
+	cmp	edi, 12
+	jne	.LBB0_825
+# %bb.43:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.44:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_145
+# %bb.45:
+	xor	esi, esi
+	jmp	.LBB0_150
+.LBB0_300:
+	cmp	edi, 8
+	jle	.LBB0_301
+# %bb.306:
+	cmp	edi, 9
+	je	.LBB0_387
+# %bb.307:
+	cmp	edi, 11
+	je	.LBB0_399
+# %bb.308:
+	cmp	edi, 12
+	jne	.LBB0_825
+# %bb.309:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.310:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_411
+# %bb.311:
+	xor	esi, esi
+.LBB0_416:
+	mov	rdi, rsi
+	not	rdi
+	add	rdi, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_418
+.LBB0_417:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
+	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_417
+.LBB0_418:
+	cmp	rdi, 3
+	jb	.LBB0_825
+.LBB0_419:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
+	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 8] # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 8]
+	vmovsd	qword ptr [r8 + 8*rsi + 8], xmm0
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 16] # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 16]
+	vmovsd	qword ptr [r8 + 8*rsi + 16], xmm0
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 24] # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 24]
+	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_419
+	jmp	.LBB0_825
+.LBB0_167:
+	cmp	edi, 8
+	jle	.LBB0_168
+# %bb.173:
+	cmp	edi, 9
+	je	.LBB0_254
+# %bb.174:
+	cmp	edi, 11
+	je	.LBB0_266
+# %bb.175:
+	cmp	edi, 12
+	jne	.LBB0_825
+# %bb.176:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.177:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_278
+# %bb.178:
+	xor	esi, esi
+	jmp	.LBB0_283
+.LBB0_433:
+	cmp	edi, 8
+	jle	.LBB0_434
+# %bb.439:
+	cmp	edi, 9
+	je	.LBB0_520
+# %bb.440:
+	cmp	edi, 11
+	je	.LBB0_532
+# %bb.441:
+	cmp	edi, 12
+	jne	.LBB0_825
+# %bb.442:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.443:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_544
+# %bb.444:
+	xor	esi, esi
+.LBB0_549:
+	mov	rdi, rsi
+	not	rdi
+	add	rdi, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_551
+.LBB0_550:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
+	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_550
+.LBB0_551:
+	cmp	rdi, 3
+	jb	.LBB0_825
+.LBB0_552:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
+	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 8] # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 8]
+	vmovsd	qword ptr [r8 + 8*rsi + 8], xmm0
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 16] # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 16]
+	vmovsd	qword ptr [r8 + 8*rsi + 16], xmm0
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 24] # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 24]
+	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_552
+	jmp	.LBB0_825
+.LBB0_6:
+	cmp	edi, 2
+	je	.LBB0_571
+# %bb.7:
+	cmp	edi, 3
+	jne	.LBB0_825
+# %bb.8:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.9:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_588
+# %bb.10:
+	xor	edi, edi
+	jmp	.LBB0_598
+.LBB0_16:
+	cmp	edi, 2
+	je	.LBB0_707
+# %bb.17:
+	cmp	edi, 3
+	jne	.LBB0_825
+# %bb.18:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.19:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_724
+# %bb.20:
+	xor	edi, edi
+	jmp	.LBB0_734
+.LBB0_23:
+	cmp	edi, 2
+	je	.LBB0_46
+# %bb.24:
+	cmp	edi, 3
+	jne	.LBB0_825
+# %bb.25:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.26:
 	mov	r10d, r9d
 	cmp	r9d, 128
-	jae	.LBB0_189
-# %bb.158:
+	jae	.LBB0_58
+# %bb.27:
 	xor	esi, esi
-	jmp	.LBB0_194
-.LBB0_292:
-	cmp	edi, 7
-	je	.LBB0_357
+	jmp	.LBB0_63
+.LBB0_289:
+	cmp	edi, 2
+	je	.LBB0_312
+# %bb.290:
+	cmp	edi, 3
+	jne	.LBB0_825
+# %bb.291:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.292:
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jae	.LBB0_324
 # %bb.293:
-	cmp	edi, 8
-	jne	.LBB0_537
-# %bb.294:
+	xor	esi, esi
+	jmp	.LBB0_329
+.LBB0_156:
+	cmp	edi, 2
+	je	.LBB0_179
+# %bb.157:
+	cmp	edi, 3
+	jne	.LBB0_825
+# %bb.158:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.295:
+	jle	.LBB0_825
+# %bb.159:
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jae	.LBB0_191
+# %bb.160:
+	xor	esi, esi
+	jmp	.LBB0_196
+.LBB0_422:
+	cmp	edi, 2
+	je	.LBB0_445
+# %bb.423:
+	cmp	edi, 3
+	jne	.LBB0_825
+# %bb.424:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.425:
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jae	.LBB0_457
+# %bb.426:
+	xor	esi, esi
+	jmp	.LBB0_462
+.LBB0_560:
+	cmp	edi, 7
+	je	.LBB0_635
+# %bb.561:
+	cmp	edi, 8
+	jne	.LBB0_825
+# %bb.562:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.563:
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jae	.LBB0_369
-# %bb.296:
+	jae	.LBB0_647
+# %bb.564:
 	xor	esi, esi
-	jmp	.LBB0_374
-.LBB0_418:
+	jmp	.LBB0_652
+.LBB0_696:
 	cmp	edi, 7
-	je	.LBB0_483
-# %bb.419:
+	je	.LBB0_771
+# %bb.697:
 	cmp	edi, 8
-	jne	.LBB0_537
-# %bb.420:
+	jne	.LBB0_825
+# %bb.698:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.421:
+	jle	.LBB0_825
+# %bb.699:
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jae	.LBB0_495
-# %bb.422:
+	jae	.LBB0_783
+# %bb.700:
 	xor	esi, esi
-	jmp	.LBB0_500
-.LBB0_33:
+	jmp	.LBB0_788
+.LBB0_35:
 	cmp	edi, 7
-	je	.LBB0_98
-# %bb.34:
-	cmp	edi, 8
-	jne	.LBB0_537
-# %bb.35:
-	test	r9d, r9d
-	jle	.LBB0_537
+	je	.LBB0_100
 # %bb.36:
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jae	.LBB0_110
-# %bb.37:
-	xor	esi, esi
-	jmp	.LBB0_115
-.LBB0_166:
-	cmp	edi, 7
-	je	.LBB0_231
-# %bb.167:
 	cmp	edi, 8
-	jne	.LBB0_537
-# %bb.168:
+	jne	.LBB0_825
+# %bb.37:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.169:
+	jle	.LBB0_825
+# %bb.38:
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jae	.LBB0_243
-# %bb.170:
+	jae	.LBB0_112
+# %bb.39:
 	xor	esi, esi
-	jmp	.LBB0_248
-.LBB0_324:
+	jmp	.LBB0_117
+.LBB0_301:
+	cmp	edi, 7
+	je	.LBB0_366
+# %bb.302:
+	cmp	edi, 8
+	jne	.LBB0_825
+# %bb.303:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.325:
-	mov	r10d, r9d
-	cmp	r9d, 64
-	jae	.LBB0_327
-# %bb.326:
-	xor	esi, esi
-	jmp	.LBB0_332
-.LBB0_336:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.337:
-	mov	r10d, r9d
-	cmp	r9d, 64
-	jae	.LBB0_339
-# %bb.338:
-	xor	esi, esi
-	jmp	.LBB0_344
-.LBB0_450:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.451:
-	mov	r10d, r9d
-	cmp	r9d, 64
-	jae	.LBB0_453
-# %bb.452:
-	xor	esi, esi
-	jmp	.LBB0_458
-.LBB0_462:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.463:
-	mov	r10d, r9d
-	cmp	r9d, 64
-	jae	.LBB0_465
-# %bb.464:
-	xor	esi, esi
-	jmp	.LBB0_470
-.LBB0_65:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.66:
-	mov	r10d, r9d
-	cmp	r9d, 64
-	jae	.LBB0_68
-# %bb.67:
-	xor	esi, esi
-	jmp	.LBB0_73
-.LBB0_77:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.78:
-	mov	r10d, r9d
-	cmp	r9d, 64
-	jae	.LBB0_80
-# %bb.79:
-	xor	esi, esi
-	jmp	.LBB0_85
-.LBB0_198:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.199:
-	mov	r10d, r9d
-	cmp	r9d, 64
-	jae	.LBB0_201
-# %bb.200:
-	xor	esi, esi
-	jmp	.LBB0_206
-.LBB0_210:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.211:
-	mov	r10d, r9d
-	cmp	r9d, 64
-	jae	.LBB0_213
-# %bb.212:
-	xor	esi, esi
-	jmp	.LBB0_218
-.LBB0_378:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.379:
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jae	.LBB0_381
-# %bb.380:
-	xor	esi, esi
-	jmp	.LBB0_386
-.LBB0_390:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.391:
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_393
-# %bb.392:
-	xor	esi, esi
-	jmp	.LBB0_398
-.LBB0_504:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.505:
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jae	.LBB0_507
-# %bb.506:
-	xor	esi, esi
-	jmp	.LBB0_512
-.LBB0_516:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.517:
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_519
-# %bb.518:
-	xor	esi, esi
-	jmp	.LBB0_524
-.LBB0_119:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.120:
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jae	.LBB0_122
-# %bb.121:
-	xor	esi, esi
-	jmp	.LBB0_127
-.LBB0_131:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.132:
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_134
-# %bb.133:
-	xor	esi, esi
-	jmp	.LBB0_139
-.LBB0_252:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.253:
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jae	.LBB0_255
-# %bb.254:
-	xor	esi, esi
-	jmp	.LBB0_260
-.LBB0_264:
-	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.265:
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_267
-# %bb.266:
-	xor	esi, esi
-	jmp	.LBB0_272
-.LBB0_303:
-	test	r9d, r9d
-	jle	.LBB0_537
+	jle	.LBB0_825
 # %bb.304:
 	mov	r10d, r9d
-	cmp	r9d, 128
-	jae	.LBB0_306
+	cmp	r9d, 16
+	jae	.LBB0_378
 # %bb.305:
 	xor	esi, esi
-	jmp	.LBB0_311
-.LBB0_429:
+	jmp	.LBB0_383
+.LBB0_168:
+	cmp	edi, 7
+	je	.LBB0_233
+# %bb.169:
+	cmp	edi, 8
+	jne	.LBB0_825
+# %bb.170:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.430:
+	jle	.LBB0_825
+# %bb.171:
 	mov	r10d, r9d
-	cmp	r9d, 128
-	jae	.LBB0_432
-# %bb.431:
+	cmp	r9d, 16
+	jae	.LBB0_245
+# %bb.172:
 	xor	esi, esi
-	jmp	.LBB0_437
-.LBB0_44:
+	jmp	.LBB0_250
+.LBB0_434:
+	cmp	edi, 7
+	je	.LBB0_499
+# %bb.435:
+	cmp	edi, 8
+	jne	.LBB0_825
+# %bb.436:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.45:
+	jle	.LBB0_825
+# %bb.437:
 	mov	r10d, r9d
-	cmp	r9d, 128
-	jae	.LBB0_47
-# %bb.46:
+	cmp	r9d, 16
+	jae	.LBB0_511
+# %bb.438:
 	xor	esi, esi
-	jmp	.LBB0_52
-.LBB0_177:
+	jmp	.LBB0_516
+.LBB0_602:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.178:
+	jle	.LBB0_825
+# %bb.603:
 	mov	r10d, r9d
-	cmp	r9d, 128
-	jae	.LBB0_180
-# %bb.179:
+	cmp	r9d, 64
+	jae	.LBB0_605
+# %bb.604:
 	xor	esi, esi
-	jmp	.LBB0_185
-.LBB0_357:
+.LBB0_610:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_612
+.LBB0_611:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	imul	di, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_611
+.LBB0_612:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_613:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	imul	ax, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	imul	ax, word ptr [rdx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	imul	ax, word ptr [rdx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	imul	ax, word ptr [rdx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_613
+	jmp	.LBB0_825
+.LBB0_614:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.358:
+	jle	.LBB0_825
+# %bb.615:
 	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_360
-# %bb.359:
+	cmp	r9d, 64
+	jae	.LBB0_617
+# %bb.616:
 	xor	esi, esi
-	jmp	.LBB0_365
-.LBB0_483:
+.LBB0_622:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_624
+.LBB0_623:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	imul	di, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_623
+.LBB0_624:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_625:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	imul	ax, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	imul	ax, word ptr [rdx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	imul	ax, word ptr [rdx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	imul	ax, word ptr [rdx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_625
+	jmp	.LBB0_825
+.LBB0_738:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.484:
+	jle	.LBB0_825
+# %bb.739:
 	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_486
-# %bb.485:
+	cmp	r9d, 64
+	jae	.LBB0_741
+# %bb.740:
 	xor	esi, esi
-	jmp	.LBB0_491
-.LBB0_98:
+.LBB0_746:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_748
+.LBB0_747:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	imul	di, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_747
+.LBB0_748:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_749:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	imul	ax, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	imul	ax, word ptr [rdx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	imul	ax, word ptr [rdx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	imul	ax, word ptr [rdx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_749
+	jmp	.LBB0_825
+.LBB0_750:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.99:
+	jle	.LBB0_825
+# %bb.751:
 	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_101
-# %bb.100:
+	cmp	r9d, 64
+	jae	.LBB0_753
+# %bb.752:
 	xor	esi, esi
-	jmp	.LBB0_106
-.LBB0_231:
+.LBB0_758:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_760
+.LBB0_759:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	imul	di, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_759
+.LBB0_760:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_761:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	imul	ax, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	imul	ax, word ptr [rdx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	imul	ax, word ptr [rdx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	imul	ax, word ptr [rdx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_761
+	jmp	.LBB0_825
+.LBB0_67:
 	test	r9d, r9d
-	jle	.LBB0_537
-# %bb.232:
+	jle	.LBB0_825
+# %bb.68:
 	mov	r10d, r9d
-	cmp	r9d, 32
-	jae	.LBB0_234
-# %bb.233:
+	cmp	r9d, 64
+	jae	.LBB0_70
+# %bb.69:
 	xor	esi, esi
-	jmp	.LBB0_239
-.LBB0_348:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
+	jmp	.LBB0_75
+.LBB0_79:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.80:
+	mov	r10d, r9d
+	cmp	r9d, 64
+	jae	.LBB0_82
+# %bb.81:
 	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_353
-# %bb.349:
-	and	al, dil
-	jne	.LBB0_353
-# %bb.350:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_351:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_351
-# %bb.352:
-	cmp	rsi, r10
-	je	.LBB0_537
+	jmp	.LBB0_87
+.LBB0_333:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.334:
+	mov	r10d, r9d
+	cmp	r9d, 64
+	jae	.LBB0_336
+# %bb.335:
+	xor	esi, esi
+.LBB0_341:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_343
+.LBB0_342:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	di, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_342
+.LBB0_343:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_344:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rdx + 2*rsi]
+	sub	ax, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 2]
+	sub	ax, word ptr [rcx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 4]
+	sub	ax, word ptr [rcx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 6]
+	sub	ax, word ptr [rcx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_344
+	jmp	.LBB0_825
+.LBB0_345:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.346:
+	mov	r10d, r9d
+	cmp	r9d, 64
+	jae	.LBB0_348
+# %bb.347:
+	xor	esi, esi
 .LBB0_353:
 	mov	r9, rsi
 	not	r9
@@ -628,298 +1039,382 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	and	rax, 3
 	je	.LBB0_355
 .LBB0_354:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rdx + 4*rsi]
-	sub	edi, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], edi
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	di, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rax, -1
 	jne	.LBB0_354
 .LBB0_355:
 	cmp	r9, 3
-	jb	.LBB0_537
+	jb	.LBB0_825
 .LBB0_356:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rdx + 4*rsi]
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 4]
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 8]
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 12]
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
+	movzx	eax, word ptr [rdx + 2*rsi]
+	sub	ax, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 2]
+	sub	ax, word ptr [rcx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 4]
+	sub	ax, word ptr [rcx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 6]
+	sub	ax, word ptr [rcx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB0_356
-	jmp	.LBB0_537
+	jmp	.LBB0_825
+.LBB0_200:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.201:
+	mov	r10d, r9d
+	cmp	r9d, 64
+	jae	.LBB0_203
+# %bb.202:
+	xor	esi, esi
+	jmp	.LBB0_208
+.LBB0_212:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.213:
+	mov	r10d, r9d
+	cmp	r9d, 64
+	jae	.LBB0_215
+# %bb.214:
+	xor	esi, esi
+	jmp	.LBB0_220
+.LBB0_466:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.467:
+	mov	r10d, r9d
+	cmp	r9d, 64
+	jae	.LBB0_469
+# %bb.468:
+	xor	esi, esi
 .LBB0_474:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_479
-# %bb.475:
-	and	al, dil
-	jne	.LBB0_479
-# %bb.476:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_476
+.LBB0_475:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	di, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_475
+.LBB0_476:
+	cmp	r9, 3
+	jb	.LBB0_825
 .LBB0_477:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
+	movzx	eax, word ptr [rdx + 2*rsi]
+	sub	ax, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 2]
+	sub	ax, word ptr [rcx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 4]
+	sub	ax, word ptr [rcx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 6]
+	sub	ax, word ptr [rcx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
 	jne	.LBB0_477
-# %bb.478:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_479:
+	jmp	.LBB0_825
+.LBB0_478:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.479:
+	mov	r10d, r9d
+	cmp	r9d, 64
+	jae	.LBB0_481
+# %bb.480:
+	xor	esi, esi
+.LBB0_486:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_481
-.LBB0_480:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rdx + 4*rsi]
-	sub	edi, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], edi
+	je	.LBB0_488
+.LBB0_487:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	di, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_480
-.LBB0_481:
+	jne	.LBB0_487
+.LBB0_488:
 	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_482:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rdx + 4*rsi]
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 4]
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 8]
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 12]
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
+	jb	.LBB0_825
+.LBB0_489:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rdx + 2*rsi]
+	sub	ax, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 2]
+	sub	ax, word ptr [rcx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 4]
+	sub	ax, word ptr [rcx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rdx + 2*rsi + 6]
+	sub	ax, word ptr [rcx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_482
-	jmp	.LBB0_537
-.LBB0_89:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
+	jne	.LBB0_489
+	jmp	.LBB0_825
+.LBB0_656:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.657:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_659
+# %bb.658:
 	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_94
-# %bb.90:
-	and	al, dil
-	jne	.LBB0_94
-# %bb.91:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_92:                               # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_92
-# %bb.93:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_94:
+.LBB0_664:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_96
-.LBB0_95:                               # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rcx + 4*rsi]
-	add	edi, dword ptr [rdx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], edi
+	je	.LBB0_666
+.LBB0_665:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	imul	rdi, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_95
-.LBB0_96:
+	jne	.LBB0_665
+.LBB0_666:
 	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_97:                               # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rcx + 4*rsi]
-	add	eax, dword ptr [rdx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 4]
-	add	eax, dword ptr [rdx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 8]
-	add	eax, dword ptr [rdx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 12]
-	add	eax, dword ptr [rdx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
+	jb	.LBB0_825
+.LBB0_667:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	imul	rax, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	imul	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	imul	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	imul	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_97
-	jmp	.LBB0_537
-.LBB0_222:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
+	jne	.LBB0_667
+	jmp	.LBB0_825
+.LBB0_668:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.669:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_671
+# %bb.670:
 	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_227
-# %bb.223:
-	and	al, dil
-	jne	.LBB0_227
-# %bb.224:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_225:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_225
-# %bb.226:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_227:
+.LBB0_676:
+	mov	rdi, rsi
+	not	rdi
+	add	rdi, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_678
+.LBB0_677:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_677
+.LBB0_678:
+	cmp	rdi, 3
+	jb	.LBB0_825
+.LBB0_679:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 4]
+	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 8]
+	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 12]
+	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_679
+	jmp	.LBB0_825
+.LBB0_792:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.793:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_795
+# %bb.794:
+	xor	esi, esi
+.LBB0_800:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_229
-.LBB0_228:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rcx + 4*rsi]
-	add	edi, dword ptr [rdx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], edi
+	je	.LBB0_802
+.LBB0_801:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	imul	rdi, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_228
-.LBB0_229:
+	jne	.LBB0_801
+.LBB0_802:
 	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_230:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rcx + 4*rsi]
-	add	eax, dword ptr [rdx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 4]
-	add	eax, dword ptr [rdx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 8]
-	add	eax, dword ptr [rdx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 12]
-	add	eax, dword ptr [rdx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
+	jb	.LBB0_825
+.LBB0_803:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	imul	rax, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	imul	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	imul	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	imul	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_230
-	jmp	.LBB0_537
-.LBB0_402:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 8*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
+	jne	.LBB0_803
+	jmp	.LBB0_825
+.LBB0_804:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.805:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_807
+# %bb.806:
 	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_407
-# %bb.403:
-	and	al, dil
-	jne	.LBB0_407
-# %bb.404:
-	mov	esi, r10d
-	and	esi, -16
-	xor	edi, edi
-.LBB0_405:                              # =>This Inner Loop Header: Depth=1
-	vmovupd	ymm0, ymmword ptr [rdx + 8*rdi]
-	vmovupd	ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vsubpd	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
-	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vsubpd	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vsubpd	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
-	cmp	rsi, rdi
-	jne	.LBB0_405
-# %bb.406:
-	cmp	rsi, r10
-	je	.LBB0_537
+.LBB0_812:
+	mov	rdi, rsi
+	not	rdi
+	add	rdi, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_814
+.LBB0_813:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_813
+.LBB0_814:
+	cmp	rdi, 3
+	jb	.LBB0_825
+.LBB0_815:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 4]
+	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 8]
+	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
+	vmulss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 12]
+	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_815
+	jmp	.LBB0_825
+.LBB0_121:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.122:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_124
+# %bb.123:
+	xor	esi, esi
+	jmp	.LBB0_129
+.LBB0_133:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.134:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_136
+# %bb.135:
+	xor	esi, esi
+	jmp	.LBB0_141
+.LBB0_387:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.388:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_390
+# %bb.389:
+	xor	esi, esi
+.LBB0_395:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_397
+.LBB0_396:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rdx + 8*rsi]
+	sub	rdi, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_396
+.LBB0_397:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_398:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rdx + 8*rsi]
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 8]
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 16]
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 24]
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_398
+	jmp	.LBB0_825
+.LBB0_399:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.400:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_402
+# %bb.401:
+	xor	esi, esi
 .LBB0_407:
 	mov	rdi, rsi
 	not	rdi
@@ -928,108 +1423,409 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	and	rax, 3
 	je	.LBB0_409
 .LBB0_408:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
-	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
 	add	rsi, 1
 	add	rax, -1
 	jne	.LBB0_408
 .LBB0_409:
 	cmp	rdi, 3
-	jb	.LBB0_537
+	jb	.LBB0_825
 .LBB0_410:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
-	vmovsd	qword ptr [r8 + 8*rsi], xmm0
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 8] # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 8]
-	vmovsd	qword ptr [r8 + 8*rsi + 8], xmm0
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 16] # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 16]
-	vmovsd	qword ptr [r8 + 8*rsi + 16], xmm0
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 24] # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 24]
-	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
+	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	vmovss	xmm0, dword ptr [rdx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 4]
+	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
+	vmovss	xmm0, dword ptr [rdx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 8]
+	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
+	vmovss	xmm0, dword ptr [rdx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 12]
+	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB0_410
-	jmp	.LBB0_537
-.LBB0_528:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 8*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
+	jmp	.LBB0_825
+.LBB0_254:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.255:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_257
+# %bb.256:
 	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_533
-# %bb.529:
-	and	al, dil
-	jne	.LBB0_533
-# %bb.530:
-	mov	esi, r10d
-	and	esi, -16
-	xor	edi, edi
+	jmp	.LBB0_262
+.LBB0_266:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.267:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_269
+# %bb.268:
+	xor	esi, esi
+	jmp	.LBB0_274
+.LBB0_520:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.521:
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jae	.LBB0_523
+# %bb.522:
+	xor	esi, esi
+.LBB0_528:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_530
+.LBB0_529:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rdx + 8*rsi]
+	sub	rdi, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_529
+.LBB0_530:
+	cmp	r9, 3
+	jb	.LBB0_825
 .LBB0_531:                              # =>This Inner Loop Header: Depth=1
-	vmovupd	ymm0, ymmword ptr [rdx + 8*rdi]
-	vmovupd	ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vsubpd	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
-	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vsubpd	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vsubpd	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
-	cmp	rsi, rdi
+	mov	rax, qword ptr [rdx + 8*rsi]
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 8]
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 16]
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 24]
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
 	jne	.LBB0_531
-# %bb.532:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_533:
+	jmp	.LBB0_825
+.LBB0_532:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.533:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_535
+# %bb.534:
+	xor	esi, esi
+.LBB0_540:
 	mov	rdi, rsi
 	not	rdi
 	add	rdi, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_535
-.LBB0_534:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
-	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	je	.LBB0_542
+.LBB0_541:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_534
-.LBB0_535:
+	jne	.LBB0_541
+.LBB0_542:
 	cmp	rdi, 3
-	jb	.LBB0_537
-.LBB0_536:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
-	vmovsd	qword ptr [r8 + 8*rsi], xmm0
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 8] # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 8]
-	vmovsd	qword ptr [r8 + 8*rsi + 8], xmm0
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 16] # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 16]
-	vmovsd	qword ptr [r8 + 8*rsi + 16], xmm0
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 24] # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 24]
-	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
+	jb	.LBB0_825
+.LBB0_543:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	vmovss	xmm0, dword ptr [rdx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 4]
+	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
+	vmovss	xmm0, dword ptr [rdx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 8]
+	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
+	vmovss	xmm0, dword ptr [rdx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 12]
+	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_536
-	jmp	.LBB0_537
-.LBB0_143:
+	jne	.LBB0_543
+	jmp	.LBB0_825
+.LBB0_571:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.572:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_574
+# %bb.573:
+	xor	edi, edi
+	jmp	.LBB0_584
+.LBB0_707:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.708:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_710
+# %bb.709:
+	xor	edi, edi
+	jmp	.LBB0_720
+.LBB0_46:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.47:
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jae	.LBB0_49
+# %bb.48:
+	xor	esi, esi
+	jmp	.LBB0_54
+.LBB0_312:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.313:
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jae	.LBB0_315
+# %bb.314:
+	xor	esi, esi
+	jmp	.LBB0_320
+.LBB0_179:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.180:
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jae	.LBB0_182
+# %bb.181:
+	xor	esi, esi
+	jmp	.LBB0_187
+.LBB0_445:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.446:
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jae	.LBB0_448
+# %bb.447:
+	xor	esi, esi
+	jmp	.LBB0_453
+.LBB0_635:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.636:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_638
+# %bb.637:
+	xor	esi, esi
+	jmp	.LBB0_643
+.LBB0_771:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.772:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_774
+# %bb.773:
+	xor	esi, esi
+	jmp	.LBB0_779
+.LBB0_100:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.101:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_103
+# %bb.102:
+	xor	esi, esi
+	jmp	.LBB0_108
+.LBB0_366:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.367:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_369
+# %bb.368:
+	xor	esi, esi
+	jmp	.LBB0_374
+.LBB0_233:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.234:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_236
+# %bb.235:
+	xor	esi, esi
+	jmp	.LBB0_241
+.LBB0_499:
+	test	r9d, r9d
+	jle	.LBB0_825
+# %bb.500:
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jae	.LBB0_502
+# %bb.501:
+	xor	esi, esi
+	jmp	.LBB0_507
+.LBB0_91:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_96
+# %bb.92:
+	and	al, dil
+	jne	.LBB0_96
+# %bb.93:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_94:                               # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_94
+# %bb.95:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_96:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_98
+.LBB0_97:                               # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rcx + 4*rsi]
+	add	edi, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_97
+.LBB0_98:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_99:                               # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rcx + 4*rsi]
+	add	eax, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 4]
+	add	eax, dword ptr [rdx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 8]
+	add	eax, dword ptr [rdx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 12]
+	add	eax, dword ptr [rdx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_99
+	jmp	.LBB0_825
+.LBB0_224:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_229
+# %bb.225:
+	and	al, dil
+	jne	.LBB0_229
+# %bb.226:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_227:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_227
+# %bb.228:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_229:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_231
+.LBB0_230:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rcx + 4*rsi]
+	add	edi, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_230
+.LBB0_231:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_232:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rcx + 4*rsi]
+	add	eax, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 4]
+	add	eax, dword ptr [rdx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 8]
+	add	eax, dword ptr [rdx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 12]
+	add	eax, dword ptr [rdx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_232
+	jmp	.LBB0_825
+.LBB0_145:
 	lea	rsi, [r8 + 8*r10]
 	lea	rax, [rdx + 8*r10]
 	cmp	rax, r8
@@ -1043,15 +1839,15 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_148
-# %bb.144:
+	jne	.LBB0_150
+# %bb.146:
 	and	al, dil
-	jne	.LBB0_148
-# %bb.145:
+	jne	.LBB0_150
+# %bb.147:
 	mov	esi, r10d
 	and	esi, -16
 	xor	edi, edi
-.LBB0_146:                              # =>This Inner Loop Header: Depth=1
+.LBB0_148:                              # =>This Inner Loop Header: Depth=1
 	vmovupd	ymm0, ymmword ptr [rcx + 8*rdi]
 	vmovupd	ymm1, ymmword ptr [rcx + 8*rdi + 32]
 	vmovupd	ymm2, ymmword ptr [rcx + 8*rdi + 64]
@@ -1066,31 +1862,31 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
 	add	rdi, 16
 	cmp	rsi, rdi
-	jne	.LBB0_146
-# %bb.147:
+	jne	.LBB0_148
+# %bb.149:
 	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_148:
+	je	.LBB0_825
+.LBB0_150:
 	mov	rdi, rsi
 	not	rdi
 	add	rdi, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_150
-.LBB0_149:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
-	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
-	vmovsd	qword ptr [r8 + 8*rsi], xmm0
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_149
-.LBB0_150:
-	cmp	rdi, 3
-	jb	.LBB0_537
+	je	.LBB0_152
 .LBB0_151:                              # =>This Inner Loop Header: Depth=1
 	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
 	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
 	vmovsd	qword ptr [r8 + 8*rsi], xmm0
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_151
+.LBB0_152:
+	cmp	rdi, 3
+	jb	.LBB0_825
+.LBB0_153:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
+	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
+	vmovsd	qword ptr [r8 + 8*rsi], xmm0
 	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 8] # xmm0 = mem[0],zero
 	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 8]
 	vmovsd	qword ptr [r8 + 8*rsi + 8], xmm0
@@ -1102,9 +1898,9 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_151
-	jmp	.LBB0_537
-.LBB0_276:
+	jne	.LBB0_153
+	jmp	.LBB0_825
+.LBB0_278:
 	lea	rsi, [r8 + 8*r10]
 	lea	rax, [rdx + 8*r10]
 	cmp	rax, r8
@@ -1118,15 +1914,15 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_281
-# %bb.277:
+	jne	.LBB0_283
+# %bb.279:
 	and	al, dil
-	jne	.LBB0_281
-# %bb.278:
+	jne	.LBB0_283
+# %bb.280:
 	mov	esi, r10d
 	and	esi, -16
 	xor	edi, edi
-.LBB0_279:                              # =>This Inner Loop Header: Depth=1
+.LBB0_281:                              # =>This Inner Loop Header: Depth=1
 	vmovupd	ymm0, ymmword ptr [rcx + 8*rdi]
 	vmovupd	ymm1, ymmword ptr [rcx + 8*rdi + 32]
 	vmovupd	ymm2, ymmword ptr [rcx + 8*rdi + 64]
@@ -1141,28 +1937,28 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
 	add	rdi, 16
 	cmp	rsi, rdi
-	jne	.LBB0_279
-# %bb.280:
+	jne	.LBB0_281
+# %bb.282:
 	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_281:
+	je	.LBB0_825
+.LBB0_283:
 	mov	rdi, rsi
 	not	rdi
 	add	rdi, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_283
-.LBB0_282:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB0_285
+.LBB0_284:                              # =>This Inner Loop Header: Depth=1
 	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
 	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
 	vmovsd	qword ptr [r8 + 8*rsi], xmm0
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_282
-.LBB0_283:
+	jne	.LBB0_284
+.LBB0_285:
 	cmp	rdi, 3
-	jb	.LBB0_537
-.LBB0_284:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB0_825
+.LBB0_286:                              # =>This Inner Loop Header: Depth=1
 	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
 	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
 	vmovsd	qword ptr [r8 + 8*rsi], xmm0
@@ -1177,8 +1973,1625 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_284
-	jmp	.LBB0_537
+	jne	.LBB0_286
+	jmp	.LBB0_825
+.LBB0_588:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	sil
+	xor	edi, edi
+	test	r9b, r11b
+	jne	.LBB0_598
+# %bb.589:
+	and	al, sil
+	jne	.LBB0_598
+# %bb.590:
+	mov	edi, r10d
+	and	edi, -32
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB0_592
+# %bb.591:
+	xor	esi, esi
+	jmp	.LBB0_594
+.LBB0_724:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	sil
+	xor	edi, edi
+	test	r9b, r11b
+	jne	.LBB0_734
+# %bb.725:
+	and	al, sil
+	jne	.LBB0_734
+# %bb.726:
+	mov	edi, r10d
+	and	edi, -32
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB0_728
+# %bb.727:
+	xor	esi, esi
+	jmp	.LBB0_730
+.LBB0_58:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_63
+# %bb.59:
+	and	al, dil
+	jne	.LBB0_63
+# %bb.60:
+	mov	esi, r10d
+	and	esi, -128
+	xor	edi, edi
+.LBB0_61:                               # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
+	sub	rdi, -128
+	cmp	rsi, rdi
+	jne	.LBB0_61
+# %bb.62:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_63:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB0_65
+.LBB0_64:                               # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB0_64
+.LBB0_65:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_66:                               # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	movzx	eax, byte ptr [rcx + rsi + 1]
+	add	al, byte ptr [rdx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], al
+	movzx	eax, byte ptr [rcx + rsi + 2]
+	add	al, byte ptr [rdx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], al
+	movzx	eax, byte ptr [rcx + rsi + 3]
+	add	al, byte ptr [rdx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], al
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_66
+	jmp	.LBB0_825
+.LBB0_324:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_329
+# %bb.325:
+	and	al, dil
+	jne	.LBB0_329
+# %bb.326:
+	mov	esi, r10d
+	and	esi, -128
+	xor	edi, edi
+.LBB0_327:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm1, ymm1, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm2, ymm2, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm3, ymm3, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
+	sub	rdi, -128
+	cmp	rsi, rdi
+	jne	.LBB0_327
+# %bb.328:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_329:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB0_331
+.LBB0_330:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rsi]
+	sub	al, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB0_330
+.LBB0_331:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_332:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rsi]
+	sub	al, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	movzx	eax, byte ptr [rdx + rsi + 1]
+	sub	al, byte ptr [rcx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], al
+	movzx	eax, byte ptr [rdx + rsi + 2]
+	sub	al, byte ptr [rcx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], al
+	movzx	eax, byte ptr [rdx + rsi + 3]
+	sub	al, byte ptr [rcx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], al
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_332
+	jmp	.LBB0_825
+.LBB0_191:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_196
+# %bb.192:
+	and	al, dil
+	jne	.LBB0_196
+# %bb.193:
+	mov	esi, r10d
+	and	esi, -128
+	xor	edi, edi
+.LBB0_194:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
+	sub	rdi, -128
+	cmp	rsi, rdi
+	jne	.LBB0_194
+# %bb.195:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_196:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB0_198
+.LBB0_197:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB0_197
+.LBB0_198:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_199:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	movzx	eax, byte ptr [rcx + rsi + 1]
+	add	al, byte ptr [rdx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], al
+	movzx	eax, byte ptr [rcx + rsi + 2]
+	add	al, byte ptr [rdx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], al
+	movzx	eax, byte ptr [rcx + rsi + 3]
+	add	al, byte ptr [rdx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], al
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_199
+	jmp	.LBB0_825
+.LBB0_457:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_462
+# %bb.458:
+	and	al, dil
+	jne	.LBB0_462
+# %bb.459:
+	mov	esi, r10d
+	and	esi, -128
+	xor	edi, edi
+.LBB0_460:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm1, ymm1, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm2, ymm2, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm3, ymm3, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
+	sub	rdi, -128
+	cmp	rsi, rdi
+	jne	.LBB0_460
+# %bb.461:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_462:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB0_464
+.LBB0_463:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rsi]
+	sub	al, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB0_463
+.LBB0_464:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_465:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rsi]
+	sub	al, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	movzx	eax, byte ptr [rdx + rsi + 1]
+	sub	al, byte ptr [rcx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], al
+	movzx	eax, byte ptr [rdx + rsi + 2]
+	sub	al, byte ptr [rcx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], al
+	movzx	eax, byte ptr [rdx + rsi + 3]
+	sub	al, byte ptr [rcx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], al
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_465
+	jmp	.LBB0_825
+.LBB0_647:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_652
+# %bb.648:
+	and	al, dil
+	jne	.LBB0_652
+# %bb.649:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_650:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm6, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm7, ymmword ptr [rcx + 8*rdi + 96]
+	vpsrlq	ymm8, ymm4, 32
+	vpmuludq	ymm8, ymm8, ymm1
+	vpsrlq	ymm9, ymm1, 32
+	vpmuludq	ymm9, ymm9, ymm4
+	vpaddq	ymm8, ymm9, ymm8
+	vpsllq	ymm8, ymm8, 32
+	vpmuludq	ymm1, ymm4, ymm1
+	vpaddq	ymm1, ymm8, ymm1
+	vpsrlq	ymm4, ymm5, 32
+	vpmuludq	ymm4, ymm4, ymm2
+	vpsrlq	ymm8, ymm2, 32
+	vpmuludq	ymm8, ymm8, ymm5
+	vpaddq	ymm4, ymm8, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm2, ymm5, ymm2
+	vpaddq	ymm2, ymm2, ymm4
+	vpsrlq	ymm4, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm3
+	vpsrlq	ymm5, ymm3, 32
+	vpmuludq	ymm5, ymm6, ymm5
+	vpaddq	ymm4, ymm5, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm3, ymm6, ymm3
+	vpaddq	ymm3, ymm3, ymm4
+	vpsrlq	ymm4, ymm7, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpsrlq	ymm5, ymm0, 32
+	vpmuludq	ymm5, ymm7, ymm5
+	vpaddq	ymm4, ymm5, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm0, ymm7, ymm0
+	vpaddq	ymm0, ymm0, ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_650
+# %bb.651:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_652:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_654
+.LBB0_653:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	imul	rdi, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_653
+.LBB0_654:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_655:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	imul	rax, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	imul	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	imul	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	imul	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_655
+	jmp	.LBB0_825
+.LBB0_783:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_788
+# %bb.784:
+	and	al, dil
+	jne	.LBB0_788
+# %bb.785:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_786:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm6, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm7, ymmword ptr [rcx + 8*rdi + 96]
+	vpsrlq	ymm8, ymm4, 32
+	vpmuludq	ymm8, ymm8, ymm1
+	vpsrlq	ymm9, ymm1, 32
+	vpmuludq	ymm9, ymm9, ymm4
+	vpaddq	ymm8, ymm9, ymm8
+	vpsllq	ymm8, ymm8, 32
+	vpmuludq	ymm1, ymm4, ymm1
+	vpaddq	ymm1, ymm8, ymm1
+	vpsrlq	ymm4, ymm5, 32
+	vpmuludq	ymm4, ymm4, ymm2
+	vpsrlq	ymm8, ymm2, 32
+	vpmuludq	ymm8, ymm8, ymm5
+	vpaddq	ymm4, ymm8, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm2, ymm5, ymm2
+	vpaddq	ymm2, ymm2, ymm4
+	vpsrlq	ymm4, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm3
+	vpsrlq	ymm5, ymm3, 32
+	vpmuludq	ymm5, ymm6, ymm5
+	vpaddq	ymm4, ymm5, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm3, ymm6, ymm3
+	vpaddq	ymm3, ymm3, ymm4
+	vpsrlq	ymm4, ymm7, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpsrlq	ymm5, ymm0, 32
+	vpmuludq	ymm5, ymm7, ymm5
+	vpaddq	ymm4, ymm5, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm0, ymm7, ymm0
+	vpaddq	ymm0, ymm0, ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_786
+# %bb.787:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_788:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_790
+.LBB0_789:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	imul	rdi, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_789
+.LBB0_790:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_791:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	imul	rax, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	imul	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	imul	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	imul	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_791
+	jmp	.LBB0_825
+.LBB0_112:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_117
+# %bb.113:
+	and	al, dil
+	jne	.LBB0_117
+# %bb.114:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_115:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_115
+# %bb.116:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_117:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_119
+.LBB0_118:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	add	rdi, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_118
+.LBB0_119:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_120:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	add	rax, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	add	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	add	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	add	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_120
+	jmp	.LBB0_825
+.LBB0_378:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_383
+# %bb.379:
+	and	al, dil
+	jne	.LBB0_383
+# %bb.380:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_381:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_381
+# %bb.382:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_383:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_385
+.LBB0_384:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rdx + 8*rsi]
+	sub	rdi, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_384
+.LBB0_385:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_386:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rdx + 8*rsi]
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 8]
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 16]
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 24]
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_386
+	jmp	.LBB0_825
+.LBB0_245:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_250
+# %bb.246:
+	and	al, dil
+	jne	.LBB0_250
+# %bb.247:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_248:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_248
+# %bb.249:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_250:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_252
+.LBB0_251:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	add	rdi, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_251
+.LBB0_252:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_253:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	add	rax, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	add	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	add	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	add	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_253
+	jmp	.LBB0_825
+.LBB0_511:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_516
+# %bb.512:
+	and	al, dil
+	jne	.LBB0_516
+# %bb.513:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_514:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_514
+# %bb.515:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_516:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_518
+.LBB0_517:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rdx + 8*rsi]
+	sub	rdi, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_517
+.LBB0_518:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_519:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rdx + 8*rsi]
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 8]
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 16]
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rdx + 8*rsi + 24]
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_519
+	jmp	.LBB0_825
+.LBB0_70:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_75
+# %bb.71:
+	and	al, dil
+	jne	.LBB0_75
+# %bb.72:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_73:                               # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_73
+# %bb.74:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_75:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_77
+.LBB0_76:                               # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_76
+.LBB0_77:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_78:                               # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	add	ax, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	add	ax, word ptr [rdx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	add	ax, word ptr [rdx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	add	ax, word ptr [rdx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_78
+	jmp	.LBB0_825
+.LBB0_82:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_87
+# %bb.83:
+	and	al, dil
+	jne	.LBB0_87
+# %bb.84:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_85:                               # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_85
+# %bb.86:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_87:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_89
+.LBB0_88:                               # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_88
+.LBB0_89:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_90:                               # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	add	ax, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	add	ax, word ptr [rdx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	add	ax, word ptr [rdx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	add	ax, word ptr [rdx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_90
+	jmp	.LBB0_825
+.LBB0_203:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_208
+# %bb.204:
+	and	al, dil
+	jne	.LBB0_208
+# %bb.205:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_206:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_206
+# %bb.207:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_208:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_210
+.LBB0_209:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_209
+.LBB0_210:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_211:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	add	ax, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	add	ax, word ptr [rdx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	add	ax, word ptr [rdx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	add	ax, word ptr [rdx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_211
+	jmp	.LBB0_825
+.LBB0_215:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_220
+# %bb.216:
+	and	al, dil
+	jne	.LBB0_220
+# %bb.217:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_218:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_218
+# %bb.219:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_220:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_222
+.LBB0_221:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_221
+.LBB0_222:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_223:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	add	ax, word ptr [rdx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	add	ax, word ptr [rdx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	add	ax, word ptr [rdx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], ax
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	add	ax, word ptr [rdx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], ax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_223
+	jmp	.LBB0_825
+.LBB0_124:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_129
+# %bb.125:
+	and	al, dil
+	jne	.LBB0_129
+# %bb.126:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_127:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_127
+# %bb.128:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_129:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_131
+.LBB0_130:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	add	rdi, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_130
+.LBB0_131:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_132:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	add	rax, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	add	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	add	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	add	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_132
+	jmp	.LBB0_825
+.LBB0_136:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_141
+# %bb.137:
+	and	al, dil
+	jne	.LBB0_141
+# %bb.138:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_139:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovups	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovups	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovups	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vaddps	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vaddps	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vaddps	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_139
+# %bb.140:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_141:
+	mov	rdi, rsi
+	not	rdi
+	add	rdi, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_143
+.LBB0_142:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_142
+.LBB0_143:
+	cmp	rdi, 3
+	jb	.LBB0_825
+.LBB0_144:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 4]
+	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 8]
+	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 12]
+	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_144
+	jmp	.LBB0_825
+.LBB0_257:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_262
+# %bb.258:
+	and	al, dil
+	jne	.LBB0_262
+# %bb.259:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_260:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_260
+# %bb.261:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_262:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_264
+.LBB0_263:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	add	rdi, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rdi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_263
+.LBB0_264:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_265:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	add	rax, qword ptr [rdx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	add	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	add	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	add	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_265
+	jmp	.LBB0_825
+.LBB0_269:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_274
+# %bb.270:
+	and	al, dil
+	jne	.LBB0_274
+# %bb.271:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_272:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovups	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovups	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovups	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vaddps	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vaddps	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vaddps	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_272
+# %bb.273:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_274:
+	mov	rdi, rsi
+	not	rdi
+	add	rdi, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_276
+.LBB0_275:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_275
+.LBB0_276:
+	cmp	rdi, 3
+	jb	.LBB0_825
+.LBB0_277:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+	vmovss	dword ptr [r8 + 4*rsi], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 4]
+	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 8]
+	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 12]
+	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_277
+	jmp	.LBB0_825
+.LBB0_574:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	sil
+	xor	edi, edi
+	test	r9b, r11b
+	jne	.LBB0_584
+# %bb.575:
+	and	al, sil
+	jne	.LBB0_584
+# %bb.576:
+	mov	edi, r10d
+	and	edi, -32
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB0_578
+# %bb.577:
+	xor	esi, esi
+	jmp	.LBB0_580
+.LBB0_710:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	sil
+	xor	edi, edi
+	test	r9b, r11b
+	jne	.LBB0_720
+# %bb.711:
+	and	al, sil
+	jne	.LBB0_720
+# %bb.712:
+	mov	edi, r10d
+	and	edi, -32
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB0_714
+# %bb.713:
+	xor	esi, esi
+	jmp	.LBB0_716
+.LBB0_49:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_54
+# %bb.50:
+	and	al, dil
+	jne	.LBB0_54
+# %bb.51:
+	mov	esi, r10d
+	and	esi, -128
+	xor	edi, edi
+.LBB0_52:                               # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
+	sub	rdi, -128
+	cmp	rsi, rdi
+	jne	.LBB0_52
+# %bb.53:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_54:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB0_56
+.LBB0_55:                               # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB0_55
+.LBB0_56:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_57:                               # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	movzx	eax, byte ptr [rcx + rsi + 1]
+	add	al, byte ptr [rdx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], al
+	movzx	eax, byte ptr [rcx + rsi + 2]
+	add	al, byte ptr [rdx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], al
+	movzx	eax, byte ptr [rcx + rsi + 3]
+	add	al, byte ptr [rdx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], al
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_57
+	jmp	.LBB0_825
 .LBB0_315:
 	lea	rsi, [r8 + r10]
 	lea	rax, [rdx + r10]
@@ -1219,7 +3632,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	jne	.LBB0_318
 # %bb.319:
 	cmp	rsi, r10
-	je	.LBB0_537
+	je	.LBB0_825
 .LBB0_320:
 	mov	r9, rsi
 	not	r9
@@ -1236,7 +3649,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	jne	.LBB0_321
 .LBB0_322:
 	cmp	r9, 3
-	jb	.LBB0_537
+	jb	.LBB0_825
 .LBB0_323:                              # =>This Inner Loop Header: Depth=1
 	movzx	eax, byte ptr [rdx + rsi]
 	sub	al, byte ptr [rcx + rsi]
@@ -1253,8 +3666,8 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB0_323
-	jmp	.LBB0_537
-.LBB0_441:
+	jmp	.LBB0_825
+.LBB0_182:
 	lea	rsi, [r8 + r10]
 	lea	rax, [rdx + r10]
 	cmp	rax, r8
@@ -1268,15 +3681,90 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_446
-# %bb.442:
+	jne	.LBB0_187
+# %bb.183:
 	and	al, dil
-	jne	.LBB0_446
-# %bb.443:
+	jne	.LBB0_187
+# %bb.184:
 	mov	esi, r10d
 	and	esi, -128
 	xor	edi, edi
-.LBB0_444:                              # =>This Inner Loop Header: Depth=1
+.LBB0_185:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
+	sub	rdi, -128
+	cmp	rsi, rdi
+	jne	.LBB0_185
+# %bb.186:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_187:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB0_189
+.LBB0_188:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB0_188
+.LBB0_189:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_190:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
+	mov	byte ptr [r8 + rsi], al
+	movzx	eax, byte ptr [rcx + rsi + 1]
+	add	al, byte ptr [rdx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], al
+	movzx	eax, byte ptr [rcx + rsi + 2]
+	add	al, byte ptr [rdx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], al
+	movzx	eax, byte ptr [rcx + rsi + 3]
+	add	al, byte ptr [rdx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], al
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_190
+	jmp	.LBB0_825
+.LBB0_448:
+	lea	rsi, [r8 + r10]
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_453
+# %bb.449:
+	and	al, dil
+	jne	.LBB0_453
+# %bb.450:
+	mov	esi, r10d
+	and	esi, -128
+	xor	edi, edi
+.LBB0_451:                              # =>This Inner Loop Header: Depth=1
 	vmovdqu	ymm0, ymmword ptr [rdx + rdi]
 	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 32]
 	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 64]
@@ -1291,28 +3779,28 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
 	sub	rdi, -128
 	cmp	rsi, rdi
-	jne	.LBB0_444
-# %bb.445:
+	jne	.LBB0_451
+# %bb.452:
 	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_446:
+	je	.LBB0_825
+.LBB0_453:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB0_448
-.LBB0_447:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB0_455
+.LBB0_454:                              # =>This Inner Loop Header: Depth=1
 	movzx	eax, byte ptr [rdx + rsi]
 	sub	al, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], al
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB0_447
-.LBB0_448:
+	jne	.LBB0_454
+.LBB0_455:
 	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_449:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB0_825
+.LBB0_456:                              # =>This Inner Loop Header: Depth=1
 	movzx	eax, byte ptr [rdx + rsi]
 	sub	al, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], al
@@ -1327,14 +3815,14 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	mov	byte ptr [r8 + rsi + 3], al
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_449
-	jmp	.LBB0_537
-.LBB0_56:
-	lea	rsi, [r8 + r10]
-	lea	rax, [rdx + r10]
+	jne	.LBB0_456
+	jmp	.LBB0_825
+.LBB0_638:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
 	seta	r9b
-	lea	rax, [rcx + r10]
+	lea	rax, [rcx + 4*r10]
 	cmp	rsi, rdx
 	seta	r11b
 	cmp	rax, r8
@@ -1343,73 +3831,73 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_61
-# %bb.57:
+	jne	.LBB0_643
+# %bb.639:
 	and	al, dil
-	jne	.LBB0_61
-# %bb.58:
+	jne	.LBB0_643
+# %bb.640:
 	mov	esi, r10d
-	and	esi, -128
+	and	esi, -32
 	xor	edi, edi
-.LBB0_59:                               # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
-	sub	rdi, -128
+.LBB0_641:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpmulld	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
 	cmp	rsi, rdi
-	jne	.LBB0_59
-# %bb.60:
+	jne	.LBB0_641
+# %bb.642:
 	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_61:
+	je	.LBB0_825
+.LBB0_643:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB0_63
-.LBB0_62:                               # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
-	mov	byte ptr [r8 + rsi], al
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_645
+.LBB0_644:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rcx + 4*rsi]
+	imul	edi, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
 	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB0_62
-.LBB0_63:
+	add	rax, -1
+	jne	.LBB0_644
+.LBB0_645:
 	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_64:                               # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rcx + rsi + 1]
-	add	al, byte ptr [rdx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rcx + rsi + 2]
-	add	al, byte ptr [rdx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rcx + rsi + 3]
-	add	al, byte ptr [rdx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], al
+	jb	.LBB0_825
+.LBB0_646:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rcx + 4*rsi]
+	imul	eax, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 4]
+	imul	eax, dword ptr [rdx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 8]
+	imul	eax, dword ptr [rdx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 12]
+	imul	eax, dword ptr [rdx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_64
-	jmp	.LBB0_537
-.LBB0_189:
-	lea	rsi, [r8 + r10]
-	lea	rax, [rdx + r10]
+	jne	.LBB0_646
+	jmp	.LBB0_825
+.LBB0_774:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
 	seta	r9b
-	lea	rax, [rcx + r10]
+	lea	rax, [rcx + 4*r10]
 	cmp	rsi, rdx
 	seta	r11b
 	cmp	rax, r8
@@ -1418,73 +3906,148 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_194
-# %bb.190:
+	jne	.LBB0_779
+# %bb.775:
 	and	al, dil
-	jne	.LBB0_194
-# %bb.191:
+	jne	.LBB0_779
+# %bb.776:
 	mov	esi, r10d
-	and	esi, -128
+	and	esi, -32
 	xor	edi, edi
-.LBB0_192:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
-	sub	rdi, -128
+.LBB0_777:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpmulld	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
 	cmp	rsi, rdi
-	jne	.LBB0_192
-# %bb.193:
+	jne	.LBB0_777
+# %bb.778:
 	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_194:
+	je	.LBB0_825
+.LBB0_779:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB0_196
-.LBB0_195:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
-	mov	byte ptr [r8 + rsi], al
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_781
+.LBB0_780:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rcx + 4*rsi]
+	imul	edi, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
 	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB0_195
-.LBB0_196:
+	add	rax, -1
+	jne	.LBB0_780
+.LBB0_781:
 	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_197:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rcx + rsi + 1]
-	add	al, byte ptr [rdx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rcx + rsi + 2]
-	add	al, byte ptr [rdx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rcx + rsi + 3]
-	add	al, byte ptr [rdx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], al
+	jb	.LBB0_825
+.LBB0_782:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rcx + 4*rsi]
+	imul	eax, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 4]
+	imul	eax, dword ptr [rdx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 8]
+	imul	eax, dword ptr [rdx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 12]
+	imul	eax, dword ptr [rdx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_197
-	jmp	.LBB0_537
+	jne	.LBB0_782
+	jmp	.LBB0_825
+.LBB0_103:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_108
+# %bb.104:
+	and	al, dil
+	jne	.LBB0_108
+# %bb.105:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_106:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_106
+# %bb.107:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_108:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_110
+.LBB0_109:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rcx + 4*rsi]
+	add	edi, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_109
+.LBB0_110:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_111:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rcx + 4*rsi]
+	add	eax, dword ptr [rdx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 4]
+	add	eax, dword ptr [rdx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 8]
+	add	eax, dword ptr [rdx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rcx + 4*rsi + 12]
+	add	eax, dword ptr [rdx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_111
+	jmp	.LBB0_825
 .LBB0_369:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
 	seta	r9b
-	lea	rax, [rcx + 8*r10]
+	lea	rax, [rcx + 4*r10]
 	cmp	rsi, rdx
 	seta	r11b
 	cmp	rax, r8
@@ -1499,27 +4062,27 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	jne	.LBB0_374
 # %bb.371:
 	mov	esi, r10d
-	and	esi, -16
+	and	esi, -32
 	xor	edi, edi
 .LBB0_372:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
+	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
 	cmp	rsi, rdi
 	jne	.LBB0_372
 # %bb.373:
 	cmp	rsi, r10
-	je	.LBB0_537
+	je	.LBB0_825
 .LBB0_374:
 	mov	r9, rsi
 	not	r9
@@ -1528,933 +4091,33 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	and	rax, 3
 	je	.LBB0_376
 .LBB0_375:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rdx + 8*rsi]
-	sub	rdi, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rdi
+	mov	edi, dword ptr [rdx + 4*rsi]
+	sub	edi, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
 	add	rsi, 1
 	add	rax, -1
 	jne	.LBB0_375
 .LBB0_376:
 	cmp	r9, 3
-	jb	.LBB0_537
+	jb	.LBB0_825
 .LBB0_377:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rdx + 8*rsi]
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 8]
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 16]
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 24]
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
+	mov	eax, dword ptr [rdx + 4*rsi]
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 4]
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 8]
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 12]
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB0_377
-	jmp	.LBB0_537
-.LBB0_495:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 8*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_500
-# %bb.496:
-	and	al, dil
-	jne	.LBB0_500
-# %bb.497:
-	mov	esi, r10d
-	and	esi, -16
-	xor	edi, edi
-.LBB0_498:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
-	cmp	rsi, rdi
-	jne	.LBB0_498
-# %bb.499:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_500:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_502
-.LBB0_501:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rdx + 8*rsi]
-	sub	rdi, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rdi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_501
-.LBB0_502:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_503:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rdx + 8*rsi]
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 8]
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 16]
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 24]
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_503
-	jmp	.LBB0_537
-.LBB0_110:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 8*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_115
-# %bb.111:
-	and	al, dil
-	jne	.LBB0_115
-# %bb.112:
-	mov	esi, r10d
-	and	esi, -16
-	xor	edi, edi
-.LBB0_113:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
-	cmp	rsi, rdi
-	jne	.LBB0_113
-# %bb.114:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_115:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_117
-.LBB0_116:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rcx + 8*rsi]
-	add	rdi, qword ptr [rdx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rdi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_116
-.LBB0_117:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_118:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rcx + 8*rsi]
-	add	rax, qword ptr [rdx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 8]
-	add	rax, qword ptr [rdx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 16]
-	add	rax, qword ptr [rdx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 24]
-	add	rax, qword ptr [rdx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_118
-	jmp	.LBB0_537
-.LBB0_243:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 8*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_248
-# %bb.244:
-	and	al, dil
-	jne	.LBB0_248
-# %bb.245:
-	mov	esi, r10d
-	and	esi, -16
-	xor	edi, edi
-.LBB0_246:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
-	cmp	rsi, rdi
-	jne	.LBB0_246
-# %bb.247:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_248:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_250
-.LBB0_249:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rcx + 8*rsi]
-	add	rdi, qword ptr [rdx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rdi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_249
-.LBB0_250:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_251:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rcx + 8*rsi]
-	add	rax, qword ptr [rdx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 8]
-	add	rax, qword ptr [rdx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 16]
-	add	rax, qword ptr [rdx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 24]
-	add	rax, qword ptr [rdx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_251
-	jmp	.LBB0_537
-.LBB0_327:
-	lea	rsi, [r8 + 2*r10]
-	lea	rax, [rdx + 2*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 2*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_332
-# %bb.328:
-	and	al, dil
-	jne	.LBB0_332
-# %bb.329:
-	mov	esi, r10d
-	and	esi, -64
-	xor	edi, edi
-.LBB0_330:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
-	add	rdi, 64
-	cmp	rsi, rdi
-	jne	.LBB0_330
-# %bb.331:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_332:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_334
-.LBB0_333:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	di, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_333
-.LBB0_334:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_335:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rdx + 2*rsi]
-	sub	ax, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 2]
-	sub	ax, word ptr [rcx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 4]
-	sub	ax, word ptr [rcx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 6]
-	sub	ax, word ptr [rcx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], ax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_335
-	jmp	.LBB0_537
-.LBB0_339:
-	lea	rsi, [r8 + 2*r10]
-	lea	rax, [rdx + 2*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 2*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_344
-# %bb.340:
-	and	al, dil
-	jne	.LBB0_344
-# %bb.341:
-	mov	esi, r10d
-	and	esi, -64
-	xor	edi, edi
-.LBB0_342:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
-	add	rdi, 64
-	cmp	rsi, rdi
-	jne	.LBB0_342
-# %bb.343:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_344:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_346
-.LBB0_345:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	di, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_345
-.LBB0_346:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_347:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rdx + 2*rsi]
-	sub	ax, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 2]
-	sub	ax, word ptr [rcx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 4]
-	sub	ax, word ptr [rcx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 6]
-	sub	ax, word ptr [rcx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], ax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_347
-	jmp	.LBB0_537
-.LBB0_453:
-	lea	rsi, [r8 + 2*r10]
-	lea	rax, [rdx + 2*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 2*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_458
-# %bb.454:
-	and	al, dil
-	jne	.LBB0_458
-# %bb.455:
-	mov	esi, r10d
-	and	esi, -64
-	xor	edi, edi
-.LBB0_456:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
-	add	rdi, 64
-	cmp	rsi, rdi
-	jne	.LBB0_456
-# %bb.457:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_458:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_460
-.LBB0_459:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	di, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_459
-.LBB0_460:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_461:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rdx + 2*rsi]
-	sub	ax, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 2]
-	sub	ax, word ptr [rcx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 4]
-	sub	ax, word ptr [rcx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 6]
-	sub	ax, word ptr [rcx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], ax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_461
-	jmp	.LBB0_537
-.LBB0_465:
-	lea	rsi, [r8 + 2*r10]
-	lea	rax, [rdx + 2*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 2*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_470
-# %bb.466:
-	and	al, dil
-	jne	.LBB0_470
-# %bb.467:
-	mov	esi, r10d
-	and	esi, -64
-	xor	edi, edi
-.LBB0_468:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
-	add	rdi, 64
-	cmp	rsi, rdi
-	jne	.LBB0_468
-# %bb.469:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_470:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_472
-.LBB0_471:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	di, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_471
-.LBB0_472:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_473:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rdx + 2*rsi]
-	sub	ax, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 2]
-	sub	ax, word ptr [rcx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 4]
-	sub	ax, word ptr [rcx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 6]
-	sub	ax, word ptr [rcx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], ax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_473
-	jmp	.LBB0_537
-.LBB0_68:
-	lea	rsi, [r8 + 2*r10]
-	lea	rax, [rdx + 2*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 2*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_73
-# %bb.69:
-	and	al, dil
-	jne	.LBB0_73
-# %bb.70:
-	mov	esi, r10d
-	and	esi, -64
-	xor	edi, edi
-.LBB0_71:                               # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
-	add	rdi, 64
-	cmp	rsi, rdi
-	jne	.LBB0_71
-# %bb.72:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_73:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_75
-.LBB0_74:                               # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, word ptr [rdx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_74
-.LBB0_75:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_76:                               # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rcx + 2*rsi]
-	add	ax, word ptr [rdx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 2]
-	add	ax, word ptr [rdx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 4]
-	add	ax, word ptr [rdx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 6]
-	add	ax, word ptr [rdx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], ax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_76
-	jmp	.LBB0_537
-.LBB0_80:
-	lea	rsi, [r8 + 2*r10]
-	lea	rax, [rdx + 2*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 2*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_85
-# %bb.81:
-	and	al, dil
-	jne	.LBB0_85
-# %bb.82:
-	mov	esi, r10d
-	and	esi, -64
-	xor	edi, edi
-.LBB0_83:                               # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
-	add	rdi, 64
-	cmp	rsi, rdi
-	jne	.LBB0_83
-# %bb.84:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_85:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_87
-.LBB0_86:                               # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, word ptr [rdx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_86
-.LBB0_87:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_88:                               # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rcx + 2*rsi]
-	add	ax, word ptr [rdx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 2]
-	add	ax, word ptr [rdx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 4]
-	add	ax, word ptr [rdx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 6]
-	add	ax, word ptr [rdx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], ax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_88
-	jmp	.LBB0_537
-.LBB0_201:
-	lea	rsi, [r8 + 2*r10]
-	lea	rax, [rdx + 2*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 2*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_206
-# %bb.202:
-	and	al, dil
-	jne	.LBB0_206
-# %bb.203:
-	mov	esi, r10d
-	and	esi, -64
-	xor	edi, edi
-.LBB0_204:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
-	add	rdi, 64
-	cmp	rsi, rdi
-	jne	.LBB0_204
-# %bb.205:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_206:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_208
-.LBB0_207:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, word ptr [rdx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_207
-.LBB0_208:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_209:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rcx + 2*rsi]
-	add	ax, word ptr [rdx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 2]
-	add	ax, word ptr [rdx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 4]
-	add	ax, word ptr [rdx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 6]
-	add	ax, word ptr [rdx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], ax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_209
-	jmp	.LBB0_537
-.LBB0_213:
-	lea	rsi, [r8 + 2*r10]
-	lea	rax, [rdx + 2*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 2*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_218
-# %bb.214:
-	and	al, dil
-	jne	.LBB0_218
-# %bb.215:
-	mov	esi, r10d
-	and	esi, -64
-	xor	edi, edi
-.LBB0_216:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
-	add	rdi, 64
-	cmp	rsi, rdi
-	jne	.LBB0_216
-# %bb.217:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_218:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_220
-.LBB0_219:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, word ptr [rdx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_219
-.LBB0_220:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_221:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rcx + 2*rsi]
-	add	ax, word ptr [rdx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 2]
-	add	ax, word ptr [rdx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 4]
-	add	ax, word ptr [rdx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 6]
-	add	ax, word ptr [rdx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], ax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_221
-	jmp	.LBB0_537
-.LBB0_381:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 8*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_386
-# %bb.382:
-	and	al, dil
-	jne	.LBB0_386
-# %bb.383:
-	mov	esi, r10d
-	and	esi, -16
-	xor	edi, edi
-.LBB0_384:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
-	cmp	rsi, rdi
-	jne	.LBB0_384
-# %bb.385:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_386:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_388
-.LBB0_387:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rdx + 8*rsi]
-	sub	rdi, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rdi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_387
-.LBB0_388:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_389:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rdx + 8*rsi]
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 8]
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 16]
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 24]
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_389
-	jmp	.LBB0_537
-.LBB0_393:
+	jmp	.LBB0_825
+.LBB0_236:
 	lea	rsi, [r8 + 4*r10]
 	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
@@ -2468,1101 +4131,51 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_398
-# %bb.394:
+	jne	.LBB0_241
+# %bb.237:
 	and	al, dil
-	jne	.LBB0_398
-# %bb.395:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_396:                              # =>This Inner Loop Header: Depth=1
-	vmovups	ymm0, ymmword ptr [rdx + 4*rdi]
-	vmovups	ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vmovups	ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vsubps	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
-	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vsubps	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vsubps	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_396
-# %bb.397:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_398:
-	mov	rdi, rsi
-	not	rdi
-	add	rdi, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_400
-.LBB0_399:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
-	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_399
-.LBB0_400:
-	cmp	rdi, 3
-	jb	.LBB0_537
-.LBB0_401:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
-	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	vmovss	xmm0, dword ptr [rdx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 4]
-	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
-	vmovss	xmm0, dword ptr [rdx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 8]
-	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
-	vmovss	xmm0, dword ptr [rdx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 12]
-	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_401
-	jmp	.LBB0_537
-.LBB0_507:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 8*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_512
-# %bb.508:
-	and	al, dil
-	jne	.LBB0_512
-# %bb.509:
-	mov	esi, r10d
-	and	esi, -16
-	xor	edi, edi
-.LBB0_510:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
-	cmp	rsi, rdi
-	jne	.LBB0_510
-# %bb.511:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_512:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_514
-.LBB0_513:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rdx + 8*rsi]
-	sub	rdi, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rdi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_513
-.LBB0_514:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_515:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rdx + 8*rsi]
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 8]
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 16]
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 24]
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_515
-	jmp	.LBB0_537
-.LBB0_519:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_524
-# %bb.520:
-	and	al, dil
-	jne	.LBB0_524
-# %bb.521:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_522:                              # =>This Inner Loop Header: Depth=1
-	vmovups	ymm0, ymmword ptr [rdx + 4*rdi]
-	vmovups	ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vmovups	ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vsubps	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
-	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vsubps	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vsubps	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_522
-# %bb.523:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_524:
-	mov	rdi, rsi
-	not	rdi
-	add	rdi, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_526
-.LBB0_525:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
-	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_525
-.LBB0_526:
-	cmp	rdi, 3
-	jb	.LBB0_537
-.LBB0_527:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
-	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	vmovss	xmm0, dword ptr [rdx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 4]
-	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
-	vmovss	xmm0, dword ptr [rdx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 8]
-	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
-	vmovss	xmm0, dword ptr [rdx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 12]
-	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_527
-	jmp	.LBB0_537
-.LBB0_122:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 8*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_127
-# %bb.123:
-	and	al, dil
-	jne	.LBB0_127
-# %bb.124:
-	mov	esi, r10d
-	and	esi, -16
-	xor	edi, edi
-.LBB0_125:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
-	cmp	rsi, rdi
-	jne	.LBB0_125
-# %bb.126:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_127:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_129
-.LBB0_128:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rcx + 8*rsi]
-	add	rdi, qword ptr [rdx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rdi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_128
-.LBB0_129:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_130:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rcx + 8*rsi]
-	add	rax, qword ptr [rdx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 8]
-	add	rax, qword ptr [rdx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 16]
-	add	rax, qword ptr [rdx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 24]
-	add	rax, qword ptr [rdx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_130
-	jmp	.LBB0_537
-.LBB0_134:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_139
-# %bb.135:
-	and	al, dil
-	jne	.LBB0_139
-# %bb.136:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_137:                              # =>This Inner Loop Header: Depth=1
-	vmovups	ymm0, ymmword ptr [rcx + 4*rdi]
-	vmovups	ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vmovups	ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vmovups	ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vaddps	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
-	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vaddps	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vaddps	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_137
-# %bb.138:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_139:
-	mov	rdi, rsi
-	not	rdi
-	add	rdi, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_141
-.LBB0_140:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
-	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_140
-.LBB0_141:
-	cmp	rdi, 3
-	jb	.LBB0_537
-.LBB0_142:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
-	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	vmovss	xmm0, dword ptr [rcx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 4]
-	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
-	vmovss	xmm0, dword ptr [rcx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 8]
-	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
-	vmovss	xmm0, dword ptr [rcx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 12]
-	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_142
-	jmp	.LBB0_537
-.LBB0_255:
-	lea	rsi, [r8 + 8*r10]
-	lea	rax, [rdx + 8*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 8*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_260
-# %bb.256:
-	and	al, dil
-	jne	.LBB0_260
-# %bb.257:
-	mov	esi, r10d
-	and	esi, -16
-	xor	edi, edi
-.LBB0_258:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
-	add	rdi, 16
-	cmp	rsi, rdi
-	jne	.LBB0_258
-# %bb.259:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_260:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_262
-.LBB0_261:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rcx + 8*rsi]
-	add	rdi, qword ptr [rdx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rdi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_261
-.LBB0_262:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_263:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rcx + 8*rsi]
-	add	rax, qword ptr [rdx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 8]
-	add	rax, qword ptr [rdx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 16]
-	add	rax, qword ptr [rdx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 24]
-	add	rax, qword ptr [rdx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_263
-	jmp	.LBB0_537
-.LBB0_267:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_272
-# %bb.268:
-	and	al, dil
-	jne	.LBB0_272
-# %bb.269:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_270:                              # =>This Inner Loop Header: Depth=1
-	vmovups	ymm0, ymmword ptr [rcx + 4*rdi]
-	vmovups	ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vmovups	ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vmovups	ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vaddps	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
-	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vaddps	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vaddps	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_270
-# %bb.271:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_272:
-	mov	rdi, rsi
-	not	rdi
-	add	rdi, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_274
-.LBB0_273:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
-	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_273
-.LBB0_274:
-	cmp	rdi, 3
-	jb	.LBB0_537
-.LBB0_275:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
-	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	vmovss	xmm0, dword ptr [rcx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 4]
-	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
-	vmovss	xmm0, dword ptr [rcx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 8]
-	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
-	vmovss	xmm0, dword ptr [rcx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 12]
-	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_275
-	jmp	.LBB0_537
-.LBB0_306:
-	lea	rsi, [r8 + r10]
-	lea	rax, [rdx + r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_311
-# %bb.307:
-	and	al, dil
-	jne	.LBB0_311
-# %bb.308:
-	mov	esi, r10d
-	and	esi, -128
-	xor	edi, edi
-.LBB0_309:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm1, ymm1, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm2, ymm2, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm3, ymm3, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
-	sub	rdi, -128
-	cmp	rsi, rdi
-	jne	.LBB0_309
-# %bb.310:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_311:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB0_313
-.LBB0_312:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rdx + rsi]
-	sub	al, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB0_312
-.LBB0_313:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_314:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rdx + rsi]
-	sub	al, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rdx + rsi + 1]
-	sub	al, byte ptr [rcx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rdx + rsi + 2]
-	sub	al, byte ptr [rcx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rdx + rsi + 3]
-	sub	al, byte ptr [rcx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], al
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_314
-	jmp	.LBB0_537
-.LBB0_432:
-	lea	rsi, [r8 + r10]
-	lea	rax, [rdx + r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_437
-# %bb.433:
-	and	al, dil
-	jne	.LBB0_437
-# %bb.434:
-	mov	esi, r10d
-	and	esi, -128
-	xor	edi, edi
-.LBB0_435:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm1, ymm1, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm2, ymm2, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm3, ymm3, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
-	sub	rdi, -128
-	cmp	rsi, rdi
-	jne	.LBB0_435
-# %bb.436:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_437:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB0_439
-.LBB0_438:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rdx + rsi]
-	sub	al, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB0_438
-.LBB0_439:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_440:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rdx + rsi]
-	sub	al, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rdx + rsi + 1]
-	sub	al, byte ptr [rcx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rdx + rsi + 2]
-	sub	al, byte ptr [rcx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rdx + rsi + 3]
-	sub	al, byte ptr [rcx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], al
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_440
-	jmp	.LBB0_537
-.LBB0_47:
-	lea	rsi, [r8 + r10]
-	lea	rax, [rdx + r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_52
-# %bb.48:
-	and	al, dil
-	jne	.LBB0_52
-# %bb.49:
-	mov	esi, r10d
-	and	esi, -128
-	xor	edi, edi
-.LBB0_50:                               # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
-	sub	rdi, -128
-	cmp	rsi, rdi
-	jne	.LBB0_50
-# %bb.51:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_52:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB0_54
-.LBB0_53:                               # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB0_53
-.LBB0_54:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_55:                               # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rcx + rsi + 1]
-	add	al, byte ptr [rdx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rcx + rsi + 2]
-	add	al, byte ptr [rdx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rcx + rsi + 3]
-	add	al, byte ptr [rdx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], al
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_55
-	jmp	.LBB0_537
-.LBB0_180:
-	lea	rsi, [r8 + r10]
-	lea	rax, [rdx + r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_185
-# %bb.181:
-	and	al, dil
-	jne	.LBB0_185
-# %bb.182:
-	mov	esi, r10d
-	and	esi, -128
-	xor	edi, edi
-.LBB0_183:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
-	sub	rdi, -128
-	cmp	rsi, rdi
-	jne	.LBB0_183
-# %bb.184:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_185:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB0_187
-.LBB0_186:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB0_186
-.LBB0_187:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_188:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
-	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rcx + rsi + 1]
-	add	al, byte ptr [rdx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rcx + rsi + 2]
-	add	al, byte ptr [rdx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rcx + rsi + 3]
-	add	al, byte ptr [rdx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], al
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_188
-	jmp	.LBB0_537
-.LBB0_360:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_365
-# %bb.361:
-	and	al, dil
-	jne	.LBB0_365
-# %bb.362:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_363:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_363
-# %bb.364:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_365:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_367
-.LBB0_366:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rdx + 4*rsi]
-	sub	edi, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], edi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_366
-.LBB0_367:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_368:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rdx + 4*rsi]
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 4]
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 8]
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 12]
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_368
-	jmp	.LBB0_537
-.LBB0_486:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_491
-# %bb.487:
-	and	al, dil
-	jne	.LBB0_491
-# %bb.488:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_489:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_489
-# %bb.490:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_491:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_493
-.LBB0_492:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rdx + 4*rsi]
-	sub	edi, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], edi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_492
-.LBB0_493:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_494:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rdx + 4*rsi]
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 4]
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 8]
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 12]
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_494
-	jmp	.LBB0_537
-.LBB0_101:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_106
-# %bb.102:
-	and	al, dil
-	jne	.LBB0_106
-# %bb.103:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_104:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_104
-# %bb.105:
-	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_106:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rax, r10
-	and	rax, 3
-	je	.LBB0_108
-.LBB0_107:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rcx + 4*rsi]
-	add	edi, dword ptr [rdx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], edi
-	add	rsi, 1
-	add	rax, -1
-	jne	.LBB0_107
-.LBB0_108:
-	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_109:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rcx + 4*rsi]
-	add	eax, dword ptr [rdx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 4]
-	add	eax, dword ptr [rdx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 8]
-	add	eax, dword ptr [rdx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 12]
-	add	eax, dword ptr [rdx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB0_109
-	jmp	.LBB0_537
-.LBB0_234:
-	lea	rsi, [r8 + 4*r10]
-	lea	rax, [rdx + 4*r10]
-	cmp	rax, r8
-	seta	r9b
-	lea	rax, [rcx + 4*r10]
-	cmp	rsi, rdx
-	seta	r11b
-	cmp	rax, r8
-	seta	al
-	cmp	rsi, rcx
-	seta	dil
-	xor	esi, esi
-	test	r9b, r11b
-	jne	.LBB0_239
-# %bb.235:
-	and	al, dil
-	jne	.LBB0_239
-# %bb.236:
-	mov	esi, r10d
-	and	esi, -32
-	xor	edi, edi
-.LBB0_237:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
-	add	rdi, 32
-	cmp	rsi, rdi
-	jne	.LBB0_237
+	jne	.LBB0_241
 # %bb.238:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_239:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_239
+# %bb.240:
 	cmp	rsi, r10
-	je	.LBB0_537
-.LBB0_239:
+	je	.LBB0_825
+.LBB0_241:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_241
-.LBB0_240:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB0_243
+.LBB0_242:                              # =>This Inner Loop Header: Depth=1
 	mov	edi, dword ptr [rcx + 4*rsi]
 	add	edi, dword ptr [rdx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], edi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_240
-.LBB0_241:
+	jne	.LBB0_242
+.LBB0_243:
 	cmp	r9, 3
-	jb	.LBB0_537
-.LBB0_242:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB0_825
+.LBB0_244:                              # =>This Inner Loop Header: Depth=1
 	mov	eax, dword ptr [rcx + 4*rsi]
 	add	eax, dword ptr [rdx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], eax
@@ -3577,8 +4190,1619 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_242
-.LBB0_537:
+	jne	.LBB0_244
+	jmp	.LBB0_825
+.LBB0_502:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_507
+# %bb.503:
+	and	al, dil
+	jne	.LBB0_507
+# %bb.504:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_505:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_505
+# %bb.506:
+	cmp	rsi, r10
+	je	.LBB0_825
+.LBB0_507:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rax, r10
+	and	rax, 3
+	je	.LBB0_509
+.LBB0_508:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rdx + 4*rsi]
+	sub	edi, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], edi
+	add	rsi, 1
+	add	rax, -1
+	jne	.LBB0_508
+.LBB0_509:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_510:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rdx + 4*rsi]
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 4]
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 8]
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, dword ptr [rdx + 4*rsi + 12]
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB0_510
+	jmp	.LBB0_825
+.LBB0_626:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_631
+# %bb.627:
+	and	al, dil
+	jne	.LBB0_631
+# %bb.628:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_629:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpmulld	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_629
+# %bb.630:
+	cmp	rsi, r10
+	jne	.LBB0_631
+	jmp	.LBB0_825
+.LBB0_762:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_767
+# %bb.763:
+	and	al, dil
+	jne	.LBB0_767
+# %bb.764:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_765:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpmulld	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_765
+# %bb.766:
+	cmp	rsi, r10
+	jne	.LBB0_767
+	jmp	.LBB0_825
+.LBB0_357:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_362
+# %bb.358:
+	and	al, dil
+	jne	.LBB0_362
+# %bb.359:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_360:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_360
+# %bb.361:
+	cmp	rsi, r10
+	jne	.LBB0_362
+	jmp	.LBB0_825
+.LBB0_490:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_495
+# %bb.491:
+	and	al, dil
+	jne	.LBB0_495
+# %bb.492:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_493:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_493
+# %bb.494:
+	cmp	rsi, r10
+	jne	.LBB0_495
+	jmp	.LBB0_825
+.LBB0_680:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_685
+# %bb.681:
+	and	al, dil
+	jne	.LBB0_685
+# %bb.682:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_683:                              # =>This Inner Loop Header: Depth=1
+	vmovupd	ymm0, ymmword ptr [rcx + 8*rdi]
+	vmovupd	ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmovupd	ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vmovupd	ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vmulpd	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
+	vmulpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmulpd	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmulpd	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_683
+# %bb.684:
+	cmp	rsi, r10
+	jne	.LBB0_685
+	jmp	.LBB0_825
+.LBB0_816:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_821
+# %bb.817:
+	and	al, dil
+	jne	.LBB0_821
+# %bb.818:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_819:                              # =>This Inner Loop Header: Depth=1
+	vmovupd	ymm0, ymmword ptr [rcx + 8*rdi]
+	vmovupd	ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmovupd	ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vmovupd	ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vmulpd	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
+	vmulpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmulpd	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmulpd	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_819
+# %bb.820:
+	cmp	rsi, r10
+	jne	.LBB0_821
+	jmp	.LBB0_825
+.LBB0_411:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_416
+# %bb.412:
+	and	al, dil
+	jne	.LBB0_416
+# %bb.413:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_414:                              # =>This Inner Loop Header: Depth=1
+	vmovupd	ymm0, ymmword ptr [rdx + 8*rdi]
+	vmovupd	ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vsubpd	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
+	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vsubpd	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vsubpd	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_414
+# %bb.415:
+	cmp	rsi, r10
+	jne	.LBB0_416
+	jmp	.LBB0_825
+.LBB0_544:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_549
+# %bb.545:
+	and	al, dil
+	jne	.LBB0_549
+# %bb.546:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_547:                              # =>This Inner Loop Header: Depth=1
+	vmovupd	ymm0, ymmword ptr [rdx + 8*rdi]
+	vmovupd	ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vsubpd	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
+	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vsubpd	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vsubpd	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_547
+# %bb.548:
+	cmp	rsi, r10
+	jne	.LBB0_549
+	jmp	.LBB0_825
+.LBB0_605:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_610
+# %bb.606:
+	and	al, dil
+	jne	.LBB0_610
+# %bb.607:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_608:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpmullw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpmullw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpmullw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_608
+# %bb.609:
+	cmp	rsi, r10
+	jne	.LBB0_610
+	jmp	.LBB0_825
+.LBB0_617:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_622
+# %bb.618:
+	and	al, dil
+	jne	.LBB0_622
+# %bb.619:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_620:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpmullw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpmullw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpmullw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_620
+# %bb.621:
+	cmp	rsi, r10
+	jne	.LBB0_622
+	jmp	.LBB0_825
+.LBB0_741:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_746
+# %bb.742:
+	and	al, dil
+	jne	.LBB0_746
+# %bb.743:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_744:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpmullw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpmullw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpmullw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_744
+# %bb.745:
+	cmp	rsi, r10
+	jne	.LBB0_746
+	jmp	.LBB0_825
+.LBB0_753:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_758
+# %bb.754:
+	and	al, dil
+	jne	.LBB0_758
+# %bb.755:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_756:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpmullw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpmullw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpmullw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_756
+# %bb.757:
+	cmp	rsi, r10
+	jne	.LBB0_758
+	jmp	.LBB0_825
+.LBB0_336:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_341
+# %bb.337:
+	and	al, dil
+	jne	.LBB0_341
+# %bb.338:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_339:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_339
+# %bb.340:
+	cmp	rsi, r10
+	jne	.LBB0_341
+	jmp	.LBB0_825
+.LBB0_348:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_353
+# %bb.349:
+	and	al, dil
+	jne	.LBB0_353
+# %bb.350:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_351:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_351
+# %bb.352:
+	cmp	rsi, r10
+	jne	.LBB0_353
+	jmp	.LBB0_825
+.LBB0_469:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_474
+# %bb.470:
+	and	al, dil
+	jne	.LBB0_474
+# %bb.471:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_472:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_472
+# %bb.473:
+	cmp	rsi, r10
+	jne	.LBB0_474
+	jmp	.LBB0_825
+.LBB0_481:
+	lea	rsi, [r8 + 2*r10]
+	lea	rax, [rdx + 2*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 2*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_486
+# %bb.482:
+	and	al, dil
+	jne	.LBB0_486
+# %bb.483:
+	mov	esi, r10d
+	and	esi, -64
+	xor	edi, edi
+.LBB0_484:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
+	add	rdi, 64
+	cmp	rsi, rdi
+	jne	.LBB0_484
+# %bb.485:
+	cmp	rsi, r10
+	jne	.LBB0_486
+	jmp	.LBB0_825
+.LBB0_659:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_664
+# %bb.660:
+	and	al, dil
+	jne	.LBB0_664
+# %bb.661:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_662:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm6, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm7, ymmword ptr [rcx + 8*rdi + 96]
+	vpsrlq	ymm8, ymm4, 32
+	vpmuludq	ymm8, ymm8, ymm1
+	vpsrlq	ymm9, ymm1, 32
+	vpmuludq	ymm9, ymm9, ymm4
+	vpaddq	ymm8, ymm9, ymm8
+	vpsllq	ymm8, ymm8, 32
+	vpmuludq	ymm1, ymm4, ymm1
+	vpaddq	ymm1, ymm8, ymm1
+	vpsrlq	ymm4, ymm5, 32
+	vpmuludq	ymm4, ymm4, ymm2
+	vpsrlq	ymm8, ymm2, 32
+	vpmuludq	ymm8, ymm8, ymm5
+	vpaddq	ymm4, ymm8, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm2, ymm5, ymm2
+	vpaddq	ymm2, ymm2, ymm4
+	vpsrlq	ymm4, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm3
+	vpsrlq	ymm5, ymm3, 32
+	vpmuludq	ymm5, ymm6, ymm5
+	vpaddq	ymm4, ymm5, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm3, ymm6, ymm3
+	vpaddq	ymm3, ymm3, ymm4
+	vpsrlq	ymm4, ymm7, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpsrlq	ymm5, ymm0, 32
+	vpmuludq	ymm5, ymm7, ymm5
+	vpaddq	ymm4, ymm5, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm0, ymm7, ymm0
+	vpaddq	ymm0, ymm0, ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_662
+# %bb.663:
+	cmp	rsi, r10
+	jne	.LBB0_664
+	jmp	.LBB0_825
+.LBB0_671:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_676
+# %bb.672:
+	and	al, dil
+	jne	.LBB0_676
+# %bb.673:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_674:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovups	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovups	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovups	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vmulps	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vmulps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmulps	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmulps	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_674
+# %bb.675:
+	cmp	rsi, r10
+	jne	.LBB0_676
+	jmp	.LBB0_825
+.LBB0_795:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_800
+# %bb.796:
+	and	al, dil
+	jne	.LBB0_800
+# %bb.797:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_798:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm6, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm7, ymmword ptr [rcx + 8*rdi + 96]
+	vpsrlq	ymm8, ymm4, 32
+	vpmuludq	ymm8, ymm8, ymm1
+	vpsrlq	ymm9, ymm1, 32
+	vpmuludq	ymm9, ymm9, ymm4
+	vpaddq	ymm8, ymm9, ymm8
+	vpsllq	ymm8, ymm8, 32
+	vpmuludq	ymm1, ymm4, ymm1
+	vpaddq	ymm1, ymm8, ymm1
+	vpsrlq	ymm4, ymm5, 32
+	vpmuludq	ymm4, ymm4, ymm2
+	vpsrlq	ymm8, ymm2, 32
+	vpmuludq	ymm8, ymm8, ymm5
+	vpaddq	ymm4, ymm8, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm2, ymm5, ymm2
+	vpaddq	ymm2, ymm2, ymm4
+	vpsrlq	ymm4, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm3
+	vpsrlq	ymm5, ymm3, 32
+	vpmuludq	ymm5, ymm6, ymm5
+	vpaddq	ymm4, ymm5, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm3, ymm6, ymm3
+	vpaddq	ymm3, ymm3, ymm4
+	vpsrlq	ymm4, ymm7, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpsrlq	ymm5, ymm0, 32
+	vpmuludq	ymm5, ymm7, ymm5
+	vpaddq	ymm4, ymm5, ymm4
+	vpsllq	ymm4, ymm4, 32
+	vpmuludq	ymm0, ymm7, ymm0
+	vpaddq	ymm0, ymm0, ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_798
+# %bb.799:
+	cmp	rsi, r10
+	jne	.LBB0_800
+	jmp	.LBB0_825
+.LBB0_807:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_812
+# %bb.808:
+	and	al, dil
+	jne	.LBB0_812
+# %bb.809:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_810:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovups	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovups	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovups	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vmulps	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vmulps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmulps	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmulps	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_810
+# %bb.811:
+	cmp	rsi, r10
+	jne	.LBB0_812
+	jmp	.LBB0_825
+.LBB0_390:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_395
+# %bb.391:
+	and	al, dil
+	jne	.LBB0_395
+# %bb.392:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_393:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_393
+# %bb.394:
+	cmp	rsi, r10
+	jne	.LBB0_395
+	jmp	.LBB0_825
+.LBB0_402:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_407
+# %bb.403:
+	and	al, dil
+	jne	.LBB0_407
+# %bb.404:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_405:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm0, ymmword ptr [rdx + 4*rdi]
+	vmovups	ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmovups	ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vsubps	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
+	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vsubps	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vsubps	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_405
+# %bb.406:
+	cmp	rsi, r10
+	jne	.LBB0_407
+	jmp	.LBB0_825
+.LBB0_523:
+	lea	rsi, [r8 + 8*r10]
+	lea	rax, [rdx + 8*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 8*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_528
+# %bb.524:
+	and	al, dil
+	jne	.LBB0_528
+# %bb.525:
+	mov	esi, r10d
+	and	esi, -16
+	xor	edi, edi
+.LBB0_526:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
+	add	rdi, 16
+	cmp	rsi, rdi
+	jne	.LBB0_526
+# %bb.527:
+	cmp	rsi, r10
+	jne	.LBB0_528
+	jmp	.LBB0_825
+.LBB0_535:
+	lea	rsi, [r8 + 4*r10]
+	lea	rax, [rdx + 4*r10]
+	cmp	rax, r8
+	seta	r9b
+	lea	rax, [rcx + 4*r10]
+	cmp	rsi, rdx
+	seta	r11b
+	cmp	rax, r8
+	seta	al
+	cmp	rsi, rcx
+	seta	dil
+	xor	esi, esi
+	test	r9b, r11b
+	jne	.LBB0_540
+# %bb.536:
+	and	al, dil
+	jne	.LBB0_540
+# %bb.537:
+	mov	esi, r10d
+	and	esi, -32
+	xor	edi, edi
+.LBB0_538:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm0, ymmword ptr [rdx + 4*rdi]
+	vmovups	ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmovups	ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vsubps	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
+	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vsubps	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vsubps	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
+	add	rdi, 32
+	cmp	rsi, rdi
+	jne	.LBB0_538
+# %bb.539:
+	cmp	rsi, r10
+	jne	.LBB0_540
+	jmp	.LBB0_825
+.LBB0_592:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vmovdqa	ymm0, ymmword ptr [rip + .LCPI0_0] # ymm0 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+.LBB0_593:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 32]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 64]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 64]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 96]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 96]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm1
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB0_593
+.LBB0_594:
+	test	r9, r9
+	je	.LBB0_597
+# %bb.595:
+	neg	r9
+	vmovdqa	ymm0, ymmword ptr [rip + .LCPI0_0] # ymm0 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+.LBB0_596:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi], ymm1
+	add	rsi, 32
+	inc	r9
+	jne	.LBB0_596
+.LBB0_597:
+	cmp	rdi, r10
+	je	.LBB0_825
+.LBB0_598:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB0_600
+.LBB0_599:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	byte ptr [rdx + rdi]
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB0_599
+.LBB0_600:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_601:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	byte ptr [rdx + rdi]
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rcx + rdi + 1]
+	mul	byte ptr [rdx + rdi + 1]
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rcx + rdi + 2]
+	mul	byte ptr [rdx + rdi + 2]
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rcx + rdi + 3]
+	mul	byte ptr [rdx + rdi + 3]
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB0_601
+	jmp	.LBB0_825
+.LBB0_728:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vmovdqa	ymm0, ymmword ptr [rip + .LCPI0_0] # ymm0 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+.LBB0_729:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 32]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 64]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 64]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 96]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 96]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm1
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB0_729
+.LBB0_730:
+	test	r9, r9
+	je	.LBB0_733
+# %bb.731:
+	neg	r9
+	vmovdqa	ymm0, ymmword ptr [rip + .LCPI0_0] # ymm0 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+.LBB0_732:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi], ymm1
+	add	rsi, 32
+	inc	r9
+	jne	.LBB0_732
+.LBB0_733:
+	cmp	rdi, r10
+	je	.LBB0_825
+.LBB0_734:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB0_736
+.LBB0_735:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	byte ptr [rdx + rdi]
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB0_735
+.LBB0_736:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_737:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	byte ptr [rdx + rdi]
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rcx + rdi + 1]
+	mul	byte ptr [rdx + rdi + 1]
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rcx + rdi + 2]
+	mul	byte ptr [rdx + rdi + 2]
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rcx + rdi + 3]
+	mul	byte ptr [rdx + rdi + 3]
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB0_737
+	jmp	.LBB0_825
+.LBB0_578:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vmovdqa	ymm0, ymmword ptr [rip + .LCPI0_0] # ymm0 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+.LBB0_579:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 32]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 64]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 64]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 96]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 96]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm1
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB0_579
+.LBB0_580:
+	test	r9, r9
+	je	.LBB0_583
+# %bb.581:
+	neg	r9
+	vmovdqa	ymm0, ymmword ptr [rip + .LCPI0_0] # ymm0 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+.LBB0_582:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi], ymm1
+	add	rsi, 32
+	inc	r9
+	jne	.LBB0_582
+.LBB0_583:
+	cmp	rdi, r10
+	je	.LBB0_825
+.LBB0_584:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB0_586
+.LBB0_585:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	byte ptr [rdx + rdi]
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB0_585
+.LBB0_586:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_587:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	byte ptr [rdx + rdi]
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rcx + rdi + 1]
+	mul	byte ptr [rdx + rdi + 1]
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rcx + rdi + 2]
+	mul	byte ptr [rdx + rdi + 2]
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rcx + rdi + 3]
+	mul	byte ptr [rdx + rdi + 3]
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB0_587
+	jmp	.LBB0_825
+.LBB0_714:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vmovdqa	ymm0, ymmword ptr [rip + .LCPI0_0] # ymm0 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+.LBB0_715:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 32]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 64]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 64]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi + 96]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi + 96]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm1
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB0_715
+.LBB0_716:
+	test	r9, r9
+	je	.LBB0_719
+# %bb.717:
+	neg	r9
+	vmovdqa	ymm0, ymmword ptr [rip + .LCPI0_0] # ymm0 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+.LBB0_718:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rsi]
+	vmovdqu	ymm2, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm3, ymm1, ymm1        # ymm3 = ymm1[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpunpckhbw	ymm4, ymm2, ymm2        # ymm4 = ymm2[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm3, ymm4, ymm3
+	vpand	ymm3, ymm3, ymm0
+	vpunpcklbw	ymm1, ymm1, ymm1        # ymm1 = ymm1[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpunpcklbw	ymm2, ymm2, ymm2        # ymm2 = ymm2[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm1, ymm2, ymm1
+	vpand	ymm1, ymm1, ymm0
+	vpackuswb	ymm1, ymm1, ymm3
+	vmovdqu	ymmword ptr [r8 + rsi], ymm1
+	add	rsi, 32
+	inc	r9
+	jne	.LBB0_718
+.LBB0_719:
+	cmp	rdi, r10
+	je	.LBB0_825
+.LBB0_720:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB0_722
+.LBB0_721:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	byte ptr [rdx + rdi]
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB0_721
+.LBB0_722:
+	cmp	r9, 3
+	jb	.LBB0_825
+.LBB0_723:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	byte ptr [rdx + rdi]
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rcx + rdi + 1]
+	mul	byte ptr [rdx + rdi + 1]
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rcx + rdi + 2]
+	mul	byte ptr [rdx + rdi + 2]
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rcx + rdi + 3]
+	mul	byte ptr [rdx + rdi + 3]
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB0_723
+.LBB0_825:
 	mov	rsp, rbp
 	pop	rbp
 	vzeroupper
@@ -3586,7 +5810,27 @@ arithmetic_avx2:                        # @arithmetic_avx2
 .Lfunc_end0:
 	.size	arithmetic_avx2, .Lfunc_end0-arithmetic_avx2
                                         # -- End function
-	.globl	arithmetic_arr_scalar_avx2      # -- Begin function arithmetic_arr_scalar_avx2
+	.section	.rodata.cst32,"aM",@progbits,32
+	.p2align	5                               # -- Begin function arithmetic_arr_scalar_avx2
+.LCPI1_0:
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.text
+	.globl	arithmetic_arr_scalar_avx2
 	.p2align	4, 0x90
 	.type	arithmetic_arr_scalar_avx2,@function
 arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
@@ -3594,272 +5838,211 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	push	rbp
 	mov	rbp, rsp
 	and	rsp, -8
-	cmp	sil, 1
-	jg	.LBB1_11
+	cmp	sil, 3
+	jg	.LBB1_12
 # %bb.1:
 	test	sil, sil
-	je	.LBB1_21
+	je	.LBB1_23
 # %bb.2:
 	cmp	sil, 1
-	jne	.LBB1_737
+	je	.LBB1_31
 # %bb.3:
-	cmp	edi, 6
-	jg	.LBB1_37
-# %bb.4:
-	cmp	edi, 3
-	jle	.LBB1_65
-# %bb.5:
-	cmp	edi, 4
-	je	.LBB1_105
-# %bb.6:
-	cmp	edi, 5
-	je	.LBB1_108
-# %bb.7:
-	cmp	edi, 6
-	jne	.LBB1_737
-# %bb.8:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.9:
-	mov	eax, dword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_10
-# %bb.177:
-	lea	rcx, [rdx + 4*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_297
-# %bb.178:
-	lea	rcx, [r8 + 4*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_297
-.LBB1_10:
-	xor	esi, esi
-.LBB1_421:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_423
-.LBB1_422:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_422
-.LBB1_423:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_424:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], ecx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_424
-	jmp	.LBB1_737
-.LBB1_11:
 	cmp	sil, 2
-	je	.LBB1_29
-# %bb.12:
-	cmp	sil, 3
-	jne	.LBB1_737
+	jne	.LBB1_1109
+# %bb.4:
+	cmp	edi, 6
+	jg	.LBB1_55
+# %bb.5:
+	cmp	edi, 3
+	jle	.LBB1_97
+# %bb.6:
+	cmp	edi, 4
+	je	.LBB1_157
+# %bb.7:
+	cmp	edi, 5
+	je	.LBB1_160
+# %bb.8:
+	cmp	edi, 6
+	jne	.LBB1_1109
+# %bb.9:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.10:
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_11
+# %bb.265:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_445
+# %bb.266:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_445
+.LBB1_11:
+	xor	esi, esi
+.LBB1_665:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_667
+.LBB1_666:                              # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_666
+.LBB1_667:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_668:                              # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_668
+	jmp	.LBB1_1109
+.LBB1_12:
+	cmp	sil, 4
+	je	.LBB1_39
 # %bb.13:
-	cmp	edi, 6
-	jg	.LBB1_44
+	cmp	sil, 5
+	je	.LBB1_47
 # %bb.14:
-	cmp	edi, 3
-	jle	.LBB1_70
+	cmp	sil, 6
+	jne	.LBB1_1109
 # %bb.15:
-	cmp	edi, 4
-	je	.LBB1_111
+	cmp	edi, 6
+	jg	.LBB1_62
 # %bb.16:
-	cmp	edi, 5
-	je	.LBB1_114
+	cmp	edi, 3
+	jle	.LBB1_102
 # %bb.17:
-	cmp	edi, 6
-	jne	.LBB1_737
+	cmp	edi, 4
+	je	.LBB1_163
 # %bb.18:
-	test	r9d, r9d
-	jle	.LBB1_737
+	cmp	edi, 5
+	je	.LBB1_166
 # %bb.19:
+	cmp	edi, 6
+	jne	.LBB1_1109
+# %bb.20:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.21:
 	mov	eax, dword ptr [rcx]
 	mov	r10d, r9d
 	cmp	r9d, 32
-	jb	.LBB1_20
-# %bb.180:
+	jb	.LBB1_22
+# %bb.268:
 	lea	rcx, [rdx + 4*r10]
 	cmp	rcx, r8
-	jbe	.LBB1_300
-# %bb.181:
+	jbe	.LBB1_448
+# %bb.269:
 	lea	rcx, [r8 + 4*r10]
 	cmp	rcx, rdx
-	jbe	.LBB1_300
-.LBB1_20:
+	jbe	.LBB1_448
+.LBB1_22:
 	xor	esi, esi
-.LBB1_429:
+.LBB1_673:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB1_431
-.LBB1_430:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB1_675
+.LBB1_674:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
+	imul	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB1_430
-.LBB1_431:
+	jne	.LBB1_674
+.LBB1_675:
 	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_432:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB1_1109
+.LBB1_676:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
+	imul	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	sub	ecx, eax
+	imul	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 4], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	sub	ecx, eax
+	imul	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 8], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	sub	ecx, eax
+	imul	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 12], ecx
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB1_432
-	jmp	.LBB1_737
-.LBB1_21:
+	jne	.LBB1_676
+	jmp	.LBB1_1109
+.LBB1_23:
 	cmp	edi, 6
-	jg	.LBB1_51
-# %bb.22:
-	cmp	edi, 3
-	jle	.LBB1_75
-# %bb.23:
-	cmp	edi, 4
-	je	.LBB1_117
+	jg	.LBB1_69
 # %bb.24:
-	cmp	edi, 5
-	je	.LBB1_120
+	cmp	edi, 3
+	jle	.LBB1_107
 # %bb.25:
-	cmp	edi, 6
-	jne	.LBB1_737
-# %bb.26:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.27:
-	mov	eax, dword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_28
-# %bb.183:
-	lea	rcx, [rdx + 4*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_303
-# %bb.184:
-	lea	rcx, [r8 + 4*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_303
-.LBB1_28:
-	xor	esi, esi
-.LBB1_437:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_439
-.LBB1_438:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_438
-.LBB1_439:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_440:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], ecx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_440
-	jmp	.LBB1_737
-.LBB1_29:
-	cmp	edi, 6
-	jg	.LBB1_58
-# %bb.30:
-	cmp	edi, 3
-	jle	.LBB1_80
-# %bb.31:
 	cmp	edi, 4
-	je	.LBB1_123
-# %bb.32:
+	je	.LBB1_169
+# %bb.26:
 	cmp	edi, 5
-	je	.LBB1_126
-# %bb.33:
+	je	.LBB1_172
+# %bb.27:
 	cmp	edi, 6
-	jne	.LBB1_737
-# %bb.34:
+	jne	.LBB1_1109
+# %bb.28:
 	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.35:
+	jle	.LBB1_1109
+# %bb.29:
 	mov	eax, dword ptr [rcx]
 	mov	r10d, r9d
 	cmp	r9d, 32
-	jb	.LBB1_36
-# %bb.186:
+	jb	.LBB1_30
+# %bb.271:
 	lea	rcx, [rdx + 4*r10]
 	cmp	rcx, r8
-	jbe	.LBB1_306
-# %bb.187:
+	jbe	.LBB1_451
+# %bb.272:
 	lea	rcx, [r8 + 4*r10]
 	cmp	rcx, rdx
-	jbe	.LBB1_306
-.LBB1_36:
+	jbe	.LBB1_451
+.LBB1_30:
 	xor	esi, esi
-.LBB1_445:
+.LBB1_681:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB1_447
-.LBB1_446:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB1_683
+.LBB1_682:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
 	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB1_446
-.LBB1_447:
+	jne	.LBB1_682
+.LBB1_683:
 	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_448:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB1_1109
+.LBB1_684:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
 	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
@@ -3874,120 +6057,434 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	mov	dword ptr [r8 + 4*rsi + 12], ecx
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB1_448
-	jmp	.LBB1_737
-.LBB1_37:
-	cmp	edi, 8
-	jle	.LBB1_85
-# %bb.38:
-	cmp	edi, 9
-	je	.LBB1_129
-# %bb.39:
-	cmp	edi, 11
-	je	.LBB1_132
+	jne	.LBB1_684
+	jmp	.LBB1_1109
+.LBB1_31:
+	cmp	edi, 6
+	jg	.LBB1_76
+# %bb.32:
+	cmp	edi, 3
+	jle	.LBB1_112
+# %bb.33:
+	cmp	edi, 4
+	je	.LBB1_175
+# %bb.34:
+	cmp	edi, 5
+	je	.LBB1_178
+# %bb.35:
+	cmp	edi, 6
+	jne	.LBB1_1109
+# %bb.36:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.37:
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_38
+# %bb.274:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_454
+# %bb.275:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_454
+.LBB1_38:
+	xor	esi, esi
+.LBB1_689:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_691
+.LBB1_690:                              # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_690
+.LBB1_691:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_692:                              # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_692
+	jmp	.LBB1_1109
+.LBB1_39:
+	cmp	edi, 6
+	jg	.LBB1_83
 # %bb.40:
-	cmp	edi, 12
-	jne	.LBB1_737
+	cmp	edi, 3
+	jle	.LBB1_117
 # %bb.41:
-	test	r9d, r9d
-	jle	.LBB1_737
+	cmp	edi, 4
+	je	.LBB1_181
 # %bb.42:
-	vmovsd	xmm0, qword ptr [rcx]           # xmm0 = mem[0],zero
-	mov	eax, r9d
-	cmp	r9d, 16
-	jb	.LBB1_43
-# %bb.189:
-	lea	rcx, [rdx + 8*rax]
-	cmp	rcx, r8
-	jbe	.LBB1_309
-# %bb.190:
-	lea	rcx, [r8 + 8*rax]
-	cmp	rcx, rdx
-	jbe	.LBB1_309
-.LBB1_43:
-	xor	ecx, ecx
-.LBB1_453:
-	mov	rsi, rcx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB1_455
-.LBB1_454:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
-	vmovsd	qword ptr [r8 + 8*rcx], xmm1
-	add	rcx, 1
-	add	rdi, -1
-	jne	.LBB1_454
-.LBB1_455:
-	cmp	rsi, 3
-	jb	.LBB1_737
-.LBB1_456:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
-	vmovsd	qword ptr [r8 + 8*rcx], xmm1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 8] # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
-	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 16] # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
-	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 24] # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
-	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
-	add	rcx, 4
-	cmp	rax, rcx
-	jne	.LBB1_456
-	jmp	.LBB1_737
-.LBB1_44:
-	cmp	edi, 8
-	jle	.LBB1_90
+	cmp	edi, 5
+	je	.LBB1_184
+# %bb.43:
+	cmp	edi, 6
+	jne	.LBB1_1109
+# %bb.44:
+	test	r9d, r9d
+	jle	.LBB1_1109
 # %bb.45:
-	cmp	edi, 9
-	je	.LBB1_135
-# %bb.46:
-	cmp	edi, 11
-	je	.LBB1_138
-# %bb.47:
-	cmp	edi, 12
-	jne	.LBB1_737
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_46
+# %bb.277:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_457
+# %bb.278:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_457
+.LBB1_46:
+	xor	esi, esi
+.LBB1_697:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_699
+.LBB1_698:                              # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_698
+.LBB1_699:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_700:                              # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_700
+	jmp	.LBB1_1109
+.LBB1_47:
+	cmp	edi, 6
+	jg	.LBB1_90
 # %bb.48:
-	test	r9d, r9d
-	jle	.LBB1_737
+	cmp	edi, 3
+	jle	.LBB1_122
 # %bb.49:
+	cmp	edi, 4
+	je	.LBB1_187
+# %bb.50:
+	cmp	edi, 5
+	je	.LBB1_190
+# %bb.51:
+	cmp	edi, 6
+	jne	.LBB1_1109
+# %bb.52:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.53:
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_54
+# %bb.280:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_460
+# %bb.281:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_460
+.LBB1_54:
+	xor	esi, esi
+.LBB1_705:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_707
+.LBB1_706:                              # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_706
+.LBB1_707:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_708:                              # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_708
+	jmp	.LBB1_1109
+.LBB1_55:
+	cmp	edi, 8
+	jle	.LBB1_127
+# %bb.56:
+	cmp	edi, 9
+	je	.LBB1_193
+# %bb.57:
+	cmp	edi, 11
+	je	.LBB1_196
+# %bb.58:
+	cmp	edi, 12
+	jne	.LBB1_1109
+# %bb.59:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.60:
 	vmovsd	xmm0, qword ptr [rcx]           # xmm0 = mem[0],zero
 	mov	eax, r9d
 	cmp	r9d, 16
-	jb	.LBB1_50
-# %bb.192:
+	jb	.LBB1_61
+# %bb.283:
 	lea	rcx, [rdx + 8*rax]
 	cmp	rcx, r8
-	jbe	.LBB1_312
-# %bb.193:
+	jbe	.LBB1_463
+# %bb.284:
 	lea	rcx, [r8 + 8*rax]
 	cmp	rcx, rdx
-	jbe	.LBB1_312
-.LBB1_50:
+	jbe	.LBB1_463
+.LBB1_61:
 	xor	ecx, ecx
-.LBB1_461:
+.LBB1_713:
 	mov	rsi, rcx
 	not	rsi
 	add	rsi, rax
 	mov	rdi, rax
 	and	rdi, 3
-	je	.LBB1_463
-.LBB1_462:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB1_715
+.LBB1_714:                              # =>This Inner Loop Header: Depth=1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	add	rcx, 1
+	add	rdi, -1
+	jne	.LBB1_714
+.LBB1_715:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_716:                              # =>This Inner Loop Header: Depth=1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 8]
+	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 16]
+	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 24]
+	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_716
+	jmp	.LBB1_1109
+.LBB1_62:
+	cmp	edi, 8
+	jle	.LBB1_132
+# %bb.63:
+	cmp	edi, 9
+	je	.LBB1_199
+# %bb.64:
+	cmp	edi, 11
+	je	.LBB1_202
+# %bb.65:
+	cmp	edi, 12
+	jne	.LBB1_1109
+# %bb.66:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.67:
+	vmovsd	xmm0, qword ptr [rcx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
+	cmp	r9d, 16
+	jb	.LBB1_68
+# %bb.286:
+	lea	rcx, [rdx + 8*rax]
+	cmp	rcx, r8
+	jbe	.LBB1_466
+# %bb.287:
+	lea	rcx, [r8 + 8*rax]
+	cmp	rcx, rdx
+	jbe	.LBB1_466
+.LBB1_68:
+	xor	ecx, ecx
+.LBB1_721:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB1_723
+.LBB1_722:                              # =>This Inner Loop Header: Depth=1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	add	rcx, 1
+	add	rdi, -1
+	jne	.LBB1_722
+.LBB1_723:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_724:                              # =>This Inner Loop Header: Depth=1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 8]
+	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 16]
+	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 24]
+	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_724
+	jmp	.LBB1_1109
+.LBB1_69:
+	cmp	edi, 8
+	jle	.LBB1_137
+# %bb.70:
+	cmp	edi, 9
+	je	.LBB1_205
+# %bb.71:
+	cmp	edi, 11
+	je	.LBB1_208
+# %bb.72:
+	cmp	edi, 12
+	jne	.LBB1_1109
+# %bb.73:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.74:
+	vmovsd	xmm0, qword ptr [rcx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
+	cmp	r9d, 16
+	jb	.LBB1_75
+# %bb.289:
+	lea	rcx, [rdx + 8*rax]
+	cmp	rcx, r8
+	jbe	.LBB1_469
+# %bb.290:
+	lea	rcx, [r8 + 8*rax]
+	cmp	rcx, rdx
+	jbe	.LBB1_469
+.LBB1_75:
+	xor	ecx, ecx
+.LBB1_729:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB1_731
+.LBB1_730:                              # =>This Inner Loop Header: Depth=1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	add	rcx, 1
+	add	rdi, -1
+	jne	.LBB1_730
+.LBB1_731:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_732:                              # =>This Inner Loop Header: Depth=1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 8]
+	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 16]
+	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 24]
+	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_732
+	jmp	.LBB1_1109
+.LBB1_76:
+	cmp	edi, 8
+	jle	.LBB1_142
+# %bb.77:
+	cmp	edi, 9
+	je	.LBB1_211
+# %bb.78:
+	cmp	edi, 11
+	je	.LBB1_214
+# %bb.79:
+	cmp	edi, 12
+	jne	.LBB1_1109
+# %bb.80:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.81:
+	vmovsd	xmm0, qword ptr [rcx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
+	cmp	r9d, 16
+	jb	.LBB1_82
+# %bb.292:
+	lea	rcx, [rdx + 8*rax]
+	cmp	rcx, r8
+	jbe	.LBB1_472
+# %bb.293:
+	lea	rcx, [r8 + 8*rax]
+	cmp	rcx, rdx
+	jbe	.LBB1_472
+.LBB1_82:
+	xor	ecx, ecx
+.LBB1_737:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB1_739
+.LBB1_738:                              # =>This Inner Loop Header: Depth=1
 	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
 	vsubsd	xmm1, xmm1, xmm0
 	vmovsd	qword ptr [r8 + 8*rcx], xmm1
 	add	rcx, 1
 	add	rdi, -1
-	jne	.LBB1_462
-.LBB1_463:
+	jne	.LBB1_738
+.LBB1_739:
 	cmp	rsi, 3
-	jb	.LBB1_737
-.LBB1_464:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB1_1109
+.LBB1_740:                              # =>This Inner Loop Header: Depth=1
 	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
 	vsubsd	xmm1, xmm1, xmm0
 	vmovsd	qword ptr [r8 + 8*rcx], xmm1
@@ -4002,1042 +6499,695 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
 	add	rcx, 4
 	cmp	rax, rcx
-	jne	.LBB1_464
-	jmp	.LBB1_737
-.LBB1_51:
+	jne	.LBB1_740
+	jmp	.LBB1_1109
+.LBB1_83:
 	cmp	edi, 8
-	jle	.LBB1_95
-# %bb.52:
+	jle	.LBB1_147
+# %bb.84:
 	cmp	edi, 9
-	je	.LBB1_141
-# %bb.53:
+	je	.LBB1_217
+# %bb.85:
 	cmp	edi, 11
-	je	.LBB1_144
-# %bb.54:
-	cmp	edi, 12
-	jne	.LBB1_737
-# %bb.55:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.56:
-	vmovsd	xmm0, qword ptr [rcx]           # xmm0 = mem[0],zero
-	mov	eax, r9d
-	cmp	r9d, 16
-	jb	.LBB1_57
-# %bb.195:
-	lea	rcx, [rdx + 8*rax]
-	cmp	rcx, r8
-	jbe	.LBB1_315
-# %bb.196:
-	lea	rcx, [r8 + 8*rax]
-	cmp	rcx, rdx
-	jbe	.LBB1_315
-.LBB1_57:
-	xor	ecx, ecx
-.LBB1_469:
-	mov	rsi, rcx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB1_471
-.LBB1_470:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
-	vmovsd	qword ptr [r8 + 8*rcx], xmm1
-	add	rcx, 1
-	add	rdi, -1
-	jne	.LBB1_470
-.LBB1_471:
-	cmp	rsi, 3
-	jb	.LBB1_737
-.LBB1_472:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
-	vmovsd	qword ptr [r8 + 8*rcx], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 8]
-	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 16]
-	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 24]
-	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
-	add	rcx, 4
-	cmp	rax, rcx
-	jne	.LBB1_472
-	jmp	.LBB1_737
-.LBB1_58:
-	cmp	edi, 8
-	jle	.LBB1_100
-# %bb.59:
-	cmp	edi, 9
-	je	.LBB1_147
-# %bb.60:
-	cmp	edi, 11
-	je	.LBB1_150
-# %bb.61:
-	cmp	edi, 12
-	jne	.LBB1_737
-# %bb.62:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.63:
-	vmovsd	xmm0, qword ptr [rcx]           # xmm0 = mem[0],zero
-	mov	eax, r9d
-	cmp	r9d, 16
-	jb	.LBB1_64
-# %bb.198:
-	lea	rcx, [rdx + 8*rax]
-	cmp	rcx, r8
-	jbe	.LBB1_318
-# %bb.199:
-	lea	rcx, [r8 + 8*rax]
-	cmp	rcx, rdx
-	jbe	.LBB1_318
-.LBB1_64:
-	xor	ecx, ecx
-.LBB1_477:
-	mov	rsi, rcx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB1_479
-.LBB1_478:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
-	vmovsd	qword ptr [r8 + 8*rcx], xmm1
-	add	rcx, 1
-	add	rdi, -1
-	jne	.LBB1_478
-.LBB1_479:
-	cmp	rsi, 3
-	jb	.LBB1_737
-.LBB1_480:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
-	vmovsd	qword ptr [r8 + 8*rcx], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 8]
-	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 16]
-	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 24]
-	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
-	add	rcx, 4
-	cmp	rax, rcx
-	jne	.LBB1_480
-	jmp	.LBB1_737
-.LBB1_65:
-	cmp	edi, 2
-	je	.LBB1_153
-# %bb.66:
-	cmp	edi, 3
-	jne	.LBB1_737
-# %bb.67:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.68:
-	mov	al, byte ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB1_69
-# %bb.201:
-	lea	rcx, [rdx + r10]
-	cmp	rcx, r8
-	jbe	.LBB1_321
-# %bb.202:
-	lea	rcx, [r8 + r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_321
-.LBB1_69:
-	xor	esi, esi
-.LBB1_485:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_487
-.LBB1_486:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_486
-.LBB1_487:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_488:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	movzx	ecx, byte ptr [rdx + rsi + 1]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 1], cl
-	movzx	ecx, byte ptr [rdx + rsi + 2]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 2], cl
-	movzx	ecx, byte ptr [rdx + rsi + 3]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 3], cl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_488
-	jmp	.LBB1_737
-.LBB1_70:
-	cmp	edi, 2
-	je	.LBB1_156
-# %bb.71:
-	cmp	edi, 3
-	jne	.LBB1_737
-# %bb.72:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.73:
-	mov	al, byte ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB1_74
-# %bb.204:
-	lea	rcx, [rdx + r10]
-	cmp	rcx, r8
-	jbe	.LBB1_324
-# %bb.205:
-	lea	rcx, [r8 + r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_324
-.LBB1_74:
-	xor	esi, esi
-.LBB1_493:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_495
-.LBB1_494:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_494
-.LBB1_495:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_496:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	movzx	ecx, byte ptr [rdx + rsi + 1]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 1], cl
-	movzx	ecx, byte ptr [rdx + rsi + 2]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 2], cl
-	movzx	ecx, byte ptr [rdx + rsi + 3]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 3], cl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_496
-	jmp	.LBB1_737
-.LBB1_75:
-	cmp	edi, 2
-	je	.LBB1_159
-# %bb.76:
-	cmp	edi, 3
-	jne	.LBB1_737
-# %bb.77:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.78:
-	mov	al, byte ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB1_79
-# %bb.207:
-	lea	rcx, [rdx + r10]
-	cmp	rcx, r8
-	jbe	.LBB1_327
-# %bb.208:
-	lea	rcx, [r8 + r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_327
-.LBB1_79:
-	xor	esi, esi
-.LBB1_501:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_503
-.LBB1_502:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_502
-.LBB1_503:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_504:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	movzx	ecx, byte ptr [rdx + rsi + 1]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 1], cl
-	movzx	ecx, byte ptr [rdx + rsi + 2]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 2], cl
-	movzx	ecx, byte ptr [rdx + rsi + 3]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 3], cl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_504
-	jmp	.LBB1_737
-.LBB1_80:
-	cmp	edi, 2
-	je	.LBB1_162
-# %bb.81:
-	cmp	edi, 3
-	jne	.LBB1_737
-# %bb.82:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.83:
-	mov	al, byte ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB1_84
-# %bb.210:
-	lea	rcx, [rdx + r10]
-	cmp	rcx, r8
-	jbe	.LBB1_330
-# %bb.211:
-	lea	rcx, [r8 + r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_330
-.LBB1_84:
-	xor	esi, esi
-.LBB1_509:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_511
-.LBB1_510:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_510
-.LBB1_511:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_512:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	movzx	ecx, byte ptr [rdx + rsi + 1]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 1], cl
-	movzx	ecx, byte ptr [rdx + rsi + 2]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 2], cl
-	movzx	ecx, byte ptr [rdx + rsi + 3]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 3], cl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_512
-	jmp	.LBB1_737
-.LBB1_85:
-	cmp	edi, 7
-	je	.LBB1_165
+	je	.LBB1_220
 # %bb.86:
-	cmp	edi, 8
-	jne	.LBB1_737
+	cmp	edi, 12
+	jne	.LBB1_1109
 # %bb.87:
 	test	r9d, r9d
-	jle	.LBB1_737
+	jle	.LBB1_1109
 # %bb.88:
-	mov	rax, qword ptr [rcx]
-	mov	r10d, r9d
+	vmovsd	xmm0, qword ptr [rcx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
 	cmp	r9d, 16
 	jb	.LBB1_89
-# %bb.213:
-	lea	rcx, [rdx + 8*r10]
+# %bb.295:
+	lea	rcx, [rdx + 8*rax]
 	cmp	rcx, r8
-	jbe	.LBB1_333
-# %bb.214:
-	lea	rcx, [r8 + 8*r10]
+	jbe	.LBB1_475
+# %bb.296:
+	lea	rcx, [r8 + 8*rax]
 	cmp	rcx, rdx
-	jbe	.LBB1_333
+	jbe	.LBB1_475
 .LBB1_89:
-	xor	esi, esi
-.LBB1_517:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
+	xor	ecx, ecx
+.LBB1_745:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
 	and	rdi, 3
-	je	.LBB1_519
-.LBB1_518:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	add	rsi, 1
+	je	.LBB1_747
+.LBB1_746:                              # =>This Inner Loop Header: Depth=1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	add	rcx, 1
 	add	rdi, -1
-	jne	.LBB1_518
-.LBB1_519:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_520:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rcx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_520
-	jmp	.LBB1_737
+	jne	.LBB1_746
+.LBB1_747:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_748:                              # =>This Inner Loop Header: Depth=1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 8]
+	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 16]
+	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 24]
+	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_748
+	jmp	.LBB1_1109
 .LBB1_90:
-	cmp	edi, 7
-	je	.LBB1_168
+	cmp	edi, 8
+	jle	.LBB1_152
 # %bb.91:
-	cmp	edi, 8
-	jne	.LBB1_737
+	cmp	edi, 9
+	je	.LBB1_223
 # %bb.92:
-	test	r9d, r9d
-	jle	.LBB1_737
+	cmp	edi, 11
+	je	.LBB1_226
 # %bb.93:
-	mov	rax, qword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB1_94
-# %bb.216:
-	lea	rcx, [rdx + 8*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_336
-# %bb.217:
-	lea	rcx, [r8 + 8*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_336
-.LBB1_94:
-	xor	esi, esi
-.LBB1_525:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_527
-.LBB1_526:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_526
-.LBB1_527:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_528:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rcx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_528
-	jmp	.LBB1_737
-.LBB1_95:
-	cmp	edi, 7
-	je	.LBB1_171
-# %bb.96:
-	cmp	edi, 8
-	jne	.LBB1_737
-# %bb.97:
+	cmp	edi, 12
+	jne	.LBB1_1109
+# %bb.94:
 	test	r9d, r9d
-	jle	.LBB1_737
+	jle	.LBB1_1109
+# %bb.95:
+	vmovsd	xmm0, qword ptr [rcx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
+	cmp	r9d, 16
+	jb	.LBB1_96
+# %bb.298:
+	lea	rcx, [rdx + 8*rax]
+	cmp	rcx, r8
+	jbe	.LBB1_478
+# %bb.299:
+	lea	rcx, [r8 + 8*rax]
+	cmp	rcx, rdx
+	jbe	.LBB1_478
+.LBB1_96:
+	xor	ecx, ecx
+.LBB1_753:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB1_755
+.LBB1_754:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	add	rcx, 1
+	add	rdi, -1
+	jne	.LBB1_754
+.LBB1_755:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_756:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
+	vmovsd	qword ptr [r8 + 8*rcx], xmm1
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 8] # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
+	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 16] # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
+	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 24] # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
+	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_756
+	jmp	.LBB1_1109
+.LBB1_97:
+	cmp	edi, 2
+	je	.LBB1_229
 # %bb.98:
-	mov	rax, qword ptr [rcx]
+	cmp	edi, 3
+	jne	.LBB1_1109
+# %bb.99:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.100:
+	mov	cl, byte ptr [rcx]
 	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB1_99
-# %bb.219:
-	lea	rcx, [rdx + 8*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_339
-# %bb.220:
-	lea	rcx, [r8 + 8*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_339
-.LBB1_99:
-	xor	esi, esi
-.LBB1_533:
-	mov	r9, rsi
+	cmp	r9d, 32
+	jb	.LBB1_101
+# %bb.301:
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	jbe	.LBB1_481
+# %bb.302:
+	lea	rax, [r8 + r10]
+	cmp	rax, rdx
+	jbe	.LBB1_481
+.LBB1_101:
+	xor	edi, edi
+.LBB1_627:
+	mov	r9, rdi
 	not	r9
 	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_535
-.LBB1_534:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_534
-.LBB1_535:
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB1_629
+.LBB1_628:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rdi]
+	mul	cl
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB1_628
+.LBB1_629:
 	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_536:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rcx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_536
-	jmp	.LBB1_737
-.LBB1_100:
-	cmp	edi, 7
-	je	.LBB1_174
-# %bb.101:
-	cmp	edi, 8
-	jne	.LBB1_737
-# %bb.102:
-	test	r9d, r9d
-	jle	.LBB1_737
+	jb	.LBB1_1109
+.LBB1_630:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rdi]
+	mul	cl
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rdx + rdi + 1]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rdx + rdi + 2]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rdx + rdi + 3]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB1_630
+	jmp	.LBB1_1109
+.LBB1_102:
+	cmp	edi, 2
+	je	.LBB1_232
 # %bb.103:
-	mov	rax, qword ptr [rcx]
+	cmp	edi, 3
+	jne	.LBB1_1109
+# %bb.104:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.105:
+	mov	cl, byte ptr [rcx]
 	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB1_104
-# %bb.222:
-	lea	rcx, [rdx + 8*r10]
+	cmp	r9d, 32
+	jb	.LBB1_106
+# %bb.304:
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	jbe	.LBB1_483
+# %bb.305:
+	lea	rax, [r8 + r10]
+	cmp	rax, rdx
+	jbe	.LBB1_483
+.LBB1_106:
+	xor	edi, edi
+.LBB1_637:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB1_639
+.LBB1_638:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rdi]
+	mul	cl
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB1_638
+.LBB1_639:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_640:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rdi]
+	mul	cl
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rdx + rdi + 1]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rdx + rdi + 2]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rdx + rdi + 3]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB1_640
+	jmp	.LBB1_1109
+.LBB1_107:
+	cmp	edi, 2
+	je	.LBB1_235
+# %bb.108:
+	cmp	edi, 3
+	jne	.LBB1_1109
+# %bb.109:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.110:
+	mov	al, byte ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB1_111
+# %bb.307:
+	lea	rcx, [rdx + r10]
 	cmp	rcx, r8
-	jbe	.LBB1_342
-# %bb.223:
-	lea	rcx, [r8 + 8*r10]
+	jbe	.LBB1_485
+# %bb.308:
+	lea	rcx, [r8 + r10]
 	cmp	rcx, rdx
-	jbe	.LBB1_342
-.LBB1_104:
+	jbe	.LBB1_485
+.LBB1_111:
 	xor	esi, esi
-.LBB1_541:
+.LBB1_761:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB1_543
-.LBB1_542:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
+	je	.LBB1_763
+.LBB1_762:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	add	cl, al
+	mov	byte ptr [r8 + rsi], cl
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB1_542
-.LBB1_543:
+	jne	.LBB1_762
+.LBB1_763:
 	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_544:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	jb	.LBB1_1109
+.LBB1_764:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	add	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	movzx	ecx, byte ptr [rdx + rsi + 1]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 1], cl
+	movzx	ecx, byte ptr [rdx + rsi + 2]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 2], cl
+	movzx	ecx, byte ptr [rdx + rsi + 3]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 3], cl
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB1_544
-	jmp	.LBB1_737
-.LBB1_105:
+	jne	.LBB1_764
+	jmp	.LBB1_1109
+.LBB1_112:
+	cmp	edi, 2
+	je	.LBB1_238
+# %bb.113:
+	cmp	edi, 3
+	jne	.LBB1_1109
+# %bb.114:
 	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.106:
-	movzx	eax, word ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_107
-# %bb.225:
-	lea	rcx, [rdx + 2*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_345
-# %bb.226:
-	lea	rcx, [r8 + 2*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_345
-.LBB1_107:
-	xor	esi, esi
-.LBB1_549:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rcx, r10
-	and	rcx, 3
-	je	.LBB1_551
-.LBB1_550:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	edi, eax
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rcx, -1
-	jne	.LBB1_550
-.LBB1_551:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_552:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, word ptr [rdx + 2*rsi]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 2], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 4], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 6], cx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_552
-	jmp	.LBB1_737
-.LBB1_108:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.109:
-	movzx	eax, word ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_110
-# %bb.228:
-	lea	rcx, [rdx + 2*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_348
-# %bb.229:
-	lea	rcx, [r8 + 2*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_348
-.LBB1_110:
-	xor	esi, esi
-.LBB1_557:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rcx, r10
-	and	rcx, 3
-	je	.LBB1_559
-.LBB1_558:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	edi, eax
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rcx, -1
-	jne	.LBB1_558
-.LBB1_559:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_560:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, word ptr [rdx + 2*rsi]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 2], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 4], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 6], cx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_560
-	jmp	.LBB1_737
-.LBB1_111:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.112:
-	movzx	eax, word ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_113
-# %bb.231:
-	lea	rcx, [rdx + 2*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_351
-# %bb.232:
-	lea	rcx, [r8 + 2*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_351
-.LBB1_113:
-	xor	esi, esi
-.LBB1_565:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rcx, r10
-	and	rcx, 3
-	je	.LBB1_567
-.LBB1_566:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	edi, eax
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rcx, -1
-	jne	.LBB1_566
-.LBB1_567:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_568:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, word ptr [rdx + 2*rsi]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 2], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 4], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 6], cx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_568
-	jmp	.LBB1_737
-.LBB1_114:
-	test	r9d, r9d
-	jle	.LBB1_737
+	jle	.LBB1_1109
 # %bb.115:
-	movzx	eax, word ptr [rcx]
+	mov	al, byte ptr [rcx]
 	mov	r10d, r9d
-	cmp	r9d, 32
+	cmp	r9d, 128
 	jb	.LBB1_116
-# %bb.234:
-	lea	rcx, [rdx + 2*r10]
+# %bb.310:
+	lea	rcx, [rdx + r10]
 	cmp	rcx, r8
-	jbe	.LBB1_354
-# %bb.235:
-	lea	rcx, [r8 + 2*r10]
+	jbe	.LBB1_488
+# %bb.311:
+	lea	rcx, [r8 + r10]
 	cmp	rcx, rdx
-	jbe	.LBB1_354
+	jbe	.LBB1_488
 .LBB1_116:
 	xor	esi, esi
-.LBB1_573:
+.LBB1_769:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
-	mov	rcx, r10
-	and	rcx, 3
-	je	.LBB1_575
-.LBB1_574:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	edi, eax
-	mov	word ptr [r8 + 2*rsi], di
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_771
+.LBB1_770:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi], cl
 	add	rsi, 1
-	add	rcx, -1
-	jne	.LBB1_574
-.LBB1_575:
+	add	rdi, -1
+	jne	.LBB1_770
+.LBB1_771:
 	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_576:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, word ptr [rdx + 2*rsi]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 2], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 4], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	sub	ecx, eax
-	mov	word ptr [r8 + 2*rsi + 6], cx
+	jb	.LBB1_1109
+.LBB1_772:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	movzx	ecx, byte ptr [rdx + rsi + 1]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 1], cl
+	movzx	ecx, byte ptr [rdx + rsi + 2]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 2], cl
+	movzx	ecx, byte ptr [rdx + rsi + 3]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 3], cl
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB1_576
-	jmp	.LBB1_737
+	jne	.LBB1_772
+	jmp	.LBB1_1109
 .LBB1_117:
-	test	r9d, r9d
-	jle	.LBB1_737
+	cmp	edi, 2
+	je	.LBB1_241
 # %bb.118:
-	movzx	eax, word ptr [rcx]
+	cmp	edi, 3
+	jne	.LBB1_1109
+# %bb.119:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.120:
+	mov	al, byte ptr [rcx]
 	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_119
-# %bb.237:
-	lea	rcx, [rdx + 2*r10]
+	cmp	r9d, 128
+	jb	.LBB1_121
+# %bb.313:
+	lea	rcx, [rdx + r10]
 	cmp	rcx, r8
-	jbe	.LBB1_357
-# %bb.238:
-	lea	rcx, [r8 + 2*r10]
+	jbe	.LBB1_491
+# %bb.314:
+	lea	rcx, [r8 + r10]
 	cmp	rcx, rdx
-	jbe	.LBB1_357
-.LBB1_119:
+	jbe	.LBB1_491
+.LBB1_121:
 	xor	esi, esi
-.LBB1_581:
+.LBB1_777:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
-	mov	rcx, r10
-	and	rcx, 3
-	je	.LBB1_583
-.LBB1_582:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	add	di, ax
-	mov	word ptr [r8 + 2*rsi], di
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_779
+.LBB1_778:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	add	cl, al
+	mov	byte ptr [r8 + rsi], cl
 	add	rsi, 1
-	add	rcx, -1
-	jne	.LBB1_582
-.LBB1_583:
+	add	rdi, -1
+	jne	.LBB1_778
+.LBB1_779:
 	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_584:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, word ptr [rdx + 2*rsi]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 2], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 4], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 6], cx
+	jb	.LBB1_1109
+.LBB1_780:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	add	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	movzx	ecx, byte ptr [rdx + rsi + 1]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 1], cl
+	movzx	ecx, byte ptr [rdx + rsi + 2]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 2], cl
+	movzx	ecx, byte ptr [rdx + rsi + 3]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 3], cl
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB1_584
-	jmp	.LBB1_737
-.LBB1_120:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.121:
-	movzx	eax, word ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_122
-# %bb.240:
-	lea	rcx, [rdx + 2*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_360
-# %bb.241:
-	lea	rcx, [r8 + 2*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_360
+	jne	.LBB1_780
+	jmp	.LBB1_1109
 .LBB1_122:
-	xor	esi, esi
-.LBB1_589:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rcx, r10
-	and	rcx, 3
-	je	.LBB1_591
-.LBB1_590:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	add	di, ax
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rcx, -1
-	jne	.LBB1_590
-.LBB1_591:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_592:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, word ptr [rdx + 2*rsi]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 2], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 4], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 6], cx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_592
-	jmp	.LBB1_737
-.LBB1_123:
-	test	r9d, r9d
-	jle	.LBB1_737
+	cmp	edi, 2
+	je	.LBB1_244
+# %bb.123:
+	cmp	edi, 3
+	jne	.LBB1_1109
 # %bb.124:
-	movzx	eax, word ptr [rcx]
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.125:
+	mov	al, byte ptr [rcx]
 	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_125
-# %bb.243:
-	lea	rcx, [rdx + 2*r10]
+	cmp	r9d, 128
+	jb	.LBB1_126
+# %bb.316:
+	lea	rcx, [rdx + r10]
 	cmp	rcx, r8
-	jbe	.LBB1_363
-# %bb.244:
-	lea	rcx, [r8 + 2*r10]
+	jbe	.LBB1_494
+# %bb.317:
+	lea	rcx, [r8 + r10]
 	cmp	rcx, rdx
-	jbe	.LBB1_363
-.LBB1_125:
-	xor	esi, esi
-.LBB1_597:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rcx, r10
-	and	rcx, 3
-	je	.LBB1_599
-.LBB1_598:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	add	di, ax
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rcx, -1
-	jne	.LBB1_598
-.LBB1_599:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_600:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, word ptr [rdx + 2*rsi]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 2], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 4], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 6], cx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_600
-	jmp	.LBB1_737
+	jbe	.LBB1_494
 .LBB1_126:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.127:
-	movzx	eax, word ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_128
-# %bb.246:
-	lea	rcx, [rdx + 2*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_366
-# %bb.247:
-	lea	rcx, [r8 + 2*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_366
-.LBB1_128:
 	xor	esi, esi
-.LBB1_605:
+.LBB1_785:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
-	mov	rcx, r10
-	and	rcx, 3
-	je	.LBB1_607
-.LBB1_606:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	add	di, ax
-	mov	word ptr [r8 + 2*rsi], di
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_787
+.LBB1_786:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi], cl
 	add	rsi, 1
-	add	rcx, -1
-	jne	.LBB1_606
-.LBB1_607:
+	add	rdi, -1
+	jne	.LBB1_786
+.LBB1_787:
 	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_608:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, word ptr [rdx + 2*rsi]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 2], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 4], cx
-	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	add	cx, ax
-	mov	word ptr [r8 + 2*rsi + 6], cx
+	jb	.LBB1_1109
+.LBB1_788:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	movzx	ecx, byte ptr [rdx + rsi + 1]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 1], cl
+	movzx	ecx, byte ptr [rdx + rsi + 2]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 2], cl
+	movzx	ecx, byte ptr [rdx + rsi + 3]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 3], cl
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB1_608
-	jmp	.LBB1_737
-.LBB1_129:
+	jne	.LBB1_788
+	jmp	.LBB1_1109
+.LBB1_127:
+	cmp	edi, 7
+	je	.LBB1_247
+# %bb.128:
+	cmp	edi, 8
+	jne	.LBB1_1109
+# %bb.129:
 	test	r9d, r9d
-	jle	.LBB1_737
+	jle	.LBB1_1109
 # %bb.130:
 	mov	rax, qword ptr [rcx]
 	mov	r10d, r9d
 	cmp	r9d, 16
 	jb	.LBB1_131
-# %bb.249:
+# %bb.319:
 	lea	rcx, [rdx + 8*r10]
 	cmp	rcx, r8
-	jbe	.LBB1_369
-# %bb.250:
+	jbe	.LBB1_497
+# %bb.320:
 	lea	rcx, [r8 + 8*r10]
 	cmp	rcx, rdx
-	jbe	.LBB1_369
+	jbe	.LBB1_497
 .LBB1_131:
 	xor	esi, esi
-.LBB1_613:
+.LBB1_793:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB1_615
-.LBB1_614:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB1_795
+.LBB1_794:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_794
+.LBB1_795:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_796:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_796
+	jmp	.LBB1_1109
+.LBB1_132:
+	cmp	edi, 7
+	je	.LBB1_250
+# %bb.133:
+	cmp	edi, 8
+	jne	.LBB1_1109
+# %bb.134:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.135:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_136
+# %bb.322:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_500
+# %bb.323:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_500
+.LBB1_136:
+	xor	esi, esi
+.LBB1_801:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_803
+.LBB1_802:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_802
+.LBB1_803:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_804:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_804
+	jmp	.LBB1_1109
+.LBB1_137:
+	cmp	edi, 7
+	je	.LBB1_253
+# %bb.138:
+	cmp	edi, 8
+	jne	.LBB1_1109
+# %bb.139:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.140:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_141
+# %bb.325:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_503
+# %bb.326:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_503
+.LBB1_141:
+	xor	esi, esi
+.LBB1_809:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_811
+.LBB1_810:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_810
+.LBB1_811:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_812:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_812
+	jmp	.LBB1_1109
+.LBB1_142:
+	cmp	edi, 7
+	je	.LBB1_256
+# %bb.143:
+	cmp	edi, 8
+	jne	.LBB1_1109
+# %bb.144:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.145:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_146
+# %bb.328:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_506
+# %bb.329:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_506
+.LBB1_146:
+	xor	esi, esi
+.LBB1_817:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_819
+.LBB1_818:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
 	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB1_614
-.LBB1_615:
+	jne	.LBB1_818
+.LBB1_819:
 	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_616:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB1_1109
+.LBB1_820:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
 	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
@@ -5052,3016 +7202,4724 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	mov	qword ptr [r8 + 8*rsi + 24], rcx
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB1_616
-	jmp	.LBB1_737
-.LBB1_132:
+	jne	.LBB1_820
+	jmp	.LBB1_1109
+.LBB1_147:
+	cmp	edi, 7
+	je	.LBB1_259
+# %bb.148:
+	cmp	edi, 8
+	jne	.LBB1_1109
+# %bb.149:
 	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.133:
+	jle	.LBB1_1109
+# %bb.150:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_151
+# %bb.331:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_509
+# %bb.332:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_509
+.LBB1_151:
+	xor	esi, esi
+.LBB1_825:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_827
+.LBB1_826:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_826
+.LBB1_827:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_828:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_828
+	jmp	.LBB1_1109
+.LBB1_152:
+	cmp	edi, 7
+	je	.LBB1_262
+# %bb.153:
+	cmp	edi, 8
+	jne	.LBB1_1109
+# %bb.154:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.155:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_156
+# %bb.334:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_512
+# %bb.335:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_512
+.LBB1_156:
+	xor	esi, esi
+.LBB1_833:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_835
+.LBB1_834:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_834
+.LBB1_835:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_836:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_836
+	jmp	.LBB1_1109
+.LBB1_157:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.158:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_159
+# %bb.337:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_515
+# %bb.338:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_515
+.LBB1_159:
+	xor	esi, esi
+.LBB1_841:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_843
+.LBB1_842:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	imul	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_842
+.LBB1_843:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_844:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_844
+	jmp	.LBB1_1109
+.LBB1_160:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.161:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_162
+# %bb.340:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_518
+# %bb.341:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_518
+.LBB1_162:
+	xor	esi, esi
+.LBB1_849:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_851
+.LBB1_850:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	imul	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_850
+.LBB1_851:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_852:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_852
+	jmp	.LBB1_1109
+.LBB1_163:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.164:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_165
+# %bb.343:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_521
+# %bb.344:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_521
+.LBB1_165:
+	xor	esi, esi
+.LBB1_857:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_859
+.LBB1_858:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	imul	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_858
+.LBB1_859:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_860:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_860
+	jmp	.LBB1_1109
+.LBB1_166:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.167:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_168
+# %bb.346:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_524
+# %bb.347:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_524
+.LBB1_168:
+	xor	esi, esi
+.LBB1_865:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_867
+.LBB1_866:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	imul	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_866
+.LBB1_867:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_868:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	imul	cx, ax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_868
+	jmp	.LBB1_1109
+.LBB1_169:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.170:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_171
+# %bb.349:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_527
+# %bb.350:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_527
+.LBB1_171:
+	xor	esi, esi
+.LBB1_873:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_875
+.LBB1_874:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	add	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_874
+.LBB1_875:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_876:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_876
+	jmp	.LBB1_1109
+.LBB1_172:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.173:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_174
+# %bb.352:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_530
+# %bb.353:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_530
+.LBB1_174:
+	xor	esi, esi
+.LBB1_881:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_883
+.LBB1_882:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	add	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_882
+.LBB1_883:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_884:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_884
+	jmp	.LBB1_1109
+.LBB1_175:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.176:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_177
+# %bb.355:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_533
+# %bb.356:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_533
+.LBB1_177:
+	xor	esi, esi
+.LBB1_889:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_891
+.LBB1_890:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	edi, eax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_890
+.LBB1_891:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_892:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_892
+	jmp	.LBB1_1109
+.LBB1_178:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.179:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_180
+# %bb.358:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_536
+# %bb.359:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_536
+.LBB1_180:
+	xor	esi, esi
+.LBB1_897:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_899
+.LBB1_898:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	edi, eax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_898
+.LBB1_899:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_900:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_900
+	jmp	.LBB1_1109
+.LBB1_181:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.182:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_183
+# %bb.361:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_539
+# %bb.362:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_539
+.LBB1_183:
+	xor	esi, esi
+.LBB1_905:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_907
+.LBB1_906:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	add	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_906
+.LBB1_907:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_908:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_908
+	jmp	.LBB1_1109
+.LBB1_184:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.185:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_186
+# %bb.364:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_542
+# %bb.365:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_542
+.LBB1_186:
+	xor	esi, esi
+.LBB1_913:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_915
+.LBB1_914:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	add	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_914
+.LBB1_915:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_916:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	add	cx, ax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_916
+	jmp	.LBB1_1109
+.LBB1_187:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.188:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_189
+# %bb.367:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_545
+# %bb.368:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_545
+.LBB1_189:
+	xor	esi, esi
+.LBB1_921:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_923
+.LBB1_922:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	edi, eax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_922
+.LBB1_923:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_924:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_924
+	jmp	.LBB1_1109
+.LBB1_190:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.191:
+	movzx	eax, word ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_192
+# %bb.370:
+	lea	rcx, [rdx + 2*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_548
+# %bb.371:
+	lea	rcx, [r8 + 2*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_548
+.LBB1_192:
+	xor	esi, esi
+.LBB1_929:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rcx, r10
+	and	rcx, 3
+	je	.LBB1_931
+.LBB1_930:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	edi, eax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rcx, -1
+	jne	.LBB1_930
+.LBB1_931:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_932:                              # =>This Inner Loop Header: Depth=1
+	movzx	ecx, word ptr [rdx + 2*rsi]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 2]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 2], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 4]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 4], cx
+	movzx	ecx, word ptr [rdx + 2*rsi + 6]
+	sub	ecx, eax
+	mov	word ptr [r8 + 2*rsi + 6], cx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_932
+	jmp	.LBB1_1109
+.LBB1_193:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.194:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_195
+# %bb.373:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_551
+# %bb.374:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_551
+.LBB1_195:
+	xor	esi, esi
+.LBB1_937:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_939
+.LBB1_938:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_938
+.LBB1_939:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_940:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_940
+	jmp	.LBB1_1109
+.LBB1_196:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.197:
 	vmovss	xmm0, dword ptr [rcx]           # xmm0 = mem[0],zero,zero,zero
 	mov	eax, r9d
 	cmp	r9d, 32
-	jb	.LBB1_134
-# %bb.252:
+	jb	.LBB1_198
+# %bb.376:
 	lea	rcx, [rdx + 4*rax]
 	cmp	rcx, r8
-	jbe	.LBB1_372
-# %bb.253:
+	jbe	.LBB1_554
+# %bb.377:
 	lea	rcx, [r8 + 4*rax]
 	cmp	rcx, rdx
-	jbe	.LBB1_372
-.LBB1_134:
+	jbe	.LBB1_554
+.LBB1_198:
 	xor	ecx, ecx
-.LBB1_621:
+.LBB1_945:
 	mov	rsi, rcx
 	not	rsi
 	add	rsi, rax
 	mov	rdi, rax
 	and	rdi, 3
-	je	.LBB1_623
-.LBB1_622:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB1_947
+.LBB1_946:                              # =>This Inner Loop Header: Depth=1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	add	rcx, 1
+	add	rdi, -1
+	jne	.LBB1_946
+.LBB1_947:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_948:                              # =>This Inner Loop Header: Depth=1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 4]
+	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 8]
+	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 12]
+	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_948
+	jmp	.LBB1_1109
+.LBB1_199:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.200:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_201
+# %bb.379:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_557
+# %bb.380:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_557
+.LBB1_201:
+	xor	esi, esi
+.LBB1_953:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_955
+.LBB1_954:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_954
+.LBB1_955:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_956:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	imul	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_956
+	jmp	.LBB1_1109
+.LBB1_202:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.203:
+	vmovss	xmm0, dword ptr [rcx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB1_204
+# %bb.382:
+	lea	rcx, [rdx + 4*rax]
+	cmp	rcx, r8
+	jbe	.LBB1_560
+# %bb.383:
+	lea	rcx, [r8 + 4*rax]
+	cmp	rcx, rdx
+	jbe	.LBB1_560
+.LBB1_204:
+	xor	ecx, ecx
+.LBB1_961:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB1_963
+.LBB1_962:                              # =>This Inner Loop Header: Depth=1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	add	rcx, 1
+	add	rdi, -1
+	jne	.LBB1_962
+.LBB1_963:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_964:                              # =>This Inner Loop Header: Depth=1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 4]
+	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 8]
+	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 12]
+	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_964
+	jmp	.LBB1_1109
+.LBB1_205:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.206:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_207
+# %bb.385:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_563
+# %bb.386:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_563
+.LBB1_207:
+	xor	esi, esi
+.LBB1_969:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_971
+.LBB1_970:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_970
+.LBB1_971:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_972:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_972
+	jmp	.LBB1_1109
+.LBB1_208:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.209:
+	vmovss	xmm0, dword ptr [rcx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB1_210
+# %bb.388:
+	lea	rcx, [rdx + 4*rax]
+	cmp	rcx, r8
+	jbe	.LBB1_566
+# %bb.389:
+	lea	rcx, [r8 + 4*rax]
+	cmp	rcx, rdx
+	jbe	.LBB1_566
+.LBB1_210:
+	xor	ecx, ecx
+.LBB1_977:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB1_979
+.LBB1_978:                              # =>This Inner Loop Header: Depth=1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	add	rcx, 1
+	add	rdi, -1
+	jne	.LBB1_978
+.LBB1_979:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_980:                              # =>This Inner Loop Header: Depth=1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 4]
+	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 8]
+	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 12]
+	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_980
+	jmp	.LBB1_1109
+.LBB1_211:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.212:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_213
+# %bb.391:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_569
+# %bb.392:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_569
+.LBB1_213:
+	xor	esi, esi
+.LBB1_985:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_987
+.LBB1_986:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_986
+.LBB1_987:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_988:                              # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_988
+	jmp	.LBB1_1109
+.LBB1_214:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.215:
+	vmovss	xmm0, dword ptr [rcx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB1_216
+# %bb.394:
+	lea	rcx, [rdx + 4*rax]
+	cmp	rcx, r8
+	jbe	.LBB1_572
+# %bb.395:
+	lea	rcx, [r8 + 4*rax]
+	cmp	rcx, rdx
+	jbe	.LBB1_572
+.LBB1_216:
+	xor	ecx, ecx
+.LBB1_993:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB1_995
+.LBB1_994:                              # =>This Inner Loop Header: Depth=1
 	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
 	vsubss	xmm1, xmm1, xmm0
 	vmovss	dword ptr [r8 + 4*rcx], xmm1
 	add	rcx, 1
 	add	rdi, -1
+	jne	.LBB1_994
+.LBB1_995:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_996:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	vmovss	xmm1, dword ptr [rdx + 4*rcx + 4] # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
+	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
+	vmovss	xmm1, dword ptr [rdx + 4*rcx + 8] # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
+	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
+	vmovss	xmm1, dword ptr [rdx + 4*rcx + 12] # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
+	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_996
+	jmp	.LBB1_1109
+.LBB1_217:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.218:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_219
+# %bb.397:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_575
+# %bb.398:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_575
+.LBB1_219:
+	xor	esi, esi
+.LBB1_1001:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1003
+.LBB1_1002:                             # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1002
+.LBB1_1003:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1004:                             # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	add	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1004
+	jmp	.LBB1_1109
+.LBB1_220:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.221:
+	vmovss	xmm0, dword ptr [rcx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB1_222
+# %bb.400:
+	lea	rcx, [rdx + 4*rax]
+	cmp	rcx, r8
+	jbe	.LBB1_578
+# %bb.401:
+	lea	rcx, [r8 + 4*rax]
+	cmp	rcx, rdx
+	jbe	.LBB1_578
+.LBB1_222:
+	xor	ecx, ecx
+.LBB1_1009:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB1_1011
+.LBB1_1010:                             # =>This Inner Loop Header: Depth=1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	add	rcx, 1
+	add	rdi, -1
+	jne	.LBB1_1010
+.LBB1_1011:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_1012:                             # =>This Inner Loop Header: Depth=1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 4]
+	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 8]
+	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 12]
+	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_1012
+	jmp	.LBB1_1109
+.LBB1_223:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.224:
+	mov	rax, qword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB1_225
+# %bb.403:
+	lea	rcx, [rdx + 8*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_581
+# %bb.404:
+	lea	rcx, [r8 + 8*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_581
+.LBB1_225:
+	xor	esi, esi
+.LBB1_1017:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1019
+.LBB1_1018:                             # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1018
+.LBB1_1019:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1020:                             # =>This Inner Loop Header: Depth=1
+	mov	rcx, qword ptr [rdx + 8*rsi]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 8]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 16]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rcx
+	mov	rcx, qword ptr [rdx + 8*rsi + 24]
+	sub	rcx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rcx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1020
+	jmp	.LBB1_1109
+.LBB1_226:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.227:
+	vmovss	xmm0, dword ptr [rcx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB1_228
+# %bb.406:
+	lea	rcx, [rdx + 4*rax]
+	cmp	rcx, r8
+	jbe	.LBB1_584
+# %bb.407:
+	lea	rcx, [r8 + 4*rax]
+	cmp	rcx, rdx
+	jbe	.LBB1_584
+.LBB1_228:
+	xor	ecx, ecx
+.LBB1_1025:
+	mov	rsi, rcx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB1_1027
+.LBB1_1026:                             # =>This Inner Loop Header: Depth=1
+	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	add	rcx, 1
+	add	rdi, -1
+	jne	.LBB1_1026
+.LBB1_1027:
+	cmp	rsi, 3
+	jb	.LBB1_1109
+.LBB1_1028:                             # =>This Inner Loop Header: Depth=1
+	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
+	vmovss	dword ptr [r8 + 4*rcx], xmm1
+	vmovss	xmm1, dword ptr [rdx + 4*rcx + 4] # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
+	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
+	vmovss	xmm1, dword ptr [rdx + 4*rcx + 8] # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
+	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
+	vmovss	xmm1, dword ptr [rdx + 4*rcx + 12] # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
+	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
+	add	rcx, 4
+	cmp	rax, rcx
+	jne	.LBB1_1028
+	jmp	.LBB1_1109
+.LBB1_229:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.230:
+	mov	cl, byte ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_231
+# %bb.409:
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	jbe	.LBB1_587
+# %bb.410:
+	lea	rax, [r8 + r10]
+	cmp	rax, rdx
+	jbe	.LBB1_587
+.LBB1_231:
+	xor	edi, edi
+.LBB1_647:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB1_649
+.LBB1_648:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rdi]
+	mul	cl
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB1_648
+.LBB1_649:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_650:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rdi]
+	mul	cl
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rdx + rdi + 1]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rdx + rdi + 2]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rdx + rdi + 3]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB1_650
+	jmp	.LBB1_1109
+.LBB1_232:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.233:
+	mov	cl, byte ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_234
+# %bb.412:
+	lea	rax, [rdx + r10]
+	cmp	rax, r8
+	jbe	.LBB1_589
+# %bb.413:
+	lea	rax, [r8 + r10]
+	cmp	rax, rdx
+	jbe	.LBB1_589
+.LBB1_234:
+	xor	edi, edi
+.LBB1_657:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB1_659
+.LBB1_658:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rdi]
+	mul	cl
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB1_658
+.LBB1_659:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_660:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rdi]
+	mul	cl
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rdx + rdi + 1]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rdx + rdi + 2]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rdx + rdi + 3]
+	mul	cl
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB1_660
+	jmp	.LBB1_1109
+.LBB1_235:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.236:
+	mov	al, byte ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB1_237
+# %bb.415:
+	lea	rcx, [rdx + r10]
+	cmp	rcx, r8
+	jbe	.LBB1_591
+# %bb.416:
+	lea	rcx, [r8 + r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_591
+.LBB1_237:
+	xor	esi, esi
+.LBB1_1033:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1035
+.LBB1_1034:                             # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	add	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1034
+.LBB1_1035:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1036:                             # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	add	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	movzx	ecx, byte ptr [rdx + rsi + 1]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 1], cl
+	movzx	ecx, byte ptr [rdx + rsi + 2]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 2], cl
+	movzx	ecx, byte ptr [rdx + rsi + 3]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 3], cl
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1036
+	jmp	.LBB1_1109
+.LBB1_238:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.239:
+	mov	al, byte ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB1_240
+# %bb.418:
+	lea	rcx, [rdx + r10]
+	cmp	rcx, r8
+	jbe	.LBB1_594
+# %bb.419:
+	lea	rcx, [r8 + r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_594
+.LBB1_240:
+	xor	esi, esi
+.LBB1_1041:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1043
+.LBB1_1042:                             # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1042
+.LBB1_1043:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1044:                             # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	movzx	ecx, byte ptr [rdx + rsi + 1]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 1], cl
+	movzx	ecx, byte ptr [rdx + rsi + 2]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 2], cl
+	movzx	ecx, byte ptr [rdx + rsi + 3]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 3], cl
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1044
+	jmp	.LBB1_1109
+.LBB1_241:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.242:
+	mov	al, byte ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB1_243
+# %bb.421:
+	lea	rcx, [rdx + r10]
+	cmp	rcx, r8
+	jbe	.LBB1_597
+# %bb.422:
+	lea	rcx, [r8 + r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_597
+.LBB1_243:
+	xor	esi, esi
+.LBB1_1049:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1051
+.LBB1_1050:                             # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	add	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1050
+.LBB1_1051:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1052:                             # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	add	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	movzx	ecx, byte ptr [rdx + rsi + 1]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 1], cl
+	movzx	ecx, byte ptr [rdx + rsi + 2]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 2], cl
+	movzx	ecx, byte ptr [rdx + rsi + 3]
+	add	cl, al
+	mov	byte ptr [r8 + rsi + 3], cl
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1052
+	jmp	.LBB1_1109
+.LBB1_244:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.245:
+	mov	al, byte ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB1_246
+# %bb.424:
+	lea	rcx, [rdx + r10]
+	cmp	rcx, r8
+	jbe	.LBB1_600
+# %bb.425:
+	lea	rcx, [r8 + r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_600
+.LBB1_246:
+	xor	esi, esi
+.LBB1_1057:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1059
+.LBB1_1058:                             # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1058
+.LBB1_1059:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1060:                             # =>This Inner Loop Header: Depth=1
+	movzx	ecx, byte ptr [rdx + rsi]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi], cl
+	movzx	ecx, byte ptr [rdx + rsi + 1]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 1], cl
+	movzx	ecx, byte ptr [rdx + rsi + 2]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 2], cl
+	movzx	ecx, byte ptr [rdx + rsi + 3]
+	sub	cl, al
+	mov	byte ptr [r8 + rsi + 3], cl
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1060
+	jmp	.LBB1_1109
+.LBB1_247:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.248:
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_249
+# %bb.427:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_603
+# %bb.428:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_603
+.LBB1_249:
+	xor	esi, esi
+.LBB1_1065:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1067
+.LBB1_1066:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1066
+.LBB1_1067:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1068:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1068
+	jmp	.LBB1_1109
+.LBB1_250:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.251:
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_252
+# %bb.430:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_606
+# %bb.431:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_606
+.LBB1_252:
+	xor	esi, esi
+.LBB1_1073:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1075
+.LBB1_1074:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1074
+.LBB1_1075:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1076:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	imul	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1076
+	jmp	.LBB1_1109
+.LBB1_253:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.254:
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_255
+# %bb.433:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_609
+# %bb.434:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_609
+.LBB1_255:
+	xor	esi, esi
+.LBB1_1081:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1083
+.LBB1_1082:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1082
+.LBB1_1083:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1084:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1084
+	jmp	.LBB1_1109
+.LBB1_256:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.257:
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_258
+# %bb.436:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_612
+# %bb.437:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_612
+.LBB1_258:
+	xor	esi, esi
+.LBB1_1089:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1091
+.LBB1_1090:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1090
+.LBB1_1091:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1092:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1092
+	jmp	.LBB1_1109
+.LBB1_259:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.260:
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_261
+# %bb.439:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_615
+# %bb.440:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_615
+.LBB1_261:
+	xor	esi, esi
+.LBB1_1097:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1099
+.LBB1_1098:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1098
+.LBB1_1099:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1100:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	add	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1100
+	jmp	.LBB1_1109
+.LBB1_262:
+	test	r9d, r9d
+	jle	.LBB1_1109
+# %bb.263:
+	mov	eax, dword ptr [rcx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB1_264
+# %bb.442:
+	lea	rcx, [rdx + 4*r10]
+	cmp	rcx, r8
+	jbe	.LBB1_618
+# %bb.443:
+	lea	rcx, [r8 + 4*r10]
+	cmp	rcx, rdx
+	jbe	.LBB1_618
+.LBB1_264:
+	xor	esi, esi
+.LBB1_1105:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB1_1107
+.LBB1_1106:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB1_1106
+.LBB1_1107:
+	cmp	r9, 3
+	jb	.LBB1_1109
+.LBB1_1108:                             # =>This Inner Loop Header: Depth=1
+	mov	ecx, dword ptr [rdx + 4*rsi]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 4]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 8]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], ecx
+	mov	ecx, dword ptr [rdx + 4*rsi + 12]
+	sub	ecx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], ecx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB1_1108
+	jmp	.LBB1_1109
+.LBB1_445:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_661
+# %bb.446:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_447:                              # =>This Inner Loop Header: Depth=1
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpmulld	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_447
+	jmp	.LBB1_662
+.LBB1_448:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_669
+# %bb.449:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_450:                              # =>This Inner Loop Header: Depth=1
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpmulld	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_450
+	jmp	.LBB1_670
+.LBB1_451:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_677
+# %bb.452:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_453:                              # =>This Inner Loop Header: Depth=1
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_453
+	jmp	.LBB1_678
+.LBB1_454:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_685
+# %bb.455:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_456:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_456
+	jmp	.LBB1_686
+.LBB1_457:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_693
+# %bb.458:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_459:                              # =>This Inner Loop Header: Depth=1
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_459
+	jmp	.LBB1_694
+.LBB1_460:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_701
+# %bb.461:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_462:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_462
+	jmp	.LBB1_702
+.LBB1_463:
+	mov	ecx, eax
+	and	ecx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rcx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_709
+# %bb.464:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB1_465:                              # =>This Inner Loop Header: Depth=1
+	vmulpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vmulpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmulpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vmulpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmulpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vmulpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 160]
+	vmulpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 192]
+	vmulpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB1_465
+	jmp	.LBB1_710
+.LBB1_466:
+	mov	ecx, eax
+	and	ecx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rcx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_717
+# %bb.467:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB1_468:                              # =>This Inner Loop Header: Depth=1
+	vmulpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vmulpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmulpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vmulpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmulpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vmulpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 160]
+	vmulpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 192]
+	vmulpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB1_468
+	jmp	.LBB1_718
+.LBB1_469:
+	mov	ecx, eax
+	and	ecx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rcx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_725
+# %bb.470:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB1_471:                              # =>This Inner Loop Header: Depth=1
+	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 160]
+	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 192]
+	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB1_471
+	jmp	.LBB1_726
+.LBB1_472:
+	mov	ecx, eax
+	and	ecx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rcx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_733
+# %bb.473:
+	mov	rdi, r9
+	and	rdi, -2
+	neg	rdi
+	xor	esi, esi
+.LBB1_474:                              # =>This Inner Loop Header: Depth=1
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
+	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
+	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
+	vsubpd	ymm2, ymm2, ymm1
+	vsubpd	ymm3, ymm3, ymm1
+	vsubpd	ymm4, ymm4, ymm1
+	vsubpd	ymm5, ymm5, ymm1
+	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm5
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi + 128]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 160]
+	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 192]
+	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 224]
+	vsubpd	ymm2, ymm2, ymm1
+	vsubpd	ymm3, ymm3, ymm1
+	vsubpd	ymm4, ymm4, ymm1
+	vsubpd	ymm5, ymm5, ymm1
+	vmovupd	ymmword ptr [r8 + 8*rsi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rsi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rsi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rsi + 224], ymm5
+	add	rsi, 32
+	add	rdi, 2
+	jne	.LBB1_474
+	jmp	.LBB1_734
+.LBB1_475:
+	mov	ecx, eax
+	and	ecx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rcx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_741
+# %bb.476:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB1_477:                              # =>This Inner Loop Header: Depth=1
+	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 160]
+	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 192]
+	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB1_477
+	jmp	.LBB1_742
+.LBB1_478:
+	mov	ecx, eax
+	and	ecx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rcx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_749
+# %bb.479:
+	mov	rdi, r9
+	and	rdi, -2
+	neg	rdi
+	xor	esi, esi
+.LBB1_480:                              # =>This Inner Loop Header: Depth=1
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
+	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
+	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
+	vsubpd	ymm2, ymm2, ymm1
+	vsubpd	ymm3, ymm3, ymm1
+	vsubpd	ymm4, ymm4, ymm1
+	vsubpd	ymm5, ymm5, ymm1
+	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm5
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi + 128]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 160]
+	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 192]
+	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 224]
+	vsubpd	ymm2, ymm2, ymm1
+	vsubpd	ymm3, ymm3, ymm1
+	vsubpd	ymm4, ymm4, ymm1
+	vsubpd	ymm5, ymm5, ymm1
+	vmovupd	ymmword ptr [r8 + 8*rsi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rsi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rsi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rsi + 224], ymm5
+	add	rsi, 32
+	add	rdi, 2
+	jne	.LBB1_480
+	jmp	.LBB1_750
+.LBB1_481:
+	mov	edi, r10d
+	and	edi, -32
+	vmovd	xmm0, ecx
+	vpbroadcastb	ymm0, xmm0
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB1_621
+# %bb.482:
+	xor	esi, esi
+	jmp	.LBB1_623
+.LBB1_483:
+	mov	edi, r10d
+	and	edi, -32
+	vmovd	xmm0, ecx
+	vpbroadcastb	ymm0, xmm0
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB1_631
+# %bb.484:
+	xor	esi, esi
+	jmp	.LBB1_633
+.LBB1_485:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rcx, [rsi - 128]
+	mov	r9, rcx
+	shr	r9, 7
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_757
+# %bb.486:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_487:                              # =>This Inner Loop Header: Depth=1
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rcx, 2
+	jne	.LBB1_487
+	jmp	.LBB1_758
+.LBB1_488:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rcx, [rsi - 128]
+	mov	r9, rcx
+	shr	r9, 7
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_765
+# %bb.489:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_490:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rcx, 2
+	jne	.LBB1_490
+	jmp	.LBB1_766
+.LBB1_491:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rcx, [rsi - 128]
+	mov	r9, rcx
+	shr	r9, 7
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_773
+# %bb.492:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_493:                              # =>This Inner Loop Header: Depth=1
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rcx, 2
+	jne	.LBB1_493
+	jmp	.LBB1_774
+.LBB1_494:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rcx, [rsi - 128]
+	mov	r9, rcx
+	shr	r9, 7
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_781
+# %bb.495:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_496:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rcx, 2
+	jne	.LBB1_496
+	jmp	.LBB1_782
+.LBB1_497:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	vpsrlq	ymm1, ymm0, 32
+	test	rcx, rcx
+	je	.LBB1_789
+# %bb.498:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_499:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 224]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_499
+	jmp	.LBB1_790
+.LBB1_500:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	vpsrlq	ymm1, ymm0, 32
+	test	rcx, rcx
+	je	.LBB1_797
+# %bb.501:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_502:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 224]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_502
+	jmp	.LBB1_798
+.LBB1_503:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_805
+# %bb.504:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_505:                              # =>This Inner Loop Header: Depth=1
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_505
+	jmp	.LBB1_806
+.LBB1_506:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_813
+# %bb.507:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_508:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_508
+	jmp	.LBB1_814
+.LBB1_509:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_821
+# %bb.510:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_511:                              # =>This Inner Loop Header: Depth=1
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_511
+	jmp	.LBB1_822
+.LBB1_512:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_829
+# %bb.513:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_514:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_514
+	jmp	.LBB1_830
+.LBB1_515:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_837
+# %bb.516:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_517:                              # =>This Inner Loop Header: Depth=1
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpmullw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_517
+	jmp	.LBB1_838
+.LBB1_518:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_845
+# %bb.519:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_520:                              # =>This Inner Loop Header: Depth=1
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpmullw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_520
+	jmp	.LBB1_846
+.LBB1_521:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_853
+# %bb.522:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_523:                              # =>This Inner Loop Header: Depth=1
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpmullw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_523
+	jmp	.LBB1_854
+.LBB1_524:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_861
+# %bb.525:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_526:                              # =>This Inner Loop Header: Depth=1
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpmullw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_526
+	jmp	.LBB1_862
+.LBB1_527:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_869
+# %bb.528:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_529:                              # =>This Inner Loop Header: Depth=1
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_529
+	jmp	.LBB1_870
+.LBB1_530:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_877
+# %bb.531:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_532:                              # =>This Inner Loop Header: Depth=1
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_532
+	jmp	.LBB1_878
+.LBB1_533:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_885
+# %bb.534:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_535:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_535
+	jmp	.LBB1_886
+.LBB1_536:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_893
+# %bb.537:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_538:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_538
+	jmp	.LBB1_894
+.LBB1_539:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_901
+# %bb.540:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_541:                              # =>This Inner Loop Header: Depth=1
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_541
+	jmp	.LBB1_902
+.LBB1_542:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_909
+# %bb.543:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_544:                              # =>This Inner Loop Header: Depth=1
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_544
+	jmp	.LBB1_910
+.LBB1_545:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_917
+# %bb.546:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_547:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_547
+	jmp	.LBB1_918
+.LBB1_548:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_925
+# %bb.549:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_550:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_550
+	jmp	.LBB1_926
+.LBB1_551:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	vpsrlq	ymm1, ymm0, 32
+	test	rcx, rcx
+	je	.LBB1_933
+# %bb.552:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_553:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 224]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_553
+	jmp	.LBB1_934
+.LBB1_554:
+	mov	ecx, eax
+	and	ecx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rcx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_941
+# %bb.555:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB1_556:                              # =>This Inner Loop Header: Depth=1
+	vmulps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vmulps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmulps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vmulps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vmulps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vmulps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 160]
+	vmulps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 192]
+	vmulps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB1_556
+	jmp	.LBB1_942
+.LBB1_557:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	vpsrlq	ymm1, ymm0, 32
+	test	rcx, rcx
+	je	.LBB1_949
+# %bb.558:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_559:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 224]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_559
+	jmp	.LBB1_950
+.LBB1_560:
+	mov	ecx, eax
+	and	ecx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rcx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_957
+# %bb.561:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB1_562:                              # =>This Inner Loop Header: Depth=1
+	vmulps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vmulps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmulps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vmulps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vmulps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vmulps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 160]
+	vmulps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 192]
+	vmulps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB1_562
+	jmp	.LBB1_958
+.LBB1_563:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_965
+# %bb.564:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_565:                              # =>This Inner Loop Header: Depth=1
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_565
+	jmp	.LBB1_966
+.LBB1_566:
+	mov	ecx, eax
+	and	ecx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rcx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_973
+# %bb.567:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB1_568:                              # =>This Inner Loop Header: Depth=1
+	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 160]
+	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 192]
+	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB1_568
+	jmp	.LBB1_974
+.LBB1_569:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_981
+# %bb.570:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_571:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_571
+	jmp	.LBB1_982
+.LBB1_572:
+	mov	ecx, eax
+	and	ecx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rcx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_989
+# %bb.573:
+	mov	rdi, r9
+	and	rdi, -2
+	neg	rdi
+	xor	esi, esi
+.LBB1_574:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
+	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
+	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
+	vsubps	ymm2, ymm2, ymm1
+	vsubps	ymm3, ymm3, ymm1
+	vsubps	ymm4, ymm4, ymm1
+	vsubps	ymm5, ymm5, ymm1
+	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm5
+	vmovups	ymm2, ymmword ptr [rdx + 4*rsi + 128]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 160]
+	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 192]
+	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 224]
+	vsubps	ymm2, ymm2, ymm1
+	vsubps	ymm3, ymm3, ymm1
+	vsubps	ymm4, ymm4, ymm1
+	vsubps	ymm5, ymm5, ymm1
+	vmovups	ymmword ptr [r8 + 4*rsi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rsi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rsi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rsi + 224], ymm5
+	add	rsi, 64
+	add	rdi, 2
+	jne	.LBB1_574
+	jmp	.LBB1_990
+.LBB1_575:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_997
+# %bb.576:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_577:                              # =>This Inner Loop Header: Depth=1
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_577
+	jmp	.LBB1_998
+.LBB1_578:
+	mov	ecx, eax
+	and	ecx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rcx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_1005
+# %bb.579:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB1_580:                              # =>This Inner Loop Header: Depth=1
+	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 160]
+	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 192]
+	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB1_580
+	jmp	.LBB1_1006
+.LBB1_581:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rcx, [rsi - 16]
+	mov	r9, rcx
+	shr	r9, 4
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1013
+# %bb.582:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_583:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rcx, 2
+	jne	.LBB1_583
+	jmp	.LBB1_1014
+.LBB1_584:
+	mov	ecx, eax
+	and	ecx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rcx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB1_1021
+# %bb.585:
+	mov	rdi, r9
+	and	rdi, -2
+	neg	rdi
+	xor	esi, esi
+.LBB1_586:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
+	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
+	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
+	vsubps	ymm2, ymm2, ymm1
+	vsubps	ymm3, ymm3, ymm1
+	vsubps	ymm4, ymm4, ymm1
+	vsubps	ymm5, ymm5, ymm1
+	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm5
+	vmovups	ymm2, ymmword ptr [rdx + 4*rsi + 128]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 160]
+	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 192]
+	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 224]
+	vsubps	ymm2, ymm2, ymm1
+	vsubps	ymm3, ymm3, ymm1
+	vsubps	ymm4, ymm4, ymm1
+	vsubps	ymm5, ymm5, ymm1
+	vmovups	ymmword ptr [r8 + 4*rsi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rsi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rsi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rsi + 224], ymm5
+	add	rsi, 64
+	add	rdi, 2
+	jne	.LBB1_586
+	jmp	.LBB1_1022
+.LBB1_587:
+	mov	edi, r10d
+	and	edi, -32
+	vmovd	xmm0, ecx
+	vpbroadcastb	ymm0, xmm0
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB1_641
+# %bb.588:
+	xor	esi, esi
+	jmp	.LBB1_643
+.LBB1_589:
+	mov	edi, r10d
+	and	edi, -32
+	vmovd	xmm0, ecx
+	vpbroadcastb	ymm0, xmm0
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB1_651
+# %bb.590:
+	xor	esi, esi
+	jmp	.LBB1_653
+.LBB1_591:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rcx, [rsi - 128]
+	mov	r9, rcx
+	shr	r9, 7
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1029
+# %bb.592:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_593:                              # =>This Inner Loop Header: Depth=1
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rcx, 2
+	jne	.LBB1_593
+	jmp	.LBB1_1030
+.LBB1_594:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rcx, [rsi - 128]
+	mov	r9, rcx
+	shr	r9, 7
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1037
+# %bb.595:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_596:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rcx, 2
+	jne	.LBB1_596
+	jmp	.LBB1_1038
+.LBB1_597:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rcx, [rsi - 128]
+	mov	r9, rcx
+	shr	r9, 7
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1045
+# %bb.598:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_599:                              # =>This Inner Loop Header: Depth=1
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rcx, 2
+	jne	.LBB1_599
+	jmp	.LBB1_1046
+.LBB1_600:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rcx, [rsi - 128]
+	mov	r9, rcx
+	shr	r9, 7
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1053
+# %bb.601:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_602:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rcx, 2
+	jne	.LBB1_602
+	jmp	.LBB1_1054
+.LBB1_603:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1061
+# %bb.604:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_605:                              # =>This Inner Loop Header: Depth=1
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpmulld	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_605
+	jmp	.LBB1_1062
+.LBB1_606:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1069
+# %bb.607:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_608:                              # =>This Inner Loop Header: Depth=1
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpmulld	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_608
+	jmp	.LBB1_1070
+.LBB1_609:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1077
+# %bb.610:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_611:                              # =>This Inner Loop Header: Depth=1
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_611
+	jmp	.LBB1_1078
+.LBB1_612:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1085
+# %bb.613:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_614:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_614
+	jmp	.LBB1_1086
+.LBB1_615:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1093
+# %bb.616:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_617:                              # =>This Inner Loop Header: Depth=1
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_617
+	jmp	.LBB1_1094
+.LBB1_618:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rcx, [rsi - 32]
+	mov	r9, rcx
+	shr	r9, 5
+	add	r9, 1
+	test	rcx, rcx
+	je	.LBB1_1101
+# %bb.619:
+	mov	rcx, r9
+	and	rcx, -2
+	neg	rcx
+	xor	edi, edi
+.LBB1_620:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rcx, 2
+	jne	.LBB1_620
+	jmp	.LBB1_1102
+.LBB1_621:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI1_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm3, ymm0, ymm0        # ymm3 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB1_622:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 32]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 64]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 96]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm4
+	sub	rsi, -128
+	add	rax, 4
 	jne	.LBB1_622
 .LBB1_623:
-	cmp	rsi, 3
-	jb	.LBB1_737
-.LBB1_624:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
-	vmovss	dword ptr [r8 + 4*rcx], xmm1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx + 4] # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
-	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx + 8] # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
-	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx + 12] # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
-	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
-	add	rcx, 4
-	cmp	rax, rcx
-	jne	.LBB1_624
-	jmp	.LBB1_737
-.LBB1_135:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.136:
-	mov	rax, qword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB1_137
-# %bb.255:
-	lea	rcx, [rdx + 8*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_375
-# %bb.256:
-	lea	rcx, [r8 + 8*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_375
-.LBB1_137:
-	xor	esi, esi
-.LBB1_629:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_631
-.LBB1_630:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_630
-.LBB1_631:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_632:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	sub	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rcx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_632
-	jmp	.LBB1_737
-.LBB1_138:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.139:
-	vmovss	xmm0, dword ptr [rcx]           # xmm0 = mem[0],zero,zero,zero
-	mov	eax, r9d
-	cmp	r9d, 32
-	jb	.LBB1_140
-# %bb.258:
-	lea	rcx, [rdx + 4*rax]
-	cmp	rcx, r8
-	jbe	.LBB1_378
-# %bb.259:
-	lea	rcx, [r8 + 4*rax]
-	cmp	rcx, rdx
-	jbe	.LBB1_378
-.LBB1_140:
-	xor	ecx, ecx
-.LBB1_637:
-	mov	rsi, rcx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB1_639
-.LBB1_638:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
-	vmovss	dword ptr [r8 + 4*rcx], xmm1
-	add	rcx, 1
-	add	rdi, -1
-	jne	.LBB1_638
-.LBB1_639:
-	cmp	rsi, 3
-	jb	.LBB1_737
-.LBB1_640:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
-	vmovss	dword ptr [r8 + 4*rcx], xmm1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx + 4] # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
-	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx + 8] # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
-	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx + 12] # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
-	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
-	add	rcx, 4
-	cmp	rax, rcx
-	jne	.LBB1_640
-	jmp	.LBB1_737
-.LBB1_141:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.142:
-	mov	rax, qword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB1_143
-# %bb.261:
-	lea	rcx, [rdx + 8*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_381
-# %bb.262:
-	lea	rcx, [r8 + 8*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_381
-.LBB1_143:
-	xor	esi, esi
-.LBB1_645:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_647
-.LBB1_646:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_646
-.LBB1_647:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_648:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rcx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_648
-	jmp	.LBB1_737
-.LBB1_144:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.145:
-	vmovss	xmm0, dword ptr [rcx]           # xmm0 = mem[0],zero,zero,zero
-	mov	eax, r9d
-	cmp	r9d, 32
-	jb	.LBB1_146
-# %bb.264:
-	lea	rcx, [rdx + 4*rax]
-	cmp	rcx, r8
-	jbe	.LBB1_384
-# %bb.265:
-	lea	rcx, [r8 + 4*rax]
-	cmp	rcx, rdx
-	jbe	.LBB1_384
-.LBB1_146:
-	xor	ecx, ecx
-.LBB1_653:
-	mov	rsi, rcx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB1_655
-.LBB1_654:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
-	vmovss	dword ptr [r8 + 4*rcx], xmm1
-	add	rcx, 1
-	add	rdi, -1
-	jne	.LBB1_654
-.LBB1_655:
-	cmp	rsi, 3
-	jb	.LBB1_737
-.LBB1_656:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
-	vmovss	dword ptr [r8 + 4*rcx], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 4]
-	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 8]
-	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 12]
-	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
-	add	rcx, 4
-	cmp	rax, rcx
-	jne	.LBB1_656
-	jmp	.LBB1_737
-.LBB1_147:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.148:
-	mov	rax, qword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB1_149
-# %bb.267:
-	lea	rcx, [rdx + 8*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_387
-# %bb.268:
-	lea	rcx, [r8 + 8*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_387
-.LBB1_149:
-	xor	esi, esi
-.LBB1_661:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_663
-.LBB1_662:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_662
-.LBB1_663:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_664:                              # =>This Inner Loop Header: Depth=1
-	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rcx
-	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	add	rcx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rcx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_664
-	jmp	.LBB1_737
-.LBB1_150:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.151:
-	vmovss	xmm0, dword ptr [rcx]           # xmm0 = mem[0],zero,zero,zero
-	mov	eax, r9d
-	cmp	r9d, 32
-	jb	.LBB1_152
-# %bb.270:
-	lea	rcx, [rdx + 4*rax]
-	cmp	rcx, r8
-	jbe	.LBB1_390
-# %bb.271:
-	lea	rcx, [r8 + 4*rax]
-	cmp	rcx, rdx
-	jbe	.LBB1_390
-.LBB1_152:
-	xor	ecx, ecx
-.LBB1_669:
-	mov	rsi, rcx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB1_671
-.LBB1_670:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
-	vmovss	dword ptr [r8 + 4*rcx], xmm1
-	add	rcx, 1
-	add	rdi, -1
-	jne	.LBB1_670
-.LBB1_671:
-	cmp	rsi, 3
-	jb	.LBB1_737
-.LBB1_672:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
-	vmovss	dword ptr [r8 + 4*rcx], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 4]
-	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 8]
-	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 12]
-	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
-	add	rcx, 4
-	cmp	rax, rcx
-	jne	.LBB1_672
-	jmp	.LBB1_737
-.LBB1_153:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.154:
-	mov	al, byte ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB1_155
-# %bb.273:
-	lea	rcx, [rdx + r10]
-	cmp	rcx, r8
-	jbe	.LBB1_393
-# %bb.274:
-	lea	rcx, [r8 + r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_393
-.LBB1_155:
-	xor	esi, esi
-.LBB1_677:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_679
-.LBB1_678:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_678
-.LBB1_679:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_680:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	movzx	ecx, byte ptr [rdx + rsi + 1]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 1], cl
-	movzx	ecx, byte ptr [rdx + rsi + 2]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 2], cl
-	movzx	ecx, byte ptr [rdx + rsi + 3]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 3], cl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_680
-	jmp	.LBB1_737
-.LBB1_156:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.157:
-	mov	al, byte ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB1_158
-# %bb.276:
-	lea	rcx, [rdx + r10]
-	cmp	rcx, r8
-	jbe	.LBB1_396
-# %bb.277:
-	lea	rcx, [r8 + r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_396
-.LBB1_158:
-	xor	esi, esi
-.LBB1_685:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_687
-.LBB1_686:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_686
-.LBB1_687:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_688:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	movzx	ecx, byte ptr [rdx + rsi + 1]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 1], cl
-	movzx	ecx, byte ptr [rdx + rsi + 2]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 2], cl
-	movzx	ecx, byte ptr [rdx + rsi + 3]
-	sub	cl, al
-	mov	byte ptr [r8 + rsi + 3], cl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_688
-	jmp	.LBB1_737
-.LBB1_159:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.160:
-	mov	al, byte ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB1_161
-# %bb.279:
-	lea	rcx, [rdx + r10]
-	cmp	rcx, r8
-	jbe	.LBB1_399
-# %bb.280:
-	lea	rcx, [r8 + r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_399
-.LBB1_161:
-	xor	esi, esi
-.LBB1_693:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_695
-.LBB1_694:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_694
-.LBB1_695:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_696:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	movzx	ecx, byte ptr [rdx + rsi + 1]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 1], cl
-	movzx	ecx, byte ptr [rdx + rsi + 2]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 2], cl
-	movzx	ecx, byte ptr [rdx + rsi + 3]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 3], cl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_696
-	jmp	.LBB1_737
-.LBB1_162:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.163:
-	mov	al, byte ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB1_164
-# %bb.282:
-	lea	rcx, [rdx + r10]
-	cmp	rcx, r8
-	jbe	.LBB1_402
-# %bb.283:
-	lea	rcx, [r8 + r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_402
-.LBB1_164:
-	xor	esi, esi
-.LBB1_701:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_703
-.LBB1_702:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_702
-.LBB1_703:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_704:                              # =>This Inner Loop Header: Depth=1
-	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
-	mov	byte ptr [r8 + rsi], cl
-	movzx	ecx, byte ptr [rdx + rsi + 1]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 1], cl
-	movzx	ecx, byte ptr [rdx + rsi + 2]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 2], cl
-	movzx	ecx, byte ptr [rdx + rsi + 3]
-	add	cl, al
-	mov	byte ptr [r8 + rsi + 3], cl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_704
-	jmp	.LBB1_737
-.LBB1_165:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.166:
-	mov	eax, dword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_167
-# %bb.285:
-	lea	rcx, [rdx + 4*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_405
-# %bb.286:
-	lea	rcx, [r8 + 4*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_405
-.LBB1_167:
-	xor	esi, esi
-.LBB1_709:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_711
-.LBB1_710:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_710
-.LBB1_711:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_712:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], ecx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_712
-	jmp	.LBB1_737
-.LBB1_168:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.169:
-	mov	eax, dword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_170
-# %bb.288:
-	lea	rcx, [rdx + 4*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_408
-# %bb.289:
-	lea	rcx, [r8 + 4*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_408
-.LBB1_170:
-	xor	esi, esi
-.LBB1_717:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_719
-.LBB1_718:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_718
-.LBB1_719:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_720:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	sub	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], ecx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_720
-	jmp	.LBB1_737
-.LBB1_171:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.172:
-	mov	eax, dword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_173
-# %bb.291:
-	lea	rcx, [rdx + 4*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_411
-# %bb.292:
-	lea	rcx, [r8 + 4*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_411
-.LBB1_173:
-	xor	esi, esi
-.LBB1_725:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_727
-.LBB1_726:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_726
-.LBB1_727:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_728:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], ecx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_728
-	jmp	.LBB1_737
-.LBB1_174:
-	test	r9d, r9d
-	jle	.LBB1_737
-# %bb.175:
-	mov	eax, dword ptr [rcx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB1_176
-# %bb.294:
-	lea	rcx, [rdx + 4*r10]
-	cmp	rcx, r8
-	jbe	.LBB1_414
-# %bb.295:
-	lea	rcx, [r8 + 4*r10]
-	cmp	rcx, rdx
-	jbe	.LBB1_414
-.LBB1_176:
-	xor	esi, esi
-.LBB1_733:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB1_735
-.LBB1_734:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB1_734
-.LBB1_735:
-	cmp	r9, 3
-	jb	.LBB1_737
-.LBB1_736:                              # =>This Inner Loop Header: Depth=1
-	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], ecx
-	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	add	ecx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], ecx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB1_736
-	jmp	.LBB1_737
-.LBB1_297:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_417
-# %bb.298:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_299:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_299
-	jmp	.LBB1_418
-.LBB1_300:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_425
-# %bb.301:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_302:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_302
-	jmp	.LBB1_426
-.LBB1_303:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_433
-# %bb.304:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_305:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_305
-	jmp	.LBB1_434
-.LBB1_306:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_441
-# %bb.307:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_308:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_308
-	jmp	.LBB1_442
-.LBB1_309:
-	mov	ecx, eax
-	and	ecx, -16
-	vbroadcastsd	ymm1, xmm0
-	lea	rsi, [rcx - 16]
-	mov	r9, rsi
-	shr	r9, 4
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB1_449
-# %bb.310:
-	mov	rdi, r9
-	and	rdi, -2
-	neg	rdi
-	xor	esi, esi
-.LBB1_311:                              # =>This Inner Loop Header: Depth=1
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
-	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
-	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
-	vsubpd	ymm2, ymm2, ymm1
-	vsubpd	ymm3, ymm3, ymm1
-	vsubpd	ymm4, ymm4, ymm1
-	vsubpd	ymm5, ymm5, ymm1
-	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm5
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi + 128]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 160]
-	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 192]
-	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 224]
-	vsubpd	ymm2, ymm2, ymm1
-	vsubpd	ymm3, ymm3, ymm1
-	vsubpd	ymm4, ymm4, ymm1
-	vsubpd	ymm5, ymm5, ymm1
-	vmovupd	ymmword ptr [r8 + 8*rsi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rsi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rsi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rsi + 224], ymm5
+	test	r9, r9
+	je	.LBB1_626
+# %bb.624:
+	neg	r9
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI1_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm0, ymm0, ymm0        # ymm0 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB1_625:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm3, ymmword ptr [rdx + rsi]
+	vpunpckhbw	ymm4, ymm3, ymm3        # ymm4 = ymm3[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm4, ymm4, ymm1
+	vpand	ymm4, ymm4, ymm2
+	vpunpcklbw	ymm3, ymm3, ymm3        # ymm3 = ymm3[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm3, ymm3, ymm0
+	vpand	ymm3, ymm3, ymm2
+	vpackuswb	ymm3, ymm3, ymm4
+	vmovdqu	ymmword ptr [r8 + rsi], ymm3
 	add	rsi, 32
-	add	rdi, 2
-	jne	.LBB1_311
-	jmp	.LBB1_450
-.LBB1_312:
-	mov	ecx, eax
-	and	ecx, -16
-	vbroadcastsd	ymm1, xmm0
-	lea	rsi, [rcx - 16]
-	mov	r9, rsi
-	shr	r9, 4
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB1_457
-# %bb.313:
-	mov	rdi, r9
-	and	rdi, -2
-	neg	rdi
-	xor	esi, esi
-.LBB1_314:                              # =>This Inner Loop Header: Depth=1
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
-	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
-	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
-	vsubpd	ymm2, ymm2, ymm1
-	vsubpd	ymm3, ymm3, ymm1
-	vsubpd	ymm4, ymm4, ymm1
-	vsubpd	ymm5, ymm5, ymm1
-	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm5
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi + 128]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 160]
-	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 192]
-	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 224]
-	vsubpd	ymm2, ymm2, ymm1
-	vsubpd	ymm3, ymm3, ymm1
-	vsubpd	ymm4, ymm4, ymm1
-	vsubpd	ymm5, ymm5, ymm1
-	vmovupd	ymmword ptr [r8 + 8*rsi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rsi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rsi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rsi + 224], ymm5
-	add	rsi, 32
-	add	rdi, 2
-	jne	.LBB1_314
-	jmp	.LBB1_458
-.LBB1_315:
-	mov	ecx, eax
-	and	ecx, -16
-	vbroadcastsd	ymm1, xmm0
-	lea	rsi, [rcx - 16]
-	mov	r9, rsi
-	shr	r9, 4
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB1_465
-# %bb.316:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB1_317:                              # =>This Inner Loop Header: Depth=1
-	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
-	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
-	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi + 128]
-	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 160]
-	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 192]
-	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 224]
-	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
-	add	rdi, 32
-	add	rsi, 2
-	jne	.LBB1_317
-	jmp	.LBB1_466
-.LBB1_318:
-	mov	ecx, eax
-	and	ecx, -16
-	vbroadcastsd	ymm1, xmm0
-	lea	rsi, [rcx - 16]
-	mov	r9, rsi
-	shr	r9, 4
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB1_473
-# %bb.319:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB1_320:                              # =>This Inner Loop Header: Depth=1
-	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
-	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
-	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi + 128]
-	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 160]
-	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 192]
-	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 224]
-	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
-	add	rdi, 32
-	add	rsi, 2
-	jne	.LBB1_320
-	jmp	.LBB1_474
-.LBB1_321:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rcx, [rsi - 128]
-	mov	r9, rcx
-	shr	r9, 7
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_481
-# %bb.322:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_323:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rcx, 2
-	jne	.LBB1_323
-	jmp	.LBB1_482
-.LBB1_324:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rcx, [rsi - 128]
-	mov	r9, rcx
-	shr	r9, 7
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_489
-# %bb.325:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_326:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rcx, 2
-	jne	.LBB1_326
-	jmp	.LBB1_490
-.LBB1_327:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rcx, [rsi - 128]
-	mov	r9, rcx
-	shr	r9, 7
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_497
-# %bb.328:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_329:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rcx, 2
-	jne	.LBB1_329
-	jmp	.LBB1_498
-.LBB1_330:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rcx, [rsi - 128]
-	mov	r9, rcx
-	shr	r9, 7
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_505
-# %bb.331:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_332:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rcx, 2
-	jne	.LBB1_332
-	jmp	.LBB1_506
-.LBB1_333:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rcx, [rsi - 16]
-	mov	r9, rcx
-	shr	r9, 4
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_513
-# %bb.334:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_335:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rcx, 2
-	jne	.LBB1_335
-	jmp	.LBB1_514
-.LBB1_336:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rcx, [rsi - 16]
-	mov	r9, rcx
-	shr	r9, 4
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_521
-# %bb.337:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_338:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rcx, 2
-	jne	.LBB1_338
-	jmp	.LBB1_522
-.LBB1_339:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rcx, [rsi - 16]
-	mov	r9, rcx
-	shr	r9, 4
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_529
-# %bb.340:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_341:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rcx, 2
-	jne	.LBB1_341
-	jmp	.LBB1_530
-.LBB1_342:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rcx, [rsi - 16]
-	mov	r9, rcx
-	shr	r9, 4
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_537
-# %bb.343:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_344:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rcx, 2
-	jne	.LBB1_344
-	jmp	.LBB1_538
-.LBB1_345:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_545
-# %bb.346:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_347:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_347
-	jmp	.LBB1_546
-.LBB1_348:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_553
-# %bb.349:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_350:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_350
-	jmp	.LBB1_554
-.LBB1_351:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_561
-# %bb.352:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_353:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_353
-	jmp	.LBB1_562
-.LBB1_354:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_569
-# %bb.355:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_356:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_356
-	jmp	.LBB1_570
-.LBB1_357:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_577
-# %bb.358:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_359:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_359
-	jmp	.LBB1_578
-.LBB1_360:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_585
-# %bb.361:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_362:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_362
-	jmp	.LBB1_586
-.LBB1_363:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_593
-# %bb.364:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_365:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_365
-	jmp	.LBB1_594
-.LBB1_366:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_601
-# %bb.367:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_368:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_368
-	jmp	.LBB1_602
-.LBB1_369:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rcx, [rsi - 16]
-	mov	r9, rcx
-	shr	r9, 4
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_609
-# %bb.370:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_371:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rcx, 2
-	jne	.LBB1_371
-	jmp	.LBB1_610
-.LBB1_372:
-	mov	ecx, eax
-	and	ecx, -32
-	vbroadcastss	ymm1, xmm0
-	lea	rsi, [rcx - 32]
-	mov	r9, rsi
-	shr	r9, 5
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB1_617
-# %bb.373:
-	mov	rdi, r9
-	and	rdi, -2
-	neg	rdi
-	xor	esi, esi
-.LBB1_374:                              # =>This Inner Loop Header: Depth=1
-	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
-	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
-	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
-	vsubps	ymm2, ymm2, ymm1
-	vsubps	ymm3, ymm3, ymm1
-	vsubps	ymm4, ymm4, ymm1
-	vsubps	ymm5, ymm5, ymm1
-	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm5
-	vmovups	ymm2, ymmword ptr [rdx + 4*rsi + 128]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 160]
-	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 192]
-	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 224]
-	vsubps	ymm2, ymm2, ymm1
-	vsubps	ymm3, ymm3, ymm1
-	vsubps	ymm4, ymm4, ymm1
-	vsubps	ymm5, ymm5, ymm1
-	vmovups	ymmword ptr [r8 + 4*rsi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rsi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rsi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rsi + 224], ymm5
-	add	rsi, 64
-	add	rdi, 2
-	jne	.LBB1_374
-	jmp	.LBB1_618
-.LBB1_375:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rcx, [rsi - 16]
-	mov	r9, rcx
-	shr	r9, 4
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_625
-# %bb.376:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_377:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rcx, 2
-	jne	.LBB1_377
-	jmp	.LBB1_626
-.LBB1_378:
-	mov	ecx, eax
-	and	ecx, -32
-	vbroadcastss	ymm1, xmm0
-	lea	rsi, [rcx - 32]
-	mov	r9, rsi
-	shr	r9, 5
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB1_633
-# %bb.379:
-	mov	rdi, r9
-	and	rdi, -2
-	neg	rdi
-	xor	esi, esi
-.LBB1_380:                              # =>This Inner Loop Header: Depth=1
-	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
-	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
-	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
-	vsubps	ymm2, ymm2, ymm1
-	vsubps	ymm3, ymm3, ymm1
-	vsubps	ymm4, ymm4, ymm1
-	vsubps	ymm5, ymm5, ymm1
-	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm5
-	vmovups	ymm2, ymmword ptr [rdx + 4*rsi + 128]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 160]
-	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 192]
-	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 224]
-	vsubps	ymm2, ymm2, ymm1
-	vsubps	ymm3, ymm3, ymm1
-	vsubps	ymm4, ymm4, ymm1
-	vsubps	ymm5, ymm5, ymm1
-	vmovups	ymmword ptr [r8 + 4*rsi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rsi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rsi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rsi + 224], ymm5
-	add	rsi, 64
-	add	rdi, 2
-	jne	.LBB1_380
-	jmp	.LBB1_634
-.LBB1_381:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rcx, [rsi - 16]
-	mov	r9, rcx
-	shr	r9, 4
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_641
-# %bb.382:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_383:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rcx, 2
-	jne	.LBB1_383
-	jmp	.LBB1_642
-.LBB1_384:
-	mov	ecx, eax
-	and	ecx, -32
-	vbroadcastss	ymm1, xmm0
-	lea	rsi, [rcx - 32]
-	mov	r9, rsi
-	shr	r9, 5
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB1_649
-# %bb.385:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB1_386:                              # =>This Inner Loop Header: Depth=1
-	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
-	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
-	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi + 128]
-	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 160]
-	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 192]
-	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 224]
-	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
-	add	rdi, 64
-	add	rsi, 2
-	jne	.LBB1_386
-	jmp	.LBB1_650
-.LBB1_387:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rcx, [rsi - 16]
-	mov	r9, rcx
-	shr	r9, 4
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_657
-# %bb.388:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_389:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rcx, 2
-	jne	.LBB1_389
-	jmp	.LBB1_658
-.LBB1_390:
-	mov	ecx, eax
-	and	ecx, -32
-	vbroadcastss	ymm1, xmm0
-	lea	rsi, [rcx - 32]
-	mov	r9, rsi
-	shr	r9, 5
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB1_665
-# %bb.391:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB1_392:                              # =>This Inner Loop Header: Depth=1
-	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
-	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
-	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi + 128]
-	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 160]
-	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 192]
-	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 224]
-	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
-	add	rdi, 64
-	add	rsi, 2
-	jne	.LBB1_392
-	jmp	.LBB1_666
-.LBB1_393:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rcx, [rsi - 128]
-	mov	r9, rcx
-	shr	r9, 7
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_673
-# %bb.394:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_395:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rcx, 2
-	jne	.LBB1_395
-	jmp	.LBB1_674
-.LBB1_396:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rcx, [rsi - 128]
-	mov	r9, rcx
-	shr	r9, 7
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_681
-# %bb.397:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_398:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rcx, 2
-	jne	.LBB1_398
-	jmp	.LBB1_682
-.LBB1_399:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rcx, [rsi - 128]
-	mov	r9, rcx
-	shr	r9, 7
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_689
-# %bb.400:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_401:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rcx, 2
-	jne	.LBB1_401
-	jmp	.LBB1_690
-.LBB1_402:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rcx, [rsi - 128]
-	mov	r9, rcx
-	shr	r9, 7
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_697
-# %bb.403:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_404:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rcx, 2
-	jne	.LBB1_404
-	jmp	.LBB1_698
-.LBB1_405:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_705
-# %bb.406:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_407:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_407
-	jmp	.LBB1_706
-.LBB1_408:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_713
-# %bb.409:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_410:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_410
-	jmp	.LBB1_714
-.LBB1_411:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_721
-# %bb.412:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_413:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_413
-	jmp	.LBB1_722
-.LBB1_414:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rcx, [rsi - 32]
-	mov	r9, rcx
-	shr	r9, 5
-	add	r9, 1
-	test	rcx, rcx
-	je	.LBB1_729
-# %bb.415:
-	mov	rcx, r9
-	and	rcx, -2
-	neg	rcx
-	xor	edi, edi
-.LBB1_416:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rcx, 2
-	jne	.LBB1_416
-	jmp	.LBB1_730
-.LBB1_417:
-	xor	edi, edi
-.LBB1_418:
-	test	r9b, 1
-	je	.LBB1_420
-# %bb.419:
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB1_420:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_421
-.LBB1_425:
-	xor	edi, edi
-.LBB1_426:
-	test	r9b, 1
-	je	.LBB1_428
-# %bb.427:
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB1_428:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_429
-.LBB1_433:
-	xor	edi, edi
-.LBB1_434:
-	test	r9b, 1
-	je	.LBB1_436
-# %bb.435:
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB1_436:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_437
-.LBB1_441:
-	xor	edi, edi
-.LBB1_442:
-	test	r9b, 1
-	je	.LBB1_444
-# %bb.443:
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB1_444:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_445
-.LBB1_449:
-	xor	esi, esi
-.LBB1_450:
-	test	r9b, 1
-	je	.LBB1_452
-# %bb.451:
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
-	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
-	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
-	vsubpd	ymm2, ymm2, ymm1
-	vsubpd	ymm3, ymm3, ymm1
-	vsubpd	ymm4, ymm4, ymm1
-	vsubpd	ymm1, ymm5, ymm1
-	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm1
-.LBB1_452:
-	cmp	rcx, rax
-	je	.LBB1_737
-	jmp	.LBB1_453
-.LBB1_457:
-	xor	esi, esi
-.LBB1_458:
-	test	r9b, 1
-	je	.LBB1_460
-# %bb.459:
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
-	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
-	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
-	vsubpd	ymm2, ymm2, ymm1
-	vsubpd	ymm3, ymm3, ymm1
-	vsubpd	ymm4, ymm4, ymm1
-	vsubpd	ymm1, ymm5, ymm1
-	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm1
-.LBB1_460:
-	cmp	rcx, rax
-	je	.LBB1_737
-	jmp	.LBB1_461
-.LBB1_465:
-	xor	edi, edi
-.LBB1_466:
-	test	r9b, 1
-	je	.LBB1_468
-# %bb.467:
-	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
-	vaddpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
-.LBB1_468:
-	cmp	rcx, rax
-	je	.LBB1_737
-	jmp	.LBB1_469
-.LBB1_473:
-	xor	edi, edi
-.LBB1_474:
-	test	r9b, 1
-	je	.LBB1_476
-# %bb.475:
-	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
-	vaddpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
-.LBB1_476:
-	cmp	rcx, rax
-	je	.LBB1_737
-	jmp	.LBB1_477
-.LBB1_481:
-	xor	edi, edi
-.LBB1_482:
-	test	r9b, 1
-	je	.LBB1_484
-# %bb.483:
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB1_484:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_485
-.LBB1_489:
-	xor	edi, edi
-.LBB1_490:
-	test	r9b, 1
-	je	.LBB1_492
-# %bb.491:
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB1_492:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_493
-.LBB1_497:
-	xor	edi, edi
-.LBB1_498:
-	test	r9b, 1
-	je	.LBB1_500
-# %bb.499:
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB1_500:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_501
-.LBB1_505:
-	xor	edi, edi
-.LBB1_506:
-	test	r9b, 1
-	je	.LBB1_508
-# %bb.507:
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB1_508:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_509
-.LBB1_513:
-	xor	edi, edi
-.LBB1_514:
-	test	r9b, 1
-	je	.LBB1_516
-# %bb.515:
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB1_516:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_517
-.LBB1_521:
-	xor	edi, edi
-.LBB1_522:
-	test	r9b, 1
-	je	.LBB1_524
-# %bb.523:
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB1_524:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_525
-.LBB1_529:
-	xor	edi, edi
-.LBB1_530:
-	test	r9b, 1
-	je	.LBB1_532
-# %bb.531:
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB1_532:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_533
-.LBB1_537:
-	xor	edi, edi
-.LBB1_538:
-	test	r9b, 1
-	je	.LBB1_540
-# %bb.539:
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB1_540:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_541
-.LBB1_545:
-	xor	edi, edi
-.LBB1_546:
-	test	r9b, 1
-	je	.LBB1_548
-# %bb.547:
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm0, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB1_548:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_549
-.LBB1_553:
-	xor	edi, edi
-.LBB1_554:
-	test	r9b, 1
-	je	.LBB1_556
-# %bb.555:
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm0, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB1_556:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_557
-.LBB1_561:
-	xor	edi, edi
-.LBB1_562:
-	test	r9b, 1
-	je	.LBB1_564
-# %bb.563:
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm0, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB1_564:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_565
-.LBB1_569:
-	xor	edi, edi
-.LBB1_570:
-	test	r9b, 1
-	je	.LBB1_572
-# %bb.571:
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm0, ymm2, ymm0
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB1_572:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_573
-.LBB1_577:
-	xor	edi, edi
-.LBB1_578:
-	test	r9b, 1
-	je	.LBB1_580
-# %bb.579:
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB1_580:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_581
-.LBB1_585:
-	xor	edi, edi
-.LBB1_586:
-	test	r9b, 1
-	je	.LBB1_588
-# %bb.587:
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB1_588:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_589
-.LBB1_593:
-	xor	edi, edi
-.LBB1_594:
-	test	r9b, 1
-	je	.LBB1_596
-# %bb.595:
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB1_596:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_597
-.LBB1_601:
-	xor	edi, edi
-.LBB1_602:
-	test	r9b, 1
-	je	.LBB1_604
-# %bb.603:
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB1_604:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_605
-.LBB1_609:
-	xor	edi, edi
-.LBB1_610:
-	test	r9b, 1
-	je	.LBB1_612
-# %bb.611:
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB1_612:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_613
-.LBB1_617:
-	xor	esi, esi
-.LBB1_618:
-	test	r9b, 1
-	je	.LBB1_620
-# %bb.619:
-	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
-	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
-	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
-	vsubps	ymm2, ymm2, ymm1
-	vsubps	ymm3, ymm3, ymm1
-	vsubps	ymm4, ymm4, ymm1
-	vsubps	ymm1, ymm5, ymm1
-	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm1
-.LBB1_620:
-	cmp	rcx, rax
-	je	.LBB1_737
-	jmp	.LBB1_621
-.LBB1_625:
-	xor	edi, edi
+	inc	r9
+	jne	.LBB1_625
 .LBB1_626:
-	test	r9b, 1
-	je	.LBB1_628
-# %bb.627:
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB1_628:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_629
-.LBB1_633:
+	cmp	rdi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_627
+.LBB1_631:
+	and	rax, -4
+	neg	rax
 	xor	esi, esi
-.LBB1_634:
-	test	r9b, 1
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI1_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm3, ymm0, ymm0        # ymm3 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB1_632:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 32]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 64]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 96]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm4
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB1_632
+.LBB1_633:
+	test	r9, r9
 	je	.LBB1_636
-# %bb.635:
-	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
-	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
-	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
-	vsubps	ymm2, ymm2, ymm1
-	vsubps	ymm3, ymm3, ymm1
-	vsubps	ymm4, ymm4, ymm1
-	vsubps	ymm1, ymm5, ymm1
-	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm1
+# %bb.634:
+	neg	r9
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI1_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm0, ymm0, ymm0        # ymm0 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB1_635:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm3, ymmword ptr [rdx + rsi]
+	vpunpckhbw	ymm4, ymm3, ymm3        # ymm4 = ymm3[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm4, ymm4, ymm1
+	vpand	ymm4, ymm4, ymm2
+	vpunpcklbw	ymm3, ymm3, ymm3        # ymm3 = ymm3[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm3, ymm3, ymm0
+	vpand	ymm3, ymm3, ymm2
+	vpackuswb	ymm3, ymm3, ymm4
+	vmovdqu	ymmword ptr [r8 + rsi], ymm3
+	add	rsi, 32
+	inc	r9
+	jne	.LBB1_635
 .LBB1_636:
-	cmp	rcx, rax
-	je	.LBB1_737
+	cmp	rdi, r10
+	je	.LBB1_1109
 	jmp	.LBB1_637
 .LBB1_641:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI1_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm3, ymm0, ymm0        # ymm3 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB1_642:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 32]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 64]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 96]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm4
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB1_642
+.LBB1_643:
+	test	r9, r9
+	je	.LBB1_646
+# %bb.644:
+	neg	r9
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI1_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm0, ymm0, ymm0        # ymm0 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB1_645:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm3, ymmword ptr [rdx + rsi]
+	vpunpckhbw	ymm4, ymm3, ymm3        # ymm4 = ymm3[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm4, ymm4, ymm1
+	vpand	ymm4, ymm4, ymm2
+	vpunpcklbw	ymm3, ymm3, ymm3        # ymm3 = ymm3[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm3, ymm3, ymm0
+	vpand	ymm3, ymm3, ymm2
+	vpackuswb	ymm3, ymm3, ymm4
+	vmovdqu	ymmword ptr [r8 + rsi], ymm3
+	add	rsi, 32
+	inc	r9
+	jne	.LBB1_645
+.LBB1_646:
+	cmp	rdi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_647
+.LBB1_651:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI1_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm3, ymm0, ymm0        # ymm3 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB1_652:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 32]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 64]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm4
+	vmovdqu	ymm4, ymmword ptr [rdx + rsi + 96]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm4
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB1_652
+.LBB1_653:
+	test	r9, r9
+	je	.LBB1_656
+# %bb.654:
+	neg	r9
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI1_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm0, ymm0, ymm0        # ymm0 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB1_655:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm3, ymmword ptr [rdx + rsi]
+	vpunpckhbw	ymm4, ymm3, ymm3        # ymm4 = ymm3[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm4, ymm4, ymm1
+	vpand	ymm4, ymm4, ymm2
+	vpunpcklbw	ymm3, ymm3, ymm3        # ymm3 = ymm3[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm3, ymm3, ymm0
+	vpand	ymm3, ymm3, ymm2
+	vpackuswb	ymm3, ymm3, ymm4
+	vmovdqu	ymmword ptr [r8 + rsi], ymm3
+	add	rsi, 32
+	inc	r9
+	jne	.LBB1_655
+.LBB1_656:
+	cmp	rdi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_657
+.LBB1_661:
 	xor	edi, edi
-.LBB1_642:
+.LBB1_662:
 	test	r9b, 1
-	je	.LBB1_644
-# %bb.643:
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB1_644:
+	je	.LBB1_664
+# %bb.663:
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB1_664:
 	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_645
-.LBB1_649:
+	je	.LBB1_1109
+	jmp	.LBB1_665
+.LBB1_669:
 	xor	edi, edi
-.LBB1_650:
+.LBB1_670:
 	test	r9b, 1
-	je	.LBB1_652
-# %bb.651:
-	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
-	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
-.LBB1_652:
-	cmp	rcx, rax
-	je	.LBB1_737
-	jmp	.LBB1_653
-.LBB1_657:
-	xor	edi, edi
-.LBB1_658:
-	test	r9b, 1
-	je	.LBB1_660
-# %bb.659:
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB1_660:
+	je	.LBB1_672
+# %bb.671:
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB1_672:
 	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_661
-.LBB1_665:
+	je	.LBB1_1109
+	jmp	.LBB1_673
+.LBB1_677:
 	xor	edi, edi
-.LBB1_666:
+.LBB1_678:
 	test	r9b, 1
-	je	.LBB1_668
-# %bb.667:
-	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
-	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
-.LBB1_668:
-	cmp	rcx, rax
-	je	.LBB1_737
-	jmp	.LBB1_669
-.LBB1_673:
-	xor	edi, edi
-.LBB1_674:
-	test	r9b, 1
-	je	.LBB1_676
-# %bb.675:
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB1_676:
+	je	.LBB1_680
+# %bb.679:
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB1_680:
 	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_677
-.LBB1_681:
+	je	.LBB1_1109
+	jmp	.LBB1_681
+.LBB1_685:
 	xor	edi, edi
-.LBB1_682:
+.LBB1_686:
 	test	r9b, 1
-	je	.LBB1_684
-# %bb.683:
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm0, ymm4, ymm0
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB1_684:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_685
-.LBB1_689:
-	xor	edi, edi
-.LBB1_690:
-	test	r9b, 1
-	je	.LBB1_692
-# %bb.691:
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB1_692:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_693
-.LBB1_697:
-	xor	edi, edi
-.LBB1_698:
-	test	r9b, 1
-	je	.LBB1_700
-# %bb.699:
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB1_700:
-	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_701
-.LBB1_705:
-	xor	edi, edi
-.LBB1_706:
-	test	r9b, 1
-	je	.LBB1_708
-# %bb.707:
+	je	.LBB1_688
+# %bb.687:
 	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
 	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
 	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
@@ -8074,16 +11932,34 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB1_708:
+.LBB1_688:
 	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_709
-.LBB1_713:
+	je	.LBB1_1109
+	jmp	.LBB1_689
+.LBB1_693:
 	xor	edi, edi
-.LBB1_714:
+.LBB1_694:
 	test	r9b, 1
-	je	.LBB1_716
-# %bb.715:
+	je	.LBB1_696
+# %bb.695:
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB1_696:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_697
+.LBB1_701:
+	xor	edi, edi
+.LBB1_702:
+	test	r9b, 1
+	je	.LBB1_704
+# %bb.703:
 	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
 	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
 	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
@@ -8096,16 +11972,964 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB1_716:
+.LBB1_704:
 	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_717
-.LBB1_721:
+	je	.LBB1_1109
+	jmp	.LBB1_705
+.LBB1_709:
 	xor	edi, edi
-.LBB1_722:
+.LBB1_710:
 	test	r9b, 1
-	je	.LBB1_724
-# %bb.723:
+	je	.LBB1_712
+# %bb.711:
+	vmulpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vmulpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmulpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vmulpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB1_712:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_713
+.LBB1_717:
+	xor	edi, edi
+.LBB1_718:
+	test	r9b, 1
+	je	.LBB1_720
+# %bb.719:
+	vmulpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vmulpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmulpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vmulpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB1_720:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_721
+.LBB1_725:
+	xor	edi, edi
+.LBB1_726:
+	test	r9b, 1
+	je	.LBB1_728
+# %bb.727:
+	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vaddpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB1_728:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_729
+.LBB1_733:
+	xor	esi, esi
+.LBB1_734:
+	test	r9b, 1
+	je	.LBB1_736
+# %bb.735:
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
+	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
+	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
+	vsubpd	ymm2, ymm2, ymm1
+	vsubpd	ymm3, ymm3, ymm1
+	vsubpd	ymm4, ymm4, ymm1
+	vsubpd	ymm1, ymm5, ymm1
+	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm1
+.LBB1_736:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_737
+.LBB1_741:
+	xor	edi, edi
+.LBB1_742:
+	test	r9b, 1
+	je	.LBB1_744
+# %bb.743:
+	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vaddpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB1_744:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_745
+.LBB1_749:
+	xor	esi, esi
+.LBB1_750:
+	test	r9b, 1
+	je	.LBB1_752
+# %bb.751:
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
+	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
+	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
+	vsubpd	ymm2, ymm2, ymm1
+	vsubpd	ymm3, ymm3, ymm1
+	vsubpd	ymm4, ymm4, ymm1
+	vsubpd	ymm1, ymm5, ymm1
+	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm1
+.LBB1_752:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_753
+.LBB1_757:
+	xor	edi, edi
+.LBB1_758:
+	test	r9b, 1
+	je	.LBB1_760
+# %bb.759:
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB1_760:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_761
+.LBB1_765:
+	xor	edi, edi
+.LBB1_766:
+	test	r9b, 1
+	je	.LBB1_768
+# %bb.767:
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB1_768:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_769
+.LBB1_773:
+	xor	edi, edi
+.LBB1_774:
+	test	r9b, 1
+	je	.LBB1_776
+# %bb.775:
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB1_776:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_777
+.LBB1_781:
+	xor	edi, edi
+.LBB1_782:
+	test	r9b, 1
+	je	.LBB1_784
+# %bb.783:
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB1_784:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_785
+.LBB1_789:
+	xor	edi, edi
+.LBB1_790:
+	test	r9b, 1
+	je	.LBB1_792
+# %bb.791:
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm1, ymm5, ymm1
+	vpsrlq	ymm6, ymm5, 32
+	vpmuludq	ymm6, ymm6, ymm0
+	vpaddq	ymm1, ymm1, ymm6
+	vpsllq	ymm1, ymm1, 32
+	vpmuludq	ymm0, ymm5, ymm0
+	vpaddq	ymm0, ymm0, ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_792:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_793
+.LBB1_797:
+	xor	edi, edi
+.LBB1_798:
+	test	r9b, 1
+	je	.LBB1_800
+# %bb.799:
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm1, ymm5, ymm1
+	vpsrlq	ymm6, ymm5, 32
+	vpmuludq	ymm6, ymm6, ymm0
+	vpaddq	ymm1, ymm1, ymm6
+	vpsllq	ymm1, ymm1, 32
+	vpmuludq	ymm0, ymm5, ymm0
+	vpaddq	ymm0, ymm0, ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_800:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_801
+.LBB1_805:
+	xor	edi, edi
+.LBB1_806:
+	test	r9b, 1
+	je	.LBB1_808
+# %bb.807:
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_808:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_809
+.LBB1_813:
+	xor	edi, edi
+.LBB1_814:
+	test	r9b, 1
+	je	.LBB1_816
+# %bb.815:
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_816:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_817
+.LBB1_821:
+	xor	edi, edi
+.LBB1_822:
+	test	r9b, 1
+	je	.LBB1_824
+# %bb.823:
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_824:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_825
+.LBB1_829:
+	xor	edi, edi
+.LBB1_830:
+	test	r9b, 1
+	je	.LBB1_832
+# %bb.831:
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_832:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_833
+.LBB1_837:
+	xor	edi, edi
+.LBB1_838:
+	test	r9b, 1
+	je	.LBB1_840
+# %bb.839:
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_840:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_841
+.LBB1_845:
+	xor	edi, edi
+.LBB1_846:
+	test	r9b, 1
+	je	.LBB1_848
+# %bb.847:
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_848:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_849
+.LBB1_853:
+	xor	edi, edi
+.LBB1_854:
+	test	r9b, 1
+	je	.LBB1_856
+# %bb.855:
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_856:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_857
+.LBB1_861:
+	xor	edi, edi
+.LBB1_862:
+	test	r9b, 1
+	je	.LBB1_864
+# %bb.863:
+	vpmullw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpmullw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_864:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_865
+.LBB1_869:
+	xor	edi, edi
+.LBB1_870:
+	test	r9b, 1
+	je	.LBB1_872
+# %bb.871:
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_872:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_873
+.LBB1_877:
+	xor	edi, edi
+.LBB1_878:
+	test	r9b, 1
+	je	.LBB1_880
+# %bb.879:
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_880:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_881
+.LBB1_885:
+	xor	edi, edi
+.LBB1_886:
+	test	r9b, 1
+	je	.LBB1_888
+# %bb.887:
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm0, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_888:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_889
+.LBB1_893:
+	xor	edi, edi
+.LBB1_894:
+	test	r9b, 1
+	je	.LBB1_896
+# %bb.895:
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm0, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_896:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_897
+.LBB1_901:
+	xor	edi, edi
+.LBB1_902:
+	test	r9b, 1
+	je	.LBB1_904
+# %bb.903:
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_904:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_905
+.LBB1_909:
+	xor	edi, edi
+.LBB1_910:
+	test	r9b, 1
+	je	.LBB1_912
+# %bb.911:
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_912:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_913
+.LBB1_917:
+	xor	edi, edi
+.LBB1_918:
+	test	r9b, 1
+	je	.LBB1_920
+# %bb.919:
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm0, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_920:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_921
+.LBB1_925:
+	xor	edi, edi
+.LBB1_926:
+	test	r9b, 1
+	je	.LBB1_928
+# %bb.927:
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm0, ymm2, ymm0
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB1_928:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_929
+.LBB1_933:
+	xor	edi, edi
+.LBB1_934:
+	test	r9b, 1
+	je	.LBB1_936
+# %bb.935:
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm1, ymm5, ymm1
+	vpsrlq	ymm6, ymm5, 32
+	vpmuludq	ymm6, ymm6, ymm0
+	vpaddq	ymm1, ymm1, ymm6
+	vpsllq	ymm1, ymm1, 32
+	vpmuludq	ymm0, ymm5, ymm0
+	vpaddq	ymm0, ymm0, ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_936:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_937
+.LBB1_941:
+	xor	edi, edi
+.LBB1_942:
+	test	r9b, 1
+	je	.LBB1_944
+# %bb.943:
+	vmulps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vmulps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmulps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vmulps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB1_944:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_945
+.LBB1_949:
+	xor	edi, edi
+.LBB1_950:
+	test	r9b, 1
+	je	.LBB1_952
+# %bb.951:
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rdx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm1, ymm5, ymm1
+	vpsrlq	ymm6, ymm5, 32
+	vpmuludq	ymm6, ymm6, ymm0
+	vpaddq	ymm1, ymm1, ymm6
+	vpsllq	ymm1, ymm1, 32
+	vpmuludq	ymm0, ymm5, ymm0
+	vpaddq	ymm0, ymm0, ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_952:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_953
+.LBB1_957:
+	xor	edi, edi
+.LBB1_958:
+	test	r9b, 1
+	je	.LBB1_960
+# %bb.959:
+	vmulps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vmulps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmulps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vmulps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB1_960:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_961
+.LBB1_965:
+	xor	edi, edi
+.LBB1_966:
+	test	r9b, 1
+	je	.LBB1_968
+# %bb.967:
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_968:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_969
+.LBB1_973:
+	xor	edi, edi
+.LBB1_974:
+	test	r9b, 1
+	je	.LBB1_976
+# %bb.975:
+	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB1_976:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_977
+.LBB1_981:
+	xor	edi, edi
+.LBB1_982:
+	test	r9b, 1
+	je	.LBB1_984
+# %bb.983:
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_984:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_985
+.LBB1_989:
+	xor	esi, esi
+.LBB1_990:
+	test	r9b, 1
+	je	.LBB1_992
+# %bb.991:
+	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
+	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
+	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
+	vsubps	ymm2, ymm2, ymm1
+	vsubps	ymm3, ymm3, ymm1
+	vsubps	ymm4, ymm4, ymm1
+	vsubps	ymm1, ymm5, ymm1
+	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm1
+.LBB1_992:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_993
+.LBB1_997:
+	xor	edi, edi
+.LBB1_998:
+	test	r9b, 1
+	je	.LBB1_1000
+# %bb.999:
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_1000:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_1001
+.LBB1_1005:
+	xor	edi, edi
+.LBB1_1006:
+	test	r9b, 1
+	je	.LBB1_1008
+# %bb.1007:
+	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB1_1008:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_1009
+.LBB1_1013:
+	xor	edi, edi
+.LBB1_1014:
+	test	r9b, 1
+	je	.LBB1_1016
+# %bb.1015:
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB1_1016:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_1017
+.LBB1_1021:
+	xor	esi, esi
+.LBB1_1022:
+	test	r9b, 1
+	je	.LBB1_1024
+# %bb.1023:
+	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
+	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
+	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
+	vsubps	ymm2, ymm2, ymm1
+	vsubps	ymm3, ymm3, ymm1
+	vsubps	ymm4, ymm4, ymm1
+	vsubps	ymm1, ymm5, ymm1
+	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm1
+.LBB1_1024:
+	cmp	rcx, rax
+	je	.LBB1_1109
+	jmp	.LBB1_1025
+.LBB1_1029:
+	xor	edi, edi
+.LBB1_1030:
+	test	r9b, 1
+	je	.LBB1_1032
+# %bb.1031:
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB1_1032:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_1033
+.LBB1_1037:
+	xor	edi, edi
+.LBB1_1038:
+	test	r9b, 1
+	je	.LBB1_1040
+# %bb.1039:
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB1_1040:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_1041
+.LBB1_1045:
+	xor	edi, edi
+.LBB1_1046:
+	test	r9b, 1
+	je	.LBB1_1048
+# %bb.1047:
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB1_1048:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_1049
+.LBB1_1053:
+	xor	edi, edi
+.LBB1_1054:
+	test	r9b, 1
+	je	.LBB1_1056
+# %bb.1055:
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB1_1056:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_1057
+.LBB1_1061:
+	xor	edi, edi
+.LBB1_1062:
+	test	r9b, 1
+	je	.LBB1_1064
+# %bb.1063:
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB1_1064:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_1065
+.LBB1_1069:
+	xor	edi, edi
+.LBB1_1070:
+	test	r9b, 1
+	je	.LBB1_1072
+# %bb.1071:
+	vpmulld	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpmulld	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB1_1072:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_1073
+.LBB1_1077:
+	xor	edi, edi
+.LBB1_1078:
+	test	r9b, 1
+	je	.LBB1_1080
+# %bb.1079:
 	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
 	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
 	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
@@ -8114,16 +12938,38 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB1_724:
+.LBB1_1080:
 	cmp	rsi, r10
-	je	.LBB1_737
-	jmp	.LBB1_725
-.LBB1_729:
+	je	.LBB1_1109
+	jmp	.LBB1_1081
+.LBB1_1085:
 	xor	edi, edi
-.LBB1_730:
+.LBB1_1086:
 	test	r9b, 1
-	je	.LBB1_732
-# %bb.731:
+	je	.LBB1_1088
+# %bb.1087:
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB1_1088:
+	cmp	rsi, r10
+	je	.LBB1_1109
+	jmp	.LBB1_1089
+.LBB1_1093:
+	xor	edi, edi
+.LBB1_1094:
+	test	r9b, 1
+	je	.LBB1_1096
+# %bb.1095:
 	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
 	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
 	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
@@ -8132,10 +12978,32 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB1_732:
+.LBB1_1096:
 	cmp	rsi, r10
-	jne	.LBB1_733
-.LBB1_737:
+	je	.LBB1_1109
+	jmp	.LBB1_1097
+.LBB1_1101:
+	xor	edi, edi
+.LBB1_1102:
+	test	r9b, 1
+	je	.LBB1_1104
+# %bb.1103:
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm0, ymm4, ymm0
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB1_1104:
+	cmp	rsi, r10
+	jne	.LBB1_1105
+.LBB1_1109:
 	mov	rsp, rbp
 	pop	rbp
 	vzeroupper
@@ -8143,7 +13011,27 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 .Lfunc_end1:
 	.size	arithmetic_arr_scalar_avx2, .Lfunc_end1-arithmetic_arr_scalar_avx2
                                         # -- End function
-	.globl	arithmetic_scalar_arr_avx2      # -- Begin function arithmetic_scalar_arr_avx2
+	.section	.rodata.cst32,"aM",@progbits,32
+	.p2align	5                               # -- Begin function arithmetic_scalar_arr_avx2
+.LCPI2_0:
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.short	255                             # 0xff
+	.text
+	.globl	arithmetic_scalar_arr_avx2
 	.p2align	4, 0x90
 	.type	arithmetic_scalar_arr_avx2,@function
 arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
@@ -8151,138 +13039,278 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	push	rbp
 	mov	rbp, rsp
 	and	rsp, -8
-	cmp	sil, 1
-	jg	.LBB2_11
+	cmp	sil, 3
+	jg	.LBB2_12
 # %bb.1:
 	test	sil, sil
-	je	.LBB2_21
+	je	.LBB2_23
 # %bb.2:
 	cmp	sil, 1
-	jne	.LBB2_737
+	je	.LBB2_31
 # %bb.3:
-	cmp	edi, 6
-	jg	.LBB2_37
-# %bb.4:
-	cmp	edi, 3
-	jle	.LBB2_65
-# %bb.5:
-	cmp	edi, 4
-	je	.LBB2_105
-# %bb.6:
-	cmp	edi, 5
-	je	.LBB2_108
-# %bb.7:
-	cmp	edi, 6
-	jne	.LBB2_737
-# %bb.8:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.9:
-	mov	r11d, dword ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_10
-# %bb.177:
-	lea	rdx, [rcx + 4*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_297
-# %bb.178:
-	lea	rdx, [r8 + 4*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_297
-.LBB2_10:
-	xor	esi, esi
-.LBB2_421:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_423
-.LBB2_422:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_422
-.LBB2_423:
-	cmp	rdx, 3
-	jb	.LBB2_737
-.LBB2_424:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_424
-	jmp	.LBB2_737
-.LBB2_11:
 	cmp	sil, 2
-	je	.LBB2_29
-# %bb.12:
-	cmp	sil, 3
-	jne	.LBB2_737
-# %bb.13:
+	jne	.LBB2_1109
+# %bb.4:
 	cmp	edi, 6
-	jg	.LBB2_44
-# %bb.14:
+	jg	.LBB2_55
+# %bb.5:
 	cmp	edi, 3
-	jle	.LBB2_70
-# %bb.15:
+	jle	.LBB2_97
+# %bb.6:
 	cmp	edi, 4
-	je	.LBB2_111
-# %bb.16:
+	je	.LBB2_157
+# %bb.7:
 	cmp	edi, 5
-	je	.LBB2_114
-# %bb.17:
+	je	.LBB2_160
+# %bb.8:
 	cmp	edi, 6
-	jne	.LBB2_737
-# %bb.18:
+	jne	.LBB2_1109
+# %bb.9:
 	test	r9d, r9d
-	jle	.LBB2_737
+	jle	.LBB2_1109
+# %bb.10:
+	mov	eax, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_11
+# %bb.265:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_445
+# %bb.266:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_445
+.LBB2_11:
+	xor	esi, esi
+.LBB2_665:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_667
+.LBB2_666:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_666
+.LBB2_667:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_668:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_668
+	jmp	.LBB2_1109
+.LBB2_12:
+	cmp	sil, 4
+	je	.LBB2_39
+# %bb.13:
+	cmp	sil, 5
+	je	.LBB2_47
+# %bb.14:
+	cmp	sil, 6
+	jne	.LBB2_1109
+# %bb.15:
+	cmp	edi, 6
+	jg	.LBB2_62
+# %bb.16:
+	cmp	edi, 3
+	jle	.LBB2_102
+# %bb.17:
+	cmp	edi, 4
+	je	.LBB2_163
+# %bb.18:
+	cmp	edi, 5
+	je	.LBB2_166
 # %bb.19:
+	cmp	edi, 6
+	jne	.LBB2_1109
+# %bb.20:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.21:
+	mov	eax, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_22
+# %bb.268:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_448
+# %bb.269:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_448
+.LBB2_22:
+	xor	esi, esi
+.LBB2_673:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_675
+.LBB2_674:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_674
+.LBB2_675:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_676:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_676
+	jmp	.LBB2_1109
+.LBB2_23:
+	cmp	edi, 6
+	jg	.LBB2_69
+# %bb.24:
+	cmp	edi, 3
+	jle	.LBB2_107
+# %bb.25:
+	cmp	edi, 4
+	je	.LBB2_169
+# %bb.26:
+	cmp	edi, 5
+	je	.LBB2_172
+# %bb.27:
+	cmp	edi, 6
+	jne	.LBB2_1109
+# %bb.28:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.29:
+	mov	eax, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_30
+# %bb.271:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_451
+# %bb.272:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_451
+.LBB2_30:
+	xor	esi, esi
+.LBB2_681:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_683
+.LBB2_682:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_682
+.LBB2_683:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_684:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_684
+	jmp	.LBB2_1109
+.LBB2_31:
+	cmp	edi, 6
+	jg	.LBB2_76
+# %bb.32:
+	cmp	edi, 3
+	jle	.LBB2_112
+# %bb.33:
+	cmp	edi, 4
+	je	.LBB2_175
+# %bb.34:
+	cmp	edi, 5
+	je	.LBB2_178
+# %bb.35:
+	cmp	edi, 6
+	jne	.LBB2_1109
+# %bb.36:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.37:
 	mov	r11d, dword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 32
-	jb	.LBB2_20
-# %bb.180:
+	jb	.LBB2_38
+# %bb.274:
 	lea	rdx, [rcx + 4*r10]
 	cmp	rdx, r8
-	jbe	.LBB2_300
-# %bb.181:
+	jbe	.LBB2_454
+# %bb.275:
 	lea	rdx, [r8 + 4*r10]
 	cmp	rdx, rcx
-	jbe	.LBB2_300
-.LBB2_20:
+	jbe	.LBB2_454
+.LBB2_38:
 	xor	esi, esi
-.LBB2_429:
+.LBB2_689:
 	mov	rdx, rsi
 	not	rdx
 	add	rdx, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB2_431
-.LBB2_430:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB2_691
+.LBB2_690:                              # =>This Inner Loop Header: Depth=1
 	mov	eax, r11d
 	sub	eax, dword ptr [rcx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], eax
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB2_430
-.LBB2_431:
+	jne	.LBB2_690
+.LBB2_691:
 	cmp	rdx, 3
-	jb	.LBB2_737
-.LBB2_432:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB2_1109
+.LBB2_692:                              # =>This Inner Loop Header: Depth=1
 	mov	eax, r11d
 	sub	eax, dword ptr [rcx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], eax
@@ -8297,248 +13325,366 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB2_432
-	jmp	.LBB2_737
-.LBB2_21:
+	jne	.LBB2_692
+	jmp	.LBB2_1109
+.LBB2_39:
 	cmp	edi, 6
-	jg	.LBB2_51
-# %bb.22:
-	cmp	edi, 3
-	jle	.LBB2_75
-# %bb.23:
-	cmp	edi, 4
-	je	.LBB2_117
-# %bb.24:
-	cmp	edi, 5
-	je	.LBB2_120
-# %bb.25:
-	cmp	edi, 6
-	jne	.LBB2_737
-# %bb.26:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.27:
-	mov	eax, dword ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_28
-# %bb.183:
-	lea	rdx, [rcx + 4*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_303
-# %bb.184:
-	lea	rdx, [r8 + 4*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_303
-.LBB2_28:
-	xor	esi, esi
-.LBB2_437:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_439
-.LBB2_438:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_438
-.LBB2_439:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_440:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 4]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 8]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 12]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], edx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_440
-	jmp	.LBB2_737
-.LBB2_29:
-	cmp	edi, 6
-	jg	.LBB2_58
-# %bb.30:
-	cmp	edi, 3
-	jle	.LBB2_80
-# %bb.31:
-	cmp	edi, 4
-	je	.LBB2_123
-# %bb.32:
-	cmp	edi, 5
-	je	.LBB2_126
-# %bb.33:
-	cmp	edi, 6
-	jne	.LBB2_737
-# %bb.34:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.35:
-	mov	eax, dword ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_36
-# %bb.186:
-	lea	rdx, [rcx + 4*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_306
-# %bb.187:
-	lea	rdx, [r8 + 4*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_306
-.LBB2_36:
-	xor	esi, esi
-.LBB2_445:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_447
-.LBB2_446:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_446
-.LBB2_447:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_448:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 4]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 8]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 12]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], edx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_448
-	jmp	.LBB2_737
-.LBB2_37:
-	cmp	edi, 8
-	jle	.LBB2_85
-# %bb.38:
-	cmp	edi, 9
-	je	.LBB2_129
-# %bb.39:
-	cmp	edi, 11
-	je	.LBB2_132
+	jg	.LBB2_83
 # %bb.40:
-	cmp	edi, 12
-	jne	.LBB2_737
+	cmp	edi, 3
+	jle	.LBB2_117
 # %bb.41:
-	test	r9d, r9d
-	jle	.LBB2_737
+	cmp	edi, 4
+	je	.LBB2_181
 # %bb.42:
-	vmovsd	xmm0, qword ptr [rdx]           # xmm0 = mem[0],zero
-	mov	eax, r9d
-	cmp	r9d, 16
-	jb	.LBB2_43
-# %bb.189:
-	lea	rdx, [rcx + 8*rax]
-	cmp	rdx, r8
-	jbe	.LBB2_309
-# %bb.190:
-	lea	rdx, [r8 + 8*rax]
-	cmp	rdx, rcx
-	jbe	.LBB2_309
-.LBB2_43:
-	xor	edx, edx
-.LBB2_453:
-	mov	rsi, rdx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB2_455
-.LBB2_454:                              # =>This Inner Loop Header: Depth=1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
-	vmovsd	qword ptr [r8 + 8*rdx], xmm1
-	add	rdx, 1
-	add	rdi, -1
-	jne	.LBB2_454
-.LBB2_455:
-	cmp	rsi, 3
-	jb	.LBB2_737
-.LBB2_456:                              # =>This Inner Loop Header: Depth=1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
-	vmovsd	qword ptr [r8 + 8*rdx], xmm1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
-	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
-	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
-	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
-	add	rdx, 4
-	cmp	rax, rdx
-	jne	.LBB2_456
-	jmp	.LBB2_737
-.LBB2_44:
-	cmp	edi, 8
-	jle	.LBB2_90
+	cmp	edi, 5
+	je	.LBB2_184
+# %bb.43:
+	cmp	edi, 6
+	jne	.LBB2_1109
+# %bb.44:
+	test	r9d, r9d
+	jle	.LBB2_1109
 # %bb.45:
-	cmp	edi, 9
-	je	.LBB2_135
-# %bb.46:
-	cmp	edi, 11
-	je	.LBB2_138
-# %bb.47:
-	cmp	edi, 12
-	jne	.LBB2_737
+	mov	eax, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_46
+# %bb.277:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_457
+# %bb.278:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_457
+.LBB2_46:
+	xor	esi, esi
+.LBB2_697:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_699
+.LBB2_698:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_698
+.LBB2_699:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_700:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_700
+	jmp	.LBB2_1109
+.LBB2_47:
+	cmp	edi, 6
+	jg	.LBB2_90
 # %bb.48:
-	test	r9d, r9d
-	jle	.LBB2_737
+	cmp	edi, 3
+	jle	.LBB2_122
 # %bb.49:
+	cmp	edi, 4
+	je	.LBB2_187
+# %bb.50:
+	cmp	edi, 5
+	je	.LBB2_190
+# %bb.51:
+	cmp	edi, 6
+	jne	.LBB2_1109
+# %bb.52:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.53:
+	mov	r11d, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_54
+# %bb.280:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_460
+# %bb.281:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_460
+.LBB2_54:
+	xor	esi, esi
+.LBB2_705:
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_707
+.LBB2_706:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_706
+.LBB2_707:
+	cmp	rdx, 3
+	jb	.LBB2_1109
+.LBB2_708:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_708
+	jmp	.LBB2_1109
+.LBB2_55:
+	cmp	edi, 8
+	jle	.LBB2_127
+# %bb.56:
+	cmp	edi, 9
+	je	.LBB2_193
+# %bb.57:
+	cmp	edi, 11
+	je	.LBB2_196
+# %bb.58:
+	cmp	edi, 12
+	jne	.LBB2_1109
+# %bb.59:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.60:
 	vmovsd	xmm0, qword ptr [rdx]           # xmm0 = mem[0],zero
 	mov	eax, r9d
 	cmp	r9d, 16
-	jb	.LBB2_50
-# %bb.192:
+	jb	.LBB2_61
+# %bb.283:
 	lea	rdx, [rcx + 8*rax]
 	cmp	rdx, r8
-	jbe	.LBB2_312
-# %bb.193:
+	jbe	.LBB2_463
+# %bb.284:
 	lea	rdx, [r8 + 8*rax]
 	cmp	rdx, rcx
-	jbe	.LBB2_312
-.LBB2_50:
+	jbe	.LBB2_463
+.LBB2_61:
 	xor	edx, edx
-.LBB2_461:
+.LBB2_713:
 	mov	rsi, rdx
 	not	rsi
 	add	rsi, rax
 	mov	rdi, rax
 	and	rdi, 3
-	je	.LBB2_463
-.LBB2_462:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB2_715
+.LBB2_714:                              # =>This Inner Loop Header: Depth=1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	add	rdx, 1
+	add	rdi, -1
+	jne	.LBB2_714
+.LBB2_715:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_716:                              # =>This Inner Loop Header: Depth=1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
+	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
+	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
+	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_716
+	jmp	.LBB2_1109
+.LBB2_62:
+	cmp	edi, 8
+	jle	.LBB2_132
+# %bb.63:
+	cmp	edi, 9
+	je	.LBB2_199
+# %bb.64:
+	cmp	edi, 11
+	je	.LBB2_202
+# %bb.65:
+	cmp	edi, 12
+	jne	.LBB2_1109
+# %bb.66:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.67:
+	vmovsd	xmm0, qword ptr [rdx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
+	cmp	r9d, 16
+	jb	.LBB2_68
+# %bb.286:
+	lea	rdx, [rcx + 8*rax]
+	cmp	rdx, r8
+	jbe	.LBB2_466
+# %bb.287:
+	lea	rdx, [r8 + 8*rax]
+	cmp	rdx, rcx
+	jbe	.LBB2_466
+.LBB2_68:
+	xor	edx, edx
+.LBB2_721:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB2_723
+.LBB2_722:                              # =>This Inner Loop Header: Depth=1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	add	rdx, 1
+	add	rdi, -1
+	jne	.LBB2_722
+.LBB2_723:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_724:                              # =>This Inner Loop Header: Depth=1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
+	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
+	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
+	vmulsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
+	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_724
+	jmp	.LBB2_1109
+.LBB2_69:
+	cmp	edi, 8
+	jle	.LBB2_137
+# %bb.70:
+	cmp	edi, 9
+	je	.LBB2_205
+# %bb.71:
+	cmp	edi, 11
+	je	.LBB2_208
+# %bb.72:
+	cmp	edi, 12
+	jne	.LBB2_1109
+# %bb.73:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.74:
+	vmovsd	xmm0, qword ptr [rdx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
+	cmp	r9d, 16
+	jb	.LBB2_75
+# %bb.289:
+	lea	rdx, [rcx + 8*rax]
+	cmp	rdx, r8
+	jbe	.LBB2_469
+# %bb.290:
+	lea	rdx, [r8 + 8*rax]
+	cmp	rdx, rcx
+	jbe	.LBB2_469
+.LBB2_75:
+	xor	edx, edx
+.LBB2_729:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB2_731
+.LBB2_730:                              # =>This Inner Loop Header: Depth=1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	add	rdx, 1
+	add	rdi, -1
+	jne	.LBB2_730
+.LBB2_731:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_732:                              # =>This Inner Loop Header: Depth=1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
+	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
+	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
+	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_732
+	jmp	.LBB2_1109
+.LBB2_76:
+	cmp	edi, 8
+	jle	.LBB2_142
+# %bb.77:
+	cmp	edi, 9
+	je	.LBB2_211
+# %bb.78:
+	cmp	edi, 11
+	je	.LBB2_214
+# %bb.79:
+	cmp	edi, 12
+	jne	.LBB2_1109
+# %bb.80:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.81:
+	vmovsd	xmm0, qword ptr [rdx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
+	cmp	r9d, 16
+	jb	.LBB2_82
+# %bb.292:
+	lea	rdx, [rcx + 8*rax]
+	cmp	rdx, r8
+	jbe	.LBB2_472
+# %bb.293:
+	lea	rdx, [r8 + 8*rax]
+	cmp	rdx, rcx
+	jbe	.LBB2_472
+.LBB2_82:
+	xor	edx, edx
+.LBB2_737:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB2_739
+.LBB2_738:                              # =>This Inner Loop Header: Depth=1
 	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
 	vmovsd	qword ptr [r8 + 8*rdx], xmm1
 	add	rdx, 1
 	add	rdi, -1
-	jne	.LBB2_462
-.LBB2_463:
+	jne	.LBB2_738
+.LBB2_739:
 	cmp	rsi, 3
-	jb	.LBB2_737
-.LBB2_464:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB2_1109
+.LBB2_740:                              # =>This Inner Loop Header: Depth=1
 	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
 	vmovsd	qword ptr [r8 + 8*rdx], xmm1
 	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
@@ -8549,1141 +13695,690 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
 	add	rdx, 4
 	cmp	rax, rdx
-	jne	.LBB2_464
-	jmp	.LBB2_737
-.LBB2_51:
+	jne	.LBB2_740
+	jmp	.LBB2_1109
+.LBB2_83:
 	cmp	edi, 8
-	jle	.LBB2_95
-# %bb.52:
+	jle	.LBB2_147
+# %bb.84:
 	cmp	edi, 9
-	je	.LBB2_141
-# %bb.53:
+	je	.LBB2_217
+# %bb.85:
 	cmp	edi, 11
-	je	.LBB2_144
-# %bb.54:
-	cmp	edi, 12
-	jne	.LBB2_737
-# %bb.55:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.56:
-	vmovsd	xmm0, qword ptr [rdx]           # xmm0 = mem[0],zero
-	mov	eax, r9d
-	cmp	r9d, 16
-	jb	.LBB2_57
-# %bb.195:
-	lea	rdx, [rcx + 8*rax]
-	cmp	rdx, r8
-	jbe	.LBB2_315
-# %bb.196:
-	lea	rdx, [r8 + 8*rax]
-	cmp	rdx, rcx
-	jbe	.LBB2_315
-.LBB2_57:
-	xor	edx, edx
-.LBB2_469:
-	mov	rsi, rdx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB2_471
-.LBB2_470:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
-	vmovsd	qword ptr [r8 + 8*rdx], xmm1
-	add	rdx, 1
-	add	rdi, -1
-	jne	.LBB2_470
-.LBB2_471:
-	cmp	rsi, 3
-	jb	.LBB2_737
-.LBB2_472:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
-	vmovsd	qword ptr [r8 + 8*rdx], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
-	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
-	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
-	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
-	add	rdx, 4
-	cmp	rax, rdx
-	jne	.LBB2_472
-	jmp	.LBB2_737
-.LBB2_58:
-	cmp	edi, 8
-	jle	.LBB2_100
-# %bb.59:
-	cmp	edi, 9
-	je	.LBB2_147
-# %bb.60:
-	cmp	edi, 11
-	je	.LBB2_150
-# %bb.61:
-	cmp	edi, 12
-	jne	.LBB2_737
-# %bb.62:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.63:
-	vmovsd	xmm0, qword ptr [rdx]           # xmm0 = mem[0],zero
-	mov	eax, r9d
-	cmp	r9d, 16
-	jb	.LBB2_64
-# %bb.198:
-	lea	rdx, [rcx + 8*rax]
-	cmp	rdx, r8
-	jbe	.LBB2_318
-# %bb.199:
-	lea	rdx, [r8 + 8*rax]
-	cmp	rdx, rcx
-	jbe	.LBB2_318
-.LBB2_64:
-	xor	edx, edx
-.LBB2_477:
-	mov	rsi, rdx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB2_479
-.LBB2_478:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
-	vmovsd	qword ptr [r8 + 8*rdx], xmm1
-	add	rdx, 1
-	add	rdi, -1
-	jne	.LBB2_478
-.LBB2_479:
-	cmp	rsi, 3
-	jb	.LBB2_737
-.LBB2_480:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
-	vmovsd	qword ptr [r8 + 8*rdx], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
-	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
-	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
-	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
-	add	rdx, 4
-	cmp	rax, rdx
-	jne	.LBB2_480
-	jmp	.LBB2_737
-.LBB2_65:
-	cmp	edi, 2
-	je	.LBB2_153
-# %bb.66:
-	cmp	edi, 3
-	jne	.LBB2_737
-# %bb.67:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.68:
-	mov	al, byte ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB2_69
-# %bb.201:
-	lea	rdx, [rcx + r10]
-	cmp	rdx, r8
-	jbe	.LBB2_321
-# %bb.202:
-	lea	rdx, [r8 + r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_321
-.LBB2_69:
-	xor	esi, esi
-.LBB2_485:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_487
-.LBB2_486:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], dl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_486
-.LBB2_487:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_488:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], dl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_488
-	jmp	.LBB2_737
-.LBB2_70:
-	cmp	edi, 2
-	je	.LBB2_156
-# %bb.71:
-	cmp	edi, 3
-	jne	.LBB2_737
-# %bb.72:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.73:
-	mov	al, byte ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB2_74
-# %bb.204:
-	lea	rdx, [rcx + r10]
-	cmp	rdx, r8
-	jbe	.LBB2_324
-# %bb.205:
-	lea	rdx, [r8 + r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_324
-.LBB2_74:
-	xor	esi, esi
-.LBB2_493:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_495
-.LBB2_494:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], dl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_494
-.LBB2_495:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_496:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], dl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_496
-	jmp	.LBB2_737
-.LBB2_75:
-	cmp	edi, 2
-	je	.LBB2_159
-# %bb.76:
-	cmp	edi, 3
-	jne	.LBB2_737
-# %bb.77:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.78:
-	mov	al, byte ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB2_79
-# %bb.207:
-	lea	rdx, [rcx + r10]
-	cmp	rdx, r8
-	jbe	.LBB2_327
-# %bb.208:
-	lea	rdx, [r8 + r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_327
-.LBB2_79:
-	xor	esi, esi
-.LBB2_501:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_503
-.LBB2_502:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
-	mov	byte ptr [r8 + rsi], dl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_502
-.LBB2_503:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_504:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
-	mov	byte ptr [r8 + rsi], dl
-	movzx	edx, byte ptr [rcx + rsi + 1]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 1], dl
-	movzx	edx, byte ptr [rcx + rsi + 2]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 2], dl
-	movzx	edx, byte ptr [rcx + rsi + 3]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 3], dl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_504
-	jmp	.LBB2_737
-.LBB2_80:
-	cmp	edi, 2
-	je	.LBB2_162
-# %bb.81:
-	cmp	edi, 3
-	jne	.LBB2_737
-# %bb.82:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.83:
-	mov	al, byte ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB2_84
-# %bb.210:
-	lea	rdx, [rcx + r10]
-	cmp	rdx, r8
-	jbe	.LBB2_330
-# %bb.211:
-	lea	rdx, [r8 + r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_330
-.LBB2_84:
-	xor	esi, esi
-.LBB2_509:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_511
-.LBB2_510:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
-	mov	byte ptr [r8 + rsi], dl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_510
-.LBB2_511:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_512:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
-	mov	byte ptr [r8 + rsi], dl
-	movzx	edx, byte ptr [rcx + rsi + 1]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 1], dl
-	movzx	edx, byte ptr [rcx + rsi + 2]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 2], dl
-	movzx	edx, byte ptr [rcx + rsi + 3]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 3], dl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_512
-	jmp	.LBB2_737
-.LBB2_85:
-	cmp	edi, 7
-	je	.LBB2_165
+	je	.LBB2_220
 # %bb.86:
-	cmp	edi, 8
-	jne	.LBB2_737
+	cmp	edi, 12
+	jne	.LBB2_1109
 # %bb.87:
 	test	r9d, r9d
-	jle	.LBB2_737
+	jle	.LBB2_1109
 # %bb.88:
-	mov	r11, qword ptr [rdx]
-	mov	r10d, r9d
+	vmovsd	xmm0, qword ptr [rdx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
 	cmp	r9d, 16
 	jb	.LBB2_89
-# %bb.213:
-	lea	rdx, [rcx + 8*r10]
+# %bb.295:
+	lea	rdx, [rcx + 8*rax]
 	cmp	rdx, r8
-	jbe	.LBB2_333
-# %bb.214:
-	lea	rdx, [r8 + 8*r10]
+	jbe	.LBB2_475
+# %bb.296:
+	lea	rdx, [r8 + 8*rax]
 	cmp	rdx, rcx
-	jbe	.LBB2_333
+	jbe	.LBB2_475
 .LBB2_89:
-	xor	esi, esi
-.LBB2_517:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
-	mov	rdi, r10
+	xor	edx, edx
+.LBB2_745:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
 	and	rdi, 3
-	je	.LBB2_519
-.LBB2_518:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	add	rsi, 1
+	je	.LBB2_747
+.LBB2_746:                              # =>This Inner Loop Header: Depth=1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	add	rdx, 1
 	add	rdi, -1
-	jne	.LBB2_518
-.LBB2_519:
-	cmp	rdx, 3
-	jb	.LBB2_737
-.LBB2_520:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_520
-	jmp	.LBB2_737
+	jne	.LBB2_746
+.LBB2_747:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_748:                              # =>This Inner Loop Header: Depth=1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
+	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
+	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
+	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_748
+	jmp	.LBB2_1109
 .LBB2_90:
-	cmp	edi, 7
-	je	.LBB2_168
+	cmp	edi, 8
+	jle	.LBB2_152
 # %bb.91:
-	cmp	edi, 8
-	jne	.LBB2_737
+	cmp	edi, 9
+	je	.LBB2_223
 # %bb.92:
-	test	r9d, r9d
-	jle	.LBB2_737
+	cmp	edi, 11
+	je	.LBB2_226
 # %bb.93:
-	mov	r11, qword ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB2_94
-# %bb.216:
-	lea	rdx, [rcx + 8*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_336
-# %bb.217:
-	lea	rdx, [r8 + 8*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_336
-.LBB2_94:
-	xor	esi, esi
-.LBB2_525:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_527
-.LBB2_526:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_526
-.LBB2_527:
-	cmp	rdx, 3
-	jb	.LBB2_737
-.LBB2_528:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_528
-	jmp	.LBB2_737
-.LBB2_95:
-	cmp	edi, 7
-	je	.LBB2_171
-# %bb.96:
-	cmp	edi, 8
-	jne	.LBB2_737
-# %bb.97:
+	cmp	edi, 12
+	jne	.LBB2_1109
+# %bb.94:
 	test	r9d, r9d
-	jle	.LBB2_737
+	jle	.LBB2_1109
+# %bb.95:
+	vmovsd	xmm0, qword ptr [rdx]           # xmm0 = mem[0],zero
+	mov	eax, r9d
+	cmp	r9d, 16
+	jb	.LBB2_96
+# %bb.298:
+	lea	rdx, [rcx + 8*rax]
+	cmp	rdx, r8
+	jbe	.LBB2_478
+# %bb.299:
+	lea	rdx, [r8 + 8*rax]
+	cmp	rdx, rcx
+	jbe	.LBB2_478
+.LBB2_96:
+	xor	edx, edx
+.LBB2_753:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB2_755
+.LBB2_754:                              # =>This Inner Loop Header: Depth=1
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	add	rdx, 1
+	add	rdi, -1
+	jne	.LBB2_754
+.LBB2_755:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_756:                              # =>This Inner Loop Header: Depth=1
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vmovsd	qword ptr [r8 + 8*rdx], xmm1
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
+	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
+	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
+	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_756
+	jmp	.LBB2_1109
+.LBB2_97:
+	cmp	edi, 2
+	je	.LBB2_229
 # %bb.98:
-	mov	rax, qword ptr [rdx]
+	cmp	edi, 3
+	jne	.LBB2_1109
+# %bb.99:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.100:
+	mov	dl, byte ptr [rdx]
 	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB2_99
-# %bb.219:
-	lea	rdx, [rcx + 8*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_339
-# %bb.220:
-	lea	rdx, [r8 + 8*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_339
-.LBB2_99:
-	xor	esi, esi
-.LBB2_533:
-	mov	r9, rsi
+	cmp	r9d, 32
+	jb	.LBB2_101
+# %bb.301:
+	lea	rax, [rcx + r10]
+	cmp	rax, r8
+	jbe	.LBB2_481
+# %bb.302:
+	lea	rax, [r8 + r10]
+	cmp	rax, rcx
+	jbe	.LBB2_481
+.LBB2_101:
+	xor	edi, edi
+.LBB2_627:
+	mov	r9, rdi
 	not	r9
 	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_535
-.LBB2_534:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_534
-.LBB2_535:
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB2_629
+.LBB2_628:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	dl
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB2_628
+.LBB2_629:
 	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_536:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 8]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 16]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 24]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rdx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_536
-	jmp	.LBB2_737
-.LBB2_100:
-	cmp	edi, 7
-	je	.LBB2_174
-# %bb.101:
-	cmp	edi, 8
-	jne	.LBB2_737
-# %bb.102:
-	test	r9d, r9d
-	jle	.LBB2_737
+	jb	.LBB2_1109
+.LBB2_630:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	dl
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rcx + rdi + 1]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rcx + rdi + 2]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rcx + rdi + 3]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB2_630
+	jmp	.LBB2_1109
+.LBB2_102:
+	cmp	edi, 2
+	je	.LBB2_232
 # %bb.103:
-	mov	rax, qword ptr [rdx]
+	cmp	edi, 3
+	jne	.LBB2_1109
+# %bb.104:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.105:
+	mov	dl, byte ptr [rdx]
 	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB2_104
-# %bb.222:
-	lea	rdx, [rcx + 8*r10]
+	cmp	r9d, 32
+	jb	.LBB2_106
+# %bb.304:
+	lea	rax, [rcx + r10]
+	cmp	rax, r8
+	jbe	.LBB2_483
+# %bb.305:
+	lea	rax, [r8 + r10]
+	cmp	rax, rcx
+	jbe	.LBB2_483
+.LBB2_106:
+	xor	edi, edi
+.LBB2_637:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB2_639
+.LBB2_638:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	dl
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB2_638
+.LBB2_639:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_640:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	dl
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rcx + rdi + 1]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rcx + rdi + 2]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rcx + rdi + 3]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB2_640
+	jmp	.LBB2_1109
+.LBB2_107:
+	cmp	edi, 2
+	je	.LBB2_235
+# %bb.108:
+	cmp	edi, 3
+	jne	.LBB2_1109
+# %bb.109:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.110:
+	mov	al, byte ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB2_111
+# %bb.307:
+	lea	rdx, [rcx + r10]
 	cmp	rdx, r8
-	jbe	.LBB2_342
-# %bb.223:
-	lea	rdx, [r8 + 8*r10]
+	jbe	.LBB2_485
+# %bb.308:
+	lea	rdx, [r8 + r10]
 	cmp	rdx, rcx
-	jbe	.LBB2_342
-.LBB2_104:
+	jbe	.LBB2_485
+.LBB2_111:
 	xor	esi, esi
-.LBB2_541:
+.LBB2_761:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB2_543
-.LBB2_542:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
+	je	.LBB2_763
+.LBB2_762:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
+	mov	byte ptr [r8 + rsi], dl
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB2_542
-.LBB2_543:
+	jne	.LBB2_762
+.LBB2_763:
 	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_544:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 8]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 16]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 24]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	jb	.LBB2_1109
+.LBB2_764:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
+	mov	byte ptr [r8 + rsi], dl
+	movzx	edx, byte ptr [rcx + rsi + 1]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 1], dl
+	movzx	edx, byte ptr [rcx + rsi + 2]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 2], dl
+	movzx	edx, byte ptr [rcx + rsi + 3]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 3], dl
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB2_544
-	jmp	.LBB2_737
-.LBB2_105:
+	jne	.LBB2_764
+	jmp	.LBB2_1109
+.LBB2_112:
+	cmp	edi, 2
+	je	.LBB2_238
+# %bb.113:
+	cmp	edi, 3
+	jne	.LBB2_1109
+# %bb.114:
 	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.106:
-	movzx	eax, word ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_107
-# %bb.225:
-	lea	rdx, [rcx + 2*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_345
-# %bb.226:
-	lea	rdx, [r8 + 2*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_345
-.LBB2_107:
-	xor	esi, esi
-.LBB2_549:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdx, r10
-	and	rdx, 3
-	je	.LBB2_551
-.LBB2_550:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, eax
-	sub	di, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rdx, -1
-	jne	.LBB2_550
-.LBB2_551:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_552:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], dx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_552
-	jmp	.LBB2_737
-.LBB2_108:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.109:
-	movzx	eax, word ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_110
-# %bb.228:
-	lea	rdx, [rcx + 2*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_348
-# %bb.229:
-	lea	rdx, [r8 + 2*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_348
-.LBB2_110:
-	xor	esi, esi
-.LBB2_557:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdx, r10
-	and	rdx, 3
-	je	.LBB2_559
-.LBB2_558:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, eax
-	sub	di, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rdx, -1
-	jne	.LBB2_558
-.LBB2_559:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_560:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], dx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_560
-	jmp	.LBB2_737
-.LBB2_111:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.112:
-	movzx	eax, word ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_113
-# %bb.231:
-	lea	rdx, [rcx + 2*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_351
-# %bb.232:
-	lea	rdx, [r8 + 2*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_351
-.LBB2_113:
-	xor	esi, esi
-.LBB2_565:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdx, r10
-	and	rdx, 3
-	je	.LBB2_567
-.LBB2_566:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, eax
-	sub	di, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rdx, -1
-	jne	.LBB2_566
-.LBB2_567:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_568:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], dx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_568
-	jmp	.LBB2_737
-.LBB2_114:
-	test	r9d, r9d
-	jle	.LBB2_737
+	jle	.LBB2_1109
 # %bb.115:
-	movzx	eax, word ptr [rdx]
+	mov	al, byte ptr [rdx]
 	mov	r10d, r9d
-	cmp	r9d, 32
+	cmp	r9d, 128
 	jb	.LBB2_116
-# %bb.234:
-	lea	rdx, [rcx + 2*r10]
+# %bb.310:
+	lea	rdx, [rcx + r10]
 	cmp	rdx, r8
-	jbe	.LBB2_354
-# %bb.235:
-	lea	rdx, [r8 + 2*r10]
+	jbe	.LBB2_488
+# %bb.311:
+	lea	rdx, [r8 + r10]
 	cmp	rdx, rcx
-	jbe	.LBB2_354
+	jbe	.LBB2_488
 .LBB2_116:
 	xor	esi, esi
-.LBB2_573:
+.LBB2_769:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
-	mov	rdx, r10
-	and	rdx, 3
-	je	.LBB2_575
-.LBB2_574:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, eax
-	sub	di, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], di
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_771
+.LBB2_770:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], dl
 	add	rsi, 1
-	add	rdx, -1
-	jne	.LBB2_574
-.LBB2_575:
+	add	rdi, -1
+	jne	.LBB2_770
+.LBB2_771:
 	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_576:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB2_1109
+.LBB2_772:                              # =>This Inner Loop Header: Depth=1
 	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi]
-	mov	word ptr [r8 + 2*rsi], dx
+	sub	dl, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], dl
 	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 2]
-	mov	word ptr [r8 + 2*rsi + 2], dx
+	sub	dl, byte ptr [rcx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], dl
 	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 4]
-	mov	word ptr [r8 + 2*rsi + 4], dx
+	sub	dl, byte ptr [rcx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], dl
 	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 6]
-	mov	word ptr [r8 + 2*rsi + 6], dx
+	sub	dl, byte ptr [rcx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], dl
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB2_576
-	jmp	.LBB2_737
+	jne	.LBB2_772
+	jmp	.LBB2_1109
 .LBB2_117:
-	test	r9d, r9d
-	jle	.LBB2_737
+	cmp	edi, 2
+	je	.LBB2_241
 # %bb.118:
-	movzx	eax, word ptr [rdx]
+	cmp	edi, 3
+	jne	.LBB2_1109
+# %bb.119:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.120:
+	mov	al, byte ptr [rdx]
 	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_119
-# %bb.237:
-	lea	rdx, [rcx + 2*r10]
+	cmp	r9d, 128
+	jb	.LBB2_121
+# %bb.313:
+	lea	rdx, [rcx + r10]
 	cmp	rdx, r8
-	jbe	.LBB2_357
-# %bb.238:
-	lea	rdx, [r8 + 2*r10]
+	jbe	.LBB2_491
+# %bb.314:
+	lea	rdx, [r8 + r10]
 	cmp	rdx, rcx
-	jbe	.LBB2_357
-.LBB2_119:
+	jbe	.LBB2_491
+.LBB2_121:
 	xor	esi, esi
-.LBB2_581:
+.LBB2_777:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
-	mov	rdx, r10
-	and	rdx, 3
-	je	.LBB2_583
-.LBB2_582:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, ax
-	mov	word ptr [r8 + 2*rsi], di
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_779
+.LBB2_778:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
+	mov	byte ptr [r8 + rsi], dl
 	add	rsi, 1
-	add	rdx, -1
-	jne	.LBB2_582
-.LBB2_583:
+	add	rdi, -1
+	jne	.LBB2_778
+.LBB2_779:
 	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_584:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, word ptr [rcx + 2*rsi]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 2]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 2], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 4]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 4], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 6]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 6], dx
+	jb	.LBB2_1109
+.LBB2_780:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
+	mov	byte ptr [r8 + rsi], dl
+	movzx	edx, byte ptr [rcx + rsi + 1]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 1], dl
+	movzx	edx, byte ptr [rcx + rsi + 2]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 2], dl
+	movzx	edx, byte ptr [rcx + rsi + 3]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 3], dl
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB2_584
-	jmp	.LBB2_737
-.LBB2_120:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.121:
-	movzx	eax, word ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_122
-# %bb.240:
-	lea	rdx, [rcx + 2*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_360
-# %bb.241:
-	lea	rdx, [r8 + 2*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_360
+	jne	.LBB2_780
+	jmp	.LBB2_1109
 .LBB2_122:
-	xor	esi, esi
-.LBB2_589:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdx, r10
-	and	rdx, 3
-	je	.LBB2_591
-.LBB2_590:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, ax
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rdx, -1
-	jne	.LBB2_590
-.LBB2_591:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_592:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, word ptr [rcx + 2*rsi]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 2]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 2], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 4]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 4], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 6]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 6], dx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_592
-	jmp	.LBB2_737
-.LBB2_123:
-	test	r9d, r9d
-	jle	.LBB2_737
+	cmp	edi, 2
+	je	.LBB2_244
+# %bb.123:
+	cmp	edi, 3
+	jne	.LBB2_1109
 # %bb.124:
-	movzx	eax, word ptr [rdx]
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.125:
+	mov	al, byte ptr [rdx]
 	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_125
-# %bb.243:
-	lea	rdx, [rcx + 2*r10]
+	cmp	r9d, 128
+	jb	.LBB2_126
+# %bb.316:
+	lea	rdx, [rcx + r10]
 	cmp	rdx, r8
-	jbe	.LBB2_363
-# %bb.244:
-	lea	rdx, [r8 + 2*r10]
+	jbe	.LBB2_494
+# %bb.317:
+	lea	rdx, [r8 + r10]
 	cmp	rdx, rcx
-	jbe	.LBB2_363
-.LBB2_125:
-	xor	esi, esi
-.LBB2_597:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdx, r10
-	and	rdx, 3
-	je	.LBB2_599
-.LBB2_598:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, ax
-	mov	word ptr [r8 + 2*rsi], di
-	add	rsi, 1
-	add	rdx, -1
-	jne	.LBB2_598
-.LBB2_599:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_600:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, word ptr [rcx + 2*rsi]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 2]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 2], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 4]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 4], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 6]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 6], dx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_600
-	jmp	.LBB2_737
+	jbe	.LBB2_494
 .LBB2_126:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.127:
-	movzx	eax, word ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_128
-# %bb.246:
-	lea	rdx, [rcx + 2*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_366
-# %bb.247:
-	lea	rdx, [r8 + 2*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_366
-.LBB2_128:
 	xor	esi, esi
-.LBB2_605:
+.LBB2_785:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
-	mov	rdx, r10
-	and	rdx, 3
-	je	.LBB2_607
-.LBB2_606:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, ax
-	mov	word ptr [r8 + 2*rsi], di
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_787
+.LBB2_786:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], dl
 	add	rsi, 1
-	add	rdx, -1
-	jne	.LBB2_606
-.LBB2_607:
+	add	rdi, -1
+	jne	.LBB2_786
+.LBB2_787:
 	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_608:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, word ptr [rcx + 2*rsi]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 2]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 2], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 4]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 4], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 6]
-	add	dx, ax
-	mov	word ptr [r8 + 2*rsi + 6], dx
+	jb	.LBB2_1109
+.LBB2_788:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], dl
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], dl
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], dl
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], dl
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB2_608
-	jmp	.LBB2_737
-.LBB2_129:
+	jne	.LBB2_788
+	jmp	.LBB2_1109
+.LBB2_127:
+	cmp	edi, 7
+	je	.LBB2_247
+# %bb.128:
+	cmp	edi, 8
+	jne	.LBB2_1109
+# %bb.129:
 	test	r9d, r9d
-	jle	.LBB2_737
+	jle	.LBB2_1109
 # %bb.130:
-	mov	r11, qword ptr [rdx]
+	mov	rax, qword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 16
 	jb	.LBB2_131
-# %bb.249:
+# %bb.319:
 	lea	rdx, [rcx + 8*r10]
 	cmp	rdx, r8
-	jbe	.LBB2_369
-# %bb.250:
+	jbe	.LBB2_497
+# %bb.320:
 	lea	rdx, [r8 + 8*r10]
 	cmp	rdx, rcx
-	jbe	.LBB2_369
+	jbe	.LBB2_497
 .LBB2_131:
 	xor	esi, esi
-.LBB2_613:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
+.LBB2_793:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB2_615
-.LBB2_614:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
+	je	.LBB2_795
+.LBB2_794:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB2_614
-.LBB2_615:
-	cmp	rdx, 3
-	jb	.LBB2_737
-.LBB2_616:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
+	jne	.LBB2_794
+.LBB2_795:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_796:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB2_616
-	jmp	.LBB2_737
+	jne	.LBB2_796
+	jmp	.LBB2_1109
 .LBB2_132:
-	test	r9d, r9d
-	jle	.LBB2_737
+	cmp	edi, 7
+	je	.LBB2_250
 # %bb.133:
-	vmovss	xmm0, dword ptr [rdx]           # xmm0 = mem[0],zero,zero,zero
-	mov	eax, r9d
-	cmp	r9d, 32
-	jb	.LBB2_134
-# %bb.252:
-	lea	rdx, [rcx + 4*rax]
-	cmp	rdx, r8
-	jbe	.LBB2_372
-# %bb.253:
-	lea	rdx, [r8 + 4*rax]
-	cmp	rdx, rcx
-	jbe	.LBB2_372
-.LBB2_134:
-	xor	edx, edx
-.LBB2_621:
-	mov	rsi, rdx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB2_623
-.LBB2_622:                              # =>This Inner Loop Header: Depth=1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
-	vmovss	dword ptr [r8 + 4*rdx], xmm1
-	add	rdx, 1
-	add	rdi, -1
-	jne	.LBB2_622
-.LBB2_623:
-	cmp	rsi, 3
-	jb	.LBB2_737
-.LBB2_624:                              # =>This Inner Loop Header: Depth=1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
-	vmovss	dword ptr [r8 + 4*rdx], xmm1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
-	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
-	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
-	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
-	add	rdx, 4
-	cmp	rax, rdx
-	jne	.LBB2_624
-	jmp	.LBB2_737
-.LBB2_135:
+	cmp	edi, 8
+	jne	.LBB2_1109
+# %bb.134:
 	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.136:
+	jle	.LBB2_1109
+# %bb.135:
+	mov	rax, qword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB2_136
+# %bb.322:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_500
+# %bb.323:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_500
+.LBB2_136:
+	xor	esi, esi
+.LBB2_801:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_803
+.LBB2_802:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_802
+.LBB2_803:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_804:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_804
+	jmp	.LBB2_1109
+.LBB2_137:
+	cmp	edi, 7
+	je	.LBB2_253
+# %bb.138:
+	cmp	edi, 8
+	jne	.LBB2_1109
+# %bb.139:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.140:
+	mov	rax, qword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB2_141
+# %bb.325:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_503
+# %bb.326:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_503
+.LBB2_141:
+	xor	esi, esi
+.LBB2_809:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_811
+.LBB2_810:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_810
+.LBB2_811:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_812:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_812
+	jmp	.LBB2_1109
+.LBB2_142:
+	cmp	edi, 7
+	je	.LBB2_256
+# %bb.143:
+	cmp	edi, 8
+	jne	.LBB2_1109
+# %bb.144:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.145:
 	mov	r11, qword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jb	.LBB2_137
-# %bb.255:
+	jb	.LBB2_146
+# %bb.328:
 	lea	rdx, [rcx + 8*r10]
 	cmp	rdx, r8
-	jbe	.LBB2_375
-# %bb.256:
+	jbe	.LBB2_506
+# %bb.329:
 	lea	rdx, [r8 + 8*r10]
 	cmp	rdx, rcx
-	jbe	.LBB2_375
-.LBB2_137:
+	jbe	.LBB2_506
+.LBB2_146:
 	xor	esi, esi
-.LBB2_629:
+.LBB2_817:
 	mov	rdx, rsi
 	not	rdx
 	add	rdx, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB2_631
-.LBB2_630:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB2_819
+.LBB2_818:                              # =>This Inner Loop Header: Depth=1
 	mov	rax, r11
 	sub	rax, qword ptr [rcx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rax
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB2_630
-.LBB2_631:
+	jne	.LBB2_818
+.LBB2_819:
 	cmp	rdx, 3
-	jb	.LBB2_737
-.LBB2_632:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB2_1109
+.LBB2_820:                              # =>This Inner Loop Header: Depth=1
 	mov	rax, r11
 	sub	rax, qword ptr [rcx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rax
@@ -9698,43 +14393,1132 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	mov	qword ptr [r8 + 8*rsi + 24], rax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB2_632
-	jmp	.LBB2_737
-.LBB2_138:
+	jne	.LBB2_820
+	jmp	.LBB2_1109
+.LBB2_147:
+	cmp	edi, 7
+	je	.LBB2_259
+# %bb.148:
+	cmp	edi, 8
+	jne	.LBB2_1109
+# %bb.149:
 	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.139:
+	jle	.LBB2_1109
+# %bb.150:
+	mov	rax, qword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB2_151
+# %bb.331:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_509
+# %bb.332:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_509
+.LBB2_151:
+	xor	esi, esi
+.LBB2_825:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_827
+.LBB2_826:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_826
+.LBB2_827:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_828:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_828
+	jmp	.LBB2_1109
+.LBB2_152:
+	cmp	edi, 7
+	je	.LBB2_262
+# %bb.153:
+	cmp	edi, 8
+	jne	.LBB2_1109
+# %bb.154:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.155:
+	mov	r11, qword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB2_156
+# %bb.334:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_512
+# %bb.335:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_512
+.LBB2_156:
+	xor	esi, esi
+.LBB2_833:
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_835
+.LBB2_834:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_834
+.LBB2_835:
+	cmp	rdx, 3
+	jb	.LBB2_1109
+.LBB2_836:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_836
+	jmp	.LBB2_1109
+.LBB2_157:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.158:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_159
+# %bb.337:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_515
+# %bb.338:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_515
+.LBB2_159:
+	xor	esi, esi
+.LBB2_841:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_843
+.LBB2_842:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	imul	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_842
+.LBB2_843:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_844:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, word ptr [rcx + 2*rsi]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_844
+	jmp	.LBB2_1109
+.LBB2_160:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.161:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_162
+# %bb.340:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_518
+# %bb.341:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_518
+.LBB2_162:
+	xor	esi, esi
+.LBB2_849:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_851
+.LBB2_850:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	imul	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_850
+.LBB2_851:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_852:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, word ptr [rcx + 2*rsi]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_852
+	jmp	.LBB2_1109
+.LBB2_163:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.164:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_165
+# %bb.343:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_521
+# %bb.344:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_521
+.LBB2_165:
+	xor	esi, esi
+.LBB2_857:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_859
+.LBB2_858:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	imul	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_858
+.LBB2_859:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_860:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, word ptr [rcx + 2*rsi]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_860
+	jmp	.LBB2_1109
+.LBB2_166:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.167:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_168
+# %bb.346:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_524
+# %bb.347:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_524
+.LBB2_168:
+	xor	esi, esi
+.LBB2_865:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_867
+.LBB2_866:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	imul	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_866
+.LBB2_867:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_868:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, word ptr [rcx + 2*rsi]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	imul	dx, ax
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_868
+	jmp	.LBB2_1109
+.LBB2_169:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.170:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_171
+# %bb.349:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_527
+# %bb.350:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_527
+.LBB2_171:
+	xor	esi, esi
+.LBB2_873:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_875
+.LBB2_874:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_874
+.LBB2_875:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_876:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, word ptr [rcx + 2*rsi]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_876
+	jmp	.LBB2_1109
+.LBB2_172:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.173:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_174
+# %bb.352:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_530
+# %bb.353:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_530
+.LBB2_174:
+	xor	esi, esi
+.LBB2_881:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_883
+.LBB2_882:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_882
+.LBB2_883:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_884:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, word ptr [rcx + 2*rsi]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_884
+	jmp	.LBB2_1109
+.LBB2_175:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.176:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_177
+# %bb.355:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_533
+# %bb.356:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_533
+.LBB2_177:
+	xor	esi, esi
+.LBB2_889:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_891
+.LBB2_890:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, eax
+	sub	di, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_890
+.LBB2_891:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_892:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_892
+	jmp	.LBB2_1109
+.LBB2_178:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.179:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_180
+# %bb.358:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_536
+# %bb.359:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_536
+.LBB2_180:
+	xor	esi, esi
+.LBB2_897:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_899
+.LBB2_898:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, eax
+	sub	di, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_898
+.LBB2_899:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_900:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_900
+	jmp	.LBB2_1109
+.LBB2_181:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.182:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_183
+# %bb.361:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_539
+# %bb.362:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_539
+.LBB2_183:
+	xor	esi, esi
+.LBB2_905:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_907
+.LBB2_906:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_906
+.LBB2_907:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_908:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, word ptr [rcx + 2*rsi]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_908
+	jmp	.LBB2_1109
+.LBB2_184:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.185:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_186
+# %bb.364:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_542
+# %bb.365:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_542
+.LBB2_186:
+	xor	esi, esi
+.LBB2_913:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_915
+.LBB2_914:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, ax
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_914
+.LBB2_915:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_916:                              # =>This Inner Loop Header: Depth=1
+	movzx	edx, word ptr [rcx + 2*rsi]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	add	dx, ax
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_916
+	jmp	.LBB2_1109
+.LBB2_187:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.188:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_189
+# %bb.367:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_545
+# %bb.368:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_545
+.LBB2_189:
+	xor	esi, esi
+.LBB2_921:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_923
+.LBB2_922:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, eax
+	sub	di, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_922
+.LBB2_923:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_924:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_924
+	jmp	.LBB2_1109
+.LBB2_190:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.191:
+	movzx	eax, word ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_192
+# %bb.370:
+	lea	rdx, [rcx + 2*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_548
+# %bb.371:
+	lea	rdx, [r8 + 2*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_548
+.LBB2_192:
+	xor	esi, esi
+.LBB2_929:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdx, r10
+	and	rdx, 3
+	je	.LBB2_931
+.LBB2_930:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, eax
+	sub	di, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], di
+	add	rsi, 1
+	add	rdx, -1
+	jne	.LBB2_930
+.LBB2_931:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_932:                              # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi]
+	mov	word ptr [r8 + 2*rsi], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 2]
+	mov	word ptr [r8 + 2*rsi + 2], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 4]
+	mov	word ptr [r8 + 2*rsi + 4], dx
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 6]
+	mov	word ptr [r8 + 2*rsi + 6], dx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_932
+	jmp	.LBB2_1109
+.LBB2_193:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.194:
+	mov	rax, qword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB2_195
+# %bb.373:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_551
+# %bb.374:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_551
+.LBB2_195:
+	xor	esi, esi
+.LBB2_937:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_939
+.LBB2_938:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_938
+.LBB2_939:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_940:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_940
+	jmp	.LBB2_1109
+.LBB2_196:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.197:
 	vmovss	xmm0, dword ptr [rdx]           # xmm0 = mem[0],zero,zero,zero
 	mov	eax, r9d
 	cmp	r9d, 32
-	jb	.LBB2_140
-# %bb.258:
+	jb	.LBB2_198
+# %bb.376:
 	lea	rdx, [rcx + 4*rax]
 	cmp	rdx, r8
-	jbe	.LBB2_378
-# %bb.259:
+	jbe	.LBB2_554
+# %bb.377:
 	lea	rdx, [r8 + 4*rax]
 	cmp	rdx, rcx
-	jbe	.LBB2_378
-.LBB2_140:
+	jbe	.LBB2_554
+.LBB2_198:
 	xor	edx, edx
-.LBB2_637:
+.LBB2_945:
 	mov	rsi, rdx
 	not	rsi
 	add	rsi, rax
 	mov	rdi, rax
 	and	rdi, 3
-	je	.LBB2_639
-.LBB2_638:                              # =>This Inner Loop Header: Depth=1
+	je	.LBB2_947
+.LBB2_946:                              # =>This Inner Loop Header: Depth=1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	add	rdx, 1
+	add	rdi, -1
+	jne	.LBB2_946
+.LBB2_947:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_948:                              # =>This Inner Loop Header: Depth=1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
+	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
+	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
+	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_948
+	jmp	.LBB2_1109
+.LBB2_199:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.200:
+	mov	rax, qword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB2_201
+# %bb.379:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_557
+# %bb.380:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_557
+.LBB2_201:
+	xor	esi, esi
+.LBB2_953:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_955
+.LBB2_954:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_954
+.LBB2_955:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_956:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	imul	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_956
+	jmp	.LBB2_1109
+.LBB2_202:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.203:
+	vmovss	xmm0, dword ptr [rdx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB2_204
+# %bb.382:
+	lea	rdx, [rcx + 4*rax]
+	cmp	rdx, r8
+	jbe	.LBB2_560
+# %bb.383:
+	lea	rdx, [r8 + 4*rax]
+	cmp	rdx, rcx
+	jbe	.LBB2_560
+.LBB2_204:
+	xor	edx, edx
+.LBB2_961:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB2_963
+.LBB2_962:                              # =>This Inner Loop Header: Depth=1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	add	rdx, 1
+	add	rdi, -1
+	jne	.LBB2_962
+.LBB2_963:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_964:                              # =>This Inner Loop Header: Depth=1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
+	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
+	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
+	vmulss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
+	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_964
+	jmp	.LBB2_1109
+.LBB2_205:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.206:
+	mov	rax, qword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB2_207
+# %bb.385:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_563
+# %bb.386:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_563
+.LBB2_207:
+	xor	esi, esi
+.LBB2_969:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_971
+.LBB2_970:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_970
+.LBB2_971:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_972:                              # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_972
+	jmp	.LBB2_1109
+.LBB2_208:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.209:
+	vmovss	xmm0, dword ptr [rdx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB2_210
+# %bb.388:
+	lea	rdx, [rcx + 4*rax]
+	cmp	rdx, r8
+	jbe	.LBB2_566
+# %bb.389:
+	lea	rdx, [r8 + 4*rax]
+	cmp	rdx, rcx
+	jbe	.LBB2_566
+.LBB2_210:
+	xor	edx, edx
+.LBB2_977:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB2_979
+.LBB2_978:                              # =>This Inner Loop Header: Depth=1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	add	rdx, 1
+	add	rdi, -1
+	jne	.LBB2_978
+.LBB2_979:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_980:                              # =>This Inner Loop Header: Depth=1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
+	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
+	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
+	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_980
+	jmp	.LBB2_1109
+.LBB2_211:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.212:
+	mov	r11, qword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB2_213
+# %bb.391:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_569
+# %bb.392:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_569
+.LBB2_213:
+	xor	esi, esi
+.LBB2_985:
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_987
+.LBB2_986:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_986
+.LBB2_987:
+	cmp	rdx, 3
+	jb	.LBB2_1109
+.LBB2_988:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_988
+	jmp	.LBB2_1109
+.LBB2_214:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.215:
+	vmovss	xmm0, dword ptr [rdx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB2_216
+# %bb.394:
+	lea	rdx, [rcx + 4*rax]
+	cmp	rdx, r8
+	jbe	.LBB2_572
+# %bb.395:
+	lea	rdx, [r8 + 4*rax]
+	cmp	rdx, rcx
+	jbe	.LBB2_572
+.LBB2_216:
+	xor	edx, edx
+.LBB2_993:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB2_995
+.LBB2_994:                              # =>This Inner Loop Header: Depth=1
 	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
 	vmovss	dword ptr [r8 + 4*rdx], xmm1
 	add	rdx, 1
 	add	rdi, -1
-	jne	.LBB2_638
-.LBB2_639:
+	jne	.LBB2_994
+.LBB2_995:
 	cmp	rsi, 3
-	jb	.LBB2_737
-.LBB2_640:                              # =>This Inner Loop Header: Depth=1
+	jb	.LBB2_1109
+.LBB2_996:                              # =>This Inner Loop Header: Depth=1
 	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
 	vmovss	dword ptr [r8 + 4*rdx], xmm1
 	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
@@ -9745,1788 +15529,1354 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
 	add	rdx, 4
 	cmp	rax, rdx
-	jne	.LBB2_640
-	jmp	.LBB2_737
-.LBB2_141:
+	jne	.LBB2_996
+	jmp	.LBB2_1109
+.LBB2_217:
 	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.142:
+	jle	.LBB2_1109
+# %bb.218:
 	mov	rax, qword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jb	.LBB2_143
-# %bb.261:
-	lea	rdx, [rcx + 8*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_381
-# %bb.262:
-	lea	rdx, [r8 + 8*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_381
-.LBB2_143:
-	xor	esi, esi
-.LBB2_645:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_647
-.LBB2_646:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_646
-.LBB2_647:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_648:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 8]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 16]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 24]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rdx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_648
-	jmp	.LBB2_737
-.LBB2_144:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.145:
-	vmovss	xmm0, dword ptr [rdx]           # xmm0 = mem[0],zero,zero,zero
-	mov	eax, r9d
-	cmp	r9d, 32
-	jb	.LBB2_146
-# %bb.264:
-	lea	rdx, [rcx + 4*rax]
-	cmp	rdx, r8
-	jbe	.LBB2_384
-# %bb.265:
-	lea	rdx, [r8 + 4*rax]
-	cmp	rdx, rcx
-	jbe	.LBB2_384
-.LBB2_146:
-	xor	edx, edx
-.LBB2_653:
-	mov	rsi, rdx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB2_655
-.LBB2_654:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
-	vmovss	dword ptr [r8 + 4*rdx], xmm1
-	add	rdx, 1
-	add	rdi, -1
-	jne	.LBB2_654
-.LBB2_655:
-	cmp	rsi, 3
-	jb	.LBB2_737
-.LBB2_656:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
-	vmovss	dword ptr [r8 + 4*rdx], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
-	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
-	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
-	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
-	add	rdx, 4
-	cmp	rax, rdx
-	jne	.LBB2_656
-	jmp	.LBB2_737
-.LBB2_147:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.148:
-	mov	rax, qword ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 16
-	jb	.LBB2_149
-# %bb.267:
-	lea	rdx, [rcx + 8*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_387
-# %bb.268:
-	lea	rdx, [r8 + 8*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_387
-.LBB2_149:
-	xor	esi, esi
-.LBB2_661:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_663
-.LBB2_662:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_662
-.LBB2_663:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_664:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 8]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 16]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 24]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rdx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_664
-	jmp	.LBB2_737
-.LBB2_150:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.151:
-	vmovss	xmm0, dword ptr [rdx]           # xmm0 = mem[0],zero,zero,zero
-	mov	eax, r9d
-	cmp	r9d, 32
-	jb	.LBB2_152
-# %bb.270:
-	lea	rdx, [rcx + 4*rax]
-	cmp	rdx, r8
-	jbe	.LBB2_390
-# %bb.271:
-	lea	rdx, [r8 + 4*rax]
-	cmp	rdx, rcx
-	jbe	.LBB2_390
-.LBB2_152:
-	xor	edx, edx
-.LBB2_669:
-	mov	rsi, rdx
-	not	rsi
-	add	rsi, rax
-	mov	rdi, rax
-	and	rdi, 3
-	je	.LBB2_671
-.LBB2_670:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
-	vmovss	dword ptr [r8 + 4*rdx], xmm1
-	add	rdx, 1
-	add	rdi, -1
-	jne	.LBB2_670
-.LBB2_671:
-	cmp	rsi, 3
-	jb	.LBB2_737
-.LBB2_672:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
-	vmovss	dword ptr [r8 + 4*rdx], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
-	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
-	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
-	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
-	add	rdx, 4
-	cmp	rax, rdx
-	jne	.LBB2_672
-	jmp	.LBB2_737
-.LBB2_153:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.154:
-	mov	al, byte ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB2_155
-# %bb.273:
-	lea	rdx, [rcx + r10]
-	cmp	rdx, r8
-	jbe	.LBB2_393
-# %bb.274:
-	lea	rdx, [r8 + r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_393
-.LBB2_155:
-	xor	esi, esi
-.LBB2_677:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_679
-.LBB2_678:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], dl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_678
-.LBB2_679:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_680:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], dl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_680
-	jmp	.LBB2_737
-.LBB2_156:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.157:
-	mov	al, byte ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB2_158
-# %bb.276:
-	lea	rdx, [rcx + r10]
-	cmp	rdx, r8
-	jbe	.LBB2_396
-# %bb.277:
-	lea	rdx, [r8 + r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_396
-.LBB2_158:
-	xor	esi, esi
-.LBB2_685:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_687
-.LBB2_686:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], dl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_686
-.LBB2_687:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_688:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
-	mov	byte ptr [r8 + rsi], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 1]
-	mov	byte ptr [r8 + rsi + 1], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 2]
-	mov	byte ptr [r8 + rsi + 2], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 3]
-	mov	byte ptr [r8 + rsi + 3], dl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_688
-	jmp	.LBB2_737
-.LBB2_159:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.160:
-	mov	al, byte ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB2_161
-# %bb.279:
-	lea	rdx, [rcx + r10]
-	cmp	rdx, r8
-	jbe	.LBB2_399
-# %bb.280:
-	lea	rdx, [r8 + r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_399
-.LBB2_161:
-	xor	esi, esi
-.LBB2_693:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_695
-.LBB2_694:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
-	mov	byte ptr [r8 + rsi], dl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_694
-.LBB2_695:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_696:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
-	mov	byte ptr [r8 + rsi], dl
-	movzx	edx, byte ptr [rcx + rsi + 1]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 1], dl
-	movzx	edx, byte ptr [rcx + rsi + 2]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 2], dl
-	movzx	edx, byte ptr [rcx + rsi + 3]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 3], dl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_696
-	jmp	.LBB2_737
-.LBB2_162:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.163:
-	mov	al, byte ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 128
-	jb	.LBB2_164
-# %bb.282:
-	lea	rdx, [rcx + r10]
-	cmp	rdx, r8
-	jbe	.LBB2_402
-# %bb.283:
-	lea	rdx, [r8 + r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_402
-.LBB2_164:
-	xor	esi, esi
-.LBB2_701:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_703
-.LBB2_702:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
-	mov	byte ptr [r8 + rsi], dl
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_702
-.LBB2_703:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_704:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
-	mov	byte ptr [r8 + rsi], dl
-	movzx	edx, byte ptr [rcx + rsi + 1]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 1], dl
-	movzx	edx, byte ptr [rcx + rsi + 2]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 2], dl
-	movzx	edx, byte ptr [rcx + rsi + 3]
-	add	dl, al
-	mov	byte ptr [r8 + rsi + 3], dl
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_704
-	jmp	.LBB2_737
-.LBB2_165:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.166:
-	mov	r11d, dword ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_167
-# %bb.285:
-	lea	rdx, [rcx + 4*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_405
-# %bb.286:
-	lea	rdx, [r8 + 4*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_405
-.LBB2_167:
-	xor	esi, esi
-.LBB2_709:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_711
-.LBB2_710:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_710
-.LBB2_711:
-	cmp	rdx, 3
-	jb	.LBB2_737
-.LBB2_712:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_712
-	jmp	.LBB2_737
-.LBB2_168:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.169:
-	mov	r11d, dword ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_170
-# %bb.288:
-	lea	rdx, [rcx + 4*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_408
-# %bb.289:
-	lea	rdx, [r8 + 4*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_408
-.LBB2_170:
-	xor	esi, esi
-.LBB2_717:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_719
-.LBB2_718:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_718
-.LBB2_719:
-	cmp	rdx, 3
-	jb	.LBB2_737
-.LBB2_720:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_720
-	jmp	.LBB2_737
-.LBB2_171:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.172:
-	mov	eax, dword ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_173
-# %bb.291:
-	lea	rdx, [rcx + 4*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_411
-# %bb.292:
-	lea	rdx, [r8 + 4*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_411
-.LBB2_173:
-	xor	esi, esi
-.LBB2_725:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_727
-.LBB2_726:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_726
-.LBB2_727:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_728:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 4]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 8]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 12]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], edx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_728
-	jmp	.LBB2_737
-.LBB2_174:
-	test	r9d, r9d
-	jle	.LBB2_737
-# %bb.175:
-	mov	eax, dword ptr [rdx]
-	mov	r10d, r9d
-	cmp	r9d, 32
-	jb	.LBB2_176
-# %bb.294:
-	lea	rdx, [rcx + 4*r10]
-	cmp	rdx, r8
-	jbe	.LBB2_414
-# %bb.295:
-	lea	rdx, [r8 + 4*r10]
-	cmp	rdx, rcx
-	jbe	.LBB2_414
-.LBB2_176:
-	xor	esi, esi
-.LBB2_733:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
-	mov	rdi, r10
-	and	rdi, 3
-	je	.LBB2_735
-.LBB2_734:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	add	rsi, 1
-	add	rdi, -1
-	jne	.LBB2_734
-.LBB2_735:
-	cmp	r9, 3
-	jb	.LBB2_737
-.LBB2_736:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 4]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 8]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 12]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], edx
-	add	rsi, 4
-	cmp	r10, rsi
-	jne	.LBB2_736
-	jmp	.LBB2_737
-.LBB2_297:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, r11d
-	vpbroadcastd	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_417
-# %bb.298:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_299:                              # =>This Inner Loop Header: Depth=1
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_299
-	jmp	.LBB2_418
-.LBB2_300:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, r11d
-	vpbroadcastd	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_425
-# %bb.301:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_302:                              # =>This Inner Loop Header: Depth=1
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_302
-	jmp	.LBB2_426
-.LBB2_303:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_433
-# %bb.304:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_305:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_305
-	jmp	.LBB2_434
-.LBB2_306:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_441
-# %bb.307:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_308:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_308
-	jmp	.LBB2_442
-.LBB2_309:
-	mov	edx, eax
-	and	edx, -16
-	vbroadcastsd	ymm1, xmm0
-	lea	rsi, [rdx - 16]
-	mov	r9, rsi
-	shr	r9, 4
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB2_449
-# %bb.310:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB2_311:                              # =>This Inner Loop Header: Depth=1
-	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
-	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
-	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
-	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
-	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
-	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
-	add	rdi, 32
-	add	rsi, 2
-	jne	.LBB2_311
-	jmp	.LBB2_450
-.LBB2_312:
-	mov	edx, eax
-	and	edx, -16
-	vbroadcastsd	ymm1, xmm0
-	lea	rsi, [rdx - 16]
-	mov	r9, rsi
-	shr	r9, 4
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB2_457
-# %bb.313:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB2_314:                              # =>This Inner Loop Header: Depth=1
-	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
-	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
-	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
-	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
-	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
-	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
-	add	rdi, 32
-	add	rsi, 2
-	jne	.LBB2_314
-	jmp	.LBB2_458
-.LBB2_315:
-	mov	edx, eax
-	and	edx, -16
-	vbroadcastsd	ymm1, xmm0
-	lea	rsi, [rdx - 16]
-	mov	r9, rsi
-	shr	r9, 4
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB2_465
-# %bb.316:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB2_317:                              # =>This Inner Loop Header: Depth=1
-	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
-	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
-	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
-	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
-	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
-	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
-	add	rdi, 32
-	add	rsi, 2
-	jne	.LBB2_317
-	jmp	.LBB2_466
-.LBB2_318:
-	mov	edx, eax
-	and	edx, -16
-	vbroadcastsd	ymm1, xmm0
-	lea	rsi, [rdx - 16]
-	mov	r9, rsi
-	shr	r9, 4
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB2_473
-# %bb.319:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB2_320:                              # =>This Inner Loop Header: Depth=1
-	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
-	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
-	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
-	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
-	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
-	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
-	add	rdi, 32
-	add	rsi, 2
-	jne	.LBB2_320
-	jmp	.LBB2_474
-.LBB2_321:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rdx, [rsi - 128]
-	mov	r9, rdx
-	shr	r9, 7
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_481
-# %bb.322:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_323:                              # =>This Inner Loop Header: Depth=1
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rdx, 2
-	jne	.LBB2_323
-	jmp	.LBB2_482
-.LBB2_324:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rdx, [rsi - 128]
-	mov	r9, rdx
-	shr	r9, 7
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_489
-# %bb.325:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_326:                              # =>This Inner Loop Header: Depth=1
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rdx, 2
-	jne	.LBB2_326
-	jmp	.LBB2_490
-.LBB2_327:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rdx, [rsi - 128]
-	mov	r9, rdx
-	shr	r9, 7
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_497
-# %bb.328:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_329:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rdx, 2
-	jne	.LBB2_329
-	jmp	.LBB2_498
-.LBB2_330:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rdx, [rsi - 128]
-	mov	r9, rdx
-	shr	r9, 7
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_505
-# %bb.331:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_332:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rdx, 2
-	jne	.LBB2_332
-	jmp	.LBB2_506
-.LBB2_333:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, r11
-	vpbroadcastq	ymm0, xmm0
-	lea	rdx, [rsi - 16]
-	mov	r9, rdx
-	shr	r9, 4
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_513
-# %bb.334:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_335:                              # =>This Inner Loop Header: Depth=1
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rdx, 2
-	jne	.LBB2_335
-	jmp	.LBB2_514
-.LBB2_336:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, r11
-	vpbroadcastq	ymm0, xmm0
-	lea	rdx, [rsi - 16]
-	mov	r9, rdx
-	shr	r9, 4
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_521
-# %bb.337:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_338:                              # =>This Inner Loop Header: Depth=1
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rdx, 2
-	jne	.LBB2_338
-	jmp	.LBB2_522
-.LBB2_339:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rdx, [rsi - 16]
-	mov	r9, rdx
-	shr	r9, 4
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_529
-# %bb.340:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_341:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rdx, 2
-	jne	.LBB2_341
-	jmp	.LBB2_530
-.LBB2_342:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rdx, [rsi - 16]
-	mov	r9, rdx
-	shr	r9, 4
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_537
-# %bb.343:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_344:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rdx, 2
-	jne	.LBB2_344
-	jmp	.LBB2_538
-.LBB2_345:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_545
-# %bb.346:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_347:                              # =>This Inner Loop Header: Depth=1
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_347
-	jmp	.LBB2_546
-.LBB2_348:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_553
-# %bb.349:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_350:                              # =>This Inner Loop Header: Depth=1
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_350
-	jmp	.LBB2_554
-.LBB2_351:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_561
-# %bb.352:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_353:                              # =>This Inner Loop Header: Depth=1
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_353
-	jmp	.LBB2_562
-.LBB2_354:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_569
-# %bb.355:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_356:                              # =>This Inner Loop Header: Depth=1
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_356
-	jmp	.LBB2_570
-.LBB2_357:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_577
-# %bb.358:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_359:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_359
-	jmp	.LBB2_578
-.LBB2_360:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_585
-# %bb.361:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_362:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_362
-	jmp	.LBB2_586
-.LBB2_363:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_593
-# %bb.364:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_365:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_365
-	jmp	.LBB2_594
-.LBB2_366:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastw	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_601
-# %bb.367:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_368:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_368
-	jmp	.LBB2_602
-.LBB2_369:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, r11
-	vpbroadcastq	ymm0, xmm0
-	lea	rdx, [rsi - 16]
-	mov	r9, rdx
-	shr	r9, 4
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_609
-# %bb.370:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_371:                              # =>This Inner Loop Header: Depth=1
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rdx, 2
-	jne	.LBB2_371
-	jmp	.LBB2_610
-.LBB2_372:
-	mov	edx, eax
-	and	edx, -32
-	vbroadcastss	ymm1, xmm0
-	lea	rsi, [rdx - 32]
-	mov	r9, rsi
-	shr	r9, 5
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB2_617
-# %bb.373:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB2_374:                              # =>This Inner Loop Header: Depth=1
-	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
-	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
-	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
-	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
-	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
-	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
-	add	rdi, 64
-	add	rsi, 2
-	jne	.LBB2_374
-	jmp	.LBB2_618
-.LBB2_375:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, r11
-	vpbroadcastq	ymm0, xmm0
-	lea	rdx, [rsi - 16]
-	mov	r9, rdx
-	shr	r9, 4
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_625
-# %bb.376:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_377:                              # =>This Inner Loop Header: Depth=1
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rdx, 2
-	jne	.LBB2_377
-	jmp	.LBB2_626
-.LBB2_378:
-	mov	edx, eax
-	and	edx, -32
-	vbroadcastss	ymm1, xmm0
-	lea	rsi, [rdx - 32]
-	mov	r9, rsi
-	shr	r9, 5
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB2_633
-# %bb.379:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB2_380:                              # =>This Inner Loop Header: Depth=1
-	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
-	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
-	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
-	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
-	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
-	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
-	add	rdi, 64
-	add	rsi, 2
-	jne	.LBB2_380
-	jmp	.LBB2_634
-.LBB2_381:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rdx, [rsi - 16]
-	mov	r9, rdx
-	shr	r9, 4
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_641
-# %bb.382:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_383:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rdx, 2
-	jne	.LBB2_383
-	jmp	.LBB2_642
-.LBB2_384:
-	mov	edx, eax
-	and	edx, -32
-	vbroadcastss	ymm1, xmm0
-	lea	rsi, [rdx - 32]
-	mov	r9, rsi
-	shr	r9, 5
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB2_649
-# %bb.385:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB2_386:                              # =>This Inner Loop Header: Depth=1
-	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
-	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
-	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
-	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
-	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
-	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
-	add	rdi, 64
-	add	rsi, 2
-	jne	.LBB2_386
-	jmp	.LBB2_650
-.LBB2_387:
-	mov	esi, r10d
-	and	esi, -16
-	vmovq	xmm0, rax
-	vpbroadcastq	ymm0, xmm0
-	lea	rdx, [rsi - 16]
-	mov	r9, rdx
-	shr	r9, 4
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_657
-# %bb.388:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_389:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
-	add	rdi, 32
-	add	rdx, 2
-	jne	.LBB2_389
-	jmp	.LBB2_658
-.LBB2_390:
-	mov	edx, eax
-	and	edx, -32
-	vbroadcastss	ymm1, xmm0
-	lea	rsi, [rdx - 32]
-	mov	r9, rsi
-	shr	r9, 5
-	add	r9, 1
-	test	rsi, rsi
-	je	.LBB2_665
-# %bb.391:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
-.LBB2_392:                              # =>This Inner Loop Header: Depth=1
-	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
-	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
-	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
-	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
-	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
-	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
-	add	rdi, 64
-	add	rsi, 2
-	jne	.LBB2_392
-	jmp	.LBB2_666
-.LBB2_393:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rdx, [rsi - 128]
-	mov	r9, rdx
-	shr	r9, 7
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_673
-# %bb.394:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_395:                              # =>This Inner Loop Header: Depth=1
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
-	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
-	add	rdi, 256
-	add	rdx, 2
-	jne	.LBB2_395
-	jmp	.LBB2_674
-.LBB2_396:
-	mov	esi, r10d
-	and	esi, -128
-	vmovd	xmm0, eax
-	vpbroadcastb	ymm0, xmm0
-	lea	rdx, [rsi - 128]
-	mov	r9, rdx
-	shr	r9, 7
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_681
+	jb	.LBB2_219
 # %bb.397:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_575
+# %bb.398:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_575
+.LBB2_219:
+	xor	esi, esi
+.LBB2_1001:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1003
+.LBB2_1002:                             # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1002
+.LBB2_1003:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_1004:                             # =>This Inner Loop Header: Depth=1
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1004
+	jmp	.LBB2_1109
+.LBB2_220:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.221:
+	vmovss	xmm0, dword ptr [rdx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB2_222
+# %bb.400:
+	lea	rdx, [rcx + 4*rax]
+	cmp	rdx, r8
+	jbe	.LBB2_578
+# %bb.401:
+	lea	rdx, [r8 + 4*rax]
+	cmp	rdx, rcx
+	jbe	.LBB2_578
+.LBB2_222:
+	xor	edx, edx
+.LBB2_1009:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB2_1011
+.LBB2_1010:                             # =>This Inner Loop Header: Depth=1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	add	rdx, 1
+	add	rdi, -1
+	jne	.LBB2_1010
+.LBB2_1011:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_1012:                             # =>This Inner Loop Header: Depth=1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
+	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
+	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
+	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_1012
+	jmp	.LBB2_1109
+.LBB2_223:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.224:
+	mov	r11, qword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 16
+	jb	.LBB2_225
+# %bb.403:
+	lea	rdx, [rcx + 8*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_581
+# %bb.404:
+	lea	rdx, [r8 + 8*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_581
+.LBB2_225:
+	xor	esi, esi
+.LBB2_1017:
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1019
+.LBB2_1018:                             # =>This Inner Loop Header: Depth=1
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1018
+.LBB2_1019:
+	cmp	rdx, 3
+	jb	.LBB2_1109
+.LBB2_1020:                             # =>This Inner Loop Header: Depth=1
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1020
+	jmp	.LBB2_1109
+.LBB2_226:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.227:
+	vmovss	xmm0, dword ptr [rdx]           # xmm0 = mem[0],zero,zero,zero
+	mov	eax, r9d
+	cmp	r9d, 32
+	jb	.LBB2_228
+# %bb.406:
+	lea	rdx, [rcx + 4*rax]
+	cmp	rdx, r8
+	jbe	.LBB2_584
+# %bb.407:
+	lea	rdx, [r8 + 4*rax]
+	cmp	rdx, rcx
+	jbe	.LBB2_584
+.LBB2_228:
+	xor	edx, edx
+.LBB2_1025:
+	mov	rsi, rdx
+	not	rsi
+	add	rsi, rax
+	mov	rdi, rax
+	and	rdi, 3
+	je	.LBB2_1027
+.LBB2_1026:                             # =>This Inner Loop Header: Depth=1
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	add	rdx, 1
+	add	rdi, -1
+	jne	.LBB2_1026
+.LBB2_1027:
+	cmp	rsi, 3
+	jb	.LBB2_1109
+.LBB2_1028:                             # =>This Inner Loop Header: Depth=1
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vmovss	dword ptr [r8 + 4*rdx], xmm1
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
+	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
+	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
+	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
+	add	rdx, 4
+	cmp	rax, rdx
+	jne	.LBB2_1028
+	jmp	.LBB2_1109
+.LBB2_229:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.230:
+	mov	dl, byte ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_231
+# %bb.409:
+	lea	rax, [rcx + r10]
+	cmp	rax, r8
+	jbe	.LBB2_587
+# %bb.410:
+	lea	rax, [r8 + r10]
+	cmp	rax, rcx
+	jbe	.LBB2_587
+.LBB2_231:
+	xor	edi, edi
+.LBB2_647:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB2_649
+.LBB2_648:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	dl
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB2_648
+.LBB2_649:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_650:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	dl
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rcx + rdi + 1]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rcx + rdi + 2]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rcx + rdi + 3]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB2_650
+	jmp	.LBB2_1109
+.LBB2_232:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.233:
+	mov	dl, byte ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_234
+# %bb.412:
+	lea	rax, [rcx + r10]
+	cmp	rax, r8
+	jbe	.LBB2_589
+# %bb.413:
+	lea	rax, [r8 + r10]
+	cmp	rax, rcx
+	jbe	.LBB2_589
+.LBB2_234:
+	xor	edi, edi
+.LBB2_657:
+	mov	r9, rdi
+	not	r9
+	add	r9, r10
+	mov	rsi, r10
+	and	rsi, 3
+	je	.LBB2_659
+.LBB2_658:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	dl
+	mov	byte ptr [r8 + rdi], al
+	add	rdi, 1
+	add	rsi, -1
+	jne	.LBB2_658
+.LBB2_659:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_660:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rdi]
+	mul	dl
+	mov	byte ptr [r8 + rdi], al
+	movzx	eax, byte ptr [rcx + rdi + 1]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 1], al
+	movzx	eax, byte ptr [rcx + rdi + 2]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 2], al
+	movzx	eax, byte ptr [rcx + rdi + 3]
+	mul	dl
+	mov	byte ptr [r8 + rdi + 3], al
+	add	rdi, 4
+	cmp	r10, rdi
+	jne	.LBB2_660
+	jmp	.LBB2_1109
+.LBB2_235:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.236:
+	mov	al, byte ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB2_237
+# %bb.415:
+	lea	rdx, [rcx + r10]
+	cmp	rdx, r8
+	jbe	.LBB2_591
+# %bb.416:
+	lea	rdx, [r8 + r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_591
+.LBB2_237:
+	xor	esi, esi
+.LBB2_1033:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1035
+.LBB2_1034:                             # =>This Inner Loop Header: Depth=1
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
+	mov	byte ptr [r8 + rsi], dl
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1034
+.LBB2_1035:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_1036:                             # =>This Inner Loop Header: Depth=1
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
+	mov	byte ptr [r8 + rsi], dl
+	movzx	edx, byte ptr [rcx + rsi + 1]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 1], dl
+	movzx	edx, byte ptr [rcx + rsi + 2]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 2], dl
+	movzx	edx, byte ptr [rcx + rsi + 3]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 3], dl
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1036
+	jmp	.LBB2_1109
+.LBB2_238:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.239:
+	mov	al, byte ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB2_240
+# %bb.418:
+	lea	rdx, [rcx + r10]
+	cmp	rdx, r8
+	jbe	.LBB2_594
+# %bb.419:
+	lea	rdx, [r8 + r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_594
+.LBB2_240:
+	xor	esi, esi
+.LBB2_1041:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1043
+.LBB2_1042:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], dl
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1042
+.LBB2_1043:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_1044:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], dl
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], dl
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], dl
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], dl
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1044
+	jmp	.LBB2_1109
+.LBB2_241:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.242:
+	mov	al, byte ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB2_243
+# %bb.421:
+	lea	rdx, [rcx + r10]
+	cmp	rdx, r8
+	jbe	.LBB2_597
+# %bb.422:
+	lea	rdx, [r8 + r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_597
+.LBB2_243:
+	xor	esi, esi
+.LBB2_1049:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1051
+.LBB2_1050:                             # =>This Inner Loop Header: Depth=1
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
+	mov	byte ptr [r8 + rsi], dl
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1050
+.LBB2_1051:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_1052:                             # =>This Inner Loop Header: Depth=1
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
+	mov	byte ptr [r8 + rsi], dl
+	movzx	edx, byte ptr [rcx + rsi + 1]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 1], dl
+	movzx	edx, byte ptr [rcx + rsi + 2]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 2], dl
+	movzx	edx, byte ptr [rcx + rsi + 3]
+	add	dl, al
+	mov	byte ptr [r8 + rsi + 3], dl
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1052
+	jmp	.LBB2_1109
+.LBB2_244:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.245:
+	mov	al, byte ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 128
+	jb	.LBB2_246
+# %bb.424:
+	lea	rdx, [rcx + r10]
+	cmp	rdx, r8
+	jbe	.LBB2_600
+# %bb.425:
+	lea	rdx, [r8 + r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_600
+.LBB2_246:
+	xor	esi, esi
+.LBB2_1057:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1059
+.LBB2_1058:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], dl
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1058
+.LBB2_1059:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_1060:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
+	mov	byte ptr [r8 + rsi], dl
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 1]
+	mov	byte ptr [r8 + rsi + 1], dl
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 2]
+	mov	byte ptr [r8 + rsi + 2], dl
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 3]
+	mov	byte ptr [r8 + rsi + 3], dl
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1060
+	jmp	.LBB2_1109
+.LBB2_247:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.248:
+	mov	eax, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_249
+# %bb.427:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_603
+# %bb.428:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_603
+.LBB2_249:
+	xor	esi, esi
+.LBB2_1065:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1067
+.LBB2_1066:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1066
+.LBB2_1067:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_1068:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1068
+	jmp	.LBB2_1109
+.LBB2_250:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.251:
+	mov	eax, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_252
+# %bb.430:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_606
+# %bb.431:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_606
+.LBB2_252:
+	xor	esi, esi
+.LBB2_1073:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1075
+.LBB2_1074:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1074
+.LBB2_1075:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_1076:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	imul	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1076
+	jmp	.LBB2_1109
+.LBB2_253:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.254:
+	mov	eax, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_255
+# %bb.433:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_609
+# %bb.434:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_609
+.LBB2_255:
+	xor	esi, esi
+.LBB2_1081:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1083
+.LBB2_1082:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1082
+.LBB2_1083:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_1084:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1084
+	jmp	.LBB2_1109
+.LBB2_256:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.257:
+	mov	r11d, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_258
+# %bb.436:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_612
+# %bb.437:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_612
+.LBB2_258:
+	xor	esi, esi
+.LBB2_1089:
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1091
+.LBB2_1090:                             # =>This Inner Loop Header: Depth=1
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1090
+.LBB2_1091:
+	cmp	rdx, 3
+	jb	.LBB2_1109
+.LBB2_1092:                             # =>This Inner Loop Header: Depth=1
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1092
+	jmp	.LBB2_1109
+.LBB2_259:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.260:
+	mov	eax, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_261
+# %bb.439:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_615
+# %bb.440:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_615
+.LBB2_261:
+	xor	esi, esi
+.LBB2_1097:
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1099
+.LBB2_1098:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1098
+.LBB2_1099:
+	cmp	r9, 3
+	jb	.LBB2_1109
+.LBB2_1100:                             # =>This Inner Loop Header: Depth=1
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1100
+	jmp	.LBB2_1109
+.LBB2_262:
+	test	r9d, r9d
+	jle	.LBB2_1109
+# %bb.263:
+	mov	r11d, dword ptr [rdx]
+	mov	r10d, r9d
+	cmp	r9d, 32
+	jb	.LBB2_264
+# %bb.442:
+	lea	rdx, [rcx + 4*r10]
+	cmp	rdx, r8
+	jbe	.LBB2_618
+# %bb.443:
+	lea	rdx, [r8 + 4*r10]
+	cmp	rdx, rcx
+	jbe	.LBB2_618
+.LBB2_264:
+	xor	esi, esi
+.LBB2_1105:
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
+	mov	rdi, r10
+	and	rdi, 3
+	je	.LBB2_1107
+.LBB2_1106:                             # =>This Inner Loop Header: Depth=1
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	add	rsi, 1
+	add	rdi, -1
+	jne	.LBB2_1106
+.LBB2_1107:
+	cmp	rdx, 3
+	jb	.LBB2_1109
+.LBB2_1108:                             # =>This Inner Loop Header: Depth=1
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
+	add	rsi, 4
+	cmp	r10, rsi
+	jne	.LBB2_1108
+	jmp	.LBB2_1109
+.LBB2_445:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_661
+# %bb.446:
 	mov	rdx, r9
 	and	rdx, -2
 	neg	rdx
 	xor	edi, edi
-.LBB2_398:                              # =>This Inner Loop Header: Depth=1
+.LBB2_447:                              # =>This Inner Loop Header: Depth=1
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpmulld	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpmulld	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_447
+	jmp	.LBB2_662
+.LBB2_448:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_669
+# %bb.449:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_450:                              # =>This Inner Loop Header: Depth=1
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpmulld	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpmulld	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_450
+	jmp	.LBB2_670
+.LBB2_451:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_677
+# %bb.452:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_453:                              # =>This Inner Loop Header: Depth=1
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_453
+	jmp	.LBB2_678
+.LBB2_454:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, r11d
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_685
+# %bb.455:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_456:                              # =>This Inner Loop Header: Depth=1
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_456
+	jmp	.LBB2_686
+.LBB2_457:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_693
+# %bb.458:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_459:                              # =>This Inner Loop Header: Depth=1
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_459
+	jmp	.LBB2_694
+.LBB2_460:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, r11d
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_701
+# %bb.461:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_462:                              # =>This Inner Loop Header: Depth=1
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_462
+	jmp	.LBB2_702
+.LBB2_463:
+	mov	edx, eax
+	and	edx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rdx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_709
+# %bb.464:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_465:                              # =>This Inner Loop Header: Depth=1
+	vmulpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vmulpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmulpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vmulpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmulpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
+	vmulpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
+	vmulpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
+	vmulpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB2_465
+	jmp	.LBB2_710
+.LBB2_466:
+	mov	edx, eax
+	and	edx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rdx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_717
+# %bb.467:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_468:                              # =>This Inner Loop Header: Depth=1
+	vmulpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vmulpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmulpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vmulpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmulpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
+	vmulpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
+	vmulpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
+	vmulpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB2_468
+	jmp	.LBB2_718
+.LBB2_469:
+	mov	edx, eax
+	and	edx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rdx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_725
+# %bb.470:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_471:                              # =>This Inner Loop Header: Depth=1
+	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
+	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
+	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
+	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB2_471
+	jmp	.LBB2_726
+.LBB2_472:
+	mov	edx, eax
+	and	edx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rdx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_733
+# %bb.473:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_474:                              # =>This Inner Loop Header: Depth=1
+	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
+	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
+	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
+	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB2_474
+	jmp	.LBB2_734
+.LBB2_475:
+	mov	edx, eax
+	and	edx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rdx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_741
+# %bb.476:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_477:                              # =>This Inner Loop Header: Depth=1
+	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
+	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
+	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
+	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB2_477
+	jmp	.LBB2_742
+.LBB2_478:
+	mov	edx, eax
+	and	edx, -16
+	vbroadcastsd	ymm1, xmm0
+	lea	rsi, [rdx - 16]
+	mov	r9, rsi
+	shr	r9, 4
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_749
+# %bb.479:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_480:                              # =>This Inner Loop Header: Depth=1
+	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
+	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
+	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
+	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
+	jne	.LBB2_480
+	jmp	.LBB2_750
+.LBB2_481:
+	mov	edi, r10d
+	and	edi, -32
+	vmovd	xmm0, edx
+	vpbroadcastb	ymm0, xmm0
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB2_621
+# %bb.482:
+	xor	esi, esi
+	jmp	.LBB2_623
+.LBB2_483:
+	mov	edi, r10d
+	and	edi, -32
+	vmovd	xmm0, edx
+	vpbroadcastb	ymm0, xmm0
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB2_631
+# %bb.484:
+	xor	esi, esi
+	jmp	.LBB2_633
+.LBB2_485:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rdx, [rsi - 128]
+	mov	r9, rdx
+	shr	r9, 7
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_757
+# %bb.486:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_487:                              # =>This Inner Loop Header: Depth=1
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rdx, 2
+	jne	.LBB2_487
+	jmp	.LBB2_758
+.LBB2_488:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rdx, [rsi - 128]
+	mov	r9, rdx
+	shr	r9, 7
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_765
+# %bb.489:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_490:                              # =>This Inner Loop Header: Depth=1
 	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
 	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
 	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
@@ -11545,9 +16895,9 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
 	add	rdi, 256
 	add	rdx, 2
-	jne	.LBB2_398
-	jmp	.LBB2_682
-.LBB2_399:
+	jne	.LBB2_490
+	jmp	.LBB2_766
+.LBB2_491:
 	mov	esi, r10d
 	and	esi, -128
 	vmovd	xmm0, eax
@@ -11557,13 +16907,13 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	shr	r9, 7
 	add	r9, 1
 	test	rdx, rdx
-	je	.LBB2_689
-# %bb.400:
+	je	.LBB2_773
+# %bb.492:
 	mov	rdx, r9
 	and	rdx, -2
 	neg	rdx
 	xor	edi, edi
-.LBB2_401:                              # =>This Inner Loop Header: Depth=1
+.LBB2_493:                              # =>This Inner Loop Header: Depth=1
 	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
 	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
 	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
@@ -11582,9 +16932,9 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
 	add	rdi, 256
 	add	rdx, 2
-	jne	.LBB2_401
-	jmp	.LBB2_690
-.LBB2_402:
+	jne	.LBB2_493
+	jmp	.LBB2_774
+.LBB2_494:
 	mov	esi, r10d
 	and	esi, -128
 	vmovd	xmm0, eax
@@ -11594,839 +16944,2001 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	shr	r9, 7
 	add	r9, 1
 	test	rdx, rdx
-	je	.LBB2_697
-# %bb.403:
+	je	.LBB2_781
+# %bb.495:
 	mov	rdx, r9
 	and	rdx, -2
 	neg	rdx
 	xor	edi, edi
-.LBB2_404:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
+.LBB2_496:                              # =>This Inner Loop Header: Depth=1
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
 	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
 	add	rdi, 256
 	add	rdx, 2
-	jne	.LBB2_404
-	jmp	.LBB2_698
-.LBB2_405:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, r11d
-	vpbroadcastd	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_705
-# %bb.406:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_407:                              # =>This Inner Loop Header: Depth=1
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_407
-	jmp	.LBB2_706
-.LBB2_408:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, r11d
-	vpbroadcastd	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_713
-# %bb.409:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_410:                              # =>This Inner Loop Header: Depth=1
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_410
-	jmp	.LBB2_714
-.LBB2_411:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_721
-# %bb.412:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_413:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_413
-	jmp	.LBB2_722
-.LBB2_414:
-	mov	esi, r10d
-	and	esi, -32
-	vmovd	xmm0, eax
-	vpbroadcastd	ymm0, xmm0
-	lea	rdx, [rsi - 32]
-	mov	r9, rdx
-	shr	r9, 5
-	add	r9, 1
-	test	rdx, rdx
-	je	.LBB2_729
-# %bb.415:
-	mov	rdx, r9
-	and	rdx, -2
-	neg	rdx
-	xor	edi, edi
-.LBB2_416:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
-	add	rdi, 64
-	add	rdx, 2
-	jne	.LBB2_416
-	jmp	.LBB2_730
-.LBB2_417:
-	xor	edi, edi
-.LBB2_418:
-	test	r9b, 1
-	je	.LBB2_420
-# %bb.419:
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB2_420:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_421
-.LBB2_425:
-	xor	edi, edi
-.LBB2_426:
-	test	r9b, 1
-	je	.LBB2_428
-# %bb.427:
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB2_428:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_429
-.LBB2_433:
-	xor	edi, edi
-.LBB2_434:
-	test	r9b, 1
-	je	.LBB2_436
-# %bb.435:
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB2_436:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_437
-.LBB2_441:
-	xor	edi, edi
-.LBB2_442:
-	test	r9b, 1
-	je	.LBB2_444
-# %bb.443:
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB2_444:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_445
-.LBB2_449:
-	xor	edi, edi
-.LBB2_450:
-	test	r9b, 1
-	je	.LBB2_452
-# %bb.451:
-	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
-.LBB2_452:
-	cmp	rdx, rax
-	je	.LBB2_737
-	jmp	.LBB2_453
-.LBB2_457:
-	xor	edi, edi
-.LBB2_458:
-	test	r9b, 1
-	je	.LBB2_460
-# %bb.459:
-	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
-.LBB2_460:
-	cmp	rdx, rax
-	je	.LBB2_737
-	jmp	.LBB2_461
-.LBB2_465:
-	xor	edi, edi
-.LBB2_466:
-	test	r9b, 1
-	je	.LBB2_468
-# %bb.467:
-	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vaddpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
-.LBB2_468:
-	cmp	rdx, rax
-	je	.LBB2_737
-	jmp	.LBB2_469
-.LBB2_473:
-	xor	edi, edi
-.LBB2_474:
-	test	r9b, 1
-	je	.LBB2_476
-# %bb.475:
-	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vaddpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
-.LBB2_476:
-	cmp	rdx, rax
-	je	.LBB2_737
-	jmp	.LBB2_477
-.LBB2_481:
-	xor	edi, edi
-.LBB2_482:
-	test	r9b, 1
-	je	.LBB2_484
-# %bb.483:
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB2_484:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_485
-.LBB2_489:
-	xor	edi, edi
-.LBB2_490:
-	test	r9b, 1
-	je	.LBB2_492
-# %bb.491:
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB2_492:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_493
+	jne	.LBB2_496
+	jmp	.LBB2_782
 .LBB2_497:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	vpsrlq	ymm1, ymm0, 32
+	test	rdx, rdx
+	je	.LBB2_789
+# %bb.498:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
 	xor	edi, edi
-.LBB2_498:
-	test	r9b, 1
-	je	.LBB2_500
-# %bb.499:
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB2_499:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 128]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 160]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 192]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 224]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_499
+	jmp	.LBB2_790
 .LBB2_500:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_501
-.LBB2_505:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	vpsrlq	ymm1, ymm0, 32
+	test	rdx, rdx
+	je	.LBB2_797
+# %bb.501:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
 	xor	edi, edi
+.LBB2_502:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 128]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 160]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 192]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 224]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_502
+	jmp	.LBB2_798
+.LBB2_503:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_805
+# %bb.504:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_505:                              # =>This Inner Loop Header: Depth=1
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_505
+	jmp	.LBB2_806
 .LBB2_506:
-	test	r9b, 1
-	je	.LBB2_508
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, r11
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_813
 # %bb.507:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_508:                              # =>This Inner Loop Header: Depth=1
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_508
+	jmp	.LBB2_814
+.LBB2_509:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_821
+# %bb.510:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_511:                              # =>This Inner Loop Header: Depth=1
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_511
+	jmp	.LBB2_822
+.LBB2_512:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, r11
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_829
+# %bb.513:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_514:                              # =>This Inner Loop Header: Depth=1
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_514
+	jmp	.LBB2_830
+.LBB2_515:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_837
+# %bb.516:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_517:                              # =>This Inner Loop Header: Depth=1
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpmullw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpmullw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_517
+	jmp	.LBB2_838
+.LBB2_518:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_845
+# %bb.519:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_520:                              # =>This Inner Loop Header: Depth=1
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpmullw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpmullw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_520
+	jmp	.LBB2_846
+.LBB2_521:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_853
+# %bb.522:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_523:                              # =>This Inner Loop Header: Depth=1
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpmullw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpmullw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_523
+	jmp	.LBB2_854
+.LBB2_524:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_861
+# %bb.525:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_526:                              # =>This Inner Loop Header: Depth=1
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpmullw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpmullw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_526
+	jmp	.LBB2_862
+.LBB2_527:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_869
+# %bb.528:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_529:                              # =>This Inner Loop Header: Depth=1
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_529
+	jmp	.LBB2_870
+.LBB2_530:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_877
+# %bb.531:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_532:                              # =>This Inner Loop Header: Depth=1
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_532
+	jmp	.LBB2_878
+.LBB2_533:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_885
+# %bb.534:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_535:                              # =>This Inner Loop Header: Depth=1
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_535
+	jmp	.LBB2_886
+.LBB2_536:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_893
+# %bb.537:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_538:                              # =>This Inner Loop Header: Depth=1
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_538
+	jmp	.LBB2_894
+.LBB2_539:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_901
+# %bb.540:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_541:                              # =>This Inner Loop Header: Depth=1
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_541
+	jmp	.LBB2_902
+.LBB2_542:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_909
+# %bb.543:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_544:                              # =>This Inner Loop Header: Depth=1
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_544
+	jmp	.LBB2_910
+.LBB2_545:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_917
+# %bb.546:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_547:                              # =>This Inner Loop Header: Depth=1
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_547
+	jmp	.LBB2_918
+.LBB2_548:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastw	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_925
+# %bb.549:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_550:                              # =>This Inner Loop Header: Depth=1
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_550
+	jmp	.LBB2_926
+.LBB2_551:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	vpsrlq	ymm1, ymm0, 32
+	test	rdx, rdx
+	je	.LBB2_933
+# %bb.552:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_553:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 128]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 160]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 192]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 224]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_553
+	jmp	.LBB2_934
+.LBB2_554:
+	mov	edx, eax
+	and	edx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rdx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_941
+# %bb.555:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_556:                              # =>This Inner Loop Header: Depth=1
+	vmulps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vmulps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmulps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vmulps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vmulps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
+	vmulps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
+	vmulps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
+	vmulps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB2_556
+	jmp	.LBB2_942
+.LBB2_557:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	vpsrlq	ymm1, ymm0, 32
+	test	rdx, rdx
+	je	.LBB2_949
+# %bb.558:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_559:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 128]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 160]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 192]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 224]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm6, ymm5, ymm1
+	vpsrlq	ymm7, ymm5, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm5, ymm5, ymm0
+	vpaddq	ymm5, ymm5, ymm6
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_559
+	jmp	.LBB2_950
+.LBB2_560:
+	mov	edx, eax
+	and	edx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rdx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_957
+# %bb.561:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_562:                              # =>This Inner Loop Header: Depth=1
+	vmulps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vmulps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmulps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vmulps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vmulps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
+	vmulps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
+	vmulps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
+	vmulps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB2_562
+	jmp	.LBB2_958
+.LBB2_563:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_965
+# %bb.564:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_565:                              # =>This Inner Loop Header: Depth=1
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_565
+	jmp	.LBB2_966
+.LBB2_566:
+	mov	edx, eax
+	and	edx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rdx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_973
+# %bb.567:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_568:                              # =>This Inner Loop Header: Depth=1
+	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
+	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
+	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
+	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB2_568
+	jmp	.LBB2_974
+.LBB2_569:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, r11
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_981
+# %bb.570:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_571:                              # =>This Inner Loop Header: Depth=1
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_571
+	jmp	.LBB2_982
+.LBB2_572:
+	mov	edx, eax
+	and	edx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rdx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_989
+# %bb.573:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_574:                              # =>This Inner Loop Header: Depth=1
+	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
+	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
+	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
+	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB2_574
+	jmp	.LBB2_990
+.LBB2_575:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, rax
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_997
+# %bb.576:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_577:                              # =>This Inner Loop Header: Depth=1
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_577
+	jmp	.LBB2_998
+.LBB2_578:
+	mov	edx, eax
+	and	edx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rdx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_1005
+# %bb.579:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_580:                              # =>This Inner Loop Header: Depth=1
+	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
+	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
+	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
+	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB2_580
+	jmp	.LBB2_1006
+.LBB2_581:
+	mov	esi, r10d
+	and	esi, -16
+	vmovq	xmm0, r11
+	vpbroadcastq	ymm0, xmm0
+	lea	rdx, [rsi - 16]
+	mov	r9, rdx
+	shr	r9, 4
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1013
+# %bb.582:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_583:                              # =>This Inner Loop Header: Depth=1
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 224], ymm4
+	add	rdi, 32
+	add	rdx, 2
+	jne	.LBB2_583
+	jmp	.LBB2_1014
+.LBB2_584:
+	mov	edx, eax
+	and	edx, -32
+	vbroadcastss	ymm1, xmm0
+	lea	rsi, [rdx - 32]
+	mov	r9, rsi
+	shr	r9, 5
+	add	r9, 1
+	test	rsi, rsi
+	je	.LBB2_1021
+# %bb.585:
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
+.LBB2_586:                              # =>This Inner Loop Header: Depth=1
+	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
+	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
+	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
+	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
+	jne	.LBB2_586
+	jmp	.LBB2_1022
+.LBB2_587:
+	mov	edi, r10d
+	and	edi, -32
+	vmovd	xmm0, edx
+	vpbroadcastb	ymm0, xmm0
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB2_641
+# %bb.588:
+	xor	esi, esi
+	jmp	.LBB2_643
+.LBB2_589:
+	mov	edi, r10d
+	and	edi, -32
+	vmovd	xmm0, edx
+	vpbroadcastb	ymm0, xmm0
+	lea	rsi, [rdi - 32]
+	mov	rax, rsi
+	shr	rax, 5
+	add	rax, 1
+	mov	r9d, eax
+	and	r9d, 3
+	cmp	rsi, 96
+	jae	.LBB2_651
+# %bb.590:
+	xor	esi, esi
+	jmp	.LBB2_653
+.LBB2_591:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rdx, [rsi - 128]
+	mov	r9, rdx
+	shr	r9, 7
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1029
+# %bb.592:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_593:                              # =>This Inner Loop Header: Depth=1
 	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
 	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
 	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB2_508:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_509
-.LBB2_513:
-	xor	edi, edi
-.LBB2_514:
-	test	r9b, 1
-	je	.LBB2_516
-# %bb.515:
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB2_516:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_517
-.LBB2_521:
-	xor	edi, edi
-.LBB2_522:
-	test	r9b, 1
-	je	.LBB2_524
-# %bb.523:
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB2_524:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_525
-.LBB2_529:
-	xor	edi, edi
-.LBB2_530:
-	test	r9b, 1
-	je	.LBB2_532
-# %bb.531:
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB2_532:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_533
-.LBB2_537:
-	xor	edi, edi
-.LBB2_538:
-	test	r9b, 1
-	je	.LBB2_540
-# %bb.539:
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB2_540:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_541
-.LBB2_545:
-	xor	edi, edi
-.LBB2_546:
-	test	r9b, 1
-	je	.LBB2_548
-# %bb.547:
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB2_548:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_549
-.LBB2_553:
-	xor	edi, edi
-.LBB2_554:
-	test	r9b, 1
-	je	.LBB2_556
-# %bb.555:
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB2_556:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_557
-.LBB2_561:
-	xor	edi, edi
-.LBB2_562:
-	test	r9b, 1
-	je	.LBB2_564
-# %bb.563:
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB2_564:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_565
-.LBB2_569:
-	xor	edi, edi
-.LBB2_570:
-	test	r9b, 1
-	je	.LBB2_572
-# %bb.571:
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB2_572:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_573
-.LBB2_577:
-	xor	edi, edi
-.LBB2_578:
-	test	r9b, 1
-	je	.LBB2_580
-# %bb.579:
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB2_580:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_581
-.LBB2_585:
-	xor	edi, edi
-.LBB2_586:
-	test	r9b, 1
-	je	.LBB2_588
-# %bb.587:
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB2_588:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_589
-.LBB2_593:
-	xor	edi, edi
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rdx, 2
+	jne	.LBB2_593
+	jmp	.LBB2_1030
 .LBB2_594:
-	test	r9b, 1
-	je	.LBB2_596
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rdx, [rsi - 128]
+	mov	r9, rdx
+	shr	r9, 7
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1037
 # %bb.595:
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB2_596:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_597
-.LBB2_601:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
 	xor	edi, edi
-.LBB2_602:
-	test	r9b, 1
-	je	.LBB2_604
-# %bb.603:
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
-.LBB2_604:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_605
+.LBB2_596:                              # =>This Inner Loop Header: Depth=1
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rdx, 2
+	jne	.LBB2_596
+	jmp	.LBB2_1038
+.LBB2_597:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rdx, [rsi - 128]
+	mov	r9, rdx
+	shr	r9, 7
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1045
+# %bb.598:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_599:                              # =>This Inner Loop Header: Depth=1
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rdx, 2
+	jne	.LBB2_599
+	jmp	.LBB2_1046
+.LBB2_600:
+	mov	esi, r10d
+	and	esi, -128
+	vmovd	xmm0, eax
+	vpbroadcastb	ymm0, xmm0
+	lea	rdx, [rsi - 128]
+	mov	r9, rdx
+	shr	r9, 7
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1053
+# %bb.601:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_602:                              # =>This Inner Loop Header: Depth=1
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 224], ymm4
+	add	rdi, 256
+	add	rdx, 2
+	jne	.LBB2_602
+	jmp	.LBB2_1054
+.LBB2_603:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1061
+# %bb.604:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_605:                              # =>This Inner Loop Header: Depth=1
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpmulld	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpmulld	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_605
+	jmp	.LBB2_1062
+.LBB2_606:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1069
+# %bb.607:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_608:                              # =>This Inner Loop Header: Depth=1
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpmulld	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpmulld	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_608
+	jmp	.LBB2_1070
 .LBB2_609:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1077
+# %bb.610:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
 	xor	edi, edi
-.LBB2_610:
-	test	r9b, 1
-	je	.LBB2_612
-# %bb.611:
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_611:                              # =>This Inner Loop Header: Depth=1
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_611
+	jmp	.LBB2_1078
 .LBB2_612:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_613
-.LBB2_617:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, r11d
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1085
+# %bb.613:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
 	xor	edi, edi
+.LBB2_614:                              # =>This Inner Loop Header: Depth=1
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_614
+	jmp	.LBB2_1086
+.LBB2_615:
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, eax
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1093
+# %bb.616:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
+	xor	edi, edi
+.LBB2_617:                              # =>This Inner Loop Header: Depth=1
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_617
+	jmp	.LBB2_1094
 .LBB2_618:
-	test	r9b, 1
-	je	.LBB2_620
+	mov	esi, r10d
+	and	esi, -32
+	vmovd	xmm0, r11d
+	vpbroadcastd	ymm0, xmm0
+	lea	rdx, [rsi - 32]
+	mov	r9, rdx
+	shr	r9, 5
+	add	r9, 1
+	test	rdx, rdx
+	je	.LBB2_1101
 # %bb.619:
-	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
-.LBB2_620:
-	cmp	rdx, rax
-	je	.LBB2_737
-	jmp	.LBB2_621
-.LBB2_625:
+	mov	rdx, r9
+	and	rdx, -2
+	neg	rdx
 	xor	edi, edi
+.LBB2_620:                              # =>This Inner Loop Header: Depth=1
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 224], ymm4
+	add	rdi, 64
+	add	rdx, 2
+	jne	.LBB2_620
+	jmp	.LBB2_1102
+.LBB2_621:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI2_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm3, ymm0, ymm0        # ymm3 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB2_622:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 32]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 64]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 96]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm4
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB2_622
+.LBB2_623:
+	test	r9, r9
+	je	.LBB2_626
+# %bb.624:
+	neg	r9
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI2_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm0, ymm0, ymm0        # ymm0 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB2_625:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm3, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm4, ymm3, ymm3        # ymm4 = ymm3[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm4, ymm4, ymm1
+	vpand	ymm4, ymm4, ymm2
+	vpunpcklbw	ymm3, ymm3, ymm3        # ymm3 = ymm3[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm3, ymm3, ymm0
+	vpand	ymm3, ymm3, ymm2
+	vpackuswb	ymm3, ymm3, ymm4
+	vmovdqu	ymmword ptr [r8 + rsi], ymm3
+	add	rsi, 32
+	inc	r9
+	jne	.LBB2_625
 .LBB2_626:
-	test	r9b, 1
-	je	.LBB2_628
-# %bb.627:
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB2_628:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_629
+	cmp	rdi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_627
+.LBB2_631:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI2_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm3, ymm0, ymm0        # ymm3 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB2_632:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 32]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 64]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 96]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm4
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB2_632
 .LBB2_633:
-	xor	edi, edi
-.LBB2_634:
-	test	r9b, 1
+	test	r9, r9
 	je	.LBB2_636
-# %bb.635:
-	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+# %bb.634:
+	neg	r9
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI2_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm0, ymm0, ymm0        # ymm0 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB2_635:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm3, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm4, ymm3, ymm3        # ymm4 = ymm3[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm4, ymm4, ymm1
+	vpand	ymm4, ymm4, ymm2
+	vpunpcklbw	ymm3, ymm3, ymm3        # ymm3 = ymm3[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm3, ymm3, ymm0
+	vpand	ymm3, ymm3, ymm2
+	vpackuswb	ymm3, ymm3, ymm4
+	vmovdqu	ymmword ptr [r8 + rsi], ymm3
+	add	rsi, 32
+	inc	r9
+	jne	.LBB2_635
 .LBB2_636:
-	cmp	rdx, rax
-	je	.LBB2_737
+	cmp	rdi, r10
+	je	.LBB2_1109
 	jmp	.LBB2_637
 .LBB2_641:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI2_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm3, ymm0, ymm0        # ymm3 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB2_642:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 32]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 64]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 96]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm4
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB2_642
+.LBB2_643:
+	test	r9, r9
+	je	.LBB2_646
+# %bb.644:
+	neg	r9
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI2_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm0, ymm0, ymm0        # ymm0 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB2_645:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm3, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm4, ymm3, ymm3        # ymm4 = ymm3[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm4, ymm4, ymm1
+	vpand	ymm4, ymm4, ymm2
+	vpunpcklbw	ymm3, ymm3, ymm3        # ymm3 = ymm3[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm3, ymm3, ymm0
+	vpand	ymm3, ymm3, ymm2
+	vpackuswb	ymm3, ymm3, ymm4
+	vmovdqu	ymmword ptr [r8 + rsi], ymm3
+	add	rsi, 32
+	inc	r9
+	jne	.LBB2_645
+.LBB2_646:
+	cmp	rdi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_647
+.LBB2_651:
+	and	rax, -4
+	neg	rax
+	xor	esi, esi
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI2_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm3, ymm0, ymm0        # ymm3 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB2_652:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 32]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 32], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 64]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 64], ymm4
+	vmovdqu	ymm4, ymmword ptr [rcx + rsi + 96]
+	vpunpckhbw	ymm5, ymm4, ymm4        # ymm5 = ymm4[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm5, ymm5, ymm1
+	vpand	ymm5, ymm5, ymm2
+	vpunpcklbw	ymm4, ymm4, ymm4        # ymm4 = ymm4[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm4, ymm4, ymm3
+	vpand	ymm4, ymm4, ymm2
+	vpackuswb	ymm4, ymm4, ymm5
+	vmovdqu	ymmword ptr [r8 + rsi + 96], ymm4
+	sub	rsi, -128
+	add	rax, 4
+	jne	.LBB2_652
+.LBB2_653:
+	test	r9, r9
+	je	.LBB2_656
+# %bb.654:
+	neg	r9
+	vpunpckhbw	ymm1, ymm0, ymm0        # ymm1 = ymm0[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vmovdqa	ymm2, ymmword ptr [rip + .LCPI2_0] # ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+	vpunpcklbw	ymm0, ymm0, ymm0        # ymm0 = ymm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+.LBB2_655:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm3, ymmword ptr [rcx + rsi]
+	vpunpckhbw	ymm4, ymm3, ymm3        # ymm4 = ymm3[8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,24,24,25,25,26,26,27,27,28,28,29,29,30,30,31,31]
+	vpmullw	ymm4, ymm4, ymm1
+	vpand	ymm4, ymm4, ymm2
+	vpunpcklbw	ymm3, ymm3, ymm3        # ymm3 = ymm3[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23]
+	vpmullw	ymm3, ymm3, ymm0
+	vpand	ymm3, ymm3, ymm2
+	vpackuswb	ymm3, ymm3, ymm4
+	vmovdqu	ymmword ptr [r8 + rsi], ymm3
+	add	rsi, 32
+	inc	r9
+	jne	.LBB2_655
+.LBB2_656:
+	cmp	rdi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_657
+.LBB2_661:
 	xor	edi, edi
-.LBB2_642:
+.LBB2_662:
 	test	r9b, 1
-	je	.LBB2_644
-# %bb.643:
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB2_644:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_645
-.LBB2_649:
-	xor	edi, edi
-.LBB2_650:
-	test	r9b, 1
-	je	.LBB2_652
-# %bb.651:
-	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vaddps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
-.LBB2_652:
-	cmp	rdx, rax
-	je	.LBB2_737
-	jmp	.LBB2_653
-.LBB2_657:
-	xor	edi, edi
-.LBB2_658:
-	test	r9b, 1
-	je	.LBB2_660
-# %bb.659:
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
-	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
-.LBB2_660:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_661
-.LBB2_665:
-	xor	edi, edi
-.LBB2_666:
-	test	r9b, 1
-	je	.LBB2_668
-# %bb.667:
-	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vaddps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
-.LBB2_668:
-	cmp	rdx, rax
-	je	.LBB2_737
-	jmp	.LBB2_669
-.LBB2_673:
-	xor	edi, edi
-.LBB2_674:
-	test	r9b, 1
-	je	.LBB2_676
-# %bb.675:
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB2_676:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_677
-.LBB2_681:
-	xor	edi, edi
-.LBB2_682:
-	test	r9b, 1
-	je	.LBB2_684
-# %bb.683:
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB2_684:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_685
-.LBB2_689:
-	xor	edi, edi
-.LBB2_690:
-	test	r9b, 1
-	je	.LBB2_692
-# %bb.691:
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB2_692:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_693
-.LBB2_697:
-	xor	edi, edi
-.LBB2_698:
-	test	r9b, 1
-	je	.LBB2_700
-# %bb.699:
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
-	vmovdqu	ymmword ptr [r8 + rdi], ymm1
-	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
-	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
-	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
-.LBB2_700:
-	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_701
-.LBB2_705:
-	xor	edi, edi
-.LBB2_706:
-	test	r9b, 1
-	je	.LBB2_708
-# %bb.707:
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	je	.LBB2_664
+# %bb.663:
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpmulld	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB2_708:
+.LBB2_664:
 	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_709
-.LBB2_713:
+	je	.LBB2_1109
+	jmp	.LBB2_665
+.LBB2_669:
 	xor	edi, edi
-.LBB2_714:
+.LBB2_670:
 	test	r9b, 1
-	je	.LBB2_716
-# %bb.715:
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	je	.LBB2_672
+# %bb.671:
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpmulld	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB2_716:
+.LBB2_672:
 	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_717
-.LBB2_721:
+	je	.LBB2_1109
+	jmp	.LBB2_673
+.LBB2_677:
 	xor	edi, edi
-.LBB2_722:
+.LBB2_678:
 	test	r9b, 1
-	je	.LBB2_724
-# %bb.723:
+	je	.LBB2_680
+# %bb.679:
 	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
 	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
 	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
@@ -12435,16 +18947,34 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB2_724:
+.LBB2_680:
 	cmp	rsi, r10
-	je	.LBB2_737
-	jmp	.LBB2_725
-.LBB2_729:
+	je	.LBB2_1109
+	jmp	.LBB2_681
+.LBB2_685:
 	xor	edi, edi
-.LBB2_730:
+.LBB2_686:
 	test	r9b, 1
-	je	.LBB2_732
-# %bb.731:
+	je	.LBB2_688
+# %bb.687:
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB2_688:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_689
+.LBB2_693:
+	xor	edi, edi
+.LBB2_694:
+	test	r9b, 1
+	je	.LBB2_696
+# %bb.695:
 	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
 	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
 	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
@@ -12453,10 +18983,992 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
-.LBB2_732:
+.LBB2_696:
 	cmp	rsi, r10
-	jne	.LBB2_733
-.LBB2_737:
+	je	.LBB2_1109
+	jmp	.LBB2_697
+.LBB2_701:
+	xor	edi, edi
+.LBB2_702:
+	test	r9b, 1
+	je	.LBB2_704
+# %bb.703:
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB2_704:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_705
+.LBB2_709:
+	xor	edi, edi
+.LBB2_710:
+	test	r9b, 1
+	je	.LBB2_712
+# %bb.711:
+	vmulpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vmulpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmulpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vmulpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB2_712:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_713
+.LBB2_717:
+	xor	edi, edi
+.LBB2_718:
+	test	r9b, 1
+	je	.LBB2_720
+# %bb.719:
+	vmulpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vmulpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmulpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vmulpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB2_720:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_721
+.LBB2_725:
+	xor	edi, edi
+.LBB2_726:
+	test	r9b, 1
+	je	.LBB2_728
+# %bb.727:
+	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vaddpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB2_728:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_729
+.LBB2_733:
+	xor	edi, edi
+.LBB2_734:
+	test	r9b, 1
+	je	.LBB2_736
+# %bb.735:
+	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB2_736:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_737
+.LBB2_741:
+	xor	edi, edi
+.LBB2_742:
+	test	r9b, 1
+	je	.LBB2_744
+# %bb.743:
+	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vaddpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB2_744:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_745
+.LBB2_749:
+	xor	edi, edi
+.LBB2_750:
+	test	r9b, 1
+	je	.LBB2_752
+# %bb.751:
+	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+.LBB2_752:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_753
+.LBB2_757:
+	xor	edi, edi
+.LBB2_758:
+	test	r9b, 1
+	je	.LBB2_760
+# %bb.759:
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB2_760:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_761
+.LBB2_765:
+	xor	edi, edi
+.LBB2_766:
+	test	r9b, 1
+	je	.LBB2_768
+# %bb.767:
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB2_768:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_769
+.LBB2_773:
+	xor	edi, edi
+.LBB2_774:
+	test	r9b, 1
+	je	.LBB2_776
+# %bb.775:
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB2_776:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_777
+.LBB2_781:
+	xor	edi, edi
+.LBB2_782:
+	test	r9b, 1
+	je	.LBB2_784
+# %bb.783:
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB2_784:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_785
+.LBB2_789:
+	xor	edi, edi
+.LBB2_790:
+	test	r9b, 1
+	je	.LBB2_792
+# %bb.791:
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm1, ymm5, ymm1
+	vpsrlq	ymm6, ymm5, 32
+	vpmuludq	ymm6, ymm6, ymm0
+	vpaddq	ymm1, ymm1, ymm6
+	vpsllq	ymm1, ymm1, 32
+	vpmuludq	ymm0, ymm5, ymm0
+	vpaddq	ymm0, ymm0, ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_792:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_793
+.LBB2_797:
+	xor	edi, edi
+.LBB2_798:
+	test	r9b, 1
+	je	.LBB2_800
+# %bb.799:
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm1, ymm5, ymm1
+	vpsrlq	ymm6, ymm5, 32
+	vpmuludq	ymm6, ymm6, ymm0
+	vpaddq	ymm1, ymm1, ymm6
+	vpsllq	ymm1, ymm1, 32
+	vpmuludq	ymm0, ymm5, ymm0
+	vpaddq	ymm0, ymm0, ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_800:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_801
+.LBB2_805:
+	xor	edi, edi
+.LBB2_806:
+	test	r9b, 1
+	je	.LBB2_808
+# %bb.807:
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_808:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_809
+.LBB2_813:
+	xor	edi, edi
+.LBB2_814:
+	test	r9b, 1
+	je	.LBB2_816
+# %bb.815:
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_816:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_817
+.LBB2_821:
+	xor	edi, edi
+.LBB2_822:
+	test	r9b, 1
+	je	.LBB2_824
+# %bb.823:
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_824:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_825
+.LBB2_829:
+	xor	edi, edi
+.LBB2_830:
+	test	r9b, 1
+	je	.LBB2_832
+# %bb.831:
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_832:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_833
+.LBB2_837:
+	xor	edi, edi
+.LBB2_838:
+	test	r9b, 1
+	je	.LBB2_840
+# %bb.839:
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpmullw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_840:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_841
+.LBB2_845:
+	xor	edi, edi
+.LBB2_846:
+	test	r9b, 1
+	je	.LBB2_848
+# %bb.847:
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpmullw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_848:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_849
+.LBB2_853:
+	xor	edi, edi
+.LBB2_854:
+	test	r9b, 1
+	je	.LBB2_856
+# %bb.855:
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpmullw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_856:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_857
+.LBB2_861:
+	xor	edi, edi
+.LBB2_862:
+	test	r9b, 1
+	je	.LBB2_864
+# %bb.863:
+	vpmullw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpmullw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_864:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_865
+.LBB2_869:
+	xor	edi, edi
+.LBB2_870:
+	test	r9b, 1
+	je	.LBB2_872
+# %bb.871:
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_872:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_873
+.LBB2_877:
+	xor	edi, edi
+.LBB2_878:
+	test	r9b, 1
+	je	.LBB2_880
+# %bb.879:
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_880:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_881
+.LBB2_885:
+	xor	edi, edi
+.LBB2_886:
+	test	r9b, 1
+	je	.LBB2_888
+# %bb.887:
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_888:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_889
+.LBB2_893:
+	xor	edi, edi
+.LBB2_894:
+	test	r9b, 1
+	je	.LBB2_896
+# %bb.895:
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_896:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_897
+.LBB2_901:
+	xor	edi, edi
+.LBB2_902:
+	test	r9b, 1
+	je	.LBB2_904
+# %bb.903:
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_904:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_905
+.LBB2_909:
+	xor	edi, edi
+.LBB2_910:
+	test	r9b, 1
+	je	.LBB2_912
+# %bb.911:
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_912:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_913
+.LBB2_917:
+	xor	edi, edi
+.LBB2_918:
+	test	r9b, 1
+	je	.LBB2_920
+# %bb.919:
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_920:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_921
+.LBB2_925:
+	xor	edi, edi
+.LBB2_926:
+	test	r9b, 1
+	je	.LBB2_928
+# %bb.927:
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
+.LBB2_928:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_929
+.LBB2_933:
+	xor	edi, edi
+.LBB2_934:
+	test	r9b, 1
+	je	.LBB2_936
+# %bb.935:
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm1, ymm5, ymm1
+	vpsrlq	ymm6, ymm5, 32
+	vpmuludq	ymm6, ymm6, ymm0
+	vpaddq	ymm1, ymm1, ymm6
+	vpsllq	ymm1, ymm1, 32
+	vpmuludq	ymm0, ymm5, ymm0
+	vpaddq	ymm0, ymm0, ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_936:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_937
+.LBB2_941:
+	xor	edi, edi
+.LBB2_942:
+	test	r9b, 1
+	je	.LBB2_944
+# %bb.943:
+	vmulps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vmulps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmulps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vmulps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB2_944:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_945
+.LBB2_949:
+	xor	edi, edi
+.LBB2_950:
+	test	r9b, 1
+	je	.LBB2_952
+# %bb.951:
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm4, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm5, ymmword ptr [rcx + 8*rdi + 96]
+	vpmuludq	ymm6, ymm2, ymm1
+	vpsrlq	ymm7, ymm2, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm2, ymm2, ymm0
+	vpaddq	ymm2, ymm2, ymm6
+	vpmuludq	ymm6, ymm3, ymm1
+	vpsrlq	ymm7, ymm3, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm3, ymm3, ymm0
+	vpaddq	ymm3, ymm3, ymm6
+	vpmuludq	ymm6, ymm4, ymm1
+	vpsrlq	ymm7, ymm4, 32
+	vpmuludq	ymm7, ymm7, ymm0
+	vpaddq	ymm6, ymm6, ymm7
+	vpsllq	ymm6, ymm6, 32
+	vpmuludq	ymm4, ymm4, ymm0
+	vpaddq	ymm4, ymm4, ymm6
+	vpmuludq	ymm1, ymm5, ymm1
+	vpsrlq	ymm6, ymm5, 32
+	vpmuludq	ymm6, ymm6, ymm0
+	vpaddq	ymm1, ymm1, ymm6
+	vpsllq	ymm1, ymm1, 32
+	vpmuludq	ymm0, ymm5, ymm0
+	vpaddq	ymm0, ymm0, ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_952:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_953
+.LBB2_957:
+	xor	edi, edi
+.LBB2_958:
+	test	r9b, 1
+	je	.LBB2_960
+# %bb.959:
+	vmulps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vmulps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmulps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vmulps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB2_960:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_961
+.LBB2_965:
+	xor	edi, edi
+.LBB2_966:
+	test	r9b, 1
+	je	.LBB2_968
+# %bb.967:
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_968:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_969
+.LBB2_973:
+	xor	edi, edi
+.LBB2_974:
+	test	r9b, 1
+	je	.LBB2_976
+# %bb.975:
+	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vaddps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB2_976:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_977
+.LBB2_981:
+	xor	edi, edi
+.LBB2_982:
+	test	r9b, 1
+	je	.LBB2_984
+# %bb.983:
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_984:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_985
+.LBB2_989:
+	xor	edi, edi
+.LBB2_990:
+	test	r9b, 1
+	je	.LBB2_992
+# %bb.991:
+	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB2_992:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_993
+.LBB2_997:
+	xor	edi, edi
+.LBB2_998:
+	test	r9b, 1
+	je	.LBB2_1000
+# %bb.999:
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_1000:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1001
+.LBB2_1005:
+	xor	edi, edi
+.LBB2_1006:
+	test	r9b, 1
+	je	.LBB2_1008
+# %bb.1007:
+	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vaddps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB2_1008:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_1009
+.LBB2_1013:
+	xor	edi, edi
+.LBB2_1014:
+	test	r9b, 1
+	je	.LBB2_1016
+# %bb.1015:
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm0
+.LBB2_1016:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1017
+.LBB2_1021:
+	xor	edi, edi
+.LBB2_1022:
+	test	r9b, 1
+	je	.LBB2_1024
+# %bb.1023:
+	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+.LBB2_1024:
+	cmp	rdx, rax
+	je	.LBB2_1109
+	jmp	.LBB2_1025
+.LBB2_1029:
+	xor	edi, edi
+.LBB2_1030:
+	test	r9b, 1
+	je	.LBB2_1032
+# %bb.1031:
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB2_1032:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1033
+.LBB2_1037:
+	xor	edi, edi
+.LBB2_1038:
+	test	r9b, 1
+	je	.LBB2_1040
+# %bb.1039:
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB2_1040:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1041
+.LBB2_1045:
+	xor	edi, edi
+.LBB2_1046:
+	test	r9b, 1
+	je	.LBB2_1048
+# %bb.1047:
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB2_1048:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1049
+.LBB2_1053:
+	xor	edi, edi
+.LBB2_1054:
+	test	r9b, 1
+	je	.LBB2_1056
+# %bb.1055:
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vmovdqu	ymmword ptr [r8 + rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm0
+.LBB2_1056:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1057
+.LBB2_1061:
+	xor	edi, edi
+.LBB2_1062:
+	test	r9b, 1
+	je	.LBB2_1064
+# %bb.1063:
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpmulld	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB2_1064:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1065
+.LBB2_1069:
+	xor	edi, edi
+.LBB2_1070:
+	test	r9b, 1
+	je	.LBB2_1072
+# %bb.1071:
+	vpmulld	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpmulld	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpmulld	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpmulld	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB2_1072:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1073
+.LBB2_1077:
+	xor	edi, edi
+.LBB2_1078:
+	test	r9b, 1
+	je	.LBB2_1080
+# %bb.1079:
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB2_1080:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1081
+.LBB2_1085:
+	xor	edi, edi
+.LBB2_1086:
+	test	r9b, 1
+	je	.LBB2_1088
+# %bb.1087:
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB2_1088:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1089
+.LBB2_1093:
+	xor	edi, edi
+.LBB2_1094:
+	test	r9b, 1
+	je	.LBB2_1096
+# %bb.1095:
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB2_1096:
+	cmp	rsi, r10
+	je	.LBB2_1109
+	jmp	.LBB2_1097
+.LBB2_1101:
+	xor	edi, edi
+.LBB2_1102:
+	test	r9b, 1
+	je	.LBB2_1104
+# %bb.1103:
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
+	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm0
+.LBB2_1104:
+	cmp	rsi, r10
+	jne	.LBB2_1105
+.LBB2_1109:
 	mov	rsp, rbp
 	pop	rbp
 	vzeroupper
