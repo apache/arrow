@@ -174,7 +174,8 @@ cdef class S3FileSystem(FileSystem):
         The frequency (in seconds) with which temporary credentials from an
         assumed role session will be refreshed.
     region : str, default 'us-east-1'
-        AWS region to connect to.
+        AWS region to connect to. Use :func:`pyarrow.fs.resolve_s3_region` to
+        automatically resolve the region from a bucket name.
     request_timeout : double, default None
         Socket read timeouts on Windows and macOS, in seconds.
         If omitted, the AWS SDK default value is used (typically 3 seconds).

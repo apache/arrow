@@ -178,10 +178,18 @@ Example how you can read contents from a S3 bucket::
    >>> f.readall()
    b'some data'
 
+   # Note, to resolve the S3 bucket, one can use `resolve_s3_region('my-test-bucket')`
+   >>> s3 = fs.S3FileSystem(region=resolve_s3_region('my-test-bucket'))
+
+   # Or alternatively...
+   >>> s3 = fs.S3FileSystem.from_uri('s3://[access_key:secret_key@]bucket/path[?region=]')
+
 .. seealso::
 
    See the `AWS docs <https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html>`__
    for the different ways to configure the AWS credentials.
+
+   :func:`pyarrow.fs.resolve_s3_region` for resolving region from a bucket name.
 
 
 .. _filesystem-gcs:
