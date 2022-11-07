@@ -60,8 +60,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.8'
-      - name: Install pygit2 binary wheel
-        run: pip install pygit2 --only-binary pygit2
       - name: Install Archery, Crossbow- and Test Dependencies
         run: pip install pytest responses -e dev/archery[all]
       - name: Archery Unittests
