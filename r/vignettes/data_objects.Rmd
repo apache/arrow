@@ -24,13 +24,7 @@ The `arrow` package supplies several object classes that are used to represent d
 | 2   | `Table`        | `Table$create(...)`                           | `arrow_table(...)`                            |
 | 2   | `Dataset`      | `Dataset$create(sources, schema)`             | `open_dataset(sources, schema)`               |
   
-Later in the article we'll look at each of these in more detail.
-
-For now we note that each of these object classes corresponds to a class of the same name in the underlying Arrow C++ library. It is also worth mentioning that the `arrow` package also defines classes that do not exist in the C++ library including:
-
-* `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
-* `ArrowTabular`: inherited by `RecordBatch` and `Table`
-* `ArrowObject`: inherited by all Arrow objects
+Later in the article we'll look at each of these in more detail. For now we note that each of these object classes corresponds to a class of the same name in the underlying Arrow C++ library. 
 
 In addition to these data objects, `arrow` defines the following classes for representing metadata:
 
@@ -38,7 +32,7 @@ In addition to these data objects, `arrow` defines the following classes for rep
 - A `Field` specifies a character string name and a `DataType`; and
 - A `DataType` is an attribute controlling how values are represented
 
-To learn more about the metadata classes, see the [metadata article](./metadata.html).
+Metadata objects play an important role in making sure data are represented correctly. To learn more about the metadata classes, see the [metadata article](./metadata.html).
 
 ## Scalars
 

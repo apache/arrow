@@ -20,6 +20,16 @@ Some of these classes are not meant to be instantiated directly; they may be bas
 
 The typical user of the `arrow` R package may never deal directly with the `R6` objects. We provide more R-friendly wrapper functions as a higher-level interface to the C++ library. An R user can call `read_parquet()` without knowing or caring that they're instantiating a `ParquetFileReader` object and calling the `$ReadFile()` method on it. The classes are there and available to the advanced programmer who wants fine-grained control over how the C++ library is used.
 
+<!-- 
+[Temporarily hiding this in a comment until I have a plan]
+
+It is also worth mentioning that the `arrow` package also defines classes that do not exist in the C++ library including:
+
+* `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
+* `ArrowTabular`: inherited by `RecordBatch` and `Table`
+* `ArrowObject`: inherited by all Arrow objects
+-->
+
 
 ## Approach to implementing functionality
 
