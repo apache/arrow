@@ -116,6 +116,7 @@ x-hierarchy:
         - conda-python-java-integration
         - conda-python-jpype
         - conda-python-spark
+        - conda-python-substrait
   - conda-verify-rc
   - conan
   - debian-cpp:
