@@ -1067,10 +1067,30 @@ struct FieldPathGetImpl {
     }
 
     int depth = 0;
-    const T* out;
+    const T* out = nullptr;
     for (int index : path->indices()) {
       if (children == nullptr) {
         return Status::NotImplemented("Get child data of non-struct array");
+      }
+
+      if constexpr (std::is_same_v<T, std::shared_ptr<arrow::Field>>) {
+        // For lists, we don't care about the index, jump right into the list value type.
+        // The index here is used in the kernel to grab the specific list element.
+        // Children then are fields from list type, and out will be the children from
+        // that field, thus index 0.
+        if (out != nullptr && (*out)->type()->id() == Type::LIST) {
+          children = get_children(*out);
+          index = 0;
+        } else if (out == nullptr && children->size() == 1 && index >= 0) {
+          // WIP: Perhaps a dangerous assumption?
+          // For list types when previous was not a FieldPath, but
+          // a string name referencing a list type. Then the first iteration
+          // with index (referencing the list item), might look like it's
+          // out of bounds when actually we don't care about this index for
+          // type checking, only the kernel does; we need the list value type
+          // which is now the only child in the children vector.
+          index = 0;
+        }
       }
 
       if (index < 0 || static_cast<size_t>(index) >= children->size()) {
@@ -1082,7 +1102,6 @@ struct FieldPathGetImpl {
       children = get_children(*out);
       ++depth;
     }
-
     return *out;
   }
 

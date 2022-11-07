@@ -2721,6 +2721,22 @@ def test_struct_fields_options():
     # assert pc.struct_field(arr) == arr
 
 
+@pytest.mark.parametrize("path,expected", (
+    ([0, 0, 0], [1]),
+    ('.a[0].b', [1]),
+    ([0, 0, 1], [None]),
+    ('.a[0].c', [None]),
+    ([0, 1, 0], [None]),
+    ('.a[1].b', [None]),
+    ([0, 1, 1], ["hi"]),
+    ('.a[1].c', ["hi"])
+))
+def test_struct_field_list_path(path, expected):
+    arr = pa.array([{'a': [{'b': 1}, {'c': 'hi'}]}])
+    out = pc.struct_field(arr, path)
+    assert out == pa.array(expected).cast(out.type)
+
+
 def test_case_when():
     assert pc.case_when(pc.make_struct([True, False, None],
                                        [False, True, None]),

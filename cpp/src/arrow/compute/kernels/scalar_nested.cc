@@ -447,6 +447,14 @@ struct StructFieldFunctor {
                                 union_array.GetFlattenedField(index, ctx->memory_pool()));
           break;
         }
+        case Type::LIST: {
+          const auto& list_array = checked_cast<const ListArray&>(*current);
+          Datum idx(index);
+          ARROW_ASSIGN_OR_RAISE(Datum result,
+                                CallFunction("list_element", {list_array, idx}));
+          current = result.make_array();
+          break;
+        }
         default:
           // Should have been checked in ResolveStructFieldType
           return Status::TypeError("struct_field: cannot reference child field of type ",
@@ -460,7 +468,7 @@ struct StructFieldFunctor {
   static Status CheckIndex(int index, const DataType& type) {
     if (!ValidParentType(type)) {
       return Status::TypeError("struct_field: cannot subscript field of type ", type);
-    } else if (index < 0 || index >= type.num_fields()) {
+    } else if (type.id() != Type::LIST && (index < 0 || index >= type.num_fields())) {
       return Status::Invalid("struct_field: out-of-bounds field reference to field ",
                              index, " in type ", type, " with ", type.num_fields(),
                              " fields");
@@ -470,7 +478,7 @@ struct StructFieldFunctor {
 
   static bool ValidParentType(const DataType& type) {
     return type.id() == Type::STRUCT || type.id() == Type::DENSE_UNION ||
-           type.id() == Type::SPARSE_UNION;
+           type.id() == Type::SPARSE_UNION || type.id() == Type::LIST;
   }
 };
 
@@ -487,8 +495,13 @@ Result<TypeHolder> ResolveStructFieldType(KernelContext* ctx,
   }
 
   for (const auto& index : field_path.indices()) {
-    RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
-    type = type->field(index)->type().get();
+    if (type->id() == Type::LIST) {
+      auto list_type = checked_cast<const ListType*>(type);
+      type = list_type->value_type().get();
+    } else {
+      RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
+      type = type->field(index)->type().get();
+    }
   }
   return type;
 }
