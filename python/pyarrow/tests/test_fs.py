@@ -1316,6 +1316,22 @@ def test_s3_proxy_options(monkeypatch):
                                     'port': 8999})
 
 
+def test_s3fs_wrong_region():
+    from pyarrow.fs import S3FileSystem
+
+    # wrong region for bucket
+    fs = S3FileSystem(region='eu-north-1')
+
+    msg = ("When getting information for bucket 'voltrondata-labs-datasets': "
+           "Looks like the configured region is 'eu-north-1' while the "
+           "bucket is located in 'us-east-2': *")
+    with pytest.raises(OSError, match=msg):
+        fs.get_file_info("voltrondata-labs-datasets")
+
+    fs = S3FileSystem(region='us-east-2')
+    fs.get_file_info("voltrondata-labs-datasets")
+
+
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_connection):
     from pyarrow.fs import HadoopFileSystem
