@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
+#include <regex>
 #include <string_view>
 
 #include "arrow/array.h"
@@ -38,41 +39,27 @@ namespace internal {
 
 namespace {
 
-// Same as Regex '([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$'.
-// GCC 4.9 doesn't support regex, so handcode until support for it
-// is dropped.
 bool MatchFixedOffset(const std::string& tz, std::string_view* sign,
                       std::string_view* hour, std::string_view* minute) {
+  static const std::regex regex("^([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$");
   if (tz.size() < 5) {
     return false;
   }
-  const char* iter = tz.data();
-  if (*iter == '+' || *iter == '-') {
-    *sign = std::string_view(iter, 1);
-    iter++;
-    if (tz.size() < 6) {
-      return false;
-    }
-  }
-  if ((((*iter == '0' || *iter == '1') && *(iter + 1) >= '0' && *(iter + 1) <= '9') ||
-       (*iter == '2' && *(iter + 1) >= '0' && *(iter + 1) <= '3'))) {
-    *hour = std::string_view(iter, 2);
-    iter += 2;
-  } else {
+  std::smatch match;
+  if (!std::regex_match(tz, match, regex)) {
     return false;
   }
-  if (*iter != ':') {
-    return false;
-  }
-  iter++;
+  DCHECK_EQ(match.size(), 4);  // match #0 is the whole matched sequence
 
-  if (*iter >= '0' && *iter <= '5' && *(iter + 1) >= '0' && *(iter + 1) <= '9') {
-    *minute = std::string_view(iter, 2);
-    iter += 2;
-  } else {
-    return false;
-  }
-  return iter == (tz.data() + tz.size());
+  auto match_view = [&](int match_number) {
+    return std::string_view(&tz[match.position(match_number)],
+                            match.length(match_number));
+  };
+
+  *sign = match_view(1);
+  *hour = match_view(2);
+  *minute = match_view(3);
+  return true;
 }
 
 static PyTypeObject MonthDayNanoTupleType = {};
