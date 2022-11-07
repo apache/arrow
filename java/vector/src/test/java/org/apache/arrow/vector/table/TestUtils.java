@@ -27,6 +27,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
@@ -258,6 +259,7 @@ public class TestUtils {
     vectors.add(new TimeStampNanoVector("timeStampNano_vector", allocator));
 
     vectors.add(new DateMilliVector("dateMilli_vector", allocator));
+    vectors.add(new DateDayVector("dateDay_vector", allocator));
 
     vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
     return vectors;

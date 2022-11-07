@@ -30,6 +30,7 @@ import java.util.NoSuchElementException;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
@@ -760,6 +761,26 @@ public class Row implements Iterator<Row> {
    */
   public long getDateMilli(int columnIndex) {
     DateMilliVector vector = (DateMilliVector) table.getVector(columnIndex);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Returns an int from the column of the given name at the current row. An IllegalArgumentException
+   * is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * present but has a different type.
+   */
+  public int getDateDay(String columnName) {
+    DateDayVector vector = (DateDayVector) table.getVector(columnName);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Returns an int from the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type.
+   */
+  public int getDateDay(int columnIndex) {
+    DateDayVector vector = (DateDayVector) table.getVector(columnIndex);
     return vector.get(rowNumber);
   }
 

@@ -51,6 +51,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
+import org.apache.arrow.vector.holders.NullableDateDayHolder;
 import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
@@ -793,6 +794,34 @@ class MutableRowTest {
       holder.value = 5;
       c.setDateMilli(vectorPosition, holder);
       assertEquals(5, c.getDateMilli(vectorPosition));
+    }
+  }
+
+  @Test
+  void setDateDay() {
+    List<FieldVector> vectorList = simpleTemporalVectors(allocator, 2);
+    int vectorPosition = 9;
+    String vectorName = "dateDay_vector";
+
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      c.setDateDay(vectorName, 1);
+      assertEquals(1, c.getDateDay(vectorName));
+      c.setDateDay(vectorName, 2);
+      assertEquals(2, c.getDateDay(vectorName));
+      c.setDateDay(vectorPosition, 3);
+      assertEquals(3, c.getDateDay(vectorName));
+
+      // test with holder
+      NullableDateDayHolder holder = new NullableDateDayHolder();
+      holder.value = 4;
+      holder.isSet = 1;
+      c.setDateDay(vectorName, holder);
+      assertEquals(4, c.getDateDay(vectorName));
+      holder.value = 5;
+      c.setDateDay(vectorPosition, holder);
+      assertEquals(5, c.getDateDay(vectorPosition));
     }
   }
 

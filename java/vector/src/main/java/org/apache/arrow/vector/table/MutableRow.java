@@ -24,6 +24,7 @@ import java.util.Map;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
@@ -59,12 +60,21 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.holders.BigIntHolder;
+import org.apache.arrow.vector.holders.BitHolder;
+import org.apache.arrow.vector.holders.DateDayHolder;
+import org.apache.arrow.vector.holders.DateMilliHolder;
 import org.apache.arrow.vector.holders.DecimalHolder;
+import org.apache.arrow.vector.holders.DurationHolder;
+import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.Float4Holder;
 import org.apache.arrow.vector.holders.Float8Holder;
 import org.apache.arrow.vector.holders.IntHolder;
+import org.apache.arrow.vector.holders.IntervalDayHolder;
+import org.apache.arrow.vector.holders.IntervalMonthDayNanoHolder;
+import org.apache.arrow.vector.holders.IntervalYearHolder;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
+import org.apache.arrow.vector.holders.NullableDateDayHolder;
 import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
@@ -94,12 +104,25 @@ import org.apache.arrow.vector.holders.NullableUInt2Holder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
 import org.apache.arrow.vector.holders.SmallIntHolder;
+import org.apache.arrow.vector.holders.TimeMicroHolder;
+import org.apache.arrow.vector.holders.TimeMilliHolder;
+import org.apache.arrow.vector.holders.TimeNanoHolder;
+import org.apache.arrow.vector.holders.TimeSecHolder;
+import org.apache.arrow.vector.holders.TimeStampMicroHolder;
+import org.apache.arrow.vector.holders.TimeStampMicroTZHolder;
+import org.apache.arrow.vector.holders.TimeStampMilliHolder;
+import org.apache.arrow.vector.holders.TimeStampMilliTZHolder;
+import org.apache.arrow.vector.holders.TimeStampNanoHolder;
+import org.apache.arrow.vector.holders.TimeStampNanoTZHolder;
+import org.apache.arrow.vector.holders.TimeStampSecHolder;
+import org.apache.arrow.vector.holders.TimeStampSecTZHolder;
 import org.apache.arrow.vector.holders.TinyIntHolder;
 import org.apache.arrow.vector.holders.UInt1Holder;
 import org.apache.arrow.vector.holders.UInt2Holder;
 import org.apache.arrow.vector.holders.UInt4Holder;
 import org.apache.arrow.vector.holders.UInt8Holder;
 import org.apache.arrow.vector.holders.ValueHolder;
+import org.apache.arrow.vector.holders.VarBinaryHolder;
 import org.apache.arrow.vector.holders.VarCharHolder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
@@ -1718,6 +1741,62 @@ public class MutableRow extends Row {
    *
    * @return this MutableRow for method chaining
    */
+  public MutableRow setDateDay(int columnIndex, int value) {
+    DateDayVector v = (DateDayVector) table.getVector(columnIndex);
+    v.setSafe(getRowNumber(), value);
+    return this;
+  }
+
+  /**
+   * Sets the value of the column with the given name at this MutableRow to the given value. An
+   * IllegalStateException is thrown if the column is not present in the MutableRow and an
+   * IllegalArgumentException is thrown if it has a different type to that named in the method
+   * signature
+   *
+   * @return this MutableRow for chaining operations
+   */
+  public MutableRow setDateDay(String columnName, int value) {
+    DateDayVector v = (DateDayVector) table.getVector(columnName);
+    v.setSafe(getRowNumber(), value);
+    return this;
+  }
+
+  /**
+   * Sets the value of the column at the given index and this MutableRow to the given value. An
+   * IllegalStateException is thrown if the column is not present in the MutableRow and an
+   * IllegalArgumentException is thrown if it has a different type to that named in the method
+   * signature
+   *
+   * @return this MutableRow for method chaining
+   */
+  public MutableRow setDateDay(int columnIndex, NullableDateDayHolder value) {
+    DateDayVector v = (DateDayVector) table.getVector(columnIndex);
+    v.setSafe(getRowNumber(), value);
+    return this;
+  }
+
+  /**
+   * Sets the value of the column with the given name at this MutableRow to the given value. An
+   * IllegalStateException is thrown if the column is not present in the MutableRow and an
+   * IllegalArgumentException is thrown if it has a different type to that named in the method
+   * signature
+   *
+   * @return this MutableRow for chaining operations
+   */
+  public MutableRow setDateDay(String columnName, NullableDateDayHolder value) {
+    DateDayVector v = (DateDayVector) table.getVector(columnName);
+    v.setSafe(getRowNumber(), value);
+    return this;
+  }
+
+  /**
+   * Sets the value of the column at the given index and this MutableRow to the given value. An
+   * IllegalStateException is thrown if the column is not present in the MutableRow and an
+   * IllegalArgumentException is thrown if it has a different type to that named in the method
+   * signature
+   *
+   * @return this MutableRow for method chaining
+   */
   public MutableRow setDateMilli(int columnIndex, long value) {
     DateMilliVector v = (DateMilliVector) table.getVector(columnIndex);
     v.setSafe(getRowNumber(), value);
@@ -1897,6 +1976,29 @@ public class MutableRow extends Row {
       deleteCurrentRow();
       int newRow = copyRow(getRowNumber());
       v.set(newRow, value.getBytes(getDefaultCharacterSet()));
+    }
+    return this;
+  }
+
+  /**
+   * Sets the value of the column at the given index and this MutableRow to the given value. An
+   * IllegalStateException is thrown if the column is not present in the MutableRow and an
+   * IllegalArgumentException is thrown if it has a different type to that named in the method
+   * signature
+   *
+   * @return this MutableRow for method chaining
+   */
+  public MutableRow setVarBinary(int columnIndex, byte[] value) {
+    VarCharVector v = (VarCharVector) table.getVector(columnIndex);
+    Dictionary dictionary = dictionary(v);
+    if (dictionary != null) {
+      v.set(getRowNumber(), value);
+      // TODO: Finish dictionary implementation
+    } else {
+      // There is no dictionary encoding here, so copy the row and mark the current row for deletion
+      deleteCurrentRow();
+      int newRow = copyRow(getRowNumber());
+      v.set(newRow, value);
     }
     return this;
   }
@@ -2277,14 +2379,74 @@ public class MutableRow extends Row {
       case DECIMAL:
         ((DecimalVector) fv).setSafe(getRowNumber(), (DecimalHolder) holder);
         return this;
-
-      // TODO: Add remaining fixed-width types
-
+      case FIXEDSIZEBINARY:
+        ((FixedSizeBinaryVector) fv).setSafe(getRowNumber(), (FixedSizeBinaryHolder) holder);
+        return this;
+      case TIMESEC:
+        ((TimeSecVector) fv).setSafe(getRowNumber(), (TimeSecHolder) holder);
+        return this;
+      case TIMEMILLI:
+        ((TimeMilliVector) fv).setSafe(getRowNumber(), (TimeMilliHolder) holder);
+        return this;
+      case TIMEMICRO:
+        ((TimeMicroVector) fv).setSafe(getRowNumber(), (TimeMicroHolder) holder);
+        return this;
+      case TIMENANO:
+        ((TimeNanoVector) fv).setSafe(getRowNumber(), (TimeNanoHolder) holder);
+        return this;
+      case TIMESTAMPSEC:
+        ((TimeStampSecVector) fv).setSafe(getRowNumber(), (TimeStampSecHolder) holder);
+        return this;
+      case TIMESTAMPMILLI:
+        ((TimeStampMilliVector) fv).setSafe(getRowNumber(), (TimeStampMilliHolder) holder);
+        return this;
+      case TIMESTAMPMICRO:
+        ((TimeStampMicroVector) fv).setSafe(getRowNumber(), (TimeStampMicroHolder) holder);
+        return this;
+      case TIMESTAMPNANO:
+        ((TimeStampNanoVector) fv).setSafe(getRowNumber(), (TimeStampNanoHolder) holder);
+        return this;
+      case TIMESTAMPSECTZ:
+        ((TimeStampSecTZVector) fv).setSafe(getRowNumber(), (TimeStampSecTZHolder) holder);
+        return this;
+      case TIMESTAMPMILLITZ:
+        ((TimeStampMilliTZVector) fv).setSafe(getRowNumber(), (TimeStampMilliTZHolder) holder);
+        return this;
+      case TIMESTAMPMICROTZ:
+        ((TimeStampMicroTZVector) fv).setSafe(getRowNumber(), (TimeStampMicroTZHolder) holder);
+        return this;
+      case TIMESTAMPNANOTZ:
+        ((TimeStampNanoTZVector) fv).setSafe(getRowNumber(), (TimeStampNanoTZHolder) holder);
+        return this;
+      case INTERVALDAY:
+        ((IntervalDayVector) fv).setSafe(getRowNumber(), (IntervalDayHolder) holder);
+        return this;
+      case INTERVALYEAR:
+        ((IntervalYearVector) fv).setSafe(getRowNumber(), (IntervalYearHolder) holder);
+        return this;
+      case INTERVALMONTHDAYNANO:
+        ((IntervalMonthDayNanoVector) fv).setSafe(getRowNumber(), (IntervalMonthDayNanoHolder) holder);
+        return this;
+      case DURATION:
+        ((DurationVector) fv).setSafe(getRowNumber(), (DurationHolder) holder);
+        return this;
+      case DATEMILLI:
+        ((DateMilliVector) fv).setSafe(getRowNumber(), (DateMilliHolder) holder);
+        return this;
+      case DATEDAY:
+        ((DateDayVector) fv).setSafe(getRowNumber(), (DateDayHolder) holder);
+        return this;
+      case BIT:
+        ((BitVector) fv).setSafe(getRowNumber(), (BitHolder) holder);
+        return this;
       case VARCHAR:
         ((VarCharVector) fv).setSafe(getRowNumber(), (VarCharHolder) holder);
         return this;
+      case VARBINARY:
+        ((VarBinaryVector) fv).setSafe(getRowNumber(), (VarBinaryHolder) holder);
+        return this;
 
-      // TODO: Add remaining variable-width types
+      // TODO: Add complex types
 
       default:
         throw new UnsupportedOperationException(buildErrorMessage("setAll", type));
