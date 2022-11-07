@@ -28,7 +28,23 @@
 #  thrift::thrift, a library target to use Thrift
 #  thrift::compiler, a executable target to use Thrift compiler
 
+if(ThriftAlt_FOUND)
+  return()
+endif()
+
+set(find_package_args)
+if(ThriftAlt_FIND_VERSION)
+  list(APPEND find_package_args ${ThriftAlt_FIND_VERSION})
+endif()
+if(ThriftAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(Thrift ${find_package_args})
 if(Thrift_FOUND)
+  set(ThriftAlt_FOUND TRUE)
+  add_executable(thrift::compiler IMPORTED)
+  set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION
+                                                    "${THRIFT_COMPILER}")
   return()
 endif()
 
@@ -133,12 +149,12 @@ else()
 endif()
 
 find_package_handle_standard_args(
-  Thrift
+  ThriftAlt
   REQUIRED_VARS THRIFT_LIB THRIFT_INCLUDE_DIR
   VERSION_VAR Thrift_VERSION
   HANDLE_COMPONENTS)
 
-if(Thrift_FOUND)
+if(ThriftAlt_FOUND)
   if(ARROW_THRIFT_USE_SHARED)
     add_library(thrift::thrift SHARED IMPORTED)
   else()
