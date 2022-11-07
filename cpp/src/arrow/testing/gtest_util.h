@@ -378,6 +378,11 @@ std::vector<T> IteratorToVector(Iterator<T> iterator) {
 ARROW_TESTING_EXPORT
 bool LocaleExists(const char* locale);
 
+#ifndef _WIN32
+ARROW_TESTING_EXPORT
+void AssertChildExit(int child_pid, int expected_exit_status = 0);
+#endif
+
 // A RAII-style object that switches to a new locale, and switches back
 // to the old locale when going out of scope.  Doesn't do anything if the
 // new locale doesn't exist on the local machine.

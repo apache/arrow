@@ -17,14 +17,6 @@
 
 #pragma once
 
-#ifndef _WIN32
-#include <unistd.h>
-#endif
-
-#ifndef _WIN32
-#include <atomic>
-#endif
-
 #include <cstdint>
 #include <memory>
 #include <queue>
@@ -475,17 +467,12 @@ class ARROW_EXPORT ThreadPool : public Executor {
   void LaunchWorkersUnlocked(int threads);
   // Get the current actual capacity
   int GetActualCapacity();
-  // Reinitialize the thread pool if the pid changed
-  void ProtectAgainstFork();
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
   std::shared_ptr<State> sp_state_;
   State* state_;
   bool shutdown_on_destroy_;
-#ifndef _WIN32
-  std::atomic<pid_t> pid_;
-#endif
 };
 
 // Return the process-global thread pool for CPU-bound tasks.
