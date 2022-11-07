@@ -1019,6 +1019,9 @@ func (ds *DecimalBinaryArithmeticSuite) TestDivide() {
 		rightDivLeft, _ := scalar.ParseScalar(&arrow.Decimal128Type{Precision: 23, Scale: 4}, "0.5000")
 		checkScalarBinary(ds.T(), "divide_unchecked", compute.NewDatum(left), compute.NewDatum(right), compute.NewDatum(leftDivRight), nil)
 		checkScalarBinary(ds.T(), "divide_unchecked", compute.NewDatum(right), compute.NewDatum(left), compute.NewDatum(rightDivLeft), nil)
+	})
+}
+
 type DecimalUnaryArithmeticSuite struct {
 	DecimalArithmeticSuite
 }

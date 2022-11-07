@@ -280,7 +280,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 	for _, o := range oplist {
 		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
-		for _, k := range append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...) {
+		for _, k := range append(kernels.GetArithmeticBinaryKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...) {
 			if err := fn.AddKernel(k); err != nil {
 				panic(err)
 			}
