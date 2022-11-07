@@ -796,10 +796,13 @@ class MutableRowTest {
       holder.value = 4;
       holder.isSet = 1;
       c.setDateMilli(vectorName, holder);
-      assertEquals(4, c.getDateMilli(vectorName));
+      NullableDateMilliHolder holder1 = new NullableDateMilliHolder();
+      c.getDateMilli(vectorName, holder1);
+      assertEquals(4, holder1.value);
       holder.value = 5;
       c.setDateMilli(vectorPosition, holder);
-      assertEquals(5, c.getDateMilli(vectorPosition));
+      c.getDateMilli(vectorPosition, holder1);
+      assertEquals(5, holder1.value);
     }
   }
 
@@ -824,10 +827,13 @@ class MutableRowTest {
       holder.value = 4;
       holder.isSet = 1;
       c.setDateDay(vectorName, holder);
-      assertEquals(4, c.getDateDay(vectorName));
+      NullableDateDayHolder holder1 = new NullableDateDayHolder();
+      c.getDateDay(vectorName, holder1);
+      assertEquals(4, holder1.value);
       holder.value = 5;
       c.setDateDay(vectorPosition, holder);
-      assertEquals(5, c.getDateDay(vectorPosition));
+      c.getDateDay(vectorPosition, holder1);
+      assertEquals(5, holder1.value);
     }
   }
 

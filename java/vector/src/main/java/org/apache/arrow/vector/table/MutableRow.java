@@ -37,6 +37,7 @@ import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -72,6 +73,8 @@ import org.apache.arrow.vector.holders.IntHolder;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
 import org.apache.arrow.vector.holders.IntervalMonthDayNanoHolder;
 import org.apache.arrow.vector.holders.IntervalYearHolder;
+import org.apache.arrow.vector.holders.LargeVarBinaryHolder;
+import org.apache.arrow.vector.holders.LargeVarCharHolder;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableDateDayHolder;
@@ -130,9 +133,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 
 /**
  * MutableRow is a positionable, mutable cursor backed by a {@link MutableTable}.
- *
  * If a row in a table is marked as deleted, it is skipped when iterating.
- * TODO: Check for missing fixed-with type setters
  * TODO: Alternate setters(Object, (non-nullable) ValueHolder)
  */
 @SuppressWarnings("UnusedReturnValue")
@@ -2138,6 +2139,10 @@ public class MutableRow extends Row {
         long dateMilliValue = ((DateMilliVector) v).get(fromRow);
         ((DateMilliVector) v).setSafe(toRow, dateMilliValue);
         return;
+      case DATEDAY:
+        int dateDayValue = ((DateDayVector) v).get(fromRow);
+        ((DateDayVector) v).setSafe(toRow, dateDayValue);
+        return;
 
       case TIMESTAMPNANO:
         long tsNanoValue = ((TimeStampNanoVector) v).get(fromRow);
@@ -2327,7 +2332,7 @@ public class MutableRow extends Row {
       }
       Types.MinorType type = fv.getMinorType();
       try {
-        setValue(fv, holder, type);
+        setValue(fv, holder);
       } catch (ClassCastException cce) {
         throw new IllegalArgumentException(
             String.format("Column %s has type %s, which does not match the provided ValueHolder",
@@ -2339,12 +2344,14 @@ public class MutableRow extends Row {
 
   /**
    * Sets the value in holder in the given fieldVector.
+   * Note: Complex types do not support setting via value holders, so those are not supported here
    * @param fv      The fieldVector to update
    * @param holder  The valueHolder containing the new value
-   * @param type    The type of the field vector  // TODO: Can't we get this from the fv?
    * @return  This MutableRow for chaining
    */
-  private MutableRow setValue(FieldVector fv, ValueHolder holder, Types.MinorType type) {
+  private MutableRow setValue(FieldVector fv, ValueHolder holder) {
+    Types.MinorType type = fv.getMinorType();
+
     switch (type) {
       case TINYINT:
         ((TinyIntVector) fv).setSafe(getRowNumber(), (TinyIntHolder) holder);
@@ -2442,11 +2449,15 @@ public class MutableRow extends Row {
       case VARCHAR:
         ((VarCharVector) fv).setSafe(getRowNumber(), (VarCharHolder) holder);
         return this;
+      case LARGEVARCHAR:
+        ((LargeVarCharVector) fv).setSafe(getRowNumber(), (LargeVarCharHolder) holder);
+        return this;
       case VARBINARY:
         ((VarBinaryVector) fv).setSafe(getRowNumber(), (VarBinaryHolder) holder);
         return this;
-
-      // TODO: Add complex types
+      case LARGEVARBINARY:
+        ((LargeVarBinaryVector) fv).setSafe(getRowNumber(), (LargeVarBinaryHolder) holder);
+        return this;
 
       default:
         throw new UnsupportedOperationException(buildErrorMessage("setAll", type));

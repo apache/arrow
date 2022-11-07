@@ -72,6 +72,8 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
+import org.apache.arrow.vector.holders.NullableDateDayHolder;
+import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
@@ -765,6 +767,26 @@ public class Row implements Iterator<Row> {
   }
 
   /**
+   * Updates the holder with the value in the column of the given name at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type
+   */
+  public void getDateMilli(String columnName, NullableDateMilliHolder holder) {
+    DateMilliVector vector = (DateMilliVector) table.getVector(columnName);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Updates the holder with the value in the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type
+   */
+  public void getDateMilli(int columnIndex, NullableDateMilliHolder holder) {
+    DateMilliVector vector = (DateMilliVector) table.getVector(columnIndex);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
    * Returns an int from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type.
@@ -782,6 +804,27 @@ public class Row implements Iterator<Row> {
   public int getDateDay(int columnIndex) {
     DateDayVector vector = (DateDayVector) table.getVector(columnIndex);
     return vector.get(rowNumber);
+  }
+
+
+  /**
+   * Updates the holder with the value in the column of the given name at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type
+   */
+  public void getDateDay(String columnName, NullableDateDayHolder holder) {
+    DateDayVector vector = (DateDayVector) table.getVector(columnName);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Updates the holder with the value in the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type
+   */
+  public void getDateDay(int columnIndex, NullableDateDayHolder holder) {
+    DateDayVector vector = (DateDayVector) table.getVector(columnIndex);
+    vector.get(rowNumber, holder);
   }
 
   /**
