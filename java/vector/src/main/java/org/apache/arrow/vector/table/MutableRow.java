@@ -2327,7 +2327,7 @@ public class MutableRow extends Row {
       }
       Types.MinorType type = fv.getMinorType();
       try {
-        return setValue(fv, holder, type);
+        setValue(fv, holder, type);
       } catch (ClassCastException cce) {
         throw new IllegalArgumentException(
             String.format("Column %s has type %s, which does not match the provided ValueHolder",

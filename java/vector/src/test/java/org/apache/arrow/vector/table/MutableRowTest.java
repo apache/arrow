@@ -22,6 +22,7 @@ import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.VARCHAR_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.bitVector;
 import static org.apache.arrow.vector.table.TestUtils.decimalVector;
+import static org.apache.arrow.vector.table.TestUtils.fixedWidthVectors;
 import static org.apache.arrow.vector.table.TestUtils.intPlusFixedBinaryColumns;
 import static org.apache.arrow.vector.table.TestUtils.intPlusVarcharColumns;
 import static org.apache.arrow.vector.table.TestUtils.intervalVectors;
@@ -40,7 +41,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Period;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -49,6 +52,8 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.holders.Float8Holder;
+import org.apache.arrow.vector.holders.IntHolder;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableDateDayHolder;
@@ -80,6 +85,7 @@ import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
+import org.apache.arrow.vector.holders.ValueHolder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
@@ -1051,6 +1057,27 @@ class MutableRowTest {
       assertEquals(2, values.size());
     }
   }
+
+
+  @Test
+  void setAll() {
+    List<FieldVector> vectorList = fixedWidthVectors(allocator, 2);
+    try (MutableTable t = new MutableTable(vectorList)) {
+      MutableRow c = t.mutableRow();
+      c.setPosition(1);
+      Map<String, ValueHolder> holderMap = new HashMap<>();
+      IntHolder intHolder = new IntHolder();
+      intHolder.value = 44;
+      Float8Holder doubleHolder = new Float8Holder();
+      doubleHolder.value = 44.44;
+      holderMap.put("int_vector", intHolder);
+      holderMap.put("float8_vector", doubleHolder);
+      c.setAll(holderMap);
+      assertEquals(44, c.getInt("int_vector"));
+      assertEquals(44.44, c.getFloat8("float8_vector"));
+    }
+  }
+
 
   @Test
   void setVarCharByColumnNameUsingDictionary() {
