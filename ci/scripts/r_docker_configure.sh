@@ -105,8 +105,8 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
   fi
 fi
 
-# Install rsync for bundling cpp source
-$PACKAGE_MANAGER install -y rsync
+# Install rsync for bundling cpp source and curl to make sure it is installed on all images
+$PACKAGE_MANAGER install -y rsync curl
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'

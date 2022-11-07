@@ -547,12 +547,12 @@ Column 1: b (INT32)
 --- Rows: 3 ---
 Column 0
   Values: 18  Statistics Not Set
-  Compression: SNAPPY, Encodings: RLE PLAIN_DICTIONARY
+  Compression: SNAPPY, Encodings: PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY
   Uncompressed Size: 103, Compressed Size: 104
 Column 1
   Values: 3, Null Values: 0, Distinct Values: 0
   Max: 1, Min: 1
-  Compression: SNAPPY, Encodings: BIT_PACKED PLAIN_DICTIONARY
+  Compression: SNAPPY, Encodings: PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY
   Uncompressed Size: 52, Compressed Size: 56
 )###";
   std::string values_output = R"###(--- Values ---
