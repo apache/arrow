@@ -26,9 +26,9 @@ from pyarrow.interchange.dataframe_protocol import (
 import pyarrow as pa
 
 
-def from_dataframe(df, allow_copy=True) -> pd.DataFrame:
+def from_dataframe(df, allow_copy=True) -> pa.Table:
     """
-    Build a ``pd.DataFrame`` from any DataFrame supporting the interchange
+    Build a ``pa.Table`` from any DataFrame supporting the interchange
     protocol.
 
     Parameters
@@ -41,7 +41,7 @@ def from_dataframe(df, allow_copy=True) -> pd.DataFrame:
         (if false then zero-copy approach is requested).
     Returns
     -------
-    pd.DataFrame
+    pa.Table
     """
     if isinstance(df, pa.Table):
         return df
@@ -54,7 +54,7 @@ def from_dataframe(df, allow_copy=True) -> pd.DataFrame:
 
 def _from_dataframe(df: DataFrameXchg, allow_copy=True):
     """
-    Build a ``pd.DataFrame`` from the DataFrame interchange object.
+    Build a ``pa.Table`` from the DataFrame interchange object.
     Parameters
     ----------
     df : DataFrameXchg
@@ -65,12 +65,12 @@ def _from_dataframe(df: DataFrameXchg, allow_copy=True):
         (if false then zero-copy approach is requested).
     Returns
     -------
-    pd.DataFrame
+    pa.Table
     """
     pass
 
 
-def protocol_df_chunk_to_pandas(df: DataFrameXchg) -> pd.DataFrame:
+def protocol_df_chunk_to_pyarrow(df: DataFrameXchg) -> pa.Table:
     """
     Convert interchange protocol chunk to ``pd.DataFrame``.
     Parameters
@@ -78,7 +78,7 @@ def protocol_df_chunk_to_pandas(df: DataFrameXchg) -> pd.DataFrame:
     df : DataFrameXchg
     Returns
     -------
-    pd.DataFrame
+    pa.Table
     """
     # We need a dict of columns here, with each column being a NumPy array
     # (at least for now, deal with non-NumPy dtypes later).
@@ -128,7 +128,7 @@ def primitive_column_to_ndarray(col: Column) -> tuple[np.ndarray, Any]:
     pass
 
 
-def categorical_column_to_series(col: Column) -> tuple[pd.Series, Any]:
+def categorical_column_to_dictionary(col: Column) -> tuple[pa.ChunkedArray, Any]:
     """
     Convert a column holding categorical data to a pandas Series.
     Parameters
@@ -137,7 +137,7 @@ def categorical_column_to_series(col: Column) -> tuple[pd.Series, Any]:
     Returns
     -------
     tuple
-        Tuple of pd.Series holding the data and the memory owner object
+        Tuple of pa.ChunkedArray holding the data and the memory owner object
         that keeps the memory alive.
     """
     pass
@@ -230,7 +230,7 @@ def bitmask_to_bool_ndarray(
 
 
 def set_nulls(
-    data: np.ndarray | pd.Series,
+    data: np.ndarray | pa.Array | pa.ChunkedArray,
     col: Column,
     validity: tuple[Buffer, tuple[DtypeKind, int, str, str]] | None,
     allow_modify_inplace: bool = True,
@@ -239,7 +239,7 @@ def set_nulls(
     Set null values for the data according to the column null kind.
     Parameters
     ----------
-    data : np.ndarray or pd.Series
+    data : np.ndarray, pa.Array or pa.ChunkedArray,
         Data to set nulls in.
     col : Column
         Column object that describes the `data`.
@@ -252,7 +252,7 @@ def set_nulls(
         (True) or always modify a copy of the `data` (False).
     Returns
     -------
-    np.ndarray or pd.Series
+    np.ndarray, pa.Array or pa.ChunkedArray,
         Data with the nulls being set.
     """
     pass
