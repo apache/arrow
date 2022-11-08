@@ -526,6 +526,7 @@ Compute Options
    FilterOptions
    IndexOptions
    JoinOptions
+   ListSliceOptions
    MakeStructOptions
    MapLookupOptions
    MatchSubstringOptions
