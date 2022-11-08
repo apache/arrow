@@ -2708,7 +2708,7 @@ def test_struct_fields_options():
     assert pc.struct_field(arr, (1, 1)) == b
     assert pc.struct_field(arr, [0]) == a
     assert pc.struct_field(arr, []) == arr
-    
+
     with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef*"):
         pc.struct_field(arr, 'foo')
 
