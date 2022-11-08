@@ -156,13 +156,11 @@ addition, the constructor will also inspect configured S3 credentials as
 supported by AWS (for example the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables).
 
+
 Example how you can read contents from a S3 bucket::
 
    >>> from pyarrow import fs
    >>> s3 = fs.S3FileSystem(region='eu-west-3')
-
-   # Or alternatively from a URI:
-   >>> s3, path = fs.S3FileSystem.from_uri('s3://[access_key:secret_key@]bucket/path]')
 
    # List all contents in a bucket, recursively
    >>> s3.get_file_info(fs.FileSelector('my-test-bucket', recursive=True))
@@ -180,6 +178,23 @@ Example how you can read contents from a S3 bucket::
    >>> f = s3.open_input_stream('my-test-bucket/Dir1/File2')
    >>> f.readall()
    b'some data'
+
+
+Note that it is important to configure :class:`S3FileSystem` with the correct
+region for the bucket being used. If `region` is not set, the AWS SDK will
+choose a value, defaulting to 'us-east-1' if the SDK version is <1.8.
+Otherwise it'll try to use a variety of heuristics to resolve the region.
+
+It is also possible to resolve the region for :class:`S3FileSystem` by using
+:func:`pyarrow.fs.resolve_s3_region` or :func:`pyarrow.fs.S3FileSystem.from_uri`.
+
+Here are a couple examples in code::
+
+   >>> from pyarrow import fs
+   >>> s3 = fs.S3FileSystem(region=fs.resolve_s3_region('my-test-bucket'))
+
+   # Or via URI:
+   >>> s3, path = fs.S3FileSystem.from_uri('s3://[access_key:secret_key@]bucket/path]')
 
 
 .. seealso::
