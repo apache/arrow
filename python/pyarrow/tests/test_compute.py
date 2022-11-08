@@ -2695,7 +2695,8 @@ def test_struct_fields_options():
     assert pc.struct_field(arr, '.c.b') == b
     assert pc.struct_field(arr, b'.c.b') == b
     assert pc.struct_field(arr, ['c', 'b']) == b
-    assert pc.struct_field(arr, [b'c', b'b']) == b
+    assert pc.struct_field(arr, [1, 'b']) == b
+    assert pc.struct_field(arr, (b'c', 'b')) == b
     assert pc.struct_field(arr, pc.field(('c', 'b'))) == b
 
     assert pc.struct_field(arr, '.a') == a
@@ -2704,10 +2705,10 @@ def test_struct_fields_options():
     assert pc.struct_field(arr, pc.field(('a',))) == a
 
     assert pc.struct_field(arr, indices=[1, 1]) == b
-    assert pc.struct_field(arr, [1, 1]) == b
+    assert pc.struct_field(arr, (1, 1)) == b
     assert pc.struct_field(arr, [0]) == a
     assert pc.struct_field(arr, []) == arr
-
+    
     with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef*"):
         pc.struct_field(arr, 'foo')
 

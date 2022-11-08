@@ -1326,18 +1326,16 @@ cdef class _StructFieldOptions(FunctionOptions):
             CFieldRef field_ref
             const CFieldRef* field_ref_ptr
 
-        # List[str]/List[bytes] converted to '.a.dotted.path'
-        if isinstance(indices, list) and len(indices):
-            if isinstance(indices[0], str):
-                indices = '.' + '.'.join(indices)
-            elif isinstance(indices[0], bytes):
-                indices = b'.' + b'.'.join(indices)
+        if isinstance(indices, (list, tuple)):
+            if len(indices):
+                indices = Expression._nested_field(tuple(indices))
+            else:
+                # Allow empty indices; effecitively return same array
+                self.wrapped.reset(
+                    new CStructFieldOptions(<vector[int]>indices))
+                return
 
-        # Convert to CFieldRef
-        if isinstance(indices, list):
-            self.wrapped.reset(new CStructFieldOptions(<vector[int]>indices))
-            return
-        elif isinstance(indices, Expression):
+        if isinstance(indices, Expression):
             field_ref_ptr = (<Expression>indices).unwrap().field_ref()
             if field_ref_ptr is NULL:
                 raise ValueError("Unable to get CFieldRef from Expression")
@@ -2435,7 +2433,10 @@ cdef class Expression(_Weakrefable):
             raise ValueError("nested field reference should be non-empty")
         nested.reserve(len(names))
         for name in names:
-            nested.push_back(CFieldRef(<c_string> tobytes(name)))
+            if isinstance(name, int):
+                nested.push_back(CFieldRef(<int>name))
+            else:
+                nested.push_back(CFieldRef(<c_string> tobytes(name)))
         return Expression.wrap(CMakeFieldExpression(CFieldRef(move(nested))))
 
     @staticmethod
