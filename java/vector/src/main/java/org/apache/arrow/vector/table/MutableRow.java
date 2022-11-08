@@ -1982,29 +1982,6 @@ public class MutableRow extends Row {
   }
 
   /**
-   * Sets the value of the column at the given index and this MutableRow to the given value. An
-   * IllegalStateException is thrown if the column is not present in the MutableRow and an
-   * IllegalArgumentException is thrown if it has a different type to that named in the method
-   * signature
-   *
-   * @return this MutableRow for method chaining
-   */
-  public MutableRow setVarBinary(int columnIndex, byte[] value) {
-    VarCharVector v = (VarCharVector) table.getVector(columnIndex);
-    Dictionary dictionary = dictionary(v);
-    if (dictionary != null) {
-      v.set(getRowNumber(), value);
-      // TODO: Finish dictionary implementation
-    } else {
-      // There is no dictionary encoding here, so copy the row and mark the current row for deletion
-      deleteCurrentRow();
-      int newRow = copyRow(getRowNumber());
-      v.set(newRow, value);
-    }
-    return this;
-  }
-
-  /**
    * Sets the value of the column with the given name at this MutableRow to the given value. An
    * IllegalStateException is thrown if the column is not present in the MutableRow and an
    * IllegalArgumentException is thrown if it has a different type to that named in the method
@@ -2203,7 +2180,7 @@ public class MutableRow extends Row {
         ((BitVector) v).setSafe(toRow, bitValue);
         return;
       case VARCHAR:
-        // TODO: Handle Dictionary Encoded case
+        // TODO: Handle Dictionary Encoded cases
         byte[] bytes = ((VarCharVector) v).get(fromRow);
         ((VarCharVector) v).set(toRow, bytes);
         return;
@@ -2275,24 +2252,6 @@ public class MutableRow extends Row {
     }
     ((MutableTable) table).clearDeletedRows();
     ((MutableTable) table).setRowCount(writePosition);
-  }
-
-  /**
-   * Returns the ValueHolder with the given name, or {@code null} if the name is not found. Names are case-sensitive.
-   *
-   * @param columnName   The name of the vector
-   * @return the Vector with the given name, or null
-   */
-  ValueHolder getHolder(String columnName) {
-    for (Map.Entry<Field, ValueHolder> entry: holderMap.entrySet()) {
-      if (entry.getKey().getName().equals(columnName)) {
-        return entry.getValue();
-      }
-    }
-    IntVector v = (IntVector) table.getVector(columnName);
-    IntHolder holder = new IntHolder();
-    holderMap.put(v.getField(), holder);
-    return holder;
   }
 
   /**
