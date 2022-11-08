@@ -128,8 +128,7 @@ TEST(TestScalarNested, StructField) {
   // Test using FieldRefs
   StructFieldOptions extract0_field_ref_path(FieldRef(FieldPath({0})));
   StructFieldOptions extract0_field_ref_name(FieldRef("a"));
-  ASSERT_OK_AND_ASSIGN(auto dotted_path_ref, FieldRef::FromDotPath(".c.d"));
-  StructFieldOptions extract20_field_ref_nest(dotted_path_ref);
+  StructFieldOptions extract20_field_ref_nest(FieldRef::FromDotPath(".c.d"));
 
   FieldVector fields = {field("a", int32()), field("b", utf8()),
                         field("c", struct_({
