@@ -170,9 +170,10 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
               out = compute::field_ref(FieldRef(*out_ref, index));
             } else if (out->call() && out->call()->function_name == "struct_field") {
               // Nested StructFields on top of an arbitrary expression
-              std::static_pointer_cast<arrow::compute::StructFieldOptions>(
-                  out->call()->options)
-                  ->indices.push_back(index);
+              auto* field_options =
+                  checked_cast<compute::StructFieldOptions*>(out->call()->options.get());
+              field_options->field_ref =
+                  FieldRef(std::move(field_options->field_ref), index);
             } else {
               // First StructField on top of an arbitrary expression
               out = compute::call("struct_field", {std::move(*out)},
@@ -1019,13 +1020,16 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
 
   if (call->function_name == "struct_field") {
     // catch the special case of calls convertible to a StructField
+    const auto& field_options =
+        checked_cast<const compute::StructFieldOptions&>(*call->options);
+    const DataType& struct_type = *call->arguments[0].type();
+    DCHECK_EQ(struct_type.id(), Type::STRUCT);
+
+    ARROW_ASSIGN_OR_RAISE(auto field_path, field_options.field_ref.FindOne(struct_type));
     out = std::move(arguments[0]);
-    for (int index :
-         checked_cast<const arrow::compute::StructFieldOptions&>(*call->options)
-             .indices) {
+    for (int index : field_path.indices()) {
       ARROW_ASSIGN_OR_RAISE(out, MakeStructFieldReference(std::move(out), index));
     }
-
     return std::move(out);
   }
 

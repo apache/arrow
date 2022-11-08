@@ -278,14 +278,10 @@ class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
  public:
   explicit StructFieldOptions(std::vector<int> indices);
   explicit StructFieldOptions(std::initializer_list<int>);
-  explicit StructFieldOptions(FieldRef field_ref,
-                              std::vector<int> indices = std::vector<int>());
+  explicit StructFieldOptions(FieldRef field_ref);
   StructFieldOptions();
   static constexpr char const kTypeName[] = "StructFieldOptions";
 
-  /// The child indices to extract. For instance, to get the 2nd child
-  /// of the 1st child of a struct or union, this would be {0, 1}.
-  std::vector<int> indices;
   /// The FieldRef specifying what to extract from struct or union.
   FieldRef field_ref;
 };
