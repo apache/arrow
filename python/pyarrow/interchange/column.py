@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import (
     Any,
     Dict,
@@ -75,7 +74,9 @@ class PyArrowColumn(Column):
           doesn't need its own version or ``__column__`` protocol.
     """
 
-    def __init__(self, column: pa.Array | pa.ChunkedArray, allow_copy: bool = True) -> None:
+    def __init__(
+        self, column: pa.Array | pa.ChunkedArray, allow_copy: bool = True
+    ) -> None:
         """
         Handles PyArrow Arrays and ChunkedArrays.
         """
@@ -131,7 +132,7 @@ class PyArrowColumn(Column):
         dtype = self._col.type
         try:
             bit_width = dtype.bit_width
-        except: # in case of a variable-length strings
+        except ValueError:  # in case of a variable-length strings
             bit_width = None
 
         if pa.types.is_timestamp(dtype):
@@ -145,18 +146,21 @@ class PyArrowColumn(Column):
         else:
             return self._dtype_from_arrowdtype(dtype, bit_width)
 
-
-    def _dtype_from_arrowdtype(self, dtype, bit_width) -> Tuple[DtypeKind, int, str, str]:
+    def _dtype_from_arrowdtype(
+        self, dtype, bit_width
+    ) -> Tuple[DtypeKind, int, str, str]:
         """
         See `self.dtype` for details.
         """
         # Note: 'c' (complex) not handled yet (not in array spec v1).
-        #       'b', 'B' (bytes), 'S', 'a', (old-style string) 'V' (void) not handled
-        #       datetime and timedelta both map to datetime (is timedelta handled?)
+        #       'b', 'B' (bytes), 'S', 'a', (old-style string) 'V' (void)
+        #       not handled datetime and timedelta both map to datetime
+        #       (is timedelta handled?)
 
         kind, f_string = _PYARROW_KINDS.get(dtype, (None, None))
         if kind is None:
-            raise ValueError(f"Data type {dtype} not supported by interchange protocol")
+            raise ValueError(
+                f"Data type {dtype} not supported by interchange protocol")
 
         return kind, bit_width, f_string, Endianness.NATIVE
 
@@ -181,11 +185,12 @@ class PyArrowColumn(Column):
         if isinstance(self._col, pa.ChunkedArray):
             arr = self._col.combine_chunks()
         else:
-            arr = self._col 
+            arr = self._col
 
         if not pa.types.is_dictionary(arr.type):
             raise TypeError(
-                "describe_categorical only works on a column with categorical dtype!"
+                "describe_categorical only works on a column with "
+                "categorical dtype!"
             )
 
         return {
@@ -240,9 +245,9 @@ class PyArrowColumn(Column):
             i = 0
             for start in range(0, chunk_size * n_chunks, chunk_size):
                 yield PyArrowColumn(
-                    array.slice(start,chunk_size), self._allow_copy
+                    array.slice(start, chunk_size), self._allow_copy
                 )
-                i +=1
+                i += 1
             # In case when the size of the chunk is such that the resulting
             # list is one less chunk then n_chunks -> append an empty chunk
             if i == n_chunks - 1:
@@ -254,7 +259,6 @@ class PyArrowColumn(Column):
             ]
         else:
             yield self
-            
 
     def get_buffers(self) -> ColumnBuffers:
         """
@@ -297,7 +301,8 @@ class PyArrowColumn(Column):
         self,
     ) -> Tuple[PyArrowBuffer, Any]:  # Any is for self.dtype tuple
         """
-        Return the buffer containing the data and the buffer's associated dtype.
+        Return the buffer containing the data and the buffer's
+        associated dtype.
         """
         if isinstance(self._col, pa.ChunkedArray):
             array = self._col.combine_chunks()
@@ -309,12 +314,12 @@ class PyArrowColumn(Column):
         elif n == 3:
             return PyArrowBuffer(array.buffers()[2]), self.dtype
 
-
     def _get_validity_buffer(self) -> Tuple[PyArrowBuffer, Any]:
         """
-        Return the buffer containing the mask values indicating missing data and
-        the buffer's associated dtype.
-        Raises NoBufferPresent if null representation is not a bit or byte mask.
+        Return the buffer containing the mask values indicating missing data
+        and the buffer's associated dtype.
+        Raises NoBufferPresent if null representation is not a bit or byte
+        mask.
         """
         # Define the dtype of the returned buffer
         dtype = (DtypeKind.BOOL, 8, "b", Endianness.NATIVE)

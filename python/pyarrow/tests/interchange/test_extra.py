@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import ctypes
-
 import pandas as pd
 import pyarrow as pa
 import pytest
@@ -26,6 +24,7 @@ from pyarrow.interchange.dataframe_protocol import (
     ColumnNullType,
     DtypeKind,
 )
+
 
 def test_datetime():
     df = pd.DataFrame({"A": [pd.Timestamp("2022-01-01"), pd.NaT]})
@@ -55,9 +54,8 @@ def test_array_to_pyarrowcolumn(test_data, kind):
     assert arr_column.dtype[0] == kind
     assert arr_column.num_chunks() == 1
     assert arr_column.null_count == 0
-    assert arr_column.get_buffers()["validity"] == None
+    assert arr_column.get_buffers()["validity"] is None
     assert len(list(arr_column.get_chunks())) == 1
-    
+
     for chunk in arr_column.get_chunks():
         assert chunk == arr_column
-

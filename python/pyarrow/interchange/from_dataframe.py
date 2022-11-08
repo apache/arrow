@@ -15,14 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.interchange.column import PyArrowColumn
+from typing import (
+    Any,
+)
+
 from pyarrow.interchange.dataframe_protocol import (
     Buffer,
     Column,
-    ColumnNullType,
     DataFrame as DataFrameXchg,
     DtypeKind,
 )
+
+import numpy as np
 import pyarrow as pa
 
 
@@ -99,7 +103,7 @@ def protocol_df_chunk_to_pyarrow(df: DataFrameXchg) -> pa.Table:
         ):
             columns[name], buf = primitive_column_to_ndarray(col)
         elif dtype == DtypeKind.CATEGORICAL:
-            columns[name], buf = categorical_column_to_series(col)
+            columns[name], buf = categorical_column_to_dictionary(col)
         elif dtype == DtypeKind.STRING:
             columns[name], buf = string_column_to_ndarray(col)
         elif dtype == DtypeKind.DATETIME:
@@ -128,7 +132,9 @@ def primitive_column_to_ndarray(col: Column) -> tuple[np.ndarray, Any]:
     pass
 
 
-def categorical_column_to_dictionary(col: Column) -> tuple[pa.ChunkedArray, Any]:
+def categorical_column_to_dictionary(
+    col: Column
+) -> tuple[pa.ChunkedArray, Any]:
     """
     Convert a column holding categorical data to a pandas Series.
     Parameters

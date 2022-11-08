@@ -18,12 +18,9 @@
 from __future__ import annotations
 from typing import (
     Any,
-    Dict,
     Iterable,
     Optional,
     Sequence,
-    Tuple,
-    TypedDict,
 )
 
 import pyarrow as pa
@@ -50,9 +47,10 @@ class TableXchg(DataFrameXchg):
         """
         self._df = df
         # ``nan_as_null`` is a keyword intended for the consumer to tell the
-        # producer to overwrite null values in the data with ``NaN`` (or ``NaT``).
-        # This currently has no effect; once support for nullable extension
-        # dtypes is added, this value should be propagated to columns.
+        # producer to overwrite null values in the data with ``NaN`` (or
+        # ``NaT``). This currently has no effect; once support for nullable
+        # extension dtypes is added, this value should be propagated to
+        # columns.
         self._nan_as_null = nan_as_null
         self._allow_copy = allow_copy
 
@@ -105,7 +103,9 @@ class TableXchg(DataFrameXchg):
             self._df.select(list(names)), self._nan_as_null, self._allow_copy
         )
 
-    def get_chunks(self, n_chunks: Optional[int] = None) -> Iterable[TableXchg]:
+    def get_chunks(
+        self, n_chunks: Optional[int] = None
+    ) -> Iterable[TableXchg]:
         """
         Return an iterator yielding the chunks.
         """
@@ -122,8 +122,8 @@ class TableXchg(DataFrameXchg):
             batches = self._df.to_batches()
 
         iterator_tables = [TableXchg(
-                pa.Table.from_batches([batch]), self._nan_as_null, self._allow_copy
-            )
+            pa.Table.from_batches([batch]), self._nan_as_null, self._allow_copy
+        )
             for batch in batches
         ]
         return iterator_tables

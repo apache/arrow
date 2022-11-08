@@ -20,6 +20,7 @@ import ctypes
 import pyarrow as pa
 import pytest
 
+
 @pytest.mark.parametrize(
     "test_data",
     [
@@ -54,8 +55,8 @@ def test_mixed_dtypes():
         }
     )
     df = table.__dataframe__()
-    # for meanings of dtype[0] see the spec; we cannot import the spec here as this
-    # file is expected to be vendored *anywhere*;
+    # for meanings of dtype[0] see the spec; we cannot import the
+    # spec here as this file is expected to be vendored *anywhere*;
     # values for dtype[0] are explained above
     columns = {"a": 0, "b": 0, "c": 2, "d": 0, "e": 20, "f": 21}
 
@@ -140,8 +141,8 @@ def test_get_columns():
     for col in df.get_columns():
         assert col.size() == 2
         assert col.num_chunks() == 1
-    # for meanings of dtype[0] see the spec; we cannot import the spec here as this
-    # file is expected to be vendored *anywhere*
+    # for meanings of dtype[0] see the spec; we cannot import the
+    # spec here as this file is expected to be vendored *anywhere*
     assert df.get_column(0).dtype[0] == 0  # INT
     assert df.get_column(1).dtype[0] == 2  # FLOAT
 
@@ -159,8 +160,8 @@ def test_buffer():
     assert dataBuf.ptr != 0
     device, _ = dataBuf.__dlpack_device__()
 
-    # for meanings of dtype[0] see the spec; we cannot import the spec here as this
-    # file is expected to be vendored *anywhere*
+    # for meanings of dtype[0] see the spec; we cannot import the spec
+    # here as this file is expected to be vendored *anywhere*
     assert dataDtype[0] == 0  # INT
 
     if device == 1:  # CPU-only as we're going to directly read memory here
