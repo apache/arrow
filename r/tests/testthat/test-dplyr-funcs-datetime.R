@@ -3531,3 +3531,88 @@ test_that("timestamp rounding takes place in local time", {
   tz_times %>% check_timezone_rounding_for_consistency("13 months")
   tz_times %>% check_timezone_rounding_for_consistency("13 years")
 })
+
+test_that("with_tz() and force_tz() works", {
+  timestamps <- as_datetime(c(
+    "1970-01-01T00:00:59.123456789",
+    "2000-02-29T23:23:23.999999999",
+    "2033-05-18T03:33:20.000000000",
+    "2020-01-01T01:05:05.001",
+    "2019-12-31T02:10:10.002",
+    "2019-12-30T03:15:15.003",
+    "2009-12-31T04:20:20.004132",
+    "2010-01-01T05:25:25.005321",
+    "2010-01-03T06:30:30.006163",
+    "2010-01-04T07:35:35",
+    "2006-01-01T08:40:40",
+    "2005-12-31T09:45:45",
+    "2008-12-28",
+    "2008-12-29",
+    "2012-01-01 01:02:03"
+  ))
+
+  nonexistent <- as_datetime(c(
+    "2015-03-29 02:30:00",
+    "2015-03-29 03:30:00"
+  ))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
+        timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
+        timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata"),
+        timestamps_with_tz_4 = with_tz(timestamps_with_tz_2, "Asia/Kolkata"),
+        timestamps_force_tz_1 = force_tz(timestamps, "UTC"),
+        timestamps_force_tz_2 = force_tz(timestamps, "US/Central"),
+        timestamps_force_tz_3 = force_tz(timestamps, "Asia/Kolkata")
+      ) %>%
+      collect(),
+    tibble::tibble(timestamps = timestamps)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(nonexistent_roll_true = force_tz(timestamps, "Europe/Brussels", roll = TRUE)) %>%
+      collect(),
+    tibble::tibble(timestamps = nonexistent)
+  )
+
+  # non-UTC timezone to other timezone is not supported in arrow's force_tz()
+  expect_warning(
+    tibble::tibble(timestamps = force_tz(timestamps, "US/Central")) %>%
+      arrow_table() %>%
+      mutate(timestamps = force_tz(timestamps, "UTC")) %>%
+      collect(),
+    "from timezone `US/Central` not supported in Arrow"
+  )
+
+  # Raise error when the timezone falls into the DST-break
+  expect_error(
+    tibble::tibble(timestamps = nonexistent) %>%
+      arrow_table() %>%
+      mutate(nonexistent_roll_false = force_tz(timestamps, "Europe/Brussels")) %>%
+      collect(),
+    "Timestamp doesn't exist in timezone 'Europe/Brussels'"
+  )
+})
+
+test_that("with_tz() and force_tz() can add timezone to timestamp without timezone", {
+  timestamps <- Array$create(1L:10L, int64())$cast(timestamp("s"))
+
+  expect_equal(
+    arrow_table(timestamps = timestamps) %>%
+      mutate(timestamps = with_tz(timestamps, "US/Central")) %>%
+      compute(),
+    arrow_table(timestamps = timestamps$cast(timestamp("s", "US/Central")))
+  )
+
+  expect_equal(
+    arrow_table(timestamps = timestamps) %>%
+      mutate(timestamps = force_tz(timestamps, "US/Central")) %>%
+      compute(),
+    arrow_table(
+      timestamps = call_function("assume_timezone", timestamps, options = list(timezone = "US/Central"))
+    )
+  )
+})
