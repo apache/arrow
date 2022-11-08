@@ -259,7 +259,7 @@ struct FunctionExecutorImpl : public FunctionExecutor {
               func_name, "'");
         }
       } else if (func_kind == Function::VECTOR) {
-        auto vkernel = checked_cast<const VectorKernel*>(kernel);
+        auto vkernel = static_cast<const VectorKernel*>(kernel);
         if (!all_same_length && vkernel->can_execute_chunkwise) {
           return Status::Invalid("Arguments for execution of vector kernel function '",
                                  func_name, "' must all be the same length");
