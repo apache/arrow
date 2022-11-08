@@ -236,6 +236,8 @@
 #' * [`epiyear()`][lubridate::epiyear()]
 #' * [`fast_strptime()`][lubridate::fast_strptime()]: non-default values of `lt` and `cutoff_2000` not supported
 #' * [`floor_date()`][lubridate::floor_date()]
+#' * [`force_tz()`][lubridate::force_tz()]: Timezone conversion from non-UTC timezone not supported;
+#' When `roll = FALSE` and hit a non-existent time, raise an error
 #' * [`format_ISO8601()`][lubridate::format_ISO8601()]
 #' * [`hour()`][lubridate::hour()]
 #' * [`is.Date()`][lubridate::is.Date()]
@@ -268,6 +270,7 @@
 #' * [`tz()`][lubridate::tz()]
 #' * [`wday()`][lubridate::wday()]
 #' * [`week()`][lubridate::week()]
+#' * [`with_tz()`][lubridate::with_tz()]
 #' * [`yday()`][lubridate::yday()]
 #' * [`ydm()`][lubridate::ydm()]: `locale` argument not supported
 #' * [`ydm_h()`][lubridate::ydm_h()]: `locale` argument not supported

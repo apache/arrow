@@ -431,32 +431,39 @@ register_bindings_datetime_conversion <- function() {
 }
 
 register_bindings_datetime_timezone <- function() {
-  register_binding("lubridate::force_tz", function(time, tzone = "", roll = FALSE) {
-    if (tzone == "") {
-      tzone <- Sys.timezone()
-    }
-    if (roll) {
-      .nonexistent <- 2L
-    } else {
-      # ToDo: Should return NA if falls into the DST-break without error
-      .nonexistent <- 0L
-    }
-    # ToDo: Work with non-UTC timezones
-    if (!time$type()$timezone() %in% c("", "UTC")) {
-      abort(
-        paste0(
-          "force_tz() from timezone `",
-          time$type()$timezone(),
-          "` not supported in Arrow"
+  register_binding(
+    "lubridate::force_tz",
+    function(time, tzone = "", roll = FALSE) {
+      if (tzone == "") {
+        tzone <- Sys.timezone()
+      }
+      if (roll) {
+        .nonexistent <- 2L
+      } else {
+        # ToDo: Should return NA if falls into the DST-break without error
+        .nonexistent <- 0L
+      }
+      # ToDo: Work with non-UTC timezones
+      if (!time$type()$timezone() %in% c("", "UTC")) {
+        abort(
+          paste0(
+            "force_tz() from timezone `",
+            time$type()$timezone(),
+            "` not supported in Arrow"
+          )
         )
-      )
-    }
+      }
 
-    # Remove timezone
-    time <- build_expr("cast", time, options = cast_options(to_type = timestamp(unit = time$type()$unit())))
-    # Add timezone
-    build_expr("assume_timezone", time, options = list(timezone = tzone, nonexistent = .nonexistent))
-  })
+      # Remove timezone
+      time <- build_expr("cast", time, options = cast_options(to_type = timestamp(unit = time$type()$unit())))
+      # Add timezone
+      build_expr("assume_timezone", time, options = list(timezone = tzone, nonexistent = .nonexistent))
+    },
+    notes = c(
+      "Timezone conversion from non-UTC timezone not supported;",
+      "When `roll = FALSE` and hit a non-existent time, raise an error"
+    )
+  )
   register_binding("lubridate::with_tz", function(time, tzone = "") {
     if (tzone == "") {
       tzone <- Sys.timezone()
