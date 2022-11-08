@@ -103,20 +103,20 @@ struct ListSlice {
 
     // Invariants
     if (!opts.stop.has_value()) {
-      // TODO: Support slicing to arbitrary end
+      // TODO(ARROW-18280): Support slicing to arbitrary end
       // For variable size list, this would be the largest difference in offsets
       // For fixed size list, this would be the fixed size.
       return Status::NotImplemented(
           "Slicing to end not yet implemented, please set `stop` parameter.");
     }
     if (opts.start < 0 || opts.start >= opts.stop.value()) {
-      // TODO: support start == stop which should give empty lists
+      // TODO(ARROW-18281): support start == stop which should give empty lists
       return Status::Invalid("`start`(", opts.start,
                              ") should be greater than 0 and smaller than `stop`(",
                              ToString(opts.stop), ")");
     }
     if (opts.step != 1) {
-      // TODO: support step in slicing
+      // TODO(ARROW-18282): support step in slicing
       return Status::NotImplemented(
           "Setting `step` to anything other than 1 is not supported; got step=",
           opts.step);

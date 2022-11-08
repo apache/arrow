@@ -3008,16 +3008,16 @@ def test_list_slice_bad_parameters():
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 2, 1)  # start > stop?
 
-    # TODO: start==stop -> empty lists
+    # TODO(ARROW-18281): start==stop -> empty lists
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 0, 0)  # start == stop?
 
-    # TODO: support step in slicing
+    # TODO(ARROW-18282): support step in slicing
     msg = "Setting `step` to anything other than 1 is not supported; got step=2"
     with pytest.raises(NotImplementedError, match=msg):
         pc.list_slice(arr, 0, 1, step=2)
 
-    # TODO: support stop == None; slice to end
+    # TODO(ARROW-18280): support stop == None; slice to end
     # This fails first at resolve, b/c it doesn't now how big the
     # resulting FixedSizeListArray item size will be
     msg = "Unable to produce FixedSizeListArray without `stop`"
