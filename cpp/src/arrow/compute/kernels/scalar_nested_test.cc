@@ -173,12 +173,22 @@ TEST(TestScalarNested, ListSliceFixedOutput) {
 }
 
 TEST(TestScalarNested, ListSliceChildArrayOffset) {
-  auto base = ArrayFromJSON(list(int8()), "[[1, 2, 3], [4, 5], [6], null]");
-  auto input = base->Slice(1);
+  auto offsets = ArrayFromJSON(int32(), "[0, 1, 3]");
+  auto data = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4]");
+  auto slice = data->Slice(2);
+
+  // [[2], [3, 4]] with offset of 2 for values.
+  ASSERT_OK_AND_ASSIGN(auto input, ListArray::FromArrays(*offsets, *slice));
+  ASSERT_EQ(input->offset(), 0);
+  ASSERT_EQ(input->values()->offset(), 2);
 
   ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
                         /*return_fixed_size_list=*/false);
-  auto expected = ArrayFromJSON(list(int8()), "[[4, 5], [6], null]");
+  auto expected = ArrayFromJSON(list(int8()), "[[2], [3, 4]]");
+  CheckScalarUnary("list_slice", input, expected, &args);
+
+  args.return_fixed_size_list = true;
+  expected = ArrayFromJSON(fixed_size_list(int8(), 2), "[[2, null], [3, 4]]");
   CheckScalarUnary("list_slice", input, expected, &args);
 }
 
