@@ -1316,6 +1316,7 @@ def test_s3_proxy_options(monkeypatch):
                                     'port': 8999})
 
 
+@pytest.mark.s3
 def test_s3fs_wrong_region():
     from pyarrow.fs import S3FileSystem
 
