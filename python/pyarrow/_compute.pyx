@@ -1196,7 +1196,7 @@ class ListSliceOptions(_ListSliceOptions):
         If not given, slicing will stop at the end. (NotImplemented)
     step : int, default 1
         Slice step.
-    return_fixed_size_list : bool, default None
+    return_fixed_size_list : Optional[bool], default None
         Whether to return a FixedSizeListArray. If true _and_ stop is after
         a list element's length, nulls will be appended to create the
         requested slice size. The default of `None` will return the same
