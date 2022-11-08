@@ -237,8 +237,7 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
                                         const std::vector<TypeHolder>& types) {
   const auto& opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
   const auto list_type = checked_cast<const BaseListType*>(types[0].type);
-  const auto field_name = list_type->field(0)->name();
-  const auto value_type = list_type->field(0)->WithName(field_name);
+  const auto value_type = list_type->field(0);
   const auto return_fixed_size_list =
       opts.return_fixed_size_list.value_or(list_type->id() == Type::FIXED_SIZE_LIST);
   if (return_fixed_size_list) {
