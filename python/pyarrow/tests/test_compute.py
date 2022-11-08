@@ -3013,7 +3013,8 @@ def test_list_slice_bad_parameters():
         pc.list_slice(arr, 0, 0)  # start == stop?
 
     # TODO(ARROW-18282): support step in slicing
-    msg = "Setting `step` to anything other than 1 is not supported; got step=2"
+    msg = "Setting `step` to anything other than 1 is not supported; "\
+        "got step=2"
     with pytest.raises(NotImplementedError, match=msg):
         pc.list_slice(arr, 0, 1, step=2)
 
