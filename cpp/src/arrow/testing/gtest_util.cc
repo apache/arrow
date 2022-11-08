@@ -573,6 +573,22 @@ bool FileIsClosed(int fd) {
 #endif
 }
 
+#if !defined(_WIN32)
+void AssertChildExit(int child_pid, int expected_exit_status) {
+  ASSERT_GT(child_pid, 0);
+  int child_status;
+  int got_pid = waitpid(child_pid, &child_status, 0);
+  ASSERT_EQ(got_pid, child_pid);
+  if (WIFSIGNALED(child_status)) {
+    FAIL() << "Child terminated by signal " << WTERMSIG(child_status);
+  }
+  if (!WIFEXITED(child_status)) {
+    FAIL() << "Child didn't terminate normally?? Child status = " << child_status;
+  }
+  ASSERT_EQ(WEXITSTATUS(child_status), expected_exit_status);
+}
+#endif
+
 bool LocaleExists(const char* locale) {
   try {
     std::locale loc(locale);

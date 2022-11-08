@@ -108,19 +108,59 @@ func (n Num) Div(rhs Num) (res, rem Num) {
 	return FromBigInt(out), FromBigInt(remainder)
 }
 
+var pt5 = big.NewFloat(0.5)
+
 func FromString(v string, prec, scale int32) (n Num, err error) {
-	// there's no strong rationale for using ToNearestAway, it's just
-	// what got me the closest equivalent values with the values
-	// that I tested with, and there isn't a good way to push
-	// an option all the way down here to control it.
+	// time for some math!
+	// Our input precision means "number of digits of precision" but the
+	// math/big library refers to precision in floating point terms
+	// where it refers to the "number of bits of precision in the mantissa".
+	// So we need to figure out how many bits we should use for precision,
+	// based on the input precision. Too much precision and we're not rounding
+	// when we should. Too little precision and we round when we shouldn't.
+	//
+	// In general, the number of decimal digits you get from a given number
+	// of bits will be:
+	//
+	//	digits = log[base 10](2^nbits)
+	//
+	// it thus follows that:
+	//
+	//	digits = nbits * log[base 10](2)
+	//  nbits = digits / log[base 10](2)
+	//
+	// So we need to account for our scale since we're going to be multiplying
+	// by 10^scale in order to get the integral value we're actually going to use
+	// So to get our number of bits we do:
+	//
+	// 	(prec + scale + 1) / log[base10](2)
+	//
+	// Finally, we still have a sign bit, so we -1 to account for the sign bit.
+	// Aren't floating point numbers fun?
+	var precInBits = uint(math.Round(float64(prec+scale+1)/math.Log10(2))) - 1
+
 	var out *big.Float
-	out, _, err = big.ParseFloat(v, 10, 255, big.ToNearestAway)
+	out, _, err = big.ParseFloat(v, 10, precInBits, big.ToNearestEven)
 	if err != nil {
 		return
 	}
 
+	out.Mul(out, big.NewFloat(math.Pow10(int(scale))))
+	// Since we're going to truncate this to get an integer, we need to round
+	// the value instead because of edge cases so that we match how other implementations
+	// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
+	// we're positive we'll add 0.5.
+	if out.Signbit() {
+		out.Sub(out, pt5)
+	} else {
+		out.Add(out, pt5)
+	}
+
 	var tmp big.Int
-	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).Int(&tmp)
+	val, _ := out.Int(&tmp)
+	if val.BitLen() > 255 {
+		return Num{}, errors.New("bitlen too large for decimal256")
+	}
 	n = FromBigInt(val)
 	if !n.FitsInPrecision(prec) {
 		err = fmt.Errorf("value %v doesn't fit in precision %d", n, prec)
@@ -359,22 +399,17 @@ func (n Num) ReduceScaleBy(reduce int32, round bool) Num {
 }
 
 func (n Num) rescaleWouldCauseDataLoss(deltaScale int32, multiplier Num) (out Num, loss bool) {
-	var (
-		value, result, remainder *big.Int
-	)
-	value = n.BigInt()
 	if deltaScale < 0 {
-		result, remainder = new(big.Int).QuoRem(value, multiplier.BigInt(), new(big.Int))
-		return FromBigInt(result), remainder.Cmp(big.NewInt(0)) != 0
+		var remainder Num
+		out, remainder = n.Div(multiplier)
+		return out, remainder != Num{}
 	}
 
-	result = (&big.Int{}).Mul(value, multiplier.BigInt())
-	out = FromBigInt(result)
-	cmp := result.Cmp(value)
+	out = n.Mul(multiplier)
 	if n.Sign() < 0 {
-		loss = cmp == 1
+		loss = n.Less(out)
 	} else {
-		loss = cmp == -1
+		loss = out.Less(n)
 	}
 	return
 }

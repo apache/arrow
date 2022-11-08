@@ -29,12 +29,16 @@
 // worth the cost.
 enum class optype : int8_t {
     ADD,
-    SUB, 
+    SUB,
+    MUL,
+    DIV,
 
     // this impl doesn't actually perform any overflow checks as we need
     // to only run overflow checks on non-null entries
     ADD_CHECKED,
-    SUB_CHECKED, 
+    SUB_CHECKED,
+    MUL_CHECKED,
+    DIV_CHECKED,
 };
 
 struct Add {
@@ -42,7 +46,7 @@ struct Add {
     static constexpr T Call(Arg0 left, Arg1 right) {
         if constexpr (is_arithmetic_v<T>)
             return left + right;
-    }    
+    }
 };
 
 struct Sub {
@@ -60,18 +64,65 @@ struct AddChecked {
         if constexpr(is_arithmetic_v<T>) {
             return left + right;
         }
-    }    
+    }
 };
 
 
-struct SubChecked {    
+struct SubChecked {
     template <typename T, typename Arg0, typename Arg1>
     static constexpr T Call(Arg0 left, Arg1 right) {
         static_assert(is_same<T, Arg0>::value && is_same<T, Arg1>::value, "");
-        if constexpr(is_arithmetic_v<T>) {            
+        if constexpr(is_arithmetic_v<T>) {
             return left - right;
         }
-    }    
+    }
+};
+
+template <typename T>
+using maybe_make_unsigned = conditional_t<is_integral_v<T> && !is_same_v<T, bool>, make_unsigned_t<T>, T>;
+
+template <typename T, typename Unsigned = maybe_make_unsigned<T>>
+constexpr Unsigned to_unsigned(T signed_) {
+    return static_cast<Unsigned>(signed_);
+}
+
+struct Multiply {
+    static_assert(is_same_v<decltype(int8_t() * int8_t()), int32_t>, "");
+    static_assert(is_same_v<decltype(uint8_t() * uint8_t()), int32_t>, "");
+    static_assert(is_same_v<decltype(int16_t() * int16_t()), int32_t>, "");
+    static_assert(is_same_v<decltype(uint16_t() * uint16_t()), int32_t>, "");
+    static_assert(is_same_v<decltype(int32_t() * int32_t()), int32_t>, "");
+    static_assert(is_same_v<decltype(uint32_t() * uint32_t()), uint32_t>, "");
+    static_assert(is_same_v<decltype(int64_t() * int64_t()), int64_t>, "");
+    static_assert(is_same_v<decltype(uint64_t() * uint64_t()), uint64_t>, "");
+
+    template <typename T, typename Arg0, typename Arg1>
+    static constexpr T Call(Arg0 left, Arg1 right) {
+        static_assert(is_same_v<T, Arg0> && is_same_v<T, Arg1>, "");
+        if constexpr(is_floating_point_v<T>) {
+            return left * right;
+        } else if constexpr(is_unsigned_v<T> && !is_same_v<T, uint16_t>) {
+            return left * right;
+        } else if constexpr(is_signed_v<T> && !is_same_v<T, int16_t>) {
+            return to_unsigned(left) * to_unsigned(right);
+        } else if constexpr(is_same_v<T, int16_t> || is_same_v<T, uint16_t>) {
+            // multiplication of 16 bit integer types implicitly promotes to
+            // signed 32 bit integer. However, some inputs may overflow (which
+            // triggers undefined behavior). Therefore we first cast to 32 bit
+            // unsigned integers where overflow is well defined.
+            return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
+        }
+    }
+};
+
+struct MultiplyChecked {
+    template <typename T, typename Arg0, typename Arg1>
+    static constexpr T Call(Arg0 left, Arg1 right) {
+        static_assert(is_same_v<T, Arg0> && is_same_v<T, Arg1>, "");
+        if constexpr(is_arithmetic_v<T>) {
+            return left * right;
+        }
+    }
 };
 
 template <typename T, typename Op>
@@ -80,10 +131,10 @@ struct arithmetic_op_arr_arr_impl {
         const T* left = reinterpret_cast<const T*>(in_left);
         const T* right = reinterpret_cast<const T*>(in_right);
         T* output = reinterpret_cast<T*>(out);
-        
+
         for (int i = 0; i < len; ++i) {
             output[i] = Op::template Call<T, T, T>(left[i], right[i]);
-        }        
+        }
     }
 };
 
@@ -93,10 +144,10 @@ struct arithmetic_op_arr_scalar_impl {
         const T* left = reinterpret_cast<const T*>(in_left);
         const T right = *reinterpret_cast<const T*>(scalar_right);
         T* output = reinterpret_cast<T*>(out);
-        
+
         for (int i = 0; i < len; ++i) {
             output[i] = Op::template Call<T, T, T>(left[i], right);
-        }        
+        }
     }
 };
 
@@ -106,7 +157,7 @@ struct arithmetic_op_scalar_arr_impl {
         const T left = *reinterpret_cast<const T*>(scalar_left);
         const T* right = reinterpret_cast<const T*>(in_right);
         T* output = reinterpret_cast<T*>(out);
-        
+
         for (int i = 0; i < len; ++i) {
             output[i] = Op::template Call<T, T, T>(left, right[i]);
         }
@@ -120,25 +171,25 @@ static inline void arithmetic_op(const int type, const void* in_left, const void
 
     switch (intype) {
     case arrtype::UINT8:
-        return Impl<uint8_t, Op>::exec(in_left, in_right, output, len);        
+        return Impl<uint8_t, Op>::exec(in_left, in_right, output, len);
     case arrtype::INT8:
-        return Impl<int8_t, Op>::exec(in_left, in_right, output, len);        
+        return Impl<int8_t, Op>::exec(in_left, in_right, output, len);
     case arrtype::UINT16:
-        return Impl<uint16_t, Op>::exec(in_left, in_right, output, len);        
+        return Impl<uint16_t, Op>::exec(in_left, in_right, output, len);
     case arrtype::INT16:
-        return Impl<int16_t, Op>::exec(in_left, in_right, output, len);        
+        return Impl<int16_t, Op>::exec(in_left, in_right, output, len);
     case arrtype::UINT32:
-        return Impl<uint32_t, Op>::exec(in_left, in_right, output, len);        
+        return Impl<uint32_t, Op>::exec(in_left, in_right, output, len);
     case arrtype::INT32:
-        return Impl<int32_t, Op>::exec(in_left, in_right, output, len);        
+        return Impl<int32_t, Op>::exec(in_left, in_right, output, len);
     case arrtype::UINT64:
-        return Impl<uint64_t, Op>::exec(in_left, in_right, output, len);        
+        return Impl<uint64_t, Op>::exec(in_left, in_right, output, len);
     case arrtype::INT64:
-        return Impl<int64_t, Op>::exec(in_left, in_right, output, len);        
+        return Impl<int64_t, Op>::exec(in_left, in_right, output, len);
     case arrtype::FLOAT32:
-        return Impl<float, Op>::exec(in_left, in_right, output, len);        
+        return Impl<float, Op>::exec(in_left, in_right, output, len);
     case arrtype::FLOAT64:
-        return Impl<double, Op>::exec(in_left, in_right, output, len);        
+        return Impl<double, Op>::exec(in_left, in_right, output, len);
     default:
         break;
     }
@@ -150,14 +201,20 @@ static inline void arithmetic_impl(const int type, const int8_t op, const void* 
 
     switch (opt) {
     case optype::ADD:
-        return arithmetic_op<Add, Impl>(type, in_left, in_right, out, len);        
+        return arithmetic_op<Add, Impl>(type, in_left, in_right, out, len);
     case optype::ADD_CHECKED:
-        return arithmetic_op<AddChecked, Impl>(type, in_left, in_right, out, len);        
+        return arithmetic_op<AddChecked, Impl>(type, in_left, in_right, out, len);
     case optype::SUB:
-        return arithmetic_op<Sub, Impl>(type, in_left, in_right, out, len);        
+        return arithmetic_op<Sub, Impl>(type, in_left, in_right, out, len);
     case optype::SUB_CHECKED:
-        return arithmetic_op<SubChecked, Impl>(type, in_left, in_right, out, len);        
-    default:
+        return arithmetic_op<SubChecked, Impl>(type, in_left, in_right, out, len);
+    case optype::MUL:
+        return arithmetic_op<Multiply, Impl>(type, in_left, in_right, out, len);
+    case optype::MUL_CHECKED:
+        return arithmetic_op<MultiplyChecked, Impl>(type, in_left, in_right, out, len);    
+    default: 
+        // don't implement divide here as we can only divide on non-null entries
+        // so we can avoid dividing by zero
         break;
     }
 }

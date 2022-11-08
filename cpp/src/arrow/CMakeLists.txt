@@ -192,6 +192,7 @@ set(ARROW_SRCS
     io/stdio.cc
     io/transform.cc
     util/async_util.cc
+    util/atfork_internal.cc
     util/basic_decimal.cc
     util/bit_block_counter.cc
     util/bit_run_reader.cc

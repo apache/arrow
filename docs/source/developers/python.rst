@@ -287,6 +287,7 @@ about our build toolchain:
 
    $ export ARROW_HOME=$(pwd)/dist
    $ export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+   $ export CMAKE_PREFIX_PATH=$ARROW_HOME:$CMAKE_PREFIX_PATH
 
 Build and test
 --------------
