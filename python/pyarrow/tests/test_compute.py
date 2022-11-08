@@ -3030,14 +3030,3 @@ def test_list_slice_bad_parameters():
     msg = "Slicing to end not yet implemented*"
     with pytest.raises(NotImplementedError, match=msg):
         pc.list_slice(arr, 0, return_fixed_size_list=False)
-
-
-def test_list_slice_non_nulls():
-    # potential for segfault if c++ attempts to take a validity buffer
-    # which might not exist
-    arr = pa.array([[1]], pa.list_(pa.int8()))
-    pc.list_slice(arr, 0, 1, return_fixed_size_list=True)
-    pc.list_slice(arr, 0, 1, return_fixed_size_list=False)
-
-    arr = pa.array([[1]], pa.list_(pa.int8(), 1))
-    pc.list_slice(arr, 0, 1, return_fixed_size_list=True)
