@@ -561,7 +561,7 @@ StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::MICRO, false)
 constexpr char StrptimeOptions::kTypeName[];
 
 StructFieldOptions::StructFieldOptions(std::vector<int> indices)
-    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(FieldPath(indices)) {}
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(indices)) {}
 StructFieldOptions::StructFieldOptions(std::initializer_list<int> indices)
     : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(indices)) {}
 StructFieldOptions::StructFieldOptions(FieldRef ref)

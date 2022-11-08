@@ -500,7 +500,7 @@ TEST(TestFieldRef, Flatten) {
 
   // Nested empty field refs are optimized away
   assert_nested(FieldRef("foo", 1, FieldRef(), FieldRef(FieldRef(), "bar")),
-                {FieldRef("foo"), FieldRef({1}), FieldRef("bar")});
+                {FieldRef("foo"), FieldRef(1), FieldRef("bar")});
   // For now, subsequences of indices are not concatenated
   assert_nested(FieldRef("foo", FieldRef("bar"), FieldRef(1, 2), FieldRef(3)),
                 {FieldRef("foo"), FieldRef("bar"), FieldRef(1, 2), FieldRef(3)});
