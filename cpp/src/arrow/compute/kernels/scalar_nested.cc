@@ -124,8 +124,7 @@ struct ListSlice {
 
     const ArraySpan& list_array = batch[0].array;
     const Type* list_type = checked_cast<const Type*>(list_array.type);
-    const auto field_name = list_type->field(0)->name();
-    const auto value_type = list_type->field(0)->WithName(field_name);
+    const auto value_type = list_type->field(0);
     const auto return_fixed_size_list = opts.return_fixed_size_list.value_or(
         list_type->id() == arrow::Type::FIXED_SIZE_LIST);
     std::unique_ptr<ArrayBuilder> builder;
