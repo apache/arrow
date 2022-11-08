@@ -23,9 +23,7 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_block_counter.h"
-#include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_generate.h"
-#include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
 namespace compute {
