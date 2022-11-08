@@ -479,13 +479,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             callptr->function_name);
       }
 
-      // TODO: ARROW-16624 Add Suffix support for Substrait
-      const auto* left_keys = callptr->arguments[0].field_ref();
-      const auto* right_keys = callptr->arguments[1].field_ref();
-      if (!left_keys || !right_keys) {
-        return Status::Invalid("Left keys for join cannot be null");
-      }
-
       // Create output schema from left, right relations and join keys
       FieldVector combined_fields = left.output_schema->fields();
       const FieldVector& right_fields = right.output_schema->fields();
@@ -493,8 +486,25 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                              right_fields.end());
       std::shared_ptr<Schema> join_schema = schema(std::move(combined_fields));
 
+      // adjust the join_keys according to Substrait definition where
+      // the join fields are defined by considering the `join_schema` which
+      // is the combination of the left and right relation schema.
+
+      // TODO: ARROW-16624 Add Suffix support for Substrait
+      const auto* left_keys = callptr->arguments[0].field_ref();
+      const auto* right_keys = callptr->arguments[1].field_ref();
+      // Validating JoinKeys
+      if (!left_keys || !right_keys) {
+        return Status::Invalid(
+            "join condition must include references to both left and right inputs");
+      }
+      int num_left_fields = left.output_schema->num_fields();
+      const auto* right_field_path = right_keys->field_path();
+      std::vector<int> adjusted_field_indices(right_field_path->indices());
+      adjusted_field_indices[0] -= num_left_fields;
+      FieldPath adjusted_right_keys(adjusted_field_indices);
       compute::HashJoinNodeOptions join_options{{std::move(*left_keys)},
-                                                {std::move(*right_keys)}};
+                                                {std::move(adjusted_right_keys)}};
       join_options.join_type = join_type;
       join_options.key_cmp = {join_key_cmp};
       compute::Declaration join_dec{"hashjoin", std::move(join_options)};

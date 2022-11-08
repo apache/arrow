@@ -17,7 +17,9 @@
   under the License.
 -->
 
-# arrow 9.0.0.9000
+# arrow 10.0.0.9000
+
+# arrow 10.0.0
 
 ## Arrow dplyr queries
 

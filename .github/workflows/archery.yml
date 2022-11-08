@@ -31,6 +31,9 @@ on:
       - 'dev/tasks/**'
       - 'docker-compose.yml'
 
+env:
+  ARCHERY_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
@@ -52,9 +55,7 @@ jobs:
           fetch-depth: 0
       - name: Git Fixup
         shell: bash
-        run: |
-          DEFAULT_BRANCH=${{ github.event.repository.default_branch }}
-          git branch $DEFAULT_BRANCH origin/$DEFAULT_BRANCH || true
+        run: git branch $ARCHERY_DEFAULT_BRANCH origin/$ARCHERY_DEFAULT_BRANCH || true
       - name: Setup Python
         uses: actions/setup-python@v4
         with:

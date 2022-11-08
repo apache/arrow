@@ -24,9 +24,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/v10/arrow/arrio"
-	"github.com/apache/arrow/go/v10/arrow/ipc"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow/arrio"
+	"github.com/apache/arrow/go/v11/arrow/ipc"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 func main() {

@@ -47,7 +47,7 @@ list(INSERT CMAKE_PREFIX_PATH 0 "${ARROW_HOME}")
 # Arrow version
 #
 
-set(ARROW_PYTHON_VERSION "10.0.0-SNAPSHOT")
+set(ARROW_PYTHON_VERSION "11.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_PYTHON_BASE_VERSION "${ARROW_PYTHON_VERSION}")
 # Need to set to ARRROW_VERSION before finding Arrow package!
 project(arrow_python VERSION "${ARROW_PYTHON_BASE_VERSION}")

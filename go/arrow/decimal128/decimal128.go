@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
 )
 
 var (
@@ -119,8 +119,9 @@ func (n Num) Sub(rhs Num) Num {
 }
 
 func (n Num) Mul(rhs Num) Num {
-	b := n.BigInt()
-	return FromBigInt(b.Mul(b, rhs.BigInt()))
+	hi, lo := bits.Mul64(n.lo, rhs.lo)
+	hi += (uint64(n.hi) * rhs.lo) + (n.lo * uint64(rhs.hi))
+	return Num{hi: int64(hi), lo: lo}
 }
 
 func (n Num) Div(rhs Num) (res, rem Num) {
@@ -208,6 +209,53 @@ func FromFloat64(v float64, prec, scale int32) (Num, error) {
 		return dec.Negate(), nil
 	}
 	return fromPositiveFloat64(v, prec, scale)
+}
+
+func FromString(v string, prec, scale int32) (n Num, err error) {
+	// time for some math!
+	// Our input precision means "number of digits of precision" but the
+	// math/big library refers to precision in floating point terms
+	// where it refers to the "number of bits of precision in the mantissa".
+	// So we need to figure out how many bits we should use for precision,
+	// based on the input precision. Too much precision and we're not rounding
+	// when we should. Too little precision and we round when we shouldn't.
+	//
+	// In general, the number of decimal digits you get from a given number
+	// of bits will be:
+	//
+	//	digits = log[base 10](2^nbits)
+	//
+	// it thus follows that:
+	//
+	//	digits = nbits * log[base 10](2)
+	//  nbits = digits / log[base 10](2)
+	//
+	// So we need to account for our scale since we're going to be multiplying
+	// by 10^scale in order to get the integral value we're actually going to use
+	// So to get our number of bits we do:
+	//
+	// 	(prec + scale + 1) / log[base10](2)
+	//
+	// Finally, we still have a sign bit, so we -1 to account for the sign bit.
+	// Aren't floating point numbers fun?
+	var precInBits = uint(math.Round(float64(prec+scale+1)/math.Log10(2))) - 1
+
+	var out *big.Float
+	out, _, err = big.ParseFloat(v, 10, precInBits, big.ToNearestEven)
+	if err != nil {
+		return
+	}
+
+	var tmp big.Int
+	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).Int(&tmp)
+	if val.BitLen() > 127 {
+		return Num{}, errors.New("bitlen too large for decimal128")
+	}
+	n = FromBigInt(val)
+	if !n.FitsInPrecision(prec) {
+		err = fmt.Errorf("val %v doesn't fit in precision %d", n, prec)
+	}
+	return
 }
 
 // ToFloat32 returns a float32 value representative of this decimal128.Num,

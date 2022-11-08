@@ -20,9 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/kernels"
 )
 
 type arithmeticFunction struct {
@@ -86,41 +86,194 @@ var (
 )
 
 func RegisterScalarArithmetic(reg FunctionRegistry) {
-	addFn := &arithmeticFunction{*NewScalarFunction("add_unchecked", Binary(), addDoc), decPromoteAdd}
-	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpAdd), kernels.GetDecimalBinaryKernels(kernels.OpAdd)...) {
-		if err := addFn.AddKernel(k); err != nil {
-			panic(err)
-		}
+	ops := []struct {
+		funcName   string
+		op         kernels.ArithmeticOp
+		decPromote decimalPromotion
+	}{
+		{"add_unchecked", kernels.OpAdd, decPromoteAdd},
+		{"add", kernels.OpAddChecked, decPromoteAdd},
 	}
 
-	reg.AddFunction(addFn, false)
-
-	addCheckedFn := &arithmeticFunction{*NewScalarFunction("add", Binary(), addDoc), decPromoteAdd}
-	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpAddChecked), kernels.GetDecimalBinaryKernels(kernels.OpAddChecked)...) {
-		if err := addCheckedFn.AddKernel(k); err != nil {
-			panic(err)
+	for _, o := range ops {
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
+		kns := append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
+		kns = append(kns, kernels.GetArithmeticFunctionTimeDuration(o.op)...)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
 		}
+
+		for _, unit := range arrow.TimeUnitValues {
+			inType := exec.NewMatchedInput(exec.TimestampTypeUnit(unit))
+			inDuration := exec.NewExactInput(&arrow.DurationType{Unit: unit})
+			ex := kernels.ArithmeticExec(arrow.TIMESTAMP, o.op)
+			err := fn.AddNewKernel([]exec.InputType{inType, inDuration}, kernels.OutputFirstType, ex, nil)
+			if err != nil {
+				panic(err)
+			}
+			err = fn.AddNewKernel([]exec.InputType{inDuration, inType}, kernels.OutputLastType, ex, nil)
+			if err != nil {
+				panic(err)
+			}
+
+			matchDur := exec.NewMatchedInput(exec.DurationTypeUnit(unit))
+			ex = kernels.ArithmeticExec(arrow.DURATION, o.op)
+			err = fn.AddNewKernel([]exec.InputType{matchDur, matchDur}, exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		reg.AddFunction(fn, false)
 	}
 
-	reg.AddFunction(addCheckedFn, false)
-
-	subFn := &arithmeticFunction{*NewScalarFunction("sub_unchecked", Binary(), addDoc), decPromoteAdd}
-	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpSub), kernels.GetDecimalBinaryKernels(kernels.OpSub)...) {
-		if err := subFn.AddKernel(k); err != nil {
-			panic(err)
-		}
+	ops = []struct {
+		funcName   string
+		op         kernels.ArithmeticOp
+		decPromote decimalPromotion
+	}{
+		{"sub_unchecked", kernels.OpSub, decPromoteAdd},
+		{"sub", kernels.OpSubChecked, decPromoteAdd},
 	}
 
-	reg.AddFunction(subFn, false)
+	for _, o := range ops {
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
+		kns := append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
+		kns = append(kns, kernels.GetArithmeticFunctionTimeDuration(o.op)...)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
 
-	subCheckedFn := &arithmeticFunction{*NewScalarFunction("sub", Binary(), addDoc), decPromoteAdd}
-	for _, k := range append(kernels.GetArithmeticKernels(kernels.OpSubChecked), kernels.GetDecimalBinaryKernels(kernels.OpSubChecked)...) {
-		if err := subCheckedFn.AddKernel(k); err != nil {
+		for _, unit := range arrow.TimeUnitValues {
+			// timestamp - timestamp => duration
+			inType := exec.NewMatchedInput(exec.TimestampTypeUnit(unit))
+			ex := kernels.ArithmeticExec(arrow.TIMESTAMP, o.op)
+			err := fn.AddNewKernel([]exec.InputType{inType, inType}, kernels.OutputResolveTemporal, ex, nil)
+			if err != nil {
+				panic(err)
+			}
+
+			// timestamp - duration => timestamp
+			inDuration := exec.NewExactInput(&arrow.DurationType{Unit: unit})
+			ex = kernels.ArithmeticExec(arrow.TIMESTAMP, o.op)
+			err = fn.AddNewKernel([]exec.InputType{inType, inDuration}, kernels.OutputFirstType, ex, nil)
+			if err != nil {
+				panic(err)
+			}
+
+			// duration - duration = duration
+			matchDur := exec.NewMatchedInput(exec.DurationTypeUnit(unit))
+			ex = kernels.ArithmeticExec(arrow.DURATION, o.op)
+			err = fn.AddNewKernel([]exec.InputType{matchDur, matchDur}, exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		// time32 - time32 = duration
+		for _, unit := range []arrow.TimeUnit{arrow.Second, arrow.Millisecond} {
+			inType := exec.NewMatchedInput(exec.Time32TypeUnit(unit))
+			internalEx := kernels.ArithmeticExec(arrow.TIME32, o.op)
+			ex := func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+				if err := internalEx(ctx, batch, out); err != nil {
+					return err
+				}
+				// the allocated space is for duration (an int64) but we
+				// wrote the time32 - time32 as if the output was time32
+				// so a quick copy in reverse expands the int32s to int64.
+				rawData := exec.GetData[int32](out.Buffers[1].Buf)
+				outData := exec.GetData[int64](out.Buffers[1].Buf)
+
+				for i := out.Len - 1; i >= 0; i-- {
+					outData[i] = int64(rawData[i])
+				}
+				return nil
+			}
+
+			err := fn.AddNewKernel([]exec.InputType{inType, inType},
+				exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		// time64 - time64 = duration
+		for _, unit := range []arrow.TimeUnit{arrow.Microsecond, arrow.Nanosecond} {
+			inType := exec.NewMatchedInput(exec.Time64TypeUnit(unit))
+			ex := kernels.ArithmeticExec(arrow.TIME64, o.op)
+			err := fn.AddNewKernel([]exec.InputType{inType, inType}, exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		inDate32 := exec.NewExactInput(arrow.FixedWidthTypes.Date32)
+		ex := kernels.SubtractDate32(o.op)
+		err := fn.AddNewKernel([]exec.InputType{inDate32, inDate32}, exec.NewOutputType(arrow.FixedWidthTypes.Duration_s), ex, nil)
+		if err != nil {
 			panic(err)
 		}
+
+		inDate64 := exec.NewExactInput(arrow.FixedWidthTypes.Date64)
+		ex = kernels.ArithmeticExec(arrow.DATE64, o.op)
+		err = fn.AddNewKernel([]exec.InputType{inDate64, inDate64}, exec.NewOutputType(arrow.FixedWidthTypes.Duration_ms), ex, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		reg.AddFunction(fn, false)
 	}
 
-	reg.AddFunction(subCheckedFn, false)
+	oplist := []struct {
+		funcName    string
+		op          kernels.ArithmeticOp
+		decPromote  decimalPromotion
+		commutative bool
+	}{
+		{"multiply_unchecked", kernels.OpMul, decPromoteMultiply, true},
+		{"multiply", kernels.OpMulChecked, decPromoteMultiply, true},
+		{"divide_unchecked", kernels.OpDiv, decPromoteDivide, false},
+		{"divide", kernels.OpDivChecked, decPromoteDivide, false},
+	}
+
+	for _, o := range oplist {
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
+		for _, k := range append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...) {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
+
+		for _, unit := range arrow.TimeUnitValues {
+			durInput := exec.NewExactInput(&arrow.DurationType{Unit: unit})
+			i64Input := exec.NewExactInput(arrow.PrimitiveTypes.Int64)
+			durOutput := exec.NewOutputType(&arrow.DurationType{Unit: unit})
+			ex := kernels.ArithmeticExec(arrow.DURATION, o.op)
+			err := fn.AddNewKernel([]exec.InputType{durInput, i64Input}, durOutput, ex, nil)
+			if err != nil {
+				panic(err)
+			}
+			if o.commutative {
+				err = fn.AddNewKernel([]exec.InputType{i64Input, durInput}, durOutput, ex, nil)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+
+		reg.AddFunction(fn, false)
+	}
+}
+
+func impl(ctx context.Context, fn string, opts ArithmeticOptions, left, right Datum) (Datum, error) {
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, left, right)
 }
 
 // Add performs an addition between the passed in arguments (scalar or array)
@@ -129,13 +282,9 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 //
 // ArithmeticOptions specifies whether or not to check for overflows,
 // performance is faster if not explicitly checking for overflows but
-// will error on an overflow if CheckOverflow is true.
+// will error on an overflow if NoCheckOverflow is false (default).
 func Add(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
-	fn := "add"
-	if opts.NoCheckOverflow {
-		fn = "add_unchecked"
-	}
-	return CallFunction(ctx, fn, nil, left, right)
+	return impl(ctx, "add", opts, left, right)
 }
 
 // Sub performs a subtraction between the passed in arguments (scalar or array)
@@ -144,11 +293,32 @@ func Add(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum,
 //
 // ArithmeticOptions specifies whether or not to check for overflows,
 // performance is faster if not explicitly checking for overflows but
-// will error on an overflow if CheckOverflow is true.
+// will error on an overflow if NoCheckOverflow is false (default).
 func Subtract(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
-	fn := "sub"
-	if opts.NoCheckOverflow {
-		fn = "sub_unchecked"
-	}
-	return CallFunction(ctx, fn, nil, left, right)
+	return impl(ctx, "sub", opts, left, right)
+}
+
+// Multiply performs a multiplication between the passed in arguments (scalar or array)
+// and returns the result. If one argument is a scalar and the other is an
+// array, the scalar value is multiplied against each value of the array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// performance is faster if not explicitly checking for overflows but
+// will error on an overflow if NoCheckOverflow is false (default).
+func Multiply(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
+	return impl(ctx, "multiply", opts, left, right)
+}
+
+// Divide performs a division between the passed in arguments (scalar or array)
+// and returns the result. If one argument is a scalar and the other is an
+// array, the scalar value is used with each value of the array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// performance is faster if not explicitly checking for overflows but
+// will error on an overflow if NoCheckOverflow is false (default).
+//
+// Will error on divide by zero regardless of whether or not checking for
+// overflows.
+func Divide(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
+	return impl(ctx, "divide", opts, left, right)
 }

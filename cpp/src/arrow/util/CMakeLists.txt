@@ -41,10 +41,7 @@ endif()
 add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
-               async_generator_test.cc
-               async_util_test.cc
-               bit_block_counter_test.cc
-               bit_util_test.cc
+               atfork_test.cc
                byte_size_test.cc
                cache_test.cc
                checked_cast_test.cc
@@ -60,7 +57,6 @@ add_arrow_test(utility-test
                queue_test.cc
                range_test.cc
                reflection_test.cc
-               rle_encoding_test.cc
                small_vector_test.cc
                stl_util_test.cc
                string_test.cc
@@ -72,6 +68,18 @@ add_arrow_test(utility-test
                uri_test.cc
                utf8_util_test.cc
                value_parsing_test.cc)
+
+add_arrow_test(async-utility-test
+               SOURCES
+               async_generator_test.cc
+               async_util_test.cc
+               test_common.cc)
+
+add_arrow_test(bit-utility-test
+               SOURCES
+               bit_block_counter_test.cc
+               bit_util_test.cc
+               rle_encoding_test.cc)
 
 add_arrow_test(threading-utility-test
                SOURCES

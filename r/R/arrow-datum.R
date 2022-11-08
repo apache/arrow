@@ -173,7 +173,7 @@ eval_array_expression <- function(FUN,
       return(-args[[1]])
     }
   }
-  args <- lapply(args, .wrap_arrow, FUN)
+  args <- lapply(args, .wrap_arrow)
 
   # In Arrow, "divide" is one function, which does integer division on
   # integer inputs and floating-point division on floats
@@ -218,14 +218,9 @@ eval_array_expression <- function(FUN,
   )
 }
 
-.wrap_arrow <- function(arg, fun) {
+.wrap_arrow <- function(arg) {
   if (!inherits(arg, "ArrowObject")) {
-    # TODO: Array$create if lengths are equal?
-    if (fun == "%in%") {
-      arg <- Array$create(arg)
-    } else {
-      arg <- Scalar$create(arg)
-    }
+    arg <- Scalar$create(arg)
   }
   arg
 }

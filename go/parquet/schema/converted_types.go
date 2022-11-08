@@ -17,7 +17,7 @@
 package schema
 
 import (
-	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
+	format "github.com/apache/arrow/go/v11/parquet/internal/gen-go/parquet"
 )
 
 // ConvertedType corresponds to the ConvertedType in the parquet.Thrift,

@@ -112,7 +112,7 @@ Maven
         $ export JAVA_HOME=<absolute path to your java home>
         $ java --version
         $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
-        $ ls -latr ../java-dist/lib
+        $ ls -latr ../java-dist/lib/<your system's architecture>
         |__ libarrow_cdata_jni.dylib
         |__ libarrow_cdata_jni.so
 
@@ -122,7 +122,7 @@ Maven
 
         $ cd arrow/java
         $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
-        $ dir "../java-dist/bin"
+        $ dir "../java-dist/bin/x86_64"
         |__ arrow_cdata_jni.dll
 
 - To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
@@ -133,7 +133,7 @@ Maven
         $ export JAVA_HOME=<absolute path to your java home>
         $ java --version
         $ mvn generate-resources -Pgenerate-libs-jni-macos-linux -N
-        $ ls -latr java-dist/lib/*_{jni,java}.*
+        $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
         |__ libarrow_dataset_jni.dylib
         |__ libarrow_orc_jni.dylib
         |__ libgandiva_jni.dylib
@@ -145,7 +145,7 @@ Maven
 
         $ cd arrow/java
         $ mvn generate-resources -Pgenerate-libs-jni-windows -N
-        $ dir "../java-dist/bin"
+        $ dir "../java-dist/bin/x86_64"
         |__ arrow_dataset_jni.dll
 
 CMake
@@ -164,7 +164,7 @@ CMake
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
             -DBUILD_TESTING=OFF \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
             -DCMAKE_INSTALL_PREFIX=java-dist
         $ cmake --build java-cdata --target install --config Release
         $ ls -latr java-dist/lib
@@ -184,7 +184,7 @@ CMake
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF ^
             -DBUILD_TESTING=OFF ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_INSTALL_LIBDIR=lib ^
+            -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
             -DCMAKE_INSTALL_PREFIX=java-dist
         $ cmake --build java-cdata --target install --config Release
         $ dir "java-dist/bin"
@@ -219,7 +219,7 @@ CMake
             -DARROW_S3=ON \
             -DARROW_USE_CCACHE=ON \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
             -DCMAKE_INSTALL_PREFIX=java-dist \
             -DCMAKE_UNITY_BUILD=ON
         $ cmake --build cpp-jni --target install --config Release
@@ -230,11 +230,11 @@ CMake
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON \
             -DBUILD_TESTING=OFF \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
             -DCMAKE_INSTALL_PREFIX=java-dist \
             -DCMAKE_PREFIX_PATH=$PWD/java-dist
         $ cmake --build java-jni --target install --config Release
-        $ ls -latr java-dist/lib/*_{jni,java}.*
+        $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
         |__ libarrow_dataset_jni.dylib
         |__ libarrow_orc_jni.dylib
         |__ libgandiva_jni.dylib
@@ -265,7 +265,7 @@ CMake
             -DARROW_WITH_ZLIB=ON ^
             -DARROW_WITH_ZSTD=ON ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_INSTALL_LIBDIR=lib ^
+            -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
             -DCMAKE_INSTALL_PREFIX=java-dist ^
             -DCMAKE_UNITY_BUILD=ON ^
             -GNinja
@@ -282,7 +282,7 @@ CMake
             -DARROW_JAVA_JNI_ENABLE_PLASMA=OFF ^
             -DBUILD_TESTING=OFF ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_INSTALL_LIBDIR=lib ^
+            -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
             -DCMAKE_INSTALL_PREFIX=java-dist ^
             -DCMAKE_PREFIX_PATH=$PWD/java-dist
         $ cmake --build java-jni --target install --config Release
@@ -296,7 +296,7 @@ Archery
 
     $ cd arrow
     $ archery docker run java-jni-manylinux-2014
-    $ ls -latr java-dist/
+    $ ls -latr java-dist/<your system's architecture>/
     |__ libarrow_cdata_jni.so
     |__ libarrow_dataset_jni.so
     |__ libarrow_orc_jni.so

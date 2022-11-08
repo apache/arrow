@@ -47,6 +47,7 @@ TEST_F(TestRecordBatch, Equals) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
+  auto f2b = field("f2b", int16());
 
   auto metadata = key_value_metadata({"foo"}, {"bar"});
 
@@ -54,6 +55,7 @@ TEST_F(TestRecordBatch, Equals) {
   auto schema = ::arrow::schema({f0, f1, f2});
   auto schema2 = ::arrow::schema({f0, f1});
   auto schema3 = ::arrow::schema({f0, f1, f2}, metadata);
+  auto schema4 = ::arrow::schema({f0, f1, f2b});
 
   random::RandomArrayGenerator gen(42);
 
@@ -65,10 +67,14 @@ TEST_F(TestRecordBatch, Equals) {
   auto b2 = RecordBatch::Make(schema3, length, {a0, a1, a2});
   auto b3 = RecordBatch::Make(schema2, length, {a0, a1});
   auto b4 = RecordBatch::Make(schema, length, {a0, a1, a1});
+  auto b5 = RecordBatch::Make(schema4, length, {a0, a1, a2});
 
   ASSERT_TRUE(b1->Equals(*b1));
   ASSERT_FALSE(b1->Equals(*b3));
   ASSERT_FALSE(b1->Equals(*b4));
+
+  // Same values and types, but different field names
+  ASSERT_FALSE(b1->Equals(*b5));
 
   // Different metadata
   ASSERT_TRUE(b1->Equals(*b2));

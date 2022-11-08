@@ -573,6 +573,22 @@ bool FileIsClosed(int fd) {
 #endif
 }
 
+#if !defined(_WIN32)
+void AssertChildExit(int child_pid, int expected_exit_status) {
+  ASSERT_GT(child_pid, 0);
+  int child_status;
+  int got_pid = waitpid(child_pid, &child_status, 0);
+  ASSERT_EQ(got_pid, child_pid);
+  if (WIFSIGNALED(child_status)) {
+    FAIL() << "Child terminated by signal " << WTERMSIG(child_status);
+  }
+  if (!WIFEXITED(child_status)) {
+    FAIL() << "Child didn't terminate normally?? Child status = " << child_status;
+  }
+  ASSERT_EQ(WEXITSTATUS(child_status), expected_exit_status);
+}
+#endif
+
 bool LocaleExists(const char* locale) {
   try {
     std::locale loc(locale);
@@ -679,7 +695,7 @@ void TestInitialized(const ArrayData& array) {
   // entire buffer data).  If not all bits are well-defined, Valgrind will
   // error with "Conditional jump or move depends on uninitialised value(s)".
   if (total_bit == 0) {
-    ++throw_away;
+    throw_away = throw_away + 1;
   }
   for (const auto& child : array.child_data) {
     TestInitialized(*child);
