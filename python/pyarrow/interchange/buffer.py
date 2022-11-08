@@ -15,11 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import annotations
+
+import numpy as np
+import pyarrow as pa
+
 from pyarrow.interchange.dataframe_protocol import (
     Buffer,
     DlpackDeviceType,
 )
-import numpy as np
 
 
 class PyArrowBuffer(Buffer):
@@ -27,37 +31,40 @@ class PyArrowBuffer(Buffer):
     Data in the buffer is guaranteed to be contiguous in memory.
     """
 
-    def __init__(self, x: np.ndarray, allow_copy: bool = True) -> None:
+    def __init__(self, x: pa.Buffer, allow_copy: bool = True) -> None:
         """
         Handle only regular columns (= numpy arrays) for now.
         """
-        pass
+        self._x = x
 
     @property
     def bufsize(self) -> int:
         """
         Buffer size in bytes.
         """
-        pass
+        return self._x.size
 
     @property
     def ptr(self) -> int:
         """
         Pointer to start of the buffer as an integer.
         """
-        pass
+        return self._x.address
 
     def __dlpack__(self):
         """
         Represent this structure as DLPack interface.
         """
-        pass
+        raise NotImplementedError("__dlpack__")
 
-    # def __dlpack_device__(self) -> tuple[DlpackDeviceType, int | None]:
-    #     """
-    #     Device type and device ID for where the data in the buffer resides.
-    #     """
-    #     pass
+    def __dlpack_device__(self) -> tuple[DlpackDeviceType, int | None]:
+        """
+        Device type and device ID for where the data in the buffer resides.
+        """
+        if self._x.is_cpu:
+            return (DlpackDeviceType.CPU, None)
+        else:
+            raise NotImplementedError("__dlpack_device__")
 
     def __repr__(self) -> str:
         return (

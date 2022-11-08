@@ -91,8 +91,10 @@ class TableXchg(DataFrameXchg):
                              allow_copy=self._allow_copy)
 
     def get_columns(self) -> Iterable[PyArrowColumn]:
-        return PyArrowColumn(self._df.columns,
-                             allow_copy=self._allow_copy)
+        return [
+            PyArrowColumn(col, allow_copy=self._allow_copy)
+            for col in self._df.columns
+        ]
 
     def select_columns(self, indices: Sequence[int]) -> TableXchg:
         return TableXchg(
@@ -108,17 +110,25 @@ class TableXchg(DataFrameXchg):
         """
         Return an iterator yielding the chunks.
         """
-        if n_chunks:
-            if n_chunks % self._df.num_chunks == 0:
-                chunk_size = self._df.num_rows // n_chunks
-                if self.num_rows %n_chunks != 0:
-                    warnings.warn("Converting dataframe into smaller chunks")
+        if n_chunks and n_chunks > 1:
+            if n_chunks % self.num_chunks() == 0:
+                chunk_size = self.num_rows() // n_chunks
+                if self.num_rows() % n_chunks != 0:
+                    chunk_size += 1
                 batches = self._df.to_batches(max_chunksize=chunk_size)
+                # In case when the size of the chunk is such that the resulting
+                # list is one less chunk then n_chunks -> append an empty chunk
+                if len(batches) == n_chunks - 1:
+                    batches.append(pa.record_batch([]))
             else:
                 warnings.warn(
                     "``n_chunks`` must be a multiple of ``self.num_chunks()``")
         else:
             batches = self._df.to_batches()
 
-        iterator_tables = [pa.Table.from_batches([batch]) for batch in batches]
+        iterator_tables = [TableXchg(
+                pa.Table.from_batches([batch]), self._nan_as_null, self._allow_copy
+            )
+            for batch in batches
+        ]
         return iterator_tables

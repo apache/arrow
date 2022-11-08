@@ -15,18 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import (Dict, Tuple, Any)
+from __future__ import annotations
+
+import warnings
+from typing import Any, Dict, Iterable, Tuple
 
 import pyarrow as pa
-
 from pyarrow.interchange.buffer import PyArrowBuffer
-from pyarrow.interchange.dataframe_protocol import (
-    Column,
-    ColumnBuffers,
-    ColumnNullType,
-    DtypeKind,
-)
-
+from pyarrow.interchange.dataframe_protocol import (Column, ColumnBuffers,
+                                                    ColumnNullType, DtypeKind)
 
 _PYARROW_KINDS = {
     pa.int8(): (DtypeKind.INT, "c"),
@@ -43,13 +40,6 @@ _PYARROW_KINDS = {
     pa.bool_(): (DtypeKind.BOOL, "b"),
     pa.string(): (DtypeKind.STRING, "u"),  # utf-8
     pa.large_string(): (DtypeKind.STRING, "U"),
-    # Resoulution:
-    #   - seconds -> 's'
-    #   - milliseconds -> 'm'
-    #   - microseconds -> 'u'
-    #   - nanoseconds -> 'n'
-    pa.timestamp(): (DtypeKind.DATETIME, "ts{resolution}:{tz}"),
-    pa.dictionary(): (DtypeKind.CATEGORICAL, "L")
 }
 
 
@@ -78,7 +68,7 @@ class PyArrowColumn(Column):
           doesn't need its own version or ``__column__`` protocol.
     """
 
-    def __init__(self, column: pa.Array, allow_copy: bool = True) -> None:
+    def __init__(self, column: pa.Array | pa.ChunkedArray, allow_copy: bool = True) -> None:
         """
         Note: doesn't deal with extension arrays yet, just assume a regular
         Series/ndarray for now.
@@ -91,14 +81,18 @@ class PyArrowColumn(Column):
         """
         Size of the column, in elements.
         """
-        return self._col.to_numpy().size
+        if isinstance(self._col, pa.Array):
+            len = self._col.to_numpy().size
+        else:
+            len = self._col.length()
+        return len
 
     @property
     def offset(self) -> int:
         """
         Offset of first element.
         """
-        return self._col.offset
+        return 0
 
     @property
     def dtype(self) -> tuple[DtypeKind, int, str, str]:
@@ -129,10 +123,34 @@ class PyArrowColumn(Column):
               decimal, and nested (list, struct, map, union) dtypes.
         """
         dtype = self._col.type
+        try:
+            bit_width = dtype.bit_width
+        except: # in case of a non-fixed width type (string)
+            bit_width = 8
+
+        if pa.types.is_timestamp(dtype):
+            kind = DtypeKind.DATETIME
+            f_string = "ts{dtype.unit}:{dtype.tz}"
+            return kind, bit_width, f_string, Endianness.NATIVE
+        elif pa.types.is_dictionary(dtype):
+            kind = DtypeKind.CATEGORICAL
+            f_string = "L"
+            return kind, bit_width, f_string, Endianness.NATIVE
+        else:
+            return self._dtype_from_arrowdtype(dtype, bit_width)
+
+
+    def _dtype_from_arrowdtype(self, dtype, bit_width) -> tuple[DtypeKind, int, str, str]:
+        """
+        See `self.dtype` for details.
+        """
+        # Note: 'c' (complex) not handled yet (not in array spec v1).
+        #       'b', 'B' (bytes), 'S', 'a', (old-style string) 'V' (void) not handled
+        #       datetime and timedelta both map to datetime (is timedelta handled?)
+
         kind, f_string = _PYARROW_KINDS.get(dtype, (None, None))
         if kind is None:
             raise ValueError(f"Data type {dtype} not supported by interchange protocol")
-        bit_width = self._col.nbytes * 8
 
         return kind, bit_width, f_string, Endianness.NATIVE
 
@@ -154,15 +172,20 @@ class PyArrowColumn(Column):
                              cat1, cat2, ...). None if not a dictionary-style
                              categorical.
         """
-        if pa.types.is_dictionary(self._col.type):
+        if isinstance(self._col, pa.ChunkedArray):
+            arr = self._col.combine_chunks()
+        else:
+            arr = self._col 
+
+        if not pa.types.is_dictionary(arr.type):
             raise TypeError(
                 "describe_categorical only works on a column with categorical dtype!"
             )
 
         return {
-            "is_ordered": True,
+            "is_ordered": self._col.type.ordered,
             "is_dictionary": True,
-            "categories": PyArrowColumn(self._col.dictionary),
+            "categories": PyArrowColumn(arr.dictionary),
         }
 
     @property
@@ -187,7 +210,11 @@ class PyArrowColumn(Column):
         """
         Return the number of chunks the column consists of.
         """
-        return 1
+        if isinstance(self._col, pa.Array):
+            n_chunks = 1
+        else:
+            n_chunks = self._col.num_chunks
+        return n_chunks
 
     def get_chunks(self, n_chunks: int | None = None):
         """
@@ -195,16 +222,37 @@ class PyArrowColumn(Column):
         See `DataFrame.get_chunks` for details on ``n_chunks``.
         """
         if n_chunks and n_chunks > 1:
-            size = self.size()
-            step = size // n_chunks
-            if size % n_chunks != 0:
-                step += 1
-            for start in range(0, step * n_chunks, step):
-                yield PyArrowColumn(
-                    self._col.slice(start,step), self._allow_copy
-                )
+            if n_chunks % self.num_chunks() == 0:
+                chunk_size = self.size() // n_chunks
+                if self.size() % n_chunks != 0:
+                    chunk_size += 1
+
+                if isinstance(self._col, pa.ChunkedArray):
+                    array = self._col.combine_chunks()
+                else:
+                    array = self._col
+
+                i = 0
+                for start in range(0, chunk_size * n_chunks, chunk_size):
+                    yield PyArrowColumn(
+                        array.slice(start,chunk_size), self._allow_copy
+                    )
+                    i +=1
+                # In case when the size of the chunk is such that the resulting
+                # list is one less chunk then n_chunks -> append an empty chunk
+                if i == n_chunks - 1:
+                    yield PyArrowColumn(pa.array([]), self._allow_copy)
+            else:
+                warnings.warn(
+                    "``n_chunks`` must be a multiple of ``self.num_chunks()``")
+        elif isinstance(self._col, pa.ChunkedArray):
+            return [
+                PyArrowColumn(chunk, self._allow_copy)
+                for chunk in self._col.chunks
+            ]
         else:
             yield self
+            
 
     def get_buffers(self) -> ColumnBuffers:
         """
@@ -249,11 +297,16 @@ class PyArrowColumn(Column):
         """
         Return the buffer containing the data and the buffer's associated dtype.
         """
-        len = len(self._col.buffers())
-        if len == 2:
-            return PyArrowBuffer(self._col.buffers()[1]), self.dtype
-        elif len == 3:
-            return PyArrowBuffer(self._col.buffers()[2]), self.dtype
+        if isinstance(self._col, pa.ChunkedArray):
+            array = self._col.combine_chunks()
+        else:
+            array = self._col
+        n = len(array.buffers())
+        if n == 2:
+            return PyArrowBuffer(array.buffers()[1]), self.dtype
+        elif n == 3:
+            return PyArrowBuffer(array.buffers()[2]), self.dtype
+
 
     def _get_validity_buffer(self) -> tuple[PyArrowBuffer, Any]:
         """
@@ -263,7 +316,11 @@ class PyArrowColumn(Column):
         """
         # Define the dtype of the returned buffer
         dtype = (DtypeKind.BOOL, 8, "b", Endianness.NATIVE)
-        buff = self._col.buffers()[0]
+        if isinstance(self._col, pa.ChunkedArray):
+            array = self._col.combine_chunks()
+        else:
+            array = self._col
+        buff = array.buffers()[0]
         if buff:
             return PyArrowBuffer(buff), dtype
 
@@ -278,13 +335,17 @@ class PyArrowColumn(Column):
         Raises NoBufferPresent if the data buffer does not have an associated
         offsets buffer.
         """
-        len = len(self._col.buffers())
-        if len == 2:
+        if isinstance(self._col, pa.ChunkedArray):
+            array = self._col.combine_chunks()
+        else:
+            array = self._col
+        n = len(array.buffers())
+        if n == 2:
             raise NoBufferPresent(
                 "This column has a fixed-length dtype so "
                 "it does not have an offsets buffer"
             )
-        elif len == 3:
+        elif n == 3:
             # Define the dtype of the returned buffer
             dtype = (DtypeKind.INT, 64, "L", Endianness.NATIVE)
-            return PyArrowBuffer(self._col.buffers()[2]), dtype
+            return PyArrowBuffer(array.buffers()[2]), dtype
