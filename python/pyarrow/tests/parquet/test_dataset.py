@@ -35,8 +35,6 @@ from pyarrow.tests.parquet.common import (
 from pyarrow.util import guid
 from pyarrow.vendored.version import Version
 
-import unittest.mock as mock
-
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (
@@ -1307,7 +1305,6 @@ def _test_write_to_dataset_with_partitions(base_path,
 def test_write_metadata_with_without_filesystem(tempdir):
     meta1 = tempdir / "meta1"
     meta2 = tempdir / "meta2"
-    count = 0
 
     class MockLocalFileSystem(fs.LocalFileSystem):
         """Mock fails to find attrs from direct cython ext."""
