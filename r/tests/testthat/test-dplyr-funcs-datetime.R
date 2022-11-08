@@ -3549,12 +3549,14 @@ test_that("with_tz() and force_tz() works", {
     "2008-12-28",
     "2008-12-29",
     "2012-01-01 01:02:03"
-  ))
+  ), tz = "UTC")
+
+  timestamps_non_utc <- force_tz(timestamps, "US/Central")
 
   nonexistent <- as_datetime(c(
     "2015-03-29 02:30:00",
     "2015-03-29 03:30:00"
-  ))
+  ), tz = "UTC")
 
   compare_dplyr_binding(
     .input %>%
@@ -3562,7 +3564,6 @@ test_that("with_tz() and force_tz() works", {
         timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
         timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
         timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata"),
-        timestamps_with_tz_4 = with_tz(timestamps_with_tz_2, "Asia/Kolkata"),
         timestamps_force_tz_1 = force_tz(timestamps, "UTC"),
         timestamps_force_tz_2 = force_tz(timestamps, "US/Central"),
         timestamps_force_tz_3 = force_tz(timestamps, "Asia/Kolkata")
@@ -3573,18 +3574,29 @@ test_that("with_tz() and force_tz() works", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(nonexistent_roll_true = force_tz(timestamps, "Europe/Brussels", roll = TRUE)) %>%
+      mutate(
+        timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
+        timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
+        timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata")
+      ) %>%
       collect(),
-    tibble::tibble(timestamps = nonexistent)
+    tibble::tibble(timestamps = timestamps_non_utc)
   )
 
   # non-UTC timezone to other timezone is not supported in arrow's force_tz()
   expect_warning(
-    tibble::tibble(timestamps = force_tz(timestamps, "US/Central")) %>%
+    tibble::tibble(timestamps = timestamps_non_utc) %>%
       arrow_table() %>%
       mutate(timestamps = force_tz(timestamps, "UTC")) %>%
       collect(),
     "from timezone `US/Central` not supported in Arrow"
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(nonexistent_roll_true = force_tz(timestamps, "Europe/Brussels", roll = TRUE)) %>%
+      collect(),
+    tibble::tibble(timestamps = nonexistent)
   )
 
   # Raise error when the timezone falls into the DST-break
