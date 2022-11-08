@@ -90,7 +90,10 @@ func (a *Struct) String() string {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		if !bytes.Equal(structBitmap, v.NullBitmapBytes()) {
+		if arrow.IsUnion(v.DataType().ID()) {
+			fmt.Fprintf(o, "%v", v)
+			continue
+		} else if !bytes.Equal(structBitmap, v.NullBitmapBytes()) {
 			masked := a.newStructFieldWithParentValidityMask(i)
 			fmt.Fprintf(o, "%v", masked)
 			masked.Release()
@@ -234,10 +237,10 @@ func (b *StructBuilder) Release() {
 			b.nullBitmap.Release()
 			b.nullBitmap = nil
 		}
-	}
 
-	for _, f := range b.fields {
-		f.Release()
+		for _, f := range b.fields {
+			f.Release()
+		}
 	}
 }
 
