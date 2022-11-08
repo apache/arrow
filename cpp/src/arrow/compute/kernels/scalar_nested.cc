@@ -122,8 +122,8 @@ struct ListSlice {
           opts.step);
     }
 
-    const ArraySpan& list_ = batch[0].array;
-    const Type* list_type = checked_cast<const Type*>(list_.type);
+    const ArraySpan& list_array = batch[0].array;
+    const Type* list_type = checked_cast<const Type*>(list_array.type);
     const auto field_name = list_type->field(0)->name();
     const auto value_type = list_type->field(0)->WithName(field_name);
     const auto return_fixed_size_list = opts.return_fixed_size_list.value_or(
@@ -171,14 +171,14 @@ struct ListSlice {
                                                 ArrayBuilder& builder) {
     const auto list_size =
         checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
-    const ArraySpan& list_ = batch[0].array;
-    const ArraySpan& list_values = list_.child_data[0];
+    const ArraySpan& list_array = batch[0].array;
+    const ArraySpan& list_values = list_array.child_data[0];
 
     auto list_builder = checked_cast<BuilderType*>(&builder);
-    for (auto i = 0; i < list_.length; ++i) {
-      auto offset = (i + list_.offset) * list_size;
+    for (auto i = 0; i < list_array.length; ++i) {
+      auto offset = (i + list_array.offset) * list_size;
       auto next_offset = offset + list_size;
-      if (list_.IsNull(i)) {
+      if (list_array.IsNull(i)) {
         RETURN_NOT_OK(list_builder->AppendNull());
       } else {
         RETURN_NOT_OK(SetValues<BuilderType>(list_builder, offset, next_offset, &opts,
@@ -192,16 +192,16 @@ struct ListSlice {
   static Status BuildArrayFromListType(const ExecSpan& batch,
                                        const ListSliceOptions& opts,
                                        ArrayBuilder& builder) {
-    const ArraySpan& list_ = batch[0].array;
-    const offset_type* offsets = list_.GetValues<offset_type>(1);
+    const ArraySpan& list_array = batch[0].array;
+    const offset_type* offsets = list_array.GetValues<offset_type>(1);
 
-    const ArraySpan& list_values = list_.child_data[0];
+    const ArraySpan& list_values = list_array.child_data[0];
 
     auto list_builder = checked_cast<BuilderType*>(&builder);
-    for (auto i = 0; i < list_.length; ++i) {
+    for (auto i = 0; i < list_array.length; ++i) {
       const offset_type offset = offsets[i];
       const offset_type next_offset = offsets[i + 1];
-      if (list_.IsNull(i)) {
+      if (list_array.IsNull(i)) {
         RETURN_NOT_OK(list_builder->AppendNull());
       } else {
         RETURN_NOT_OK(SetValues<BuilderType>(list_builder, offset, next_offset, &opts,
