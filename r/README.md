@@ -65,7 +65,7 @@ Alternatively, if you are using conda you can install `arrow` from conda-forge:
 conda install -c conda-forge --strict-channel-priority r-arrow
 ```
 
-In most cases installing the latest release should "just work" without 
+In most cases installing the latest release should work without 
 requiring any additional system dependencies, especially if you are using 
 Window or a Mac. For those users, CRAN hosts binary packages that contain 
 the Arrow C++ library upon which the `arrow` package relies, and no 
