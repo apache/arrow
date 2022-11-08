@@ -1174,11 +1174,11 @@ cdef class _ListSliceOptions(FunctionOptions):
             CListSliceOptions* opts
         opts = new CListSliceOptions(
             start,
-            <optional[int64_t]>nullopt if stop is None \
-                else <optional[int64_t]>(<int64_t>stop),
+            <optional[int64_t]>nullopt if stop is None
+            else <optional[int64_t]>(<int64_t>stop),
             step,
-            <optional[c_bool]>nullopt if return_fixed_size_list is None \
-                else <optional[c_bool]>(<c_bool>return_fixed_size_list)
+            <optional[c_bool]>nullopt if return_fixed_size_list is None
+            else <optional[c_bool]>(<c_bool>return_fixed_size_list)
         )
         self.wrapped.reset(opts)
 
