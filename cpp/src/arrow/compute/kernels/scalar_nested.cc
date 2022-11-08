@@ -89,6 +89,11 @@ Status GetListElementIndex(const ExecValue& value, T* out) {
   return Status::OK();
 }
 
+template <typename T>
+std::string ToString(const std::optional<T>& o) {
+  return o.has_value() ? std::to_string(*o) : "(nullopt)";
+}
+
 template <typename Type, typename IndexType>
 struct ListSlice {
   using offset_type = typename Type::offset_type;
@@ -108,7 +113,7 @@ struct ListSlice {
       // TODO: support start == stop which should give empty lists
       return Status::Invalid("`start`(", opts.start,
                              ") should be greater than 0 and smaller than `stop`(",
-                             opts.stop, ")");
+                             ToString(opts.stop), ")");
     }
     if (opts.step != 1) {
       // TODO: support step in slicing
