@@ -73,12 +73,12 @@ class PARQUET_EXPORT FileWriter {
       std::shared_ptr<ArrowWriterProperties> arrow_properties =
           default_arrow_writer_properties());
 
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use result variants instead.")
+  ARROW_DEPRECATED("Deprecated in 11.0.0. Use Result-returning variants instead.")
   static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
                               std::shared_ptr<::arrow::io::OutputStream> sink,
                               std::shared_ptr<WriterProperties> properties,
                               std::unique_ptr<FileWriter>* writer);
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use result variants instead.")
+  ARROW_DEPRECATED("Deprecated in 11.0.0. Use Result-returning variants instead.")
   static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
                               std::shared_ptr<::arrow::io::OutputStream> sink,
                               std::shared_ptr<WriterProperties> properties,
@@ -91,7 +91,7 @@ class PARQUET_EXPORT FileWriter {
   /// \brief Write a Table to Parquet.
   ///
   /// \param table Arrow table to write.
-  /// \param chunk_size maximum size of row groups to write.
+  /// \param chunk_size maximum number of rows to write per row group.
   virtual ::arrow::Status WriteTable(
       const ::arrow::Table& table, int64_t chunk_size = DEFAULT_MAX_ROW_GROUP_LENGTH) = 0;
 
@@ -141,7 +141,7 @@ PARQUET_EXPORT
 /// \param table Table to write.
 /// \param pool memory pool to use.
 /// \param sink output stream to write Parquet data.
-/// \param chunk_size maximum size of row groups to write.
+/// \param chunk_size maximum number of rows to write per row group.
 /// \param properties general Parquet writer properties.
 /// \param arrow_properties Arrow-specific writer properties.
 ::arrow::Status PARQUET_EXPORT

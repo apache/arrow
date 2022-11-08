@@ -45,9 +45,9 @@ offered for ease of use and type-safety.  It is of course also useful
 when data must be streamed as files are read and written
 incrementally.
 
-Please note that the performance of the :class:`StreamReader` and
-:class:`StreamWriter` classes will not be as good due to the type
-checking and the fact that column values are processed one at a time.
+Please note that the performance of the :class:`StreamReader` will not
+be as good due to the type checking and the fact that column values
+are processed one at a time.
 
 FileReader
 ----------
@@ -333,7 +333,7 @@ back to original Arrow types includes:
 * Reading Arrow types from their storage types (such as Duration from int64
   columns);
 * Reading string and binary columns back into large variants with 64-bit offsets;
-* Reading back columns as dictionary encoded (whether an Arrow column and a 
+* Reading back columns as dictionary encoded (whether an Arrow column and
   the serialized Parquet version are dictionary encoded are independent).
 
 Supported Parquet features
