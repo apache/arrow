@@ -161,6 +161,9 @@ Example how you can read contents from a S3 bucket::
    >>> from pyarrow import fs
    >>> s3 = fs.S3FileSystem(region='eu-west-3')
 
+   # Or alternatively from a URI:
+   >>> s3, path = fs.S3FileSystem.from_uri('s3://[access_key:secret_key@]bucket/path]')
+
    # List all contents in a bucket, recursively
    >>> s3.get_file_info(fs.FileSelector('my-test-bucket', recursive=True))
    [<FileInfo for 'my-test-bucket/File1': type=FileType.File, size=10>,
@@ -178,11 +181,6 @@ Example how you can read contents from a S3 bucket::
    >>> f.readall()
    b'some data'
 
-   # Note, to resolve the S3 bucket, one can use `resolve_s3_region('my-test-bucket')`
-   >>> s3 = fs.S3FileSystem(region=resolve_s3_region('my-test-bucket'))
-
-   # Or alternatively...
-   >>> s3 = fs.S3FileSystem.from_uri('s3://[access_key:secret_key@]bucket/path[?region=]')
 
 .. seealso::
 
