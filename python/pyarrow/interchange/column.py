@@ -18,12 +18,19 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, Iterable, Tuple
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Optional,
+    Tuple,
+)
 
 import pyarrow as pa
 from pyarrow.interchange.buffer import PyArrowBuffer
 from pyarrow.interchange.dataframe_protocol import (Column, ColumnBuffers,
-                                                    ColumnNullType, DtypeKind)
+                                                    ColumnNullType, DtypeKind,
+                                                    CategoricalDescription)
 
 _PYARROW_KINDS = {
     pa.int8(): (DtypeKind.INT, "c"),
@@ -70,8 +77,7 @@ class PyArrowColumn(Column):
 
     def __init__(self, column: pa.Array | pa.ChunkedArray, allow_copy: bool = True) -> None:
         """
-        Note: doesn't deal with extension arrays yet, just assume a regular
-        Series/ndarray for now.
+        Handles PyArrow Arrays and ChunkedArrays.
         """
         # Store the column as a private attribute
         self._col = column
@@ -95,7 +101,7 @@ class PyArrowColumn(Column):
         return 0
 
     @property
-    def dtype(self) -> tuple[DtypeKind, int, str, str]:
+    def dtype(self) -> Tuple[DtypeKind, int, str, str]:
         """
         Dtype description as a tuple ``(kind, bit-width, format string,
         endianness)``.
@@ -125,8 +131,8 @@ class PyArrowColumn(Column):
         dtype = self._col.type
         try:
             bit_width = dtype.bit_width
-        except: # in case of a non-fixed width type (string)
-            bit_width = 8
+        except: # in case of a variable-length strings
+            bit_width = None
 
         if pa.types.is_timestamp(dtype):
             kind = DtypeKind.DATETIME
@@ -140,7 +146,7 @@ class PyArrowColumn(Column):
             return self._dtype_from_arrowdtype(dtype, bit_width)
 
 
-    def _dtype_from_arrowdtype(self, dtype, bit_width) -> tuple[DtypeKind, int, str, str]:
+    def _dtype_from_arrowdtype(self, dtype, bit_width) -> Tuple[DtypeKind, int, str, str]:
         """
         See `self.dtype` for details.
         """
@@ -155,7 +161,7 @@ class PyArrowColumn(Column):
         return kind, bit_width, f_string, Endianness.NATIVE
 
     @property
-    def describe_categorical(self):
+    def describe_categorical(self) -> CategoricalDescription:
         """
         If the dtype is categorical, there are two options:
         - There are only values in the data buffer.
@@ -189,7 +195,7 @@ class PyArrowColumn(Column):
         }
 
     @property
-    def describe_null(self):
+    def describe_null(self) -> Tuple[ColumnNullType, Any]:
         return ColumnNullType.USE_BYTEMASK, 0
 
     @property
@@ -216,35 +222,31 @@ class PyArrowColumn(Column):
             n_chunks = self._col.num_chunks
         return n_chunks
 
-    def get_chunks(self, n_chunks: int | None = None):
+    def get_chunks(self, n_chunks: Optional[int] = None) -> Iterable["Column"]:
         """
         Return an iterator yielding the chunks.
         See `DataFrame.get_chunks` for details on ``n_chunks``.
         """
         if n_chunks and n_chunks > 1:
-            if n_chunks % self.num_chunks() == 0:
-                chunk_size = self.size() // n_chunks
-                if self.size() % n_chunks != 0:
-                    chunk_size += 1
+            chunk_size = self.size() // n_chunks
+            if self.size() % n_chunks != 0:
+                chunk_size += 1
 
-                if isinstance(self._col, pa.ChunkedArray):
-                    array = self._col.combine_chunks()
-                else:
-                    array = self._col
-
-                i = 0
-                for start in range(0, chunk_size * n_chunks, chunk_size):
-                    yield PyArrowColumn(
-                        array.slice(start,chunk_size), self._allow_copy
-                    )
-                    i +=1
-                # In case when the size of the chunk is such that the resulting
-                # list is one less chunk then n_chunks -> append an empty chunk
-                if i == n_chunks - 1:
-                    yield PyArrowColumn(pa.array([]), self._allow_copy)
+            if isinstance(self._col, pa.ChunkedArray):
+                array = self._col.combine_chunks()
             else:
-                warnings.warn(
-                    "``n_chunks`` must be a multiple of ``self.num_chunks()``")
+                array = self._col
+
+            i = 0
+            for start in range(0, chunk_size * n_chunks, chunk_size):
+                yield PyArrowColumn(
+                    array.slice(start,chunk_size), self._allow_copy
+                )
+                i +=1
+            # In case when the size of the chunk is such that the resulting
+            # list is one less chunk then n_chunks -> append an empty chunk
+            if i == n_chunks - 1:
+                yield PyArrowColumn(pa.array([]), self._allow_copy)
         elif isinstance(self._col, pa.ChunkedArray):
             return [
                 PyArrowColumn(chunk, self._allow_copy)
@@ -293,7 +295,7 @@ class PyArrowColumn(Column):
 
     def _get_data_buffer(
         self,
-    ) -> tuple[PyArrowBuffer, Any]:  # Any is for self.dtype tuple
+    ) -> Tuple[PyArrowBuffer, Any]:  # Any is for self.dtype tuple
         """
         Return the buffer containing the data and the buffer's associated dtype.
         """
@@ -308,7 +310,7 @@ class PyArrowColumn(Column):
             return PyArrowBuffer(array.buffers()[2]), self.dtype
 
 
-    def _get_validity_buffer(self) -> tuple[PyArrowBuffer, Any]:
+    def _get_validity_buffer(self) -> Tuple[PyArrowBuffer, Any]:
         """
         Return the buffer containing the mask values indicating missing data and
         the buffer's associated dtype.
@@ -323,12 +325,12 @@ class PyArrowColumn(Column):
         buff = array.buffers()[0]
         if buff:
             return PyArrowBuffer(buff), dtype
+        else:
+            raise NoBufferPresent(
+                "There are no missing values so "
+                "does not have a separate mask")
 
-        raise NoBufferPresent(
-            "There are no missing values so "
-            "does not have a separate mask")
-
-    def _get_offsets_buffer(self) -> tuple[PyArrowBuffer, Any]:
+    def _get_offsets_buffer(self) -> Tuple[PyArrowBuffer, Any]:
         """
         Return the buffer containing the offset values for variable-size binary
         data (e.g., variable-length strings) and the buffer's associated dtype.

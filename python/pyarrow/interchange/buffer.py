@@ -33,7 +33,7 @@ class PyArrowBuffer(Buffer):
 
     def __init__(self, x: pa.Buffer, allow_copy: bool = True) -> None:
         """
-        Handle only regular columns (= numpy arrays) for now.
+        Handle PyArrow Buffers.
         """
         self._x = x
 

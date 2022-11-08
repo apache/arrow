@@ -111,18 +111,14 @@ class TableXchg(DataFrameXchg):
         Return an iterator yielding the chunks.
         """
         if n_chunks and n_chunks > 1:
-            if n_chunks % self.num_chunks() == 0:
-                chunk_size = self.num_rows() // n_chunks
-                if self.num_rows() % n_chunks != 0:
-                    chunk_size += 1
-                batches = self._df.to_batches(max_chunksize=chunk_size)
-                # In case when the size of the chunk is such that the resulting
-                # list is one less chunk then n_chunks -> append an empty chunk
-                if len(batches) == n_chunks - 1:
-                    batches.append(pa.record_batch([]))
-            else:
-                warnings.warn(
-                    "``n_chunks`` must be a multiple of ``self.num_chunks()``")
+            chunk_size = self.num_rows() // n_chunks
+            if self.num_rows() % n_chunks != 0:
+                chunk_size += 1
+            batches = self._df.to_batches(max_chunksize=chunk_size)
+            # In case when the size of the chunk is such that the resulting
+            # list is one less chunk then n_chunks -> append an empty chunk
+            if len(batches) == n_chunks - 1:
+                batches.append(pa.record_batch([]))
         else:
             batches = self._df.to_batches()
 
