@@ -310,7 +310,7 @@ TEST(ScalarAggregateFunction, Basics) {
 }
 
 Result<std::unique_ptr<KernelState>> NoopInit(KernelContext*, const KernelInitArgs&) {
-  return NULLPTR;
+  return nullptr;
 }
 
 Status NoopConsume(KernelContext*, const ExecSpan&) { return Status::OK(); }
@@ -387,25 +387,27 @@ TEST(FunctionExecutor, Basics) {
     if (&options != init_args.options) {
       return Status::Invalid("expected options not found in kernel init args");
     }
-    return NULLPTR;
+    return nullptr;
   };
-  auto exec = [](KernelContext* ctx, const ExecSpan& args, ExecResult* out) {
-    DCHECK_EQ(2, args.values.size());
-    const int32_t* vals[2];
-    for (size_t i = 0; i < 2; i++) {
-      DCHECK(args.values[i].is_array());
-      const ArraySpan& array = args.values[i].array;
-      DCHECK_EQ(*int32(), *array.type);
-      vals[i] = array.GetValues<int32_t>(1);
-    }
-    DCHECK(out->is_array_data());
-    auto out_data = out->array_data();
-    Int32Builder builder;
-    for (int64_t i = 0; i < args.length; i++) {
-      ARROW_RETURN_NOT_OK(builder.Append(vals[0][i] + vals[1][i]));
-    }
-    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
-    *out_data.get() = *array->data();
+  auto exec = [](KernelContext* ctx, const ExecSpan& args, ExecResult* out) -> Status {
+    [&]() {  // gtest ASSERT macros require a void function
+      ASSERT_EQ(2, args.values.size());
+      const int32_t* vals[2];
+      for (size_t i = 0; i < 2; i++) {
+        ASSERT_TRUE(args.values[i].is_array());
+        const ArraySpan& array = args.values[i].array;
+        ASSERT_EQ(*int32(), *array.type);
+        vals[i] = array.GetValues<int32_t>(1);
+      }
+      ASSERT_TRUE(out->is_array_data());
+      auto out_data = out->array_data();
+      Int32Builder builder;
+      for (int64_t i = 0; i < args.length; i++) {
+        ASSERT_OK(builder.Append(vals[0][i] + vals[1][i]));
+      }
+      ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+      *out_data.get() = *array->data();
+    }();
     return Status::OK();
   };
   std::vector<InputType> in_types = {int32(), int32()};
@@ -418,21 +420,18 @@ TEST(FunctionExecutor, Basics) {
   ASSERT_FALSE(init_called);
   ASSERT_OK(func_exec->Init(&options, &exec_ctx));
   ASSERT_TRUE(init_called);
-  auto build_array = [](int32_t i) -> Result<Datum> {
-    Int32Builder builder;
-    ARROW_RETURN_NOT_OK(builder.Append(i));
-    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
-    return Datum(array->data());
-  };
+  std::vector<std::shared_ptr<Array>> arrays = {
+      ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[2]"),
+      ArrayFromJSON(int32(), "[3]"), ArrayFromJSON(int32(), "[4]")};
+  std::vector<std::shared_ptr<Array>> expected = {ArrayFromJSON(int32(), "[3]"),
+                                                  ArrayFromJSON(int32(), "[5]"),
+                                                  ArrayFromJSON(int32(), "[7]")};
   for (int32_t i = 1; i <= 3; i++) {
-    ASSERT_OK_AND_ASSIGN(auto value0, build_array(i));
-    ASSERT_OK_AND_ASSIGN(auto value1, build_array(i + 1));
-    std::vector<Datum> values = {value0, value1};
+    std::vector<Datum> values = {arrays[i - 1], arrays[i]};
     ASSERT_OK_AND_ASSIGN(auto result, func_exec->Execute(values, 1));
     ASSERT_TRUE(result.is_array());
-    auto int32_data = dynamic_cast<const ArrayData*>(result.array().get());
-    ASSERT_NE(NULLPTR, int32_data);
-    EXPECT_EQ(2 * i + 1, int32_data->GetValues<int32_t>(1)[0]);
+    auto actual = result.make_array();
+    AssertArraysEqual(*expected[i - 1], *actual);
   }
 }
 

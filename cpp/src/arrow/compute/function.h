@@ -160,7 +160,8 @@ struct ARROW_EXPORT FunctionDoc {
 };
 
 /// \brief An executor of a function with a preconfigured kernel
-struct ARROW_EXPORT FunctionExecutor {
+class ARROW_EXPORT FunctionExecutor {
+ public:
   virtual ~FunctionExecutor() = default;
   /// \brief Initialize or re-initialize the preconfigured kernel
   ///
@@ -169,8 +170,16 @@ struct ARROW_EXPORT FunctionExecutor {
   virtual Status Init(const FunctionOptions* options = NULLPTR,
                       ExecContext* exec_ctx = NULLPTR) = 0;
   /// \brief Execute the preconfigured kernel with arguments that must fit it
-  virtual Result<Datum> Execute(const std::vector<Datum>& args,
-                                int64_t passed_length = -1) = 0;
+  ///
+  /// The method requires the arguments be castable to the preconfigured types.
+  ///
+  /// \param[in] args Arguments to execute the function on
+  /// \param[in] length Length of arguments batch or -1 to default it. If the
+  /// function has no parameters, this determines the batch length, defaulting
+  /// to 0. Otherwise, if the function is scalar, this must equal the argument
+  /// batch's inferred length or be -1 to default to it. This is ignored for
+  /// vector functions.
+  virtual Result<Datum> Execute(const std::vector<Datum>& args, int64_t length = -1) = 0;
 };
 
 /// \brief Base class for compute functions. Function implementations contain a

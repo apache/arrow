@@ -219,7 +219,7 @@ struct FunctionExecutorImpl : public FunctionExecutor {
     util::tracing::Span span;
 
     auto func_kind = func.kind();
-    auto func_name = func.name();
+    const auto& func_name = func.name();
     START_COMPUTE_SPAN(span, func_name,
                        {{"function.name", func_name},
                         {"function.options", options ? options->ToString() : "<NULLPTR>"},
@@ -230,14 +230,14 @@ struct FunctionExecutorImpl : public FunctionExecutor {
     }
     ExecContext* ctx = kernel_ctx.exec_context();
     // Cast arguments if necessary
-    std::vector<Datum> args_with_cast;
+    std::vector<Datum> args_with_cast(args.size());
     for (size_t i = 0; i != args.size(); ++i) {
       const auto& in_type = in_types[i];
       auto arg = args[i];
       if (in_type != args[i].type()) {
         ARROW_ASSIGN_OR_RAISE(arg, Cast(args[i], CastOptions::Safe(in_type), ctx));
       }
-      args_with_cast.push_back(arg);
+      args_with_cast[i] = std::move(arg);
     }
 
     detail::DatumAccumulator listener;
@@ -255,12 +255,14 @@ struct FunctionExecutorImpl : public FunctionExecutor {
         if (passed_length != -1 && passed_length != inferred_length) {
           return Status::Invalid(
               "Passed batch length for execution did not match actual"
-              " length of values for scalar function execution");
+              " length of values for execution of scalar function '",
+              func_name, "'");
         }
       } else if (func_kind == Function::VECTOR) {
-        auto vkernel = static_cast<const VectorKernel*>(kernel);
-        if (!(all_same_length || !vkernel->can_execute_chunkwise)) {
-          return Status::Invalid("Vector kernel arguments must all be the same length");
+        auto vkernel = checked_cast<const VectorKernel*>(kernel);
+        if (!all_same_length && vkernel->can_execute_chunkwise) {
+          return Status::Invalid("Arguments for execution of vector kernel function '",
+                                 func_name, "' must all be the same length");
         }
       }
     }

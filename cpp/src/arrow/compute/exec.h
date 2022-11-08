@@ -30,7 +30,7 @@
 
 #include "arrow/array/data.h"
 #include "arrow/compute/exec/expression.h"
-#include "arrow/compute/registry.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
@@ -46,10 +46,6 @@ class CpuInfo;
 }  // namespace internal
 
 namespace compute {
-
-struct FunctionExecutor;
-class FunctionOptions;
-class FunctionRegistry;
 
 // It seems like 64K might be a good default chunksize to use for execution
 // based on the experience of other query processing systems. The current

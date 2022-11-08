@@ -28,6 +28,8 @@ namespace compute {
 
 class Function;
 class FunctionOptions;
+struct FunctionExecutor;
+class FunctionRegistry;
 
 class CastOptions;
 
