@@ -120,23 +120,20 @@ TEST(TestScalarNested, ListElementInvalid) {
 TEST(TestScalarNested, ListSliceVariableOutput) {
   const auto value_types = {float32(), int32()};
   for (auto value_type : value_types) {
-    /* Variable list size output required variable size list input. */
-    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]")};
-    for (auto input : inputs) {
-      ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
-                            /*return_fixed_size_list=*/false);
-      auto expected = ArrayFromJSON(list(value_type), "[[1, 2], [4, 5], [6], null]");
-      CheckScalarUnary("list_slice", input, expected, &args);
+    auto input = ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]");
+    ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                          /*return_fixed_size_list=*/false);
+    auto expected = ArrayFromJSON(list(value_type), "[[1, 2], [4, 5], [6], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
 
-      args.start = 1;
-      expected = ArrayFromJSON(list(value_type), "[[2], [5], [], null]");
-      CheckScalarUnary("list_slice", input, expected, &args);
+    args.start = 1;
+    expected = ArrayFromJSON(list(value_type), "[[2], [5], [], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
 
-      args.start = 2;
-      args.stop = 4;
-      expected = ArrayFromJSON(list(value_type), "[[3], [], [], null]");
-      CheckScalarUnary("list_slice", input, expected, &args);
-    }
+    args.start = 2;
+    args.stop = 4;
+    expected = ArrayFromJSON(list(value_type), "[[3], [], [], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
   }
 
   // Verify passing `return_fixed_size_list=false` with fixed size input
