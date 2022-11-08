@@ -58,11 +58,9 @@ _lib/cast_numeric_neon.s: _lib/cast_numeric.cc
 
 _lib/base_arithmetic_avx2_amd64.s: _lib/base_arithmetic.cc
 	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_AVX2) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
-	sed -i -e 's/\([[:space:]]\+\)\.quad\([[:space:]]\+\)0x8000000000000000/\1.long\20x00000000\n\1.long\20x80000000/g' $@
 
 _lib/base_arithmetic_sse4_amd64.s: _lib/base_arithmetic.cc
 	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_SSE4) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
-	sed -i -e 's/\([[:space:]]\+\)\.quad\([[:space:]]\+\)0x8000000000000000/\1.long\20x00000000\n\1.long\20x80000000/g' $@
 
 _lib/base_arithmetic_neon.s: _lib/base_arithmetic.cc
 	$(CXX) -std=c++17 -S $(C_FLAGS_NEON) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@

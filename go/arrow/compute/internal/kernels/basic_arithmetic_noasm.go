@@ -23,10 +23,14 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-func getArithmeticOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
-	return getGoArithmeticOpFloating[T](op)
+func getArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+	return getGoArithmeticOpFloatingSameType[InT, OutT](op)
 }
 
-func getArithmeticOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
-	return getGoArithmeticOpIntegral[T](op)
+func getArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+	return getGoArithmeticOpIntegral[InT, OutT](op)
+}
+
+func getArithmeticUnaryFixedIntOut[InT exec.NumericTypes, OutT exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+	return getGoArithmeticFixedIntOut[InT, OutT](op)
 }

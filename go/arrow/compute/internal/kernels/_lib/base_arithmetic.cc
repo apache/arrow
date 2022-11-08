@@ -33,17 +33,18 @@ enum class optype : int8_t {
     ADD,
     SUB,
     MUL,
-    DIV,    
+    DIV,
     ABSOLUTE_VALUE,
     NEGATE,
     SQRT,
+    SIGN,
 
     // this impl doesn't actually perform any overflow checks as we need
     // to only run overflow checks on non-null entries
     ADD_CHECKED,
     SUB_CHECKED,
     MUL_CHECKED,
-    DIV_CHECKED,    
+    DIV_CHECKED,
     ABSOLUTE_VALUE_CHECKED,
     NEGATE_CHECKED,
     SQRT_CHECKED,
@@ -156,7 +157,7 @@ struct AbsoluteValueChecked {
     static constexpr T Call(Arg input) {
         if constexpr(is_same_v<Arg, float>) {
             *(((int*)&input)+0) &= 0x7fffffff;
-            return input;            
+            return input;
         } else if constexpr(is_same_v<Arg, double>) {
             *(((int*)&input)+1) &= 0x7fffffff;
             return input;
@@ -196,53 +197,66 @@ struct NegateChecked {
     }
 };
 
-template <typename T, typename Op>
+struct Sign {
+    template <typename T, typename Arg>
+    static constexpr T Call(Arg input) {
+        if constexpr(is_floating_point_v<Arg>) {
+            return isnan(input) ? input : ((input == 0) ? 0 : (signbit(input) ? -1 : 1));
+        } else if constexpr(is_unsigned_v<Arg>) {
+            return input > 0 ? 1 : 0;
+        } else if constexpr(is_signed_v<Arg>) {
+            return input > 0 ? 1 : (input ? -1 : 0);
+        }
+    }
+};
+
+template <typename T, typename Op, typename OutT = T>
 struct arithmetic_op_arr_arr_impl {
     static inline void exec(const void* in_left, const void* in_right, void* out, const int len) {
         const T* left = reinterpret_cast<const T*>(in_left);
         const T* right = reinterpret_cast<const T*>(in_right);
-        T* output = reinterpret_cast<T*>(out);
+        OutT* output = reinterpret_cast<OutT*>(out);
 
         for (int i = 0; i < len; ++i) {
-            output[i] = Op::template Call<T, T, T>(left[i], right[i]);
+            output[i] = Op::template Call<OutT, T, T>(left[i], right[i]);
         }
     }
 };
 
-template <typename T, typename Op>
+template <typename T, typename Op, typename OutT = T>
 struct arithmetic_op_arr_scalar_impl {
     static inline void exec(const void* in_left, const void* scalar_right, void* out, const int len) {
         const T* left = reinterpret_cast<const T*>(in_left);
         const T right = *reinterpret_cast<const T*>(scalar_right);
-        T* output = reinterpret_cast<T*>(out);
+        OutT* output = reinterpret_cast<OutT*>(out);
 
         for (int i = 0; i < len; ++i) {
-            output[i] = Op::template Call<T, T, T>(left[i], right);
+            output[i] = Op::template Call<OutT, T, T>(left[i], right);
         }
     }
 };
 
-template <typename T, typename Op>
+template <typename T, typename Op, typename OutT = T>
 struct arithmetic_op_scalar_arr_impl {
     static inline void exec(const void* scalar_left, const void* in_right, void* out, const int len) {
         const T left = *reinterpret_cast<const T*>(scalar_left);
         const T* right = reinterpret_cast<const T*>(in_right);
-        T* output = reinterpret_cast<T*>(out);
+        OutT* output = reinterpret_cast<OutT*>(out);
 
         for (int i = 0; i < len; ++i) {
-            output[i] = Op::template Call<T, T, T>(left, right[i]);
+            output[i] = Op::template Call<OutT, T, T>(left, right[i]);
         }
     }
 };
 
-template <typename T, typename Op>
+template <typename T, typename Op, typename OutT = T>
 struct arithmetic_unary_op_impl {
-    static inline void exec(const void* arg, const void* nil, void* out, const int len) {
+    static inline void exec(const void* arg, void* out, const int len) {
         const T* input = reinterpret_cast<const T*>(arg);
-        T* output = reinterpret_cast<T*>(out);
+        OutT* output = reinterpret_cast<OutT*>(out);
 
         for (int i = 0; i < len; ++i) {
-            output[i] = Op::template Call<T, T>(input[i]);
+            output[i] = Op::template Call<OutT, T>(input[i]);
         }
     }
 };
@@ -277,8 +291,132 @@ static inline void arithmetic_op(const int type, const void* in_left, const void
     }
 }
 
+template <typename Op, template <typename...> typename Impl, typename Input>
+static inline void arithmetic_op(const int otype, const void* input, void* output, const int len) {
+    const auto outtype = static_cast<arrtype>(otype);
+    
+    switch (outtype) {
+    case arrtype::UINT8:
+        return Impl<Input, Op, uint8_t>::exec(input, output, len);
+    case arrtype::INT8:
+        return Impl<Input, Op, int8_t>::exec(input, output, len);
+    case arrtype::UINT16:
+        return Impl<Input, Op, uint16_t>::exec(input, output, len);
+    case arrtype::INT16:
+        return Impl<Input, Op, int16_t>::exec(input, output, len);
+    case arrtype::UINT32:
+        return Impl<Input, Op, uint32_t>::exec(input, output, len);
+    case arrtype::INT32:
+        return Impl<Input, Op, int32_t>::exec(input, output, len);
+    case arrtype::UINT64:
+        return Impl<Input, Op, uint64_t>::exec(input, output, len);
+    case arrtype::INT64:
+        return Impl<Input, Op, int64_t>::exec(input, output, len);
+    case arrtype::FLOAT32:
+        return Impl<Input, Op, float>::exec(input, output, len);
+    case arrtype::FLOAT64:
+        return Impl<Input, Op, double>::exec(input, output, len);
+    default:
+        break;
+    }
+}
+
+
+template <typename Op, template <typename...> typename Impl>
+static inline void arithmetic_op(const int type, const void* input, void* output, const int len) {
+    const auto intype = static_cast<arrtype>(type);
+    
+    switch (intype) {
+    case arrtype::UINT8:
+        return Impl<uint8_t, Op>::exec(input, output, len);
+    case arrtype::INT8:
+        return Impl<int8_t, Op>::exec(input, output, len);
+    case arrtype::UINT16:
+        return Impl<uint16_t, Op>::exec(input, output, len);
+    case arrtype::INT16:
+        return Impl<int16_t, Op>::exec(input, output, len);
+    case arrtype::UINT32:
+        return Impl<uint32_t, Op>::exec(input, output, len);
+    case arrtype::INT32:
+        return Impl<int32_t, Op>::exec(input, output, len);
+    case arrtype::UINT64:
+        return Impl<uint64_t, Op>::exec(input, output, len);
+    case arrtype::INT64:
+        return Impl<int64_t, Op>::exec(input, output, len);
+    case arrtype::FLOAT32:
+        return Impl<float, Op>::exec(input, output, len);
+    case arrtype::FLOAT64:
+        return Impl<double, Op>::exec(input, output, len);
+    default:
+        break;
+    }
+}
+
+template <typename Op, template <typename...> typename Impl>
+static inline void arithmetic_op(const int itype, const int otype, const void* input, void* output, const int len) {
+    const auto intype = static_cast<arrtype>(itype);
+
+    switch (intype) {
+    case arrtype::UINT8:
+        return arithmetic_op<Op, Impl, uint8_t>(otype, input, output, len);
+    case arrtype::INT8:
+        return arithmetic_op<Op, Impl, int8_t>(otype, input, output, len);
+    case arrtype::UINT16:
+        return arithmetic_op<Op, Impl, uint16_t>(otype, input, output, len);
+    case arrtype::INT16:
+        return arithmetic_op<Op, Impl, int16_t>(otype, input, output, len);
+    case arrtype::UINT32:
+        return arithmetic_op<Op, Impl, uint32_t>(otype, input, output, len);
+    case arrtype::INT32:
+        return arithmetic_op<Op, Impl, int32_t>(otype, input, output, len);
+    case arrtype::UINT64:
+        return arithmetic_op<Op, Impl, uint64_t>(otype, input, output, len);
+    case arrtype::INT64:
+        return arithmetic_op<Op, Impl, int64_t>(otype, input, output, len);
+    case arrtype::FLOAT32:
+        return arithmetic_op<Op, Impl, float>(otype, input, output, len);
+    case arrtype::FLOAT64:
+        return arithmetic_op<Op, Impl, double>(otype, input, output, len);
+    default:
+        break;
+    }
+}
+
 template <template <typename...> class Impl>
-static inline void arithmetic_impl(const int type, const int8_t op, const void* in_left, const void* in_right, void* out, const int len) {
+static inline void arithmetic_unary_impl_same_types(const int type, const int8_t op, const void* input, void* output, const int len) {
+    const auto opt = static_cast<optype>(op);
+
+    switch (opt) {
+    case optype::ABSOLUTE_VALUE:
+        return arithmetic_op<AbsoluteValue, Impl>(type, input, output, len);
+    case optype::ABSOLUTE_VALUE_CHECKED:
+        return arithmetic_op<AbsoluteValueChecked, Impl>(type, input, output, len);
+    case optype::NEGATE:
+        return arithmetic_op<Negate, Impl>(type, input, output, len);
+    case optype::NEGATE_CHECKED:
+        return arithmetic_op<NegateChecked, Impl>(type, input, output, len);
+    case optype::SIGN:
+        return arithmetic_op<Sign, Impl>(type, input, output, len);
+    default:
+        break;
+    }
+}
+
+
+template <template <typename...> class Impl>
+static inline void arithmetic_unary_impl(const int itype, const int otype, const int8_t op, const void* input, void* output, const int len) {
+    const auto opt = static_cast<optype>(op);
+
+    switch (opt) {
+    case optype::SIGN:
+        return arithmetic_op<Sign, Impl>(itype, otype, input, output, len);    
+    default:
+        break;
+    }
+}
+
+template <template <typename...> class Impl>
+static inline void arithmetic_binary_impl(const int type, const int8_t op, const void* in_left, const void* in_right, void* out, const int len) {
     const auto opt = static_cast<optype>(op);
 
     switch (opt) {
@@ -293,16 +431,8 @@ static inline void arithmetic_impl(const int type, const int8_t op, const void* 
     case optype::MUL:
         return arithmetic_op<Multiply, Impl>(type, in_left, in_right, out, len);
     case optype::MUL_CHECKED:
-        return arithmetic_op<MultiplyChecked, Impl>(type, in_left, in_right, out, len);        
-    case optype::ABSOLUTE_VALUE:
-        return arithmetic_op<AbsoluteValue, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);
-    case optype::ABSOLUTE_VALUE_CHECKED:    
-        return arithmetic_op<AbsoluteValueChecked, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);
-    case optype::NEGATE:
-        return arithmetic_op<Negate, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);
-    case optype::NEGATE_CHECKED:
-        return arithmetic_op<NegateChecked, arithmetic_unary_op_impl>(type, in_left, in_right, out, len);    
-
+        return arithmetic_op<MultiplyChecked, Impl>(type, in_left, in_right, out, len);
+    
     default:
         // don't implement divide here as we can only divide on non-null entries
         // so we can avoid dividing by zero
@@ -310,14 +440,22 @@ static inline void arithmetic_impl(const int type, const int8_t op, const void* 
     }
 }
 
-extern "C" void FULL_NAME(arithmetic)(const int type, const int8_t op, const void* in_left, const void* in_right, void* out, const int len) {
-    arithmetic_impl<arithmetic_op_arr_arr_impl>(type, op, in_left, in_right, out, len);
+extern "C" void FULL_NAME(arithmetic_binary)(const int type, const int8_t op, const void* in_left, const void* in_right, void* out, const int len) {
+    arithmetic_binary_impl<arithmetic_op_arr_arr_impl>(type, op, in_left, in_right, out, len);
 }
 
 extern "C" void FULL_NAME(arithmetic_arr_scalar)(const int type, const int8_t op, const void* in_left, const void* in_right, void* out, const int len) {
-    arithmetic_impl<arithmetic_op_arr_scalar_impl>(type, op, in_left, in_right, out, len);
+    arithmetic_binary_impl<arithmetic_op_arr_scalar_impl>(type, op, in_left, in_right, out, len);
 }
 
 extern "C" void FULL_NAME(arithmetic_scalar_arr)(const int type, const int8_t op, const void* in_left, const void* in_right, void* out, const int len) {
-    arithmetic_impl<arithmetic_op_scalar_arr_impl>(type, op, in_left, in_right, out, len);    
+    arithmetic_binary_impl<arithmetic_op_scalar_arr_impl>(type, op, in_left, in_right, out, len);
+}
+
+extern "C" void FULL_NAME(arithmetic_unary_same_types)(const int type, const int8_t op, const void* input, void* output, const int len) {
+    arithmetic_unary_impl_same_types<arithmetic_unary_op_impl>(type, op, input, output, len);
+}
+
+extern "C" void FULL_NAME(arithmetic_unary_diff_type)(const int itype, const int otype, const int8_t op, const void* input, void* output, const int len) {
+    arithmetic_unary_impl<arithmetic_unary_op_impl>(itype, otype, op, input, output, len);
 }

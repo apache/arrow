@@ -82,7 +82,7 @@ func GetArithmeticBinaryKernels(op ArithmeticOp) []exec.ScalarKernel {
 	for _, ty := range numericTypes {
 		kernels = append(kernels, exec.NewScalarKernel(
 			[]exec.InputType{exec.NewExactInput(ty), exec.NewExactInput(ty)},
-			exec.NewOutputType(ty), ArithmeticExec(ty.ID(), op), nil))
+			exec.NewOutputType(ty), ArithmeticExecSameType(ty.ID(), op), nil))
 	}
 
 	return append(kernels, NullExecKernel(2))
@@ -105,7 +105,7 @@ func GetArithmeticUnaryKernels(op ArithmeticOp) []exec.ScalarKernel {
 	for _, ty := range numericTypes {
 		kernels = append(kernels, exec.NewScalarKernel(
 			[]exec.InputType{exec.NewExactInput(ty)}, exec.NewOutputType(ty),
-			ArithmeticExec(ty.ID(), op), nil))
+			ArithmeticExec(ty.ID(), ty.ID(), op), nil))
 	}
 
 	return append(kernels, NullExecKernel(1))
@@ -116,7 +116,7 @@ func GetArithmeticUnarySignedKernels(op ArithmeticOp) []exec.ScalarKernel {
 	for _, ty := range append(signedIntTypes, floatingTypes...) {
 		kernels = append(kernels, exec.NewScalarKernel(
 			[]exec.InputType{exec.NewExactInput(ty)}, exec.NewOutputType(ty),
-			ArithmeticExec(ty.ID(), op), nil))
+			ArithmeticExec(ty.ID(), ty.ID(), op), nil))
 	}
 
 	return append(kernels, NullExecKernel(1))
@@ -127,8 +127,37 @@ func GetArithmeticUnaryFloatingPointKernels(op ArithmeticOp) []exec.ScalarKernel
 	for _, ty := range floatingTypes {
 		kernels = append(kernels, exec.NewScalarKernel(
 			[]exec.InputType{exec.NewExactInput(ty)}, exec.NewOutputType(ty),
-			ArithmeticExec(ty.ID(), op), nil))
+			ArithmeticExec(ty.ID(), ty.ID(), op), nil))
 	}
+
+	return append(kernels, NullExecKernel(1))
+}
+
+func GetArithmeticUnaryFixedIntOutKernels(otype arrow.DataType, op ArithmeticOp) []exec.ScalarKernel {
+	kernels := make([]exec.ScalarKernel, 0)
+
+	out := exec.NewOutputType(otype)
+	for _, ty := range numericTypes {
+		otype := otype
+		out := out
+		if arrow.IsFloating(ty.ID()) {
+			otype = ty
+			out = exec.NewOutputType(ty)
+		}
+
+		kernels = append(kernels, exec.NewScalarKernel(
+			[]exec.InputType{exec.NewExactInput(ty)}, out,
+			ArithmeticExec(ty.ID(), otype.ID(), op), nil))
+	}
+
+	kernels = append(kernels, exec.NewScalarKernel(
+		[]exec.InputType{exec.NewIDInput(arrow.DECIMAL128)},
+		exec.NewOutputType(arrow.PrimitiveTypes.Int64),
+		getArithmeticDecimal[decimal128.Num](op), nil))
+	kernels = append(kernels, exec.NewScalarKernel(
+		[]exec.InputType{exec.NewIDInput(arrow.DECIMAL256)},
+		exec.NewOutputType(arrow.PrimitiveTypes.Int64),
+		getArithmeticDecimal[decimal256.Num](op), nil))
 
 	return append(kernels, NullExecKernel(1))
 }

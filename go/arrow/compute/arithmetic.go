@@ -146,7 +146,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		for _, unit := range arrow.TimeUnitValues {
 			inType := exec.NewMatchedInput(exec.TimestampTypeUnit(unit))
 			inDuration := exec.NewExactInput(&arrow.DurationType{Unit: unit})
-			ex := kernels.ArithmeticExec(arrow.TIMESTAMP, o.op)
+			ex := kernels.ArithmeticExecSameType(arrow.TIMESTAMP, o.op)
 			err := fn.AddNewKernel([]exec.InputType{inType, inDuration}, kernels.OutputFirstType, ex, nil)
 			if err != nil {
 				panic(err)
@@ -157,7 +157,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 			}
 
 			matchDur := exec.NewMatchedInput(exec.DurationTypeUnit(unit))
-			ex = kernels.ArithmeticExec(arrow.DURATION, o.op)
+			ex = kernels.ArithmeticExecSameType(arrow.DURATION, o.op)
 			err = fn.AddNewKernel([]exec.InputType{matchDur, matchDur}, exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
 			if err != nil {
 				panic(err)
@@ -189,7 +189,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		for _, unit := range arrow.TimeUnitValues {
 			// timestamp - timestamp => duration
 			inType := exec.NewMatchedInput(exec.TimestampTypeUnit(unit))
-			ex := kernels.ArithmeticExec(arrow.TIMESTAMP, o.op)
+			ex := kernels.ArithmeticExecSameType(arrow.TIMESTAMP, o.op)
 			err := fn.AddNewKernel([]exec.InputType{inType, inType}, kernels.OutputResolveTemporal, ex, nil)
 			if err != nil {
 				panic(err)
@@ -197,7 +197,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 			// timestamp - duration => timestamp
 			inDuration := exec.NewExactInput(&arrow.DurationType{Unit: unit})
-			ex = kernels.ArithmeticExec(arrow.TIMESTAMP, o.op)
+			ex = kernels.ArithmeticExecSameType(arrow.TIMESTAMP, o.op)
 			err = fn.AddNewKernel([]exec.InputType{inType, inDuration}, kernels.OutputFirstType, ex, nil)
 			if err != nil {
 				panic(err)
@@ -205,7 +205,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 			// duration - duration = duration
 			matchDur := exec.NewMatchedInput(exec.DurationTypeUnit(unit))
-			ex = kernels.ArithmeticExec(arrow.DURATION, o.op)
+			ex = kernels.ArithmeticExecSameType(arrow.DURATION, o.op)
 			err = fn.AddNewKernel([]exec.InputType{matchDur, matchDur}, exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
 			if err != nil {
 				panic(err)
@@ -215,7 +215,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		// time32 - time32 = duration
 		for _, unit := range []arrow.TimeUnit{arrow.Second, arrow.Millisecond} {
 			inType := exec.NewMatchedInput(exec.Time32TypeUnit(unit))
-			internalEx := kernels.ArithmeticExec(arrow.TIME32, o.op)
+			internalEx := kernels.ArithmeticExecSameType(arrow.TIME32, o.op)
 			ex := func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 				if err := internalEx(ctx, batch, out); err != nil {
 					return err
@@ -242,7 +242,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		// time64 - time64 = duration
 		for _, unit := range []arrow.TimeUnit{arrow.Microsecond, arrow.Nanosecond} {
 			inType := exec.NewMatchedInput(exec.Time64TypeUnit(unit))
-			ex := kernels.ArithmeticExec(arrow.TIME64, o.op)
+			ex := kernels.ArithmeticExecSameType(arrow.TIME64, o.op)
 			err := fn.AddNewKernel([]exec.InputType{inType, inType}, exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
 			if err != nil {
 				panic(err)
@@ -257,7 +257,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		}
 
 		inDate64 := exec.NewExactInput(arrow.FixedWidthTypes.Date64)
-		ex = kernels.ArithmeticExec(arrow.DATE64, o.op)
+		ex = kernels.ArithmeticExecSameType(arrow.DATE64, o.op)
 		err = fn.AddNewKernel([]exec.InputType{inDate64, inDate64}, exec.NewOutputType(arrow.FixedWidthTypes.Duration_ms), ex, nil)
 		if err != nil {
 			panic(err)
@@ -290,7 +290,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 			durInput := exec.NewExactInput(&arrow.DurationType{Unit: unit})
 			i64Input := exec.NewExactInput(arrow.PrimitiveTypes.Int64)
 			durOutput := exec.NewOutputType(&arrow.DurationType{Unit: unit})
-			ex := kernels.ArithmeticExec(arrow.DURATION, o.op)
+			ex := kernels.ArithmeticExecSameType(arrow.DURATION, o.op)
 			err := fn.AddNewKernel([]exec.InputType{durInput, i64Input}, durOutput, ex, nil)
 			if err != nil {
 				panic(err)
@@ -358,6 +358,16 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 		reg.AddFunction(fn, false)
 	}
+
+	fn = &arithmeticFunction{*NewScalarFunction("sign", Unary(), addDoc), decPromoteNone}
+	kns = kernels.GetArithmeticUnaryFixedIntOutKernels(arrow.PrimitiveTypes.Int8, kernels.OpSign)
+	for _, k := range kns {
+		if err := fn.AddKernel(k); err != nil {
+			panic(err)
+		}
+	}
+
+	reg.AddFunction(fn, false)
 }
 
 func impl(ctx context.Context, fn string, opts ArithmeticOptions, left, right Datum) (Datum, error) {
