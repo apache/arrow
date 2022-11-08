@@ -94,7 +94,7 @@ std::string ToString(const std::optional<T>& o) {
   return o.has_value() ? std::to_string(*o) : "(nullopt)";
 }
 
-template <typename Type, typename IndexType>
+template <typename Type>
 struct ListSlice {
   using offset_type = typename Type::offset_type;
 
@@ -256,24 +256,21 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
   }
 }
 
-template <typename InListType, template <typename...> class Functor>
+template <typename InListType>
 void AddListSliceKernels(ScalarFunction* func) {
-  for (const auto& index_type : IntTypes()) {
-    auto inputs = {InputType(InListType::type_id)};
-    auto output = OutputType{MakeListSliceResolve};
-    auto scalar_exec = GenerateInteger<Functor, InListType>({index_type->id()});
-    ScalarKernel kernel(inputs, output, std::move(scalar_exec),
-                        OptionsWrapper<ListSliceOptions>::Init);
-    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
-  }
+  auto inputs = {InputType(InListType::type_id)};
+  auto output = OutputType{MakeListSliceResolve};
+  ScalarKernel kernel(inputs, output, ListSlice<InListType>::Exec,
+                      OptionsWrapper<ListSliceOptions>::Init);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
 }
 
 void AddListSliceKernels(ScalarFunction* func) {
-  AddListSliceKernels<ListType, ListSlice>(func);
-  AddListSliceKernels<LargeListType, ListSlice>(func);
-  AddListSliceKernels<FixedSizeListType, ListSlice>(func);
+  AddListSliceKernels<ListType>(func);
+  AddListSliceKernels<LargeListType>(func);
+  AddListSliceKernels<FixedSizeListType>(func);
 }
 
 const FunctionDoc list_slice_doc(
