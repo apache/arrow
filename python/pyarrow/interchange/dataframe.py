@@ -27,7 +27,6 @@ from typing import (
 )
 
 import pyarrow as pa
-import warnings
 
 from pyarrow.interchange.column import PyArrowColumn
 from pyarrow.interchange.dataframe_protocol import DataFrame as DataFrameXchg
