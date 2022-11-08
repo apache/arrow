@@ -172,6 +172,16 @@ TEST(TestScalarNested, ListSliceFixedOutput) {
   }
 }
 
+TEST(TestScalarNested, ListSliceChildArrayOffset) {
+  auto base = ArrayFromJSON(list(int8()), "[[1, 2, 3], [4, 5], [6], null]");
+  auto input = base->Slice(1);
+
+  ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                        /*return_fixed_size_list=*/false);
+  auto expected = ArrayFromJSON(list(int8()), "[[4, 5], [6], null]");
+  CheckScalarUnary("list_slice", input, expected, &args);
+}
+
 TEST(TestScalarNested, ListSliceOutputEqualsInputType) {
   // Default is to return same type as the one passed in.
   auto inputs = {
