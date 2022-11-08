@@ -21,6 +21,7 @@ register_bindings_datetime <- function() {
   register_bindings_datetime_utility()
   register_bindings_datetime_components()
   register_bindings_datetime_conversion()
+  register_bindings_datetime_timezone()
   register_bindings_duration()
   register_bindings_duration_constructor()
   register_bindings_duration_helpers()
@@ -426,6 +427,41 @@ register_bindings_datetime_conversion <- function() {
     delta <- Expression$create("floor", seconds * fraction)
     delta <- make_duration(delta, "s")
     start + delta
+  })
+}
+
+register_bindings_datetime_timezone <- function() {
+  register_binding("lubridate::force_tz", function(time, tzone = "", roll = FALSE) {
+    if (tzone == "") {
+      tzone <- Sys.timezone()
+    }
+    if (roll) {
+      .nonexistent <- 2L
+    } else {
+      # ToDo: Should return NA if falls into the DST-break without error
+      .nonexistent <- 0L
+    }
+    # ToDo: Work with non-UTC timezones
+    if (!time$type()$timezone() %in% c("", "UTC")) {
+      abort(
+        paste0(
+          "force_tz() from timezone `",
+          time$type()$timezone(),
+          "` not supported in Arrow"
+        )
+      )
+    }
+
+    # Remove timezone
+    time <- build_expr("cast", time, options = cast_options(to_type = timestamp(unit = time$type()$unit())))
+    # Add timezone
+    build_expr("assume_timezone", time, options = list(timezone = tzone, nonexistent = .nonexistent))
+  })
+  register_binding("lubridate::with_tz", function(time, tzone = "") {
+    if (tzone == "") {
+      tzone <- Sys.timezone()
+    }
+    build_expr("cast", time, options = cast_options(to_type = timestamp(unit = time$type()$unit(), timezone = tzone)))
   })
 }
 
