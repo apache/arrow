@@ -998,9 +998,7 @@ def test_map_from_dict():
     dict_arr = pa.array([{'a': 1, 'b': 2}, {'c': 3}],
                         pa.map_(pa.string(), pa.int64()))
 
-    assert tup_arr.type.key_field == dict_arr.type.key_field
-    assert tup_arr.type.item_field == dict_arr.type.item_field
-    assert tup_arr == dict_arr
+    assert tup_arr.equals(dict_arr)
 
 
 def test_map_from_arrays():
