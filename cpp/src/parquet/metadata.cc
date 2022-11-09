@@ -436,7 +436,13 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
         schema_(schema),
         properties_(properties),
         writer_version_(writer_version),
-        file_decryptor_(std::move(file_decryptor)) {}
+        file_decryptor_(std::move(file_decryptor)) {
+    if (ARROW_PREDICT_FALSE(row_group_->columns.size() >
+                            static_cast<size_t>(std::numeric_limits<int>::max()))) {
+      throw ParquetException("Row group had too many columns: ",
+                             row_group_->columns.size());
+    }
+  }
 
   bool Equals(const RowGroupMetaDataImpl& other) const {
     return *row_group_ == *other.row_group_;
@@ -457,10 +463,10 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
   inline const SchemaDescriptor* schema() const { return schema_; }
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) {
-    if (i < num_columns()) {
+    if (i >= 0 && i < num_columns()) {
       return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
                                        properties_, writer_version_, row_group_->ordinal,
-                                       static_cast<int16_t>(i), file_decryptor_);
+                                       i, file_decryptor_);
     }
     throw ParquetException("The file only has ", num_columns(),
                            " columns, requested metadata for column: ", i);
@@ -656,7 +662,7 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) {
-    if (!(i < num_row_groups())) {
+    if (!(i >= 0 && i < num_row_groups())) {
       std::stringstream ss;
       ss << "The file only has " << num_row_groups()
          << " row groups, requested metadata for row group: " << i;
@@ -685,7 +691,12 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   format::RowGroup& row_group(int i) {
-    DCHECK_LT(i, num_row_groups());
+    if (!(i >= 0 && i < num_row_groups())) {
+      std::stringstream ss;
+      ss << "The file only has " << num_row_groups()
+         << " row groups, requested metadata for row group: " << i;
+      throw ParquetException(ss.str());
+    }
     return metadata_->row_groups[i];
   }
 

@@ -861,8 +861,13 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
 
   ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
                         CallbackFunction write_leaf_callback) override {
-    DCHECK_GE(leaf_index, 0);
-    DCHECK_LT(leaf_index, GetLeafCount());
+    if (ARROW_PREDICT_FALSE(leaf_index < 0 || leaf_index >= GetLeafCount())) {
+      return Status::Invalid("Column index out of bounds (got ", leaf_index,
+                             ", should be "
+                             "between 0 and ",
+                             GetLeafCount(), ")");
+    }
+
     return WritePath(root_range_, &path_builder_->paths()[leaf_index], context,
                      std::move(write_leaf_callback));
   }
