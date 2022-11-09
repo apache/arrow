@@ -4500,16 +4500,14 @@ def test_does_not_mutate_timedelta_dtype():
     assert np.dtype(np.timedelta64) == expected
 
 
-def test_read_feather_does_not_mutate_timedelta():
+def test_does_not_mutate_timedelta_nested():
     # ARROW-17893: dataframe with timedelta and a list of dictionary
     # also with timedelta produces wrong result with to_pandas
 
     from datetime import timedelta
     timedelta_1 = [{"timedelta_1": timedelta(seconds=12, microseconds=1)}]
     timedelta_2 = [timedelta(hours=3, minutes=40, seconds=23)]
-    data = {"timedelta_1": timedelta_1, "timedelta_2": timedelta_2, }
-
-    table = pa.Table.from_pydict(data)
+    table = pa.table({"timedelta_1": timedelta_1, "timedelta_2": timedelta_2})
     df = table.to_pandas()
 
-    assert df["timedelta_2"].item() == timedelta_2[0]
+    assert df["timedelta_2"][0].to_pytimedelta() == timedelta_2[0]
