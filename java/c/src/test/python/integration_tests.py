@@ -143,7 +143,7 @@ class TestPythonIntegration(unittest.TestCase):
         expected = field_generator()
         self.assertEqual(expected, new_field)
 
-    def round_trip_array(self, array_generator, ignore_field_names):
+    def round_trip_array(self, array_generator, ignore_field_names=False):
         original_arr = array_generator()
         with self.bridge.java_c.CDataDictionaryProvider() as dictionary_provider, \
                 self.bridge.python_to_java_array(original_arr, dictionary_provider) as vector:
@@ -154,8 +154,8 @@ class TestPythonIntegration(unittest.TestCase):
 
         self.assertEqual(expected, new_array)
         if not ignore_field_names:
-            self.assertTrue(expected.equals(new_array.view(expected.type)),
-                            check_metadata=True, check_internal_field_names=True)
+            self.assertTrue(expected.type.equals(new_array.type,
+                                check_metadata=True, check_internal_field_names=True))
 
     def round_trip_record_batch(self, rb_generator):
         original_rb = rb_generator()
