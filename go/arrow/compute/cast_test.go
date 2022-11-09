@@ -61,11 +61,11 @@ func getDatums[T any](inputs []T) []compute.Datum {
 	return out
 }
 
-func assertArraysEqual(t *testing.T, expected, actual arrow.Array) bool {
-	return assert.Truef(t, array.Equal(expected, actual), "expected: %s\ngot: %s", expected, actual)
+func assertArraysEqual(t *testing.T, expected, actual arrow.Array, opts ...array.EqualOption) bool {
+	return assert.Truef(t, array.ApproxEqual(expected, actual, opts...), "expected: %s\ngot: %s", expected, actual)
 }
 
-func assertDatumsEqual(t *testing.T, expected, actual compute.Datum) {
+func assertDatumsEqual(t *testing.T, expected, actual compute.Datum, opts ...array.EqualOption) {
 	require.Equal(t, expected.Kind(), actual.Kind())
 
 	switch expected.Kind() {
@@ -76,7 +76,7 @@ func assertDatumsEqual(t *testing.T, expected, actual compute.Datum) {
 	case compute.KindArray:
 		want := expected.(*compute.ArrayDatum).MakeArray()
 		got := actual.(*compute.ArrayDatum).MakeArray()
-		assertArraysEqual(t, want, got)
+		assertArraysEqual(t, want, got, opts...)
 		want.Release()
 		got.Release()
 	case compute.KindChunked:

@@ -674,6 +674,20 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 		return NewTime64Scalar(tm, dt), nil
 	case arrow.DICTIONARY:
 		return ParseScalar(dt.(*arrow.DictionaryType).ValueType, val)
+	case arrow.DECIMAL128:
+		typ := dt.(*arrow.Decimal128Type)
+		n, err := decimal128.FromString(val, typ.Precision, typ.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal128Scalar(n, typ), nil
+	case arrow.DECIMAL256:
+		typ := dt.(*arrow.Decimal256Type)
+		n, err := decimal256.FromString(val, typ.Precision, typ.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal256Scalar(n, typ), nil
 	}
 
 	return nil, fmt.Errorf("parsing of scalar for type %s not implemented", dt)

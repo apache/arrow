@@ -227,6 +227,53 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 		reg.AddFunction(fn, false)
 	}
+
+	oplist := []struct {
+		funcName    string
+		op          kernels.ArithmeticOp
+		decPromote  decimalPromotion
+		commutative bool
+	}{
+		{"multiply_unchecked", kernels.OpMul, decPromoteMultiply, true},
+		{"multiply", kernels.OpMulChecked, decPromoteMultiply, true},
+		{"divide_unchecked", kernels.OpDiv, decPromoteDivide, false},
+		{"divide", kernels.OpDivChecked, decPromoteDivide, false},
+	}
+
+	for _, o := range oplist {
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
+		for _, k := range append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...) {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
+
+		for _, unit := range arrow.TimeUnitValues {
+			durInput := exec.NewExactInput(&arrow.DurationType{Unit: unit})
+			i64Input := exec.NewExactInput(arrow.PrimitiveTypes.Int64)
+			durOutput := exec.NewOutputType(&arrow.DurationType{Unit: unit})
+			ex := kernels.ArithmeticExec(arrow.DURATION, o.op)
+			err := fn.AddNewKernel([]exec.InputType{durInput, i64Input}, durOutput, ex, nil)
+			if err != nil {
+				panic(err)
+			}
+			if o.commutative {
+				err = fn.AddNewKernel([]exec.InputType{i64Input, durInput}, durOutput, ex, nil)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+
+		reg.AddFunction(fn, false)
+	}
+}
+
+func impl(ctx context.Context, fn string, opts ArithmeticOptions, left, right Datum) (Datum, error) {
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, left, right)
 }
 
 // Add performs an addition between the passed in arguments (scalar or array)
@@ -235,13 +282,9 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 //
 // ArithmeticOptions specifies whether or not to check for overflows,
 // performance is faster if not explicitly checking for overflows but
-// will error on an overflow if CheckOverflow is true.
+// will error on an overflow if NoCheckOverflow is false (default).
 func Add(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
-	fn := "add"
-	if opts.NoCheckOverflow {
-		fn = "add_unchecked"
-	}
-	return CallFunction(ctx, fn, nil, left, right)
+	return impl(ctx, "add", opts, left, right)
 }
 
 // Sub performs a subtraction between the passed in arguments (scalar or array)
@@ -250,11 +293,32 @@ func Add(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum,
 //
 // ArithmeticOptions specifies whether or not to check for overflows,
 // performance is faster if not explicitly checking for overflows but
-// will error on an overflow if CheckOverflow is true.
+// will error on an overflow if NoCheckOverflow is false (default).
 func Subtract(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
-	fn := "sub"
-	if opts.NoCheckOverflow {
-		fn = "sub_unchecked"
-	}
-	return CallFunction(ctx, fn, nil, left, right)
+	return impl(ctx, "sub", opts, left, right)
+}
+
+// Multiply performs a multiplication between the passed in arguments (scalar or array)
+// and returns the result. If one argument is a scalar and the other is an
+// array, the scalar value is multiplied against each value of the array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// performance is faster if not explicitly checking for overflows but
+// will error on an overflow if NoCheckOverflow is false (default).
+func Multiply(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
+	return impl(ctx, "multiply", opts, left, right)
+}
+
+// Divide performs a division between the passed in arguments (scalar or array)
+// and returns the result. If one argument is a scalar and the other is an
+// array, the scalar value is used with each value of the array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// performance is faster if not explicitly checking for overflows but
+// will error on an overflow if NoCheckOverflow is false (default).
+//
+// Will error on divide by zero regardless of whether or not checking for
+// overflows.
+func Divide(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
+	return impl(ctx, "divide", opts, left, right)
 }

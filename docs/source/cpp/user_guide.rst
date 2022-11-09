@@ -29,6 +29,7 @@ User Guide
    datatypes
    tables
    compute
+   gandiva
    streaming_execution
    io
    ipc

@@ -131,7 +131,10 @@ class NumericBuilder : public ArrayBuilder {
 
   value_type GetValue(int64_t index) const { return data_builder_.data()[index]; }
 
-  void Reset() override { data_builder_.Reset(); }
+  void Reset() override {
+    data_builder_.Reset();
+    ArrayBuilder::Reset();
+  }
 
   Status Resize(int64_t capacity) override {
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
