@@ -613,3 +613,28 @@ def test_metadata_append_row_groups_diff(t1, t2, expected_error):
             meta1.append_row_groups(meta2)
     else:
         meta1.append_row_groups(meta2)
+
+
+def test_write_metadata_with_without_filesystem(tempdir):
+
+    class MockLocalFileSystem(LocalFileSystem):
+        def open_output_stream(self, *args, **kwargs):
+            nonlocal called
+            called = True
+            return super().open_output_stream(*args, **kwargs)
+
+    meta1 = tempdir / "meta1"
+    meta2 = tempdir / "meta2"
+
+    table = pa.table({"col": range(5)})
+    filesystem = MockLocalFileSystem()
+    called = False
+
+    pq.write_metadata(table.schema, meta1, [])
+    assert not called
+
+    # filesystem used to resolve before final `write_metadata_file` call
+    pq.write_metadata(table.schema, meta2, [], filesystem=filesystem)
+    assert called
+
+    assert meta1.read_bytes() == meta2.read_bytes()

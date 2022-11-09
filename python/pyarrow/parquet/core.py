@@ -3379,7 +3379,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
             metadata_collector[-1].set_file_path(outfile)
 
 
-def write_metadata(schema, where, metadata_collector=None, filesystem=None, **kwargs):
+def write_metadata(schema, where, metadata_collector=None, filesystem=None,
+                   **kwargs):
     """
     Write metadata-only Parquet file from schema. This can be used with
     `write_to_dataset` to generate `_common_metadata` and `_metadata` sidecar
@@ -3392,7 +3393,8 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None, **kw
     metadata_collector : list
         where to collect metadata information.
     filesystem : FileSystem, default None
-        If passed, will be used in subsequent calls accepting a filesystem.
+        If nothing passed, will be inferred from `where` if path-like, else
+        `where` is already a file-like object so no filesystem is needed.
     **kwargs : dict,
         Additional kwargs for ParquetWriter class. See docstring for
         `ParquetWriter` for more information.
@@ -3434,11 +3436,9 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None, **kw
         metadata = read_metadata(where, filesystem=filesystem)
         for m in metadata_collector:
             metadata.append_row_groups(m)
-        if filesystem is not None and not hasattr(where, "write"):
-            with filesystem.open_output_stream(where) as f:
-                metadata.write_metadata_file(f)
-        else:
-            metadata.write_metadata_file(where)
+        if filesystem is not None:
+            filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+        metadata.write_metadata_file(where)
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,
