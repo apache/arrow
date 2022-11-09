@@ -31,7 +31,6 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
-    TypedDict,
 )
 
 import sys
