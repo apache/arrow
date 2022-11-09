@@ -1166,8 +1166,8 @@ def test_py_record_batch_reader():
     with pytest.raises(TypeError):
         reader = pa.RecordBatchReader.from_batches(
             [('field', pa.int64())], batches)
-        str(reader.schema)
+        pass
 
     with pytest.raises(TypeError):
         reader = pa.RecordBatchReader.from_batches(None, batches)
-        str(reader.schema)
+        pass
