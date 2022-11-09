@@ -88,11 +88,7 @@ class PyArrowColumn(Column):
         """
         Size of the column, in elements.
         """
-        if isinstance(self._col, pa.Array):
-            len = self._col.to_numpy(zero_copy_only=False).size
-        else:
-            len = self._col.length()
-        return len
+        return len(self._col)
 
     @property
     def offset(self) -> int:
