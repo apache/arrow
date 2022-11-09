@@ -3379,7 +3379,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             metadata_collector[-1].set_file_path(outfile)
 
 
-def write_metadata(schema, where, metadata_collector=None, **kwargs):
+def write_metadata(schema, where, metadata_collector=None, filesystem=None, **kwargs):
     """
     Write metadata-only Parquet file from schema. This can be used with
     `write_to_dataset` to generate `_common_metadata` and `_metadata` sidecar
@@ -3391,6 +3391,8 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     where : string or pyarrow.NativeFile
     metadata_collector : list
         where to collect metadata information.
+    filesystem : FileSystem, default None
+        If passed, will be used in subsequent calls accepting a filesystem.
     **kwargs : dict,
         Additional kwargs for ParquetWriter class. See docstring for
         `ParquetWriter` for more information.
@@ -3423,17 +3425,17 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     ...     table.schema, 'dataset_metadata/_metadata',
     ...     metadata_collector=metadata_collector)
     """
-    writer = ParquetWriter(where, schema, **kwargs)
+    writer = ParquetWriter(where, schema, filesystem, **kwargs)
     writer.close()
 
     if metadata_collector is not None:
         # ParquetWriter doesn't expose the metadata until it's written. Write
         # it and read it again.
-        metadata = read_metadata(where, filesystem=kwargs.get("filesystem"))
+        metadata = read_metadata(where, filesystem=filesystem)
         for m in metadata_collector:
             metadata.append_row_groups(m)
-        if "filesystem" in kwargs and not hasattr(where, "write"):
-            with kwargs["filesystem"].open_output_stream(where) as f:
+        if filesystem is not None and not hasattr(where, "write"):
+            with filesystem.open_output_stream(where) as f:
                 metadata.write_metadata_file(f)
         else:
             metadata.write_metadata_file(where)
