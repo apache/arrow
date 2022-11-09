@@ -319,7 +319,7 @@ class ARROW_EXPORT AsyncTaskGroup : public AsyncTaskScheduler {
 /// \param queue the queue to use when tasks cannot be submitted
 /// \param finish_callback A callback that will be run only after the task group has
 ///                  been destroyed and all tasks added by the group have finished
-std::unique_ptr<ThrottledAsyncTaskScheduler> MakeThrottledAsyncTaskGroup(
+ARROW_EXPORT std::unique_ptr<ThrottledAsyncTaskScheduler> MakeThrottledAsyncTaskGroup(
     AsyncTaskScheduler* target, int max_concurrent_cost,
     std::unique_ptr<ThrottledAsyncTaskScheduler::Queue> queue,
     FnOnce<Status()> finish_callback);
