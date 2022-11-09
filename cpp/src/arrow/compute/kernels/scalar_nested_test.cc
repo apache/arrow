@@ -182,6 +182,14 @@ TEST(TestScalarNested, StructField) {
                 &extract0);
     CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
                 &extract20);
+
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_path);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_name);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
+                &extract20_field_ref_nest);
+
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
@@ -232,6 +240,14 @@ TEST(TestScalarNested, StructField) {
                 &extract0);
     CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
                 &extract20);
+
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_path);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_name);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
+                &extract20_field_ref_nest);
+
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
