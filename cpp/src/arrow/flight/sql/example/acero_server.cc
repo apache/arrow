@@ -40,8 +40,8 @@ namespace {
 ///   fulfill the Flight SQL API contract.
 class GetSchemaSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
-  Status Init(const std::shared_ptr<Schema>& schema,
-              compute::BackpressureControl*) override {
+  Status Init(const std::shared_ptr<Schema>& schema, compute::BackpressureControl*,
+              compute::ExecPlan* plan) override {
     schema_ = schema;
     return Status::OK();
   }
@@ -62,8 +62,8 @@ class QueuingSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
   QueuingSinkNodeConsumer() : schema_(nullptr), finished_(false) {}
 
-  Status Init(const std::shared_ptr<Schema>& schema,
-              compute::BackpressureControl*) override {
+  Status Init(const std::shared_ptr<Schema>& schema, compute::BackpressureControl*,
+              compute::ExecPlan* plan) override {
     schema_ = schema;
     return Status::OK();
   }
