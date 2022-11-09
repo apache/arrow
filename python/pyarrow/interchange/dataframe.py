@@ -63,9 +63,12 @@ class TableXchg(DataFrameXchg):
     def metadata(self) -> dict[str, Any]:
         # The metadata for the data frame, as a dictionary with string keys.
         # Add schema metadata here (pandas metadata, ot custom metadata)
-        schema_metadata = {k.decode('utf8'): v.decode('utf8')
+        if self._df.schema.metadata:
+            schema_metadata = {k.decode('utf8'): v.decode('utf8')
                            for k, v in self._df.schema.metadata.items()}
-        return schema_metadata
+            return schema_metadata
+        else:
+            return {}
 
     def num_columns(self) -> int:
         return self._df.num_columns

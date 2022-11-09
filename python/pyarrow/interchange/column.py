@@ -133,7 +133,11 @@ class PyArrowColumn(Column):
         try:
             bit_width = dtype.bit_width
         except ValueError:  # in case of a variable-length strings
-            bit_width = None
+            bit_width = 8
+        # In case of bool data type, bit_width is 1 and has to be multiplied
+        # by 8 (why is that not the case for other dtypes?)
+        if pa.types.is_boolean(dtype):
+            bit_width *= 8
 
         if pa.types.is_timestamp(dtype):
             kind = DtypeKind.DATETIME
