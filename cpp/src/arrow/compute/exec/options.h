@@ -143,7 +143,7 @@ struct ARROW_EXPORT BackpressureOptions {
   ///                        queue has fewer than resume_if_below items.
   /// \param pause_if_above The producer should pause producing if the backpressure
   ///                       queue has more than pause_if_above items
-  BackpressureOptions(uint32_t resume_if_below, uint32_t pause_if_above)
+  BackpressureOptions(uint64_t resume_if_below, uint64_t pause_if_above)
       : resume_if_below(resume_if_below), pause_if_above(pause_if_above) {}
 
   static BackpressureOptions DefaultBackpressure() {

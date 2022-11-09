@@ -611,11 +611,13 @@ func ResolveOutputFromOptions(ctx *exec.KernelCtx, _ []arrow.DataType) (arrow.Da
 
 var OutputTargetType = exec.NewComputedOutputType(ResolveOutputFromOptions)
 
-func resolveToFirstType(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
+var OutputFirstType = exec.NewComputedOutputType(func(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
 	return args[0], nil
-}
+})
 
-var OutputFirstType = exec.NewComputedOutputType(resolveToFirstType)
+var OutputLastType = exec.NewComputedOutputType(func(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
+	return args[len(args)-1], nil
+})
 
 func resolveDecimalBinaryOpOutput(types []arrow.DataType, resolver func(prec1, scale1, prec2, scale2 int32) (prec, scale int32)) (arrow.DataType, error) {
 	leftType, rightType := types[0].(arrow.DecimalType), types[1].(arrow.DecimalType)
@@ -668,6 +670,8 @@ func resolveTemporalOutput(_ *exec.KernelCtx, args []arrow.DataType) (arrow.Data
 
 	return &arrow.DurationType{Unit: rightType.Unit}, nil
 }
+
+var OutputResolveTemporal = exec.NewComputedOutputType(resolveTemporalOutput)
 
 type validityBuilder struct {
 	mem    memory.Allocator

@@ -97,6 +97,7 @@ static PyStructSequence_Desc MonthDayNanoTupleDesc = {
 
 }  // namespace
 
+#ifndef PYPY_VERSION
 PyDateTime_CAPI* datetime_api = nullptr;
 
 void InitDatetime() {
@@ -107,6 +108,7 @@ void InitDatetime() {
     Py_FatalError("Could not import datetime C API");
   }
 }
+#endif
 
 // The following code is adapted from
 // https://github.com/numpy/numpy/blob/master/numpy/core/src/multiarray/datetime.c

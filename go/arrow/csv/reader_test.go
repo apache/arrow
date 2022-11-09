@@ -29,6 +29,8 @@ import (
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/array"
 	"github.com/apache/arrow/go/v11/arrow/csv"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/decimal256"
 	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -621,6 +623,48 @@ rec[0]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" 
 			}
 		})
 	}
+}
+
+func TestReadCSVDecimalCols(t *testing.T) {
+	data := `dec128,dec256
+12.3,0.00123
+1.23e-8,-1.23e-3
+-1.23E+3,1.23e+5
+`
+
+	r := csv.NewReader(strings.NewReader(data), arrow.NewSchema([]arrow.Field{
+		{Name: "dec128", Type: &arrow.Decimal128Type{Precision: 14, Scale: 10}, Nullable: true},
+		{Name: "dec256", Type: &arrow.Decimal256Type{Precision: 11, Scale: 5}, Nullable: true},
+	}, nil), csv.WithChunk(-1), csv.WithHeader(true), csv.WithComma(','), csv.WithNullReader(true, "null", "#NA"))
+	defer r.Release()
+
+	assert.True(t, r.Next())
+	rec := r.Record()
+	rec.Retain()
+	assert.False(t, r.Next())
+	defer rec.Release()
+
+	if r.Err() != nil {
+		log.Fatal(r.Err())
+	}
+
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, r.Schema())
+	defer bldr.Release()
+
+	dec128Bldr := bldr.Field(0).(*array.Decimal128Builder)
+	dec128Bldr.Append(decimal128.New(0, 123000000000))
+	dec128Bldr.Append(decimal128.New(0, 123))
+	dec128Bldr.Append(decimal128.FromI64(-12300000000000))
+
+	dec256Bldr := bldr.Field(1).(*array.Decimal256Builder)
+	dec256Bldr.Append(decimal256.FromU64(123))
+	dec256Bldr.Append(decimal256.FromI64(-123))
+	dec256Bldr.Append(decimal256.FromU64(12300000000))
+
+	exRec := bldr.NewRecord()
+	defer exRec.Release()
+
+	assert.Truef(t, array.RecordEqual(exRec, rec), "expected: %s\nactual: %s", exRec, rec)
 }
 
 func BenchmarkRead(b *testing.B) {

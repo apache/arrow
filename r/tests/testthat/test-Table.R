@@ -695,7 +695,11 @@ test_that("num_rows method not susceptible to integer overflow", {
 })
 
 test_that("can create empty table from schema", {
-  schema <- schema(col1 = float64(), col2 = string())
+  schema <- schema(
+    col1 = float64(),
+    col2 = string(),
+    col3 = vctrs_extension_type(integer())
+  )
   out <- Table$create(schema = schema)
   expect_r6_class(out, "Table")
   expect_equal(nrow(out), 0)

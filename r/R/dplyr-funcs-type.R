@@ -47,6 +47,9 @@ register_bindings_type <- function() {
 #' @seealso [Arrow C++ CastOptions documentation](https://arrow.apache.org/docs/cpp/api/compute.html?highlight=castoptions#arrow%3A%3Acompute%3A%3ACastOptions) # nolint
 #' for the list of supported CastOptions.
 cast <- function(x, to, safe = TRUE, ...) {
+  if (!inherits(x, "ArrowObject")) {
+    x <- Scalar$create(x)
+  }
   x$cast(to, safe = safe, ...)
 }
 
@@ -54,40 +57,32 @@ register_bindings_type_cast <- function() {
   register_binding("arrow::cast", cast)
 
   # as.* type casting functions
-  # as.factor() is mapped in expression.R
+  # as.factor() is not supported
   register_binding("base::as.character", function(x) {
-    build_expr("cast", x, options = cast_options(to_type = string()))
+    cast(x, string())
   })
   register_binding("base::as.double", function(x) {
-    build_expr("cast", x, options = cast_options(to_type = float64()))
+    cast(x, float64())
   })
   register_binding("base::as.integer", function(x) {
-    build_expr(
-      "cast",
-      x,
-      options = cast_options(
-        to_type = int32(),
-        allow_float_truncate = TRUE,
-        allow_decimal_truncate = TRUE
-      )
+    cast(x,
+      int32(),
+      allow_float_truncate = TRUE,
+      allow_decimal_truncate = TRUE
     )
   })
   register_binding("bit64::as.integer64", function(x) {
-    build_expr(
-      "cast",
-      x,
-      options = cast_options(
-        to_type = int64(),
-        allow_float_truncate = TRUE,
-        allow_decimal_truncate = TRUE
-      )
+    cast(x,
+      int64(),
+      allow_float_truncate = TRUE,
+      allow_decimal_truncate = TRUE
     )
   })
   register_binding("base::as.logical", function(x) {
-    build_expr("cast", x, options = cast_options(to_type = boolean()))
+    cast(x, boolean())
   })
   register_binding("base::as.numeric", function(x) {
-    build_expr("cast", x, options = cast_options(to_type = float64()))
+    cast(x, float64())
   })
 
   register_binding("methods::is", function(object, class2) {
@@ -129,7 +124,7 @@ register_bindings_type_cast <- function() {
     # does.
     args <- dots_list(..., .named = TRUE, .homonyms = "error")
 
-    build_expr(
+    Expression$create(
       "make_struct",
       args = unname(args),
       options = list(field_names = names(args))
@@ -168,7 +163,7 @@ register_bindings_type_cast <- function() {
         }
       }
 
-      build_expr(
+      Expression$create(
         "make_struct",
         args = unname(args),
         options = list(field_names = names(args))
@@ -243,7 +238,7 @@ register_bindings_type_inspect <- function() {
 
 register_bindings_type_elementwise <- function() {
   register_binding("base::is.na", function(x) {
-    build_expr("is_null", x, options = list(nan_is_null = TRUE))
+    Expression$create("is_null", x, options = list(nan_is_null = TRUE))
   })
 
   register_binding("base::is.nan", function(x) {
@@ -251,7 +246,7 @@ register_bindings_type_elementwise <- function() {
       x$type_id() %in% TYPES_WITH_NAN)) {
       # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
       # use that to simplify the code here (ARROW-13366)
-      build_expr("is_nan", x) & build_expr("is_valid", x)
+      Expression$create("is_nan", x) & Expression$create("is_valid", x)
     } else {
       Expression$scalar(FALSE)
     }
@@ -286,7 +281,7 @@ register_bindings_type_format <- function() {
       x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]) {
       binding_format_datetime(x, ...)
     } else {
-      build_expr("cast", x, options = cast_options(to_type = string()))
+      cast(x, string())
     }
   })
 }

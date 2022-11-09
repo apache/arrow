@@ -19,6 +19,7 @@ package kernels
 import (
 	"fmt"
 
+	"github.com/JohnCGriffin/overflow"
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v11/arrow/decimal128"
@@ -32,28 +33,32 @@ type ArithmeticOp int8
 const (
 	OpAdd ArithmeticOp = iota
 	OpSub
+	OpMul
+	OpDiv
 
 	OpAddChecked
 	OpSubChecked
+	OpMulChecked
+	OpDivChecked
 )
 
-func getGoArithmeticBinary[T exec.NumericTypes](op func(a, b T, e *error) T) binaryOps[T, T, T] {
-	return binaryOps[T, T, T]{
-		arrArr: func(_ *exec.KernelCtx, left, right, out []T) error {
+func getGoArithmeticBinary[OutT, Arg0T, Arg1T exec.NumericTypes](op func(a Arg0T, b Arg1T, e *error) OutT) binaryOps[OutT, Arg0T, Arg1T] {
+	return binaryOps[OutT, Arg0T, Arg1T]{
+		arrArr: func(_ *exec.KernelCtx, left []Arg0T, right []Arg1T, out []OutT) error {
 			var err error
 			for i := range out {
 				out[i] = op(left[i], right[i], &err)
 			}
 			return err
 		},
-		arrScalar: func(ctx *exec.KernelCtx, left []T, right T, out []T) error {
+		arrScalar: func(_ *exec.KernelCtx, left []Arg0T, right Arg1T, out []OutT) error {
 			var err error
 			for i := range out {
 				out[i] = op(left[i], right, &err)
 			}
 			return err
 		},
-		scalarArr: func(ctx *exec.KernelCtx, left T, right, out []T) error {
+		scalarArr: func(_ *exec.KernelCtx, left Arg0T, right []Arg1T, out []OutT) error {
 			var err error
 			for i := range out {
 				out[i] = op(left, right[i], &err)
@@ -63,7 +68,10 @@ func getGoArithmeticBinary[T exec.NumericTypes](op func(a, b T, e *error) T) bin
 	}
 }
 
-var errOverflow = fmt.Errorf("%w: overflow", arrow.ErrInvalid)
+var (
+	errOverflow  = fmt.Errorf("%w: overflow", arrow.ErrInvalid)
+	errDivByZero = fmt.Errorf("%w: divide by zero", arrow.ErrInvalid)
+)
 
 func getGoArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
 	switch op {
@@ -71,6 +79,16 @@ func getGoArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op Arithm
 		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a + b }))
 	case OpSub:
 		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a - b }))
+	case OpMul:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a * b }))
+	case OpDiv:
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) T {
+			if b == 0 {
+				*e = errDivByZero
+				return 0
+			}
+			return a / b
+		})
 	case OpAddChecked:
 		shiftBy := (SizeOf[T]() * 8) - 1
 		// ie: uint32 does a >> 31 at the end, int32 does >> 30
@@ -101,12 +119,60 @@ func getGoArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op Arithm
 			}
 			return
 		})
+	case OpMulChecked:
+		min, max := MinOf[T](), MaxOf[T]()
+		return ScalarBinary(getGoArithmeticBinary(func(a, b T, e *error) (out T) {
+			switch {
+			case a > 0:
+				if b > 0 {
+					if a > (max / b) {
+						*e = errOverflow
+						return
+					}
+				} else {
+					if b < (min / a) {
+						*e = errOverflow
+						return
+					}
+				}
+			case b > 0:
+				if a < (min / b) {
+					*e = errOverflow
+					return
+				}
+			default:
+				if (a != 0) && (b < (max / a)) {
+					*e = errOverflow
+					return
+				}
+			}
+
+			return a * b
+		}))
+	case OpDivChecked:
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
+			if b == 0 {
+				*e = errDivByZero
+				return
+			}
+			return a / b
+		})
 	}
 	debug.Assert(false, "invalid arithmetic op")
 	return nil
 }
 
 func getGoArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+	if op == OpDivChecked {
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
+			if b == 0 {
+				*e = errDivByZero
+				return
+			}
+			return a / b
+		})
+	}
+
 	if op >= OpAddChecked {
 		op -= OpAddChecked // floating checked is the same as floating unchecked
 	}
@@ -115,9 +181,95 @@ func getGoArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.
 		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a + b }))
 	case OpSub:
 		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a - b }))
+	case OpMul:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a * b }))
+	case OpDiv:
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
+			return a / b
+		})
 	}
 	debug.Assert(false, "invalid arithmetic op")
 	return nil
+}
+
+func timeDurationOp[OutT, Arg0T, Arg1T ~int32 | ~int64](multiple int64, op ArithmeticOp) exec.ArrayKernelExec {
+	switch op {
+	case OpAdd:
+		return ScalarBinary(getGoArithmeticBinary(func(a Arg0T, b Arg1T, e *error) OutT {
+			result := OutT(a) + OutT(b)
+			if result < 0 || multiple <= int64(result) {
+				*e = fmt.Errorf("%w: %d is not within acceptable range of [0, %d) s", arrow.ErrInvalid, result, multiple)
+			}
+			return result
+		}))
+	case OpSub:
+		return ScalarBinary(getGoArithmeticBinary(func(a Arg0T, b Arg1T, e *error) OutT {
+			result := OutT(a) - OutT(b)
+			if result < 0 || multiple <= int64(result) {
+				*e = fmt.Errorf("%w: %d is not within acceptable range of [0, %d) s", arrow.ErrInvalid, result, multiple)
+			}
+			return result
+		}))
+	case OpAddChecked:
+		shiftBy := (SizeOf[OutT]() * 8) - 1
+		// ie: uint32 does a >> 31 at the end, int32 does >> 30
+		if ^OutT(0) < 0 {
+			shiftBy--
+		}
+		return ScalarBinary(getGoArithmeticBinary(func(a Arg0T, b Arg1T, e *error) (result OutT) {
+			left, right := OutT(a), OutT(b)
+			result = left + right
+			carry := ((left & right) | ((left | right) &^ result)) >> shiftBy
+			if carry > 0 {
+				*e = errOverflow
+				return
+			}
+			if result < 0 || multiple <= int64(result) {
+				*e = fmt.Errorf("%w: %d is not within acceptable range of [0, %d) s", arrow.ErrInvalid, result, multiple)
+			}
+			return
+		}))
+	case OpSubChecked:
+		shiftBy := (SizeOf[OutT]() * 8) - 1
+		// ie: uint32 does a >> 31 at the end, int32 does >> 30
+		if ^OutT(0) < 0 {
+			shiftBy--
+		}
+		return ScalarBinary(getGoArithmeticBinary(func(a Arg0T, b Arg1T, e *error) (result OutT) {
+			left, right := OutT(a), OutT(b)
+			result = left - right
+			carry := ((^left & right) | (^(left ^ right) & result)) >> shiftBy
+			if carry > 0 {
+				*e = errOverflow
+				return
+			}
+			if result < 0 || multiple <= int64(result) {
+				*e = fmt.Errorf("%w: %d is not within acceptable range of [0, %d) s", arrow.ErrInvalid, result, multiple)
+			}
+			return
+		}))
+	}
+	return nil
+}
+
+func SubtractDate32(op ArithmeticOp) exec.ArrayKernelExec {
+	const secondsPerDay = 86400
+	switch op {
+	case OpSub:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b arrow.Time32, e *error) (result arrow.Duration) {
+			return arrow.Duration((a - b) * secondsPerDay)
+		}))
+	case OpSubChecked:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b arrow.Time32, e *error) (result arrow.Duration) {
+			result = arrow.Duration(a) - arrow.Duration(b)
+			val, ok := overflow.Mul64(int64(result), secondsPerDay)
+			if !ok {
+				*e = errOverflow
+			}
+			return arrow.Duration(val)
+		}))
+	}
+	panic("invalid op for subtractDate32")
 }
 
 type decOps[T decimal128.Num | decimal256.Num] struct {
@@ -161,6 +313,19 @@ func getArithmeticBinaryOpDecimalImpl[T decimal128.Num | decimal256.Num](op Arit
 		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, arg0, arg1 T, _ *error) T {
 			return fns.Sub(arg0, arg1)
 		})
+	case OpMul:
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, arg0, arg1 T, _ *error) T {
+			return fns.Mul(arg0, arg1)
+		})
+	case OpDiv:
+		var z T
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, arg0, arg1 T, e *error) (out T) {
+			if arg1 == z {
+				*e = errDivByZero
+				return
+			}
+			return fns.Div(arg0, arg1)
+		})
 	}
 	debug.Assert(false, "unimplemented arithemtic op")
 	return nil
@@ -187,11 +352,11 @@ func ArithmeticExec(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
 		return getArithmeticBinaryOpIntegral[int16](op)
 	case arrow.UINT16:
 		return getArithmeticBinaryOpIntegral[uint16](op)
-	case arrow.INT32:
+	case arrow.INT32, arrow.TIME32:
 		return getArithmeticBinaryOpIntegral[int32](op)
 	case arrow.UINT32:
 		return getArithmeticBinaryOpIntegral[uint32](op)
-	case arrow.INT64, arrow.TIMESTAMP:
+	case arrow.INT64, arrow.TIME64, arrow.DATE64, arrow.TIMESTAMP, arrow.DURATION:
 		return getArithmeticBinaryOpIntegral[int64](op)
 	case arrow.UINT64:
 		return getArithmeticBinaryOpIntegral[uint64](op)
