@@ -146,6 +146,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
+      PYARROW_BUNDLE_ARROW_CPP: ON
       PYARROW_TEST_LARGE_MEMORY: ON
       # Current oldest supported version according to https://endoflife.date/macos
       MACOSX_DEPLOYMENT_TARGET: 10.15
@@ -158,7 +159,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       - name: Install Dependencies
         shell: bash
         run: |
