@@ -495,6 +495,8 @@ def test_scanner(dataset, dataset_reader):
 def test_scanner_memory_pool(dataset):
     # honor default pool - https://issues.apache.org/jira/browse/ARROW-18164
     old_pool = pa.default_memory_pool()
+    # TODO(ARROW-18293) we should be able to use the proxy memory pool for
+    # for testing, but this crashes
     # pool = pa.proxy_memory_pool(old_pool)
     pool = pa.system_memory_pool()
     pa.set_memory_pool(pool)
