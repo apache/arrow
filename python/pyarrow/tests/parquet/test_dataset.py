@@ -1908,3 +1908,40 @@ def test_write_to_dataset_kwargs_passed(tempdir, write_dataset_kwarg):
         pq.write_to_dataset(table, path, **{key: arg})
         _name, _args, kwargs = mock_write_dataset.mock_calls[0]
         assert kwargs[key] == arg
+
+
+@pytest.mark.dataset
+def test_parquet_write_partioning_parser(tempdir):
+    from datetime import datetime
+    import pyarrow.dataset as ds
+    df = pd.DataFrame({'a': [datetime(2019, 1, 1, 0),
+                      datetime(2019, 2, 1, 0),
+                      datetime(2019, 1, 1, 0),
+                      datetime(2019, 2, 1, 0),
+                      datetime(2019, 1, 1, 0),
+                      datetime(2019, 2, 1, 0)],
+                       'b': [20, 30, 40, 50, 60, 10]})
+    table = pa.Table.from_pandas(df)
+    path = tempdir / 'partitioning'
+
+    collector = []
+    ds.write_dataset(
+        table,
+        base_dir=path,
+        format="parquet",
+        partitioning=["a"],
+        partitioning_flavor="hive",
+        file_visitor=lambda x: collector.append(x)
+    )
+
+    paths = [file.path for file in collector]
+    partitioning = ds.partitioning(flavor="hive")
+
+    dataset = ds.dataset(source=path, partitioning=partitioning)
+
+    filter_expressions = [dataset.partitioning.parse(path) for path in paths]
+
+    new_table = dataset.to_table(filter=filter_expressions[0])
+    print(table)
+    print("-" * 80)
+    print(new_table)
