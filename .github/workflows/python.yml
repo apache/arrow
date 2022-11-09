@@ -169,7 +169,8 @@ jobs:
         shell: bash
         run: |
           export PYTHON=python3
-          python3 -m pip install pip==22.2.2
+          python3 -m pip freeze
+          python3 -m pip install wheel
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
       - name: Test
