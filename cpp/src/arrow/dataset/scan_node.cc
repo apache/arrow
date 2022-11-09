@@ -308,26 +308,24 @@ class ScanNode : public cp::ExecNode {
                         {"node.output_schema", output_schema()->ToString()},
                         {"node.detail", ToString()}});
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
-    fragments_throttle_ = util::ThrottledAsyncTaskScheduler::Make(
-        plan_->async_scheduler(), options_.fragment_readahead + 1);
     batches_throttle_ = util::ThrottledAsyncTaskScheduler::Make(
         plan_->async_scheduler(), options_.target_bytes_readahead + 1);
     AsyncGenerator<std::shared_ptr<Fragment>> frag_gen =
         GetFragments(options_.dataset.get(), options_.filter);
-    std::shared_ptr<util::AsyncTaskGroup> fragment_tasks =
-        util::AsyncTaskGroup::Make(fragments_throttle_.get(), [this]() {
-          outputs_[0]->InputFinished(this, num_batches_.load());
-          finished_.MarkFinished();
-          return Status::OK();
-        });
+    std::shared_ptr<util::AsyncTaskScheduler> fragment_tasks =
+        util::MakeThrottledAsyncTaskGroup(
+            plan_->async_scheduler(), options_.fragment_readahead + 1, /*queue=*/nullptr,
+            [this]() {
+              outputs_[0]->InputFinished(this, num_batches_.load());
+              finished_.MarkFinished();
+              return Status::OK();
+            });
     fragment_tasks->AddAsyncGenerator<std::shared_ptr<Fragment>>(
-        std::move(frag_gen),
-        [this, fragment_tasks =
-                   std::move(fragment_tasks)](const std::shared_ptr<Fragment>& fragment) {
+        std::move(frag_gen), [this, fragment_tasks = std::move(fragment_tasks)](
+                                 const std::shared_ptr<Fragment>& fragment) {
           fragment_tasks->AddTask(std::make_unique<ListFragmentTask>(this, fragment));
           return Status::OK();
-        },
-        []() { return Status::OK(); });
+        });
     return Status::OK();
   }
 
@@ -349,7 +347,6 @@ class ScanNode : public cp::ExecNode {
  private:
   ScanV2Options options_;
   std::atomic<int> num_batches_{0};
-  std::shared_ptr<util::ThrottledAsyncTaskScheduler> fragments_throttle_;
   std::shared_ptr<util::ThrottledAsyncTaskScheduler> batches_throttle_;
 };
 

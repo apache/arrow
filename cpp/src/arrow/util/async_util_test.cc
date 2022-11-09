@@ -286,8 +286,7 @@ TEST(AsyncTaskScheduler, AsyncGenerator) {
         seen_values.push_back(val);
         return Status::OK();
       };
-      scheduler->AddAsyncGenerator(std::move(generator), std::move(visitor),
-                                   [] { return Status::OK(); });
+      scheduler->AddAsyncGenerator(std::move(generator), std::move(visitor));
       return Status::OK();
     });
     ASSERT_FINISHES_OK(finished);

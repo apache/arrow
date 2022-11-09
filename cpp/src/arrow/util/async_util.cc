@@ -33,6 +33,12 @@ class ThrottleImpl : public ThrottledAsyncTaskScheduler::Throttle {
   explicit ThrottleImpl(int max_concurrent_cost)
       : max_concurrent_cost_(max_concurrent_cost), available_cost_(max_concurrent_cost) {}
 
+  ~ThrottleImpl() {
+    if (backoff_.is_valid()) {
+      backoff_.MarkFinished(Status::Cancelled("Throttle destroyed while paused"));
+    }
+  }
+
   std::optional<Future<>> TryAcquire(int amt) override {
     std::lock_guard<std::mutex> lk(mutex_);
     if (backoff_.is_valid()) {
@@ -229,7 +235,10 @@ class ThrottledAsyncTaskSchedulerImpl
                                   std::unique_ptr<Queue> queue)
       : target_(target), throttle_(std::move(throttle)), queue_(std::move(queue)) {}
 
-  ~ThrottledAsyncTaskSchedulerImpl() { DCHECK(queue_->Empty()); }
+  ~ThrottledAsyncTaskSchedulerImpl() {
+    // There can be tasks left in the queue in the event of an abort
+    queue_->Purge();
+  }
 
   bool AddTask(std::unique_ptr<Task> task) override {
     std::unique_lock lk(mutex_);
@@ -246,7 +255,14 @@ class ThrottledAsyncTaskSchedulerImpl
       queue_->Push(std::move(task));
       lk.unlock();
       maybe_backoff->AddCallback(
-          [self = shared_from_this()](const Status&) { self->ContinueTasks(); });
+          [weak_self = std::weak_ptr<ThrottledAsyncTaskSchedulerImpl>(
+               shared_from_this())](const Status& st) {
+            if (st.ok()) {
+              if (auto self = weak_self.lock()) {
+                self->ContinueTasks();
+              }
+            }
+          });
       return true;
     } else {
       lk.unlock();
@@ -280,9 +296,15 @@ class ThrottledAsyncTaskSchedulerImpl
       if (maybe_backoff) {
         lk.unlock();
         if (!maybe_backoff->TryAddCallback([&] {
-              return
-                  [self = shared_from_this()](const Status&) { self->ContinueTasks(); };
+              return [self = shared_from_this()](const Status& st) {
+                if (st.ok()) {
+                  self->ContinueTasks();
+                }
+              };
             })) {
+          if (!maybe_backoff->status().ok()) {
+            return;
+          }
           lk.lock();
           continue;
         }
@@ -385,6 +407,35 @@ ThrottledAsyncTaskScheduler::MakeWithCustomThrottle(
 std::unique_ptr<AsyncTaskGroup> AsyncTaskGroup::Make(AsyncTaskScheduler* target,
                                                      FnOnce<Status()> finish_cb) {
   return std::make_unique<AsyncTaskGroupImpl>(target, std::move(finish_cb));
+}
+
+class ThrottledAsyncTaskGroup : public ThrottledAsyncTaskScheduler {
+ public:
+  ThrottledAsyncTaskGroup(std::shared_ptr<ThrottledAsyncTaskScheduler> throttle,
+                          std::unique_ptr<AsyncTaskGroup> task_group)
+      : throttle_(std::move(throttle)), task_group_(std::move(task_group)) {}
+  void Pause() override { throttle_->Pause(); }
+  void Resume() override { throttle_->Resume(); }
+  bool AddTask(std::unique_ptr<Task> task) override {
+    return task_group_->AddTask(std::move(task));
+  }
+
+ private:
+  std::shared_ptr<ThrottledAsyncTaskScheduler> throttle_;
+  std::unique_ptr<AsyncTaskGroup> task_group_;
+};
+
+std::unique_ptr<ThrottledAsyncTaskScheduler> MakeThrottledAsyncTaskGroup(
+    AsyncTaskScheduler* target, int max_concurrent_cost,
+    std::unique_ptr<ThrottledAsyncTaskScheduler::Queue> maybe_queue,
+    FnOnce<Status()> finish_cb) {
+  std::shared_ptr<ThrottledAsyncTaskScheduler> throttle =
+      ThrottledAsyncTaskScheduler::Make(target, max_concurrent_cost,
+                                        std::move(maybe_queue));
+  std::unique_ptr<AsyncTaskGroup> task_group =
+      AsyncTaskGroup::Make(throttle.get(), std::move(finish_cb));
+  return std::make_unique<ThrottledAsyncTaskGroup>(std::move(throttle),
+                                                   std::move(task_group));
 }
 
 }  // namespace util
