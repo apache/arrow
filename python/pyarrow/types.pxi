@@ -2261,6 +2261,8 @@ def unify_schemas(schemas):
         Schema schema
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
+        if not isinstance(schema, Schema):
+            raise TypeError("Expected Schema, got {}".format(type(schema)))
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
     return pyarrow_wrap_schema(GetResultValue(UnifySchemas(c_schemas)))
 
