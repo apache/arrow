@@ -139,7 +139,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    *
    * @return the handler.
    */
-  ArrowFlightSqlClientHandler getClientHandler() throws SQLException {
+  ArrowFlightSqlClientHandler getClientHandler() {
     return clientHandler;
   }
 
