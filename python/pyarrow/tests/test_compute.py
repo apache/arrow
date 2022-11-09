@@ -2883,6 +2883,7 @@ def test_expression_construction():
     false = pc.scalar(False)
     string = pc.scalar("string")
     field = pc.field("field")
+    nested_mixed_types = pc.field(b"a", 1, "b")
     nested_field = pc.field(("nested", "field"))
     nested_field2 = pc.field("nested", "field")
 
@@ -2892,6 +2893,7 @@ def test_expression_construction():
         field.cast(typ) == true
 
     field.isin([1, 2])
+    nested_mixed_types.isin(["foo", "bar"])
     nested_field.isin(["foo", "bar"])
     nested_field2.isin(["foo", "bar"])
 
