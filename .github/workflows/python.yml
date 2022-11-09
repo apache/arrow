@@ -120,8 +120,8 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 macOS 11 Python 3
-    runs-on: macos-11
+    name: AMD64 macOS 12 Python 3
+    runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     env:
@@ -148,6 +148,8 @@ jobs:
       ARROW_BUILD_TESTS: OFF
       CMAKE_ARGS: "-DPython3_EXECUTABLE=/usr/local/bin/python3"
       PYARROW_TEST_LARGE_MEMORY: ON
+      # Current oldest supported version according to https://endoflife.date/macos
+      MACOSX_DEPLOYMENT_TARGET: 10.15
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -169,7 +171,6 @@ jobs:
         shell: bash
         run: |
           export PYTHON=python3
-          python3 -m pip freeze
           python3 -m pip install wheel
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
