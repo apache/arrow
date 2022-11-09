@@ -178,11 +178,14 @@ For newer versions of Visual Studio, specify the generator
 ``Visual Studio 16 2019`` or see ``cmake --help`` for available
 generators.
 
-Building with Ninja
-===================
+Building with Ninja and sccache
+===============================
 
 The `Ninja <https://ninja-build.org/>`_ build system offers better build
-parallelization.
+parallelization, and the optional `sccache
+<https://github.com/mozilla/sccache#local>`_ compiler cache keeps track of
+past compilations to avoid running them over and over again (in a way similar
+to the Unix-specific ``ccache``).
 
 Newer versions of Visual Studio include Ninja. To see if your Visual Studio
 includes Ninja, run the initialization command shown
@@ -213,6 +216,16 @@ do an out of source build by generating Ninja files:
          -DARROW_BUILD_TESTS=ON ^
          -DGTest_SOURCE=BUNDLED ..
    cmake --build . --config Release
+
+To use ``sccache`` in local storage mode you need to set ``SCCACHE_DIR``
+environment variable before calling ``cmake``:
+
+.. code-block:: shell
+
+   ...
+   set SCCACHE_DIR=%LOCALAPPDATA%\Mozilla\sccache
+   cmake -G "Ninja" ^
+   ...
 
 Building with NMake
 ===================
