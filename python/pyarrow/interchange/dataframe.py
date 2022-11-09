@@ -65,7 +65,7 @@ class TableXchg(DataFrameXchg):
         # Add schema metadata here (pandas metadata, ot custom metadata)
         if self._df.schema.metadata:
             schema_metadata = {k.decode('utf8'): v.decode('utf8')
-                           for k, v in self._df.schema.metadata.items()}
+                               for k, v in self._df.schema.metadata.items()}
             return schema_metadata
         else:
             return {}
