@@ -53,7 +53,7 @@ namespace util {
 /// a simple task group.
 ///
 /// A task scheduler starts with an initial task.  That task, and all subsequent tasks
-/// are free to add subtasks.  Once all submitted tasks finsih the scheduler will
+/// are free to add subtasks.  Once all submitted tasks finish the scheduler will
 /// finish.  Note, it is not an error to add additional tasks after a scheduler has
 /// aborted. These tasks will be ignored and never submitted.  The scheduler returns a
 /// future which will complete when all submitted tasks have finished executing.  Once all
