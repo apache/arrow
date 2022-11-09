@@ -121,7 +121,7 @@ jobs:
 
   macos:
     name: AMD64 macOS 11 Python 3
-    runs-on: macos-latest
+    runs-on: macos-11
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     env:
