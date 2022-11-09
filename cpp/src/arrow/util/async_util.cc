@@ -117,12 +117,6 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
   std::list<std::unique_ptr<Task>> tasks_;
 };
 
-class AlreadyFailedScheduler : public AsyncTaskScheduler {
- public:
-  explicit AlreadyFailedScheduler(Status failure_reason) {}
-  bool AddTask(std::unique_ptr<Task> task) override { return false; }
-};
-
 class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
  public:
   using Task = AsyncTaskScheduler::Task;

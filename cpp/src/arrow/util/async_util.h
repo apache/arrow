@@ -234,8 +234,6 @@ class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
   /// Tasks added via this view will be subjected to the throttle and, if the tasks cannot
   /// run immediately, will be placed into a queue.
   ///
-  /// Using a throttled view after the underlying scheduler has finished is invalid.
-  ///
   /// Although a shared_ptr is returned it should generally be assumed that the caller
   /// is being given exclusive ownership.  The shared_ptr is used to share the view with
   /// queued and submitted tasks and the lifetime of those is unpredictable.  It is
@@ -282,9 +280,6 @@ class ARROW_EXPORT AsyncTaskGroup : public AsyncTaskScheduler {
  public:
   /// Destructor for the task group
   ///
-  /// The finish callback will not run until the task group is destroyed and all
-  /// tasks are finished so you will generally want to eagerly call this at some point
-  ///
   /// The destructor might trigger the finish callback.  If the finish callback fails
   /// then the error will be reported as a task on the scheduler.
   ///
@@ -295,6 +290,10 @@ class ARROW_EXPORT AsyncTaskGroup : public AsyncTaskScheduler {
   /// If the scheduler has aborted then the finish callback will not run.
   ~AsyncTaskGroup() = default;
   /// Create an async task group
+  ///
+  /// The finish callback will not run until the task group is destroyed and all
+  /// tasks are finished so you will generally want to reset / destroy the returned
+  /// unique_ptr at some point.
   ///
   /// \param scheduler The underlying scheduler to submit tasks to
   /// \param finish_callback A callback that will be run only after the task group has
