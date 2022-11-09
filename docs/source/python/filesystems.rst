@@ -183,10 +183,12 @@ Example how you can read contents from a S3 bucket::
 Note that it is important to configure :class:`S3FileSystem` with the correct
 region for the bucket being used. If `region` is not set, the AWS SDK will
 choose a value, defaulting to 'us-east-1' if the SDK version is <1.8.
-Otherwise it'll try to use a variety of heuristics to resolve the region.
+Otherwise it will try to use a variety of heuristics (environment variables,
+configuration profile, EC2 metadata server) to resolve the region.
 
-It is also possible to resolve the region for :class:`S3FileSystem` by using
-:func:`pyarrow.fs.resolve_s3_region` or :func:`pyarrow.fs.S3FileSystem.from_uri`.
+It is also possible to resolve the region from the bucket name for
+:class:`S3FileSystem` by using :func:`pyarrow.fs.resolve_s3_region` or
+:func:`pyarrow.fs.S3FileSystem.from_uri`.
 
 Here are a couple examples in code::
 
