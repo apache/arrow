@@ -450,3 +450,14 @@ func Negate(ctx context.Context, opts ArithmeticOptions, input Datum) (Datum, er
 	}
 	return CallFunction(ctx, fn, nil, input)
 }
+
+// Sign returns -1, 0, or 1 depending on the sign of each element in the
+// input. For x in the input:
+//
+//	if x > 0: 1
+//  if x < 0: -1
+//  if x == 0: 0
+//
+func Sign(ctx context.Context, input Datum) (Datum, error) {
+	return CallFunction(ctx, "sign", nil, input)
+}

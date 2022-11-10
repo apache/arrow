@@ -1264,7 +1264,7 @@ func TestUnaryDispatchBest(t *testing.T) {
 		}
 	}
 
-	for _, fn := range []string{"negate_unchecked"} {
+	for _, fn := range []string{"negate_unchecked", "sign"} {
 		t.Run(fn, func(t *testing.T) {
 			for _, ty := range numericTypes {
 				t.Run(ty.String(), func(t *testing.T) {
@@ -1295,6 +1295,10 @@ func TestUnaryArithmeticNull(t *testing.T) {
 			fn += suffix
 			assertNullToNull(t, context.TODO(), fn, memory.DefaultAllocator)
 		}
+	}
+
+	for _, fn := range []string{"sign"} {
+		assertNullToNull(t, context.TODO(), fn, memory.DefaultAllocator)
 	}
 }
 
