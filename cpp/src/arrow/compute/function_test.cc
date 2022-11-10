@@ -406,7 +406,7 @@ TEST(FunctionExecutor, Basics) {
       for (size_t i = 0; i < 2; i++) {
         ASSERT_TRUE(args.values[i].is_array());
         const ArraySpan& array = args.values[i].array;
-        ASSERT_EQ(*int32(), *array.type);
+        ASSERT_EQ(array.type->id(), Type::INT32);
         vals[i] = array.GetValues<int32_t>(1);
       }
       ASSERT_TRUE(out->is_array_data());
@@ -423,9 +423,11 @@ TEST(FunctionExecutor, Basics) {
   std::vector<InputType> in_types = {int32(), int32()};
   OutputType out_type = int32();
   ASSERT_OK(func.AddKernel(in_types, out_type, exec, init));
+
   ASSERT_OK_AND_ASSIGN(const Kernel* dispatched, func.DispatchExact({int32(), int32()}));
   ASSERT_EQ(exec, static_cast<const ScalarKernel*>(dispatched)->exec);
   std::vector<TypeHolder> inputs = {int32(), int32()};
+
   ASSERT_OK_AND_ASSIGN(auto func_exec, func.GetBestExecutor(inputs));
   ASSERT_EQ(0, init_calls);
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("options not found"),
@@ -435,12 +437,11 @@ TEST(FunctionExecutor, Basics) {
   ExecContext other_exec_ctx;
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("exec context not found"),
                                   func_exec->Init(&options, &other_exec_ctx));
-  std::vector<std::shared_ptr<Array>> arrays = {
-      ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[2]"),
-      ArrayFromJSON(int32(), "[3]"), ArrayFromJSON(int32(), "[4]")};
-  std::vector<std::shared_ptr<Array>> expected = {ArrayFromJSON(int32(), "[3]"),
-                                                  ArrayFromJSON(int32(), "[5]"),
-                                                  ArrayFromJSON(int32(), "[7]")};
+
+  ArrayVector arrays = {ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[2]"),
+                        ArrayFromJSON(int32(), "[3]"), ArrayFromJSON(int32(), "[4]")};
+  ArrayVector expected = {ArrayFromJSON(int32(), "[3]"), ArrayFromJSON(int32(), "[5]"),
+                          ArrayFromJSON(int32(), "[7]")};
   for (int n = 1; n <= 3; n++) {
     expected_optval = options.value = n;
     ASSERT_OK(func_exec->Init(&options, &exec_ctx));
