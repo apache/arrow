@@ -1112,7 +1112,7 @@ test_jars() {
   show_header "Testing Java JNI jars"
   maybe_setup_conda maven python || exit 1
 
-  local download_dir=jars
+  local download_dir=${ARROW_TMPDIR}/jars
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
