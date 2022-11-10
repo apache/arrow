@@ -234,7 +234,9 @@ Be sure to go through on the following checklist:
 #. Bump versions
 #. Update tags for Go modules
 #. Update docs
+#. Update version in Apache Arrow Cookbook
 #. Announce the new release
+#. Publish release blog posts
 #. Remove old artifacts
 
 .. dropdown:: Mark the released version as "RELEASED" on JIRA
@@ -299,7 +301,7 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   A PMC member must upload the binary release artifacts to Artifactory:
+   A committer must upload the binary release artifacts to Artifactory:
 
    .. code-block:: Bash
 
@@ -340,7 +342,7 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      ## You need to run this on macOS that Homebrew is installed.
+      ## You need to run this on macOS or Linux that Homebrew is installed.
 
       ## Fork https://github.com/Homebrew/homebrew-core on GitHub.
       ## You need to do this only once.
@@ -543,7 +545,7 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   The API documentations are generated in release process. We just need to upload the generated API documentations:
+   The documentations are generated in the release process. We just need to upload the generated documentations:
 
    .. code-block:: Bash
 
@@ -559,6 +561,13 @@ Be sure to go through on the following checklist:
       # dev/release/post-08-docs.sh 10.0.0 9.0.0
       dev/release/post-08-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
 
+.. dropdown:: Update version in Apache Arrow Cookbook
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   TODO
+
 .. dropdown:: Announce the new release
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
@@ -567,6 +576,13 @@ Be sure to go through on the following checklist:
    Write a release announcement (see `example <https://lists.apache.org/thread/6rkjwvyjjfodrxffllh66pcqnp729n3k>`_) and send to announce@apache.org and dev@arrow.apache.org.
 
    The announcement to announce@apache.org must be sent from your apache.org e-mail address to be accepted.
+
+.. dropdown:: Publish release blog post
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   TODO
 
 .. dropdown:: Remove old artifacts
    :animate: fade-in-slide-down
