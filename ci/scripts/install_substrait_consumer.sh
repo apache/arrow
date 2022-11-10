@@ -19,20 +19,29 @@
 
 set -e
 
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <substrait_test version>"
-  exit 1
-fi
-
 echo "INSTALL SUBSTRAIT CONSUMER TEST SUITE";
 
 git clone https://github.com/substrait-io/consumer-testing.git
-pip install duckdb substrait-validator
-
+# pip install duckdb \
+#             filelock \
+#             ibis-framework \
+#             ibis-substrait \
+#             protobuf \
+#             pytest \
+#             pytest-xdist \
+#             substrait-validator
+echo "PYARROW PRE INSTALLED"
+echo $(pip list | grep pyarrow)
+pip install -r consumer-testing/requirements.txt --ignore-installed
+echo "PYARROW POST INSTALLED"
+echo $(pip list | grep pyarrow)
 # TODO: write a better installation and testing script
 
-cd consumer-testing/tests/integration/ && \
-    pytest test_acero_tpch.py
+python -c "import pyarrow.substrait"
+python -c "from tests.consumers import AceroConsumer"
+
+cd consumer-testing && \
+    pytest tests/integration/test_acero_tpch.py
 
 #dask=$1
 

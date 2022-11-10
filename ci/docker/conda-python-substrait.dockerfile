@@ -35,8 +35,6 @@ RUN mamba install -q -y \
 
 ARG substrait=latest
 COPY ci/scripts/install_substrait_consumer.sh /arrow/ci/scripts/
-# RUN /arrow/ci/scripts/install_substrait_consumer.sh ${substrait}
-
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_COMPUTE=ON \
