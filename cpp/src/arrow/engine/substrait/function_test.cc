@@ -147,8 +147,7 @@ void CheckErrorTestCases(const std::vector<FunctionTestCase>& error_cases) {
     std::shared_ptr<Table> output_table;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
-    ASSERT_OK(plan->StartProducing());
-    ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
+    ASSERT_RAISES(Invalid, plan->StartProducing());
   }
 }
 

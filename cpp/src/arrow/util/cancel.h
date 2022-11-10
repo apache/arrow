@@ -64,7 +64,18 @@ class ARROW_EXPORT StopToken {
   // A trivial token that never propagates any stop request
   static StopToken Unstoppable() { return StopToken(); }
 
-  // Producer API (the side that gets asked to stopped)
+  /// \brief Check if the stop source has been cancelled.
+  ///
+  /// Producers should call this method, whenever convenient, to check and
+  /// see if they should stop producing early (i.e. have been cancelled).
+  /// Failure to call this method often enough will lead to an unresponsive
+  /// cancellation.
+  ///
+  /// This is part of the producer API (the side that gets asked to stop)
+  /// This method is thread-safe
+  ///
+  /// \return An OK status if the stop source has not been cancelled or a
+  ///         cancel error if the source has been cancelled.
   Status Poll() const;
   bool IsStopRequested() const;
 

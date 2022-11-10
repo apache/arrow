@@ -43,7 +43,8 @@ class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
   }
 
   Status Init(const std::shared_ptr<Schema>& schema,
-              compute::BackpressureControl* backpressure_control) override {
+              compute::BackpressureControl* backpressure_control,
+              compute::ExecPlan* plan) override {
     schema_ = schema;
     return Status::OK();
   }
