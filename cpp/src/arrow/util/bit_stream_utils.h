@@ -69,13 +69,6 @@ class BitWriter {
   template <typename T>
   bool PutAligned(T v, int num_bytes);
 
-  /// Writes val to given pointer using num_bytes. If T is larger than
-  /// num_bytes, the extra high-order bytes will be ignored. Returns false if
-  /// there was not enough space.
-  /// Assume the val is stored in buffer_ as a litte-endian format
-  template <typename T>
-  bool PutAlignedOffset(uint8_t* ptr, T val, int num_bytes);
-
   /// Write a Vlq encoded int to the buffer.  Returns false if there was not enough
   /// room.  The value is written byte aligned.
   /// For more details on vlq:
@@ -256,17 +249,12 @@ inline uint8_t* BitWriter::GetNextBytePtr(int num_bytes) {
 }
 
 template <typename T>
-inline bool BitWriter::PutAlignedOffset(uint8_t* ptr, T val, int num_bytes) {
+inline bool BitWriter::PutAligned(T val, int num_bytes) {
+  uint8_t* ptr = GetNextBytePtr(num_bytes);
   if (ptr == NULL) return false;
   val = arrow::bit_util::ToLittleEndian(val);
   memcpy(ptr, &val, num_bytes);
   return true;
-}
-
-template <typename T>
-inline bool BitWriter::PutAligned(T val, int num_bytes) {
-  uint8_t* ptr = GetNextBytePtr(num_bytes);
-  return PutAlignedOffset<T>(ptr, val, num_bytes);
 }
 
 namespace detail {

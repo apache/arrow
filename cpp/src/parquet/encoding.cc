@@ -2065,30 +2065,34 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 // ----------------------------------------------------------------------
 // DeltaBitPackEncoder
 
+constexpr uint32_t kValuesPerBlock = 128;
+constexpr uint32_t kMiniBlocksPerBlock = 4;
+
 template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
   using T = typename DType::c_type;
+  using TypedEncoder<DType>::Put;
 
-  explicit DeltaBitPackEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
+  explicit DeltaBitPackEncoder(const ColumnDescriptor* descr, MemoryPool* pool,
+                               const uint32_t values_per_block = kValuesPerBlock,
+                               const uint32_t mini_blocks_per_block = kMiniBlocksPerBlock)
       : EncoderImpl(descr, Encoding::DELTA_BINARY_PACKED, pool),
-        values_per_block_(128),
-        mini_blocks_per_block_(4),
-        values_per_mini_block_(values_per_block_ / mini_blocks_per_block_),
-        values_current_block_(0),
-        total_value_count_(0),
-        first_value_(0),
-        current_value_(0),
+        values_per_block_(values_per_block),
+        mini_blocks_per_block_(mini_blocks_per_block),
+        values_per_mini_block_(values_per_block / mini_blocks_per_block),
+        deltas_(values_per_block, ::arrow::stl::allocator<T>(pool)),
+        bits_buffer_(AllocateBuffer(pool, (values_per_block + 3) * sizeof(T))),
         sink_(pool),
-        bits_buffer_(AllocateBuffer(pool, (4 + values_per_block_) * sizeof(T))),
-        bit_writer_(bits_buffer_->mutable_data(), static_cast<int>(bits_buffer_->size())),
-        deltas_(std::vector<T>(values_per_block_)) {}
+        bit_writer_(bits_buffer_->mutable_data(),
+                    static_cast<int>(bits_buffer_->size())) {
+    // TODO: this does not evaluate in release build
+    DCHECK_EQ(values_per_mini_block_ % 32, 0);
+  }
 
   std::shared_ptr<Buffer> FlushValues() override;
 
-  int64_t EstimatedDataEncodedSize() override { return 4 * sizeof(T) + sink_.length(); }
-
-  using TypedEncoder<DType>::Put;
+  int64_t EstimatedDataEncodedSize() override { return sink_.length(); }
 
   void Put(const ::arrow::Array& values) override;
 
@@ -2097,21 +2101,20 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override;
 
- protected:
+  void FlushBlock();
+
+ private:
   const uint32_t values_per_block_;
   const uint32_t mini_blocks_per_block_;
   const uint32_t values_per_mini_block_;
-  uint32_t values_current_block_;
-  uint32_t total_value_count_;
-  T first_value_;
-  T current_value_;
-  ::arrow::BufferBuilder sink_;
+  uint32_t values_current_block_{0};
+  uint32_t total_value_count_{0};
+  T first_value_{0};
+  T current_value_{0};
+  ArrowPoolVector<T> deltas_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
+  ::arrow::BufferBuilder sink_;
   ::arrow::bit_util::BitWriter bit_writer_;
-  std::vector<T> deltas_;
-
- private:
-  void FlushBlock();
 };
 
 template <typename DType>
@@ -2148,18 +2151,17 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
   const T min_delta =
       *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_);
-  DCHECK(bit_writer_.PutZigZagVlqInt(min_delta));
+  bit_writer_.PutZigZagVlqInt(min_delta);
 
-  uint8_t* bit_width_offsets = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
-  DCHECK(bit_width_offsets != nullptr);
+  std::vector<uint8_t> bit_widths(mini_blocks_per_block_);
+  uint8_t* bit_width_data = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
+  DCHECK(bit_width_data != nullptr);
 
   for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
     const uint32_t n = std::min(values_per_mini_block_, values_current_block_);
-    if (n == 0) {
-      DCHECK(bit_writer_.PutAlignedOffset<int8_t>(bit_width_offsets++, int8_t(32), 1));
-      for (uint32_t j = 0; j < values_per_mini_block_; j++) {
-        DCHECK(bit_writer_.PutAligned<T>(0, 4));
-      }
+
+    if (ARROW_PREDICT_FALSE(n == 0)) {
+      bit_widths[i] = 1;
       continue;
     }
 
@@ -2168,71 +2170,76 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
         *std::max_element(deltas_.begin() + start, deltas_.begin() + start + n);
 
     const T max_delta_diff = SafeSignedSubtract(max_delta, min_delta);
-    int8_t num_bits;
+    int num_bits;
     if constexpr (std::is_same<T, int64_t>::value) {
       num_bits = bit_util::NumRequiredBits(max_delta_diff);
     } else {
       num_bits = bit_util::NumRequiredBits(static_cast<uint32_t>(max_delta_diff));
     }
-    const int32_t num_bytes =
-        static_cast<const int32_t>(bit_util::BytesForBits(num_bits));
-    DCHECK(bit_writer_.PutAlignedOffset<int8_t>(bit_width_offsets++, num_bits, 1));
+    const int num_bytes = static_cast<int>(bit_util::BytesForBits(num_bits));
+    bit_widths[i] = num_bits;
 
     for (uint32_t j = start; j < start + n; j++) {
       const T value = SafeSignedSubtract(deltas_[j], min_delta);
-      DCHECK(bit_writer_.PutAligned<T>(value, num_bytes));
+      bit_writer_.PutAligned<T>(value, num_bytes);
     }
     for (uint32_t j = n; j < values_per_mini_block_; j++) {
-      DCHECK(bit_writer_.PutAligned<T>(0, num_bytes));
+      bit_writer_.PutAligned<T>(0, num_bytes);
     }
     values_current_block_ -= n;
   }
   DCHECK_EQ(values_current_block_, 0);
 
+  for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
+    T val = bit_util::ToLittleEndian(bit_widths[i]);
+    memcpy(bit_width_data + i, &val, 1);
+  }
+
   bit_writer_.Flush();
   PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
   bit_writer_.Clear();
+  bit_width_data = NULL;
 }
 
 template <typename DType>
 std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
-  if (values_current_block_ != 0) {
+  if (values_current_block_ > 0) {
     FlushBlock();
   }
 
-  std::shared_ptr<ResizableBuffer> header_buffer = AllocateBuffer(pool_, 32);
-  ::arrow::bit_util::BitWriter header_writer(header_buffer->mutable_data(),
-                                             static_cast<int>(header_buffer->size()));
-  if (!header_writer.PutVlqInt(values_per_block_) ||
-      !header_writer.PutVlqInt(mini_blocks_per_block_) ||
-      !header_writer.PutVlqInt(total_value_count_) ||
-      !header_writer.PutZigZagVlqInt(first_value_)) {
-    throw ParquetException("cannot write");
+  std::shared_ptr<Buffer> bit_buffer;
+  PARQUET_ASSIGN_OR_THROW(bit_buffer, sink_.Finish());
+  sink_.Reset();
+
+  if (!bit_writer_.PutVlqInt(values_per_block_) ||
+      !bit_writer_.PutVlqInt(mini_blocks_per_block_) ||
+      !bit_writer_.PutVlqInt(total_value_count_) ||
+      !bit_writer_.PutZigZagVlqInt(first_value_)) {
+    throw ParquetException("header writing error");
   }
-  header_writer.Flush(false);
+  bit_writer_.Flush();
 
-  ::arrow::BufferBuilder sink;
-  PARQUET_THROW_NOT_OK(
-      sink.Append(header_writer.buffer(), header_writer.bytes_written()));
-  header_writer.Clear();
-
-  std::shared_ptr<Buffer> bits_buffer;
-  PARQUET_THROW_NOT_OK(sink_.Finish(&bits_buffer, true));
-
+  PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
+  PARQUET_THROW_NOT_OK(sink_.Append(bit_buffer->mutable_data(), bit_buffer->size()));
   std::shared_ptr<Buffer> buffer;
-  PARQUET_THROW_NOT_OK(sink.Append(bits_buffer->mutable_data(), bits_buffer->size()));
-  PARQUET_THROW_NOT_OK(sink.Finish(&buffer, true));
+  PARQUET_THROW_NOT_OK(sink_.Finish(&buffer, true));
   return buffer;
 }
 
 template <>
 void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
+  if (values.null_count() > 0) {
+    ParquetException::NYI("DELTA_BINARY_PACKED encoding with null values");
+  }
   auto src = values.data()->GetValues<int32_t>(1);
   Put(src, static_cast<int>(values.length()));
 }
 
 template <>
 void DeltaBitPackEncoder<Int64Type>::Put(const ::arrow::Array& values) {
+  if (values.null_count() > 0) {
+    ParquetException::NYI("DELTA_BINARY_PACKED encoding with null values");
+  }
   auto src = values.data()->GetValues<int64_t>(1);
   Put(src, static_cast<int>(values.length()));
 }
