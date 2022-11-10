@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/regex.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/python/arrow_to_python_internal.h"
 #include "arrow/python/common.h"
@@ -34,6 +35,9 @@
 #include "arrow/python/platform.h"
 
 namespace arrow {
+
+using internal::RegexMatch;
+
 namespace py {
 namespace internal {
 
@@ -45,30 +49,16 @@ bool MatchFixedOffset(const std::string& tz, std::string_view* sign,
   if (tz.size() < 5) {
     return false;
   }
-  std::smatch match;
-  if (!std::regex_match(tz, match, regex)) {
-    return false;
-  }
-  DCHECK_EQ(match.size(), 4);  // match #0 is the whole matched sequence
-
-  auto match_view = [&](int match_number) {
-    return std::string_view(&tz[match.position(match_number)],
-                            match.length(match_number));
-  };
-
-  *sign = match_view(1);
-  *hour = match_view(2);
-  *minute = match_view(3);
-  return true;
+  return RegexMatch(regex, tz, {sign, hour, minute});
 }
-
-static PyTypeObject MonthDayNanoTupleType = {};
 
 constexpr char* NonConst(const char* st) {
   // Hack for python versions < 3.7 where members of PyStruct members
   // where non-const (C++ doesn't like assigning string literals to these types)
   return const_cast<char*>(st);
 }
+
+static PyTypeObject MonthDayNanoTupleType = {};
 
 static PyStructSequence_Field MonthDayNanoField[] = {
     {NonConst("months"), NonConst("The number of months in the interval")},
