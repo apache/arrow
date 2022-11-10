@@ -16,6 +16,24 @@
 # under the License.
 
 register_bindings_conditional <- function() {
+  register_binding("%in%", function(x, table) {
+    # We use `is_in` here, unlike with Arrays, which use `is_in_meta_binary`
+    value_set <- Array$create(table)
+    # If possible, `table` should be the same type as `x`
+    # Try downcasting here; otherwise Acero may upcast x to table's type
+    try(
+      value_set <- cast_or_parse(value_set, x$type()),
+      silent = TRUE
+    )
+
+    expr <- Expression$create("is_in", x,
+      options = list(
+        value_set = value_set,
+        skip_nulls = TRUE
+      )
+    )
+  })
+
   register_binding("dplyr::coalesce", function(...) {
     args <- list2(...)
     if (length(args) < 1) {
@@ -48,23 +66,28 @@ register_bindings_conditional <- function() {
     Expression$create("coalesce", args = args)
   })
 
-  if_else_binding <- function(condition, true, false, missing = NULL) {
-    if (!is.null(missing)) {
-      return(if_else_binding(
-        call_binding("is.na", (condition)),
-        missing,
-        if_else_binding(condition, true, false)
-      ))
-    }
-
-    build_expr("if_else", condition, true, false)
-  }
-
-  register_binding("dplyr::if_else", if_else_binding)
-
   # Although base R ifelse allows `yes` and `no` to be different classes
   register_binding("base::ifelse", function(test, yes, no) {
-    if_else_binding(condition = test, true = yes, false = no)
+    args <- list(test, yes, no)
+    # For if_else, the first arg should be a bool Expression, and we don't
+    # want to consider that when casting the other args to the same type.
+    # But ideally `yes` and `no` args should be the same type.
+    args[-1] <- cast_scalars_to_common_type(args[-1])
+
+    Expression$create("if_else", args = args)
+  })
+
+  register_binding("dplyr::if_else", function(condition, true, false, missing = NULL) {
+    out <- call_binding("base::ifelse", condition, true, false)
+    if (!is.null(missing)) {
+      out <- call_binding(
+        "base::ifelse",
+        call_binding("is.na", condition),
+        missing,
+        out
+      )
+    }
+    out
   })
 
   register_binding("dplyr::case_when", function(...) {
@@ -90,10 +113,10 @@ register_bindings_conditional <- function() {
         abort(handle_arrow_not_supported(value[[i]], format_expr(f[[3]])))
       }
     }
-    build_expr(
+    Expression$create(
       "case_when",
       args = c(
-        build_expr(
+        Expression$create(
           "make_struct",
           args = query,
           options = list(field_names = as.character(seq_along(query)))

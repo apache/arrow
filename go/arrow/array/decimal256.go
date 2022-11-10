@@ -265,25 +265,25 @@ func (b *Decimal256Builder) unmarshalOne(dec *json.Decoder) error {
 		return err
 	}
 
-	var out *big.Float
-
 	switch v := t.(type) {
 	case float64:
-		out = big.NewFloat(v)
+		val, err := decimal256.FromFloat64(v, b.dtype.Precision, b.dtype.Scale)
+		if err != nil {
+			return err
+		}
+		b.Append(val)
 	case string:
-		// there's no strong rationale for using ToNearestAway, it's just
-		// what got me the closest equivalent values with the values
-		// that I tested with, and there isn't a good way to push
-		// an option all the way down here to control it.
-		out, _, err = big.ParseFloat(v, 10, 255, big.ToNearestAway)
+		out, err := decimal256.FromString(v, b.dtype.Precision, b.dtype.Scale)
 		if err != nil {
 			return err
 		}
+		b.Append(out)
 	case json.Number:
-		out, _, err = big.ParseFloat(v.String(), 10, 255, big.ToNearestAway)
+		out, err := decimal256.FromString(v.String(), b.dtype.Precision, b.dtype.Scale)
 		if err != nil {
 			return err
 		}
+		b.Append(out)
 	case nil:
 		b.AppendNull()
 		return nil
@@ -295,8 +295,6 @@ func (b *Decimal256Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 	}
 
-	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(b.dtype.Scale)))).Int(nil)
-	b.Append(decimal256.FromBigInt(val))
 	return nil
 }
 

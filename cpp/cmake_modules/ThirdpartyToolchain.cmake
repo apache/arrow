@@ -1938,7 +1938,7 @@ macro(build_gtest)
                               -Wno-unused-value -Wno-ignored-attributes)
   endif()
 
-  if(MSVC)
+  if(WIN32)
     set(GTEST_CMAKE_CXX_FLAGS "${GTEST_CMAKE_CXX_FLAGS} -DGTEST_CREATE_SHARED_LIBRARY=1")
   endif()
 
@@ -1947,7 +1947,7 @@ macro(build_gtest)
 
   set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
 
-  if(MSVC)
+  if(WIN32)
     set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
     set(_GTEST_LIBRARY_SUFFIX
         "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
@@ -1980,7 +1980,7 @@ macro(build_gtest)
       -DCMAKE_MACOSX_RPATH=OFF)
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
-  if(MSVC AND NOT ARROW_USE_STATIC_CRT)
+  if(WIN32 AND NOT ARROW_USE_STATIC_CRT)
     set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
   endif()
 

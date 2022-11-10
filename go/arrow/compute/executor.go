@@ -683,6 +683,9 @@ func (s *scalarExecutor) setupPrealloc(totalLen int64, args []Datum) error {
 
 func (s *scalarExecutor) emitResult(resultData *exec.ArraySpan, data chan<- Datum) error {
 	var output Datum
+	if len(resultData.Buffers[0].Buf) != 0 {
+		resultData.UpdateNullCount()
+	}
 	if s.allScalars {
 		// we boxed scalar inputs as ArraySpan so now we have to unbox the output
 		arr := resultData.MakeArray()

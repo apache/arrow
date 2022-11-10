@@ -84,7 +84,7 @@ Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
   FileInfoVector results{FileInfo("", FileType::Directory)};
   // The exact tail that will later require matching with candidate entries
   std::string current_tail;
-
+  auto is_leading_slash = HasLeadingSlash(glob);
   auto split_glob = SplitAbstractPath(glob, '/');
 
   // Process one depth level at once, from root to leaf
@@ -104,6 +104,9 @@ Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
         selector.base_dir = current_tail.empty()
                                 ? res.path()
                                 : ConcatAbstractPath(res.path(), current_tail);
+        if (is_leading_slash) {
+          selector.base_dir = EnsureLeadingSlash(selector.base_dir);
+        }
         ARROW_ASSIGN_OR_RAISE(auto entries, filesystem->GetFileInfo(selector));
         Globber globber(ConcatAbstractPath(selector.base_dir, glob_component));
         for (auto&& entry : entries) {

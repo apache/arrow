@@ -392,3 +392,52 @@ func TestDecimalFromFloat(t *testing.T) {
 		})
 	})
 }
+
+func TestFromString(t *testing.T) {
+	tests := []struct {
+		s             string
+		expected      int64
+		expectedScale int32
+	}{
+		{"12.3", 123, 1},
+		{"0.00123", 123, 5},
+		{"1.23e-8", 123, 10},
+		{"-1.23E-8", -123, 10},
+		{"1.23e+3", 1230, 0},
+		{"-1.23E+3", -1230, 0},
+		{"1.23e+5", 123000, 0},
+		{"1.2345E+7", 12345000, 0},
+		{"1.23e-8", 123, 10},
+		{"-1.23E-8", -123, 10},
+		{"1.23E+3", 1230, 0},
+		{"-1.23e+3", -1230, 0},
+		{"1.23e+5", 123000, 0},
+		{"1.2345e+7", 12345000, 0},
+		{"0000000", 0, 0},
+		{"000.0000", 0, 4},
+		{".00000", 0, 5},
+		{"1e1", 10, 0},
+		{"+234.567", 234567, 3},
+		{"1e-37", 1, 37},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s_%d", tt.s, tt.expectedScale), func(t *testing.T) {
+			n, err := decimal128.FromString(tt.s, 8, tt.expectedScale)
+			assert.NoError(t, err)
+
+			ex := decimal128.FromI64(tt.expected)
+			assert.Equal(t, ex, n)
+		})
+	}
+}
+
+func TestInvalidNonNegScaleFromString(t *testing.T) {
+	tests := []string{"1e39", "-1e39", "9e39", "-9e39", "9.9e40", "-9.9e40"}
+	for _, tt := range tests {
+		t.Run(tt, func(t *testing.T) {
+			_, err := decimal128.FromString(tt, 38, 0)
+			assert.Error(t, err)
+		})
+	}
+}

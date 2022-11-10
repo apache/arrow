@@ -202,6 +202,14 @@ register_bindings_string_join <- function() {
     },
     notes = "the `collapse` argument is not yet supported"
   )
+
+  register_binding("base::strrep", function(x, times) {
+    Expression$create("binary_repeat", x, times)
+  })
+
+  register_binding("stringr::str_dup", function(string, times) {
+    Expression$create("binary_repeat", string, times)
+  })
 }
 
 register_bindings_string_regex <- function() {

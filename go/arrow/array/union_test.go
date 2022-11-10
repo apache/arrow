@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -946,7 +947,81 @@ func (s *UnionBuilderSuite) TestSparseUnionStructWithUnion() {
 	s.Truef(arrow.TypeEqual(expectedType, bldr.Type()), "expected: %s, got: %s", expectedType, bldr.Type())
 }
 
+func ExampleSparseUnionBuilder() {
+	dt1 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "c", Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint16, ValueType: arrow.BinaryTypes.String}},
+	}, []arrow.UnionTypeCode{0})
+	dt2 := arrow.StructOf(arrow.Field{Name: "a", Type: dt1})
+
+	pool := memory.DefaultAllocator
+	bldr := array.NewStructBuilder(pool, dt2)
+	defer bldr.Release()
+
+	bldrDt1 := bldr.FieldBuilder(0).(*array.SparseUnionBuilder)
+	binDictBldr := bldrDt1.Child(0).(*array.BinaryDictionaryBuilder)
+
+	bldr.Append(true)
+	bldrDt1.Append(0)
+	binDictBldr.AppendString("foo")
+
+	bldr.Append(true)
+	bldrDt1.Append(0)
+	binDictBldr.AppendString("bar")
+
+	out := bldr.NewArray().(*array.Struct)
+	defer out.Release()
+
+	fmt.Println(out)
+
+	// Output:
+	// {[{c=foo} {c=bar}]}
+}
+
 func TestUnions(t *testing.T) {
 	suite.Run(t, new(UnionFactorySuite))
 	suite.Run(t, new(UnionBuilderSuite))
+}
+
+func TestNestedUnionStructDict(t *testing.T) {
+	// ARROW-18274
+	dt1 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "c", Type: &arrow.DictionaryType{
+			IndexType: arrow.PrimitiveTypes.Uint16,
+			ValueType: arrow.BinaryTypes.String,
+			Ordered:   false,
+		}},
+	}, []arrow.UnionTypeCode{0})
+	dt2 := arrow.StructOf(
+		arrow.Field{Name: "b", Type: dt1},
+	)
+	dt3 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "a", Type: dt2},
+	}, []arrow.UnionTypeCode{0})
+	pool := memory.NewGoAllocator()
+
+	builder := array.NewSparseUnionBuilder(pool, dt3)
+	defer builder.Release()
+	arr := builder.NewArray()
+	defer arr.Release()
+	assert.Equal(t, 0, arr.Len())
+}
+
+func TestNestedUnionDictUnion(t *testing.T) {
+	dt1 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "c", Type: &arrow.DictionaryType{
+			IndexType: arrow.PrimitiveTypes.Uint16,
+			ValueType: arrow.BinaryTypes.String,
+			Ordered:   false,
+		}},
+	}, []arrow.UnionTypeCode{0})
+	dt2 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "a", Type: dt1},
+	}, []arrow.UnionTypeCode{0})
+	pool := memory.NewGoAllocator()
+
+	builder := array.NewSparseUnionBuilder(pool, dt2)
+	defer builder.Release()
+	arr := builder.NewArray()
+	defer arr.Release()
+	assert.Equal(t, 0, arr.Len())
 }

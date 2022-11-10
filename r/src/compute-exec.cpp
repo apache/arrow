@@ -175,8 +175,9 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     }
 
     plan_status_ = PLAN_FINISHED;
-    plan_.reset();
-    sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
+    // A previous version of this called plan_.reset() and reset
+    // sink_gen_ to an empty generator; however, this caused
+    // crashes on some platforms.
   }
 };
 
