@@ -862,6 +862,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       }
     }
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
+      data_preallocated_.clear();
       ComputeDataPreallocate(*output_type_.type, &data_preallocated_);
     }
 
@@ -945,6 +946,7 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
         (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
          kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL);
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
+      data_preallocated_.clear();
       ComputeDataPreallocate(*output_type_.type, &data_preallocated_);
     }
 

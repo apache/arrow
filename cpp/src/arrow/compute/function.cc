@@ -211,6 +211,9 @@ struct FunctionExecutorImpl : public FunctionExecutor {
   }
 
   Status Init(const FunctionOptions* options, ExecContext* exec_ctx) override {
+    if (exec_ctx == NULLPTR) {
+      exec_ctx = default_exec_context();
+    }
     kernel_ctx = KernelContext{exec_ctx, kernel};
     return KernelInit(options);
   }
@@ -225,6 +228,10 @@ struct FunctionExecutorImpl : public FunctionExecutor {
                         {"function.options", options ? options->ToString() : "<NULLPTR>"},
                         {"function.kind", func_kind}});
 
+    if (in_types.size() != args.size()) {
+      return Status::Invalid("Execution of '", func_name, "' expected ", in_types.size(),
+                             " arguments but got ", args.size());
+    }
     if (!inited) {
       ARROW_RETURN_NOT_OK(Init(NULLPTR, default_exec_context()));
     }

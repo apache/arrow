@@ -33,6 +33,7 @@
 #include "arrow/datum.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -360,6 +361,8 @@ struct TestFunctionOptions : public FunctionOptions {
   TestFunctionOptions();
 
   static const char* kTypeName;
+
+  int value;
 };
 
 static auto kTestFunctionOptionsType =
@@ -373,20 +376,27 @@ const char* TestFunctionOptions::kTypeName = "test_options";
 
 TEST(FunctionExecutor, Basics) {
   VectorFunction func("vector_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
-  bool init_called = false;
+  int init_calls = 0;
+  int expected_optval = 0;
   ExecContext exec_ctx;
   TestFunctionOptions options;
+  options.value = 1;
   auto init =
-      [&init_called, &exec_ctx, &options](
-          KernelContext* kernel_ctx,
+      [&](KernelContext* kernel_ctx,
           const KernelInitArgs& init_args) -> Result<std::unique_ptr<KernelState>> {
-    init_called = true;
     if (&exec_ctx != kernel_ctx->exec_context()) {
       return Status::Invalid("expected exec context not found in kernel context");
+    }
+    if (init_args.options != nullptr) {
+      const auto* test_opts = checked_cast<const TestFunctionOptions*>(init_args.options);
+      if (test_opts->value != expected_optval) {
+        return Status::Invalid("bad options value");
+      }
     }
     if (&options != init_args.options) {
       return Status::Invalid("expected options not found in kernel init args");
     }
+    ++init_calls;
     return nullptr;
   };
   auto exec = [](KernelContext* ctx, const ExecSpan& args, ExecResult* out) -> Status {
@@ -417,21 +427,31 @@ TEST(FunctionExecutor, Basics) {
   ASSERT_EQ(exec, static_cast<const ScalarKernel*>(dispatched)->exec);
   std::vector<TypeHolder> inputs = {int32(), int32()};
   ASSERT_OK_AND_ASSIGN(auto func_exec, func.GetBestExecutor(inputs));
-  ASSERT_FALSE(init_called);
-  ASSERT_OK(func_exec->Init(&options, &exec_ctx));
-  ASSERT_TRUE(init_called);
+  ASSERT_EQ(0, init_calls);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("options not found"),
+                                  func_exec->Init(nullptr, &exec_ctx));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("bad options value"),
+                                  func_exec->Init(&options, &exec_ctx));
+  ExecContext other_exec_ctx;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("exec context not found"),
+                                  func_exec->Init(&options, &other_exec_ctx));
   std::vector<std::shared_ptr<Array>> arrays = {
       ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[2]"),
       ArrayFromJSON(int32(), "[3]"), ArrayFromJSON(int32(), "[4]")};
   std::vector<std::shared_ptr<Array>> expected = {ArrayFromJSON(int32(), "[3]"),
                                                   ArrayFromJSON(int32(), "[5]"),
                                                   ArrayFromJSON(int32(), "[7]")};
-  for (int32_t i = 1; i <= 3; i++) {
-    std::vector<Datum> values = {arrays[i - 1], arrays[i]};
-    ASSERT_OK_AND_ASSIGN(auto result, func_exec->Execute(values, 1));
-    ASSERT_TRUE(result.is_array());
-    auto actual = result.make_array();
-    AssertArraysEqual(*expected[i - 1], *actual);
+  for (int n = 1; n <= 3; n++) {
+    expected_optval = options.value = n;
+    ASSERT_OK(func_exec->Init(&options, &exec_ctx));
+    ASSERT_EQ(n, init_calls);
+    for (int32_t i = 1; i <= 3; i++) {
+      std::vector<Datum> values = {arrays[i - 1], arrays[i]};
+      ASSERT_OK_AND_ASSIGN(auto result, func_exec->Execute(values, 1));
+      ASSERT_TRUE(result.is_array());
+      auto actual = result.make_array();
+      AssertArraysEqual(*expected[i - 1], *actual);
+    }
   }
 }
 
