@@ -3427,6 +3427,8 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
     ...     table.schema, 'dataset_metadata/_metadata',
     ...     metadata_collector=metadata_collector)
     """
+    filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+
     writer = ParquetWriter(where, schema, filesystem, **kwargs)
     writer.close()
 
@@ -3436,8 +3438,6 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
         metadata = read_metadata(where, filesystem=filesystem)
         for m in metadata_collector:
             metadata.append_row_groups(m)
-        if filesystem is not None:
-            filesystem, where = _resolve_filesystem_and_path(where, filesystem)
         metadata.write_metadata_file(where)
 
 

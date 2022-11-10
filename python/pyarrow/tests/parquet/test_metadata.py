@@ -620,21 +620,25 @@ def test_write_metadata_with_without_filesystem(tempdir):
     class MockLocalFileSystem(LocalFileSystem):
         def open_output_stream(self, *args, **kwargs):
             nonlocal called
-            called = True
+            called += 1
             return super().open_output_stream(*args, **kwargs)
 
     meta1 = tempdir / "meta1"
     meta2 = tempdir / "meta2"
+    meta3 = tempdir / "meta3"
 
     table = pa.table({"col": range(5)})
     filesystem = MockLocalFileSystem()
-    called = False
+    called = 0
 
+    # plain local path
     pq.write_metadata(table.schema, meta1, [])
-    assert not called
 
-    # filesystem used to resolve before final `write_metadata_file` call
+    # Used the mock filesystem to resolve opening an output stream
     pq.write_metadata(table.schema, meta2, [], filesystem=filesystem)
-    assert called
+    assert called == 1
 
-    assert meta1.read_bytes() == meta2.read_bytes()
+    # Can resolve URI
+    pq.write_metadata(table.schema, meta3.as_uri(), [])
+
+    assert meta1.read_bytes() == meta2.read_bytes() == meta3.read_bytes()
