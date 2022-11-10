@@ -124,7 +124,6 @@ static void ColumnReaderReadBatchInt32(::benchmark::State& state) {
 }
 
 BENCHMARK(ColumnReaderSkipInt32)
-    ->Iterations(10)
     ->ArgNames({"Repetition", "BatchSize"})
     ->Args({0, 100})
     ->Args({0, 1000})
@@ -140,7 +139,6 @@ BENCHMARK(ColumnReaderSkipInt32)
     ->Args({2, 100000});
 
 BENCHMARK(ColumnReaderReadBatchInt32)
-    ->Iterations(10)
     ->ArgNames({"Repetition", "BatchSize"})
     ->Args({0, 100})
     ->Args({0, 1000})
