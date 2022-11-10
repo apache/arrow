@@ -145,5 +145,5 @@ BENCHMARK(BM_ReadBatch)
     ->Args({2, 10000})
     ->Args({2, 100000});
 
-}  // namespace bemark
+}  // namespace benchmark
 }  // namespace parquet
