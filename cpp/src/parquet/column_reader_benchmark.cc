@@ -51,6 +51,9 @@ class BenchmarkHelper {
     std::vector<uint8_t> data_buffer;
     MakePages<Int32Type>(descr_.get(), num_pages, levels_per_page, def_levels, rep_levels,
                          values, data_buffer, pages_, Encoding::PLAIN);
+    for (const auto& page : pages_) {
+      total_size_ += page->size();
+    }
   }
 
   Int32Reader* ResetReader() {
@@ -60,20 +63,23 @@ class BenchmarkHelper {
     return static_cast<Int32Reader*>(column_reader_.get());
   }
 
+  int64_t total_size() const { return total_size_; }
+
  private:
   std::vector<std::shared_ptr<Page>> pages_;
   std::unique_ptr<ColumnDescriptor> descr_;
   std::shared_ptr<ColumnReader> column_reader_;
+  int64_t total_size_ = 0;
 };
 
 // Benchmarks Skip for ColumnReader with the following parameters in order:
 // - repetition: 0 for REQUIRED, 1 for OPTIONAL, 2 for REPEATED.
 // - batch_size: sets how many values to read at each call.
-static void BM_Skip(::benchmark::State& state) {
+static void ColumnReaderSkipInt32(::benchmark::State& state) {
   const auto repetition = static_cast<Repetition::type>(state.range(0));
   const int batch_size = state.range(1);
 
-  BenchmarkHelper helper(repetition, /*num_pages=*/5, /*levels_per_page=*/100000);
+  BenchmarkHelper helper(repetition, /*num_pages=*/16, /*levels_per_page=*/80000);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -84,16 +90,18 @@ static void BM_Skip(::benchmark::State& state) {
       DoNotOptimize(values_count = reader->Skip(batch_size));
     }
   }
+
+  state.SetBytesProcessed(state.iterations() * helper.total_size());
 }
 
 // Benchmarks ReadBatch for ColumnReader with the following parameters in order:
 // - repetition: 0 for REQUIRED, 1 for OPTIONAL, 2 for REPEATED.
 // - batch_size: sets how many values to read at each call.
-static void BM_ReadBatch(::benchmark::State& state) {
+static void ColumnReaderReadBatchInt32(::benchmark::State& state) {
   const auto repetition = static_cast<Repetition::type>(state.range(0));
   const int batch_size = state.range(1);
 
-  BenchmarkHelper helper(repetition, /*num_pages=*/5, /*levels_per_page=*/100000);
+  BenchmarkHelper helper(repetition, /*num_pages=*/16, /*levels_per_page=*/80000);
 
   // Vectors to read the values into.
   std::vector<int32_t> read_values(batch_size, -1);
@@ -111,9 +119,11 @@ static void BM_ReadBatch(::benchmark::State& state) {
                                           read_values.data(), &values_read));
     }
   }
+
+  state.SetBytesProcessed(state.iterations() * helper.total_size());
 }
 
-BENCHMARK(BM_Skip)
+BENCHMARK(ColumnReaderSkipInt32)
     ->Iterations(10)
     ->ArgNames({"Repetition", "BatchSize"})
     ->Args({0, 100})
@@ -129,7 +139,7 @@ BENCHMARK(BM_Skip)
     ->Args({2, 10000})
     ->Args({2, 100000});
 
-BENCHMARK(BM_ReadBatch)
+BENCHMARK(ColumnReaderReadBatchInt32)
     ->Iterations(10)
     ->ArgNames({"Repetition", "BatchSize"})
     ->Args({0, 100})
