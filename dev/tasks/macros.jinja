@@ -269,7 +269,7 @@ on:
       rm -f apache-arrow*.rb.bak
 {% endmacro %}
 
-{%- macro github_change_r_pkg_version(is_fork, version = '\\2.\'\"$(date +%Y%m%d)\"\'' ) -%}
+{%- macro github_change_r_pkg_version(is_fork, version) -%}
   - name: Modify version
     shell: bash
     run: |
@@ -292,11 +292,13 @@ on:
   install.packages(
     "arrow",
     repos = c(getOption("arrow.dev_repo"), getOption("repos")),
-    verbose = TRUE
+    verbose = TRUE,
+    INSTALL_opts = "--build"
   )
 
   library(arrow)
   read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+  print(arrow_info())
 
   # Our Version should always be > CRAN so we would detect a CRAN version here.
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
@@ -314,8 +316,7 @@ on:
       path: repo/libarrow/bin/windows
   {% endif %}
   {% if get_nix %}
-    # TODO(ARROW-17594): re-enable centos-7 here
-    {% for os in ["ubuntu-18.04", "ubuntu-22.04"] %}
+    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
   - name: Get {{ os }} binary
     uses: actions/download-artifact@v3
     with:
@@ -338,12 +339,16 @@ on:
     # tree not available in git-bash on windows
     run: |
       ls -R repo
-  - name: Add dev repo to .Rprofile
+  - name: Add repos to .Rprofile
     shell: Rscript {0}
     run: |
-      str <- paste0("options(arrow.dev_repo ='file://", getwd(), "/repo' )")
-      print(str)
       profile_path <- file.path(getwd(), ".Rprofile")
+      repo <- paste0("file://", getwd(), "/repo")
+      str <- paste0("options(arrow.repo = '", repo, "' )")
+      print(str)
+      write(str, file = profile_path, append = TRUE)
+      str <- paste0("options(arrow.dev_repo = '", repo, "' )")
+      print(str)
       write(str, file = profile_path, append = TRUE)
       # Set envvar for later steps by appending to $GITHUB_ENV
       write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
@@ -368,12 +373,25 @@ on:
 
 {% macro github_set_sccache_envvars(sccache_key_prefix = "sccache") %}
   {% set sccache_vars =  {
-            "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
             "AWS_ACCESS_KEY_ID": '${{ secrets.AWS_ACCESS_KEY_ID }}',
+            "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
             "SCCACHE_BUCKET": '${{ secrets.SCCACHE_BUCKET }}',
             "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
           }
  %}
+  {% for key, value in sccache_vars.items() %}
+  {{ key }}: "{{ value }}"
+  {% endfor %}
+{% endmacro %}
+
+{% macro azure_set_sccache_envvars(sccache_key_prefix = "sccache") %}
+  {% set sccache_vars = {
+            "AWS_ACCESS_KEY_ID": '$(AWS_ACCESS_KEY_ID)',
+            "AWS_SECRET_ACCESS_KEY": '$(AWS_SECRET_ACCESS_KEY)',
+            "SCCACHE_BUCKET": '$(SCCACHE_BUCKET)',
+            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
+          }
+  %}
   {% for key, value in sccache_vars.items() %}
   {{ key }}: "{{ value }}"
   {% endfor %}

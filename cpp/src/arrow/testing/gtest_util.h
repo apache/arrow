@@ -190,9 +190,6 @@ class RecordBatch;
 class Table;
 struct Datum;
 
-ARROW_TESTING_EXPORT
-std::vector<Type::type> AllTypeIds();
-
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
 #define ASSERT_BATCHES_APPROX_EQUAL(lhs, rhs) AssertBatchesApproxEqual((lhs), (rhs))
@@ -366,9 +363,6 @@ void SleepABit();
 ARROW_TESTING_EXPORT
 void BusyWait(double seconds, std::function<bool()> predicate);
 
-ARROW_TESTING_EXPORT
-Future<> SleepAsync(double seconds);
-
 // \see SleepABit
 ARROW_TESTING_EXPORT
 Future<> SleepABitAsync();
@@ -383,6 +377,11 @@ std::vector<T> IteratorToVector(Iterator<T> iterator) {
 
 ARROW_TESTING_EXPORT
 bool LocaleExists(const char* locale);
+
+#ifndef _WIN32
+ARROW_TESTING_EXPORT
+void AssertChildExit(int child_pid, int expected_exit_status = 0);
+#endif
 
 // A RAII-style object that switches to a new locale, and switches back
 // to the old locale when going out of scope.  Doesn't do anything if the

@@ -1626,6 +1626,9 @@ class ARROW_EXPORT FieldPath {
   Result<std::shared_ptr<Field>> Get(const DataType& type) const;
   Result<std::shared_ptr<Field>> Get(const FieldVector& fields) const;
 
+  static Result<std::shared_ptr<Schema>> GetAll(const Schema& schema,
+                                                const std::vector<FieldPath>& paths);
+
   /// \brief Retrieve the referenced column from a RecordBatch or Table
   Result<std::shared_ptr<Array>> Get(const RecordBatch& batch) const;
 
@@ -2146,6 +2149,9 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
 /// \brief Interval types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
+/// \brief Duration types for each unit
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& DurationTypes();
 /// \brief Numeric, base binary, date, boolean and null types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();

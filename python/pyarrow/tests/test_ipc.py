@@ -1142,8 +1142,8 @@ def test_py_record_batch_reader():
     batches = UserList(make_batches())  # weakrefable
     wr = weakref.ref(batches)
 
-    with pa.ipc.RecordBatchReader.from_batches(make_schema(),
-                                               batches) as reader:
+    with pa.RecordBatchReader.from_batches(make_schema(),
+                                           batches) as reader:
         batches = None
         assert wr() is not None
         assert list(reader) == make_batches()
@@ -1153,9 +1153,21 @@ def test_py_record_batch_reader():
     batches = iter(UserList(make_batches()))  # weakrefable
     wr = weakref.ref(batches)
 
-    with pa.ipc.RecordBatchReader.from_batches(make_schema(),
-                                               batches) as reader:
+    with pa.RecordBatchReader.from_batches(make_schema(),
+                                           batches) as reader:
         batches = None
         assert wr() is not None
         assert list(reader) == make_batches()
         assert wr() is None
+
+    # ensure we get proper error when not passing a schema
+    # (https://issues.apache.org/jira/browse/ARROW-18229)
+    batches = make_batches()
+    with pytest.raises(TypeError):
+        reader = pa.RecordBatchReader.from_batches(
+            [('field', pa.int64())], batches)
+        pass
+
+    with pytest.raises(TypeError):
+        reader = pa.RecordBatchReader.from_batches(None, batches)
+        pass

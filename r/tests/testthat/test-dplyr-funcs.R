@@ -35,6 +35,9 @@ test_that("register_binding()/unregister_binding() works", {
     register_binding("some.pkg2::some_fun", fun2, fake_registry),
     "A \"some_fun\" binding already exists in the registry and will be overwritten."
   )
+
+  # No warning when an identical function is re-registered
+  expect_silent(register_binding("some.pkg2::some_fun", fun2, fake_registry))
 })
 
 test_that("register_binding_agg() works", {

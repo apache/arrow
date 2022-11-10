@@ -174,7 +174,7 @@ jobs:
       - name: ccache info
         id: ccache-info
         run: |
-          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
         uses: actions/cache@v3
         with:
@@ -182,10 +182,7 @@ jobs:
           key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-ccache-macos-
       - name: Build
-        # use brew version of clang, to be consistent with LLVM lib, see ARROW-17790.
         run: |
-          export CC=$(brew --prefix llvm)/bin/clang
-          export CXX=$(brew --prefix llvm)/bin/clang++
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
@@ -220,6 +217,7 @@ jobs:
       ARROW_HOME: /usr
       ARROW_JEMALLOC: OFF
       ARROW_MIMALLOC: ON
+      ARROW_ORC: ON
       ARROW_PARQUET: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
@@ -272,7 +270,7 @@ jobs:
         id: ccache-info
         shell: bash
         run: |
-          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
         uses: actions/cache@v3
         with:
@@ -289,21 +287,27 @@ jobs:
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: bash
-        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+        run: |
+          # For ORC
+          export TZDIR=/c/msys64/usr/share/zoneinfo
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows-mingw:
-    name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
+    name: AMD64 Windows MinGW ${{ matrix.msystem_upper }} C++
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    # Build may take 1h+ without cache and installing Google Cloud
-    # Storage Testbench may take 20m+ without cache.
+    # Build may take 1h+ without cache.
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        mingw-n-bits:
-          - 32
-          - 64
+        include:
+          - msystem_lower: mingw32
+            msystem_upper: MINGW32
+          - msystem_lower: mingw64
+            msystem_upper: MINGW64
+          - msystem_lower: clang64
+            msystem_upper: CLANG64
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
@@ -315,10 +319,9 @@ jobs:
       ARROW_GANDIVA: ON
       ARROW_GCS: ON
       ARROW_HDFS: OFF
-      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
+      ARROW_HOME: /${{ matrix.msystem_lower}}
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
-      ARROW_PYTHON: ON
       ARROW_S3: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
@@ -333,11 +336,12 @@ jobs:
       # -DBoost_NO_BOOST_CMAKE=ON
       BOOST_ROOT: ""
       CMAKE_ARGS: >-
-        -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
+        -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
         -DBoost_NO_BOOST_CMAKE=ON
       # We can't use unity build because we don't have enough memory on
       # GitHub Actions.
       # CMAKE_UNITY_BUILD: ON
+      GTest_SOURCE: BUNDLED
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -354,7 +358,7 @@ jobs:
           submodules: recursive
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW${{ matrix.mingw-n-bits }}
+          msystem: ${{ matrix.msystem_upper }}
           update: true
       - name: Setup MSYS2
         shell: msys2 {0}
@@ -363,8 +367,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ccache
-          key: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-
+          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-${{ matrix.msystem_lower}}-
       - name: Build
         shell: msys2 {0}
         run: |
@@ -381,23 +385,13 @@ jobs:
             --output-document /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
-      - name: Cache Python wheels
-        uses: actions/cache@v3
-        with:
-          path: "${{ env.PIP_CACHE_DIR }}"
-          key: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('ci/scripts/install_gcs_testbench.sh') }}
-          restore-keys: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-
       - name: Install Google Cloud Storage Testbench
-        shell: msys2 {0}
+        shell: bash
         run: |
           ci/scripts/install_gcs_testbench.sh default
+          echo "PYTHON_BIN_DIR=$(cygpath --windows $(dirname $(which python3.exe)))" >> $GITHUB_ENV
       - name: Test
         shell: msys2 {0}
         run: |
-          python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
-          export PYTHONHOME="$(cygpath --windows ${MINGW_PREFIX})\lib\python${python_version}"
-          PYTHONPATH="${PYTHONHOME}"
-          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\lib-dynload"
-          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\site-packages"
-          export PYTHONPATH
+          PATH="$(cygpath --unix ${PYTHON_BIN_DIR}):${PATH}"
           ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"

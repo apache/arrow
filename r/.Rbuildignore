@@ -28,3 +28,4 @@ STYLE.md
 ^.lintr
 ^.styler_excludes.R
 ^cheatsheet$
+^revdep$

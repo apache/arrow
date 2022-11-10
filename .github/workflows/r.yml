@@ -60,7 +60,7 @@ jobs:
       matrix:
         r: ["4.2"]
         ubuntu: [20.04]
-        force-tests: ["true", "false"]
+        force-tests: ["true"]
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
@@ -126,7 +126,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rstudio", image: "r-base", tag: "4.0-centos7", devtoolset: "8" }
           - { org: "rhub", image: "debian-gcc-devel", tag: "latest", devtoolset: "" }
     env:
       R_ORG: ${{ matrix.config.org }}
@@ -184,8 +183,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 40, arch: 'mingw32' }
-        - { rtools: 40, arch: 'mingw64' }
         - { rtools: 40, arch: 'ucrt64' }
     steps:
       - run: git config --global core.autocrlf false
@@ -214,7 +211,6 @@ jobs:
       - name: Build Arrow C++
         shell: bash
         env:
-          RTOOLS_VERSION: ${{ matrix.config.rtools }}
           MINGW_ARCH: ${{ matrix.config.arch }}
         run: ci/scripts/r_windows_build.sh
       - name: Rename libarrow.zip
@@ -236,7 +232,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 40, rversion: "4.1" }
         - { rtools: 42, rversion: "4.2" }
         - { rtools: 42, rversion: "devel" }
     env:
@@ -249,18 +244,6 @@ jobs:
         with:
           fetch-depth: 0
       - run: mkdir r/windows
-      - name: Download artifacts
-        if: ${{ matrix.config.rtools != 42 }}
-        uses: actions/download-artifact@v3
-        with:
-          name: libarrow-rtools${{ matrix.config.rtools }}-mingw32.zip
-          path: r/windows
-      - name: Download artifacts
-        if: ${{ matrix.config.rtools !=42 }}
-        uses: actions/download-artifact@v3
-        with:
-          name: libarrow-rtools${{ matrix.config.rtools }}-mingw64.zip
-          path: r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools == 42 }}
         uses: actions/download-artifact@v3
@@ -288,6 +271,19 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
+      - name: Install MinIO
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl \
+            --output "$HOME/.local/bin/minio.exe" \
+            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
+          chmod +x "$HOME/.local/bin/minio.exe"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      # TODO(ARROW-17149): figure out why the GCS tests are hanging on Windows
+      # - name: Install Google Cloud Storage Testbench
+      #   shell: bash
+      #   run: ci/scripts/install_gcs_testbench.sh default
       - name: Check
         shell: Rscript {0}
         run: |

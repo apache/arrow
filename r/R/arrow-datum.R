@@ -173,7 +173,7 @@ eval_array_expression <- function(FUN,
       return(-args[[1]])
     }
   }
-  args <- lapply(args, .wrap_arrow, FUN)
+  args <- lapply(args, .wrap_arrow)
 
   # In Arrow, "divide" is one function, which does integer division on
   # integer inputs and floating-point division on floats
@@ -218,14 +218,9 @@ eval_array_expression <- function(FUN,
   )
 }
 
-.wrap_arrow <- function(arg, fun) {
+.wrap_arrow <- function(arg) {
   if (!inherits(arg, "ArrowObject")) {
-    # TODO: Array$create if lengths are equal?
-    if (fun == "%in%") {
-      arg <- Array$create(arg)
-    } else {
-      arg <- Scalar$create(arg)
-    }
+    arg <- Scalar$create(arg)
   }
   arg
 }
@@ -299,6 +294,9 @@ head.ArrowDatum <- function(x, n = 6L, ...) {
   } else {
     n <- min(len, n)
   }
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   if (n == len) {
     return(x)
   }
@@ -310,6 +308,9 @@ head.ArrowDatum <- function(x, n = 6L, ...) {
 tail.ArrowDatum <- function(x, n = 6L, ...) {
   assert_is(n, c("numeric", "integer"))
   assert_that(length(n) == 1)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   len <- NROW(x)
   if (n < 0) {
     # tail(x, negative) means all but the first n rows

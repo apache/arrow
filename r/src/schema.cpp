@@ -22,8 +22,25 @@
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> schema_(
+std::shared_ptr<arrow::Schema> Schema__from_fields(
     const std::vector<std::shared_ptr<arrow::Field>>& fields) {
+  return arrow::schema(fields);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> Schema__from_list(cpp11::list field_list) {
+  int n = field_list.size();
+
+  bool nullable = true;
+  cpp11::strings names(field_list.attr(R_NamesSymbol));
+
+  std::vector<std::shared_ptr<arrow::Field>> fields(n);
+
+  for (int i = 0; i < n; i++) {
+    fields[i] = arrow::field(
+        names[i], cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(field_list[i]),
+        nullable);
+  }
   return arrow::schema(fields);
 }
 

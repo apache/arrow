@@ -384,7 +384,8 @@ size_t ThreadIndexer::Check(size_t thread_index) {
 }
 
 Status TableSinkNodeConsumer::Init(const std::shared_ptr<Schema>& schema,
-                                   BackpressureControl* backpressure_control) {
+                                   BackpressureControl* backpressure_control,
+                                   ExecPlan* plan) {
   // If the user is collecting into a table then backpressure is meaningless
   ARROW_UNUSED(backpressure_control);
   schema_ = schema;
@@ -399,7 +400,7 @@ Status TableSinkNodeConsumer::Consume(ExecBatch batch) {
 }
 
 Future<> TableSinkNodeConsumer::Finish() {
-  ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(batches_));
+  ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(schema_, batches_));
   return Status::OK();
 }
 

@@ -17,8 +17,7 @@
 
 #include "arrow/flight/sql/example/sqlite_server.h"
 
-#include <sqlite3.h>
-
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 #include <boost/algorithm/string.hpp>
 #include <mutex>
 #include <random>
@@ -26,24 +25,32 @@
 #include <unordered_map>
 #include <utility>
 
+#include <sqlite3.h>
+
+#include "arrow/array/builder_binary.h"
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
 #include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/flight/sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/sql/example/sqlite_tables_schema_batch_reader.h"
 #include "arrow/flight/sql/example/sqlite_type_info.h"
 #include "arrow/flight/sql/server.h"
+#include "arrow/scalar.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace flight {
 namespace sql {
 namespace example {
 
+using arrow::internal::checked_cast;
+
 namespace {
 
 std::string PrepareQueryForGetTables(const GetTables& command) {
   std::stringstream table_query;
 
-  table_query << "SELECT null as catalog_name, null as schema_name, name as "
+  table_query << "SELECT 'main' as catalog_name, null as schema_name, name as "
                  "table_name, type as table_type FROM sqlite_master where 1=1";
 
   if (command.catalog.has_value()) {
@@ -77,50 +84,27 @@ std::string PrepareQueryForGetTables(const GetTables& command) {
   return table_query.str();
 }
 
-Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt, FlightMessageReader* reader) {
+template <typename Callback>
+Status SetParametersOnSQLiteStatement(SqliteStatement* statement,
+                                      FlightMessageReader* reader, Callback callback) {
+  sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
   while (true) {
     ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, reader->Next());
-    std::shared_ptr<RecordBatch>& record_batch = chunk.data;
-    if (record_batch == nullptr) break;
+    if (chunk.data == nullptr) break;
 
-    const int64_t num_rows = record_batch->num_rows();
-    const int& num_columns = record_batch->num_columns();
+    const int64_t num_rows = chunk.data->num_rows();
+    if (num_rows == 0) continue;
 
+    ARROW_RETURN_NOT_OK(statement->SetParameters({std::move(chunk.data)}));
     for (int i = 0; i < num_rows; ++i) {
-      for (int c = 0; c < num_columns; ++c) {
-        const std::shared_ptr<Array>& column = record_batch->column(c);
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, column->GetScalar(i));
-
-        auto& holder = static_cast<DenseUnionScalar&>(*scalar).value;
-
-        switch (holder->type->id()) {
-          case Type::INT64: {
-            int64_t value = static_cast<Int64Scalar&>(*holder).value;
-            sqlite3_bind_int64(stmt, c + 1, value);
-            break;
-          }
-          case Type::FLOAT: {
-            double value = static_cast<FloatScalar&>(*holder).value;
-            sqlite3_bind_double(stmt, c + 1, value);
-            break;
-          }
-          case Type::STRING: {
-            std::shared_ptr<Buffer> buffer = static_cast<StringScalar&>(*holder).value;
-            sqlite3_bind_text(stmt, c + 1, reinterpret_cast<const char*>(buffer->data()),
-                              static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
-            break;
-          }
-          case Type::BINARY: {
-            std::shared_ptr<Buffer> buffer = static_cast<BinaryScalar&>(*holder).value;
-            sqlite3_bind_blob(stmt, c + 1, buffer->data(),
-                              static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
-            break;
-          }
-          default:
-            return Status::Invalid("Received unsupported data type: ",
-                                   holder->type->ToString());
-        }
+      if (sqlite3_clear_bindings(stmt) != SQLITE_OK) {
+        return Status::Invalid("Failed to reset bindings on row ", i, ": ",
+                               sqlite3_errmsg(statement->db()));
       }
+      // batch_index is always 0 since we're calling SetParameters
+      // with a single batch at a time
+      ARROW_RETURN_NOT_OK(statement->Bind(/*batch_index=*/0, i));
+      ARROW_RETURN_NOT_OK(callback());
     }
   }
 
@@ -183,8 +167,8 @@ std::string PrepareQueryForGetImportedOrExportedKeys(const std::string& filter) 
 
 }  // namespace
 
-std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
-  if (sqlite_type == NULLPTR) {
+arrow::Result<std::shared_ptr<DataType>> GetArrowType(const char* sqlite_type) {
+  if (sqlite_type == nullptr || std::strlen(sqlite_type) == 0) {
     // SQLite may not know the column type yet.
     return null();
   }
@@ -199,9 +183,8 @@ std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
              boost::istarts_with(sqlite_type, "char") ||
              boost::istarts_with(sqlite_type, "varchar")) {
     return utf8();
-  } else {
-    throw std::invalid_argument("Invalid SQLite type: " + std::string(sqlite_type));
   }
+  return Status::Invalid("Invalid SQLite type: ", sqlite_type);
 }
 
 int32_t GetSqlTypeFromTypeName(const char* sqlite_type) {
@@ -245,13 +228,17 @@ class SQLiteFlightSqlServer::Impl {
   }
 
   arrow::Result<sqlite3*> GetConnection(const std::string& transaction_id) {
-    if (transaction_id.empty()) return db_;
+    if (transaction_id.empty()) {
+      ARROW_LOG(INFO) << "Using default connection";
+      return db_;
+    }
 
     std::lock_guard<std::mutex> guard(mutex_);
     auto it = open_transactions_.find(transaction_id);
     if (it == open_transactions_.end()) {
       return Status::KeyError("Unknown transaction ID: ", transaction_id);
     }
+    ARROW_LOG(INFO) << "Using connection for transaction " << transaction_id;
     return it->second;
   }
 
@@ -346,18 +333,19 @@ class SQLiteFlightSqlServer::Impl {
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetCatalogs(
       const ServerCallContext& context) {
-    // As SQLite doesn't support catalogs, this will return an empty record batch.
-
+    // https://www.sqlite.org/cli.html
+    // > The ".databases" command shows a list of all databases open
+    // > in the current connection. There will always be at least
+    // > 2. The first one is "main", the original database opened. The
+    // > second is "temp", the database used for temporary tables.
+    // For our purposes, return only "main" and ignore other databases.
     const std::shared_ptr<Schema>& schema = SqlSchema::GetCatalogsSchema();
-
     StringBuilder catalog_name_builder;
+    ARROW_RETURN_NOT_OK(catalog_name_builder.Append("main"));
     ARROW_ASSIGN_OR_RAISE(auto catalog_name, catalog_name_builder.Finish());
-
-    const std::shared_ptr<RecordBatch>& batch =
-        RecordBatch::Make(schema, 0, {catalog_name});
-
+    std::shared_ptr<RecordBatch> batch =
+        RecordBatch::Make(schema, 1, {std::move(catalog_name)});
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
-
     return std::make_unique<RecordBatchStream>(reader);
   }
 
@@ -369,20 +357,26 @@ class SQLiteFlightSqlServer::Impl {
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetDbSchemas(
       const ServerCallContext& context, const GetDbSchemas& command) {
-    // As SQLite doesn't support schemas, this will return an empty record batch.
-
+    // SQLite doesn't support schemas, so pretend we have a single
+    // unnamed schema.
     const std::shared_ptr<Schema>& schema = SqlSchema::GetDbSchemasSchema();
-
     StringBuilder catalog_name_builder;
-    ARROW_ASSIGN_OR_RAISE(auto catalog_name, catalog_name_builder.Finish());
     StringBuilder schema_name_builder;
+
+    int64_t length = 0;
+    // XXX: we don't really implement the full pattern match here
+    if ((!command.catalog || command.catalog == "main") &&
+        (!command.db_schema_filter_pattern || command.db_schema_filter_pattern == "%")) {
+      ARROW_RETURN_NOT_OK(catalog_name_builder.Append("main"));
+      ARROW_RETURN_NOT_OK(schema_name_builder.AppendNull());
+      length++;
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto catalog_name, catalog_name_builder.Finish());
     ARROW_ASSIGN_OR_RAISE(auto schema_name, schema_name_builder.Finish());
-
-    const std::shared_ptr<RecordBatch>& batch =
-        RecordBatch::Make(schema, 0, {catalog_name, schema_name});
-
+    std::shared_ptr<RecordBatch> batch = RecordBatch::Make(
+        schema, length, {std::move(catalog_name), std::move(schema_name)});
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
-
     return std::make_unique<RecordBatchStream>(reader);
   }
 
@@ -392,6 +386,7 @@ class SQLiteFlightSqlServer::Impl {
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{{descriptor.cmd}, {}}};
 
     bool include_schema = command.include_schema;
+    ARROW_LOG(INFO) << "GetTables include_schema=" << include_schema;
 
     ARROW_ASSIGN_OR_RAISE(
         auto result,
@@ -399,12 +394,13 @@ class SQLiteFlightSqlServer::Impl {
                                         : *SqlSchema::GetTablesSchema(),
                          descriptor, endpoints, -1, -1))
 
-    return std::make_unique<FlightInfo>(result);
+    return std::make_unique<FlightInfo>(std::move(result));
   }
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTables(
       const ServerCallContext& context, const GetTables& command) {
     std::string query = PrepareQueryForGetTables(command);
+    ARROW_LOG(INFO) << "GetTables: " << query;
 
     std::shared_ptr<SqliteStatement> statement;
     ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, query));
@@ -426,6 +422,7 @@ class SQLiteFlightSqlServer::Impl {
                                                      const StatementUpdate& command) {
     const std::string& sql = command.query;
     ARROW_ASSIGN_OR_RAISE(auto db, GetConnection(command.transaction_id));
+    ARROW_LOG(INFO) << "Executing update: " << sql;
     ARROW_ASSIGN_OR_RAISE(auto statement, SqliteStatement::Create(db, sql));
     return statement->ExecuteUpdate();
   }
@@ -433,11 +430,16 @@ class SQLiteFlightSqlServer::Impl {
   arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedStatement(
       const ServerCallContext& context,
       const ActionCreatePreparedStatementRequest& request) {
-    std::lock_guard<std::mutex> guard(mutex_);
     std::shared_ptr<SqliteStatement> statement;
-    ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, request.query));
+    ARROW_ASSIGN_OR_RAISE(auto db, GetConnection(request.transaction_id));
+    ARROW_LOG(INFO) << "Creating prepared statement: " << request.query;
+    ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db, request.query));
     std::string handle = GenerateRandomString();
-    prepared_statements_[handle] = statement;
+
+    {
+      std::lock_guard<std::mutex> guard(mutex_);
+      prepared_statements_[handle] = statement;
+    }
 
     ARROW_ASSIGN_OR_RAISE(auto dataset_schema, statement->GetSchema());
 
@@ -525,10 +527,9 @@ class SQLiteFlightSqlServer::Impl {
     const std::string& prepared_statement_handle = command.prepared_statement_handle;
     ARROW_ASSIGN_OR_RAISE(auto statement,
                           GetStatementByHandle(prepared_statement_handle));
-
-    sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
-    ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(stmt, reader));
-
+    // Save params here and execute later
+    ARROW_ASSIGN_OR_RAISE(auto batches, reader->ToRecordBatches());
+    ARROW_RETURN_NOT_OK(statement->SetParameters(std::move(batches)));
     return Status::OK();
   }
 
@@ -536,13 +537,20 @@ class SQLiteFlightSqlServer::Impl {
       const ServerCallContext& context, const PreparedStatementUpdate& command,
       FlightMessageReader* reader) {
     const std::string& prepared_statement_handle = command.prepared_statement_handle;
-    ARROW_ASSIGN_OR_RAISE(auto statement,
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<SqliteStatement> statement,
                           GetStatementByHandle(prepared_statement_handle));
 
-    sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
-    ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(stmt, reader));
-
-    return statement->ExecuteUpdate();
+    int64_t rows_affected = 0;
+    if (sqlite3_bind_parameter_count(statement->GetSqlite3Stmt()) == 0) {
+      ARROW_ASSIGN_OR_RAISE(rows_affected, statement->ExecuteUpdate());
+    } else {
+      ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(statement.get(), reader, [&]() {
+        ARROW_ASSIGN_OR_RAISE(int64_t rows, statement->ExecuteUpdate());
+        rows_affected += rows;
+        return statement->Reset().status();
+      }));
+    }
+    return rows_affected;
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTableTypes(
@@ -712,6 +720,8 @@ class SQLiteFlightSqlServer::Impl {
 
     ARROW_RETURN_NOT_OK(ExecuteSql(new_db, "BEGIN TRANSACTION"));
 
+    ARROW_LOG(INFO) << "Beginning transaction on " << handle;
+
     std::lock_guard<std::mutex> guard(mutex_);
     open_transactions_[handle] = new_db;
     return ActionBeginTransactionResult{std::move(handle)};
@@ -729,8 +739,10 @@ class SQLiteFlightSqlServer::Impl {
       }
 
       if (request.action == ActionEndTransactionRequest::kCommit) {
+        ARROW_LOG(INFO) << "Committing on " << request.transaction_id;
         status = ExecuteSql(it->second, "COMMIT");
       } else {
+        ARROW_LOG(INFO) << "Rolling back on " << request.transaction_id;
         status = ExecuteSql(it->second, "ROLLBACK");
       }
       transaction = it->second;
@@ -795,6 +807,7 @@ arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Cre
     INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1);
     INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1);
     INSERT INTO intTable (keyName, value, foreignId) VALUES (NULL, NULL, NULL);
+    INSERT INTO intTable (keyName, value, foreignId) VALUES ('null', NULL, NULL);
   )"));
 
   return result;

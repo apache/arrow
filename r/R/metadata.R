@@ -77,7 +77,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
         trace <- trace_back()
         # TODO: remove `trace$calls %||% trace$call` once rlang > 0.4.11 is released
         in_dplyr_collect <- any(map_lgl(trace$calls %||% trace$call, function(x) {
-          grepl("collect.arrow_dplyr_query", x, fixed = TRUE)[[1]]
+          grepl("collect\\.([aA]rrow|Dataset)", x)[[1]]
         }))
         if (in_dplyr_collect) {
           warning(
@@ -86,9 +86,11 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
             call. = FALSE
           )
         } else {
-          x <- map2(x, columns_metadata, function(.x, .y) {
-            apply_arrow_r_metadata(.x, .y)
-          })
+          if (length(x) > 0) {
+            x <- map2(x, columns_metadata, function(.x, .y) {
+              apply_arrow_r_metadata(.x, .y)
+            })
+          }
         }
         x
       }
@@ -103,8 +105,13 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
           attr(x, "row.names") <- NULL
         }
         if (!is.null(attr(x, ".group_vars")) && requireNamespace("dplyr", quietly = TRUE)) {
-          x <- dplyr::group_by(x, !!!syms(attr(x, ".group_vars")))
+          x <- dplyr::group_by(
+            x,
+            !!!syms(attr(x, ".group_vars")),
+            .drop = attr(x, ".group_by_drop") %||% TRUE
+          )
           attr(x, ".group_vars") <- NULL
+          attr(x, ".group_by_drop") <- NULL
         }
       }
     },
@@ -144,9 +151,11 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     # uses, which may be large
     if (requireNamespace("dplyr", quietly = TRUE)) {
       gv <- dplyr::group_vars(x)
+      drop <- dplyr::group_by_drop_default(x)
       x <- dplyr::ungroup(x)
-      # ungroup() first, then set attribute, bc ungroup() would erase it
+      # ungroup() first, then set attributes, bc ungroup() would erase it
       att[[".group_vars"]] <- gv
+      att[[".group_by_drop"]] <- drop
       removed_attributes <- c(removed_attributes, "groups", "class")
     }
   }

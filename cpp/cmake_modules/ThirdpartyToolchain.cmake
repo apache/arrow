@@ -295,7 +295,12 @@ macro(resolve_dependency DEPENDENCY_NAME)
                         NO_CMAKE_ENVIRONMENT_PATH
                         QUIET)
       if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
+        message(STATUS "Using pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link"
+        )
         string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
+      else()
+        message(STATUS "pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link isn't found"
+        )
       endif()
     endforeach()
   endif()
@@ -647,18 +652,9 @@ endif()
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
-                                              "4.9")
-    # There is a bug in GCC < 4.9 with Snappy 1.1.9, so revert to 1.1.8 "SNAPPY_OLD" for those (ARROW-14661)
-    set_urls(SNAPPY_SOURCE_URL
-             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
-             "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz")
-    set(ARROW_SNAPPY_BUILD_SHA256_CHECKSUM ${ARROW_SNAPPY_OLD_BUILD_SHA256_CHECKSUM})
-  else()
-    set_urls(SNAPPY_SOURCE_URL
-             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-             "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
-  endif()
+  set_urls(SNAPPY_SOURCE_URL
+           "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_SUBSTRAIT_URL})
@@ -1942,7 +1938,7 @@ macro(build_gtest)
                               -Wno-unused-value -Wno-ignored-attributes)
   endif()
 
-  if(MSVC)
+  if(WIN32)
     set(GTEST_CMAKE_CXX_FLAGS "${GTEST_CMAKE_CXX_FLAGS} -DGTEST_CREATE_SHARED_LIBRARY=1")
   endif()
 
@@ -1951,7 +1947,7 @@ macro(build_gtest)
 
   set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
 
-  if(MSVC)
+  if(WIN32)
     set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
     set(_GTEST_LIBRARY_SUFFIX
         "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
@@ -1984,7 +1980,7 @@ macro(build_gtest)
       -DCMAKE_MACOSX_RPATH=OFF)
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
-  if(MSVC AND NOT ARROW_USE_STATIC_CRT)
+  if(WIN32 AND NOT ARROW_USE_STATIC_CRT)
     set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
   endif()
 
@@ -2421,14 +2417,14 @@ if(ARROW_WITH_ZSTD)
     set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
   else()
     if(ARROW_ZSTD_USE_SHARED)
-      if(TARGET zstd::libzstd_shared)
-        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
-      endif()
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
     else()
-      if(TARGET zstd::libzstd_static)
-        set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
-      endif()
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
     endif()
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
+      message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
+    endif()
+    message(STATUS "Found Zstandard: ${ARROW_ZSTD_LIBZSTD}")
   endif()
 endif()
 
@@ -3904,7 +3900,7 @@ macro(build_grpc)
        gRPC::grpc
        gRPC::grpcpp_for_bundling
        gRPC::upb)
-  if(ABS_VENDORED)
+  if(ABSL_VENDORED)
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ${GRPC_GPR_ABSL_LIBRARIES})
   endif()
 endmacro()
@@ -4265,6 +4261,8 @@ macro(build_orc)
   set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
+  get_target_property(ORC_PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC} IMPORTED_LOCATION)
+
   get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
@@ -4278,6 +4276,9 @@ macro(build_orc)
 
   get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
+
+  get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
 
   # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
   # the protoc library.
@@ -4293,12 +4294,13 @@ macro(build_orc)
       -DINSTALL_VENDORED_LIBS=OFF
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
+      "-DPROTOBUF_EXECUTABLE=${ORC_PROTOBUF_EXECUTABLE}"
       "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
       "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-      "-DLZ4_HOME=${LZ4_HOME}"
-      "-DZSTD_HOME=${ZSTD_HOME}")
+      "-DLZ4_HOME=${ORC_LZ4_ROOT}"
+      "-DZSTD_HOME=${ORZ_ZSTD_ROOT}")
   if(ORC_PROTOBUF_EXECUTABLE)
     set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS}
                        "-DPROTOBUF_EXECUTABLE:FILEPATH=${ORC_PROTOBUF_EXECUTABLE}")
@@ -4314,20 +4316,32 @@ macro(build_orc)
                       URL ${ORC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
-
-  add_dependencies(toolchain orc_ep)
+                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
+                      DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
+                              ${ARROW_ZSTD_LIBZSTD}
+                              ${Snappy_TARGET}
+                              LZ4::lz4
+                              ZLIB::ZLIB)
 
   set(ORC_VENDORED 1)
-  add_dependencies(orc_ep ZLIB::ZLIB)
-  add_dependencies(orc_ep LZ4::lz4)
-  add_dependencies(orc_ep ${Snappy_TARGET})
-  add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   add_library(orc::liborc STATIC IMPORTED)
   set_target_properties(orc::liborc
                         PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+  set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
+  if(NOT MSVC)
+    if(NOT APPLE)
+      list(APPEND ORC_LINK_LIBRARIES Threads::Threads)
+    endif()
+    list(APPEND ORC_LINK_LIBRARIES ${CMAKE_DL_LIBS})
+  endif()
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(orc::liborc PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                 "${ORC_LINK_LIBRARIES}")
+  else()
+    target_link_libraries(orc::liborc INTERFACE ${ORC_LINK_LIBRARIES})
+  endif()
 
   add_dependencies(toolchain orc_ep)
   add_dependencies(orc::liborc orc_ep)
@@ -4561,10 +4575,6 @@ endif()
 
 macro(build_awssdk)
   message(STATUS "Building AWS C++ SDK from source")
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
-                                              "4.9")
-    message(FATAL_ERROR "AWS C++ SDK requires gcc >= 4.9")
-  endif()
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
   set(AWSSDK_LIB_DIR "lib")

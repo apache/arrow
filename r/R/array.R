@@ -322,6 +322,26 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
   }
 }
 
+#' @export
+as_arrow_array.vctrs_list_of <- function(x, ..., type = NULL) {
+  type <- type %||% infer_type(x)
+  if (!inherits(type, "ListType") && !inherits(type, "LargeListType")) {
+    stop_cant_convert_array(x, type)
+  }
+
+  as_arrow_array(unclass(x), type = type)
+}
+
+#' @export
+as_arrow_array.blob <- function(x, ..., type = NULL) {
+  type <- type %||% infer_type(x)
+  if (!type$Equals(binary()) && !type$Equals(large_binary())) {
+    stop_cant_convert_array(x, type)
+  }
+
+  as_arrow_array(unclass(x), type = type)
+}
+
 stop_cant_convert_array <- function(x, type) {
   if (is.null(type)) {
     abort(
@@ -329,7 +349,7 @@ stop_cant_convert_array <- function(x, type) {
         "Can't create Array from object of type %s",
         paste(class(x), collapse = " / ")
       ),
-      call = rlang::caller_env()
+      call = caller_env()
     )
   } else {
     abort(
@@ -338,7 +358,7 @@ stop_cant_convert_array <- function(x, type) {
         format(type$code()),
         paste(class(x), collapse = " / ")
       ),
-      call = rlang::caller_env()
+      call = caller_env()
     )
   }
 }

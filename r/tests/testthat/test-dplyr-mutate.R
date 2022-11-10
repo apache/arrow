@@ -458,7 +458,7 @@ test_that("print a mutated table", {
       print(),
     "Table (query)
 int: int32
-twice: double (multiply_checked(int, 2))
+twice: int32 (multiply_checked(int, 2))
 
 See $.data for the source Arrow object",
     fixed = TRUE
@@ -616,15 +616,11 @@ test_that("Can use across() within mutate()", {
     )
   )
 
-  # ARROW-12778 - `where()` is not yet supported
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(across(where(is.double))) %>%
-        collect(),
-      example_data
-    ),
-    "Unsupported selection helper"
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(where(is.double))) %>%
+      collect(),
+    example_data
   )
 
   # gives the right error with window functions
@@ -638,5 +634,19 @@ test_that("Can use across() within mutate()", {
       collect(),
     "window functions not currently supported in Arrow; pulling data into R",
     fixed = TRUE
+  )
+})
+
+test_that("Can use across() within transmute()", {
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        dbl2 = dbl * 2,
+        across(c(dbl, dbl2), round),
+        int2 = int * 2,
+        dbl = dbl + 3
+      ) %>%
+      collect(),
+    example_data
   )
 })

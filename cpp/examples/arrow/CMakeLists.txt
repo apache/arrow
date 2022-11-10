@@ -137,8 +137,10 @@ if(ARROW_PARQUET AND ARROW_DATASET)
                     ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(execution-plan-documentation-examples parquet)
 
-  add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(join-example parquet)
+  if(ARROW_CSV)
+    add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
+    add_dependencies(join-example parquet)
+  endif()
 
   add_arrow_example(udf_example)
 
@@ -154,4 +156,8 @@ if(ARROW_PARQUET AND ARROW_DATASET)
     add_dependencies(dataset-skyhook-scan-example parquet)
   endif()
 
+endif()
+
+if(ARROW_GANDIVA)
+  add_arrow_example(gandiva_example EXTRA_LINK_LIBS gandiva_shared)
 endif()

@@ -32,9 +32,6 @@
 using parquet::format::SchemaElement;
 
 namespace parquet {
-
-namespace schema {
-
 namespace {
 
 void ThrowInvalidLogicalType(const LogicalType& logical_type) {
@@ -43,7 +40,18 @@ void ThrowInvalidLogicalType(const LogicalType& logical_type) {
   throw ParquetException(ss.str());
 }
 
+void CheckColumnBounds(int column_index, size_t max_columns) {
+  if (ARROW_PREDICT_FALSE(column_index < 0 ||
+                          static_cast<size_t>(column_index) >= max_columns)) {
+    std::stringstream ss;
+    ss << "Invalid Column Index: " << column_index << " Num columns: " << max_columns;
+    throw ParquetException(ss.str());
+  }
+}
+
 }  // namespace
+
+namespace schema {
 
 // ----------------------------------------------------------------------
 // ColumnPath
@@ -794,13 +802,23 @@ void SchemaDescriptor::Init(NodePtr schema) {
   }
 }
 
-bool SchemaDescriptor::Equals(const SchemaDescriptor& other) const {
+bool SchemaDescriptor::Equals(const SchemaDescriptor& other,
+                              std::ostream* diff_output) const {
   if (this->num_columns() != other.num_columns()) {
+    if (diff_output != nullptr) {
+      *diff_output << "This schema has " << this->num_columns() << " columns, other has "
+                   << other.num_columns();
+    }
     return false;
   }
 
   for (int i = 0; i < this->num_columns(); ++i) {
     if (!this->Column(i)->Equals(*other.Column(i))) {
+      if (diff_output != nullptr) {
+        *diff_output << "The two columns with index " << i << " differ." << std::endl
+                     << this->Column(i)->ToString() << std::endl
+                     << other.Column(i)->ToString() << std::endl;
+      }
       return false;
     }
   }
@@ -864,7 +882,7 @@ bool ColumnDescriptor::Equals(const ColumnDescriptor& other) const {
 }
 
 const ColumnDescriptor* SchemaDescriptor::Column(int i) const {
-  DCHECK(i >= 0 && i < static_cast<int>(leaves_.size()));
+  CheckColumnBounds(i, leaves_.size());
   return &leaves_[i];
 }
 
@@ -889,7 +907,7 @@ int SchemaDescriptor::ColumnIndex(const Node& node) const {
 }
 
 const schema::Node* SchemaDescriptor::GetColumnRoot(int i) const {
-  DCHECK(i >= 0 && i < static_cast<int>(leaves_.size()));
+  CheckColumnBounds(i, leaves_.size());
   return leaf_to_base_.find(i)->second.get();
 }
 

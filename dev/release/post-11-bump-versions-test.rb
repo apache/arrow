@@ -119,14 +119,23 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         path: "docs/source/_static/versions.json",
         hunks: [
           [
-            "-        \"name\": \"10.0 (dev)\",",
-            "+        \"name\": \"11.0 (dev)\",",
-            "-        \"name\": \"9.0 (stable)\",",
-            "+        \"name\": \"10.0 (stable)\",",
+            "-        \"name\": \"#{@release_compatible_version} (dev)\",",
+            "+        \"name\": \"#{@next_compatible_version} (dev)\",",
+            "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
+            "+        \"name\": \"#{@release_compatible_version} (stable)\",",
             "+    {",
-            "+        \"name\": \"9.0\",",
-            "+        \"version\": \"9.0/\"",
+            "+        \"name\": \"#{@previous_compatible_version}\",",
+            "+        \"version\": \"#{@previous_compatible_version}/\"",
             "+    },",
+          ],
+        ],
+      },
+      {
+        path: "go.work",
+        hunks: [
+          [
+            "-replace github.com/apache/arrow/go/v#{@snapshot_major_version} v#{@release_version} => ./go",
+            "+replace github.com/apache/arrow/go/v#{@next_major_version} v#{@next_version} => ./go",
           ],
         ],
       },
@@ -178,13 +187,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         path: "r/pkgdown/assets/versions.json",
         hunks: [
           [
-            "-        \"name\": \"9.0.0.9000 (dev)\",",
-            "+        \"name\": \"10.0.0.9000 (dev)\",",
-            "-        \"name\": \"9.0.0 (release)\",",
-            "+        \"name\": \"10.0.0 (release)\",",
+            "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+            "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+            "-        \"name\": \"#{@previous_version} (release)\",",
+            "+        \"name\": \"#{@release_version} (release)\",",
             "+    {",
-            "+        \"name\": \"9.0.0\",",
-            "+        \"version\": \"9.0/\"",
+            "+        \"name\": \"#{@previous_version}\",",
+            "+        \"version\": \"#{@previous_compatible_version}/\"",
             "+    },",
           ],
         ],
@@ -208,11 +217,9 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           hunks: [
           [
             "-module github.com/apache/arrow/go/v#{@snapshot_major_version}/arrow/compute",
-            "+module github.com/apache/arrow/go/v#{@next_major_version}/arrow/compute",
-            "-replace github.com/apache/arrow/go/v#{@snapshot_major_version} => ../../",
-            "+replace github.com/apache/arrow/go/v#{@next_major_version} => ../../",
-            "-\tgithub.com/apache/arrow/go/v#{@snapshot_major_version} v#{@snapshot_major_version}.0.0-00010101000000-000000000000",
-            "+\tgithub.com/apache/arrow/go/v#{@next_major_version} v#{@next_major_version}.0.0-00010101000000-000000000000",
+            "+module github.com/apache/arrow/go/v#{@next_major_version}/arrow/compute",            
+            "-\tgithub.com/apache/arrow/go/v#{@snapshot_major_version} v#{@release_version}",
+            "+\tgithub.com/apache/arrow/go/v#{@next_major_version} v#{@next_version}",
           ],
         ]}
         next

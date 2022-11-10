@@ -147,11 +147,23 @@ of adding a basic feature.
 If you are ready you can start with building Arrow or choose to follow
 one of the :ref:`tutorial-index` on writing an R binding or Python feature.
 
-You can also take a look at the :ref:`documentation` or
-:ref:`other-resources` section.
+Different ways to contribute
+============================
+
+There are lots of ways to contribute to the project besides writing code!
+
+* Improving the **documentation** is a great way to start contributing!
+  For more information visit :ref:`documentation` section of the guide.
+
+* **Apache Arrow Cookbooks** are a collection of recipes for solving various problems 
+and completing different tasks using Apache Arrow. They are also a great way to start
+  contributing. For more information visit
+  `How to contribute to Apache Arrow Cookbook <https://github.com/apache/arrow-cookbook/blob/main/CONTRIBUTING.md>`_
+  located in the Apache Arrow Cookbook repository.
+
+You are also welcome to take a look at :ref:`other-resources` section.
 
 **We want to encourage everyone to contribute to Arrow!**
-
 
 Full Table of Contents
 ======================

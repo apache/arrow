@@ -145,7 +145,8 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
-  ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan, registry));
+  ARROW_ASSIGN_OR_RAISE(auto ext_set,
+                        GetExtensionSetFromPlan(plan, conversion_options, registry));
 
   std::vector<compute::Declaration> sink_decls;
   for (const substrait::PlanRel& plan_rel : plan.relations()) {
@@ -357,7 +358,8 @@ inline google::protobuf::util::TypeResolver* GetGeneratedTypeResolver() {
 }
 
 Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
-                                                  std::string_view json) {
+                                                  std::string_view json,
+                                                  bool ignore_unknown_fields) {
   std::string type_url = "/substrait." + std::string(type_name);
 
   google::protobuf::io::ArrayInputStream json_stream{json.data(),
@@ -366,7 +368,7 @@ Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
   std::string out;
   google::protobuf::io::StringOutputStream out_stream{&out};
   google::protobuf::util::JsonParseOptions json_opts;
-  json_opts.ignore_unknown_fields = true;
+  json_opts.ignore_unknown_fields = ignore_unknown_fields;
   auto status = google::protobuf::util::JsonToBinaryStream(
       GetGeneratedTypeResolver(), type_url, &json_stream, &out_stream,
       std::move(json_opts));

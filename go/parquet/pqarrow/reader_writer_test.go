@@ -22,12 +22,12 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/parquet"
-	"github.com/apache/arrow/go/v10/parquet/file"
-	"github.com/apache/arrow/go/v10/parquet/pqarrow"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v11/parquet/file"
+	"github.com/apache/arrow/go/v11/parquet/pqarrow"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
@@ -177,7 +177,7 @@ func benchReadTable(b *testing.B, name string, tbl arrow.Table, nbytes int64) {
 		b.SetBytes(nbytes)
 
 		for i := 0; i < b.N; i++ {
-			pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()), nil, nil)
+			pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
 			if err != nil {
 				b.Error(err)
 			}

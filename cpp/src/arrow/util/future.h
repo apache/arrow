@@ -509,7 +509,7 @@ class [[nodiscard]] Future {
   template <typename CallbackFactory,
             typename OnComplete = detail::result_of_t<CallbackFactory()>,
             typename Callback = WrapOnComplete<OnComplete>>
-  bool TryAddCallback(const CallbackFactory& callback_factory,
+  bool TryAddCallback(CallbackFactory callback_factory,
                       CallbackOptions opts = CallbackOptions::Defaults()) const {
     return impl_->TryAddCallback([&]() { return Callback{callback_factory()}; }, opts);
   }

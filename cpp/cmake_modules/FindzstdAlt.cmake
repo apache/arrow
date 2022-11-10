@@ -109,4 +109,6 @@ if(zstdAlt_FOUND)
   set_target_properties(${zstd_TARGET}
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_INCLUDE_DIR}")
+  message(STATUS "Zstandard library: ${ZSTD_LIB}")
+  message(STATUS "Zstandard include directory: ${ZSTD_INCLUDE_DIR}")
 endif()

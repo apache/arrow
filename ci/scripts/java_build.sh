@@ -87,13 +87,13 @@ if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
   ${mvn} -Darrow.c.jni.dist.dir=${java_jni_dist_dir} -Parrow-c-data install
 fi
 
-if [ "${ARROW_JNI}" = "ON" ]; then
+if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
   ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni install
 fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then
   pushd ${source_dir}/plasma
-  ${mvn} clean install
+  ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} clean install
   popd
 fi
 

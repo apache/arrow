@@ -39,7 +39,7 @@ env:
 
 jobs:
   build:
-    name: Build wheel for OS X
+    name: Build wheel for Python {{ python_version }} on macOS
     runs-on: ["self-hosted", "macOS", "arm64"]
     steps:
       - name: Cleanup
@@ -67,7 +67,7 @@ jobs:
         env:
           VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
         run: |
-            vcpkg install \
+          vcpkg install \
             --clean-after-build \
             --x-install-root=${VCPKG_ROOT}/installed \
             --x-manifest-root=arrow/ci/vcpkg \
@@ -85,47 +85,12 @@ jobs:
           $PYTHON -m venv build-arm64-env
           source build-arm64-env/bin/activate
           pip install --upgrade pip wheel
-           arrow/ci/scripts/python_wheel_macos_build.sh arm64 $(pwd)/arrow $(pwd)/build
+          arrow/ci/scripts/python_wheel_macos_build.sh arm64 $(pwd)/arrow $(pwd)/build
 
-      {% if arch == "universal2" %}
-      - name: Install AMD64 Packages
-        env:
-          VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
-        run: |
-            vcpkg install \
-            --clean-after-build \
-            --x-install-root=${VCPKG_ROOT}/installed \
-            --x-manifest-root=arrow/ci/vcpkg \
-            --x-feature=flight \
-            --x-feature=gcs \
-            --x-feature=json \
-            --x-feature=parquet \
-            --x-feature=s3
-
-      - name: Build AMD64 Wheel
-        env:
-          ARROW_SIMD_LEVEL: "NONE"
-          VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
-        run: |
-          $PYTHON -m venv build-amd64-env
-          source build-amd64-env/bin/activate
-          pip install --upgrade pip wheel
-          arch -x86_64 arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
-
-      - name: Fuse AMD64 and ARM64 wheels
-        run: |
-          source build-amd64-env/bin/activate
-          pip install delocate
-
-          amd64_wheel=$(ls arrow/python/repaired_wheels/pyarrow*x86_64.whl)
-          arm64_wheel=$(ls arrow/python/repaired_wheels/pyarrow*arm64.whl)
-          echo "Fusing ${amd64_wheel} and ${arm64_wheel} into an universal2 wheel..."
-          delocate-fuse $amd64_wheel $arm64_wheel -w .
-
-          fused_wheel=$(ls *x86_64.whl)
-          rm arrow/python/repaired_wheels/*.whl
-          mv $fused_wheel arrow/python/repaired_wheels/${fused_wheel/x86_64/universal2}
-      {% endif %}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheel
+          path: arrow/python/repaired_wheels/*.whl
 
       - name: Test Wheel on ARM64
         shell: bash
@@ -143,20 +108,6 @@ jobs:
           PYTHON=python  arrow/ci/scripts/install_gcs_testbench.sh default
            arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
-      {% if arch == "universal2" %}
-      - name: Test Wheel on AMD64
-        shell: bash
-        env:
-          PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-        run: |
-          $PYTHON -m venv test-amd64-env
-          source test-amd64-env/bin/activate
-          pip install --upgrade pip wheel
-          arch -x86_64 pip install -r arrow/python/requirements-wheel-test.txt
-          PYTHON=python arch -x86_64 arrow/ci/scripts/install_gcs_testbench.sh default
-          arch -x86_64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
-      {% endif %}
-
       - name: Upload artifacts
         shell: bash
         run: |
@@ -164,12 +115,12 @@ jobs:
           source crossbow-env/bin/activate
           arch -x86_64 pip install -e arrow/dev/archery[crossbow-upload]
           arch -x86_64 archery crossbow \
-          --queue-path $(pwd) \
-          --queue-remote {{ queue_remote_url }} \
-          upload-artifacts \
-          --sha {{ task.branch }} \
-          --tag {{ task.tag }} \
-          "arrow/python/repaired_wheels/*.whl"
+            --queue-path $(pwd) \
+            --queue-remote {{ queue_remote_url }} \
+            upload-artifacts \
+            --sha {{ task.branch }} \
+            --tag {{ task.tag }} \
+            "arrow/python/repaired_wheels/*.whl"
         env:
           CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
 

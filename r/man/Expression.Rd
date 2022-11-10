@@ -14,5 +14,11 @@ the provided scalar (length-1) R value.
 evaluates to the named column in the \code{Dataset} against which it is evaluated.
 
 \code{Expression$create(function_name, ..., options)} builds a function-call
-\code{Expression} containing one or more \code{Expression}s.
+\code{Expression} containing one or more \code{Expression}s. Anything in \code{...} that
+is not already an expression will be wrapped in \code{Expression$scalar()}.
+
+\code{Expression$op(FUN, ...)} is for logical and arithmetic operators. Scalar
+inputs in \code{...} will be attempted to be cast to the common type of the
+\code{Expression}s in the call so that the types of the columns in the \code{Dataset}
+are preserved and not unnecessarily upcast, which may be expensive.
 }

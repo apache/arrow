@@ -18,7 +18,7 @@ open.}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
-\link[tidyselect:vars_select]{tidy selection specification}
+\link[tidyselect:eval_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or

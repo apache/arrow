@@ -72,6 +72,19 @@ fi
 if [[ -n "$DEVTOOLSET_VERSION" ]]; then
   $PACKAGE_MANAGER install -y centos-release-scl
   $PACKAGE_MANAGER install -y "devtoolset-$DEVTOOLSET_VERSION"
+
+  # Enable devtoolset here so that `which gcc` finds the right compiler below
+  source /opt/rh/devtoolset-${DEVTOOLSET_VERSION}/enable
+
+  # Build images which require the devtoolset don't have CXX17 variables
+  # set as the system compiler doesn't support C++17
+  if [ ! "`{R_BIN} CMD config CXX17`" ]; then
+    mkdir -p ~/.R
+    echo "CC = $(which gcc) -fPIC" >> ~/.R/Makevars
+    echo "CXX17 = $(which g++) -fPIC" >> ~/.R/Makevars
+    echo "CXX17STD = -std=c++17" >> ~/.R/Makevars
+    echo "CXX17FLAGS = ${CXX11FLAGS}" >> ~/.R/Makevars
+  fi
 fi
 
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
@@ -92,8 +105,8 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
   fi
 fi
 
-# Install rsync for bundling cpp source
-$PACKAGE_MANAGER install -y rsync
+# Install rsync for bundling cpp source and curl to make sure it is installed on all images
+$PACKAGE_MANAGER install -y rsync curl
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'

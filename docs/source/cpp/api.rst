@@ -32,6 +32,7 @@ API Reference
    api/table
    api/c_abi
    api/compute
+   api/gandiva
    api/tensor
    api/utilities
    api/async

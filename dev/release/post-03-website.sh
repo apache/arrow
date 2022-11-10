@@ -22,7 +22,7 @@ set -u
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARROW_DIR="${SOURCE_DIR}/../.."
-ARROW_SITE_DIR="${ARROW_DIR}/../arrow-site"
+: ${ARROW_SITE_DIR:="${ARROW_DIR}/../arrow-site"}
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <previous-version> <version>"
@@ -263,7 +263,7 @@ current:
   mirrors: 'https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/'
   tarball-name: 'apache-arrow-${version}.tar.gz'
   tarball-url: 'https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-${version}/apache-arrow-${version}.tar.gz'
-  java-artifacts: 'http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%22${version}%22'
+  java-artifacts: 'https://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%22${version}%22'
   asc: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.asc'
   sha256: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256'
   sha512: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512'

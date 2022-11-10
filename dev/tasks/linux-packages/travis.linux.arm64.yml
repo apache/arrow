@@ -120,7 +120,6 @@ script:
         BUILD_DIR=build \
         DEB_BUILD_OPTIONS=parallel=2 \
         RPM_BUILD_NCPUS=2
-  - sudo rm -rf */*/build
   - popd
   # Push Docker image
   - pushd arrow/dev/tasks/linux-packages
@@ -161,5 +160,5 @@ script:
   - popd
 
 after_success:
-  {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/**/*{}") %}
+  {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/*/*/repositories/**/*{}") %}
   {{ macros.travis_upload_releases(patterns) }}

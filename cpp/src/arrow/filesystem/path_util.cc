@@ -150,6 +150,13 @@ Status AssertNoTrailingSlash(std::string_view key) {
   return Status::OK();
 }
 
+bool HasLeadingSlash(std::string_view key) {
+  if (key.front() != '/') {
+    return false;
+  }
+  return true;
+}
+
 Result<std::string> MakeAbstractPathRelative(const std::string& base,
                                              const std::string& path) {
   if (base.empty() || base.front() != kSep) {

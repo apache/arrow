@@ -693,3 +693,15 @@ test_that("num_rows method not susceptible to integer overflow", {
 
   expect_identical(big_string_array$data()$buffers[[3]]$size, 2148007936)
 })
+
+test_that("can create empty table from schema", {
+  schema <- schema(
+    col1 = float64(),
+    col2 = string(),
+    col3 = vctrs_extension_type(integer())
+  )
+  out <- Table$create(schema = schema)
+  expect_r6_class(out, "Table")
+  expect_equal(nrow(out), 0)
+  expect_equal(out$schema, schema)
+})

@@ -22,7 +22,7 @@ set -ex
 arrow_dir=${1}
 build_dir=${2}
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}
+dist_dir=${3}/$(arch)
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -34,14 +34,16 @@ devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
 devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
+export ARROW_DATASET
 : ${ARROW_GANDIVA:=ON}
-: ${ARROW_FILESYSTEM:=ON}
+export ARROW_GANDIVA
 : ${ARROW_JEMALLOC:=ON}
 : ${ARROW_RPATH_ORIGIN:=ON}
 : ${ARROW_ORC:=ON}
+export ARROW_ORC
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_PLASMA:=ON}
-: ${ARROW_PLASMA_JAVA_CLIENT:=ON}
+export ARROW_PLASMA
 : ${ARROW_S3:=ON}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=release}
@@ -70,7 +72,6 @@ cmake \
   -DARROW_DATASET=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_SOURCE="VCPKG" \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
-  -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
   -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC} \

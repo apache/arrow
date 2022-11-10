@@ -95,6 +95,47 @@ constexpr Type::type DurationType::type_id;
 
 constexpr Type::type DictionaryType::type_id;
 
+std::vector<Type::type> AllTypeIds() {
+  return {Type::NA,
+          Type::BOOL,
+          Type::INT8,
+          Type::INT16,
+          Type::INT32,
+          Type::INT64,
+          Type::UINT8,
+          Type::UINT16,
+          Type::UINT32,
+          Type::UINT64,
+          Type::HALF_FLOAT,
+          Type::FLOAT,
+          Type::DOUBLE,
+          Type::DECIMAL128,
+          Type::DECIMAL256,
+          Type::DATE32,
+          Type::DATE64,
+          Type::TIME32,
+          Type::TIME64,
+          Type::TIMESTAMP,
+          Type::INTERVAL_DAY_TIME,
+          Type::INTERVAL_MONTHS,
+          Type::DURATION,
+          Type::STRING,
+          Type::BINARY,
+          Type::LARGE_STRING,
+          Type::LARGE_BINARY,
+          Type::FIXED_SIZE_BINARY,
+          Type::STRUCT,
+          Type::LIST,
+          Type::LARGE_LIST,
+          Type::FIXED_SIZE_LIST,
+          Type::MAP,
+          Type::DENSE_UNION,
+          Type::SPARSE_UNION,
+          Type::DICTIONARY,
+          Type::EXTENSION,
+          Type::INTERVAL_MONTH_DAY_NANO};
+}
+
 namespace internal {
 
 struct TypeIdToTypeNameVisitor {
@@ -1090,6 +1131,17 @@ Result<std::shared_ptr<Field>> FieldPath::Get(const DataType& type) const {
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
   return FieldPathGetImpl::Get(this, fields);
+}
+
+Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
+                                                  const std::vector<FieldPath>& paths) {
+  std::vector<std::shared_ptr<Field>> fields;
+  fields.reserve(paths.size());
+  for (const auto& path : paths) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Field> field, path.Get(schm));
+    fields.push_back(std::move(field));
+  }
+  return schema(std::move(fields));
 }
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
@@ -2381,6 +2433,7 @@ std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
 std::vector<std::shared_ptr<DataType>> g_interval_types;
+std::vector<std::shared_ptr<DataType>> g_duration_types;
 std::vector<std::shared_ptr<DataType>> g_primitive_types;
 std::once_flag static_data_initialized;
 
@@ -2421,6 +2474,10 @@ void InitStaticData() {
 
   // Interval types
   g_interval_types = {day_time_interval(), month_interval(), month_day_nano_interval()};
+
+  // Duration types
+  g_duration_types = {duration(TimeUnit::SECOND), duration(TimeUnit::MILLI),
+                      duration(TimeUnit::MICRO), duration(TimeUnit::NANO)};
 
   // Base binary types (without FixedSizeBinary)
   g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
@@ -2487,6 +2544,11 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {
 const std::vector<std::shared_ptr<DataType>>& IntervalTypes() {
   std::call_once(static_data_initialized, InitStaticData);
   return g_interval_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& DurationTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_duration_types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {

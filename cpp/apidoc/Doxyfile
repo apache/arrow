@@ -2169,6 +2169,7 @@ INCLUDE_FILE_PATTERNS  =
 PREDEFINED             = __attribute__(x)= \
                          __declspec(x)= \
                          PARQUET_EXPORT= \
+                         GANDIVA_EXPORT= \
                          ARROW_EXPORT= \
                          ARROW_DS_EXPORT= \
                          ARROW_FLIGHT_EXPORT= \

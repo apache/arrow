@@ -84,11 +84,10 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
 /// excluded in the batch emitted by this node.
 class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
  public:
-  explicit FilterNodeOptions(Expression filter_expression, bool async_mode = true)
-      : filter_expression(std::move(filter_expression)), async_mode(async_mode) {}
+  explicit FilterNodeOptions(Expression filter_expression)
+      : filter_expression(std::move(filter_expression)) {}
 
   Expression filter_expression;
-  bool async_mode;
 };
 
 /// \brief Make a node which executes expressions on input batches, producing new batches.
@@ -100,14 +99,11 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
  public:
   explicit ProjectNodeOptions(std::vector<Expression> expressions,
-                              std::vector<std::string> names = {}, bool async_mode = true)
-      : expressions(std::move(expressions)),
-        names(std::move(names)),
-        async_mode(async_mode) {}
+                              std::vector<std::string> names = {})
+      : expressions(std::move(expressions)), names(std::move(names)) {}
 
   std::vector<Expression> expressions;
   std::vector<std::string> names;
-  bool async_mode;
 };
 
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.
@@ -147,7 +143,7 @@ struct ARROW_EXPORT BackpressureOptions {
   ///                        queue has fewer than resume_if_below items.
   /// \param pause_if_above The producer should pause producing if the backpressure
   ///                       queue has more than pause_if_above items
-  BackpressureOptions(uint32_t resume_if_below, uint32_t pause_if_above)
+  BackpressureOptions(uint64_t resume_if_below, uint64_t pause_if_above)
       : resume_if_below(resume_if_below), pause_if_above(pause_if_above) {}
 
   static BackpressureOptions DefaultBackpressure() {
@@ -217,8 +213,9 @@ class ARROW_EXPORT SinkNodeConsumer {
   /// This will be run once the schema is finalized as the plan is starting and
   /// before any calls to Consume.  A common use is to save off the schema so that
   /// batches can be interpreted.
+  /// TODO(ARROW-17837) Move ExecPlan* plan to query context
   virtual Status Init(const std::shared_ptr<Schema>& schema,
-                      BackpressureControl* backpressure_control) = 0;
+                      BackpressureControl* backpressure_control, ExecPlan* plan) = 0;
   /// \brief Consume a batch of data
   virtual Status Consume(ExecBatch batch) = 0;
   /// \brief Signal to the consumer that the last batch has been delivered

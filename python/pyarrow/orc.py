@@ -175,7 +175,8 @@ class ORCFile:
         columns : list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
-            'a.b', 'a.c', and 'a.d.e'
+            'a.b', 'a.c', and 'a.d.e'. Output always follows the
+            ordering of the file and not the `columns` list.
 
         Returns
         -------
@@ -321,7 +322,8 @@ source : str, pyarrow.NativeFile, or file-like object
 columns : list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
-    'a.c', and 'a.d.e'. If empty, no columns will be read. Note
+    'a.c', and 'a.d.e'. Output always follows the ordering of the file and
+    not the `columns` list. If empty, no columns will be read. Note
     that the table will still have the correct num_rows set despite having
     no columns.
 filesystem : FileSystem, default None

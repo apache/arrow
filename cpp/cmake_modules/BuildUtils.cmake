@@ -189,6 +189,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       EXTRA_INCLUDES
       PRIVATE_INCLUDES
       DEPENDENCIES
+      DEFINITIONS
       SHARED_INSTALL_INTERFACE_LIBS
       STATIC_INSTALL_INTERFACE_LIBS
       OUTPUT_PATH)
@@ -247,6 +248,9 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEPENDENCIES)
       add_dependencies(${LIB_NAME}_objlib ${ARG_DEPENDENCIES})
     endif()
+    if(ARG_DEFINITIONS)
+      target_compile_definitions(${LIB_NAME}_objlib PRIVATE ${ARG_DEFINITIONS})
+    endif()
     if(ARG_PRECOMPILED_HEADER_LIB)
       reuse_precompiled_header_lib(${LIB_NAME}_objlib ${ARG_PRECOMPILED_HEADER_LIB})
     endif()
@@ -295,6 +299,10 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
+    endif()
+
+    if(ARG_DEFINITIONS)
+      target_compile_definitions(${LIB_NAME}_shared PRIVATE ${ARG_DEFINITIONS})
     endif()
 
     if(ARG_PRECOMPILED_HEADER_LIB)
@@ -385,6 +393,10 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
+    endif()
+
+    if(ARG_DEFINITIONS)
+      target_compile_definitions(${LIB_NAME}_static PRIVATE ${ARG_DEFINITIONS})
     endif()
 
     if(ARG_PRECOMPILED_HEADER_LIB)
@@ -632,7 +644,8 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       LABELS
       EXTRA_LABELS
       TEST_ARGUMENTS
-      PREFIX)
+      PREFIX
+      DEFINITIONS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -701,6 +714,10 @@ function(ADD_TEST_CASE REL_TEST_NAME)
 
   if(ARG_EXTRA_DEPENDENCIES)
     add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
+  endif()
+
+  if(ARG_DEFINITIONS)
+    target_compile_definitions(${TEST_NAME} PRIVATE ${ARG_DEFINITIONS})
   endif()
 
   if(ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)

@@ -67,7 +67,7 @@ test_that("IPC/Feather format data", {
 
   # Collecting virtual partition column works
   expect_equal(
-    ds %>% arrange(part) %>% pull(part),
+    ds %>% arrange(part) %>% pull(part) %>% as.vector(),
     c(rep(3, 10), rep(4, 10))
   )
 })
@@ -306,7 +306,7 @@ test_that("Simple interface for datasets", {
 
   # Collecting virtual partition column works
   expect_equal(
-    ds %>% arrange(part) %>% pull(part),
+    ds %>% arrange(part) %>% pull(part) %>% as.vector(),
     c(rep(1, 10), rep(2, 10))
   )
 })
@@ -322,6 +322,11 @@ test_that("Can set schema on dataset", {
 
   ds$schema <- expected_schema
   expect_equal(ds$schema, expected_schema)
+})
+
+test_that("as.data.frame.Dataset", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_identical(dim(as.data.frame(ds)), c(20L, 7L))
 })
 
 test_that("dim method returns the correct number of rows and columns", {
@@ -625,11 +630,21 @@ test_that("scalar aggregates with many batches (ARROW-16904)", {
   ds <- open_dataset(tf)
   replicate(100, ds %>% summarize(min(x)) %>% pull())
 
-  expect_true(all(replicate(100, ds %>% summarize(min(x)) %>% pull()) == 1))
-  expect_true(all(replicate(100, ds %>% summarize(max(x)) %>% pull()) == 100))
+  expect_true(
+    all(
+      replicate(100, ds %>% summarize(min(x)) %>% pull() %>% as.vector()) == 1
+    )
+  )
+  expect_true(
+    all(
+      replicate(100, ds %>% summarize(max(x)) %>% pull() %>% as.vector()) == 100
+    )
+  )
 })
 
-test_that("map_batches", {
+test_that("streaming map_batches into an ExecPlan", {
+  skip_if_not(CanRunWithCapturedR())
+
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
   # summarize returns arrow_dplyr_query, which gets collected into a tibble
@@ -650,6 +665,7 @@ test_that("map_batches", {
       select(int, lgl) %>%
       map_batches(~ record_batch(nrows = .$num_rows)) %>%
       pull(nrows) %>%
+      as.vector() %>%
       sort(),
     c(5, 10)
   )
@@ -1170,7 +1186,8 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1188,7 +1205,8 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1204,7 +1222,8 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1222,7 +1241,8 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1256,7 +1276,8 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1272,7 +1293,8 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1286,7 +1308,8 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 
@@ -1302,7 +1325,8 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
   expect_equal(
     ds %>%
       arrange(cyl) %>%
-      pull(cyl),
+      pull(cyl) %>%
+      as.vector(),
     sort(mtcars$cyl)
   )
 })
@@ -1403,10 +1427,13 @@ test_that("can add in augmented fields", {
   )
 
   # and on joins to datasets
-  another_dataset <- write_dataset(another_table, "another_dataset")
+  another_dataset_dir <- tempfile()
+  on.exit(unlink(another_dataset_dir, recursive = TRUE))
+  another_dataset <- write_dataset(another_table, another_dataset_dir)
+
   expect_error(
     ds %>%
-      left_join(open_dataset("another_dataset"), by = "int") %>%
+      left_join(open_dataset(another_dataset_dir), by = "int") %>%
       mutate(file = add_filename()) %>%
       collect(),
     regexp = error_regex,
@@ -1416,7 +1443,7 @@ test_that("can add in augmented fields", {
   # this hits the implicit_schema path by joining afterwards
   join_after <- ds %>%
     mutate(file = add_filename()) %>%
-    left_join(open_dataset("another_dataset"), by = "int") %>%
+    left_join(open_dataset(another_dataset_dir), by = "int") %>%
     collect()
 
   expect_named(
