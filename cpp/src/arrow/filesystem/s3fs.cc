@@ -2304,11 +2304,16 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
     if (!outcome.IsSuccess()) {
       if (!IsNotFound(outcome.GetError())) {
         auto msg = "When getting information for bucket '" + path.bucket + "': ";
+
         // Bucket exists, but failed to call HeadBucket, perhaps wrong region?
-        ARROW_ASSIGN_OR_RAISE(auto region, impl_->client_->GetBucketRegion(path.bucket));
-        if (region != impl_->options().region) {
-          msg += "Looks like the configured region is '" + impl_->options().region +
-                 "' while the bucket is located in '" + region + "': ";
+        const auto headers = outcome.GetError().GetResponseHeaders();
+        const auto it = headers.find("x-amz-bucket-region");
+        if (it != headers.end()) {
+          const std::string region(it->second.begin(), it->second.end());
+          if (region != impl_->options().region) {
+            msg += "Looks like the configured region is '" + impl_->options().region +
+                   "' while the bucket is located in '" + region + "': ";
+          }
         }
         return ErrorToStatus(msg, "HeadBucket", outcome.GetError());
       }
