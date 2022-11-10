@@ -77,14 +77,14 @@ class BenchmarkHelper {
 // - batch_size: sets how many values to read at each call.
 static void ColumnReaderSkipInt32(::benchmark::State& state) {
   const auto repetition = static_cast<Repetition::type>(state.range(0));
-  const int batch_size = state.range(1);
+  const auto batch_size = static_cast<int64_t>(state.range(1));
 
   BenchmarkHelper helper(repetition, /*num_pages=*/16, /*levels_per_page=*/80000);
 
   for (auto _ : state) {
     state.PauseTiming();
     Int32Reader* reader = helper.ResetReader();
-    int values_count = -1;
+    int64_t values_count = -1;
     state.ResumeTiming();
     while (values_count != 0) {
       DoNotOptimize(values_count = reader->Skip(batch_size));
@@ -99,7 +99,7 @@ static void ColumnReaderSkipInt32(::benchmark::State& state) {
 // - batch_size: sets how many values to read at each call.
 static void ColumnReaderReadBatchInt32(::benchmark::State& state) {
   const auto repetition = static_cast<Repetition::type>(state.range(0));
-  const int batch_size = state.range(1);
+  const auto batch_size = static_cast<int64_t>(state.range(1));
 
   BenchmarkHelper helper(repetition, /*num_pages=*/16, /*levels_per_page=*/80000);
 
@@ -110,7 +110,7 @@ static void ColumnReaderReadBatchInt32(::benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
     Int32Reader* reader = helper.ResetReader();
-    int values_count = -1;
+    int64_t values_count = -1;
     state.ResumeTiming();
     while (values_count != 0) {
       int64_t values_read = 0;
