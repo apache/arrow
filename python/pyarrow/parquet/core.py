@@ -3438,7 +3438,11 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
         metadata = read_metadata(where, filesystem=filesystem)
         for m in metadata_collector:
             metadata.append_row_groups(m)
-        metadata.write_metadata_file(where)
+        if filesystem is not None:
+            with filesystem.open_output_stream(where) as f:
+                metadata.write_metadata_file(f)
+        else:
+            metadata.write_metadata_file(where)
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,

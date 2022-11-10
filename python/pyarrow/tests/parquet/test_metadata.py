@@ -636,7 +636,7 @@ def test_write_metadata_with_without_filesystem(tempdir):
 
     # Used the mock filesystem to resolve opening an output stream
     pq.write_metadata(table.schema, meta2, [], filesystem=filesystem)
-    assert called == 1
+    assert called == 2
 
     # Can resolve URI
     pq.write_metadata(table.schema, meta3.as_uri(), [])
