@@ -26,6 +26,7 @@
 #include <thread>
 #include <vector>
 
+#include "arrow/util/atfork_internal.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/mutex.h"
@@ -203,6 +204,24 @@ struct ThreadPool::State {
   bool quick_shutdown_ = false;
 
   std::vector<std::shared_ptr<Resource>> kept_alive_resources_;
+
+  // At-fork machinery
+
+  void BeforeFork() { mutex_.lock(); }
+
+  void ParentAfterFork() { mutex_.unlock(); }
+
+  void ChildAfterFork() {
+    int desired_capacity = desired_capacity_;
+    bool please_shutdown = please_shutdown_;
+    bool quick_shutdown = quick_shutdown_;
+    new (this) State;  // force-reinitialize, including synchronization primitives
+    desired_capacity_ = desired_capacity;
+    please_shutdown_ = please_shutdown;
+    quick_shutdown_ = quick_shutdown;
+  }
+
+  std::shared_ptr<AtForkHandler> atfork_handler_;
 };
 
 // The worker loop is an independent function so that it can keep running
@@ -287,8 +306,33 @@ ThreadPool::ThreadPool()
     : sp_state_(std::make_shared<ThreadPool::State>()),
       state_(sp_state_.get()),
       shutdown_on_destroy_(true) {
-#ifndef _WIN32
-  pid_ = getpid();
+  // Eternal thread pools would produce false leak reports in the vector of
+  // atfork handlers.
+#if !(defined(_WIN32) || defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND))
+  state_->atfork_handler_ = std::make_shared<AtForkHandler>(
+      /*before=*/
+      [weak_state = std::weak_ptr<ThreadPool::State>(sp_state_)]() {
+        auto state = weak_state.lock();
+        if (state) {
+          state->BeforeFork();
+        }
+        return state;  // passed to after-forkers
+      },
+      /*parent_after=*/
+      [](std::any token) {
+        auto state = std::any_cast<std::shared_ptr<ThreadPool::State>>(token);
+        if (state) {
+          state->ParentAfterFork();
+        }
+      },
+      /*child_after=*/
+      [](std::any token) {
+        auto state = std::any_cast<std::shared_ptr<ThreadPool::State>>(token);
+        if (state) {
+          state->ChildAfterFork();
+        }
+      });
+  RegisterAtFork(state_->atfork_handler_);
 #endif
 }
 
@@ -298,38 +342,7 @@ ThreadPool::~ThreadPool() {
   }
 }
 
-void ThreadPool::ProtectAgainstFork() {
-#ifndef _WIN32
-  pid_t current_pid = getpid();
-  if (pid_.load() != current_pid) {
-    // Reinitialize internal state in child process after fork().
-    {
-      // Since after-fork reinitialization is triggered when one of the ThreadPool
-      // methods is called, it can be very well be called from multiple threads
-      // at once.  Therefore, it needs to be guarded with a lock.
-      auto lock = util::GlobalForkSafeMutex()->Lock();
-
-      if (pid_.load() != current_pid) {
-        int capacity = state_->desired_capacity_;
-
-        auto new_state = std::make_shared<ThreadPool::State>();
-        new_state->please_shutdown_ = state_->please_shutdown_;
-        new_state->quick_shutdown_ = state_->quick_shutdown_;
-
-        sp_state_ = new_state;
-        state_ = sp_state_.get();
-        pid_ = current_pid;
-
-        // Launch worker threads anew
-        ARROW_UNUSED(SetCapacity(capacity));
-      }
-    }
-  }
-#endif
-}
-
 Status ThreadPool::SetCapacity(int threads) {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   if (state_->please_shutdown_) {
     return Status::Invalid("operation forbidden during or after shutdown");
@@ -354,25 +367,21 @@ Status ThreadPool::SetCapacity(int threads) {
 }
 
 int ThreadPool::GetCapacity() {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return state_->desired_capacity_;
 }
 
 int ThreadPool::GetNumTasks() {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return state_->tasks_queued_or_running_;
 }
 
 int ThreadPool::GetActualCapacity() {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return static_cast<int>(state_->workers_.size());
 }
 
 Status ThreadPool::Shutdown(bool wait) {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
 
   if (state_->please_shutdown_) {
@@ -419,7 +428,6 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
 Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken stop_token,
                              StopCallback&& stop_callback) {
   {
-    ProtectAgainstFork();
 #ifdef ARROW_WITH_OPENTELEMETRY
     // Wrap the task to propagate a parent tracing span to it
     // This task-wrapping needs to be done before we grab the mutex because the

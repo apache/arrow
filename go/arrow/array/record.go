@@ -357,8 +357,8 @@ func (b *RecordBuilder) UnmarshalJSON(data []byte) error {
 
 		indices := b.schema.FieldIndices(key)
 		if len(indices) == 0 {
-			_, err = dec.Token()
-			if err != nil {
+			var extra interface{}
+			if err := dec.Decode(&extra); err != nil {
 				return err
 			}
 			continue

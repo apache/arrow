@@ -65,6 +65,7 @@ class GANDIVA_EXPORT ExpressionRegistry {
   std::unique_ptr<FunctionRegistry> function_registry_;
 };
 
+/// \brief Get the list of all function signatures.
 GANDIVA_EXPORT
 std::vector<std::shared_ptr<FunctionSignature>> GetRegisteredFunctionSignatures();
 

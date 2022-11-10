@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc;
 
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -25,6 +26,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
+import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -34,9 +36,10 @@ import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightPreparedStatementTest {
 
+  public static final MockFlightSqlProducer PRODUCER = CoreMockedSqlProducers.getLegacyProducer();
   @ClassRule
   public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE = FlightServerTestRule
-      .createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
+      .createStandardTestRule(PRODUCER);
 
   private static Connection connection;
 
@@ -73,6 +76,16 @@ public class ArrowFlightPreparedStatementTest {
       collector.checkThat("Hire Date", equalTo(psmt.getMetaData().getColumnName(5)));
       collector.checkThat("Last Sale", equalTo(psmt.getMetaData().getColumnName(6)));
       collector.checkThat(6, equalTo(psmt.getMetaData().getColumnCount()));
+    }
+  }
+
+  @Test
+  public void testUpdateQuery() throws SQLException {
+    String query = "Fake update";
+    PRODUCER.addUpdateQuery(query, /*updatedRows*/42);
+    try (final PreparedStatement stmt = connection.prepareStatement(query)) {
+      int updated = stmt.executeUpdate();
+      assertEquals(42, updated);
     }
   }
 }

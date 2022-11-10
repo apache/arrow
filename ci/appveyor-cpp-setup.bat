@@ -46,7 +46,7 @@ conda info -a
 @rem
 @rem Install mamba to the base environment
 @rem
-conda install -q -y -c conda-forge mamba python=3.9 || exit /B
+conda install -q -y -c conda-forge mamba python=%PYTHON% || exit /B
 
 @rem Update for newer CA certificates
 mamba update -q -y -c conda-forge --all || exit /B
@@ -55,10 +55,6 @@ mamba update -q -y -c conda-forge --all || exit /B
 @rem Create conda environment
 @rem
 
-@rem Workaround for ARROW-17172
-@rem This seems necessary for test_cython.py to succeed, otherwise
-@rem the extension module being built would fail loading in a subprocess.
-set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
 set CONDA_PACKAGES=
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
@@ -71,6 +67,7 @@ set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
 mamba create -n arrow -q -y -c conda-forge ^
   --file=ci\conda_env_python.txt ^
   %CONDA_PACKAGES%  ^
+  "ccache" ^
   "cmake" ^
   "ninja" ^
   "nomkl" ^
@@ -85,17 +82,6 @@ mamba create -n arrow -q -y -c conda-forge ^
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
 set CC=cl.exe
 set CXX=cl.exe
-
-@rem
-@rem Use clcache for faster builds
-@rem
-
-pip install -q git+https://github.com/Nuitka/clcache.git || exit /B
-@rem Limit cache size to 500 MB
-clcache -M 500000000
-clcache -c
-clcache -s
-powershell.exe -Command "Start-Process clcache-server" || exit /B
 
 @rem
 @rem Download Minio somewhere on PATH, for unit tests

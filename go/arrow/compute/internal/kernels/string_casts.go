@@ -191,7 +191,7 @@ func GetFsbCastKernels() []exec.ScalarKernel {
 	outputType := exec.NewComputedOutputType(resolveOutputFromOptions)
 	out := GetCommonCastKernels(arrow.FIXED_SIZE_BINARY, outputType)
 	kernel := exec.NewScalarKernel([]exec.InputType{exec.NewIDInput(arrow.FIXED_SIZE_BINARY)},
-		exec.NewComputedOutputType(resolveToFirstType), CastFsbToFsb, nil)
+		OutputFirstType, CastFsbToFsb, nil)
 	kernel.NullHandling = exec.NullComputedNoPrealloc
 	return append(out, kernel)
 }

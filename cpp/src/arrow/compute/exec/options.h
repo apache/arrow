@@ -143,7 +143,7 @@ struct ARROW_EXPORT BackpressureOptions {
   ///                        queue has fewer than resume_if_below items.
   /// \param pause_if_above The producer should pause producing if the backpressure
   ///                       queue has more than pause_if_above items
-  BackpressureOptions(uint32_t resume_if_below, uint32_t pause_if_above)
+  BackpressureOptions(uint64_t resume_if_below, uint64_t pause_if_above)
       : resume_if_below(resume_if_below), pause_if_above(pause_if_above) {}
 
   static BackpressureOptions DefaultBackpressure() {
@@ -213,8 +213,9 @@ class ARROW_EXPORT SinkNodeConsumer {
   /// This will be run once the schema is finalized as the plan is starting and
   /// before any calls to Consume.  A common use is to save off the schema so that
   /// batches can be interpreted.
+  /// TODO(ARROW-17837) Move ExecPlan* plan to query context
   virtual Status Init(const std::shared_ptr<Schema>& schema,
-                      BackpressureControl* backpressure_control) = 0;
+                      BackpressureControl* backpressure_control, ExecPlan* plan) = 0;
   /// \brief Consume a batch of data
   virtual Status Consume(ExecBatch batch) = 0;
   /// \brief Signal to the consumer that the last batch has been delivered

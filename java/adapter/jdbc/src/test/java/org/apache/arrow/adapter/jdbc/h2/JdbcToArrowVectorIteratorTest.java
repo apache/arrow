@@ -29,6 +29,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -129,8 +130,9 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
     int batchCount = 0;
     VectorSchemaRoot prev = null;
+    VectorSchemaRoot cur = null;
     while (iterator.hasNext()) {
-      VectorSchemaRoot cur = iterator.next();
+      cur = iterator.next();
       assertNotNull(cur);
 
       // verify the first column, with may contain nulls.
@@ -152,7 +154,9 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
         } else {
           // when reuse is enabled, a new vector schema root is created in each iteration.
           assertFalse(prev == cur);
-          cur.close();
+          if (batchCount < 3) {
+            cur.close();
+          }
         }
       }
 
@@ -160,6 +164,13 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
       batchCount += 1;
     }
 
+    iterator.close();
+    if (!reuseVectorSchemaRoot) {
+      assertNotNull(cur);
+      // test that closing the iterator does not close the vectors held by the consumers
+      assertNotEquals(cur.getVector(0).getValueCount(), 0);
+      cur.close();
+    }
     // make sure we have at least two batches, so the above test paths are actually covered
     assertTrue(batchCount > 1);
   }

@@ -16,6 +16,7 @@
 // under the License.
 
 // Platform-specific defines
+#include "arrow/flight/client.h"
 #include "arrow/flight/platform.h"
 
 #include "arrow/flight/sql/client.h"
@@ -208,10 +209,11 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
   std::unique_ptr<FlightMetadataReader> reader;
 
   ARROW_RETURN_NOT_OK(DoPut(options, descriptor, arrow::schema({}), &writer, &reader));
-
   std::shared_ptr<Buffer> metadata;
   ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
   ARROW_RETURN_NOT_OK(writer->Close());
+
+  if (!metadata) return Status::IOError("Server did not send a response");
 
   flight_sql_pb::DoPutUpdateResult result;
   if (!result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
@@ -535,6 +537,24 @@ arrow::Result<std::shared_ptr<PreparedStatement>> PreparedStatement::ParseRespon
                                              parameter_schema);
 }
 
+arrow::Result<std::shared_ptr<Buffer>> BindParameters(FlightClient* client,
+                                                      const FlightCallOptions& options,
+                                                      const FlightDescriptor& descriptor,
+                                                      RecordBatchReader* params) {
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        client->DoPut(options, descriptor, params->schema()));
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, params->Next());
+    if (!batch) break;
+    ARROW_RETURN_NOT_OK(stream.writer->WriteRecordBatch(*batch));
+  }
+  ARROW_RETURN_NOT_OK(stream.writer->DoneWriting());
+  std::shared_ptr<Buffer> metadata;
+  ARROW_RETURN_NOT_OK(stream.reader->ReadMetadata(&metadata));
+  ARROW_RETURN_NOT_OK(stream.writer->Close());
+  return metadata;
+}
+
 arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(
     const FlightCallOptions& options) {
   if (is_closed_) {
@@ -545,21 +565,11 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(
   command.set_prepared_statement_handle(handle_);
   ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
                         GetFlightDescriptorForCommand(command));
-
-  if (parameter_binding_ && parameter_binding_->num_rows() > 0) {
-    std::unique_ptr<FlightStreamWriter> writer;
-    std::unique_ptr<FlightMetadataReader> reader;
-    ARROW_RETURN_NOT_OK(client_->DoPut(options, descriptor, parameter_binding_->schema(),
-                                       &writer, &reader));
-
-    ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding_));
-    ARROW_RETURN_NOT_OK(writer->DoneWriting());
-    // Wait for the server to ack the result
-    std::shared_ptr<Buffer> buffer;
-    ARROW_RETURN_NOT_OK(reader->ReadMetadata(&buffer));
-    ARROW_RETURN_NOT_OK(writer->Close());
+  if (parameter_binding_) {
+    ARROW_ASSIGN_OR_RAISE(auto metadata,
+                          BindParameters(client_->impl_.get(), options, descriptor,
+                                         parameter_binding_.get()));
   }
-
   ARROW_ASSIGN_OR_RAISE(auto flight_info, client_->GetFlightInfo(options, descriptor));
   return std::move(flight_info);
 }
@@ -574,26 +584,19 @@ arrow::Result<int64_t> PreparedStatement::ExecuteUpdate(
   command.set_prepared_statement_handle(handle_);
   ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
                         GetFlightDescriptorForCommand(command));
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
-
-  if (parameter_binding_ && parameter_binding_->num_rows() > 0) {
-    ARROW_RETURN_NOT_OK(client_->DoPut(options, descriptor, parameter_binding_->schema(),
-                                       &writer, &reader));
-    ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding_));
+  std::shared_ptr<Buffer> metadata;
+  if (parameter_binding_) {
+    ARROW_ASSIGN_OR_RAISE(metadata, BindParameters(client_->impl_.get(), options,
+                                                   descriptor, parameter_binding_.get()));
   } else {
     const std::shared_ptr<Schema> schema = arrow::schema({});
-    ARROW_RETURN_NOT_OK(client_->DoPut(options, descriptor, schema, &writer, &reader));
-    const ArrayVector columns;
-    const auto& record_batch = arrow::RecordBatch::Make(schema, 0, columns);
-    ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*record_batch));
+    ARROW_ASSIGN_OR_RAISE(auto params, RecordBatchReader::Make({}, schema));
+    ARROW_ASSIGN_OR_RAISE(metadata, BindParameters(client_->impl_.get(), options,
+                                                   descriptor, params.get()));
   }
-
-  ARROW_RETURN_NOT_OK(writer->DoneWriting());
-  std::shared_ptr<Buffer> metadata;
-  ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
-  ARROW_RETURN_NOT_OK(writer->Close());
-
+  if (!metadata) {
+    return Status::IOError("Server did not send a response to ", command.GetTypeName());
+  }
   flight_sql_pb::DoPutUpdateResult result;
   if (!result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
     return Status::Invalid("Unable to parse DoPutUpdateResult object.");
@@ -603,6 +606,13 @@ arrow::Result<int64_t> PreparedStatement::ExecuteUpdate(
 }
 
 Status PreparedStatement::SetParameters(std::shared_ptr<RecordBatch> parameter_binding) {
+  ARROW_ASSIGN_OR_RAISE(parameter_binding_,
+                        RecordBatchReader::Make({std::move(parameter_binding)}));
+  return Status::OK();
+}
+
+Status PreparedStatement::SetParameters(
+    std::shared_ptr<RecordBatchReader> parameter_binding) {
   parameter_binding_ = std::move(parameter_binding);
 
   return Status::OK();
@@ -610,11 +620,11 @@ Status PreparedStatement::SetParameters(std::shared_ptr<RecordBatch> parameter_b
 
 bool PreparedStatement::IsClosed() const { return is_closed_; }
 
-std::shared_ptr<Schema> PreparedStatement::dataset_schema() const {
+const std::shared_ptr<Schema>& PreparedStatement::dataset_schema() const {
   return dataset_schema_;
 }
 
-std::shared_ptr<Schema> PreparedStatement::parameter_schema() const {
+const std::shared_ptr<Schema>& PreparedStatement::parameter_schema() const {
   return parameter_schema_;
 }
 
