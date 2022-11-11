@@ -76,6 +76,17 @@ inline bool IsConnectError(const Aws::Client::AWSError<Error>& error) {
   return false;
 }
 
+inline std::optional<std::string> BucketRegionFromError(
+    const Aws::Client::AWSError<Aws::S3::S3Errors>& error) {
+  const auto headers = error.GetResponseHeaders();
+  const auto it = headers.find("x-amz-bucket-region");
+  if (it != headers.end()) {
+    const std::string region(it->second.begin(), it->second.end());
+    return region;
+  }
+  return std::nullopt;
+}
+
 inline bool IsNotFound(const Aws::Client::AWSError<Aws::S3::S3Errors>& error) {
   const auto error_type = error.GetErrorType();
   return (error_type == Aws::S3::S3Errors::NO_SUCH_BUCKET ||

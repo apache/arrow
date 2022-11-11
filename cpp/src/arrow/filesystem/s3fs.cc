@@ -106,6 +106,7 @@ using ::Aws::Client::AWSError;
 using ::Aws::S3::S3Errors;
 namespace S3Model = Aws::S3::Model;
 
+using internal::BucketRegionFromError;
 using internal::ConnectRetryStrategy;
 using internal::DetectS3Backend;
 using internal::ErrorToStatus;
@@ -2306,13 +2307,11 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
         auto msg = "When getting information for bucket '" + path.bucket + "': ";
 
         // Bucket exists, but failed to call HeadBucket, perhaps wrong region?
-        const auto headers = outcome.GetError().GetResponseHeaders();
-        const auto it = headers.find("x-amz-bucket-region");
-        if (it != headers.end()) {
-          const std::string region(it->second.begin(), it->second.end());
-          if (region != impl_->options().region) {
+        const auto maybe_region = BucketRegionFromError(outcome.GetError());
+        if (maybe_region.has_value()) {
+          if (maybe_region.value() != impl_->options().region) {
             msg += "Looks like the configured region is '" + impl_->options().region +
-                   "' while the bucket is located in '" + region + "': ";
+                   "' while the bucket is located in '" + maybe_region.value() + "': ";
           }
         }
         return ErrorToStatus(msg, "HeadBucket", outcome.GetError());
