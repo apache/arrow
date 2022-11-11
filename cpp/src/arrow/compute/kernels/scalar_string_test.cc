@@ -2121,18 +2121,22 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
 
 TYPED_TEST(TestBaseBinaryKernels, SliceBytesBasic) {
   SliceOptions options{2, 4};
-  this->CheckUnary("binary_slice", R"(["foo", "fo", null, "foo "])", this->type(),
-                   R"(["o", "", null, "o "])", &options);
+  this->CheckUnary("binary_slice", "[\"fo\xc2\xa2\", \"fo\", null, \"fob \"]",
+                   this->type(), "[\"\xc2\xa2\", \"\", null, \"b \"]", &options);
 
   // end is beyond 0, but before start (hence empty)
   SliceOptions options_edgecase_1{-3, 1};
-  this->CheckUnary("binary_slice", R"(["foods"])", this->type(), R"([""])",
-                   &options_edgecase_1);
+  this->CheckUnary("binary_slice",
+                   "[\"f\xc2\xa2"
+                   "ds\"]",
+                   this->type(), R"([""])", &options_edgecase_1);
 
   // this is a safeguard agains an optimization path possible, but actually a tricky case
   SliceOptions options_edgecase_2{-6, -2};
-  this->CheckUnary("binary_slice", R"(["foods"])", this->type(), R"(["foo"])",
-                   &options_edgecase_2);
+  this->CheckUnary("binary_slice",
+                   "[\"f\xc2\xa2"
+                   "ds\"]",
+                   this->type(), "[\"f\xc2\xa2\"]", &options_edgecase_2);
 
   auto input = ArrayFromJSON(this->type(), R"(["foods"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(
