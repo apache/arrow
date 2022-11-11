@@ -2466,7 +2466,7 @@ struct SliceBytesTransform : StringSliceTransformBase {
         // continue counting from the left, we cannot start from begin_sliced because we
         // don't know how many bytes are between begin and begin_sliced
         end_sliced = std::min(begin + opt.stop, end);
-        // and therefore we also needs this
+        // and therefore we also need this
         if (end_sliced <= begin_sliced) {
           // zero length slice
           return 0;
@@ -2553,9 +2553,9 @@ using SliceBytes = StringTransformExec<Type, SliceBytesTransform>;
 
 }  // namespace
 
-const FunctionDoc binary_slice_bytes_doc(
-    "Slice string",
-    ("For each string in `strings`, emit the substring defined by\n"
+const FunctionDoc binary_slice_doc(
+    "Slice binary string",
+    ("For each binary string in `strings`, emit the substring defined by\n"
      "(`start`, `stop`, `step`) as given by `SliceOptions` where `start` is\n"
      "inclusive and `stop` is exclusive. All three values are measured in\n"
      "bytes.\n"
@@ -2565,8 +2565,8 @@ const FunctionDoc binary_slice_bytes_doc(
     {"strings"}, "SliceOptions", /*options_required=*/true);
 
 void AddAsciiStringSlice(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("binary_slice_bytes", Arity::Unary(),
-                                               binary_slice_bytes_doc);
+  auto func = std::make_shared<ScalarFunction>("binary_slice", Arity::Unary(),
+                                               binary_slice_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SliceBytes>(ty);
     DCHECK_OK(
