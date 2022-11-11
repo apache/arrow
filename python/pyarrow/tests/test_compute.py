@@ -538,8 +538,7 @@ def test_slice_compatibility():
 
 
 def test_binary_slice_compatibility():
-    arr = pa.array((el.encode('ascii')
-                   for el in ["", "a", "ab", "abc", "abcd", "abcde"]))
+    arr = pa.array([b"", b"a", b"a\xff", b"ab\x00", b"abc\xfb", b"ab\xf2de"])
     for start, stop, step in itertools.product(range(-6, 6),
                                                range(-6, 6),
                                                range(-3, 4)):
@@ -547,12 +546,11 @@ def test_binary_slice_compatibility():
             continue
         expected = pa.array([k.as_py()[start:stop:step]
                              for k in arr])
-        result = pc.binary_slice_bytes(
+        result = pc.binary_slice(
             arr, start=start, stop=stop, step=step)
         assert expected.equals(result)
         # Positional options
-        assert pc.binary_slice_bytes(arr,
-                                     start, stop, step) == result
+        assert pc.binary_slice(arr, start, stop, step) == result
 
 
 def test_split_pattern():
