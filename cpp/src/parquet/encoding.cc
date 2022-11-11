@@ -2158,7 +2158,7 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
   DCHECK(bit_width_data != nullptr);
 
   for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
-    const uint32_t n = std::min(values_per_mini_block_, values_current_block_);
+    const uint32_t values_current_mini_block = std::min(values_per_mini_block_, values_current_block_);
 
     if (ARROW_PREDICT_FALSE(n == 0)) {
       bit_widths[i] = 1;
