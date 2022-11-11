@@ -28,7 +28,7 @@
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/thrift_internal.h"  // IWYU pragma: keep
+#include "parquet/metadata.h"
 
 namespace arrow {
 
@@ -120,10 +120,12 @@ class PARQUET_EXPORT PageReader {
   // if the callback was not set or not supported.
   // If supported, NextPage() will use this callback to determine if it should
   // return or skip and move to the next page. If the callback function returns
-  // true the page must be skipped.
+  // true the page must be skipped. The callback will be called only if the page
+  // type is DATA_PAGE or DATA_PAGE_V2. Dictionary pages must be read
+  // regardless.
   // \note API EXPERIMENTAL
   virtual bool set_skip_page_callback(
-      std::function<bool(const format::PageHeader&)> skip_page_callback) {
+      std::function<bool(const DataPageStats*)> skip_page_callback) {
     return false;
   }
 

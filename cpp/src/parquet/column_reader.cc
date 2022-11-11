@@ -254,9 +254,8 @@ class SerializedPageReader : public PageReader {
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
   bool set_skip_page_callback(
-      std::function<bool(const format::PageHeader&)> skip_page_callback) override {
+      std::function<bool(const DataPageStats*)> skip_page_callback) override {
     skip_page_callback_ = skip_page_callback;
-    has_skip_page_callback_ = true;
     return true;
   }
 
@@ -312,8 +311,7 @@ class SerializedPageReader : public PageReader {
   // Encryption
   std::shared_ptr<ResizableBuffer> decryption_buffer_;
   // Callback that decides if we should skip a page or not.
-  std::function<bool(const format::PageHeader&)> skip_page_callback_;
-  bool has_skip_page_callback_ = false;
+  std::function<bool(const DataPageStats*)> skip_page_callback_;
 };
 
 void SerializedPageReader::InitDecryption() {
@@ -397,15 +395,27 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       throw ParquetException("Invalid page header");
     }
 
-   // Once we have the header, we will call the skip_page_call_back_ to
-   // determine if we should be skipping this page. If yes, we will advance the
-   // stream to the next page.
-   if(has_skip_page_callback_) {
-     if (skip_page_callback_(current_page_header_)) {
-       PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
-       return NextPage();
-     }
-   }
+    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
+    const bool is_data_page =
+        page_type == PageType::DATA_PAGE || page_type == PageType::DATA_PAGE_V2;
+
+    // Once we have the header, we will call the skip_page_call_back_ to
+    // determine if we should be skipping this page. If yes, we will advance the
+    // stream to the next page.
+    if (skip_page_callback_ && is_data_page) {
+      std::variant<format::DataPageHeader, format::DataPageHeaderV2> data_page_header;
+      if (page_type == PageType::DATA_PAGE) {
+        data_page_header = current_page_header_.data_page_header;
+      } else {
+        data_page_header = current_page_header_.data_page_header_v2;
+      }
+      std::unique_ptr<DataPageStats> data_page_stats =
+          DataPageStats::Make(&data_page_header);
+      if (skip_page_callback_(data_page_stats.get())) {
+        PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
+        return NextPage();
+      }
+    }
 
     if (crypto_ctx_.data_decryptor != nullptr) {
       UpdateDecryption(crypto_ctx_.data_decryptor, encryption::kDictionaryPage,
@@ -432,8 +442,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       page_buffer = decryption_buffer_;
     }
 
-    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
-
+    // There is only one dictionary page per column, and that is the very first
+    // page before all the data pages.
     if (page_type == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
       const format::DictionaryPageHeader& dict_header =

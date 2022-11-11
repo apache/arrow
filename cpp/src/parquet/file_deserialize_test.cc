@@ -29,7 +29,6 @@
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
-
 #include "arrow/io/memory.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -38,6 +37,7 @@
 namespace parquet {
 
 using ::arrow::io::BufferReader;
+using ::parquet::DataPageStats;
 
 // Adds page statistics occupying a certain amount of bytes (for testing very
 // large page headers)
@@ -177,75 +177,188 @@ TEST_F(TestPageSerde, DataPageV1) {
   ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
 }
 
-// Creates a number of pages and skips some of them with the skip page callback.
-TEST_F(TestPageSerde, TestSkipPageByCallback) {
-  int num_pages = 10;
-  int stats_size = 512;
-  int total_rows = 0;
-  std::vector<format::DataPageHeader> data_page_headers;
-  for (int i = 0; i < num_pages; ++i) {
+// Templated test class to test both format::DataPageHeader and
+// format::DataPageHeaderV2.
+template <typename T>
+class SkipPageTest : public TestPageSerde {
+ public:
+  const int kNumPages = 10;
+  void WriteStream();
+
+ protected:
+  std::vector<T> data_page_headers_;
+  int total_rows_ = 0;
+};
+
+template <>
+void SkipPageTest<format::DataPageHeader>::WriteStream() {
+  for (int i = 0; i < kNumPages; ++i) {
     // Vary the number of rows to produce different headers.
     int32_t num_rows = i + 100;
-    total_rows += num_rows;
+    total_rows_ += num_rows;
     int data_size = i + 1024;
-    AddDummyStats(stats_size, data_page_header_, /* fill_all_stats = */ true);
-    data_page_header_.num_values = num_rows;
+    this->data_page_header_.__set_num_values(num_rows);
+    this->data_page_header_.statistics.__set_min_value("A");
+    this->data_page_header_.statistics.__set_max_value("Z");
+    this->data_page_header_.statistics.__set_null_count(0);
+    this->data_page_header_.__isset.statistics = true;
     ASSERT_NO_FATAL_FAILURE(
-        WriteDataPageHeader(/*max_serialized_len=*/1024, data_size, data_size));
-    data_page_headers.push_back(data_page_header_);
+        this->WriteDataPageHeader(/*max_serialized_len=*/1024, data_size, data_size));
+    data_page_headers_.push_back(this->data_page_header_);
     // Also write data, to make sure we skip the data correctly.
     std::vector<uint8_t> faux_data(data_size);
-    ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+    ASSERT_OK(this->out_stream_->Write(faux_data.data(), data_size));
   }
-  EndStream();
+  this->EndStream();
+}
+
+template <>
+void SkipPageTest<format::DataPageHeaderV2>::WriteStream() {
+  for (int i = 0; i < kNumPages; ++i) {
+    // Vary the number of rows to produce different headers.
+    int32_t num_rows = i + 100;
+    total_rows_ += num_rows;
+    int data_size = i + 1024;
+    this->data_page_header_v2_.__set_num_values(num_rows);
+    this->data_page_header_v2_.__set_num_rows(num_rows);
+    this->data_page_header_v2_.statistics.__set_min_value("A");
+    this->data_page_header_v2_.statistics.__set_max_value("Z");
+    this->data_page_header_v2_.statistics.__set_null_count(0);
+    this->data_page_header_v2_.__isset.statistics = true;
+    ASSERT_NO_FATAL_FAILURE(
+        this->WriteDataPageHeaderV2(/*max_serialized_len=*/1024, data_size, data_size));
+    data_page_headers_.push_back(this->data_page_header_v2_);
+    // Also write data, to make sure we skip the data correctly.
+    std::vector<uint8_t> faux_data(data_size);
+    ASSERT_OK(this->out_stream_->Write(faux_data.data(), data_size));
+  }
+  this->EndStream();
+}
+
+using DataPageHeaderTypes =
+    ::testing::Types<format::DataPageHeader, format::DataPageHeaderV2>;
+TYPED_TEST_SUITE(SkipPageTest, DataPageHeaderTypes);
+
+// Test the accessors for DataPageStats for the different data page types.
+TYPED_TEST(SkipPageTest, TestAccessors) {
+  this->WriteStream();
+  std::unique_ptr<DataPageStats> data_page_stats;
+  std::variant<format::DataPageHeader, format::DataPageHeaderV2> data_page_header;
+  if (std::is_same_v<TypeParam, format::DataPageHeader>) {
+    data_page_header = this->data_page_header_;
+    data_page_stats = DataPageStats::Make(&data_page_header);
+    ASSERT_EQ(data_page_stats->num_values(), 109);
+    ASSERT_THROW(data_page_stats->num_rows(), ParquetException);
+    ASSERT_EQ(data_page_stats->null_count(), 0);
+    ASSERT_EQ(data_page_stats->min_value(), "A");
+    ASSERT_EQ(data_page_stats->max_value(), "Z");
+  } else {
+    data_page_header = this->data_page_header_v2_;
+    data_page_stats = DataPageStats::Make(&data_page_header);
+    ASSERT_EQ(data_page_stats->num_values(), 109);
+    ASSERT_EQ(data_page_stats->num_rows(), 109);
+    ASSERT_EQ(data_page_stats->null_count(), 0);
+    ASSERT_EQ(data_page_stats->min_value(), "A");
+    ASSERT_EQ(data_page_stats->max_value(), "Z");
+  }
+}
+
+// Creates a number of pages and skips some of them with the skip page callback.
+TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
+  this->WriteStream();
 
   {  // Read all pages.
-    auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
-    page_reader_ = PageReader::Open(stream, total_rows, Compression::UNCOMPRESSED);
+    auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
+    this->page_reader_ =
+        PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
 
-    auto skip_all_pages = [](const format::PageHeader& header) -> bool { return false; };
+    // This callback will always return false.
+    auto read_all_pages = [](const DataPageStats* stats) -> bool { return false; };
 
-    page_reader_->set_skip_page_callback(skip_all_pages);
-    for (int i = 0; i < num_pages; ++i) {
-      std::shared_ptr<Page> current_page = page_reader_->NextPage();
+    this->page_reader_->set_skip_page_callback(read_all_pages);
+    for (int i = 0; i < this->kNumPages; ++i) {
+      std::shared_ptr<Page> current_page = this->page_reader_->NextPage();
+      ASSERT_NE(current_page, nullptr);
       ASSERT_NO_FATAL_FAILURE(
-          CheckDataPageHeader(data_page_headers[i], current_page.get()));
+          CheckDataPageHeader(this->data_page_headers_[i], current_page.get()));
     }
-    ASSERT_EQ(page_reader_->NextPage(), nullptr);
+    ASSERT_EQ(this->page_reader_->NextPage(), nullptr);
   }
   {  // Skip all pages.
-    auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
-    page_reader_ = PageReader::Open(stream, total_rows, Compression::UNCOMPRESSED);
+    auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
+    this->page_reader_ =
+        PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
 
-    auto skip_all_pages = [](const format::PageHeader& header) -> bool { return true; };
+    auto skip_all_pages = [](const DataPageStats* stats) -> bool { return true; };
 
-    page_reader_->set_skip_page_callback(skip_all_pages);
-    std::shared_ptr<Page> current_page = page_reader_->NextPage();
-    ASSERT_EQ(page_reader_->NextPage(), nullptr);
+    this->page_reader_->set_skip_page_callback(skip_all_pages);
+    std::shared_ptr<Page> current_page = this->page_reader_->NextPage();
+    ASSERT_EQ(this->page_reader_->NextPage(), nullptr);
   }
+
   {  // Skip every other page.
-    auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
-    page_reader_ = PageReader::Open(stream, total_rows, Compression::UNCOMPRESSED);
+    auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
+    this->page_reader_ =
+        PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
 
     // Skip pages with even number of values.
-    auto skip_all_pages = [](const format::PageHeader& header) -> bool {
-      if (header.data_page_header.num_values % 2 == 0) return true;
+    auto skip_all_pages = [](const DataPageStats* stats) -> bool {
+      if (stats->num_values() % 2 == 0) return true;
       return false;
     };
 
-    page_reader_->set_skip_page_callback(skip_all_pages);
+    this->page_reader_->set_skip_page_callback(skip_all_pages);
 
-    for (int i = 0; i < num_pages; ++i) {
+    for (int i = 0; i < this->kNumPages; ++i) {
       // Only pages with odd number of values are read.
       if (i % 2 != 0) {
-        std::shared_ptr<Page> current_page = page_reader_->NextPage();
+        std::shared_ptr<Page> current_page = this->page_reader_->NextPage();
+        ASSERT_NE(current_page, nullptr);
         ASSERT_NO_FATAL_FAILURE(
-            CheckDataPageHeader(data_page_headers[i], current_page.get()));
+            CheckDataPageHeader(this->data_page_headers_[i], current_page.get()));
       }
     }
     // We should have exhausted reading the pages by reading the odd pages only.
-    ASSERT_EQ(page_reader_->NextPage(), nullptr);
+    ASSERT_EQ(this->page_reader_->NextPage(), nullptr);
   }
+}
+
+// Test that we do not skip dictionary pages.
+TEST(SkipCallBack, DoesNotSkipDictionaryPages) {
+  std::shared_ptr<::arrow::io::BufferOutputStream> out_stream = CreateOutputStream();
+  ThriftSerializer serializer;
+  // Write a data page.
+  format::DataPageHeader data_page_header;
+  data_page_header.__set_num_values(100);
+  format::PageHeader data_page;
+  data_page.__set_data_page_header(data_page_header);
+  data_page.type = format::PageType::DATA_PAGE;
+  ASSERT_NO_THROW(serializer.Serialize(&data_page, out_stream.get()));
+  // Write a dictionary page.
+  format::DictionaryPageHeader dictionary_page_header;
+  dictionary_page_header.__set_num_values(100);
+  format::PageHeader dict_page;
+  dict_page.__set_dictionary_page_header(dictionary_page_header);
+  dict_page.type = format::PageType::DICTIONARY_PAGE;
+  ASSERT_NO_THROW(serializer.Serialize(&dict_page, out_stream.get()));
+  // Write another data page.
+  ASSERT_NO_THROW(serializer.Serialize(&data_page, out_stream.get()));
+  std::shared_ptr<Buffer> out_buffer;
+  PARQUET_ASSIGN_OR_THROW(out_buffer, out_stream->Finish());
+
+  // Try to read it back while asking for all data pages to be skipped.
+  auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer);
+  std::unique_ptr<PageReader> page_reader =
+      PageReader::Open(stream, /*num_rows=*/100, Compression::UNCOMPRESSED);
+  auto skip_all_pages = [](const DataPageStats* stats) -> bool { return true; };
+
+  page_reader->set_skip_page_callback(skip_all_pages);
+  // The first data page is skipped, so we are now at the dictionary page.
+  std::shared_ptr<Page> current_page = page_reader->NextPage();
+  ASSERT_NE(current_page, nullptr);
+  ASSERT_EQ(current_page->type(), PageType::DICTIONARY_PAGE);
+  // The data page after dictionary page is skipped.
+  ASSERT_EQ(page_reader->NextPage(), nullptr);
 }
 
 TEST_F(TestPageSerde, DataPageV2) {

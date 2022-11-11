@@ -182,6 +182,28 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
 };
 
+/// \brief DataPageStats is a proxy around stats in format::PageHeader.
+class PARQUET_EXPORT DataPageStats {
+ public:
+  static std::unique_ptr<DataPageStats> Make(const void* page_header);
+
+  ~DataPageStats();
+
+  bool Equals(const DataPageStats& other) const;
+
+  int32_t num_values() const;
+  int32_t num_rows() const;
+  int32_t null_count() const;
+  std::string min_value() const;
+  std::string max_value() const;
+
+ private:
+  explicit DataPageStats(const void* page_header);
+  // PIMPL Idiom
+  class DataPageStatsImpl;
+  std::unique_ptr<DataPageStatsImpl> impl_;
+};
+
 /// \brief RowGroupMetaData is a proxy around format::RowGroupMetaData.
 class PARQUET_EXPORT RowGroupMetaData {
  public:
