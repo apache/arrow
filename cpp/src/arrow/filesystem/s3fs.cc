@@ -106,7 +106,6 @@ using ::Aws::Client::AWSError;
 using ::Aws::S3::S3Errors;
 namespace S3Model = Aws::S3::Model;
 
-using internal::BucketRegionFromError;
 using internal::ConnectRetryStrategy;
 using internal::DetectS3Backend;
 using internal::ErrorToStatus;
@@ -2304,17 +2303,9 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
     auto outcome = impl_->client_->HeadBucket(req);
     if (!outcome.IsSuccess()) {
       if (!IsNotFound(outcome.GetError())) {
-        auto msg = "When getting information for bucket '" + path.bucket + "': ";
-
-        // Bucket exists, but failed to call HeadBucket, perhaps wrong region?
-        const auto maybe_region = BucketRegionFromError(outcome.GetError());
-        if (maybe_region.has_value()) {
-          if (maybe_region.value() != impl_->options().region) {
-            msg += "Looks like the configured region is '" + impl_->options().region +
-                   "' while the bucket is located in '" + maybe_region.value() + "': ";
-          }
-        }
-        return ErrorToStatus(msg, "HeadBucket", outcome.GetError());
+        const auto msg = "When getting information for bucket '" + path.bucket + "': ";
+        return ErrorToStatus(msg, "HeadBucket", outcome.GetError(),
+                             impl_->options().region);
       }
       info.set_type(FileType::NotFound);
       return info;
@@ -2336,10 +2327,10 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
       return info;
     }
     if (!IsNotFound(outcome.GetError())) {
-      return ErrorToStatus(
-          std::forward_as_tuple("When getting information for key '", path.key,
-                                "' in bucket '", path.bucket, "': "),
-          "HeadObject", outcome.GetError());
+      const auto msg = "When getting information for key '" + path.key + "' in bucket '" +
+                       path.bucket + "': ";
+      return ErrorToStatus(msg, "HeadObject", outcome.GetError(),
+                           impl_->options().region);
     }
     // Not found => perhaps it's an empty "directory"
     ARROW_ASSIGN_OR_RAISE(bool is_dir, impl_->IsEmptyDirectory(path, &outcome));

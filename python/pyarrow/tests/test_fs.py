@@ -1324,8 +1324,8 @@ def test_s3fs_wrong_region():
     fs = S3FileSystem(region='eu-north-1')
 
     msg = ("When getting information for bucket 'voltrondata-labs-datasets': "
-           "Looks like the configured region is 'eu-north-1' while the "
-           "bucket is located in 'us-east-2': *")
+           r"AWS Error UNKNOWN \(HTTP status 301\) Looks like the configured "
+           "region is 'eu-north-1' while the bucket is located in 'us-east-2'")
     with pytest.raises(OSError, match=msg):
         fs.get_file_info("voltrondata-labs-datasets")
 

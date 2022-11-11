@@ -159,7 +159,8 @@ inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
 // (e.g. "When completing multipart upload to bucket 'xxx', key 'xxx': ...")
 template <typename ErrorType>
 Status ErrorToStatus(const std::string& prefix, const std::string& operation,
-                     const Aws::Client::AWSError<ErrorType>& error) {
+                     const Aws::Client::AWSError<ErrorType>& error,
+                     const std::optional<std::string>& region = std::nullopt) {
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
@@ -168,6 +169,13 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   ss << S3ErrorToString(error_type);
   if (error_type == Aws::S3::S3Errors::UNKNOWN) {
     ss << " (HTTP status " << static_cast<int>(error.GetResponseCode()) << ")";
+  }
+  const auto maybe_region = BucketRegionFromError(error);
+  if (maybe_region.has_value() && region.has_value()) {
+    if (maybe_region.value() != region.value()) {
+      ss << " Looks like the configured region is '" + region.value() +
+                "' while the bucket is located in '" + maybe_region.value() + "': ";
+    }
   }
   return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
                          " operation: ", error.GetMessage());
