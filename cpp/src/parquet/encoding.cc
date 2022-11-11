@@ -2086,8 +2086,11 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         sink_(pool),
         bit_writer_(bits_buffer_->mutable_data(),
                     static_cast<int>(bits_buffer_->size())) {
-    // TODO: this does not evaluate in release build
-    DCHECK_EQ(values_per_mini_block_ % 32, 0);
+    if (values_per_mini_block_ % 32 != 0) {
+      throw ParquetException(
+          "the number of values in a miniblock must be multiple of 32, but it's " +
+          std::to_string(values_per_mini_block_));
+    }
   }
 
   std::shared_ptr<Buffer> FlushValues() override;
@@ -2153,21 +2156,22 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
       *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_);
   bit_writer_.PutZigZagVlqInt(min_delta);
 
-  std::vector<uint8_t> bit_widths(mini_blocks_per_block_);
+  std::vector<uint8_t, ::arrow::stl::allocator<uint8_t>> bit_widths(
+      mini_blocks_per_block_, 0);
   uint8_t* bit_width_data = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
   DCHECK(bit_width_data != nullptr);
 
-  for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
-    const uint32_t values_current_mini_block = std::min(values_per_mini_block_, values_current_block_);
-
-    if (ARROW_PREDICT_FALSE(n == 0)) {
-      bit_widths[i] = 1;
-      continue;
-    }
+  uint32_t num_miniblocks = std::min(
+      static_cast<uint32_t>(std::ceil(static_cast<float>(values_current_block_) /
+                                      static_cast<float>(values_per_mini_block_))),
+      mini_blocks_per_block_);
+  for (uint32_t i = 0; i < num_miniblocks; i++) {
+    const uint32_t values_current_mini_block =
+        std::min(values_per_mini_block_, values_current_block_);
 
     const uint32_t start = i * values_per_mini_block_;
-    const T max_delta =
-        *std::max_element(deltas_.begin() + start, deltas_.begin() + start + n);
+    const T max_delta = *std::max_element(
+        deltas_.begin() + start, deltas_.begin() + start + values_current_mini_block);
 
     const T max_delta_diff = SafeSignedSubtract(max_delta, min_delta);
     int num_bits;
@@ -2179,14 +2183,17 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     const int num_bytes = static_cast<int>(bit_util::BytesForBits(num_bits));
     bit_widths[i] = num_bits;
 
-    for (uint32_t j = start; j < start + n; j++) {
+    for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       const T value = SafeSignedSubtract(deltas_[j], min_delta);
       bit_writer_.PutAligned<T>(value, num_bytes);
     }
-    for (uint32_t j = n; j < values_per_mini_block_; j++) {
+    // If there are not enough values to fill the last miniblock, we pad the miniblock
+    // with zeroes so that its length is the number of values in a full miniblock
+    // multiplied by the bit width.
+    for (uint32_t j = values_current_mini_block; j < values_per_mini_block_; j++) {
       bit_writer_.PutAligned<T>(0, num_bytes);
     }
-    values_current_block_ -= n;
+    values_current_block_ -= values_current_mini_block;
   }
   DCHECK_EQ(values_current_block_, 0);
 
@@ -2228,20 +2235,24 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
 
 template <>
 void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
-  if (values.null_count() > 0) {
-    ParquetException::NYI("DELTA_BINARY_PACKED encoding with null values");
+  const auto& data = *values.data();
+  if (values.null_count() == 0) {
+    Put(data.GetValues<int32_t>(1), static_cast<int>(values.length()));
+  } else {
+    PutSpaced(data.GetValues<int32_t>(1), static_cast<int>(data.length),
+              data.GetValues<uint8_t>(0, 0), data.offset);
   }
-  auto src = values.data()->GetValues<int32_t>(1);
-  Put(src, static_cast<int>(values.length()));
 }
 
 template <>
 void DeltaBitPackEncoder<Int64Type>::Put(const ::arrow::Array& values) {
-  if (values.null_count() > 0) {
-    ParquetException::NYI("DELTA_BINARY_PACKED encoding with null values");
+  const auto& data = *values.data();
+  if (values.null_count() == 0) {
+    Put(data.GetValues<int64_t>(1), static_cast<int>(values.length()));
+  } else {
+    PutSpaced(data.GetValues<int64_t>(1), static_cast<int>(data.length),
+              data.GetValues<uint8_t>(0, 0), data.offset);
   }
-  auto src = values.data()->GetValues<int64_t>(1);
-  Put(src, static_cast<int>(values.length()));
 }
 
 template <typename DType>
