@@ -4912,3 +4912,67 @@ def test_read_table_nested_columns(tempdir, format):
         {'user_id': 'qrs456', 'type': 'scroll', 'values': [None, 3, 4],
          'structs': [{'fizz': 'buzz', 'foo': None}], 'a.dotted.field': 2}
     ]
+
+
+def test_some_slash_thingy(tmpdir):
+    import pandas as pd
+    import pyarrow as pa
+
+    from pyarrow import dataset as ds
+    
+    # reading from an alredy written dataset with slashes in column data from C++
+    
+    read_path = "/Users/vibhatha/data/parquet/slash-writer5/parquet_dataset/"
+
+    table = ds.dataset(
+        source=read_path,
+        format='parquet',
+        partitioning='hive',
+        schema = pa.schema([pa.field("a", pa.int32()), pa.field("b", pa.utf8())])
+    ).to_table()
+    
+    print(table)
+
+    df = pa.concat_tables([table]).to_pandas()  
+
+    print(df.head())
+    
+def test_some_slash_thingy2(tmpdir):
+    import pandas as pd
+    import pyarrow as pa
+
+    from pyarrow import dataset as ds
+    
+    path = tmpdir / "slash-writer-x"
+    
+    # pathx = "/Users/vibhatha/data/parquet/slash-writer-x"
+
+    df = pd.DataFrame({
+        'exp_id': [1, 2, 1, 3, 6],
+        'exp_meta': ["experiment/A/f.csv", "experiment/B/f.csv", 
+                     "experiment/A/d.csv", "experiment/C/k.csv",
+                     "experiment/M/i.csv"],
+    })
+    
+    dt_table = pa.Table.from_pandas(df)
+
+    ds.write_dataset(
+        data=dt_table,
+        base_dir=path,
+        format='parquet',
+        partitioning=['exp_meta'],
+        partitioning_flavor='hive',
+    )
+
+    table = ds.dataset(
+        source=path,
+        format='parquet',
+        partitioning='hive',
+        schema = pa.schema([pa.field("exp_id", pa.int32()), pa.field("exp_meta", pa.utf8())])
+    ).to_table()
+    
+    print(table)
+
+    df = pa.concat_tables([table]).to_pandas()  
+
+    print(df.head())

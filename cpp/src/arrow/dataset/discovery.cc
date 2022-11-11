@@ -279,7 +279,7 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
     auto factory = options_.partitioning.factory();
     ARROW_ASSIGN_OR_RAISE(partitioning, factory->Finish(schema));
   }
-
+  // VIBHATHA: we have to fix the fragment reading part to recover the original values
   std::vector<std::shared_ptr<FileFragment>> fragments;
   for (const auto& info : files_) {
     auto fixed_path = StripPrefix(info.path(), options_.partition_base_dir);

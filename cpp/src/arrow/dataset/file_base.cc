@@ -321,6 +321,9 @@ Status WriteBatch(
     auto partition_expression = and_(groups.expressions[index], guarantee);
     auto next_batch = groups.batches[index];
     PartitionPathFormat destination;
+    // VIBHATHA: so what happens here is the / in the group column becomes the PartitionPathFormat and 
+    // here the / is considered as a URI. So this must not be considered as a URI. Probably this must be
+    // enforced with an option which wild card characters are considered here or not.
     ARROW_ASSIGN_OR_RAISE(destination,
                           write_options.partitioning->Format(partition_expression));
     RETURN_NOT_OK(write(next_batch, destination));
