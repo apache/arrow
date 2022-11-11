@@ -626,6 +626,7 @@ def test_write_metadata_with_without_filesystem(tempdir):
     meta1 = tempdir / "meta1"
     meta2 = tempdir / "meta2"
     meta3 = tempdir / "meta3"
+    meta4 = tempdir / "meta4"
 
     table = pa.table({"col": range(5)})
     filesystem = MockLocalFileSystem()
@@ -641,4 +642,9 @@ def test_write_metadata_with_without_filesystem(tempdir):
     # Can resolve URI
     pq.write_metadata(table.schema, meta3.as_uri(), [])
 
-    assert meta1.read_bytes() == meta2.read_bytes() == meta3.read_bytes()
+    # Take a file-like obj all the way thru?
+    with meta4.open('wb+') as meta4_stream:
+        pq.write_metadata(table.schema, meta4_stream, [])
+
+    assert meta1.read_bytes() == meta2.read_bytes() \
+        == meta3.read_bytes() == meta4.read_bytes()

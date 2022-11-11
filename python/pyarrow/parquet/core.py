@@ -3429,6 +3429,9 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
     """
     filesystem, where = _resolve_filesystem_and_path(where, filesystem)
 
+    if hasattr(where, "seek"):  # file-like
+        cursor_position = where.tell()
+
     writer = ParquetWriter(where, schema, filesystem, **kwargs)
     writer.close()
 
@@ -3436,6 +3439,9 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
         # ParquetWriter doesn't expose the metadata until it's written. Write
         # it and read it again.
         metadata = read_metadata(where, filesystem=filesystem)
+        if hasattr(where, "seek"):
+            where.seek(cursor_position)  # file-like, set cursor back.
+
         for m in metadata_collector:
             metadata.append_row_groups(m)
         if filesystem is not None:
