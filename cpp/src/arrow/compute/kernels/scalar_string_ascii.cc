@@ -2565,8 +2565,8 @@ const FunctionDoc binary_slice_doc(
     {"strings"}, "SliceOptions", /*options_required=*/true);
 
 void AddAsciiStringSlice(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("binary_slice", Arity::Unary(),
-                                               binary_slice_doc);
+  auto func =
+      std::make_shared<ScalarFunction>("binary_slice", Arity::Unary(), binary_slice_doc);
   for (const auto& ty : BinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SliceBytes>(ty);
     DCHECK_OK(
