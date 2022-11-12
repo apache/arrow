@@ -2141,8 +2141,7 @@ TYPED_TEST(TestBinaryKernels, SliceBytesBasic) {
   auto input = ArrayFromJSON(this->type(), R"(["foods"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      testing::HasSubstr(
-          "Function 'binary_slice' cannot be called without options"),
+      testing::HasSubstr("Function 'binary_slice' cannot be called without options"),
       CallFunction("binary_slice", {input}));
 
   SliceOptions options_invalid{2, 4, 0};
@@ -2227,17 +2226,29 @@ TYPED_TEST(TestBinaryKernels, SliceBytesNegNeg) {
 
 TYPED_TEST(TestBinaryKernels, SliceBytesNegPos) {
   SliceOptions options{-2, 4};
-  this->CheckUnary("binary_slice", R"(["", "f", "fo", "foo", "food", "foods"])",
-                   this->type(), R"(["", "f", "fo", "oo", "od", "d"])", &options);
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"a\", \"ab\", \"\xc2\xa2\", \"\xc2\xa2\", \"\xff\"]",
+      &options);
   SliceOptions options_step{-4, 4, 2};
-  this->CheckUnary("binary_slice", R"(["", "f", "fo", "foo", "food", "foods"])",
-                   this->type(), R"(["", "f", "f", "fo", "fo", "od"])", &options_step);
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"a\", \"a\", \"Z\xa2\", \"a\xc2\", \"P\xff\"]",
+      &options_step);
   SliceOptions options_step_neg{-1, 1, -2};
-  this->CheckUnary("binary_slice", R"(["", "f", "fo", "foo", "food", "foods"])",
-                   this->type(), R"(["", "", "", "o", "d", "so"])", &options_step_neg);
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"\", \"\xa2\", \"\xa2\", \"Z\xc2\"]",
+      &options_step_neg);
   options_step_neg.stop = 0;
-  this->CheckUnary("binary_slice", R"(["", "f", "fo", "foo", "food", "foods"])",
-                   this->type(), R"(["", "", "o", "o", "do", "so"])", &options_step_neg);
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"b\", \"\xa2\", \"\xa2Z\", \"Z\xc2\"]",
+      &options_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, PadAscii) {
