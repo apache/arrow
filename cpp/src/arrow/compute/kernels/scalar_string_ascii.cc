@@ -2567,7 +2567,7 @@ const FunctionDoc binary_slice_doc(
 void AddAsciiStringSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_slice", Arity::Unary(),
                                                binary_slice_doc);
-  for (const auto& ty : BaseBinaryTypes()) {
+  for (const auto& ty : BinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SliceBytes>(ty);
     DCHECK_OK(
         func->AddKernel({ty}, ty, std::move(exec), SliceBytesTransform::State::Init));
