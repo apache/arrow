@@ -2178,17 +2178,17 @@ TYPED_TEST(TestBinaryKernels, SliceBytesPosPos) {
 
 TYPED_TEST(TestBinaryKernels, SliceBytesPosNeg) {
   SliceOptions options{2, -1};
-  this->CheckUnary("binary_slice", R"(["", "f", "fo", "foo", "food", "foods"])",
-                   this->type(), R"(["", "", "", "", "o", "od"])", &options);
+  this->CheckUnary("binary_slice", "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
+                   this->type(), "[\"\", \"\", \"\", \"\", \"\xc2\", \"\xc2\xff\"]", &options);
   SliceOptions options_step{1, -1, 2};
-  this->CheckUnary("binary_slice", R"(["", "f", "fo", "foo", "food","foods"])",
-                   this->type(), R"(["", "", "", "o", "o", "od"])", &options_step);
+  this->CheckUnary("binary_slice", "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
+                   this->type(), "[\"\", \"\", \"\", \"\xc2\", \"Z\", \"b\xff\"]", &options_step);
   SliceOptions options_step_neg{3, -4, -2};
-  this->CheckUnary("binary_slice", R"(["", "f", "fo", "foo", "food","foods"])",
-                   this->type(), R"(["", "f", "o", "of", "do", "d"])", &options_step_neg);
+  this->CheckUnary("binary_slice", "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
+                   this->type(), "[\"\", \"a\", \"b\", \"\xa2Z\", \"\xa2Z\", \"\xff\"]", &options_step_neg);
   options_step_neg.stop = -5;
-  this->CheckUnary("binary_slice", R"(["", "f", "fo", "foo", "food","foods"])",
-                   this->type(), R"(["", "f", "o", "of", "do", "do"])",
+  this->CheckUnary("binary_slice", "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+                   this->type(), "[\"\", \"a\", \"b\", \"\xa2Z\", \"\xa2Z\", \"\xffP\"]",
                    &options_step_neg);
 }
 
