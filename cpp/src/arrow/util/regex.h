@@ -29,8 +29,8 @@ namespace arrow {
 namespace internal {
 
 /// Match regex against target and produce string_views out of matches.
-bool RegexMatch(const std::regex& regex, std::string_view target,
-                std::initializer_list<std::string_view*> out_matches) {
+inline bool RegexMatch(const std::regex& regex, std::string_view target,
+                       std::initializer_list<std::string_view*> out_matches) {
   assert(regex.mark_count() == out_matches.size());
 
   std::match_results<decltype(target.begin())> match;
