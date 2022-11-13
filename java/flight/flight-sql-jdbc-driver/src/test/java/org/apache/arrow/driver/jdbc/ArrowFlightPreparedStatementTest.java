@@ -20,13 +20,19 @@ package org.apache.arrow.driver.jdbc;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
 
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -80,10 +86,35 @@ public class ArrowFlightPreparedStatementTest {
   }
 
   @Test
+  public void testSelectQueryWithParameters() throws SQLException {
+    String query = "Fake select";
+    PRODUCER.addUpdateQuery(query, /*updatedRows*/42);
+    try (final PreparedStatement stmt = connection.prepareStatement(query)) {
+      int updated = stmt.executeUpdate();
+      assertEquals(42, updated);
+    }
+  }
+
+  @Test
   public void testUpdateQuery() throws SQLException {
     String query = "Fake update";
     PRODUCER.addUpdateQuery(query, /*updatedRows*/42);
     try (final PreparedStatement stmt = connection.prepareStatement(query)) {
+      int updated = stmt.executeUpdate();
+      assertEquals(42, updated);
+    }
+  }
+
+  @Test
+  public void testUpdateQueryWithParameters() throws SQLException {
+    String query = "Fake update with parameters";
+    PRODUCER.addUpdateQuery(query, /*updatedRows*/42);
+    PRODUCER.addExpectedParameters(query,
+        new Schema(Collections.singletonList(Field.nullable("", ArrowType.Utf8.INSTANCE))),
+        Collections.singletonList(Collections.singletonList(new Text("foo".getBytes(StandardCharsets.UTF_8)))));
+    try (final PreparedStatement stmt = connection.prepareStatement(query)) {
+      // TODO: make sure this is validated on the server too
+      stmt.setString(1, "foo");
       int updated = stmt.executeUpdate();
       assertEquals(42, updated);
     }

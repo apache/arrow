@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -74,6 +75,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -96,7 +98,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   private final Map<String, BiConsumer<FlightStream, StreamListener<PutResult>>>
       updateResultProviders =
       new HashMap<>();
-  private SqlInfoBuilder sqlInfoBuilder = new SqlInfoBuilder();
+  private final SqlInfoBuilder sqlInfoBuilder = new SqlInfoBuilder();
+  private final Map<String, Schema> parameterSchemas = new HashMap<>();
+  private final Map<String, List<List<Object>>> expectedParameterValues = new HashMap<>();
 
   private static FlightInfo getFightInfoExportedAndImportedKeys(final Message message,
                                                                 final FlightDescriptor descriptor) {
@@ -189,6 +193,13 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
         format("Attempted to overwrite pre-existing query: <%s>.", sqlCommand));
   }
 
+
+  /** Registers parameters expected to be provided with a prepared statement. */
+  public void addExpectedParameters(String query, Schema parameterSchema, List<List<Object>> expectedValues) {
+    parameterSchemas.put(query, parameterSchema);
+    expectedParameterValues.put(query, expectedValues);
+  }
+
   @Override
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request,
                                       final CallContext callContext,
@@ -213,11 +224,17 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
         resultBuilder.setDatasetSchema(datasetSchemaBytes);
       } else if (updateResultProviders.containsKey(query)) {
         preparedStatements.put(preparedStatementHandle, query);
-
       } else {
         listener.onError(
             CallStatus.INVALID_ARGUMENT.withDescription("Query not found").toRuntimeException());
         return;
+      }
+
+      final Schema parameterSchema = parameterSchemas.get(query);
+      if (parameterSchema != null) {
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        MessageSerializer.serialize(new WriteChannel(Channels.newChannel(outputStream)), parameterSchema);
+        resultBuilder.setParameterSchema(ByteString.copyFrom(outputStream.toByteArray()));
       }
 
       listener.onNext(new Result(pack(resultBuilder.build()).toByteArray()));
@@ -336,6 +353,45 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
     final String query = Preconditions.checkNotNull(
         preparedStatements.get(handle),
         format("No query registered under handle: <%s>.", handle));
+    final List<List<Object>> expectedValues = expectedParameterValues.get(query);
+    if (expectedValues != null) {
+      int index = 0;
+      while (flightStream.next()) {
+        final VectorSchemaRoot root = flightStream.getRoot();
+        for (int i = 0; i < root.getRowCount(); i++) {
+          if (index >= expectedValues.size()) {
+            streamListener.onError(CallStatus.INVALID_ARGUMENT
+                .withDescription("More parameter rows provided than expected")
+                .toRuntimeException());
+            return () -> { };
+          }
+          List<Object> expectedRow = expectedValues.get(index++);
+          if (root.getFieldVectors().size() != expectedRow.size()) {
+            streamListener.onError(CallStatus.INVALID_ARGUMENT
+                .withDescription("Parameter count mismatch")
+                .toRuntimeException());
+            return () -> { };
+          }
+
+          for (int paramIndex = 0; paramIndex < expectedRow.size(); paramIndex++) {
+            Object expected = expectedRow.get(paramIndex);
+            Object actual = root.getVector(paramIndex).getObject(i);
+            if (!Objects.equals(expected, actual)) {
+              streamListener.onError(CallStatus.INVALID_ARGUMENT
+                  .withDescription(String.format("Parameter mismatch. Expected: %s Actual: %s", expected, actual))
+                  .toRuntimeException());
+              return () -> { };
+            }
+          }
+        }
+      }
+      if (index < expectedValues.size()) {
+        streamListener.onError(CallStatus.INVALID_ARGUMENT
+            .withDescription("Fewer parameter rows provided than expected")
+            .toRuntimeException());
+        return () -> { };
+      }
+    }
     return acceptPutStatement(
         CommandStatementUpdate.newBuilder().setQuery(query).build(), callContext, flightStream,
         streamListener);

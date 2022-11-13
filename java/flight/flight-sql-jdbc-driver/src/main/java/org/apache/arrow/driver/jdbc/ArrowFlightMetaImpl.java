@@ -27,9 +27,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
+import org.apache.arrow.driver.jdbc.utils.TypedValueBinder;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
@@ -54,15 +57,29 @@ public class ArrowFlightMetaImpl extends MetaImpl {
     setDefaultConnectionProperties();
   }
 
-  static Signature newSignature(final String sql) {
+  static Signature newSignature(final String sql, Schema parameterSchema) {
+    final List<AvaticaParameter> parameters;
+    if (parameterSchema == null) {
+      parameters = Collections.emptyList();
+    } else {
+      parameters = parameterSchema.getFields()
+          .stream()
+          .map(AvaticaParameterFromArrowTypeVisitor::fromArrowField)
+          .collect(Collectors.toList());
+    }
+    Map<String, Object> internalParameters = Collections.emptyMap();
     return new Signature(
         new ArrayList<ColumnMetaData>(),
         sql,
-        Collections.<AvaticaParameter>emptyList(),
-        Collections.<String, Object>emptyMap(),
-        null, // unnecessary, as SQL requests use ArrowFlightJdbcCursor
+        parameters,
+        internalParameters,
+        /*cursorFactory*/null, // unnecessary, as SQL requests use ArrowFlightJdbcCursor
         StatementType.SELECT
     );
+  }
+
+  private ArrowFlightConnection getConnection() {
+    return (ArrowFlightConnection) connection;
   }
 
   @Override
@@ -86,17 +103,26 @@ public class ArrowFlightMetaImpl extends MetaImpl {
     Preconditions.checkArgument(connection.id.equals(statementHandle.connectionId),
         "Connection IDs are not consistent");
     if (statementHandle.signature == null) {
+      // TODO: refactor update/select queries out into separate methods
       // Update query
       final StatementHandleKey key = new StatementHandleKey(statementHandle);
       PreparedStatement preparedStatement = statementHandlePreparedStatementMap.get(key);
       if (preparedStatement == null) {
         throw new IllegalStateException("Prepared statement not found: " + statementHandle);
       }
-      long updatedCount = preparedStatement.executeUpdate();
+
+      long updatedCount;
+      try (final TypedValueBinder binder =
+               new TypedValueBinder(preparedStatement, getConnection().getBufferAllocator())) {
+        binder.bind(typedValues);
+        updatedCount = preparedStatement.executeUpdate();
+      }
       return new ExecuteResult(Collections.singletonList(MetaResultSet.count(statementHandle.connectionId,
           statementHandle.id, updatedCount)));
     } else {
       // TODO Why is maxRowCount ignored?
+      // TODO: TypedValues
+      // TODO: should move execution eagerly here instead of deferring it
       return new ExecuteResult(
           Collections.singletonList(MetaResultSet.create(
               statementHandle.connectionId, statementHandle.id,
@@ -134,9 +160,8 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   public StatementHandle prepare(final ConnectionHandle connectionHandle,
                                  final String query, final long maxRowCount) {
     final StatementHandle handle = super.createStatement(connectionHandle);
-    handle.signature = newSignature(query);
-    final PreparedStatement preparedStatement =
-        ((ArrowFlightConnection) connection).getClientHandler().prepare(query);
+    final PreparedStatement preparedStatement = getConnection().getClientHandler().prepare(query);
+    handle.signature = newSignature(query, preparedStatement.getParameterSchema());
     statementHandlePreparedStatementMap.put(new StatementHandleKey(handle), preparedStatement);
     return handle;
   }
@@ -157,11 +182,10 @@ public class ArrowFlightMetaImpl extends MetaImpl {
                                          final PrepareCallback callback)
       throws NoSuchStatementException {
     try {
-      final PreparedStatement preparedStatement =
-          ((ArrowFlightConnection) connection).getClientHandler().prepare(query);
+      final PreparedStatement preparedStatement = getConnection().getClientHandler().prepare(query);
       final StatementType statementType = preparedStatement.getType();
       statementHandlePreparedStatementMap.put(new StatementHandleKey(handle), preparedStatement);
-      final Signature signature = newSignature(query);
+      final Signature signature = newSignature(query, preparedStatement.getParameterSchema());
       final long updateCount =
           statementType.equals(StatementType.UPDATE) ? preparedStatement.executeUpdate() : -1;
       synchronized (callback.getMonitor()) {
