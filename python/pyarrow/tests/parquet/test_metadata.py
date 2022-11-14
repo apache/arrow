@@ -627,6 +627,7 @@ def test_write_metadata_with_without_filesystem(tempdir):
     meta2 = tempdir / "meta2"
     meta3 = tempdir / "meta3"
     meta4 = tempdir / "meta4"
+    meta5 = tempdir / "meta5"
 
     table = pa.table({"col": range(5)})
     filesystem = MockLocalFileSystem()
@@ -648,3 +649,30 @@ def test_write_metadata_with_without_filesystem(tempdir):
 
     assert meta1.read_bytes() == meta2.read_bytes() \
         == meta3.read_bytes() == meta4.read_bytes()
+
+    try:
+        from pyarrow.fs import S3FileSystem
+    except ImportError:
+        return
+
+    class MockS3FileSystem(S3FileSystem):
+        """Not going to actually write to S3"""
+
+        def open_input_file(self, path, *args, **kwargs):
+            assert path == s3_uri
+            return meta5.open('rb')
+
+        def open_output_stream(self, path, *args, **kwargs):
+            nonlocal called
+            assert path == s3_uri
+            called += 1
+            return meta5.open('wb')
+
+    s3_uri = "some-bucket/path.parquet"
+    filesystem = MockS3FileSystem()
+
+    # URI with filesystem
+    pq.write_metadata(table.schema, s3_uri, [], filesystem=filesystem)
+    assert called == 4
+
+    assert meta1.read_bytes() == meta5.read_bytes()
