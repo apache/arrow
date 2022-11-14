@@ -59,10 +59,18 @@ ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
 /// The supplied `ParseOptions` are used to determine a schema on the first non-empty
 /// block. Afterwards, the schema is frozen and unexpected fields will be ignored on
 /// subsequent reads (unless `UnexpectedFieldBehavior::Error` was specified).
+///
+/// For each block, the reader will launch its subsequent parsing/decoding task on the
+/// given `cpu_executor` - potentially in parallel. If `ReadOptions::use_threads` is
+/// specified, readahead will be applied to these tasks in accordance with the executor's
+/// capacity.
 class ARROW_EXPORT StreamingReader : public RecordBatchReader {
  public:
   virtual ~StreamingReader() = default;
 
+  /// \brief Read the next `RecordBatch` asynchronously
+  ///
+  /// This function is async-reentrant (but not synchronously reentrant)
   virtual Future<std::shared_ptr<RecordBatch>> ReadNextAsync() = 0;
 
   /// \brief Return the number of bytes which have been read and processed
@@ -72,18 +80,18 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   /// to Arrow layout) is still ongoing.
   [[nodiscard]] virtual int64_t bytes_read() const = 0;
 
-  /// Create a StreamingReader instance
+  /// \brief Create a `StreamingReader` instance asynchronously
   ///
   /// This involves some I/O as the first batch must be loaded during the creation process
   /// so it is returned as a future
   static Future<std::shared_ptr<StreamingReader>> MakeAsync(
-      io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+      std::shared_ptr<io::InputStream> stream, io::IOContext io_context,
       ::arrow::internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&);
 
-  /// Create a StreamingReader instance
+  /// \brief Create a `StreamingReader` instance
   static Result<std::shared_ptr<StreamingReader>> Make(
-      io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-      const ReadOptions&, const ParseOptions&);
+      std::shared_ptr<io::InputStream> stream, io::IOContext io_context,
+      ::arrow::internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&);
 };
 
 }  // namespace json

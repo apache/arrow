@@ -50,7 +50,7 @@ using internal::ThreadPool;
 namespace json {
 namespace {
 
-struct JSONBlock {
+struct ChunkedBlock {
   std::shared_ptr<Buffer> partial;
   std::shared_ptr<Buffer> completion;
   std::shared_ptr<Buffer> whole;
@@ -60,7 +60,81 @@ struct JSONBlock {
 struct DecodedBlock {
   std::shared_ptr<RecordBatch> record_batch;
   int64_t num_bytes = 0;
-  int64_t index = -1;
+};
+
+}  // namespace
+}  // namespace json
+
+template <>
+struct IterationTraits<json::ChunkedBlock> {
+  static json::ChunkedBlock End() { return json::ChunkedBlock{}; }
+  static bool IsEnd(const json::ChunkedBlock& val) { return val.index < 0; }
+};
+
+template <>
+struct IterationTraits<json::DecodedBlock> {
+  static json::DecodedBlock End() { return json::DecodedBlock{}; }
+  static bool IsEnd(const json::DecodedBlock& val) { return !val.record_batch; }
+};
+
+namespace json {
+namespace {
+
+// Holds related parameters for parsing and type conversion
+class DecodeContext {
+ public:
+  explicit DecodeContext(MemoryPool* pool)
+      : DecodeContext(ParseOptions::Defaults(), pool) {}
+  explicit DecodeContext(ParseOptions options = ParseOptions::Defaults(),
+                         MemoryPool* pool = default_memory_pool())
+      : pool_(pool) {
+    SetParseOptions(std::move(options));
+  }
+
+  void SetParseOptions(ParseOptions options) {
+    parse_options_ = std::move(options);
+    if (parse_options_.explicit_schema) {
+      conversion_type_ = struct_(parse_options_.explicit_schema->fields());
+    } else {
+      parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+      conversion_type_ = struct_({});
+    }
+    promotion_graph_ =
+        parse_options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType
+            ? GetPromotionGraph()
+            : nullptr;
+  }
+
+  void SetSchema(std::shared_ptr<Schema> explicit_schema,
+                 UnexpectedFieldBehavior unexpected_field_behavior) {
+    parse_options_.explicit_schema = std::move(explicit_schema);
+    parse_options_.unexpected_field_behavior = unexpected_field_behavior;
+    SetParseOptions(std::move(parse_options_));
+  }
+  void SetSchema(std::shared_ptr<Schema> explicit_schema) {
+    SetSchema(std::move(explicit_schema), parse_options_.unexpected_field_behavior);
+  }
+  // Set the schema but ensure unexpected fields won't be accepted
+  void SetStrictSchema(std::shared_ptr<Schema> explicit_schema) {
+    auto unexpected_field_behavior = parse_options_.unexpected_field_behavior;
+    if (unexpected_field_behavior == UnexpectedFieldBehavior::InferType) {
+      unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
+    }
+    SetSchema(std::move(explicit_schema), unexpected_field_behavior);
+  }
+
+  [[nodiscard]] MemoryPool* pool() const { return pool_; }
+  [[nodiscard]] const ParseOptions& parse_options() const { return parse_options_; }
+  [[nodiscard]] const PromotionGraph* promotion_graph() const { return promotion_graph_; }
+  [[nodiscard]] const std::shared_ptr<DataType>& conversion_type() const {
+    return conversion_type_;
+  }
+
+ private:
+  ParseOptions parse_options_;
+  std::shared_ptr<DataType> conversion_type_;
+  const PromotionGraph* promotion_graph_;
+  MemoryPool* pool_;
 };
 
 Result<std::shared_ptr<RecordBatch>> ToRecordBatch(const StructArray& converted) {
@@ -75,7 +149,7 @@ auto ToRecordBatch(const Array& converted) {
   return ToRecordBatch(checked_cast<const StructArray&>(converted));
 }
 
-Result<std::shared_ptr<Array>> ParseBlock(const JSONBlock& block,
+Result<std::shared_ptr<Array>> ParseBlock(const ChunkedBlock& block,
                                           const ParseOptions& parse_options,
                                           MemoryPool* pool, int64_t* out_size = nullptr) {
   std::unique_ptr<BlockParser> parser;
@@ -108,42 +182,29 @@ Result<std::shared_ptr<Array>> ParseBlock(const JSONBlock& block,
   return parsed;
 }
 
-// Utility for incrementally generating chunked JSON blocks from source buffers
-//
-// Note: Retains state from prior calls
-class BlockReader {
+class ChunkingTransformer {
  public:
-  BlockReader(std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer)
-      : chunker_(std::move(chunker)),
-        partial_(std::make_shared<Buffer>("")),
-        buffer_(std::move(first_buffer)) {}
+  explicit ChunkingTransformer(std::unique_ptr<Chunker> chunker)
+      : chunker_(std::move(chunker)) {}
 
-  // Compose an iterator from a source iterator
   template <typename... Args>
-  static Iterator<JSONBlock> MakeIterator(Iterator<std::shared_ptr<Buffer>> buf_it,
-                                          Args&&... args) {
-    auto reader = std::make_shared<BlockReader>(std::forward<Args>(args)...);
-    Transformer<std::shared_ptr<Buffer>, JSONBlock> transformer =
-        [reader](std::shared_ptr<Buffer> next_buffer) {
-          return (*reader)(std::move(next_buffer));
-        };
-    return MakeTransformedIterator(std::move(buf_it), transformer);
+  static Transformer<std::shared_ptr<Buffer>, ChunkedBlock> Make(Args&&... args) {
+    return [self = std::make_shared<ChunkingTransformer>(std::forward<Args>(args)...)](
+               std::shared_ptr<Buffer> buffer) { return (*self)(std::move(buffer)); };
   }
 
-  // Compose a callable generator from a source generator
-  template <typename... Args>
-  static AsyncGenerator<JSONBlock> MakeGenerator(
-      AsyncGenerator<std::shared_ptr<Buffer>> buf_gen, Args&&... args) {
-    auto reader = std::make_shared<BlockReader>(std::forward<Args>(args)...);
-    Transformer<std::shared_ptr<Buffer>, JSONBlock> transformer =
-        [reader](std::shared_ptr<Buffer> next_buffer) {
-          return (*reader)(std::move(next_buffer));
-        };
-    return MakeTransformedGenerator(std::move(buf_gen), transformer);
-  }
-
-  Result<TransformFlow<JSONBlock>> operator()(std::shared_ptr<Buffer> next_buffer) {
-    if (!buffer_) return TransformFinish();
+ private:
+  Result<TransformFlow<ChunkedBlock>> operator()(std::shared_ptr<Buffer> next_buffer) {
+    if (!buffer_) {
+      if (ARROW_PREDICT_TRUE(!next_buffer)) {
+        partial_ = nullptr;
+        return TransformFinish();
+      }
+      partial_ = std::make_shared<Buffer>("");
+      buffer_ = std::move(next_buffer);
+      return TransformSkip();
+    }
+    DCHECK_NE(partial_, nullptr);
 
     std::shared_ptr<Buffer> whole, completion, next_partial;
     if (!next_buffer) {
@@ -159,33 +220,30 @@ class BlockReader {
     }
 
     buffer_ = std::move(next_buffer);
-    return TransformYield(JSONBlock{std::exchange(partial_, next_partial),
-                                    std::move(completion), std::move(whole), index_++});
+    return TransformYield(ChunkedBlock{std::exchange(partial_, next_partial),
+                                       std::move(completion), std::move(whole),
+                                       index_++});
   }
 
- private:
   std::unique_ptr<Chunker> chunker_;
   std::shared_ptr<Buffer> partial_;
   std::shared_ptr<Buffer> buffer_;
   int64_t index_ = 0;
 };
 
-}  // namespace
-}  // namespace json
+template <typename... Args>
+Iterator<ChunkedBlock> MakeChunkingIterator(Iterator<std::shared_ptr<Buffer>> source,
+                                            Args&&... args) {
+  return MakeTransformedIterator(std::move(source),
+                                 ChunkingTransformer::Make(std::forward<Args>(args)...));
+}
 
-template <>
-struct IterationTraits<json::JSONBlock> {
-  static json::JSONBlock End() { return json::JSONBlock{}; }
-  static bool IsEnd(const json::JSONBlock& val) { return val.index < 0; }
-};
-
-template <>
-struct IterationTraits<json::DecodedBlock> {
-  static json::DecodedBlock End() { return json::DecodedBlock{}; }
-  static bool IsEnd(const json::DecodedBlock& val) { return val.index < 0; }
-};
-
-namespace json {
+template <typename... Args>
+AsyncGenerator<ChunkedBlock> MakeChunkingGenerator(
+    AsyncGenerator<std::shared_ptr<Buffer>> source, Args&&... args) {
+  return MakeTransformedGenerator(std::move(source),
+                                  ChunkingTransformer::Make(std::forward<Args>(args)...));
+}
 
 class TableReaderImpl : public TableReader,
                         public std::enable_shared_from_this<TableReaderImpl> {
@@ -193,9 +251,8 @@ class TableReaderImpl : public TableReader,
   TableReaderImpl(MemoryPool* pool, const ReadOptions& read_options,
                   const ParseOptions& parse_options,
                   std::shared_ptr<TaskGroup> task_group)
-      : pool_(pool),
+      : decode_context_(parse_options, pool),
         read_options_(read_options),
-        parse_options_(parse_options),
         task_group_(std::move(task_group)) {}
 
   Status Init(std::shared_ptr<io::InputStream> input) {
@@ -206,20 +263,22 @@ class TableReaderImpl : public TableReader,
   }
 
   Result<std::shared_ptr<Table>> Read() override {
-    ARROW_ASSIGN_OR_RAISE(auto buffer, buffer_iterator_.Next());
-    if (buffer == nullptr) {
-      return Status::Invalid("Empty JSON file");
-    }
+    auto block_it = MakeChunkingIterator(std::move(buffer_iterator_),
+                                         MakeChunker(decode_context_.parse_options()));
 
-    RETURN_NOT_OK(MakeBuilder());
-
-    auto block_it = BlockReader::MakeIterator(
-        std::move(buffer_iterator_), MakeChunker(parse_options_), std::move(buffer));
+    bool did_read = false;
     while (true) {
       ARROW_ASSIGN_OR_RAISE(auto block, block_it.Next());
       if (IsIterationEnd(block)) break;
+      if (!did_read) {
+        did_read = true;
+        RETURN_NOT_OK(MakeBuilder());
+      }
       task_group_->Append(
           [self = shared_from_this(), block] { return self->ParseAndInsert(block); });
+    }
+    if (!did_read) {
+      return Status::Invalid("Empty JSON file");
     }
 
     std::shared_ptr<ChunkedArray> array;
@@ -229,31 +288,200 @@ class TableReaderImpl : public TableReader,
 
  private:
   Status MakeBuilder() {
-    auto type = parse_options_.explicit_schema
-                    ? struct_(parse_options_.explicit_schema->fields())
-                    : struct_({});
-
-    auto promotion_graph =
-        parse_options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType
-            ? GetPromotionGraph()
-            : nullptr;
-
-    return MakeChunkedArrayBuilder(task_group_, pool_, promotion_graph, type, &builder_);
+    return MakeChunkedArrayBuilder(task_group_, decode_context_.pool(),
+                                   decode_context_.promotion_graph(),
+                                   decode_context_.conversion_type(), &builder_);
   }
 
-  Status ParseAndInsert(const JSONBlock& block) {
-    ARROW_ASSIGN_OR_RAISE(auto parsed, ParseBlock(block, parse_options_, pool_));
+  Status ParseAndInsert(const ChunkedBlock& block) {
+    ARROW_ASSIGN_OR_RAISE(auto parsed, ParseBlock(block, decode_context_.parse_options(),
+                                                  decode_context_.pool()));
     builder_->Insert(block.index, field("", parsed->type()), parsed);
     return Status::OK();
   }
 
-  MemoryPool* pool_;
+  DecodeContext decode_context_;
   ReadOptions read_options_;
-  ParseOptions parse_options_;
   std::shared_ptr<TaskGroup> task_group_;
   Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
   std::shared_ptr<ChunkedArrayBuilder> builder_;
 };
+
+// Callable object for parsing/converting individual JSON blocks. The class itself can be
+// called concurrently but reads from the `DecodeContext` aren't synchronized
+class DecodingOperator {
+ public:
+  explicit DecodingOperator(std::shared_ptr<const DecodeContext> context)
+      : context_(std::move(context)) {}
+
+  Result<DecodedBlock> operator()(const ChunkedBlock& block) const {
+    int64_t num_bytes;
+    ARROW_ASSIGN_OR_RAISE(auto unconverted, ParseBlock(block, context_->parse_options(),
+                                                       context_->pool(), &num_bytes));
+
+    std::shared_ptr<ChunkedArrayBuilder> builder;
+    RETURN_NOT_OK(MakeChunkedArrayBuilder(TaskGroup::MakeSerial(), context_->pool(),
+                                          context_->promotion_graph(),
+                                          context_->conversion_type(), &builder));
+    builder->Insert(0, field("", unconverted->type()), unconverted);
+
+    std::shared_ptr<ChunkedArray> chunked;
+    RETURN_NOT_OK(builder->Finish(&chunked));
+    ARROW_ASSIGN_OR_RAISE(auto batch, ToRecordBatch(*chunked->chunk(0)));
+
+    return DecodedBlock{std::move(batch), num_bytes};
+  }
+
+ private:
+  std::shared_ptr<const DecodeContext> context_;
+};
+
+// TODO(benibus): Replace with `MakeApplyGenerator` from
+// github.com/apache/arrow/pull/14269 if/when it gets merged
+//
+// Reads from the source and spawns fan-out decoding tasks on the given executor
+AsyncGenerator<DecodedBlock> MakeDecodingGenerator(
+    AsyncGenerator<ChunkedBlock> source,
+    std::function<Result<DecodedBlock>(const ChunkedBlock&)> decoder,
+    Executor* executor) {
+  struct State {
+    AsyncGenerator<ChunkedBlock> source;
+    std::function<Result<DecodedBlock>(const ChunkedBlock&)> decoder;
+    Executor* executor;
+  } state{std::move(source), std::move(decoder), executor};
+
+  return [state = std::make_shared<State>(std::move(state))] {
+    auto options = CallbackOptions::Defaults();
+    options.executor = state->executor;
+    options.should_schedule = ShouldSchedule::Always;
+
+    return state->source().Then(
+        [state](const ChunkedBlock& block) -> Result<DecodedBlock> {
+          if (IsIterationEnd(block)) {
+            return IterationEnd<DecodedBlock>();
+          } else {
+            return state->decoder(block);
+          }
+        },
+        {}, options);
+  };
+}
+
+class StreamingReaderImpl : public StreamingReader {
+ public:
+  StreamingReaderImpl(DecodedBlock first_block, AsyncGenerator<DecodedBlock> source,
+                      const std::shared_ptr<DecodeContext>& context, int max_readahead)
+      : first_block_(std::move(first_block)),
+        schema_(first_block_->record_batch->schema()),
+        bytes_processed_(std::make_shared<std::atomic<int64_t>>(0)) {
+    // Set the final schema for future invocations of the source generator
+    context->SetStrictSchema(schema_);
+    if (max_readahead > 0) {
+      source = MakeReadaheadGenerator(std::move(source), max_readahead);
+    }
+    generator_ = MakeMappedGenerator(
+        std::move(source), [counter = bytes_processed_](const DecodedBlock& out) {
+          counter->fetch_add(out.num_bytes);
+          return out.record_batch;
+        });
+  }
+
+  static Future<std::shared_ptr<StreamingReaderImpl>> MakeAsync(
+      AsyncGenerator<ChunkedBlock> chunking_gen, std::shared_ptr<DecodeContext> context,
+      Executor* cpu_executor, bool use_threads) {
+    auto source = MakeDecodingGenerator(std::move(chunking_gen),
+                                        DecodingOperator(context), cpu_executor);
+    const int max_readahead = use_threads ? cpu_executor->GetCapacity() : 0;
+    return FirstBlock(source).Then([source = std::move(source),
+                                    context = std::move(context),
+                                    max_readahead](const DecodedBlock& block) {
+      return std::make_shared<StreamingReaderImpl>(block, std::move(source), context,
+                                                   max_readahead);
+    });
+  }
+
+  [[nodiscard]] std::shared_ptr<Schema> schema() const override { return schema_; }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+    auto result = ReadNextAsync().result();
+    return std::move(result).Value(out);
+  }
+
+  Future<std::shared_ptr<RecordBatch>> ReadNextAsync() override {
+    // On the first call, return the batch we used for initialization
+    if (ARROW_PREDICT_FALSE(first_block_)) {
+      bytes_processed_->fetch_add(first_block_->num_bytes);
+      auto batch = std::exchange(first_block_, std::nullopt)->record_batch;
+      return ToFuture(std::move(batch));
+    }
+    return generator_();
+  }
+
+  [[nodiscard]] int64_t bytes_read() const override { return bytes_processed_->load(); }
+
+ private:
+  static Future<DecodedBlock> FirstBlock(AsyncGenerator<DecodedBlock> gen) {
+    // Read from the stream until we get a non-empty record batch that we can use to
+    // declare the schema. Along the way, accumulate the bytes read so they can be
+    // recorded on the first `ReadNextAsync`
+    auto out = std::make_shared<DecodedBlock>();
+    DCHECK_EQ(out->num_bytes, 0);
+    auto loop_body = [gen = std::move(gen),
+                      out = std::move(out)]() -> Future<ControlFlow<DecodedBlock>> {
+      return gen().Then(
+          [out](const DecodedBlock& block) -> Result<ControlFlow<DecodedBlock>> {
+            if (IsIterationEnd(block)) {
+              return Status::Invalid("Empty JSON stream");
+            }
+            out->num_bytes += block.num_bytes;
+            if (block.record_batch->num_rows() == 0) {
+              return Continue();
+            }
+            out->record_batch = block.record_batch;
+            return Break(*out);
+          });
+    };
+    return Loop(std::move(loop_body));
+  }
+
+  std::optional<DecodedBlock> first_block_;
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<std::atomic<int64_t>> bytes_processed_;
+  AsyncGenerator<std::shared_ptr<RecordBatch>> generator_;
+};
+
+template <typename T>
+Result<AsyncGenerator<T>> MakeReentrantGenerator(AsyncGenerator<T> source) {
+  struct State {
+    AsyncGenerator<T> source;
+    std::shared_ptr<ThreadPool> thread_pool;
+  } state{std::move(source), nullptr};
+  ARROW_ASSIGN_OR_RAISE(state.thread_pool, ThreadPool::Make(1));
+
+  return [state = std::make_shared<State>(std::move(state))]() -> Future<T> {
+    auto maybe_future =
+        state->thread_pool->Submit([state] { return state->source().result(); });
+    return DeferNotOk(std::move(maybe_future));
+  };
+}
+
+// Compose an async-reentrant `ChunkedBlock` generator using a sequentially-accessed
+// `InputStream`
+Result<AsyncGenerator<ChunkedBlock>> MakeChunkingGenerator(
+    std::shared_ptr<io::InputStream> stream, int32_t block_size,
+    std::unique_ptr<Chunker> chunker, Executor* io_executor, Executor* cpu_executor) {
+  ARROW_ASSIGN_OR_RAISE(auto source_it,
+                        io::MakeInputStreamIterator(std::move(stream), block_size));
+  ARROW_ASSIGN_OR_RAISE(auto source_gen,
+                        MakeBackgroundGenerator(std::move(source_it), io_executor));
+  source_gen = MakeTransferredGenerator(std::move(source_gen), cpu_executor);
+
+  auto gen = MakeChunkingGenerator(std::move(source_gen), std::move(chunker));
+  ARROW_ASSIGN_OR_RAISE(gen, MakeReentrantGenerator(std::move(gen)));
+  return gen;
+}
+
+}  // namespace
 
 Result<std::shared_ptr<TableReader>> TableReader::Make(
     MemoryPool* pool, std::shared_ptr<io::InputStream> input,
@@ -270,209 +498,52 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
   return ptr;
 }
 
+Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
+    std::shared_ptr<io::InputStream> stream, io::IOContext io_context,
+    Executor* cpu_executor, const ReadOptions& read_options,
+    const ParseOptions& parse_options) {
+  ARROW_ASSIGN_OR_RAISE(auto chunking_gen,
+                        MakeChunkingGenerator(std::move(stream), read_options.block_size,
+                                              MakeChunker(parse_options),
+                                              io_context.executor(), cpu_executor));
+  auto decode_context = std::make_shared<DecodeContext>(parse_options, io_context.pool());
+  auto future =
+      StreamingReaderImpl::MakeAsync(std::move(chunking_gen), std::move(decode_context),
+                                     cpu_executor, read_options.use_threads);
+  return future.Then([](const std::shared_ptr<StreamingReaderImpl>& reader) {
+    return std::static_pointer_cast<StreamingReader>(reader);
+  });
+}
+
+Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
+    std::shared_ptr<io::InputStream> stream, io::IOContext io_context,
+    Executor* cpu_executor, const ReadOptions& read_options,
+    const ParseOptions& parse_options) {
+  auto future = StreamingReader::MakeAsync(std::move(stream), io_context, cpu_executor,
+                                           read_options, parse_options);
+  return future.result();
+}
+
 Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
                                               std::shared_ptr<Buffer> json) {
+  DecodeContext context(std::move(options));
+
   std::unique_ptr<BlockParser> parser;
-  RETURN_NOT_OK(BlockParser::Make(options, &parser));
+  RETURN_NOT_OK(BlockParser::Make(context.parse_options(), &parser));
   RETURN_NOT_OK(parser->Parse(json));
   std::shared_ptr<Array> parsed;
   RETURN_NOT_OK(parser->Finish(&parsed));
 
-  auto type =
-      options.explicit_schema ? struct_(options.explicit_schema->fields()) : struct_({});
-  auto promotion_graph =
-      options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType
-          ? GetPromotionGraph()
-          : nullptr;
   std::shared_ptr<ChunkedArrayBuilder> builder;
-  RETURN_NOT_OK(MakeChunkedArrayBuilder(TaskGroup::MakeSerial(), default_memory_pool(),
-                                        promotion_graph, type, &builder));
+  RETURN_NOT_OK(MakeChunkedArrayBuilder(TaskGroup::MakeSerial(), context.pool(),
+                                        context.promotion_graph(),
+                                        context.conversion_type(), &builder));
 
-  builder->Insert(0, field("", type), parsed);
+  builder->Insert(0, field("", context.conversion_type()), parsed);
   std::shared_ptr<ChunkedArray> converted_chunked;
   RETURN_NOT_OK(builder->Finish(&converted_chunked));
 
   return ToRecordBatch(*converted_chunked->chunk(0));
-}
-
-namespace {
-
-// Callable object for decoding a pre-chunked JSON block into a RecordBatch
-class BlockDecoder {
- public:
-  BlockDecoder(MemoryPool* pool, const ParseOptions& parse_options)
-      : pool_(pool),
-        parse_options_(parse_options),
-        conversion_type_(parse_options_.explicit_schema
-                             ? struct_(parse_options_.explicit_schema->fields())
-                             : struct_({})),
-        promotion_graph_(parse_options_.unexpected_field_behavior ==
-                                 UnexpectedFieldBehavior::InferType
-                             ? GetPromotionGraph()
-                             : nullptr) {}
-
-  Result<DecodedBlock> operator()(const JSONBlock& block) const {
-    int64_t num_bytes;
-    ARROW_ASSIGN_OR_RAISE(auto unconverted,
-                          ParseBlock(block, parse_options_, pool_, &num_bytes));
-
-    std::shared_ptr<ChunkedArrayBuilder> builder;
-    RETURN_NOT_OK(MakeChunkedArrayBuilder(TaskGroup::MakeSerial(), pool_,
-                                          promotion_graph_, conversion_type_, &builder));
-    builder->Insert(0, field("", unconverted->type()), unconverted);
-
-    std::shared_ptr<ChunkedArray> chunked;
-    RETURN_NOT_OK(builder->Finish(&chunked));
-    ARROW_ASSIGN_OR_RAISE(auto batch, ToRecordBatch(*chunked->chunk(0)));
-
-    return DecodedBlock{std::move(batch), num_bytes, block.index};
-  }
-
- private:
-  MemoryPool* pool_;
-  ParseOptions parse_options_;
-  std::shared_ptr<DataType> conversion_type_;
-  const PromotionGraph* promotion_graph_;
-};
-
-}  // namespace
-
-class StreamingReaderImpl : public StreamingReader,
-                            public std::enable_shared_from_this<StreamingReaderImpl> {
- public:
-  StreamingReaderImpl(io::IOContext io_context, Executor* executor,
-                      const ReadOptions& read_options, const ParseOptions& parse_options)
-      : io_context_(std::move(io_context)),
-        executor_(executor),
-        read_options_(read_options),
-        parse_options_(parse_options),
-        bytes_processed_(std::make_shared<std::atomic<int64_t>>(0)) {}
-
-  Future<> Init(std::shared_ptr<io::InputStream> input) {
-    ARROW_ASSIGN_OR_RAISE(auto it,
-                          io::MakeInputStreamIterator(input, read_options_.block_size));
-    ARROW_ASSIGN_OR_RAISE(auto bg_it,
-                          MakeBackgroundGenerator(std::move(it), io_context_.executor()));
-    auto buf_gen = MakeTransferredGenerator(bg_it, executor_);
-    // We pre-fetch the first buffer during instantiation to resolve the schema and ensure
-    // the stream isn't empty
-    return buf_gen().Then(
-        [self = shared_from_this(), buf_gen](const std::shared_ptr<Buffer>& buffer) {
-          return self->InitFromFirstBuffer(buffer, buf_gen);
-        });
-  }
-
-  std::shared_ptr<Schema> schema() const override {
-    return parse_options_.explicit_schema;
-  }
-
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
-    auto future = ReadNextAsync();
-    auto result = future.result();
-    return std::move(result).Value(out);
-  }
-
-  Future<std::shared_ptr<RecordBatch>> ReadNextAsync() override {
-    return record_batch_gen_();
-  }
-
-  int64_t bytes_read() const override { return bytes_processed_->load(); }
-
- private:
-  Future<> InitFromFirstBuffer(const std::shared_ptr<Buffer>& buffer,
-                               AsyncGenerator<std::shared_ptr<Buffer>> buf_gen) {
-    if (!buffer) return Status::Invalid("Empty JSON stream");
-
-    // Generator for pre-chunked JSON data
-    auto block_gen = BlockReader::MakeGenerator(std::move(buf_gen),
-                                                MakeChunker(parse_options_), buffer);
-    // Decoder for the first block using the initial parse options
-    auto decoder = BlockDecoder(io_context_.pool(), parse_options_);
-
-    return block_gen().Then(
-        [self = shared_from_this(), block_gen, decoder](JSONBlock block) -> Future<> {
-          // Skip any initial empty record batches so we can try to get a useful schema
-          int64_t skipped_bytes = 0;
-          ARROW_ASSIGN_OR_RAISE(auto decoded, decoder(block));
-          while (!IsIterationEnd(decoded) && !decoded.record_batch->num_rows()) {
-            skipped_bytes = decoded.num_bytes;
-            auto fut = block_gen();
-            ARROW_ASSIGN_OR_RAISE(block, fut.result());
-            if (IsIterationEnd(block)) {
-              decoded = IterationEnd<DecodedBlock>();
-            } else {
-              ARROW_ASSIGN_OR_RAISE(decoded, decoder(block));
-              decoded.num_bytes += skipped_bytes;
-            }
-          }
-          return self->InitFromFirstDecoded(decoded, block_gen);
-        });
-  }
-
-  Future<> InitFromFirstDecoded(const DecodedBlock& decoded,
-                                AsyncGenerator<JSONBlock> block_gen) {
-    // End of stream and no non-empty batches were yielded, so just return empty ones
-    if (IsIterationEnd(decoded)) {
-      record_batch_gen_ = MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
-      parse_options_.explicit_schema = nullptr;
-      return Status::OK();
-    }
-
-    // Use the schema from the first batch as the basis for all future reads. If type
-    // inference wasn't requested then this should be the same as the provided
-    // explicit_schema. Otherwise, ignore unexpected fields for future batches to ensure
-    // their schemas are consistent
-    parse_options_.explicit_schema = decoded.record_batch->schema();
-    if (parse_options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType) {
-      parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
-    }
-
-    // The final decoder, which uses the resolved parse options for type deduction
-    auto decoded_gen = MakeMappedGenerator(
-        std::move(block_gen), BlockDecoder(io_context_.pool(), parse_options_));
-    if (read_options_.use_threads) {
-      decoded_gen =
-          MakeReadaheadGenerator(std::move(decoded_gen), executor_->GetCapacity());
-    }
-    // Return the batch we just read on first invocation
-    decoded_gen = MakeGeneratorStartsWith({decoded}, std::move(decoded_gen));
-
-    // Compose the final generator
-    record_batch_gen_ = MakeMappedGenerator(
-        std::move(decoded_gen),
-        [bytes_processed = bytes_processed_](const DecodedBlock& decoded) {
-          bytes_processed->fetch_add(decoded.num_bytes);
-          return decoded.record_batch;
-        });
-    record_batch_gen_ =
-        MakeCancellable(std::move(record_batch_gen_), io_context_.stop_token());
-
-    return Status::OK();
-  }
-
-  io::IOContext io_context_;
-  Executor* executor_;
-  ReadOptions read_options_;
-  ParseOptions parse_options_;
-  AsyncGenerator<std::shared_ptr<RecordBatch>> record_batch_gen_;
-  std::shared_ptr<std::atomic<int64_t>> bytes_processed_;
-};
-
-Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
-    io::IOContext io_context, std::shared_ptr<io::InputStream> input, Executor* executor,
-    const ReadOptions& read_options, const ParseOptions& parse_options) {
-  auto reader = std::make_shared<StreamingReaderImpl>(io_context, executor, read_options,
-                                                      parse_options);
-  return reader->Init(input).Then(
-      [reader] { return std::static_pointer_cast<StreamingReader>(reader); });
-}
-
-Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
-    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    const ReadOptions& read_options, const ParseOptions& parse_options) {
-  auto future = StreamingReader::MakeAsync(io_context, input, GetCpuThreadPool(),
-                                           read_options, parse_options);
-  return future.result();
 }
 
 }  // namespace json
