@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
 #include <mutex>
 #include <optional>
 
@@ -217,7 +218,7 @@ struct SourceNode : ExecNode {
 
  private:
   std::mutex mutex_;
-  int32_t backpressure_counter_{0};
+  std::atomic<int32_t> backpressure_counter_{0};
   Future<> backpressure_future_ = Future<>::MakeFinished();
   bool stop_requested_{false};
   bool started_ = false;

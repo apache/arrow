@@ -20,6 +20,7 @@
 #include <arrow/compute/exec/exec_plan.h>
 
 #include <algorithm>
+#include <atomic>
 #include <memory>
 #include <unordered_map>
 #include <variant>
@@ -539,7 +540,7 @@ class TeeNode : public compute::MapNode {
  private:
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
-  int32_t backpressure_counter_ = 0;
+  std::atomic<int32_t> backpressure_counter_ = 0;
 };
 
 }  // namespace
