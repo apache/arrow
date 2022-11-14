@@ -20,6 +20,7 @@
 #include <arrow/compute/exec/exec_plan.h>
 
 #include <algorithm>
+#include <atomic>
 #include <memory>
 #include <unordered_map>
 #include <variant>
@@ -582,7 +583,7 @@ class TeeNode : public compute::MapNode {
   // only returns an unfinished future when it needs backpressure.  Using a serial
   // scheduler here ensures we pause while we wait for backpressure to clear
   std::shared_ptr<util::AsyncTaskScheduler> serial_scheduler_;
-  int32_t backpressure_counter_ = 0;
+  std::atomic<int32_t> backpressure_counter_ = 0;
 };
 
 }  // namespace
