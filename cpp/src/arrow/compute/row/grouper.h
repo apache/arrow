@@ -30,6 +30,7 @@
 namespace arrow {
 namespace compute {
 
+/// \brief A segment of contiguous rows for grouping
 struct ARROW_EXPORT GroupingSegment {
   int64_t offset;
   int64_t length;
@@ -44,6 +45,9 @@ inline bool operator!=(const GroupingSegment& segment1, const GroupingSegment& s
   return !(segment1 == segment2);
 }
 
+/// \brief Computes grouping segments for a batch. Each segment covers rows with identical
+/// values in the batch. The values in the batch are often selected as keys from a larger
+/// batch.
 class ARROW_EXPORT GroupingSegmenter {
  public:
   virtual ~GroupingSegmenter() = default;

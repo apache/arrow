@@ -256,7 +256,8 @@ struct AnyKeysGroupingSegmenter : public StatelessGroupingSegmenter {
     if (datum.is_array()) {
       const std::shared_ptr<ArrayData>& data = datum.array();
       ARROW_DCHECK(data->GetNullCount() == 0);
-      ARROW_DCHECK(*data->type == *uint32());  // as long as Grouper::Consume gives uint32
+      // next line - as long as Grouper::Consume gives uint32
+      DCHECK_EQ(data->type->id(), Type::UINT32);
       const uint32_t* values = data->GetValues<uint32_t>(1);
       int64_t cursor;
       for (cursor = 1; cursor < data->length; cursor++) {

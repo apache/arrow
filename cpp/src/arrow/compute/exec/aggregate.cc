@@ -23,6 +23,7 @@
 #include <unordered_map>
 
 #include "arrow/array/concatenate.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
@@ -109,7 +110,7 @@ Result<FieldVector> ResolveKernels(
 namespace {
 
 template <typename T>
-inline std::string ToString(const std::vector<T>& v) {
+std::string ToString(const std::vector<T>& v) {
   std::stringstream s;
   s << '[';
   for (size_t i = 0; i < v.size(); i++) {
@@ -260,8 +261,7 @@ class GroupByProcess {
       }
       ARROW_RETURN_NOT_OK(key_iterator.Init(keys_batch, ctx->exec_chunksize()));
 
-      std::mutex mutex;
-      std::unordered_map<std::thread::id, size_t> thread_ids;
+      ThreadIndexer thread_indexer;
 
       // start "streaming" execution
       ExecSpan key_batch, argument_batch;
@@ -270,15 +270,7 @@ class GroupByProcess {
         if (key_batch.length == 0) continue;
 
         task_group->Append([&, key_batch, argument_batch] {
-          size_t thread_index;
-          {
-            std::unique_lock<std::mutex> lock(mutex);
-            auto it =
-                thread_ids.emplace(std::this_thread::get_id(), thread_ids.size()).first;
-            thread_index = it->second;
-            DCHECK_LT(static_cast<int>(thread_index), task_group->parallelism());
-          }
-
+          size_t thread_index = thread_indexer();
           auto grouper = groupers[thread_index].get();
 
           // compute a batch of group ids

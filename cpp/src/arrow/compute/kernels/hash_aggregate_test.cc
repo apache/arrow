@@ -316,22 +316,22 @@ Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
 }
 
 template <typename GroupClass>
-void test_group_class_supported_keys() {
-  ASSERT_OK(Grouper::Make({boolean()}));
+void TestGroupClassSupportedKeys() {
+  ASSERT_OK(GroupClass::Make({boolean()}));
 
-  ASSERT_OK(Grouper::Make({int8(), uint16(), int32(), uint64()}));
+  ASSERT_OK(GroupClass::Make({int8(), uint16(), int32(), uint64()}));
 
-  ASSERT_OK(Grouper::Make({dictionary(int64(), utf8())}));
+  ASSERT_OK(GroupClass::Make({dictionary(int64(), utf8())}));
 
-  ASSERT_OK(Grouper::Make({float16(), float32(), float64()}));
+  ASSERT_OK(GroupClass::Make({float16(), float32(), float64()}));
 
-  ASSERT_OK(Grouper::Make({utf8(), binary(), large_utf8(), large_binary()}));
+  ASSERT_OK(GroupClass::Make({utf8(), binary(), large_utf8(), large_binary()}));
 
-  ASSERT_OK(Grouper::Make({fixed_size_binary(16), fixed_size_binary(32)}));
+  ASSERT_OK(GroupClass::Make({fixed_size_binary(16), fixed_size_binary(32)}));
 
-  ASSERT_OK(Grouper::Make({decimal128(32, 10), decimal256(76, 20)}));
+  ASSERT_OK(GroupClass::Make({decimal128(32, 10), decimal256(76, 20)}));
 
-  ASSERT_OK(Grouper::Make({date32(), date64()}));
+  ASSERT_OK(GroupClass::Make({date32(), date64()}));
 
   for (auto unit : {
            TimeUnit::SECOND,
@@ -339,7 +339,7 @@ void test_group_class_supported_keys() {
            TimeUnit::MICRO,
            TimeUnit::NANO,
        }) {
-    ASSERT_OK(Grouper::Make({timestamp(unit), duration(unit)}));
+    ASSERT_OK(GroupClass::Make({timestamp(unit), duration(unit)}));
   }
 
   ASSERT_OK(GroupClass::Make(
@@ -372,7 +372,7 @@ void TestSegments(std::unique_ptr<GroupingSegmenter>& segmenter, const Batch& ba
 }  // namespace
 
 TEST(GroupingSegmenter, SupportedKeys) {
-  test_group_class_supported_keys<GroupingSegmenter>();
+  TestGroupClassSupportedKeys<GroupingSegmenter>();
 }
 
 namespace {
@@ -476,7 +476,7 @@ TEST(GroupingSegmenter, ChunkedBasics) {
   test_grouping_segmenter_basics(batch_make_chunked, batch_identity);
 }
 
-TEST(Grouper, SupportedKeys) { test_group_class_supported_keys<Grouper>(); }
+TEST(Grouper, SupportedKeys) { TestGroupClassSupportedKeys<Grouper>(); }
 
 struct TestGrouper {
   explicit TestGrouper(std::vector<TypeHolder> types, std::vector<ArgShape> shapes = {})
