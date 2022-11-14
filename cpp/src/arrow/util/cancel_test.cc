@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <functional>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -203,6 +204,23 @@ class SignalCancelTest : public CancelTest {
     ASSERT_EQ(internal::SignalFromStatus(st), expected_signal_);
   }
 
+#ifndef _WIN32
+  void RunInChild(std::function<void()> func) {
+    auto child_pid = fork();
+    if (child_pid == -1) {
+      ASSERT_OK(internal::IOErrorFromErrno(errno, "Error calling fork(): "));
+    }
+    if (child_pid == 0) {
+      // Child
+      ASSERT_NO_FATAL_FAILURE(func()) << "Failure in child process";
+      std::exit(0);
+    } else {
+      // Parent
+      AssertChildExit(child_pid);
+    }
+  }
+#endif
+
  protected:
 #ifdef _WIN32
   const int expected_signal_ = SIGINT;
@@ -244,21 +262,19 @@ TEST_F(SignalCancelTest, RegisterUnregister) {
 TEST_F(SignalCancelTest, ForkSafety) {
   RegisterHandler();
 
-  auto child_pid = fork();
-  if (child_pid == 0) {
+  RunInChild([&]() {
     // Child: trigger signal
-    TriggerSignal();
-    // Stop source destruction should neither crash not affect parent
-    std::exit(0);
-  } else {
-    // Parent: shouldn't notice signal raised in child
-    AssertChildExit(child_pid);
     AssertStopNotRequested();
-
-    // Stop source still usable in parent
     TriggerSignal();
     AssertStopRequested();
-  }
+  });
+
+  // Parent: shouldn't notice signals raised in child
+  AssertStopNotRequested();
+
+  // Stop source still usable in parent
+  TriggerSignal();
+  AssertStopRequested();
 }
 #endif
 
