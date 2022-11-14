@@ -300,7 +300,7 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
 /// \param[in] options specify how to unify schema of input tables
 /// \param[in] memory_pool MemoryPool to be used if null-filled arrays need to
 /// be created or if existing column chunks need to endure type conversion
-/// \return Status
+/// \return new Table
 
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> ConcatenateTables(
