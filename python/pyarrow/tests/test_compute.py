@@ -1794,7 +1794,6 @@ def test_strptime():
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="Timezone database is not available on Windows yet")
 def test_strftime():
-    from pyarrow.vendored.version import Version
 
     def _fix_timestamp(s):
         return s
@@ -1935,8 +1934,6 @@ def _check_datetime_components(timestamps, timezone=None):
 
 @pytest.mark.pandas
 def test_extract_datetime_components():
-    from pyarrow.vendored.version import Version
-
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",
@@ -1972,8 +1969,6 @@ def test_extract_datetime_components():
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="Timezone database is not available on Windows yet")
 def test_assume_timezone():
-    from pyarrow.vendored.version import Version
-
     ts_type = pa.timestamp("ns")
     timestamps = pd.to_datetime(["1970-01-01T00:00:59.123456789",
                                  "2000-02-29T23:23:23.999999999",
@@ -2025,10 +2020,10 @@ def test_assume_timezone():
         timezone, ambiguous="raise", nonexistent="latest")
 
     with pytest.raises(ValueError,
-                        match="Timestamp doesn't exist in "
-                                f"timezone '{timezone}'"):
+                       match="Timestamp doesn't exist in "
+                       f"timezone '{timezone}'"):
         pc.assume_timezone(nonexistent_array,
-                            options=options_nonexistent_raise)
+                           options=options_nonexistent_raise)
 
     expected = pa.array(nonexistent.tz_localize(
         timezone, nonexistent="shift_forward"))
@@ -2175,8 +2170,6 @@ def _check_temporal_rounding(ts, values, unit):
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas
 def test_round_temporal(unit):
-    from pyarrow.vendored.version import Version
-
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
     timestamps = [
         "1923-07-07 08:52:35.203790336",
