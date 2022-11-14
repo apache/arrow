@@ -24,12 +24,13 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/array"
 	"github.com/apache/arrow/go/v11/arrow/ipc"
 	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestArrow12072(t *testing.T) {
@@ -332,7 +333,7 @@ func TestIPCTable(t *testing.T) {
 }
 
 // ARROW-18317
-func TestDictionary(t *testing.T) {
+func TestDictionaryDeltas(t *testing.T) {
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer pool.AssertSize(t, 0)
 
