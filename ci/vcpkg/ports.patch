@@ -51,3 +51,19 @@ index 0000000000..a57ce0c22f
 + }
 + 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
+diff --git a/ports/upb/portfile.cmake b/ports/upb/portfile.cmake
+index 374b8e4..0b35490 100644
+--- a/ports/upb/portfile.cmake
++++ b/ports/upb/portfile.cmake
+@@ -11,10 +11,8 @@ vcpkg_from_github(
+         0002-fix-uwp.patch
+ )
+ 
+-vcpkg_find_acquire_program(PYTHON3)
+-
+ vcpkg_execute_required_process(
+-    COMMAND "${PYTHON3}" "${SOURCE_PATH}/cmake/make_cmakelists.py" "cmake/CMakeLists.txt"
++    COMMAND "python" "${SOURCE_PATH}/cmake/make_cmakelists.py" "cmake/CMakeLists.txt"
+     WORKING_DIRECTORY "${SOURCE_PATH}"
+     LOGNAME make_cmakelists)
+ 
