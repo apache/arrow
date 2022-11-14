@@ -16,6 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
 #include <mutex>
 #include <optional>
 
@@ -394,7 +395,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
   AtomicCounter input_counter_;
   std::shared_ptr<SinkNodeConsumer> consumer_;
   std::vector<std::string> names_;
-  int32_t backpressure_counter_ = 0;
+  std::atomic<int32_t> backpressure_counter_ = 0;
 };
 static Result<ExecNode*> MakeTableConsumingSinkNode(
     compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
