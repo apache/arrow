@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include <orc/OrcFile.hh>
@@ -524,34 +525,19 @@ TEST_F(TestORCWriterTrivialWithConversion, writeChunkless) {
                             kDefaultSmallMemStreamSize / 16);
 }
 
-// Invalid Types
-class TestORCWriterInvalidTypes : public ::testing::Test {
- public:
-  TestORCWriterInvalidTypes() {
-    table_schema = schema({field("uint8", uint8()), field("uint16", uint16()),
-                           field("uint32", uint32()), field("uint64", uint64())});
-    auto write_options = adapters::orc::WriteOptions();
-#ifdef ARROW_WITH_SNAPPY
-    write_options.compression = Compression::SNAPPY;
-#else
-    write_options.compression = Compression::UNCOMPRESSED;
-#endif
-    write_options.file_version = adapters::orc::FileVersion(0, 11);
-    write_options.compression_block_size = 32768;
-    write_options.row_index_stride = 5000;
-  }
+class TestORCWriterInvalidTypes : public ::testing::Test {};
 
- protected:
-  std::shared_ptr<Schema> table_schema;
-  adapters::orc::WriteOptions write_options;
-};
 TEST_F(TestORCWriterInvalidTypes, noWriteInvalidTypes) {
-  const std::shared_ptr<Table> table = GenerateRandomTable(table_schema, 5332, 5, 7, 0);
+  // Unsigned integers are not supported by ORC
+  std::shared_ptr<arrow::Schema> table_schema = schema({field("uint64", uint64())});
+  const std::shared_ptr<Table> table = GenerateRandomTable(table_schema, 100, 1, 1, 0);
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(kDefaultSmallMemStreamSize / 16));
-  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
-                                        buffer_output_stream.get(), write_options));
-  ASSERT_RAISES(NotImplemented, writer->Write(*table));
+  EXPECT_OK_AND_ASSIGN(auto writer,
+                       adapters::orc::ORCFileWriter::Open(buffer_output_stream.get()));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  testing::HasSubstr("Unknown or unsupported Arrow type"),
+                                  writer->Write(*table));
 }
 
 // General
