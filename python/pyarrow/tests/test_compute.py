@@ -1797,10 +1797,7 @@ def test_strftime():
     from pyarrow.vendored.version import Version
 
     def _fix_timestamp(s):
-        if Version(pd.__version__) < Version("1.0.0"):
-            return s.to_series().replace("NaT", pd.NaT)
-        else:
-            return s
+        return s
 
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
@@ -1965,8 +1962,6 @@ def test_extract_datetime_components():
     if sys.platform == 'win32':
         # TODO: We should test on windows once ARROW-13168 is resolved.
         pytest.skip('Timezone database is not available on Windows yet')
-    elif Version(pd.__version__) < Version('1.0.0'):
-        pytest.skip('Pandas < 1.0 extracts time components incorrectly.')
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
@@ -2023,30 +2018,29 @@ def test_assume_timezone():
     timezone = "Europe/Brussels"
 
     # nonexistent parameter was introduced in Pandas 0.24.0
-    if Version(pd.__version__) >= Version("0.24.0"):
-        options_nonexistent_raise = pc.AssumeTimezoneOptions(timezone)
-        options_nonexistent_earliest = pc.AssumeTimezoneOptions(
-            timezone, ambiguous="raise", nonexistent="earliest")
-        options_nonexistent_latest = pc.AssumeTimezoneOptions(
-            timezone, ambiguous="raise", nonexistent="latest")
+    options_nonexistent_raise = pc.AssumeTimezoneOptions(timezone)
+    options_nonexistent_earliest = pc.AssumeTimezoneOptions(
+        timezone, ambiguous="raise", nonexistent="earliest")
+    options_nonexistent_latest = pc.AssumeTimezoneOptions(
+        timezone, ambiguous="raise", nonexistent="latest")
 
-        with pytest.raises(ValueError,
-                           match="Timestamp doesn't exist in "
-                                 f"timezone '{timezone}'"):
-            pc.assume_timezone(nonexistent_array,
-                               options=options_nonexistent_raise)
+    with pytest.raises(ValueError,
+                        match="Timestamp doesn't exist in "
+                                f"timezone '{timezone}'"):
+        pc.assume_timezone(nonexistent_array,
+                            options=options_nonexistent_raise)
 
-        expected = pa.array(nonexistent.tz_localize(
-            timezone, nonexistent="shift_forward"))
-        result = pc.assume_timezone(
-            nonexistent_array, options=options_nonexistent_latest)
-        expected.equals(result)
+    expected = pa.array(nonexistent.tz_localize(
+        timezone, nonexistent="shift_forward"))
+    result = pc.assume_timezone(
+        nonexistent_array, options=options_nonexistent_latest)
+    expected.equals(result)
 
-        expected = pa.array(nonexistent.tz_localize(
-            timezone, nonexistent="shift_backward"))
-        result = pc.assume_timezone(
-            nonexistent_array, options=options_nonexistent_earliest)
-        expected.equals(result)
+    expected = pa.array(nonexistent.tz_localize(
+        timezone, nonexistent="shift_backward"))
+    result = pc.assume_timezone(
+        nonexistent_array, options=options_nonexistent_earliest)
+    expected.equals(result)
 
     options_ambiguous_raise = pc.AssumeTimezoneOptions(timezone)
     options_ambiguous_latest = pc.AssumeTimezoneOptions(
@@ -2182,9 +2176,6 @@ def _check_temporal_rounding(ts, values, unit):
 @pytest.mark.pandas
 def test_round_temporal(unit):
     from pyarrow.vendored.version import Version
-
-    if Version(pd.__version__) < Version('1.0.0'):
-        pytest.skip('Pandas < 1.0 rounds differently.')
 
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
     timestamps = [
