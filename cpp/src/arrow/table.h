@@ -292,6 +292,7 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
 /// if schemas are identical. If schemas do not match exactly, an attempt is
 /// made to unify them, and then column chunks are converted to their
 /// respective unified datatype, which will probably incur a copy.
+/// :func:`arrow::PromoteTableToSchema` is used to unify schemas.
 ///
 /// Tables are concatenated in order they are provided in and the order of
 /// rows within tables will be preserved.
