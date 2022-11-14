@@ -4046,6 +4046,9 @@ def test_to_pandas_extension_dtypes_mapping():
 
 
 def test_array_to_pandas():
+    if Version(pd.__version__) < Version("1.1"):
+        pytest.skip("ExtensionDtype to_pandas method missing")
+
     for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
                 pd.interval_range(1, 4).array]:
         result = pa.array(arr).to_pandas()
