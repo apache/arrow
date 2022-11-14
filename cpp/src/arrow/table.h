@@ -289,7 +289,8 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
 /// \brief Construct a new table from multiple input tables.
 ///
 /// The new table is assembled from existing column chunks without copying,
-/// if schemas are identical. If schemas do not match exactly, an attempt is
+/// if schemas are identical. If schemas do not match exactly and 
+/// unifySchemas is enabled in options (off by default), an attempt is
 /// made to unify them, and then column chunks are converted to their
 /// respective unified datatype, which will probably incur a copy.
 /// :func:`arrow::PromoteTableToSchema` is used to unify schemas.
