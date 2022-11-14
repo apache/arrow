@@ -718,6 +718,10 @@ def test_schema_merge():
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
 
+    # raise proper error when passing a non-Schema value
+    with pytest.raises(TypeError):
+        pa.unify_schemas([a, 1])
+
 
 def test_undecodable_metadata():
     # ARROW-10214: undecodable metadata shouldn't fail repr()

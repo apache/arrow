@@ -69,7 +69,7 @@ def _alltypes_example(size=100):
         # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
         # us, ns
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]'),
+                              dtype='datetime64[ms]').astype("datetime64[ns]"),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
@@ -1016,7 +1016,7 @@ class TestConvertDateTimeLikeTypes:
                 '2007-07-13T01:23:34.123',
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
+                dtype='datetime64[ms]').astype("datetime64[ns]")
         })
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
@@ -2718,7 +2718,7 @@ class TestConvertMisc:
         cases.append(boolean_objects)
 
         cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
-                               dtype='datetime64[ms]')
+                               dtype='datetime64[ms]').astype("datetime64[ns]")
                      .reshape(N, K).copy())
 
         strided_mask = (random_numbers > 0).astype(bool)[:, 0]
@@ -4472,6 +4472,18 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
         assert result[0] == expected
 
 
+def test_timestamp_as_object_fixed_offset():
+    # ARROW-16547 to_pandas with timestamp_as_object=True and FixedOffset
+    pytz = pytest.importorskip("pytz")
+    import datetime
+    timezone = pytz.FixedOffset(120)
+    dt = timezone.localize(datetime.datetime(2022, 5, 12, 16, 57))
+
+    table = pa.table({"timestamp_col": pa.array([dt])})
+    result = table.to_pandas(timestamp_as_object=True)
+    assert pa.table(result) == table
+
+
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
 
@@ -4486,3 +4498,16 @@ def test_does_not_mutate_timedelta_dtype():
     t.to_pandas()
 
     assert np.dtype(np.timedelta64) == expected
+
+
+def test_does_not_mutate_timedelta_nested():
+    # ARROW-17893: dataframe with timedelta and a list of dictionary
+    # also with timedelta produces wrong result with to_pandas
+
+    from datetime import timedelta
+    timedelta_1 = [{"timedelta_1": timedelta(seconds=12, microseconds=1)}]
+    timedelta_2 = [timedelta(hours=3, minutes=40, seconds=23)]
+    table = pa.table({"timedelta_1": timedelta_1, "timedelta_2": timedelta_2})
+    df = table.to_pandas()
+
+    assert df["timedelta_2"][0].to_pytimedelta() == timedelta_2[0]

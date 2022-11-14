@@ -169,7 +169,7 @@ class RowTest {
     try (Table t = new Table(vectorList)) {
       Row c = t.immutableRow();
       c.setPosition(1);
-      assertThrows(IllegalStateException.class,
+      assertThrows(IllegalArgumentException.class,
           () -> c.getVarCharObj("wrong name"));
     }
   }

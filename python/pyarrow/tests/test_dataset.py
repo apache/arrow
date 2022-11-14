@@ -492,6 +492,25 @@ def test_scanner(dataset, dataset_reader):
 
 
 @pytest.mark.parquet
+def test_scanner_memory_pool(dataset):
+    # honor default pool - https://issues.apache.org/jira/browse/ARROW-18164
+    old_pool = pa.default_memory_pool()
+    # TODO(ARROW-18293) we should be able to use the proxy memory pool for
+    # for testing, but this crashes
+    # pool = pa.proxy_memory_pool(old_pool)
+    pool = pa.system_memory_pool()
+    pa.set_memory_pool(pool)
+
+    try:
+        allocated_before = pool.bytes_allocated()
+        scanner = ds.Scanner.from_dataset(dataset)
+        _ = scanner.to_table()
+        assert pool.bytes_allocated() > allocated_before
+    finally:
+        pa.set_memory_pool(old_pool)
+
+
+@pytest.mark.parquet
 def test_scanner_async_deprecated(dataset):
     with pytest.warns(FutureWarning):
         dataset.scanner(use_async=False)
@@ -4865,3 +4884,31 @@ def test_write_dataset_with_scanner_use_projected_schema(tempdir):
         ds.write_dataset(
             scanner, tempdir, partitioning=["original_column"], format="ipc"
         )
+
+
+@pytest.mark.parametrize("format", ("ipc", "parquet"))
+def test_read_table_nested_columns(tempdir, format):
+    if format == "parquet":
+        pytest.importorskip("pyarrow.parquet")
+
+    table = pa.table({"user_id": ["abc123", "qrs456"],
+                      "a.dotted.field": [1, 2],
+                      "interaction": [
+        {"type": None, "element": "button",
+         "values": [1, 2], "structs":[{"foo": "bar"}, None]},
+        {"type": "scroll", "element": "window",
+         "values": [None, 3, 4], "structs":[{"fizz": "buzz"}]}
+    ]})
+    ds.write_dataset(table, tempdir / "table", format=format)
+    ds1 = ds.dataset(tempdir / "table", format=format)
+
+    # Dot path to read subsets of nested data
+    table = ds1.to_table(
+        columns=["user_id", "interaction.type", "interaction.values",
+                 "interaction.structs", "a.dotted.field"])
+    assert table.to_pylist() == [
+        {'user_id': 'abc123', 'type': None, 'values': [1, 2],
+         'structs': [{'fizz': None, 'foo': 'bar'}, None], 'a.dotted.field': 1},
+        {'user_id': 'qrs456', 'type': 'scroll', 'values': [None, 3, 4],
+         'structs': [{'fizz': 'buzz', 'foo': None}], 'a.dotted.field': 2}
+    ]

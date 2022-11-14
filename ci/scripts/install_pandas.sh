@@ -35,7 +35,7 @@ else
   pip install numpy==${numpy}
 fi
 
-if [ "${pandas}" = "master" ]; then
+if [ "${pandas}" = "upstream_devel" ]; then
   pip install git+https://github.com/pandas-dev/pandas.git --no-build-isolation
 elif [ "${pandas}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scipy-wheels-nightly/simple --pre pandas

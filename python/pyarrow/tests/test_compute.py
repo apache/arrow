@@ -2927,5 +2927,5 @@ def test_expression_call_function():
 def test_cast_table_raises():
     table = pa.table({'a': [1, 2]})
 
-    with pytest.raises(pa.lib.ArrowInvalid):
+    with pytest.raises(pa.lib.ArrowTypeError):
         pc.cast(table, pa.int64())

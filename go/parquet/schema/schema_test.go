@@ -20,9 +20,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/parquet"
-	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v10/parquet/schema"
+	"github.com/apache/arrow/go/v11/parquet"
+	format "github.com/apache/arrow/go/v11/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v11/parquet/schema"
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

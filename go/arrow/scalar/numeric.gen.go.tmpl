@@ -30,6 +30,19 @@ func (s *{{.Name}}) equals(rhs Scalar) bool {
     return s.Value == rhs.(*{{.Name}}).Value
 }
 
+{{if or (eq .Name "Float32") (eq .Name "Float64") }}
+func (s *{{.Name}}) approxEquals(rhs Scalar, eq equalOption) bool {
+    v1 := float64(s.Value)
+    v2 := float64(rhs.(*{{.Name}}).Value)
+    switch {
+    case eq.nansEq:
+        return v1 == v2 || math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
+    default:
+        return v1 == v2 || math.Abs(v1-v2) <= eq.atol
+    }
+}
+{{end}}
+
 func (s *{{.Name}}) value() interface{} {
     return s.Value
 }

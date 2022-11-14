@@ -74,7 +74,7 @@ Result<Enum> ValidateEnumValue(CType raw) {
   return Status::Invalid("Invalid value for ", EnumTraits<Enum>::name(), ": ", raw);
 }
 
-class GenericOptionsType : public FunctionOptionsType {
+class ARROW_EXPORT GenericOptionsType : public FunctionOptionsType {
  public:
   Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
   Result<std::unique_ptr<FunctionOptions>> Deserialize(
@@ -663,6 +663,11 @@ const FunctionOptionsType* GetFunctionOptionsType(const Properties&... propertie
   } instance(arrow::internal::MakeProperties(properties...));
   return &instance;
 }
+
+Status CheckAllArrayOrScalar(const std::vector<Datum>& values);
+
+ARROW_EXPORT
+Result<std::vector<TypeHolder>> GetFunctionArgumentTypes(const std::vector<Datum>& args);
 
 }  // namespace internal
 }  // namespace compute

@@ -52,7 +52,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         The nodes of the plan that should be applied to the sources
         to produce the output.
     use_threads : bool, default True
-        Whenever to use multithreading or not.
+        Whether to use multithreading or not.
     """
     cdef:
         CExecutor *c_executor
@@ -187,13 +187,13 @@ def _perform_join(join_type, left_operand not None, left_keys,
     right_keys : str or list[str]
         The right key (or keys) on which the join operation should be performed.
     left_suffix : str, default None
-        Which suffix to add to right column names. This prevents confusion
+        Which suffix to add to left column names. This prevents confusion
         when the columns in left and right operands have colliding names.
     right_suffix : str, default None
-        Which suffic to add to the left column names. This prevents confusion
+        Which suffix to add to the right column names. This prevents confusion
         when the columns in left and right operands have colliding names.
     use_threads : bool, default True
-        Whenever to use multithreading or not.
+        Whether to use multithreading or not.
     coalesce_keys : bool, default False
         If the duplicated keys should be omitted from one of the sides
         in the join result.

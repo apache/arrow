@@ -1088,6 +1088,24 @@ TEST_P(TestScanner, ProjectedScanNested) {
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
 }
 
+TEST_P(TestScanner, ProjectedScanNestedFromNames) {
+  SetSchema({
+      field("struct", struct_({field("i32", int32()), field("f64", float64())})),
+      field("nested", struct_({field("left", int32()),
+                               field("right", struct_({field("i32", int32()),
+                                                       field("f64", float64())}))})),
+  });
+  ASSERT_OK_AND_ASSIGN(auto descr,
+                       ProjectionDescr::FromNames({".struct.i32", "nested.right.f64"},
+                                                  *options_->dataset_schema))
+  SetProjection(options_.get(), std::move(descr));
+  auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  auto batch_out = ConstantArrayGenerator::Zeroes(
+      GetParam().items_per_batch,
+      schema({field("i32", int32()), field("f64", float64())}));
+  AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
+}
+
 TEST_P(TestScanner, MaterializeMissingColumn) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch_missing_f64 = ConstantArrayGenerator::Zeroes(
@@ -2139,7 +2157,9 @@ struct TestPlan {
         .Then([collected_fut]() -> Result<std::vector<compute::ExecBatch>> {
           ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
           return ::arrow::internal::MapVector(
-              [](std::optional<compute::ExecBatch> batch) { return std::move(*batch); },
+              [](std::optional<compute::ExecBatch> batch) {
+                return batch.value_or(compute::ExecBatch());
+              },
               std::move(collected));
         });
   }

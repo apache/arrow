@@ -20,9 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
 )
 
 func haveChunkedArray(values []Datum) bool {
@@ -97,6 +97,25 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 
 	if k, err = fn.DispatchBest(inTypes...); err != nil {
 		return
+	}
+
+	var newArgs []Datum
+	// cast arguments if necessary
+	for i, arg := range args {
+		if !arrow.TypeEqual(inTypes[i], arg.(ArrayLikeDatum).Type()) {
+			if newArgs == nil {
+				newArgs = make([]Datum, len(args))
+				copy(newArgs, args)
+			}
+			newArgs[i], err = CastDatum(ctx, arg, SafeCastOptions(inTypes[i]))
+			if err != nil {
+				return nil, err
+			}
+			defer newArgs[i].Release()
+		}
+	}
+	if newArgs != nil {
+		args = newArgs
 	}
 
 	kctx := &exec.KernelCtx{Ctx: ctx, Kernel: k}

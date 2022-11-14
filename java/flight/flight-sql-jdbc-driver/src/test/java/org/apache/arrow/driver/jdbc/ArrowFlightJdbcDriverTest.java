@@ -17,9 +17,11 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -91,17 +93,15 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} fails when provided with an
+   * Tests whether the {@link ArrowFlightJdbcDriver} returns null when provided with an
    * unsupported URL prefix.
-   *
-   * @throws SQLException If the test passes.
    */
-  @Test(expected = SQLException.class)
+  @Test
   public void testShouldDeclineUrlWithUnsupportedPrefix() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    driver.connect("jdbc:mysql://localhost:32010", dataSource.getProperties("flight", "flight123"))
-        .close();
+    assertNull(driver.connect("jdbc:mysql://localhost:32010",
+        dataSource.getProperties("flight", "flight123")));
   }
 
   /**
@@ -263,7 +263,8 @@ public class ArrowFlightJdbcDriverTest {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
 
     final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
-        "jdbc:arrow-flight-sql://localhost:2222/?key1=value1&key2=value2&a=b");
+        "jdbc:arrow-flight-sql://localhost:2222/?key1=value1&key2=value2&a=b")
+        .orElseThrow(() -> new RuntimeException("URL was rejected"));
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(5, parsedArgs.size());
@@ -284,7 +285,8 @@ public class ArrowFlightJdbcDriverTest {
   public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithSemicolon() throws Exception {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
     final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
-        "jdbc:arrow-flight-sql://localhost:2222/;key1=value1;key2=value2;a=b");
+        "jdbc:arrow-flight-sql://localhost:2222/;key1=value1;key2=value2;a=b")
+        .orElseThrow(() -> new RuntimeException("URL was rejected"));
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(5, parsedArgs.size());
@@ -305,7 +307,8 @@ public class ArrowFlightJdbcDriverTest {
   public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithOneSemicolon() throws Exception {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
     final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
-        "jdbc:arrow-flight-sql://localhost:2222/;key1=value1");
+        "jdbc:arrow-flight-sql://localhost:2222/;key1=value1")
+        .orElseThrow(() -> new RuntimeException("URL was rejected"));
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(3, parsedArgs.size());
@@ -320,16 +323,10 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(parsedArgs.get("key1"), "value1");
   }
 
-  /**
-   * Tests whether an exception is thrown upon attempting to connect to a
-   * malformed URI.
-   *
-   */
   @Test
-  public void testDriverUrlParsingMechanismShouldThrowExceptionUponProvidedWithMalformedUrl() {
+  public void testDriverUrlParsingMechanismShouldReturnEmptyOptionalForUnknownScheme() throws SQLException {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
-    assertThrows(SQLException.class, () -> driver.getUrlsArgs(
-        "jdbc:malformed-url-flight://localhost:2222"));
+    assertFalse(driver.getUrlsArgs("jdbc:malformed-url-flight://localhost:2222").isPresent());
   }
 
   /**
@@ -341,7 +338,8 @@ public class ArrowFlightJdbcDriverTest {
   @Test
   public void testDriverUrlParsingMechanismShouldWorkWithIPAddress() throws Exception {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
-    final Map<Object, Object> parsedArgs = driver.getUrlsArgs("jdbc:arrow-flight-sql://0.0.0.0:2222");
+    final Map<Object, Object> parsedArgs = driver.getUrlsArgs("jdbc:arrow-flight-sql://0.0.0.0:2222")
+        .orElseThrow(() -> new RuntimeException("URL was rejected"));
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(2, parsedArgs.size());
@@ -364,7 +362,8 @@ public class ArrowFlightJdbcDriverTest {
       throws Exception {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
     final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
-        "jdbc:arrow-flight-sql://0.0.0.0:2222?test1=test1value&test2%26continue=test2value&test3=test3value");
+        "jdbc:arrow-flight-sql://0.0.0.0:2222?test1=test1value&test2%26continue=test2value&test3=test3value")
+        .orElseThrow(() -> new RuntimeException("URL was rejected"));
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(5, parsedArgs.size());

@@ -39,6 +39,25 @@ namespace parquet {
 
 class ColumnReader;
 
+namespace {
+
+void PrintPageEncodingStats(std::ostream& stream,
+                            const std::vector<PageEncodingStats>& encoding_stats) {
+  for (size_t i = 0; i < encoding_stats.size(); ++i) {
+    const auto& encoding = encoding_stats.at(i);
+    stream << EncodingToString(encoding.encoding);
+    if (encoding.page_type == parquet::PageType::DICTIONARY_PAGE) {
+      // Explicitly tell if this encoding comes from a dictionary page
+      stream << "(DICT_PAGE)";
+    }
+    if (i + 1 != encoding_stats.size()) {
+      stream << " ";
+    }
+  }
+}
+
+}  // namespace
+
 // ----------------------------------------------------------------------
 // ParquetFilePrinter::DebugPrint
 
@@ -131,9 +150,13 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
              << "  Compression: "
              << ::arrow::internal::AsciiToUpper(
                     Codec::GetCodecAsString(column_chunk->compression()))
-             << ", Encodings:";
-      for (auto encoding : column_chunk->encodings()) {
-        stream << " " << EncodingToString(encoding);
+             << ", Encodings: ";
+      if (column_chunk->encoding_stats().empty()) {
+        for (auto encoding : column_chunk->encodings()) {
+          stream << EncodingToString(encoding) << " ";
+        }
+      } else {
+        PrintPageEncodingStats(stream, column_chunk->encoding_stats());
       }
       stream << std::endl
              << "  Uncompressed Size: " << column_chunk->total_uncompressed_size()
@@ -271,8 +294,12 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
              << ::arrow::internal::AsciiToUpper(
                     Codec::GetCodecAsString(column_chunk->compression()))
              << "\", \"Encodings\": \"";
-      for (auto encoding : column_chunk->encodings()) {
-        stream << EncodingToString(encoding) << " ";
+      if (column_chunk->encoding_stats().empty()) {
+        for (auto encoding : column_chunk->encodings()) {
+          stream << EncodingToString(encoding) << " ";
+        }
+      } else {
+        PrintPageEncodingStats(stream, column_chunk->encoding_stats());
       }
       stream << "\", "
              << "\"UncompressedSize\": \"" << column_chunk->total_uncompressed_size()

@@ -2149,6 +2149,9 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
 /// \brief Interval types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
+/// \brief Duration types for each unit
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& DurationTypes();
 /// \brief Numeric, base binary, date, boolean and null types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();

@@ -45,7 +45,7 @@ jobs:
     name: AMD64 Debian 11 Go ${{ matrix.go }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -67,7 +67,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: '3.10'
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -82,6 +82,16 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push debian-go
+      - name: Run Benchmarks
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          CONBENCH_URL: https://conbench.ursa.dev
+          CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
+          CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
+          CONBENCH_REF: ${{ github.ref_name }}
+        run: |
+          pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
+          python ci/scripts/go_bench_adapt.py
 
   docker_cgo:
     name: AMD64 Debian 11 GO ${{ matrix.go }} - CGO
@@ -181,42 +191,7 @@ jobs:
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
-    steps:      
-      - name: Checkout Arrow
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          submodules: recursive
-      - name: Install go
-        uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
-          cache: true
-          cache-dependency-path: go/go.sum          
-      - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
-      - name: Build
-        shell: bash
-        run: ci/scripts/go_build.sh $(pwd)
-      - name: Test
-        shell: bash
-        run: ci/scripts/go_test.sh $(pwd)
-
-  macos:
-    name: AMD64 macOS 11 Go ${{ matrix.go }}
-    runs-on: macos-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        go: [1.17, 1.18]
-        include:
-          - go: 1.17
-            staticcheck: v0.2.2
-          - go: 1.18
-            staticcheck: latest
-    steps:      
+    steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -237,6 +212,58 @@ jobs:
         shell: bash
         run: ci/scripts/go_test.sh $(pwd)
 
+  macos:
+    name: AMD64 macOS 11 Go ${{ matrix.go }}
+    runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [1.17, 1.18]
+        include:
+          - go: 1.17
+            staticcheck: v0.2.2
+          - go: 1.18
+            staticcheck: latest
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
+      - name: Build
+        shell: bash
+        run: ci/scripts/go_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/go_test.sh $(pwd)
+      - name: Setup Python
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Run Benchmarks
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        shell: bash
+        env:
+          CONBENCH_URL: 'https://conbench.ursa.dev'
+          CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
+          CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
+          CONBENCH_REF: ${{ github.ref_name }}
+        run: |
+          pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
+          python ci/scripts/go_bench_adapt.py
+
+
   macos-cgo:
     name: AMD64 macOS 11 Go ${{ matrix.go }} - CGO
     runs-on: macos-latest
@@ -253,7 +280,7 @@ jobs:
             staticcheck: latest
     env:
       ARROW_GO_TESTCGO: "1"
-    steps:      
+    steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:

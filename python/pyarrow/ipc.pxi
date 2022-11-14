@@ -106,12 +106,12 @@ cdef class IpcReadOptions(_Weakrefable):
 
     Parameters
     ----------
-    use_threads : bool
-        Whether to use the global CPU thread pool to parallelize any
-        computational tasks like decompression.
     ensure_native_endian : bool
         Whether to convert incoming data to platform-native endianness.
         Default is true.
+    use_threads : bool
+        Whether to use the global CPU thread pool to parallelize any
+        computational tasks like decompression.
     included_fields : list
         If empty (the default), return all deserialized fields.
         If non-empty, the values are the indices of fields to read on
@@ -757,7 +757,7 @@ cdef class RecordBatchReader(_Weakrefable):
         return self
 
     @staticmethod
-    def from_batches(schema, batches):
+    def from_batches(Schema schema not None, batches):
         """
         Create RecordBatchReader from an iterable of batches.
 

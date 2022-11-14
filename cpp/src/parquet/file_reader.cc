@@ -434,7 +434,8 @@ class SerializedFile : public ParquetFileReader::Contents {
     END_PARQUET_CATCH_EXCEPTIONS
     // Assumes this is kept alive externally
     return source_->ReadAsync(source_size_ - footer_read_size, footer_read_size)
-        .Then([=](const std::shared_ptr<::arrow::Buffer>& footer_buffer)
+        .Then([this,
+               footer_read_size](const std::shared_ptr<::arrow::Buffer>& footer_buffer)
                   -> ::arrow::Future<> {
           uint32_t metadata_len;
           BEGIN_PARQUET_CATCH_EXCEPTIONS
@@ -452,7 +453,8 @@ class SerializedFile : public ParquetFileReader::Contents {
                                                     footer_read_size, metadata_len);
           }
           return source_->ReadAsync(metadata_start, metadata_len)
-              .Then([=](const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
+              .Then([this, footer_buffer, footer_read_size, metadata_len](
+                        const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
                 return ParseMaybeEncryptedMetaDataAsync(footer_buffer, metadata_buffer,
                                                         footer_read_size, metadata_len);
               });
@@ -478,7 +480,8 @@ class SerializedFile : public ParquetFileReader::Contents {
       int64_t metadata_start = read_size.first;
       metadata_len = read_size.second;
       return source_->ReadAsync(metadata_start, metadata_len)
-          .Then([=](const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
+          .Then([this, metadata_len, is_encrypted_footer](
+                    const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
             // Continue and read the file footer
             return ParseMetaDataFinal(metadata_buffer, metadata_len, is_encrypted_footer);
           });

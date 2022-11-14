@@ -32,9 +32,6 @@
 using parquet::format::SchemaElement;
 
 namespace parquet {
-
-namespace schema {
-
 namespace {
 
 void ThrowInvalidLogicalType(const LogicalType& logical_type) {
@@ -43,7 +40,18 @@ void ThrowInvalidLogicalType(const LogicalType& logical_type) {
   throw ParquetException(ss.str());
 }
 
+void CheckColumnBounds(int column_index, size_t max_columns) {
+  if (ARROW_PREDICT_FALSE(column_index < 0 ||
+                          static_cast<size_t>(column_index) >= max_columns)) {
+    std::stringstream ss;
+    ss << "Invalid Column Index: " << column_index << " Num columns: " << max_columns;
+    throw ParquetException(ss.str());
+  }
+}
+
 }  // namespace
+
+namespace schema {
 
 // ----------------------------------------------------------------------
 // ColumnPath
@@ -874,7 +882,7 @@ bool ColumnDescriptor::Equals(const ColumnDescriptor& other) const {
 }
 
 const ColumnDescriptor* SchemaDescriptor::Column(int i) const {
-  DCHECK(i >= 0 && i < static_cast<int>(leaves_.size()));
+  CheckColumnBounds(i, leaves_.size());
   return &leaves_[i];
 }
 
@@ -899,7 +907,7 @@ int SchemaDescriptor::ColumnIndex(const Node& node) const {
 }
 
 const schema::Node* SchemaDescriptor::GetColumnRoot(int i) const {
-  DCHECK(i >= 0 && i < static_cast<int>(leaves_.size()));
+  CheckColumnBounds(i, leaves_.size());
   return leaf_to_base_.find(i)->second.get();
 }
 
