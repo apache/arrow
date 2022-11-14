@@ -92,6 +92,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
+#include "arrow/util/atfork_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
@@ -1190,7 +1191,7 @@ namespace {
 #define PIPE_READ read
 #endif
 
-class SelfPipeImpl : public SelfPipe {
+class SelfPipeImpl : public SelfPipe, public std::enable_shared_from_this<SelfPipeImpl> {
   static constexpr uint64_t kEofPayload = 5804561806345822987ULL;
 
  public:
@@ -1205,6 +1206,28 @@ class SelfPipeImpl : public SelfPipe {
       // We cannot afford blocking writes in a signal handler
       RETURN_NOT_OK(SetPipeFileDescriptorNonBlocking(pipe_.wfd.fd()));
     }
+
+    atfork_handler_ = std::make_shared<AtForkHandler>(
+        /*before=*/
+        [weak_self = std::weak_ptr<SelfPipeImpl>(shared_from_this())] {
+          auto self = weak_self.lock();
+          if (self) {
+            self->BeforeFork();
+          }
+          return self;
+        },
+        /*parent_after=*/
+        [](std::any token) {
+          auto self = std::any_cast<std::shared_ptr<SelfPipeImpl>>(std::move(token));
+          self->ParentAfterFork();
+        },
+        /*child_after=*/
+        [](std::any token) {
+          auto self = std::any_cast<std::shared_ptr<SelfPipeImpl>>(std::move(token));
+          self->ChildAfterFork();
+        });
+    RegisterAtFork(atfork_handler_);
+
     return Status::OK();
   }
 
@@ -1212,10 +1235,6 @@ class SelfPipeImpl : public SelfPipe {
     if (pipe_.rfd.closed()) {
       // Already closed
       return ClosedPipe();
-    }
-    if (InForkedChild()) {
-      return Status::Invalid(
-          "Self-pipe was created in parent process, cannot wait in child");
     }
     uint64_t payload = 0;
     char* buf = reinterpret_cast<char*>(&payload);
@@ -1253,12 +1272,6 @@ class SelfPipeImpl : public SelfPipe {
   }
 
   Status Shutdown() override {
-    if (InForkedChild()) {
-      // We're in a forked child process, avoid sending an EOF payload
-      // that may be received by the parent; just close our file descriptor
-      // (shared with the parent).
-      return pipe_.wfd.Close();
-    }
     please_shutdown_.store(true);
     errno = 0;
     if (!DoSend(kEofPayload)) {
@@ -1274,24 +1287,25 @@ class SelfPipeImpl : public SelfPipe {
   ~SelfPipeImpl() { ARROW_WARN_NOT_OK(Shutdown(), "On self-pipe destruction"); }
 
  protected:
-  Status ClosedPipe() const { return Status::Invalid("Self-pipe closed"); }
+  void BeforeFork() {}
 
-  bool InForkedChild() {
-#ifndef _WIN32
-    return pid_.load() != getpid();
-#else
-    return false;
-#endif
+  void ParentAfterFork() {}
+
+  void ChildAfterFork() {
+    // Close and recreate pipe, to avoid interfering with parent.
+    const bool was_closed = pipe_.rfd.closed() || pipe_.wfd.closed();
+    ARROW_CHECK_OK(pipe_.Close());
+    if (!was_closed) {
+      ARROW_CHECK_OK(CreatePipe().Value(&pipe_));
+    }
   }
+
+  Status ClosedPipe() const { return Status::Invalid("Self-pipe closed"); }
 
   bool DoSend(uint64_t payload) {
     // This needs to be async-signal safe as it's called from Send()
     if (pipe_.wfd.closed()) {
       // Already closed
-      return false;
-    }
-    if (InForkedChild()) {
-      // We're in a forked child process, avoid sending payload to parent.
       return false;
     }
     const char* buf = reinterpret_cast<const char*>(&payload);
@@ -1317,9 +1331,8 @@ class SelfPipeImpl : public SelfPipe {
   const bool signal_safe_;
   Pipe pipe_;
   std::atomic<bool> please_shutdown_{false};
-#ifndef _WIN32
-  std::atomic<pid_t> pid_{getpid()};
-#endif
+
+  std::shared_ptr<AtForkHandler> atfork_handler_;
 };
 
 #undef PIPE_WRITE
