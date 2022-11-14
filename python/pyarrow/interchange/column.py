@@ -26,6 +26,7 @@ from typing import (
 )
 
 import pyarrow as pa
+import pyarrow.compute as pc
 from pyarrow.interchange.buffer import PyArrowBuffer
 from pyarrow.interchange.dataframe_protocol import (Column, ColumnBuffers,
                                                     ColumnNullType, DtypeKind,
@@ -197,7 +198,7 @@ class PyArrowColumn(Column):
 
     @property
     def describe_null(self) -> Tuple[ColumnNullType, Any]:
-        return ColumnNullType.USE_BYTEMASK, 0
+        return ColumnNullType.USE_BITMASK, 0
 
     @property
     def null_count(self) -> int:
@@ -304,11 +305,19 @@ class PyArrowColumn(Column):
             array = self._col.combine_chunks()
         else:
             array = self._col
+        dtype = self.dtype
+
+        # In case of boolean arrays, cast to uint8 array
+        # as bit packed buffers are not supported
+        if pa.types.is_boolean(array.type):
+            array = pc.cast(array, pa.uint8())
+            dtype = PyArrowColumn(array).dtype
+
         n = len(array.buffers())
         if n == 2:
-            return PyArrowBuffer(array.buffers()[1]), self.dtype
+            return PyArrowBuffer(array.buffers()[1]), dtype
         elif n == 3:
-            return PyArrowBuffer(array.buffers()[2]), self.dtype
+            return PyArrowBuffer(array.buffers()[2]), dtype
 
     def _get_validity_buffer(self) -> Tuple[PyArrowBuffer, Any]:
         """
