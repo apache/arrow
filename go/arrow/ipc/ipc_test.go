@@ -346,7 +346,7 @@ func TestDictionaryDeltas(t *testing.T) {
 
 	// IPC writer and reader
 	var bufWriter bytes.Buffer
-	ipcWriter := ipc.NewWriter(&bufWriter, ipc.WithSchema(schema))
+	ipcWriter := ipc.NewWriter(&bufWriter, ipc.WithSchema(schema), ipc.WithAllocator(pool), ipc.WithDictionaryDeltas(true))
 	defer ipcWriter.Close()
 
 	bufReader := bytes.NewReader([]byte{})
