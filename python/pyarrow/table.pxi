@@ -2833,9 +2833,9 @@ cdef class Table(_PandasConvertible):
         dtypes is added, this value should be propagated to columns.
         """
 
-        from pyarrow.interchange.dataframe import TableXchg
+        from pyarrow.interchange.dataframe import _PyArrowDataFrame
 
-        return TableXchg(self, nan_as_null, allow_copy)
+        return _PyArrowDataFrame(self, nan_as_null, allow_copy)
 
     # ----------------------------------------------------------------------
 

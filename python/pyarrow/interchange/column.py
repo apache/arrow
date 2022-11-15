@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import enum
 from typing import (
     Any,
     Dict,
@@ -25,12 +26,49 @@ from typing import (
     Tuple,
 )
 
+import sys
+if sys.version_info >= (3, 8):
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
+
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.interchange.buffer import PyArrowBuffer
-from pyarrow.interchange.dataframe_protocol import (Column, ColumnBuffers,
-                                                    ColumnNullType, DtypeKind,
-                                                    CategoricalDescription)
+from pyarrow.interchange.buffer import _PyArrowBuffer
+
+
+class DtypeKind(enum.IntEnum):
+    """
+    Integer enum for data types.
+    Attributes
+    ----------
+    INT : int
+        Matches to signed integer data type.
+    UINT : int
+        Matches to unsigned integer data type.
+    FLOAT : int
+        Matches to floating point data type.
+    BOOL : int
+        Matches to boolean data type.
+    STRING : int
+        Matches to string data type (UTF-8 encoded).
+    DATETIME : int
+        Matches to datetime data type.
+    CATEGORICAL : int
+        Matches to categorical data type.
+    """
+
+    INT = 0
+    UINT = 1
+    FLOAT = 2
+    BOOL = 20
+    STRING = 21  # UTF-8
+    DATETIME = 22
+    CATEGORICAL = 23
+
+
+Dtype = Tuple[DtypeKind, int, str, str]  # see Column.dtype
+
 
 _PYARROW_KINDS = {
     pa.int8(): (DtypeKind.INT, "c"),
@@ -50,6 +88,58 @@ _PYARROW_KINDS = {
 }
 
 
+class ColumnNullType(enum.IntEnum):
+    """
+    Integer enum for null type representation.
+    Attributes
+    ----------
+    NON_NULLABLE : int
+        Non-nullable column.
+    USE_NAN : int
+        Use explicit float NaN value.
+    USE_SENTINEL : int
+        Sentinel value besides NaN.
+    USE_BITMASK : int
+        The bit is set/unset representing a null on a certain position.
+    USE_BYTEMASK : int
+        The byte is set/unset representing a null on a certain position.
+    """
+
+    NON_NULLABLE = 0
+    USE_NAN = 1
+    USE_SENTINEL = 2
+    USE_BITMASK = 3
+    USE_BYTEMASK = 4
+
+
+class ColumnBuffers(TypedDict):
+    # first element is a buffer containing the column data;
+    # second element is the data buffer's associated dtype
+    data: Tuple[_PyArrowBuffer, Dtype]
+
+    # first element is a buffer containing mask values indicating missing data;
+    # second element is the mask value buffer's associated dtype.
+    # None if the null representation is not a bit or byte mask
+    validity: Optional[Tuple[_PyArrowBuffer, Dtype]]
+
+    # first element is a buffer containing the offset values for
+    # variable-size binary data (e.g., variable-length strings);
+    # second element is the offsets buffer's associated dtype.
+    # None if the data buffer does not have an associated offsets buffer
+    offsets: Optional[Tuple[_PyArrowBuffer, Dtype]]
+
+
+class CategoricalDescription(TypedDict):
+    # whether the ordering of dictionary indices is semantically meaningful
+    is_ordered: bool
+    # whether a dictionary-style mapping of categorical values to other objects
+    # exists
+    is_dictionary: bool
+    # Python-level only (e.g. ``{int: str}``).
+    # None if not a dictionary-style categorical.
+    # categories: Optional[Column]
+
+
 class Endianness:
     """Enum indicating the byte-order of a data-type."""
 
@@ -63,7 +153,7 @@ class NoBufferPresent(Exception):
     """Exception to signal that there is no requested buffer."""
 
 
-class PyArrowColumn(Column):
+class _PyArrowColumn:
     """
     A column object, with only the methods and properties required by the
     interchange protocol defined.
@@ -71,6 +161,31 @@ class PyArrowColumn(Column):
     buffers - a data buffer, a mask buffer (depending on null representation),
     and an offsets buffer (if variable-size binary; e.g., variable-length
     strings).
+    TBD: Arrow has a separate "null" dtype, and has no separate mask concept.
+         Instead, it seems to use "children" for both columns with a bit mask,
+         and for nested dtypes. Unclear whether this is elegant or confusing.
+         This design requires checking the null representation explicitly.
+         The Arrow design requires checking:
+         1. the ARROW_FLAG_NULLABLE (for sentinel values)
+         2. if a column has two children, combined with one of those children
+            having a null dtype.
+         Making the mask concept explicit seems useful. One null dtype would
+         not be enough to cover both bit and byte masks, so that would mean
+         even more checking if we did it the Arrow way.
+    TBD: there's also the "chunk" concept here, which is implicit in Arrow as
+         multiple buffers per array (= column here). Semantically it may make
+         sense to have both: chunks were meant for example for lazy evaluation
+         of data which doesn't fit in memory, while multiple buffers per column
+         could also come from doing a selection operation on a single
+         contiguous buffer.
+         Given these concepts, one would expect chunks to be all of the same
+         size (say a 10,000 row dataframe could have 10 chunks of 1,000 rows),
+         while multiple buffers could have data-dependent lengths. Not an issue
+         in pandas if one column is backed by a single NumPy array, but in
+         Arrow it seems possible.
+         Are multiple chunks *and* multiple buffers per column necessary for
+         the purposes of this interchange protocol, or must producers either
+         reuse the chunk concept for this or copy the data?
     Note: this Column object can only be produced by ``__dataframe__``, so
           doesn't need its own version or ``__column__`` protocol.
     """
@@ -88,6 +203,10 @@ class PyArrowColumn(Column):
     def size(self) -> int:
         """
         Size of the column, in elements.
+        Corresponds to DataFrame.num_rows() if column is a single chunk;
+        equal to size of this current chunk otherwise.
+        Is a method rather than a property because it may cause a (potentially
+        expensive) computation for some dataframe implementations.
         """
         return len(self._col)
 
@@ -95,6 +214,9 @@ class PyArrowColumn(Column):
     def offset(self) -> int:
         """
         Offset of first element.
+        May be > 0 if using chunks; for example for a column with N chunks of
+        equal size M (only the last chunk may be shorter),
+        ``offset = n * M``, ``n = 0 .. N-1``.
         """
         return 0
 
@@ -104,14 +226,14 @@ class PyArrowColumn(Column):
         Dtype description as a tuple ``(kind, bit-width, format string,
         endianness)``.
         Bit-width : the number of bits as an integer
-        Format string : data type description format string in Apache Arrow
-                        C Data Interface format.
+        Format string : data type description format string in Apache Arrow C
+                        Data Interface format.
         Endianness : current only native endianness (``=``) is supported
         Notes:
-            - Kind specifiers are aligned with DLPack where possible (hence
-            the jump to 20, leave enough room for future extension)
-            - Masks must be specified as boolean with either bit width 1
-              (for bit masks) or 8 (for byte masks).
+            - Kind specifiers are aligned with DLPack where possible (hence the
+              jump to 20, leave enough room for future extension)
+            - Masks must be specified as boolean with either bit width 1 (for
+              bit masks) or 8 (for byte masks).
             - Dtype width in bits was preferred over bytes
             - Endianness isn't too useful, but included now in case in the
               future we need to support non-native endianness
@@ -166,18 +288,20 @@ class PyArrowColumn(Column):
         """
         If the dtype is categorical, there are two options:
         - There are only values in the data buffer.
-        - There is a separate non-categorical Column encoding for categorical
+        - There is a separate non-categorical Column encoding categorical
           values.
         Raises TypeError if the dtype is not categorical
-        Content of returned dict:
+        Returns the dictionary with description on how to interpret the
+        data buffer:
             - "is_ordered" : bool, whether the ordering of dictionary indices
                              is semantically meaningful.
-            - "is_dictionary" : bool, whether a dictionary-style mapping of
+            - "is_dictionary" : bool, whether a mapping of
                                 categorical values to other objects exists
             - "categories" : Column representing the (implicit) mapping of
                              indices to category values (e.g. an array of
                              cat1, cat2, ...). None if not a dictionary-style
                              categorical.
+        TBD: are there any other in-memory representations that are needed?
         """
         if isinstance(self._col, pa.ChunkedArray):
             arr = self._col.combine_chunks()
@@ -193,24 +317,32 @@ class PyArrowColumn(Column):
         return {
             "is_ordered": self._col.type.ordered,
             "is_dictionary": True,
-            "categories": PyArrowColumn(arr.dictionary),
+            "categories": _PyArrowColumn(arr.dictionary),
         }
 
     @property
     def describe_null(self) -> Tuple[ColumnNullType, Any]:
+        """
+        Return the missing value (or "null") representation the column dtype
+        uses, as a tuple ``(kind, value)``.
+        Value : if kind is "sentinel value", the actual value. If kind is a bit
+        mask or a byte mask, the value (0 or 1) indicating a missing value.
+        None otherwise.
+        """
         return ColumnNullType.USE_BITMASK, 0
 
     @property
     def null_count(self) -> int:
         """
-        Number of null elements. Should always be known.
+        Number of null elements, if known.
+        Note: Arrow uses -1 to indicate "unknown", but None seems cleaner.
         """
         return self._col.null_count
 
     @property
     def metadata(self) -> Dict[str, Any]:
         """
-        Store specific metadata of the column.
+        The metadata for the column. See `DataFrame.metadata` for more details.
         """
         pass
 
@@ -224,7 +356,9 @@ class PyArrowColumn(Column):
             n_chunks = self._col.num_chunks
         return n_chunks
 
-    def get_chunks(self, n_chunks: Optional[int] = None) -> Iterable["Column"]:
+    def get_chunks(
+        self, n_chunks: Optional[int] = None
+    ) -> Iterable[_PyArrowColumn]:
         """
         Return an iterator yielding the chunks.
         See `DataFrame.get_chunks` for details on ``n_chunks``.
@@ -241,17 +375,17 @@ class PyArrowColumn(Column):
 
             i = 0
             for start in range(0, chunk_size * n_chunks, chunk_size):
-                yield PyArrowColumn(
+                yield _PyArrowColumn(
                     array.slice(start, chunk_size), self._allow_copy
                 )
                 i += 1
             # In case when the size of the chunk is such that the resulting
             # list is one less chunk then n_chunks -> append an empty chunk
             if i == n_chunks - 1:
-                yield PyArrowColumn(pa.array([]), self._allow_copy)
+                yield _PyArrowColumn(pa.array([]), self._allow_copy)
         elif isinstance(self._col, pa.ChunkedArray):
             return [
-                PyArrowColumn(chunk, self._allow_copy)
+                _PyArrowColumn(chunk, self._allow_copy)
                 for chunk in self._col.chunks
             ]
         else:
@@ -296,7 +430,7 @@ class PyArrowColumn(Column):
 
     def _get_data_buffer(
         self,
-    ) -> Tuple[PyArrowBuffer, Any]:  # Any is for self.dtype tuple
+    ) -> Tuple[_PyArrowBuffer, Any]:  # Any is for self.dtype tuple
         """
         Return the buffer containing the data and the buffer's
         associated dtype.
@@ -311,15 +445,15 @@ class PyArrowColumn(Column):
         # as bit packed buffers are not supported
         if pa.types.is_boolean(array.type):
             array = pc.cast(array, pa.uint8())
-            dtype = PyArrowColumn(array).dtype
+            dtype = _PyArrowColumn(array).dtype
 
         n = len(array.buffers())
         if n == 2:
-            return PyArrowBuffer(array.buffers()[1]), dtype
+            return _PyArrowBuffer(array.buffers()[1]), dtype
         elif n == 3:
-            return PyArrowBuffer(array.buffers()[2]), dtype
+            return _PyArrowBuffer(array.buffers()[2]), dtype
 
-    def _get_validity_buffer(self) -> Tuple[PyArrowBuffer, Any]:
+    def _get_validity_buffer(self) -> Tuple[_PyArrowBuffer, Any]:
         """
         Return the buffer containing the mask values indicating missing data
         and the buffer's associated dtype.
@@ -334,13 +468,13 @@ class PyArrowColumn(Column):
             array = self._col
         buff = array.buffers()[0]
         if buff:
-            return PyArrowBuffer(buff), dtype
+            return _PyArrowBuffer(buff), dtype
         else:
             raise NoBufferPresent(
                 "There are no missing values so "
                 "does not have a separate mask")
 
-    def _get_offsets_buffer(self) -> Tuple[PyArrowBuffer, Any]:
+    def _get_offsets_buffer(self) -> Tuple[_PyArrowBuffer, Any]:
         """
         Return the buffer containing the offset values for variable-size binary
         data (e.g., variable-length strings) and the buffer's associated dtype.
@@ -360,4 +494,4 @@ class PyArrowColumn(Column):
         elif n == 3:
             # Define the dtype of the returned buffer
             dtype = (DtypeKind.INT, 64, "L", Endianness.NATIVE)
-            return PyArrowBuffer(array.buffers()[2]), dtype
+            return _PyArrowBuffer(array.buffers()[2]), dtype
