@@ -19,8 +19,8 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from pyarrow.interchange.column import PyArrowColumn
-from pyarrow.interchange.dataframe_protocol import (
+from pyarrow.interchange.column import (
+    _PyArrowColumn,
     ColumnNullType,
     DtypeKind,
 )
@@ -47,7 +47,7 @@ def test_datetime():
 )
 def test_array_to_pyarrowcolumn(test_data, kind):
     arr = pa.array(test_data)
-    arr_column = PyArrowColumn(arr)
+    arr_column = _PyArrowColumn(arr)
 
     assert arr_column._col == arr
     assert arr_column.size() == len(test_data)

@@ -21,10 +21,10 @@ from typing import (
     Any,
 )
 
-from pyarrow.interchange.dataframe_protocol import (
-    Buffer,
-    Column,
-    DataFrame as DataFrameXchg,
+from pyarrow.interchange.buffer import _PyArrowBuffer
+from pyarrow.interchange.column import _PyArrowColumn
+from pyarrow.interchange.dataframe import (
+    _PyArrowDataFrame,
     DtypeKind,
 )
 
@@ -39,7 +39,7 @@ def from_dataframe(df, allow_copy=True) -> pa.Table:
 
     Parameters
     ----------
-    df : DataFrameXchg
+    df : _PyArrowDataFrame
         Object supporting the interchange protocol, i.e. `__dataframe__`
         method.
     allow_copy : bool, default: True
@@ -58,12 +58,12 @@ def from_dataframe(df, allow_copy=True) -> pa.Table:
     return _from_dataframe(df.__dataframe__(allow_copy=allow_copy))
 
 
-def _from_dataframe(df: DataFrameXchg, allow_copy=True):
+def _from_dataframe(df: _PyArrowDataFrame, allow_copy=True):
     """
     Build a ``pa.Table`` from the DataFrame interchange object.
     Parameters
     ----------
-    df : DataFrameXchg
+    df : _PyArrowDataFrame
         Object supporting the interchange protocol, i.e. `__dataframe__`
         method.
     allow_copy : bool, default: True
@@ -76,12 +76,12 @@ def _from_dataframe(df: DataFrameXchg, allow_copy=True):
     pass
 
 
-def protocol_df_chunk_to_pyarrow(df: DataFrameXchg) -> pa.Table:
+def protocol_df_chunk_to_pyarrow(df: _PyArrowDataFrame) -> pa.Table:
     """
     Convert interchange protocol chunk to ``pd.DataFrame``.
     Parameters
     ----------
-    df : DataFrameXchg
+    df : _PyArrowDataFrame
     Returns
     -------
     pa.Table
@@ -118,7 +118,7 @@ def protocol_df_chunk_to_pyarrow(df: DataFrameXchg) -> pa.Table:
     pass
 
 
-def primitive_column_to_ndarray(col: Column) -> tuple[np.ndarray, Any]:
+def primitive_column_to_ndarray(col: _PyArrowColumn) -> tuple[np.ndarray, Any]:
     """
     Convert a column holding one of the primitive dtypes to a NumPy array.
     A primitive type is one of: int, uint, float, bool.
@@ -135,7 +135,7 @@ def primitive_column_to_ndarray(col: Column) -> tuple[np.ndarray, Any]:
 
 
 def categorical_column_to_dictionary(
-    col: Column
+    col: _PyArrowColumn
 ) -> tuple[pa.ChunkedArray, Any]:
     """
     Convert a column holding categorical data to a pandas Series.
@@ -151,7 +151,7 @@ def categorical_column_to_dictionary(
     pass
 
 
-def string_column_to_ndarray(col: Column) -> tuple[np.ndarray, Any]:
+def string_column_to_ndarray(col: _PyArrowColumn) -> tuple[np.ndarray, Any]:
     """
     Convert a column holding string data to a NumPy array.
     Parameters
@@ -171,7 +171,7 @@ def parse_datetime_format_str(format_str, data):
     pass
 
 
-def datetime_column_to_ndarray(col: Column) -> tuple[np.ndarray, Any]:
+def datetime_column_to_ndarray(col: _PyArrowColumn) -> tuple[np.ndarray, Any]:
     """
     Convert a column holding DateTime data to a NumPy array.
     Parameters
@@ -187,7 +187,7 @@ def datetime_column_to_ndarray(col: Column) -> tuple[np.ndarray, Any]:
 
 
 def buffer_to_ndarray(
-    buffer: Buffer,
+    buffer: _PyArrowBuffer,
     dtype: tuple[DtypeKind, int, str, str],
     offset: int = 0,
     length: int | None = None,
@@ -239,8 +239,8 @@ def bitmask_to_bool_ndarray(
 
 def set_nulls(
     data: np.ndarray | pa.Array | pa.ChunkedArray,
-    col: Column,
-    validity: tuple[Buffer, tuple[DtypeKind, int, str, str]] | None,
+    col: _PyArrowColumn,
+    validity: tuple[_PyArrowBuffer, tuple[DtypeKind, int, str, str]] | None,
     allow_modify_inplace: bool = True,
 ):
     """
@@ -249,9 +249,9 @@ def set_nulls(
     ----------
     data : np.ndarray, pa.Array or pa.ChunkedArray,
         Data to set nulls in.
-    col : Column
+    col : _PyArrowColumn
         Column object that describes the `data`.
-    validity : tuple(Buffer, dtype) or None
+    validity : tuple(_PyArrowBuffer, dtype) or None
         The return value of ``col.buffers()``. We do not access the
         ``col.buffers()`` here to not take the ownership of the memory
         of buffer objects.
