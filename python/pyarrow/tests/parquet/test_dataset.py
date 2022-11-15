@@ -1913,49 +1913,34 @@ def test_write_to_dataset_kwargs_passed(tempdir, write_dataset_kwarg):
 @pytest.mark.dataset
 def test_parquet_write_partioning_parser(tempdir):
     import pyarrow.dataset as ds
-    df = pd.DataFrame({'a' : [1, 2, 1, 2, 3, 4, 5, 1, 2, 4, 7, 8],
-                       'b' : [10, 30, 20, 40, 50, 60, 30, 50, 60, 10, 11, 12]})
+    df = pd.DataFrame({'a': [1, 2, 1, 2, 3, 4, 5, 1, 2, 4, 7, 8],
+                       'b': [10, 30, 20, 40, 50, 60, 30, 50, 60, 10, 11, 12]})
     table = pa.Table.from_pandas(df)
     path = tempdir / 'partitioning'
 
-    collector = []
+    partition_paths = []
+
+    def filepath_visitor(x):
+        if "a=1" in x.path or "a=8" in x.path:
+            partition_paths.append(x.path)
+
     ds.write_dataset(
         table,
         base_dir=path,
         format="parquet",
         partitioning=["a"],
         partitioning_flavor="hive",
-        file_visitor=lambda x: collector.append(x)
+        file_visitor=filepath_visitor
     )
 
-    paths = [file.path for file in collector]
     partitioning = ds.partitioning(flavor="hive")
 
     dataset = ds.dataset(source=path, partitioning=partitioning)
+    filter_expr = dataset.partitioning.parse(partition_paths)
 
-    filter_expressions = [dataset.partitioning.parse(path) for path in paths]
-    
-    import operator
-    def reduce(op1, op2, reduction_operator=operator.or_):
-        reduction_operator(op1, op2)
-    
-    def parse_filters(dataset, paths):
-        filter_exprs = [dataset.partitioning.parse(path) for path in paths]
-        print("filter expressions: ")
-        print(filter_exprs)
-        resultant_filter = filter_exprs[0]
-        for exp in filter_exprs[:1]:
-            resultant_filter = reduce(resultant_filter, exp)
-            
-    res_filter = parse_filters(dataset, paths)
-    
-    f1 = ds.field("a") > pc.scalar(3)
-    f2 = ds.field("a") < pc.scalar(8)
-    f11 = ds.field("a") > pc.scalar(3)
-    f22 = ds.field("a") < pc.scalar(6)
-    f3 = f11 & f22
-    print(f3)
-    new_table = dataset.to_table(filter=f3)
-    print(table.to_pandas())
-    print("-" * 80)
-    print(new_table.to_pandas())
+    new_table = dataset.to_table(filter=filter_expr)
+    expected_table = pa.Table.from_arrays([pa.array([10, 20, 50, 12]),
+                                           pa.array([1, 1, 1, 8], pa.int32())],
+                                          ["b", "a"])
+
+    assert new_table.combine_chunks() == expected_table

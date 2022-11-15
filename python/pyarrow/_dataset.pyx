@@ -1425,10 +1425,22 @@ cdef class Partitioning(_Weakrefable):
     cdef inline shared_ptr[CPartitioning] unwrap(self):
         return self.wrapped
 
-    def parse(self, path):
+    def parse(self, paths):
         cdef CResult[CExpression] result
-        result = self.partitioning.Parse(tobytes(path))
-        return Expression.wrap(GetResultValue(result))
+        if isinstance(paths, list):
+            zero_path = paths[0]
+            zero_result = self.partitioning.Parse(tobytes(zero_path))
+            expression = Expression.wrap(GetResultValue(zero_result))
+            for path in paths[1:]:
+                result = self.partitioning.Parse(tobytes(path))
+                expression = expression | Expression.wrap(
+                    GetResultValue(result))
+            return expression
+        elif isinstance(paths, str):
+            result = self.partitioning.Parse(tobytes(paths))
+            return Expression.wrap(GetResultValue(result))
+        else:
+            raise ValueError("paths is a List[str] or str")
 
     @property
     def schema(self):
