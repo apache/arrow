@@ -33,6 +33,7 @@ import (
 	"github.com/apache/arrow/go/v11/parquet/internal/testutils"
 	"github.com/apache/arrow/go/v11/parquet/schema"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -687,6 +688,7 @@ func TestDeltaByteArrayEncoding(t *testing.T) {
 }
 
 func TestDeltaBitPacking(t *testing.T) {
+	require.FileExists(t, "testdata/timestamp.data")
 	f, err := os.Open("testdata/timestamp.data")
 	if err != nil {
 		t.Fatal(err)
