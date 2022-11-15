@@ -149,10 +149,11 @@ struct SignalStopState : public std::enable_shared_from_this<SignalStopState> {
           "lock-free on this platform");
 #else
       ARROW_ASSIGN_OR_RAISE(self_pipe_, SelfPipe::Make(/*signal_safe=*/true));
-      // Spawn thread for receiving signals
-      DCHECK(!signal_receiving_thread_);
-      SpawnSignalReceivingThread();
 #endif
+    }
+    if (!signal_receiving_thread_) {
+      // Spawn thread for receiving signals
+      SpawnSignalReceivingThread();
     }
     self_pipe_ptr_.store(self_pipe_.get());
     for (int signum : signals) {
@@ -271,11 +272,14 @@ struct SignalStopState : public std::enable_shared_from_this<SignalStopState> {
 
   void ChildAfterFork() {
     new (&mutex_) std::mutex;
-    if (signal_receiving_thread_) {
-      // Leak previous thread and re-spawn
-      ARROW_UNUSED(signal_receiving_thread_.release());
-      SpawnSignalReceivingThread();
-    }
+    // Leak previous thread, as it has become invalid.
+    // We can't spawn a new one here as it would have unfortunate side effects;
+    // especially in the frequent context of a fork+exec.
+    // (for example the Python subprocess module closes all fds before calling exec)
+    ARROW_UNUSED(signal_receiving_thread_.release());
+    // Make internal state consistent: with no listening thread, we shouldn't
+    // feed the self-pipe from the signal handler.
+    UnregisterHandlers();
   }
 
   std::mutex mutex_;

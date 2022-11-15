@@ -1150,19 +1150,45 @@ Result<int64_t> FileTell(int fd) {
 }
 
 Result<Pipe> CreatePipe() {
-  int ret;
+  bool ok;
   int fds[2];
+  Pipe pipe;
 
 #if defined(_WIN32)
   ret = _pipe(fds, 4096, _O_BINARY);
+  ok = _pipe(fds, 4096, _O_BINARY) >= 0;
+  if (ok) {
+    pipe = {FileDescriptor(fds[0]), FileDescriptor(fds[1])};
+  }
+#elif defined(__linux__) && defined(__GLIBC__)
+  // On Unix, we don't want the file descriptors to survive after an exec() call
+  ok = pipe2(fds, O_CLOEXEC) >= 0;
+  if (ok) {
+    pipe = {FileDescriptor(fds[0]), FileDescriptor(fds[1])};
+  }
 #else
-  ret = ::pipe(fds);
+  auto set_cloexec = [](int fd) -> bool {
+    int ret = fcntl(fd, F_GETFD);
+    if (ret >= 0) {
+      ret = fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
+    }
+    return ret >= 0;
+  };
+
+  ok = ::pipe(fds) >= 0;
+  if (ok) {
+    pipe = {FileDescriptor(fds[0]), FileDescriptor(fds[1])};
+    ok &= set_cloexec(fds[0]);
+    if (ok) {
+      ok &= set_cloexec(fds[1]);
+    }
+  }
 #endif
-  if (ret == -1) {
+  if (!ok) {
     return IOErrorFromErrno(errno, "Error creating pipe");
   }
 
-  return Pipe{FileDescriptor(fds[0]), FileDescriptor(fds[1])};
+  return pipe;
 }
 
 Status SetPipeFileDescriptorNonBlocking(int fd) {

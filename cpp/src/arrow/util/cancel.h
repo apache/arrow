@@ -104,6 +104,10 @@ ARROW_EXPORT
 void ResetSignalStopSource();
 
 /// EXPERIMENTAL: Register signal handler triggering the signal-receiving StopSource
+///
+/// Note that those handlers are automatically un-registered in a fork()ed process,
+/// therefore the child process will need to call RegisterCancellingSignalHandler()
+/// if desired.
 ARROW_EXPORT
 Status RegisterCancellingSignalHandler(const std::vector<int>& signals);
 

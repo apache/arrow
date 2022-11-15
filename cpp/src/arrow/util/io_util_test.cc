@@ -447,7 +447,8 @@ TEST_F(TestSelfPipe, SendFromSignalAndWait) {
   ASSERT_OK(ReadStatus());
 }
 
-#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
+      defined(THREAD_SANITIZER))
 TEST_F(TestSelfPipe, ForkSafety) {
   self_pipe_->Send(123456789123456789ULL);
 

@@ -258,13 +258,41 @@ TEST_F(SignalCancelTest, RegisterUnregister) {
   AssertStopRequested();
 }
 
-#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
-TEST_F(SignalCancelTest, ForkSafety) {
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
+      defined(THREAD_SANITIZER))
+TEST_F(SignalCancelTest, ForkSafetyUnregisteredHandlers) {
+  RunInChild([&]() {
+    // Child
+    TriggerSignal();
+    AssertStopNotRequested();
+
+    RegisterHandler();
+    TriggerSignal();
+    AssertStopRequested();
+  });
+
+  // Parent: shouldn't notice signals raised in child
+  AssertStopNotRequested();
+
+  // Stop source still usable in parent
+  TriggerSignal();
+  AssertStopNotRequested();
+
+  RegisterHandler();
+  TriggerSignal();
+  AssertStopRequested();
+}
+
+TEST_F(SignalCancelTest, ForkSafetyRegisteredHandlers) {
   RegisterHandler();
 
   RunInChild([&]() {
-    // Child: trigger signal
+    // Child: signal handlers are unregistered and need to be re-registered
+    TriggerSignal();
     AssertStopNotRequested();
+
+    // Can re-register and receive signals
+    RegisterHandler();
     TriggerSignal();
     AssertStopRequested();
   });
