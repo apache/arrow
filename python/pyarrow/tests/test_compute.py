@@ -1794,10 +1794,6 @@ def test_strptime():
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="Timezone database is not available on Windows yet")
 def test_strftime():
-
-    def _fix_timestamp(s):
-        return s
-
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
 
@@ -1812,7 +1808,7 @@ def test_strftime():
             for fmt in formats:
                 options = pc.StrftimeOptions(fmt)
                 result = pc.strftime(tsa, options=options)
-                expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+                expected = pa.array(ts.strftime(fmt))
                 assert result.equals(expected)
 
         fmt = "%Y-%m-%dT%H:%M:%S"
@@ -1820,34 +1816,34 @@ def test_strftime():
         # Default format
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions())
-        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+        expected = pa.array(ts.strftime(fmt))
         assert result.equals(expected)
 
         # Default format plus timezone
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
-        expected = pa.array(_fix_timestamp(ts.strftime(fmt + "%Z")))
+        expected = pa.array(ts.strftime(fmt + "%Z"))
         assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         options = pc.StrftimeOptions("%S")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%S")))
+        expected = pa.array(ts.strftime("%S"))
         assert result.equals(expected)
 
         # Pandas %S.%f is equivalent to %S in arrow for unit="us"
         tsa = pa.array(ts, type=pa.timestamp("us", timezone))
         options = pc.StrftimeOptions("%S")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%S.%f")))
+        expected = pa.array(ts.strftime("%S.%f"))
         assert result.equals(expected)
 
         # Test setting locale
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         options = pc.StrftimeOptions(fmt, locale="C")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+        expected = pa.array(ts.strftime(fmt))
         assert result.equals(expected)
 
     # Test timestamps without timezone
@@ -1855,7 +1851,8 @@ def test_strftime():
     ts = pd.to_datetime(times)
     tsa = pa.array(ts, type=pa.timestamp("s"))
     result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
-    expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+    expected = pa.array(ts.strftime(fmt))
+
     # Positional format
     assert pc.strftime(tsa, fmt) == result
 
