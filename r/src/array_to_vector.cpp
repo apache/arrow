@@ -874,6 +874,12 @@ class Converter_Time : public Converter {
  private:
   int TimeUnit_multiplier(const std::shared_ptr<Array>& array) const {
     // hms difftime is always "seconds", so multiply based on the Array's TimeUnit
+    auto type_casted = std::dynamic_pointer_cast<unit_type>(array->type());
+    if (!type_casted) {
+      std::string type_str_got = array->type()->ToString();
+      Rprintf("Unexpected Array type in Time converter: got %s\n", type_str_got.c_str());
+    }
+
     switch (static_cast<unit_type*>(array->type().get())->unit()) {
       case TimeUnit::SECOND:
         return 1;
@@ -1361,6 +1367,11 @@ std::shared_ptr<ChunkedArray> to_chunks(const std::shared_ptr<Array>& array) {
 
 std::shared_ptr<ChunkedArray> to_chunks(
     const std::shared_ptr<ChunkedArray>& chunked_array) {
+  if (chunked_array->num_chunks() > 0) {
+    Rprintf("First array type is %s but chunked array type is %s\n",
+            chunked_array->chunk(0)->type()->ToString().c_str(),
+            chunked_array->type()->ToString().c_str());
+  }
   return chunked_array;
 }
 

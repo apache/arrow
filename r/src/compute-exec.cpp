@@ -129,6 +129,13 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       }
 
       *batch_out = batch_result.ValueUnsafe();
+
+      if (batch_out->get()->num_columns() > 0) {
+        Rprintf("schema type for column 0 is %s but column type for column 0 is %s\n",
+                schema_->field(0)->type()->ToString().c_str(),
+                batch_out->get()->column(0)->type()->ToString().c_str());
+      }
+
     } else {
       batch_out->reset();
       StopProducing();
