@@ -2009,7 +2009,6 @@ def test_assume_timezone():
 
     timezone = "Europe/Brussels"
 
-    # nonexistent parameter was introduced in Pandas 0.24.0
     options_nonexistent_raise = pc.AssumeTimezoneOptions(timezone)
     options_nonexistent_earliest = pc.AssumeTimezoneOptions(
         timezone, ambiguous="raise", nonexistent="earliest")
