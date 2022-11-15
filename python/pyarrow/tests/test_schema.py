@@ -25,7 +25,6 @@ import numpy as np
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
-from pyarrow.vendored.version import Version
 
 
 def test_schema_constructor_errors():

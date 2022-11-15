@@ -26,7 +26,6 @@ from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
-from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
