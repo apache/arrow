@@ -501,6 +501,7 @@ Structural Transforms
    list_element
    list_flatten
    list_parent_indices
+   list_slice
    list_value_length
    make_struct
    map_lookup
@@ -526,6 +527,7 @@ Compute Options
    FilterOptions
    IndexOptions
    JoinOptions
+   ListSliceOptions
    MakeStructOptions
    MapLookupOptions
    MatchSubstringOptions
