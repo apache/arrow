@@ -170,9 +170,9 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   if (error_type == Aws::S3::S3Errors::UNKNOWN) {
     ss << " (HTTP status " << static_cast<int>(error.GetResponseCode()) << ")";
   }
-  const auto maybe_region = BucketRegionFromError(error);
-  if (maybe_region.has_value() && region.has_value()) {
-    if (maybe_region.value() != region.value()) {
+  if (region.has_value()) {
+    const auto maybe_region = BucketRegionFromError(error);
+    if (maybe_region.has_value() && maybe_region.value() != region.value()) {
       ss << " Looks like the configured region is '" + region.value() +
                 "' while the bucket is located in '" + maybe_region.value() + "': ";
     }
