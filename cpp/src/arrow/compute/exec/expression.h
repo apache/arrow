@@ -220,6 +220,8 @@ ARROW_EXPORT
 Result<Expression> SimplifyWithGuarantee(Expression,
                                          const Expression& guaranteed_true_predicate);
 
+ARROW_EXPORT Result<Expression> RemoveNamedRefs(Expression expression);
+
 /// @}
 
 // Execution

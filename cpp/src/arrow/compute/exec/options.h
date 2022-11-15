@@ -214,9 +214,11 @@ struct ARROW_EXPORT BackpressureOptions {
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
+                           std::shared_ptr<Schema>* schema = NULLPTR,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
+        schema(schema),
         backpressure(std::move(backpressure)),
         backpressure_monitor(backpressure_monitor) {}
 
@@ -226,6 +228,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// data from the plan.  If this function is not called frequently enough then the sink
   /// node will start to accumulate data and may apply backpressure.
   std::function<Future<std::optional<ExecBatch>>()>* generator;
+  std::shared_ptr<Schema>* schema;
   /// \brief Options to control when to apply backpressure
   ///
   /// This is optional, the default is to never apply backpressure.  If the plan is not

@@ -66,6 +66,16 @@ Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
   return custom_open_();
 }
 
+int64_t FileSource::Size() const {
+  if (filesystem_) {
+    return file_info_.size();
+  }
+  if (buffer_) {
+    return buffer_->size();
+  }
+  return custom_size_;
+}
+
 Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
     std::optional<Compression::type> compression) const {
   ARROW_ASSIGN_OR_RAISE(auto file, Open());
@@ -108,6 +118,18 @@ Future<std::optional<int64_t>> FileFormat::CountRows(
   return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
 }
 
+Future<std::shared_ptr<InspectedFragment>> FileFormat::InspectFragment(
+    const FileSource& source, const FragmentScanOptions* format_options,
+    compute::ExecContext* exec_context) const {
+  return Status::NotImplemented("The new scanner is not yet supported on this format");
+}
+
+Future<std::shared_ptr<FragmentScanner>> FileFormat::BeginScan(
+    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+  return Status::NotImplemented("The new scanner is not yet supported on this format");
+}
+
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<Schema> physical_schema) {
   return MakeFragment(std::move(source), compute::literal(true),
@@ -135,6 +157,26 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options) {
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
   return format_->ScanBatchesAsync(options, self);
+}
+
+Future<std::shared_ptr<InspectedFragment>> FileFragment::InspectFragment(
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
+  const FragmentScanOptions* realized_format_options = format_options;
+  if (format_options == nullptr) {
+    realized_format_options = format_->default_fragment_scan_options.get();
+  }
+  return format_->InspectFragment(source_, realized_format_options, exec_context);
+}
+
+Future<std::shared_ptr<FragmentScanner>> FileFragment::BeginScan(
+    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
+  const FragmentScanOptions* realized_format_options = format_options;
+  if (format_options == nullptr) {
+    realized_format_options = format_->default_fragment_scan_options.get();
+  }
+  return format_->BeginScan(request, inspected_fragment, realized_format_options,
+                            exec_context);
 }
 
 Future<std::optional<int64_t>> FileFragment::CountRows(

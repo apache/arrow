@@ -1364,6 +1364,10 @@ TEST(Expression, SimplifyWithValidityGuarantee) {
       .WithGuarantee(is_null(field_ref("i32")))
       .Expect(literal(false));
 
+  Simplify{{true_unless_null(field_ref("i32"))}}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(null_literal(boolean()));
+
   Simplify{is_valid(field_ref("i32"))}
       .WithGuarantee(is_valid(field_ref("i32")))
       .Expect(literal(true));
@@ -1379,6 +1383,21 @@ TEST(Expression, SimplifyWithValidityGuarantee) {
   Simplify{true_unless_null(field_ref("i32"))}
       .WithGuarantee(is_valid(field_ref("i32")))
       .Expect(literal(true));
+
+  Simplify{{equal(field_ref("i32"), literal(7))}}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(null_literal(boolean()));
+
+  auto i32_is_2_or_null =
+      or_(equal(field_ref("i32"), literal(2)), is_null(field_ref("i32")));
+
+  Simplify{i32_is_2_or_null}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(literal(true));
+
+  Simplify{{greater(field_ref("i32"), literal(7))}}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(null_literal(boolean()));
 }
 
 TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
