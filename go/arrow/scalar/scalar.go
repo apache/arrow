@@ -568,7 +568,7 @@ func init() {
 // GetScalar creates a scalar object from the value at a given index in the
 // passed in array, returns an error if unable to do so.
 func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
-	if arr.IsNull(idx) {
+	if arr.DataType().ID() != arrow.DICTIONARY && arr.IsNull(idx) {
 		return MakeNullScalar(arr.DataType()), nil
 	}
 
