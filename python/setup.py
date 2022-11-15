@@ -270,6 +270,8 @@ class build_ext(_build_ext):
                               'PYARROW_WITH_PARQUET_ENCRYPTION')
             append_cmake_bool(self.with_hdfs,
                               'PYARROW_WITH_HDFS')
+            append_cmake_bool(self.with_flight,
+                              'PYARROW_WITH_FLIGHT')
 
             # Windows
             if self.cmake_generator:
