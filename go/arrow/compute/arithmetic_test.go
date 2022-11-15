@@ -27,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/v11/arrow/array"
 	"github.com/apache/arrow/go/v11/arrow/compute"
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/kernels"
 	"github.com/apache/arrow/go/v11/arrow/decimal128"
 	"github.com/apache/arrow/go/v11/arrow/decimal256"
 	"github.com/apache/arrow/go/v11/arrow/internal/testing/gen"
@@ -36,6 +37,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/exp/constraints"
 )
 
 var (
@@ -57,6 +59,43 @@ func init() {
 		CpuCacheSizes[2] = cpuid.CPU.Cache.L3
 	}
 }
+
+func assertNullToNull(t *testing.T, ctx context.Context, fn string, mem memory.Allocator) {
+	f, ok := compute.GetFunctionRegistry().GetFunction(fn)
+	require.True(t, ok)
+	nulls := array.MakeArrayOfNull(mem, arrow.Null, 7)
+	defer nulls.Release()
+	n := f.Arity().NArgs
+
+	t.Run("null to null array", func(t *testing.T) {
+		args := make([]compute.Datum, n)
+		for i := 0; i < n; i++ {
+			args[i] = &compute.ArrayDatum{nulls.Data()}
+		}
+
+		result, err := compute.CallFunction(ctx, fn, nil, args...)
+		assert.NoError(t, err)
+		defer result.Release()
+		out := result.(*compute.ArrayDatum).MakeArray()
+		defer out.Release()
+		assertArraysEqual(t, nulls, out)
+	})
+
+	t.Run("null to null scalar", func(t *testing.T) {
+		args := make([]compute.Datum, n)
+		for i := 0; i < n; i++ {
+			args[i] = compute.NewDatum(scalar.ScalarNull)
+		}
+
+		result, err := compute.CallFunction(ctx, fn, nil, args...)
+		assert.NoError(t, err)
+		assertScalarEquals(t, scalar.ScalarNull, result.(*compute.ScalarDatum).Value)
+	})
+}
+
+type unaryArithmeticFunc = func(context.Context, compute.ArithmeticOptions, compute.Datum) (compute.Datum, error)
+
+type unaryFunc = func(compute.Datum) (compute.Datum, error)
 
 type binaryArithmeticFunc = func(context.Context, compute.ArithmeticOptions, compute.Datum, compute.Datum) (compute.Datum, error)
 
@@ -510,6 +549,12 @@ func (ds *DecimalArithmeticSuite) checkFail(fn string, args []compute.Datum, sub
 	_, err := compute.CallFunction(ds.ctx, fn, opts, args...)
 	ds.ErrorIs(err, arrow.ErrInvalid)
 	ds.ErrorContains(err, substr)
+}
+
+func (ds *DecimalArithmeticSuite) decimalArrayFromJSON(ty arrow.DataType, str string) arrow.Array {
+	arr, _, err := array.FromJSON(ds.mem, ty, strings.NewReader(str))
+	ds.Require().NoError(err)
+	return arr
 }
 
 type DecimalBinaryArithmeticSuite struct {
@@ -977,6 +1022,133 @@ func (ds *DecimalBinaryArithmeticSuite) TestDivide() {
 	})
 }
 
+type DecimalUnaryArithmeticSuite struct {
+	DecimalArithmeticSuite
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestAbsoluteValue() {
+	max128 := decimal128.GetMaxValue(38)
+	max256 := decimal256.GetMaxValue(76)
+	ds.Run("decimal", func() {
+		for _, fn := range []string{"abs_unchecked", "abs"} {
+			ds.Run(fn, func() {
+				for _, ty := range ds.positiveScales() {
+					ds.Run(ty.String(), func() {
+						empty, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`[]`))
+						defer empty.Release()
+						in, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`["1.00", "-42.15", null]`))
+						defer in.Release()
+						exp, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`["1.00", "42.15", null]`))
+						defer exp.Release()
+
+						checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, nil)
+						checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}}, &compute.ArrayDatum{exp.Data()}, nil)
+					})
+				}
+
+				checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(scalar.NewDecimal128Scalar(max128.Negate(), &arrow.Decimal128Type{Precision: 38}))},
+					compute.NewDatum(scalar.NewDecimal128Scalar(max128, &arrow.Decimal128Type{Precision: 38})), nil)
+				checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(scalar.NewDecimal256Scalar(max256.Negate(), &arrow.Decimal256Type{Precision: 76}))},
+					compute.NewDatum(scalar.NewDecimal256Scalar(max256, &arrow.Decimal256Type{Precision: 76})), nil)
+				for _, ty := range ds.negativeScales() {
+					ds.Run(ty.String(), func() {
+						empty, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`[]`))
+						defer empty.Release()
+						in, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`["12E2", "-42E2", null]`))
+						defer in.Release()
+						exp, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`["12E2", "42E2", null]`))
+						defer exp.Release()
+
+						checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, nil)
+						checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}}, &compute.ArrayDatum{exp.Data()}, nil)
+					})
+				}
+			})
+		}
+	})
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestNegate() {
+	max128 := decimal128.GetMaxValue(38)
+	max256 := decimal256.GetMaxValue(76)
+
+	for _, fn := range []string{"negate_unchecked", "negate"} {
+		ds.Run(fn, func() {
+			for _, ty := range ds.positiveScales() {
+				empty, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`[]`))
+				defer empty.Release()
+				in, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`["0.00", "1.00", "-42.15", null]`))
+				defer in.Release()
+				exp, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`["0.00", "-1.00", "42.15", null]`))
+				defer exp.Release()
+
+				checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, nil)
+				checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}}, &compute.ArrayDatum{exp.Data()}, nil)
+			}
+
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(scalar.NewDecimal128Scalar(max128.Negate(), &arrow.Decimal128Type{Precision: 38}))},
+				compute.NewDatum(scalar.NewDecimal128Scalar(max128, &arrow.Decimal128Type{Precision: 38})), nil)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(scalar.NewDecimal256Scalar(max256.Negate(), &arrow.Decimal256Type{Precision: 76}))},
+				compute.NewDatum(scalar.NewDecimal256Scalar(max256, &arrow.Decimal256Type{Precision: 76})), nil)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(scalar.NewDecimal128Scalar(max128, &arrow.Decimal128Type{Precision: 38}))},
+				compute.NewDatum(scalar.NewDecimal128Scalar(max128.Negate(), &arrow.Decimal128Type{Precision: 38})), nil)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(scalar.NewDecimal256Scalar(max256, &arrow.Decimal256Type{Precision: 76}))},
+				compute.NewDatum(scalar.NewDecimal256Scalar(max256.Negate(), &arrow.Decimal256Type{Precision: 76})), nil)
+			for _, ty := range ds.negativeScales() {
+				ds.Run(ty.String(), func() {
+					empty, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`[]`))
+					defer empty.Release()
+					in, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`["0", "12E2", "-42E2", null]`))
+					defer in.Release()
+					exp, _, _ := array.FromJSON(ds.mem, ty, strings.NewReader(`["0", "-12E2", "42E2", null]`))
+					defer exp.Release()
+
+					checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, nil)
+					checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}}, &compute.ArrayDatum{exp.Data()}, nil)
+				})
+			}
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestSquareRoot() {
+	for _, fn := range []string{"sqrt_unchecked", "sqrt"} {
+		ds.Run(fn, func() {
+			for _, ty := range ds.positiveScales() {
+				ds.Run(ty.String(), func() {
+					empty := ds.decimalArrayFromJSON(ty, `[]`)
+					defer empty.Release()
+					arr := ds.decimalArrayFromJSON(ty, `["4.00", "16.00", "36.00", null]`)
+					defer arr.Release()
+
+					ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{Value: empty.Data()}})
+					ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{Value: arr.Data()}})
+
+					neg := ds.decimalArrayFromJSON(ty, `["-2.00"]`)
+					defer neg.Release()
+					ds.checkFail("sqrt", []compute.Datum{&compute.ArrayDatum{Value: neg.Data()}}, "square root of negative number", nil)
+				})
+			}
+
+			for _, ty := range ds.negativeScales() {
+				ds.Run(ty.String(), func() {
+					empty := ds.decimalArrayFromJSON(ty, `[]`)
+					defer empty.Release()
+					arr := ds.decimalArrayFromJSON(ty, `["400", "1600", "3600", null]`)
+					defer arr.Release()
+
+					ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{Value: empty.Data()}})
+					ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{Value: arr.Data()}})
+
+					neg := ds.decimalArrayFromJSON(ty, `["-400"]`)
+					defer neg.Release()
+					ds.checkFail("sqrt", []compute.Datum{&compute.ArrayDatum{Value: neg.Data()}}, "square root of negative number", nil)
+				})
+			}
+		})
+	}
+}
+
 type ScalarBinaryTemporalArithmeticSuite struct {
 	BinaryFuncTestSuite
 }
@@ -1074,6 +1246,362 @@ func (s *ScalarBinaryTemporalArithmeticSuite) TestTemporalAddSub() {
 			}
 		})
 	}
+}
+
+func TestUnaryDispatchBest(t *testing.T) {
+	for _, fn := range []string{"abs"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+			t.Run(fn, func(t *testing.T) {
+				for _, ty := range numericTypes {
+					t.Run(ty.String(), func(t *testing.T) {
+						CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{ty})
+						CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+							[]arrow.DataType{ty})
+					})
+				}
+			})
+		}
+	}
+
+	for _, fn := range []string{"negate_unchecked", "sign"} {
+		t.Run(fn, func(t *testing.T) {
+			for _, ty := range numericTypes {
+				t.Run(ty.String(), func(t *testing.T) {
+					CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{ty})
+					CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+						[]arrow.DataType{ty})
+				})
+			}
+		})
+	}
+
+	for _, fn := range []string{"negate"} {
+		t.Run(fn, func(t *testing.T) {
+			for _, ty := range append(signedIntTypes, floatingTypes...) {
+				t.Run(ty.String(), func(t *testing.T) {
+					CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{ty})
+					CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+						[]arrow.DataType{ty})
+				})
+			}
+		})
+	}
+}
+
+func TestUnaryArithmeticNull(t *testing.T) {
+	for _, fn := range []string{"abs", "negate"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+			assertNullToNull(t, context.TODO(), fn, memory.DefaultAllocator)
+		}
+	}
+
+	for _, fn := range []string{"sign"} {
+		assertNullToNull(t, context.TODO(), fn, memory.DefaultAllocator)
+	}
+}
+
+type UnaryArithmeticSuite[T exec.NumericTypes] struct {
+	suite.Suite
+
+	mem *memory.CheckedAllocator
+	ctx context.Context
+
+	opts compute.ArithmeticOptions
+}
+
+func (b *UnaryArithmeticSuite[T]) SetupTest() {
+	b.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+	b.ctx = compute.WithAllocator(context.TODO(), b.mem)
+	b.opts = compute.ArithmeticOptions{}
+}
+
+func (b *UnaryArithmeticSuite[T]) TearDownTest() {
+	b.mem.AssertSize(b.T(), 0)
+}
+
+func (b *UnaryArithmeticSuite[T]) setOverflowCheck(v bool) {
+	b.opts.NoCheckOverflow = !v
+}
+
+func (*UnaryArithmeticSuite[T]) datatype() arrow.DataType {
+	return exec.GetDataType[T]()
+}
+
+func (us *UnaryArithmeticSuite[T]) makeNullScalar() scalar.Scalar {
+	return scalar.MakeNullScalar(us.datatype())
+}
+
+func (us *UnaryArithmeticSuite[T]) makeScalar(v T) scalar.Scalar {
+	return scalar.MakeScalar(v)
+}
+
+func (us *UnaryArithmeticSuite[T]) assertUnaryOpValError(fn unaryArithmeticFunc, arg T, msg string) {
+	in := us.makeScalar(arg)
+	_, err := fn(us.ctx, us.opts, compute.NewDatum(in))
+	us.ErrorIs(err, arrow.ErrInvalid)
+	us.ErrorContains(err, msg)
+}
+
+func (us *UnaryArithmeticSuite[T]) assertUnaryOpNotImplemented(fn unaryArithmeticFunc, arg T, msg string) {
+	in := us.makeScalar(arg)
+	_, err := fn(us.ctx, us.opts, compute.NewDatum(in))
+	us.ErrorIs(err, arrow.ErrNotImplemented)
+	us.ErrorContains(err, msg)
+}
+
+func (us *UnaryArithmeticSuite[T]) assertUnaryOpVals(fn unaryArithmeticFunc, arg, expected T) {
+	in := us.makeScalar(arg)
+	exp := us.makeScalar(expected)
+
+	actual, err := fn(us.ctx, us.opts, compute.NewDatum(in))
+	us.Require().NoError(err)
+	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value)
+}
+
+func (us *UnaryArithmeticSuite[T]) assertUnaryOpScalars(fn unaryArithmeticFunc, arg, exp scalar.Scalar) {
+	actual, err := fn(us.ctx, us.opts, compute.NewDatum(arg))
+	us.Require().NoError(err)
+	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value)
+}
+
+func (us *UnaryArithmeticSuite[T]) assertUnaryOpArrs(fn unaryArithmeticFunc, arg, exp arrow.Array) {
+	datum := &compute.ArrayDatum{arg.Data()}
+	actual, err := fn(us.ctx, us.opts, datum)
+	us.Require().NoError(err)
+	defer actual.Release()
+	assertDatumsEqual(us.T(), &compute.ArrayDatum{exp.Data()}, actual)
+
+	// also check scalar ops
+	for i := 0; i < arg.Len(); i++ {
+		expScalar, err := scalar.GetScalar(exp, i)
+		us.NoError(err)
+		argScalar, err := scalar.GetScalar(arg, i)
+		us.NoError(err)
+
+		actual, err := fn(us.ctx, us.opts, compute.NewDatum(argScalar))
+		us.Require().NoError(err)
+		assertDatumsEqual(us.T(), compute.NewDatum(expScalar), compute.NewDatum(actual))
+	}
+}
+
+func (us *UnaryArithmeticSuite[T]) assertUnaryOp(fn unaryArithmeticFunc, arg, exp string) {
+	in, _, err := array.FromJSON(us.mem, us.datatype(), strings.NewReader(arg), array.WithUseNumber())
+	us.Require().NoError(err)
+	defer in.Release()
+	expected, _, err := array.FromJSON(us.mem, us.datatype(), strings.NewReader(exp), array.WithUseNumber())
+	us.Require().NoError(err)
+	defer expected.Release()
+
+	us.assertUnaryOpArrs(fn, in, expected)
+}
+
+type UnaryArithmeticSigned[T exec.IntTypes] struct {
+	UnaryArithmeticSuite[T]
+}
+
+func (us *UnaryArithmeticSigned[T]) TestAbsoluteValue() {
+	var (
+		dt  = us.datatype()
+		min = kernels.MinOf[T]()
+		max = kernels.MaxOf[T]()
+	)
+
+	fn := func(in, exp string) {
+		us.assertUnaryOp(compute.AbsoluteValue, in, exp)
+	}
+
+	us.Run(dt.String(), func() {
+		for _, checkOverflow := range []bool{true, false} {
+			us.setOverflowCheck(checkOverflow)
+			us.Run(fmt.Sprintf("check_overflow=%t", checkOverflow), func() {
+				// empty array
+				fn(`[]`, `[]`)
+				// scalar/arrays with nulls
+				fn(`[null]`, `[null]`)
+				fn(`[1, null -10]`, `[1, null, 10]`)
+				us.assertUnaryOpScalars(compute.AbsoluteValue, us.makeNullScalar(), us.makeNullScalar())
+				// scalar/arrays with zeros
+				fn(`[0, -0]`, `[0, 0]`)
+				us.assertUnaryOpVals(compute.AbsoluteValue, -0, 0)
+				us.assertUnaryOpVals(compute.AbsoluteValue, 0, 0)
+				// ordinary scalars/arrays (positive inputs)
+				fn(`[1, 10, 127]`, `[1, 10, 127]`)
+				us.assertUnaryOpVals(compute.AbsoluteValue, 1, 1)
+				// ordinary scalars/arrays (negative inputs)
+				fn(`[-1, -10, -127]`, `[1, 10, 127]`)
+				us.assertUnaryOpVals(compute.AbsoluteValue, -1, 1)
+				// min/max
+				us.assertUnaryOpVals(compute.AbsoluteValue, max, max)
+				if checkOverflow {
+					us.assertUnaryOpValError(compute.AbsoluteValue, min, "overflow")
+				} else {
+					us.assertUnaryOpVals(compute.AbsoluteValue, min, min)
+				}
+			})
+		}
+	})
+}
+
+func (us *UnaryArithmeticSigned[T]) TestNegate() {
+	var (
+		dt  = us.datatype()
+		min = kernels.MinOf[T]()
+		max = kernels.MaxOf[T]()
+	)
+
+	fn := func(in, exp string) {
+		us.assertUnaryOp(compute.Negate, in, exp)
+	}
+
+	us.Run(dt.String(), func() {
+		for _, checkOverflow := range []bool{true, false} {
+			us.setOverflowCheck(checkOverflow)
+			us.Run(fmt.Sprintf("check_overflow=%t", checkOverflow), func() {
+				fn(`[]`, `[]`)
+				// scalar/arrays with nulls
+				fn(`[null]`, `[null]`)
+				fn(`[1, null -10]`, `[-1, null, 10]`)
+				// ordinary scalars/arrays (positive inputs)
+				fn(`[1, 10, 127]`, `[-1, -10, -127]`)
+				us.assertUnaryOpVals(compute.Negate, 1, -1)
+				// ordinary scalars/arrays (negative inputs)
+				fn(`[-1, -10, -127]`, `[1, 10, 127]`)
+				us.assertUnaryOpVals(compute.Negate, -1, 1)
+				// min/max
+				us.assertUnaryOpVals(compute.Negate, min+1, max)
+				us.assertUnaryOpVals(compute.Negate, max, min+1)
+			})
+		}
+	})
+}
+
+type UnaryArithmeticUnsigned[T exec.UintTypes] struct {
+	UnaryArithmeticSuite[T]
+}
+
+func (us *UnaryArithmeticUnsigned[T]) TestAbsoluteValue() {
+	var (
+		min, max T = 0, kernels.MaxOf[T]()
+	)
+
+	fn := func(in, exp string) {
+		us.assertUnaryOp(compute.AbsoluteValue, in, exp)
+	}
+
+	us.Run(us.datatype().String(), func() {
+		for _, checkOverflow := range []bool{true, false} {
+			us.setOverflowCheck(checkOverflow)
+			us.Run(fmt.Sprintf("check_overflow=%t", checkOverflow), func() {
+				fn(`[]`, `[]`)
+				fn(`[null]`, `[null]`)
+				us.assertUnaryOpScalars(compute.AbsoluteValue, us.makeNullScalar(), us.makeNullScalar())
+				fn(`[0, 1, 10, 127]`, `[0, 1, 10, 127]`)
+				us.assertUnaryOpVals(compute.AbsoluteValue, min, min)
+				us.assertUnaryOpVals(compute.AbsoluteValue, max, max)
+			})
+		}
+	})
+}
+
+func (us *UnaryArithmeticUnsigned[T]) TestNegate() {
+	var (
+		dt = us.datatype()
+	)
+
+	fn := func(in, exp string) {
+		us.assertUnaryOp(compute.Negate, in, exp)
+	}
+
+	us.Run(dt.String(), func() {
+		us.setOverflowCheck(true)
+		us.assertUnaryOpNotImplemented(compute.Negate, 1, "no kernel matching input types")
+
+		us.setOverflowCheck(false)
+		fn(`[]`, `[]`)
+		fn(`[null]`, `[null]`)
+		us.assertUnaryOpVals(compute.Negate, 1, ^T(1)+1)
+	})
+}
+
+type UnaryArithmeticFloating[T constraints.Float] struct {
+	UnaryArithmeticSuite[T]
+
+	min, max T
+}
+
+func (us *UnaryArithmeticFloating[T]) TestAbsoluteValue() {
+	fn := func(in, exp string) {
+		us.assertUnaryOp(compute.AbsoluteValue, in, exp)
+	}
+
+	us.Run(us.datatype().String(), func() {
+		for _, checkOverflow := range []bool{true, false} {
+			us.setOverflowCheck(checkOverflow)
+			us.Run(fmt.Sprintf("check_overflow=%t", checkOverflow), func() {
+				fn(`[]`, `[]`)
+				fn(`[null]`, `[null]`)
+				fn(`[1.3, null, -10.80]`, `[1.3, null, 10.80]`)
+				us.assertUnaryOpScalars(compute.AbsoluteValue, us.makeNullScalar(), us.makeNullScalar())
+				fn(`[0.0, -0.0]`, `[0.0, 0.0]`)
+				us.assertUnaryOpVals(compute.AbsoluteValue, T(math.Copysign(0, -1)), 0)
+				us.assertUnaryOpVals(compute.AbsoluteValue, 0, 0)
+				fn(`[1.3, 10.80, 12748.001]`, `[1.3, 10.80, 12748.001]`)
+				us.assertUnaryOpVals(compute.AbsoluteValue, 1.3, 1.3)
+				fn(`[-1.3, -10.80, -12748.001]`, `[1.3, 10.80, 12748.001]`)
+				us.assertUnaryOpVals(compute.AbsoluteValue, -1.3, 1.3)
+				fn(`["Inf", "-Inf"]`, `["Inf", "Inf"]`)
+				us.assertUnaryOpVals(compute.AbsoluteValue, us.min, us.max)
+				us.assertUnaryOpVals(compute.AbsoluteValue, us.max, us.max)
+			})
+		}
+	})
+}
+
+func (us *UnaryArithmeticFloating[T]) TestNegate() {
+	var (
+		dt = us.datatype()
+	)
+
+	fn := func(in, exp string) {
+		us.assertUnaryOp(compute.Negate, in, exp)
+	}
+
+	us.Run(dt.String(), func() {
+		for _, checkOverflow := range []bool{true, false} {
+			us.setOverflowCheck(checkOverflow)
+			us.Run(fmt.Sprintf("check_overflow=%t", checkOverflow), func() {
+				fn(`[]`, `[]`)
+				// scalar/arrays with nulls
+				fn(`[null]`, `[null]`)
+				fn(`[1.5, null -10.25]`, `[-1.5, null, 10.25]`)
+				// ordinary scalars/arrays (positive inputs)
+				fn(`[0.5, 10.123, 127.321]`, `[-0.5, -10.123, -127.321]`)
+				us.assertUnaryOpVals(compute.Negate, 1.25, -1.25)
+				// ordinary scalars/arrays (negative inputs)
+				fn(`[-0.5, -10.123, -127.321]`, `[0.5, 10.123, 127.321]`)
+				us.assertUnaryOpVals(compute.Negate, -1.25, 1.25)
+				// min/max
+				us.assertUnaryOpVals(compute.Negate, us.min, us.max)
+				us.assertUnaryOpVals(compute.Negate, us.max, us.min)
+			})
+		}
+	})
+}
+
+func TestUnaryArithmetic(t *testing.T) {
+	suite.Run(t, new(UnaryArithmeticSigned[int8]))
+	suite.Run(t, new(UnaryArithmeticSigned[int16]))
+	suite.Run(t, new(UnaryArithmeticSigned[int32]))
+	suite.Run(t, new(UnaryArithmeticSigned[int64]))
+	suite.Run(t, new(UnaryArithmeticUnsigned[uint8]))
+	suite.Run(t, new(UnaryArithmeticUnsigned[uint16]))
+	suite.Run(t, new(UnaryArithmeticUnsigned[uint32]))
+	suite.Run(t, new(UnaryArithmeticUnsigned[uint64]))
+	suite.Run(t, &UnaryArithmeticFloating[float32]{min: -math.MaxFloat32, max: math.MaxFloat32})
+	suite.Run(t, &UnaryArithmeticFloating[float64]{min: -math.MaxFloat64, max: math.MaxFloat64})
+	suite.Run(t, new(DecimalUnaryArithmeticSuite))
 }
 
 const seed = 0x94378165

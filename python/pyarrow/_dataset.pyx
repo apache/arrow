@@ -2291,8 +2291,7 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
     check_status(builder.BatchReadahead(batch_readahead))
     check_status(builder.FragmentReadahead(fragment_readahead))
     check_status(builder.UseThreads(use_threads))
-    if memory_pool:
-        check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
+    check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
     if fragment_scan_options:
         check_status(
             builder.FragmentScanOptions(fragment_scan_options.wrapped))

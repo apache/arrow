@@ -384,7 +384,8 @@ size_t ThreadIndexer::Check(size_t thread_index) {
 }
 
 Status TableSinkNodeConsumer::Init(const std::shared_ptr<Schema>& schema,
-                                   BackpressureControl* backpressure_control) {
+                                   BackpressureControl* backpressure_control,
+                                   ExecPlan* plan) {
   // If the user is collecting into a table then backpressure is meaningless
   ARROW_UNUSED(backpressure_control);
   schema_ = schema;

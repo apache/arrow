@@ -2410,6 +2410,172 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
 }
 
 // ----------------------------------------------------------------------
+// Slice
+
+namespace {
+struct SliceBytesTransform : StringSliceTransformBase {
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_bytes) override {
+    const SliceOptions& opt = *this->options;
+    if ((opt.start >= 0) != (opt.stop >= 0)) {
+      // If start and stop don't have the same sign, we can't guess an upper bound
+      // on the resulting slice lengths, so return a worst case estimate.
+      return input_bytes;
+    }
+    int64_t max_slice_bytes = (opt.stop - opt.start + opt.step - 1) / opt.step;
+    return std::min(input_bytes, ninputs * std::max<int64_t>(0, max_slice_bytes));
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_bytes, uint8_t* output) {
+    if (options->step >= 1) {
+      return SliceForward(input, input_string_bytes, output);
+    }
+    return SliceBackward(input, input_string_bytes, output);
+  }
+
+  int64_t SliceForward(const uint8_t* input, int64_t input_string_bytes,
+                       uint8_t* output) {
+    // Slice in forward order (step > 0)
+    const SliceOptions& opt = *this->options;
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_bytes;
+    const uint8_t* begin_sliced;
+    const uint8_t* end_sliced;
+
+    if (!input_string_bytes) {
+      return 0;
+    }
+    // First, compute begin_sliced and end_sliced
+    if (opt.start >= 0) {
+      // start counting from the left
+      begin_sliced = std::min(begin + opt.start, end);
+      if (opt.stop > opt.start) {
+        // continue counting from begin_sliced
+        const int64_t length = opt.stop - opt.start;
+        end_sliced = std::min(begin_sliced + length, end);
+      } else if (opt.stop < 0) {
+        // from the end
+        end_sliced = std::max(end + opt.stop, begin_sliced);
+      } else {
+        // zero length slice
+        return 0;
+      }
+    } else {
+      // start counting from the right
+      begin_sliced = std::max(end + opt.start, begin);
+      if (opt.stop > 0) {
+        // continue counting from the left, we cannot start from begin_sliced because we
+        // don't know how many bytes are between begin and begin_sliced
+        end_sliced = std::min(begin + opt.stop, end);
+        // and therefore we also need this
+        if (end_sliced <= begin_sliced) {
+          // zero length slice
+          return 0;
+        }
+      } else if ((opt.stop < 0) && (opt.stop > opt.start)) {
+        // stop is negative, but larger than start, so we count again from the right
+        // in some cases we can optimize this, depending on the shortest path (from end
+        // or begin_sliced), but begin_sliced and opt.start can be 'out of sync',
+        // for instance when start=-100, when the string length is only 10.
+        end_sliced = std::max(end + opt.stop, begin_sliced);
+      } else {
+        // zero length slice
+        return 0;
+      }
+    }
+
+    // Second, copy computed slice to output
+    DCHECK(begin_sliced <= end_sliced);
+    if (opt.step == 1) {
+      // fast case, where we simply can finish with a memcpy
+      std::copy(begin_sliced, end_sliced, output);
+      return end_sliced - begin_sliced;
+    }
+
+    uint8_t* dest = output;
+    const uint8_t* i = begin_sliced;
+
+    while (i < end_sliced) {
+      *dest = *i;
+      // skip step codeunits
+      i += opt.step;
+      dest++;
+    }
+    return dest - output;
+  }
+
+  int64_t SliceBackward(const uint8_t* input, int64_t input_string_bytes,
+                        uint8_t* output) {
+    // Slice in reverse order (step < 0)
+    const SliceOptions& opt = *this->options;
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_bytes;
+    const uint8_t* begin_sliced = begin;
+    const uint8_t* end_sliced = end;
+
+    if (!input_string_bytes) {
+      return 0;
+    }
+
+    if (opt.start >= 0) {
+      // +1 because begin_sliced acts as as the end of a reverse iterator
+      begin_sliced = std::min(begin + opt.start + 1, end);
+    } else {
+      // -1 because start=-1 means the last byte, which is 0 advances
+      begin_sliced = std::max(end + opt.start + 1, begin);
+    }
+    begin_sliced--;
+
+    // similar to opt.start
+    if (opt.stop >= 0) {
+      end_sliced = std::min(begin + opt.stop + 1, end);
+    } else {
+      end_sliced = std::max(end + opt.stop + 1, begin);
+    }
+    end_sliced--;
+
+    // Copy computed slice to output
+    uint8_t* dest = output;
+    const uint8_t* i = begin_sliced;
+    while (i > end_sliced) {
+      // write a single codepoint
+      *dest = *i;
+      // and skip the remainder
+      i += opt.step;
+      dest++;
+    }
+
+    return dest - output;
+  }
+};
+
+template <typename Type>
+using SliceBytes = StringTransformExec<Type, SliceBytesTransform>;
+
+}  // namespace
+
+const FunctionDoc binary_slice_doc(
+    "Slice binary string",
+    ("For each binary string in `strings`, emit the substring defined by\n"
+     "(`start`, `stop`, `step`) as given by `SliceOptions` where `start` is\n"
+     "inclusive and `stop` is exclusive. All three values are measured in\n"
+     "bytes.\n"
+     "If `step` is negative, the string will be advanced in reversed order.\n"
+     "An error is raised if `step` is zero.\n"
+     "Null inputs emit null."),
+    {"strings"}, "SliceOptions", /*options_required=*/true);
+
+void AddAsciiStringSlice(FunctionRegistry* registry) {
+  auto func =
+      std::make_shared<ScalarFunction>("binary_slice", Arity::Unary(), binary_slice_doc);
+  for (const auto& ty : BinaryTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<SliceBytes>(ty);
+    DCHECK_OK(
+        func->AddKernel({ty}, ty, std::move(exec), SliceBytesTransform::State::Init));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+// ----------------------------------------------------------------------
 // Split by pattern
 
 using SplitPatternState = OptionsWrapper<SplitPatternOptions>;
@@ -3206,6 +3372,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddAsciiStringExtractRegex(registry);
 #endif
   AddAsciiStringReplaceSlice(registry);
+  AddAsciiStringSlice(registry);
   AddAsciiStringSplitPattern(registry);
   AddAsciiStringSplitWhitespace(registry);
 #ifdef ARROW_WITH_RE2

@@ -216,123 +216,381 @@ Be sure to go through on the following checklist:
 #. Start the new version on JIRA on the ARROW project
 #. Start the new version on JIRA for the related CPP PARQUET version
 #. Merge changes on release branch to maintenance branch for patch releases
+#. Add the new release to the Apache Reporter System
 #. Upload source
 #. Upload binaries
 #. Update website
 #. Update Homebrew packages
 #. Update MSYS2 package
 #. Upload RubyGems
-#. Upload JS packages
+#. Upload JavaScript packages
 #. Upload C# packages
 #. Update conda recipes
 #. Upload wheels/sdist to pypi
 #. Publish Maven artifacts
 #. Update R packages
 #. Update vcpkg port
+#. Update Conan recipe
 #. Bump versions
 #. Update tags for Go modules
 #. Update docs
+#. Update version in Apache Arrow Cookbook
+#. Announce the new release
+#. Publish release blog posts
 #. Remove old artifacts
 
-.. dropdown:: Marking the released version as "RELEASED" on JIRA
+.. dropdown:: Mark the released version as "RELEASED" on JIRA
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-    Open https://issues.apache.org/jira/plugins/servlet/project-config/ARROW/administer-versions
+   - Open https://issues.apache.org/jira/plugins/servlet/project-config/ARROW/administer-versions
+   - Click "..." for the release version in "Actions" column
+   - Select "Release"
+   - Set "Release date"
+   - Click "Release" button
 
-    Click "..." for the release version in "Actions" column
-
-    Select "Release"
-
-    Set "Release date"
-
-    Click "Release" button
-
-.. dropdown:: Starting the new version on JIRA
+.. dropdown:: Start the new version on JIRA
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-    Open https://issues.apache.org/jira/plugins/servlet/project-config/ARROW/administer-versions
+   - Open https://issues.apache.org/jira/plugins/servlet/project-config/ARROW/administer-versions
+   - Click "..." for the next version in "Actions" column
+   - Select "Edit"
+   - Set "Start date"
+   - Click "Save" button
 
-    Click "..." for the next version in "Actions" column
-
-    Select "Edit"
-
-    Set "Start date"
-
-    Click "Save" button
-
-.. dropdown:: Updating the Arrow website
+.. dropdown:: Merge changes on release branch to maintenance branch for patch releases
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-    Fork the `arrow-site repository <https://github.com/apache/arrow-site>`_ and clone it next to the arrow repository.
+   Merge ``release-X.Y.Z-rcN`` to ``maint-X.Y.Z``:
 
-    Generate the release note:
+   .. code-block:: Bash
 
-    .. code-block::
-    
-        # dev/release/post-03-website 0.13.0 0.14.0
-        dev/release/post-03-website <previous-version> <version>
-    
-    Create a pull-request and a Jira with the links the script shows at the end.
+      # git checkout maint-10.0.0
+      git checkout maint-X.Y.Z
+      # git merge release-10.0.0-rc0
+      git merge release-X.Y.Z-rcN
+      # git push -u apache maint-10.0.0
+      git push -u apache maint-X.Y.Z
 
-.. dropdown:: Uploading source release artifacts to SVN
+.. dropdown:: Add the new release to the Apache Reporter System
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-    A PMC member must commit the source release artifacts to SVN:
+   Add relevant release data for Arrow to `Apache reporter <https://reporter.apache.org/addrelease.html?arrow>`_.
 
-    .. code-block::
-    
-        # dev/release/post-01-upload.sh 0.1.0 0
-        dev/release/post-01-upload.sh <version> <rc>
-
-.. dropdown:: Uploading binary release artifacts to Artifactory
+.. dropdown:: Upload source release artifacts to Subversion
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-    A PMC member must upload the binary release artifacts to Artifactory:
+   A PMC member must commit the source release artifacts to Subversion:
 
-    .. code-block::
-    
-        # dev/release/post-02-binary.sh 0.1.0 0
-        dev/release/post-02-binary.sh <version> <rc number>
+   .. code-block:: Bash
 
-.. dropdown:: Announcing release
+      # dev/release/post-01-upload.sh 0.1.0 0
+      dev/release/post-01-upload.sh <version> <rc>
+
+.. dropdown:: Upload binary release artifacts to Artifactory
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-    Add relevant release data for Arrow to `Apache reporter <https://reporter.apache.org/addrelease.html?arrow>`_.
+   A committer must upload the binary release artifacts to Artifactory:
 
-    Write a release announcement (see `example <https://lists.apache.org/thread/6rkjwvyjjfodrxffllh66pcqnp729n3k>`_) and send to announce@apache.org and dev@arrow.apache.org.
+   .. code-block:: Bash
 
-    The announcement to announce@apache.org must be sent from your apache.org e-mail address to be accepted.
+      # dev/release/post-02-binary.sh 0.1.0 0
+      dev/release/post-02-binary.sh <version> <rc number>
 
-.. dropdown:: Generating new API documentations and update the website
+.. dropdown:: Update website
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-    The API documentation for C++, C Glib, Python, Java, and JavaScript can be generated via a Docker-based setup.
-    To generate the API documentation run the following command:
+   Add a release note for the new version to our website and update the latest release information:
 
-    .. code-block::
-    
-        # preferred to have a cuda capable device with a recent docker version to generate the cuda docs as well
-        # if you don't have an nvidia GPU please ask for help on the mailing list
-        dev/release/post-08-docs.sh <version>
-        
-        # without a cuda device it's still possible to generate the apidocs with the following archery command
-        archery docker run -v "${ARROW_SITE_DIR}/docs:/build/docs" -e ARROW_DOCS_VERSION="${version}" ubuntu-docs  
-    
-    Note, that on a case insensitive filesystem sphinx generate duplicate filenames, so there can be missing links on the documentation page. Please use a system (preferably Linux) to execute the command above. 
+   .. code-block:: Bash
 
-    This script assumes that the arrow-site repository is cloned next to the arrow source repository. Please note that most of the software must be built in order to create the documentation, so this step may take some time to run, especially the first time around as the Docker container will also have to be built.
+      ## Prepare your fork of https://github.com/apache/arrow-site .
+      ## You need to do this only once.
+      # git clone git@github.com:kou/arrow-site.git ../
+      git clone git@github.com:<YOUR_GITHUB_ID>/arrow-site.git ../
+      cd ../arrow-site
+      ## Add git@github.com:apache/arrow-site.git as "apache" remote.
+      git remote add apache git@github.com:apache/arrow-site.git
+      cd -
 
+      ## Generate a release note for the new version, update the
+      ## latest release information automatically.
+      # dev/release/post-03-website.sh 9.0.0 10.0.0
+      dev/release/post-03-website.sh OLD_X.OLD_Y.OLD_Z X.Y.Z
+
+   This script pushes a ``release-note-X.Y.Z`` branch to your ``apache/arrow-site`` fork. You need to open a pull request from the ``release-note-X.Y.Z`` branch on your Web browser.
+
+.. dropdown:: Update Homebrew packages
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   Open a pull request to Homebrew:
+
+   .. code-block:: Bash
+
+      ## You need to run this on macOS or Linux that Homebrew is installed.
+
+      ## Fork https://github.com/Homebrew/homebrew-core on GitHub.
+      ## You need to do this only once.
+      ##
+      ## Prepare your fork of https://github.com/Homebrew/homebrew-core .
+      ## You need to do this only once.
+      cd "$(brew --repository homebrew/core)"
+      # git remote add kou git@github.com:kou/homebrew-core.git
+      git remote add <YOUR_GITHUB_ID> git@github.com:<YOUR_GITHUB_ID>/homebrew-core.git
+      cd -
+
+      # dev/release/post-13-homebrew.sh 10.0.0 kou
+      dev/release/post-13-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
+
+   This script pushes a ``apache-arrow-X.Y.Z`` branch to your ``Homebrew/homebrew-core`` fork. You need to create a pull request from the ``apache-arrow-X.Y.Z`` branch with ``apache-arrow, apache-arrow-glib: X.Y.Z`` title on your Web browser.
+
+.. dropdown:: Update MSYS2 packages
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   Open a pull request to MSYS2:
+
+   .. code-block:: Bash
+
+      ## Fork https://github.com/msys2/MINGW-packages on GitHub.
+      ## You need to do this only once.
+      ##
+      ## Prepare your fork of https://github.com/msys2/MINGW-packages .
+      ## You need to do this only once.
+      # git clone git@github.com:kou/MINGW-packages.git ../
+      git clone git@github.com:<YOUR_GITHUB_ID>/MINGW-packages.git ../
+      cd ../MINGW-packages
+      ## Add https://github.com/msys2/MINGW-packages.git as "upstream" remote.
+      git remote add upstream https://github.com/msys2/MINGW-packages.git
+      cd -
+
+      # dev/release/post-12-msys2.sh 10.0.0 ../MINGW-packages
+      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACAKGES_FORK>
+
+   This script pushes a ``arrow-X.Y.Z`` branch to your ``msys2/MINGW-packages`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``arrow: Update to X.Y.Z`` title on your Web browser.
+
+.. dropdown:: Update RubyGems
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   You need an account on https://rubygems.org/ to release Ruby packages.
+
+   If you have an account on https://rubygems.org/ , you need to join owners of the following gems:
+
+   - red-arrow gem
+   - red-arrow-cuda gem
+   - red-arrow-dataset gem
+   - red-arrow-flight gem
+   - red-arrow-flight-sql gem
+   - red-gandiva gem
+   - red-parquet gem
+   - red-plasma gem
+
+   Existing owners can add a new account to the owners of them by the following command lines:
+
+   .. code-block:: Bash
+
+      gem owner red-arrow -a NEW_ACCOUNT
+      gem owner red-arrow-cuda -a NEW_ACCOUNT
+      gem owner red-arrow-dataset -a NEW_ACCOUNT
+      gem owner red-arrow-flight -a NEW_ACCOUNT
+      gem owner red-arrow-flight-sql -a NEW_ACCOUNT
+      gem owner red-gandiva -a NEW_ACCOUNT
+      gem owner red-parquet -a NEW_ACCOUNT
+      gem owner red-plasma -a NEW_ACCOUNT
+
+   Update RubyGems after Homebrew packages and MSYS2 packages are updated:
+
+   .. code-block:: Bash
+
+      # dev/release/post-04-ruby.sh 10.0.0
+      dev/release/post-04-ruby.sh X.Y.Z
+
+.. dropdown:: Update JavaScript packages
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   In order to publish the binary build to npm, you will need to get access to the project by asking one of the current collaborators listed at https://www.npmjs.com/package/apache-arrow packages.
+
+   When you have access, you can publish releases to npm by running the ``npm-release.sh`` script inside the JavaScript source release:
+
+   .. code-block:: Bash
+
+      # Login to npmjs.com (You need to do this only for the first time)
+      npm login --registry=https://registry.yarnpkg.com/
+
+      # dev/release/post-05-js.sh 10.0.0
+      dev/release/post-05-js.sh X.Y.Z
+
+.. dropdown:: Update C# packages
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   You need an account on https://www.nuget.org/. You need to join owners of Apache.Arrow package. Existing owners can invite you to the owners at https://www.nuget.org/packages/Apache.Arrow/Manage .
+
+   You need to create an API key at https://www.nuget.org/account/apikeys to upload from command line.
+
+   Install the latest .NET Core SDK from https://dotnet.microsoft.com/download .
+
+   .. code-block:: Bash
+
+      # NUGET_API_KEY=YOUR_NUGET_API_KEY dev/release/post-06-csharp.sh 10.0.0
+      NUGET_API_KEY=<your NuGet API key> dev/release/post-06-csharp.sh X.Y.Z
+
+.. dropdown:: Upload wheels/sdist to PyPI
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   pip binary packages (called "wheels") and source package (called "sdist") are built using the crossbow tool that we used above during the release candidate creation process and then uploaded to PyPI (Python Package Index) under the pyarrow package.
+
+   We use the twine tool to upload wheels to PyPI:
+
+   .. code-block:: Bash
+
+      # dev/release/post-09-python.sh 10.0.0 0
+      dev/release/post-09-python.sh <version> <rc number>
+
+.. dropdown:: Publish Maven packages
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   - Logon to the Apache repository: https://repository.apache.org/#stagingRepositories
+   - Select the Arrow staging repository you created for RC: ``orgapachearrow-XXXX``
+   - Click the ``release`` button
+
+.. dropdown:: Update R packages
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   TODO: Move from https://cwiki.apache.org/confluence/display/ARROW/Release+Management+Guide#ReleaseManagementGuide-UpdatingRpackages
+
+.. dropdown:: Update vcpkg port
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   Open a pull request to vcpkg:
+
+   .. code-block:: Bash
+
+      ## Fork https://github.com/microsoft/vcpkg on GitHub.
+      ## You need to do this only once.
+      ##
+      ## Prepare your fork of https://github.com/microsoft/vcpkg .
+      ## You need to do this only once.
+      # git clone git@github.com:kou/vcpkg.git ../
+      git clone git@github.com:<YOUR_GITHUB_ID>/vcpkg.git ../
+      cd ../vcpkg
+      ./bootstrap-vcpkg.sh
+      ## Add https://github.com/microsoft/vcpkg.git as "upstream" remote.
+      git remote add upstream https://github.com/microsoft/vcpkg.git
+      cd -
+
+      # dev/release/post-14-vcpkg.sh 10.0.0 ../vcpkg
+      dev/release/post-14-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
+
+   This script pushes a ``arrow-X.Y.Z`` branch to your ``microsoft/vcpkg`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``[arrow] Update to X.Y.Z`` title on your Web browser.
+
+.. dropdown:: Update Conan port
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   TODO
+
+.. dropdown:: Bump versions
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   .. code-block:: Bash
+
+      # dev/release/post-11-bump-versions.sh 10.0.0 11.0.0
+      dev/release/post-11-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
+
+.. dropdown:: Update tags for Go modules
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   .. code-block:: Bash
+
+      # dev/release/post-10-go.sh 10.0.0
+      dev/release/post-10-go.sh X.Y.Z
+
+.. dropdown:: Update docs
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   The documentations are generated in the release process. We just need to upload the generated documentations:
+
+   .. code-block:: Bash
+
+      ## Prepare your fork of https://github.com/apache/arrow-site .
+      ## You need to do this only once.
+      # git clone git@github.com:kou/arrow-site.git ../
+      git clone git@github.com:<YOUR_GITHUB_ID>/arrow-site.git ../
+      cd ../arrow-site
+      ## Add git@github.com:apache/arrow-site.git as "apache" remote.
+      git remote add apache git@github.com:apache/arrow-site.git
+      cd -
+
+      # dev/release/post-08-docs.sh 10.0.0 9.0.0
+      dev/release/post-08-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
+
+.. dropdown:: Update version in Apache Arrow Cookbook
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   TODO
+
+.. dropdown:: Announce the new release
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   Write a release announcement (see `example <https://lists.apache.org/thread/6rkjwvyjjfodrxffllh66pcqnp729n3k>`_) and send to announce@apache.org and dev@arrow.apache.org.
+
+   The announcement to announce@apache.org must be sent from your apache.org e-mail address to be accepted.
+
+.. dropdown:: Publish release blog post
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   TODO
+
+.. dropdown:: Remove old artifacts
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   Remove RC artifacts on https://dist.apache.org/repos/dist/dev/arrow/ and old release artifacts on https://dist.apache.org/repos/dist/release/arrow to follow `the ASF policy <https://infra.apache.org/release-download-pages.html#current-and-older-releases>`_:
+
+   .. code-block:: Bash
+
+      dev/release/post-07-remove-old-artifacts.sh

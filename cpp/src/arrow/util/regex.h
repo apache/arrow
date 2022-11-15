@@ -17,43 +17,35 @@
 
 #pragma once
 
+#include <cassert>
+#include <initializer_list>
+#include <regex>
+#include <string_view>
+#include <type_traits>
+
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace internal {
 
-struct Datum;
-struct TypeHolder;
+/// Match regex against target and produce string_views out of matches.
+inline bool RegexMatch(const std::regex& regex, std::string_view target,
+                       std::initializer_list<std::string_view*> out_matches) {
+  assert(regex.mark_count() == out_matches.size());
 
-namespace compute {
+  std::match_results<decltype(target.begin())> match;
+  if (!std::regex_match(target.begin(), target.end(), match, regex)) {
+    return false;
+  }
 
-class Function;
-class FunctionExecutor;
-class FunctionOptions;
-class FunctionRegistry;
+  // Match #0 is the whole matched sequence
+  assert(regex.mark_count() + 1 == match.size());
+  auto out_it = out_matches.begin();
+  for (size_t i = 1; i < match.size(); ++i) {
+    **out_it++ = target.substr(match.position(i), match.length(i));
+  }
+  return true;
+}
 
-class CastOptions;
-
-struct ExecBatch;
-class ExecContext;
-class KernelContext;
-
-struct Kernel;
-struct ScalarKernel;
-struct ScalarAggregateKernel;
-struct VectorKernel;
-
-struct KernelState;
-
-struct Declaration;
-class Expression;
-class ExecNode;
-class ExecPlan;
-class ExecNodeOptions;
-class ExecFactoryRegistry;
-
-class SinkNodeConsumer;
-
-ARROW_EXPORT ExecContext* default_exec_context();
-
-}  // namespace compute
+}  // namespace internal
 }  // namespace arrow
