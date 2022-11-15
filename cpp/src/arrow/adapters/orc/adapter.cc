@@ -736,10 +736,11 @@ class ORCFileWriter::Impl {
     } else {
       bool schemas_matching = table.schema()->Equals(arrow_schema_, false);
       if (!schemas_matching) {
-        return Status::Invalid(
+        return Status::TypeError(
             "The schema of the RecordBatch does not match"
             " the initial schema. All exported RecordBatches/Tables"
-            " must have the same schema.");
+            " must have the same schema.\nInitial:\n", *arrow_schema_, "\nCurrent:\n",
+            *table.schema());
       }
     }
     auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
