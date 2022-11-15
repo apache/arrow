@@ -22,11 +22,11 @@ from typing import (
 )
 
 from pyarrow.interchange.buffer import _PyArrowBuffer
-from pyarrow.interchange.column import _PyArrowColumn
-from pyarrow.interchange.dataframe import (
-    _PyArrowDataFrame,
+from pyarrow.interchange.column import (
+    _PyArrowColumn,
     DtypeKind,
 )
+from pyarrow.interchange.dataframe import _PyArrowDataFrame
 
 import numpy as np
 import pyarrow as pa
