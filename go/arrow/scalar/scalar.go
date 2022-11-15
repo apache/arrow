@@ -675,13 +675,19 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return NewTimestampScalar(arr.Value(idx), arr.DataType()), nil
 	case *array.Dictionary:
 		ty := arr.DataType().(*arrow.DictionaryType)
-		index, err := MakeScalarParam(arr.GetValueIndex(idx), ty.IndexType)
-		if err != nil {
-			return nil, err
+		valid := arr.IsValid(idx)
+		scalar := &Dictionary{scalar: scalar{ty, valid}}
+		if valid {
+			index, err := MakeScalarParam(arr.GetValueIndex(idx), ty.IndexType)
+			if err != nil {
+				return nil, err
+			}
+
+			scalar.Value.Index = index
+		} else {
+			scalar.Value.Index = MakeNullScalar(ty.IndexType)
 		}
 
-		scalar := &Dictionary{scalar: scalar{ty, arr.IsValid(idx)}}
-		scalar.Value.Index = index
 		scalar.Value.Dict = arr.Dictionary()
 		scalar.Value.Dict.Retain()
 		return scalar, nil
