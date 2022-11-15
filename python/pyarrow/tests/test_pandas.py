@@ -1071,6 +1071,10 @@ class TestConvertDateTimeLikeTypes:
         pytz = pytest.importorskip("pytz")
         from datetime import timezone
 
+        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
+        df = pd.DataFrame({'datetime': values}, index=values)
+        _check_pandas_roundtrip(df, preserve_index=True)
+
         # datetime.timezone is going to be pytz.FixedOffset
         hours = 1
         tz_timezone = timezone(timedelta(hours=hours))
@@ -2849,12 +2853,9 @@ def _fully_loaded_dataframe_example():
         6: [True, False] * 5,
         7: np.random.randn(10),
         8: np.random.randint(0, 100, size=10),
-        9: pd.period_range('2013', periods=10, freq='M')
+        9: pd.period_range('2013', periods=10, freq='M'),
+        10: pd.interval_range(start=1, freq=1, periods=10),
     }
-
-    # There is an issue with pickling IntervalIndex in pandas 0.20.x
-    data[10] = pd.interval_range(start=1, freq=1, periods=10)
-
     return pd.DataFrame(data, index=index)
 
 

@@ -1089,9 +1089,8 @@ def _pandas_type_to_numpy_type(pandas_type):
 
 
 def _get_multiindex_codes(mi):
-    # compat for pandas < 0.24 (MI labels renamed to codes).
     if isinstance(mi, _pandas_api.pd.MultiIndex):
-        return mi.codes if hasattr(mi, 'codes') else mi.labels
+        return mi.codes
     else:
         return None
 

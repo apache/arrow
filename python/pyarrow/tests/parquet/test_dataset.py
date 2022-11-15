@@ -250,13 +250,11 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
     result_df = table.to_pandas().reset_index(drop=True)
 
     # Check that all rows in the DF fulfill the filter
-    # Pandas 0.23.x has problems with indexing constant memoryviews in
-    # categoricals. Thus we need to make an explicit copy here with np.array.
-    df_filter_1 = (np.array(result_df['integer']) == 1) \
-        & (np.array(result_df['string']) != 'b') \
-        & (np.array(result_df['boolean']) == 'True')
+    df_filter_1 = (result_df['integer'] == 1) \
+        & (result_df['string'] != 'b') \
+        & (result_df['boolean'] == 'True')
     df_filter_2 = (np.array(result_df['integer']) == 0) \
-        & (np.array(result_df['boolean']) == 'False')
+        & (result_df['boolean'] == 'False')
     assert df_filter_1.sum() > 0
     assert df_filter_2.sum() > 0
     assert result_df.shape[0] == (df_filter_1.sum() + df_filter_2.sum())
