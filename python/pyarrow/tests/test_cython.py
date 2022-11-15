@@ -148,12 +148,12 @@ def test_cython_api(tmpdir):
                 # we have to use os.add_dll_directory instead.
                 delim, var = ';', 'PATH'
         elif sys.platform == 'darwin':
+            delim, var = ':', 'LD_LIBRARY_PATH'
             subprocess_env['DYLD_LIBRARY_PATH'] = delim.join(
                 pa.get_library_dirs() + [
                     subprocess_env.get('DYLD_LIBRARY_PATH', '')
                 ]
             )
-            delim, var = ':', 'LD_LIBRARY_PATH'
         else:
             delim, var = ':', 'LD_LIBRARY_PATH'
 
