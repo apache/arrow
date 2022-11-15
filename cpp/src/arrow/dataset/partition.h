@@ -142,7 +142,6 @@ struct ARROW_DS_EXPORT PartitioningFactoryOptions {
 struct ARROW_DS_EXPORT HivePartitioningFactoryOptions : PartitioningFactoryOptions {
   /// The hive partitioning scheme maps null to a hard coded fallback string.
   std::string null_fallback;
-  bool ignore_separator = false;
 
   HivePartitioningOptions AsHivePartitioningOptions() const;
 };
@@ -177,8 +176,6 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
     std::string name;
     std::optional<std::string> value;
   };
-
-  using ParseKeyHandler = std::function<void(const char& sep)>;
 
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const override;
@@ -254,11 +251,10 @@ static constexpr char kDefaultHiveNullFallback[] = "__HIVE_DEFAULT_PARTITION__";
 
 struct ARROW_DS_EXPORT HivePartitioningOptions : public KeyValuePartitioningOptions {
   std::string null_fallback = kDefaultHiveNullFallback;
-  bool split_path = true;
-  static HivePartitioningOptions DefaultsWithNullFallback(std::string fallback, bool split_path) {
+
+  static HivePartitioningOptions DefaultsWithNullFallback(std::string fallback) {
     HivePartitioningOptions options;
     options.null_fallback = std::move(fallback);
-    options.split_path = split_path;
     return options;
   }
 };
@@ -277,11 +273,11 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   /// If a field in schema is of dictionary type, the corresponding element of
   /// dictionaries must be contain the dictionary of values for that field.
   explicit HivePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries = {},
-                            std::string null_fallback = kDefaultHiveNullFallback, bool split_path = true)
+                            std::string null_fallback = kDefaultHiveNullFallback)
       : KeyValuePartitioning(std::move(schema), std::move(dictionaries),
                              KeyValuePartitioningOptions()),
         hive_options_(
-            HivePartitioningOptions::DefaultsWithNullFallback(std::move(null_fallback), split_path)) {
+            HivePartitioningOptions::DefaultsWithNullFallback(std::move(null_fallback))) {
   }
 
   explicit HivePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries,
@@ -291,7 +287,6 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 
   std::string type_name() const override { return "hive"; }
   std::string null_fallback() const { return hive_options_.null_fallback; }
-  bool split_path() const { return hive_options_.split_path; }
   const HivePartitioningOptions& options() const { return hive_options_; }
 
   static Result<std::optional<Key>> ParseKey(const std::string& segment,

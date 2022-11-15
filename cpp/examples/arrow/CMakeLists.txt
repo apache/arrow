@@ -137,10 +137,6 @@ if(ARROW_PARQUET AND ARROW_DATASET)
                     ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(execution-plan-documentation-examples parquet)
 
-  add_arrow_example(test_reader EXTRA_LINK_LIBS
-                    ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(test-reader parquet)
-
   if(ARROW_CSV)
     add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
     add_dependencies(join-example parquet)

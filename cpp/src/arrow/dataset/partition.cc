@@ -299,7 +299,7 @@ Result<PartitionPathFormat> KeyValuePartitioning::Format(
 
     ARROW_ASSIGN_OR_RAISE(auto match, ref_value.first.FindOneOrNone(*schema_));
     if (match.empty()) continue;
-    // VIBHATHA: upto this point the / is preserved A/Z like things are still there
+
     auto value = ref_value.second.scalar();
 
     const auto& field = schema_->field(match[0]);
@@ -452,7 +452,6 @@ HivePartitioningOptions HivePartitioningFactoryOptions::AsHivePartitioningOption
   HivePartitioningOptions options;
   options.segment_encoding = segment_encoding;
   options.null_fallback = null_fallback;
-  options.split_path = !ignore_separator;
   return options;
 }
 
@@ -752,18 +751,12 @@ Result<std::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
   return Key{std::move(name), std::move(value)};
 }
 
-//VIBHATHA:CODE: here the segments extraction part shouldn't remove the slashes 
 Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
     const std::string& path) const {
   std::vector<Key> keys;
-  auto parent_path = fs::internal::GetAbstractPathParent(path).first;
-  std::vector<std::string> segments;
-  if (hive_options_.split_path) {
-    segments = fs::internal::SplitAbstractPath(parent_path);
-  } else {
-    segments.push_back(std::move(parent_path));
-  }
-  for (const auto& segment : segments) {
+
+  for (const auto& segment :
+       fs::internal::SplitAbstractPath(fs::internal::GetAbstractPathParent(path).first)) {
     ARROW_ASSIGN_OR_RAISE(auto maybe_key, ParseKey(segment, hive_options_));
     if (auto key = maybe_key) {
       keys.push_back(std::move(*key));
@@ -779,6 +772,7 @@ Result<PartitionPathFormat> HivePartitioning::FormatValues(
 
   for (int i = 0; i < schema_->num_fields(); ++i) {
     const std::string& name = schema_->field(i)->name();
+
     if (values[i] == nullptr) {
       segments[i] = "";
     } else if (!values[i]->is_valid) {
@@ -786,18 +780,9 @@ Result<PartitionPathFormat> HivePartitioning::FormatValues(
       // field_index <-> path nesting relation
       segments[i] = name + "=" + hive_options_.null_fallback;
     } else {
-      segments[i] = name + "=" + values[i]->ToString();
+      segments[i] = name + "=" + arrow::internal::UriEscape(values[i]->ToString());
     }
   }
-
-  // auto flatten_segments = [&]() -> std::string {
-  //   std::string flattened_segment = "";
-  //   std::hash<std::string> str_hash;
-  //   for(const std::string& segment : segments) {
-  //     flattened_segment += str_hash(segment);
-  //   }
-  //   return flattened_segment;
-  // };
 
   return PartitionPathFormat{fs::internal::JoinAbstractPath(std::move(segments)), ""};
 }
@@ -826,8 +811,6 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
       const std::vector<std::string>& paths) override {
     auto options = options_.AsHivePartitioningOptions();
     for (auto path : paths) {
-      /// VIBHATHA: I think the issue here is that generally the path string
-      /// contains the schema_field=
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         ARROW_ASSIGN_OR_RAISE(auto maybe_key,
                               HivePartitioning::ParseKey(segment, options));

@@ -135,31 +135,10 @@ arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
   return table;
 }
 
-arrow::Result<std::shared_ptr<arrow::Table>> GetTable1() {
-  ARROW_ASSIGN_OR_RAISE(auto a,
-                        GetArrayDataSample<arrow::Int64Type>(
-                            {1, 2, 2, 1, 1}));
-
-  ARROW_ASSIGN_OR_RAISE(auto b, GetBinaryArrayDataSample<arrow::StringType>(
-                                         {"A/Z", "B", "C", "C/D", "E"}));
-  auto record_batch =
-      arrow::RecordBatch::Make(arrow::schema({arrow::field("a", arrow::int64()),
-                                              arrow::field("b", arrow::utf8())}),
-                               5, {a, b});
-  ARROW_ASSIGN_OR_RAISE(auto table, arrow::Table::FromRecordBatches({record_batch}));
-  return table;                               
-}
-
 /// \brief Create a sample dataset
 /// \return An in-memory dataset based on GetTable()
 arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> GetDataset() {
   ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
-  auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(table);
-  return ds;
-}
-
-arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> GetDataset1() {
-  ARROW_ASSIGN_OR_RAISE(auto table, GetTable1());
   auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(table);
   return ds;
 }
@@ -770,7 +749,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset1());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   // empty projection
@@ -796,7 +775,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   ARROW_RETURN_NOT_OK(filesystem->CreateDir(base_path));
 
   // The partition schema determines which fields are part of the partitioning.
-  auto partition_schema = arrow::schema({arrow::field("b", arrow::utf8())});
+  auto partition_schema = arrow::schema({arrow::field("a", arrow::int32())});
   // We'll use Hive-style partitioning,
   // which creates directories with "key=value" pairs.
 
