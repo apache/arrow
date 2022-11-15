@@ -710,6 +710,15 @@ struct ScalarToProtoImpl {
                       s);
   }
 
+  Status Visit(const StringViewScalar& s) {
+    return FromBuffer([](Lit* lit, std::string&& s) { lit->set_string(std::move(s)); },
+                      s);
+  }
+  Status Visit(const BinaryViewScalar& s) {
+    return FromBuffer([](Lit* lit, std::string&& s) { lit->set_binary(std::move(s)); },
+                      s);
+  }
+
   Status Visit(const FixedSizeBinaryScalar& s) {
     return FromBuffer(
         [](Lit* lit, std::string&& s) { lit->set_fixed_binary(std::move(s)); }, s);

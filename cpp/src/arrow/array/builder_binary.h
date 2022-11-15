@@ -508,8 +508,7 @@ class ARROW_EXPORT StringHeapBuilder {
   /// UnsafeAppend operations without the need to allocate more memory
   Status Reserve(int64_t num_bytes) {
     if (num_bytes > current_remaining_bytes_) {
-      current_remaining_bytes_ =
-          num_bytes > kDefaultBlocksize ? num_bytes : kDefaultBlocksize;
+      current_remaining_bytes_ = num_bytes > blocksize_ ? num_bytes : blocksize_;
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> new_block,
                             AllocateBuffer(current_remaining_bytes_, pool_));
       current_out_buffer_ = new_block->mutable_data();

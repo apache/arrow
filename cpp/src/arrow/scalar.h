@@ -255,7 +255,6 @@ struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
     return value ? std::string_view(*value) : std::string_view();
   }
 
- protected:
   BaseBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
       : internal::PrimitiveScalarBase{std::move(type), true}, value(std::move(value)) {}
 };
@@ -263,9 +262,6 @@ struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
 struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar {
   using BaseBinaryScalar::BaseBinaryScalar;
   using TypeClass = BinaryType;
-
-  BinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
-      : BaseBinaryScalar(std::move(value), std::move(type)) {}
 
   explicit BinaryScalar(std::shared_ptr<Buffer> value)
       : BinaryScalar(std::move(value), binary()) {}
@@ -282,37 +278,29 @@ struct ARROW_EXPORT StringScalar : public BinaryScalar {
   explicit StringScalar(std::shared_ptr<Buffer> value)
       : StringScalar(std::move(value), utf8()) {}
 
-  explicit StringScalar(std::string s);
-
   StringScalar() : StringScalar(utf8()) {}
 };
 
-struct ARROW_EXPORT BinaryViewScalar : public internal::PrimitiveScalarBase {
-  using internal::PrimitiveScalarBase::PrimitiveScalarBase;
+struct ARROW_EXPORT BinaryViewScalar : public BaseBinaryScalar {
+  using BaseBinaryScalar::BaseBinaryScalar;
   using TypeClass = BinaryViewType;
 
-  explicit BinaryViewScalar(StringHeader value, std::shared_ptr<DataType> type)
-      : internal::PrimitiveScalarBase(std::move(type), true), value(value) {}
+  explicit BinaryViewScalar(std::shared_ptr<Buffer> value)
+      : BinaryViewScalar(std::move(value), binary_view()) {}
 
-  explicit BinaryViewScalar(StringHeader value)
-      : BinaryViewScalar(value, binary_view()) {}
+  BinaryViewScalar() : BinaryViewScalar(binary_view()) {}
 
-  BinaryViewScalar() : internal::PrimitiveScalarBase(binary_view(), false) {}
-
-  void* mutable_data() override { return reinterpret_cast<void*>(&this->value); }
-
-  std::string_view view() const override { return std::string_view(this->value); }
-
-  StringHeader value;
+  std::string_view view() const override { return std::string_view(*this->value); }
 };
 
 struct ARROW_EXPORT StringViewScalar : public BinaryViewScalar {
+  using BinaryViewScalar::BinaryViewScalar;
   using TypeClass = StringViewType;
 
-  explicit StringViewScalar(StringHeader value)
-      : BinaryViewScalar(std::move(value), utf8_view()) {}
+  explicit StringViewScalar(std::shared_ptr<Buffer> value)
+      : StringViewScalar(std::move(value), utf8_view()) {}
 
-  StringViewScalar() : BinaryViewScalar(utf8_view()) {}
+  StringViewScalar() : StringViewScalar(utf8_view()) {}
 };
 
 struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar {

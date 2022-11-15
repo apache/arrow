@@ -1978,7 +1978,7 @@ License: http://www.apache.org/licenses/LICENSE-2.0
 
 This project includes code from Velox.
 
- * cpp/src/arrow/util/bytes_header.h
+ * cpp/src/arrow/util/string_header.h
 
 is based on Velox's
 

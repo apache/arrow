@@ -33,6 +33,7 @@
 
 #pragma once
 
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -69,35 +70,27 @@ struct StringHeader {
   static constexpr size_t kPrefixSize = 4;
   static constexpr size_t kInlineSize = 12;
 
-  StringHeader() {
-    static_assert(sizeof(StringHeader) == 16, "struct expected by exactly 16 bytes");
-    ;
-    memset(this, 0, sizeof(StringHeader));
+  StringHeader() = default;
+
+  static StringHeader makeInline(uint32_t size, char** data) {
+    assert(size <= kInlineSize);
+    StringHeader s;
+    s.size_ = size;
+    *data = const_cast<char*>(s.data());
+    return s;
   }
 
-  explicit StringHeader(uint32_t size) : size_(size) {
-    memset(prefix_, 0, kPrefixSize);
-    value_.data = nullptr;
-  }
+  StringHeader(const char* data, size_t len) : size_(static_cast<uint32_t>(len)) {
+    if (size_ == 0) return;
 
-  StringHeader(const char* data, size_t len) : size_(len) {
     // TODO: better option than assert?
-    assert(data || size_ == 0);
+    assert(data);
     if (IsInline()) {
-      // Zero the inline part.
-      // this makes sure that inline strings can be compared for equality with 2
-      // int64 compares.
-      memset(prefix_, 0, kPrefixSize);
-      if (size_ == 0) {
-        return;
-      }
-      // small string: inlined. Zero the last 8 bytes first to allow for whole
-      // word comparison.
-      value_.data = nullptr;
-      memcpy(prefix_, data, size_);
+      // small string: inlined. Bytes beyond size_ are already 0
+      memcpy(prefix_.data(), data, size_);
     } else {
       // large string: store pointer
-      memcpy(prefix_, data, kPrefixSize);
+      memcpy(prefix_.data(), data, kPrefixSize);
       value_.data = data;
     }
   }
@@ -112,19 +105,20 @@ struct StringHeader {
   //   StringHeader bh = "literal";
   //   std::optional<BytesView> obh = "literal";
   //
-  /* implicit */ StringHeader(const char* data) : StringHeader(data, strlen(data)) {}
+  // NOLINTNEXTLINE runtime/explicit
+  StringHeader(const char* data) : StringHeader(data, strlen(data)) {}
 
   explicit StringHeader(const std::string& value)
       : StringHeader(value.data(), value.size()) {}
 
-  explicit StringHeader(const std::string_view& value)
+  explicit StringHeader(std::string_view value)
       : StringHeader(value.data(), value.size()) {}
 
   bool IsInline() const { return IsInline(size_); }
 
   static constexpr bool IsInline(uint32_t size) { return size <= kInlineSize; }
 
-  const char* data() const { return IsInline() ? prefix_ : value_.data; }
+  const char* data() const { return IsInline() ? prefix_.data() : value_.data; }
 
   size_t size() const { return size_; }
 
@@ -160,7 +154,7 @@ struct StringHeader {
     if (PrefixAsInt() != other.PrefixAsInt()) {
       // The result is decided on prefix. The shorter will be less
       // because the prefix is padded with zeros.
-      return memcmp(prefix_, other.prefix_, kPrefixSize);
+      return memcmp(prefix_.data(), other.prefix_.data(), kPrefixSize);
     }
     int32_t size = std::min(size_, other.size_) - kPrefixSize;
     if (size <= 0) {
@@ -168,7 +162,7 @@ struct StringHeader {
       return size_ - other.size_;
     }
     if (static_cast<uint32_t>(size) <= kInlineSize && IsInline() && other.IsInline()) {
-      int32_t result = memcmp(value_.inlined, other.value_.inlined, size);
+      int32_t result = memcmp(value_.inlined.data(), other.value_.inlined.data(), size);
       return (result != 0) ? result : size_ - other.size_;
     }
     int32_t result = memcmp(data() + kPrefixSize, other.data() + kPrefixSize, size);
@@ -183,9 +177,7 @@ struct StringHeader {
 
   bool operator>=(const StringHeader& other) const { return Compare(other) >= 0; }
 
-  operator std::string() const { return std::string(data(), size()); }
-
-  std::string GetString() const { return *this; }
+  std::string GetString() const { return std::string(data(), size()); }
 
   explicit operator std::string_view() const { return std::string_view(data(), size()); }
 
@@ -208,12 +200,14 @@ struct StringHeader {
 
   // We rely on all members being laid out top to bottom . C++
   // guarantees this.
-  uint32_t size_;
-  char prefix_[4];
+  uint32_t size_ = 0;
+  std::array<char, 4> prefix_ = {0};
   union {
-    char inlined[8];
+    std::array<char, 8> inlined = {0};
     const char* data;
   } value_;
 };
+
+static_assert(sizeof(StringHeader) == 16, "struct expected by exactly 16 bytes");
 
 }  // namespace arrow
