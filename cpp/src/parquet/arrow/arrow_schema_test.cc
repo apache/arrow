@@ -988,12 +988,12 @@ TEST_F(TestConvertArrowSchema, ParquetLists) {
   //   }
   // }
   {
-    auto element = PrimitiveNode::Make("string", Repetition::OPTIONAL,
+    auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
         GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
-    auto arrow_element = ::arrow::field("string", UTF8, true);
+    auto arrow_element = ::arrow::field("element", UTF8, true);
     auto arrow_list = ::arrow::list(arrow_element);
     arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
   }
@@ -1005,12 +1005,12 @@ TEST_F(TestConvertArrowSchema, ParquetLists) {
   //   }
   // }
   {
-    auto element = PrimitiveNode::Make("string", Repetition::REQUIRED,
+    auto element = PrimitiveNode::Make("element", Repetition::REQUIRED,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
         GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, ConvertedType::LIST));
-    auto arrow_element = ::arrow::field("string", UTF8, false);
+    auto arrow_element = ::arrow::field("element", UTF8, false);
     auto arrow_list = ::arrow::list(arrow_element);
     arrow_fields.push_back(::arrow::field("my_list", arrow_list, true));
   }
@@ -1086,12 +1086,12 @@ TEST_F(TestConvertArrowSchema, ParquetOtherLists) {
   //   }
   // }
   {
-    auto element = PrimitiveNode::Make("string", Repetition::OPTIONAL,
+    auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
         GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
-    auto arrow_element = ::arrow::field("string", UTF8, true);
+    auto arrow_element = ::arrow::field("element", UTF8, true);
     auto arrow_list = ::arrow::large_list(arrow_element);
     arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
   }
@@ -1102,12 +1102,12 @@ TEST_F(TestConvertArrowSchema, ParquetOtherLists) {
   //   }
   // }
   {
-    auto element = PrimitiveNode::Make("string", Repetition::OPTIONAL,
+    auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
         GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
-    auto arrow_element = ::arrow::field("string", UTF8, true);
+    auto arrow_element = ::arrow::field("element", UTF8, true);
     auto arrow_list = ::arrow::fixed_size_list(arrow_element, 10);
     arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
   }

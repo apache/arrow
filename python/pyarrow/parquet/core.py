@@ -797,10 +797,10 @@ data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
     Parquet type casting behavior; for that use the "version" option.
-use_compliant_nested_type : bool, default False
+use_compliant_nested_type : bool, default True
     Whether to write compliant Parquet nested type (lists) as defined
     `here <https://github.com/apache/parquet-format/blob/master/
-    LogicalTypes.md#nested-types>`_, defaults to ``False``.
+    LogicalTypes.md#nested-types>`_, defaults to ``True``.
     For ``use_compliant_nested_type=True``, this will write into a list
     with 3-level structure where the middle level, named ``list``,
     is a repeated group with a single field named ``element``::
@@ -921,7 +921,7 @@ Examples
                  column_encoding=None,
                  writer_engine_version=None,
                  data_page_version='1.0',
-                 use_compliant_nested_type=False,
+                 use_compliant_nested_type=True,
                  encryption_properties=None,
                  write_batch_size=None,
                  dictionary_pagesize_limit=None,
@@ -2953,7 +2953,7 @@ def write_table(table, where, row_group_size=None, version='2.4',
                 use_byte_stream_split=False,
                 column_encoding=None,
                 data_page_version='1.0',
-                use_compliant_nested_type=False,
+                use_compliant_nested_type=True,
                 encryption_properties=None,
                 write_batch_size=None,
                 dictionary_pagesize_limit=None,

@@ -129,10 +129,7 @@ def test_direct_read_dictionary(use_legacy_dataset):
     repeats = 10
     nunique = 5
 
-    data = [
-        [util.rands(10) for i in range(nunique)] * repeats,
-
-    ]
+    data = [[util.rands(10) for i in range(nunique)] * repeats]
     table = pa.table(data, names=['f0'])
 
     bio = pa.BufferOutputStream()
@@ -163,7 +160,7 @@ def test_direct_read_dictionary_subfield(use_legacy_dataset):
     pq.write_table(table, bio)
     contents = bio.getvalue()
     result = pq.read_table(pa.BufferReader(contents),
-                           read_dictionary=['f0.list.item'],
+                           read_dictionary=['f0.list.element'],
                            use_legacy_dataset=use_legacy_dataset)
 
     arr = pa.array(data[0])

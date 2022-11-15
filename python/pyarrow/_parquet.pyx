@@ -1606,7 +1606,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         coerce_timestamps=None,
         allow_truncated_timestamps=False,
         writer_engine_version=None,
-        use_compliant_nested_type=False) except *:
+        use_compliant_nested_type=True) except *:
     """Arrow writer properties"""
     cdef:
         shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1700,7 +1700,7 @@ cdef class ParquetWriter(_Weakrefable):
                   column_encoding=None,
                   writer_engine_version=None,
                   data_page_version=None,
-                  use_compliant_nested_type=False,
+                  use_compliant_nested_type=True,
                   encryption_properties=None,
                   write_batch_size=None,
                   dictionary_pagesize_limit=None):
