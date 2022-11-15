@@ -65,7 +65,15 @@ See :ref:`python-development`.
 Dependencies
 ------------
 
-PyArrow is currently compatible with
+Required dependency
 
-* **pandas 1.0** and higher,
-* **NumPy 1.16.6** and higher.
+* **NumPy 1.16.6** or higher.
+
+Optional dependencies
+
+* **pandas 1.0** or higher,
+* **cffi**.
+
+Additional packages PyArrow is compatible with are
+`fsspec <file:///Users/alenkafrim/repos/arrow/docs/_build/html/python/filesystems.html#using-fsspec-compatible-filesystems-with-arrow>`_
+and **pytz**, **dateutil** or **tzdata** package for timezones.
