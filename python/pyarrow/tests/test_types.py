@@ -1131,3 +1131,10 @@ def test_hashing(items):
 
     for i, item in enumerate(items):
         assert container[item] == i
+
+
+def test_types_come_back_with_specific_type():
+    for arrow_type in get_many_types():
+        schema = pa.schema([pa.field("field_name", arrow_type)])
+        type_back = schema.field("field_name").type
+        assert type(type_back) is type(arrow_type)
