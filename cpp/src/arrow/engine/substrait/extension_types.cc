@@ -17,10 +17,14 @@
 
 #include "arrow/engine/substrait/extension_types.h"
 
+#include <cstdint>
+#include <string>
 #include <string_view>
 
 #include "arrow/engine/simple_extension_type_internal.h"
-#include "arrow/util/hashing.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/reflection_internal.h"
 
 namespace arrow {
 

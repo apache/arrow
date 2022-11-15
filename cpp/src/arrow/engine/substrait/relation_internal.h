@@ -19,13 +19,13 @@
 
 #pragma once
 
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/engine/substrait/extension_types.h"
-#include "arrow/engine/substrait/options.h"
+#include <memory>
+
+#include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/relation.h"
-#include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
-#include "arrow/type_fwd.h"
+#include "arrow/result.h"
 
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
 
