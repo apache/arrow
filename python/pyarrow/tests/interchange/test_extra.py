@@ -34,7 +34,7 @@ def test_datetime():
     assert col.size() == 2
     assert col.null_count == 1
     assert col.dtype[0] == DtypeKind.DATETIME
-    assert col.describe_null == (ColumnNullType.USE_BYTEMASK, 0)
+    assert col.describe_null == (ColumnNullType.USE_BITMASK, 0)
 
 
 @pytest.mark.parametrize(
