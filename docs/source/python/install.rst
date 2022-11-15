@@ -61,3 +61,11 @@ Installing from source
 ----------------------
 
 See :ref:`python-development`.
+
+Dependencies
+------------
+
+PyArrow is currently compatible with
+
+* **pandas 1.0** and higher,
+* **NumPy 1.16.6** and higher.
