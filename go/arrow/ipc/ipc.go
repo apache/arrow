@@ -70,6 +70,7 @@ type config struct {
 	compressNP         int
 	ensureNativeEndian bool
 	noAutoSchema       bool
+	emitDictDeltas     bool
 }
 
 func newConfig(opts ...Option) *config {
@@ -157,6 +158,13 @@ func WithEnsureNativeEndian(v bool) Option {
 func WithDelayReadSchema(v bool) Option {
 	return func(cfg *config) {
 		cfg.noAutoSchema = v
+	}
+}
+
+// WithDictionaryDeltas specifies whether or not to emit dictionary deltas.
+func WithDictionaryDeltas(v bool) Option {
+	return func(cfg *config) {
+		cfg.emitDictDeltas = v
 	}
 }
 

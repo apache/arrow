@@ -99,11 +99,12 @@ type Writer struct {
 func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 	cfg := newConfig(opts...)
 	return &Writer{
-		mem:        cfg.alloc,
-		pw:         pw,
-		schema:     cfg.schema,
-		codec:      cfg.codec,
-		compressNP: cfg.compressNP,
+		mem:            cfg.alloc,
+		pw:             pw,
+		schema:         cfg.schema,
+		codec:          cfg.codec,
+		compressNP:     cfg.compressNP,
+		emitDictDeltas: cfg.emitDictDeltas,
 	}
 }
 
@@ -111,11 +112,12 @@ func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 func NewWriter(w io.Writer, opts ...Option) *Writer {
 	cfg := newConfig(opts...)
 	return &Writer{
-		w:      w,
-		mem:    cfg.alloc,
-		pw:     &swriter{w: w},
-		schema: cfg.schema,
-		codec:  cfg.codec,
+		w:              w,
+		mem:            cfg.alloc,
+		pw:             &swriter{w: w},
+		schema:         cfg.schema,
+		codec:          cfg.codec,
+		emitDictDeltas: cfg.emitDictDeltas,
 	}
 }
 
