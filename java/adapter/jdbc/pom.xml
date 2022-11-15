@@ -16,7 +16,7 @@
     <parent>
         <groupId>org.apache.arrow</groupId>
         <artifactId>arrow-java-root</artifactId>
-        <version>10.0.0</version>
+        <version>10.0.1</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 

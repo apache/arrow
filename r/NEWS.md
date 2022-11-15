@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 10.0.0
+# arrow 10.0.1
 
 ## Arrow dplyr queries
 

@@ -14,7 +14,7 @@
   <parent>
     <artifactId>arrow-flight</artifactId>
     <groupId>org.apache.arrow</groupId>
-    <version>10.0.0</version>
+    <version>10.0.1</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 

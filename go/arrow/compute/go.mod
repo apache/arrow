@@ -19,7 +19,7 @@ module github.com/apache/arrow/go/v10/arrow/compute
 go 1.18
 
 require (
-	github.com/apache/arrow/go/v10 v10.0.0
+	github.com/apache/arrow/go/v10 v10.0.1
 	github.com/klauspost/cpuid/v2 v2.0.9
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91
