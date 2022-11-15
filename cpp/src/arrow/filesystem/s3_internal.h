@@ -170,15 +170,20 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   if (error_type == Aws::S3::S3Errors::UNKNOWN) {
     ss << " (HTTP status " << static_cast<int>(error.GetResponseCode()) << ")";
   }
+
+  // Possibly an error due to wrong region configuration from client and bucket.
+  std::optional<std::string> wrong_region_msg = std::nullopt;
   if (region.has_value()) {
     const auto maybe_region = BucketRegionFromError(error);
     if (maybe_region.has_value() && maybe_region.value() != region.value()) {
-      ss << " Looks like the configured region is '" + region.value() +
-                "' while the bucket is located in '" + maybe_region.value() + "': ";
+      wrong_region_msg = " Looks like the configured region is '" + region.value() +
+                         "' while the bucket is located in '" + maybe_region.value() +
+                         "'.";
     }
   }
   return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
-                         " operation: ", error.GetMessage());
+                         " operation: ", error.GetMessage(),
+                         wrong_region_msg.value_or(""));
 }
 
 template <typename ErrorType, typename... Args>
