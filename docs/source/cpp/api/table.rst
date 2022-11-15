@@ -43,3 +43,6 @@ Tables
 
 .. doxygenfunction:: arrow::ConcatenateTables
    :project: arrow_cpp
+
+.. doxygenfunction:: arrow::PromoteTableToSchema
+   :project: arrow_cpp
