@@ -1155,7 +1155,6 @@ Result<Pipe> CreatePipe() {
   Pipe pipe;
 
 #if defined(_WIN32)
-  ret = _pipe(fds, 4096, _O_BINARY);
   ok = _pipe(fds, 4096, _O_BINARY) >= 0;
   if (ok) {
     pipe = {FileDescriptor(fds[0]), FileDescriptor(fds[1])};
@@ -1168,11 +1167,11 @@ Result<Pipe> CreatePipe() {
   }
 #else
   auto set_cloexec = [](int fd) -> bool {
-    int ret = fcntl(fd, F_GETFD);
-    if (ret >= 0) {
-      ret = fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
+    int flags = fcntl(fd, F_GETFD);
+    if (flags >= 0) {
+      flags = fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
     }
-    return ret >= 0;
+    return flags >= 0;
   };
 
   ok = ::pipe(fds) >= 0;
