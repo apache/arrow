@@ -739,8 +739,8 @@ class ORCFileWriter::Impl {
         return Status::TypeError(
             "The schema of the RecordBatch does not match"
             " the initial schema. All exported RecordBatches/Tables"
-            " must have the same schema.\nInitial:\n", *arrow_schema_, "\nCurrent:\n",
-            *table.schema());
+            " must have the same schema.\nInitial:\n",
+            *arrow_schema_, "\nCurrent:\n", *table.schema());
       }
     }
     auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
