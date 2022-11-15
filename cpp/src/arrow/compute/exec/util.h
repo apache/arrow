@@ -424,5 +424,38 @@ Result<Expression> ModifyExpression(Expression expr, const PreVisit& pre,
   return post_call(std::move(expr), NULLPTR);
 }
 
+struct ThreadContext {
+  int64_t thread_index;
+  util::TempVectorStack* temp_vector_stack;
+  int64_t hardware_flags;
+};
+
+struct ParallelForStream {
+  using TaskCallback = std::function<Status(int64_t, ThreadContext&)>;
+
+  void InsertParallelFor(int64_t num_tasks, TaskCallback task_callback) {
+    parallel_fors_.push_back(std::make_pair(num_tasks, task_callback));
+  }
+
+  void InsertTaskSingle(TaskCallback task_callback) {
+    parallel_fors_.push_back(std::make_pair(static_cast<int64_t>(1), task_callback));
+  }
+
+  // If any of the tasks returns an error status then all the remaining parallel
+  // fors in the stream will not be executed and the first error status within
+  // the failing parallel for loop step will be returned.
+  //
+  Status RunOnSingleThread(ThreadContext& thread_context) {
+    for (size_t i = 0; i < parallel_fors_.size(); ++i) {
+      for (int64_t j = 0; j < parallel_fors_[i].first; ++j) {
+        ARROW_RETURN_NOT_OK(parallel_fors_[i].second(j, thread_context));
+      }
+    }
+    return Status::OK();
+  }
+
+  std::vector<std::pair<int64_t, TaskCallback>> parallel_fors_;
+};
+
 }  // namespace compute
 }  // namespace arrow

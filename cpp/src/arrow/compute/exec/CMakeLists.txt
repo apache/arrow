@@ -45,6 +45,11 @@ add_arrow_compute_test(util_test
                        SOURCES
                        util_test.cc
                        task_util_test.cc)
+add_arrow_compute_test(window_functions_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       window_functions/window_test.cc)
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
 

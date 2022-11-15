@@ -18,34 +18,53 @@
 #pragma once
 
 #include <cstdint>
-#include <set>
+#include <vector>
 #include "arrow/compute/exec/util.h"
 
 namespace arrow {
 namespace compute {
 
+// A collection of window frames for a sequence of rows in the window frame sort
+// order.
+//
 struct WindowFrames {
+  // Every frame is associated with a single row.
+  //
+  // This is the index of the first row (in the window frame sort order) for the
+  // first frame.
+  //
+  int64_t first_row_index;
+
+  // Number of frames in this collection
+  //
+  int64_t num_frames;
+
+  // Maximum number of ranges that make up each single frame.
+  //
   static constexpr int kMaxRangesInFrame = 3;
 
-  int num_ranges_in_frame;
-  int64_t num_frames;
+  // Number of ranges that make up each single frame.
+  // Every frame will have exactly that many ranges, but any number of these
+  // ranges can be empty.
+  //
+  int num_ranges_per_frame;
 
   // Range can be empty, in that case begin == end. Otherwise begin < end.
   //
-  // Ranges in a single frame must be disjoint but begin of next range can be
-  // equal to the end of the previous one.
+  // Ranges in a single frame must be disjoint but beginning of next range can
+  // be equal to the end of the previous one.
+  //
+  // Beginning of each next range must be greater or equal to the end of the
+  // previous range.
   //
   const int64_t* begins[kMaxRangesInFrame];
   const int64_t* ends[kMaxRangesInFrame];
 
-  // Row filter has bits set to 0 for rows that should not be included in the
-  // range.
+  // Check if a collection of frames represents sliding frames,
+  // that is for every boundary (left and right) of every range, the values
+  // across all frames are non-decreasing.
   //
-  // Null row filter means that all rows are qualified.
-  //
-  const uint8_t* row_filter;
-
-  bool FramesProgressing() const {
+  bool IsSliding() const {
     for (int64_t i = 1; i < num_frames; ++i) {
       if (!(begins[i] >= begins[i - 1] && ends[i] >= ends[i - 1])) {
         return false;
@@ -54,7 +73,13 @@ struct WindowFrames {
     return true;
   }
 
-  bool FramesExpanding() const {
+  // Check if a collection of frames represent cumulative frames,
+  // that is for every range, two adjacent frames either share the same
+  // beginning with end of the later one being no lesser than the end of the
+  // previous one, or the later one begins at or after the end of the previous
+  // one.
+  //
+  bool IsCummulative() const {
     for (int64_t i = 1; i < num_frames; ++i) {
       if (!((begins[i] >= ends[i - 1] || begins[i] == begins[i - 1]) &&
             (ends[i] >= ends[i - 1]))) {
@@ -63,81 +88,23 @@ struct WindowFrames {
     }
     return true;
   }
+
+  // Check if the row for which the frame is defined is included in any of the
+  // ranges defining that frame.
+  //
+  bool IsRowInsideItsFrame(int64_t frame_index) const {
+    bool is_inside = false;
+    int64_t row_index = first_row_index + frame_index;
+    for (int64_t range_index = 0; range_index < num_ranges_per_frame; ++range_index) {
+      int64_t range_begin = begins[range_index][frame_index];
+      int64_t range_end = ends[range_index][frame_index];
+      is_inside = is_inside || (row_index >= range_begin && row_index < range_end);
+    }
+    return is_inside;
+  }
 };
 
-inline void GenerateTestFrames(Random64BitCopy& rand, int64_t num_rows,
-                               std::vector<int64_t>& begins, std::vector<int64_t>& ends,
-                               bool progressive, bool expansive) {
-  begins.resize(num_rows);
-  ends.resize(num_rows);
-
-  if (!progressive && !expansive) {
-    constexpr int64_t max_frame_length = 100;
-    for (int64_t i = 0; i < num_rows; ++i) {
-      int64_t length =
-          rand.from_range(static_cast<int64_t>(0), std::min(num_rows, max_frame_length));
-      int64_t begin = rand.from_range(static_cast<int64_t>(0), num_rows - length);
-      begins[i] = begin;
-      ends[i] = begin + length;
-    }
-  } else if (progressive && !expansive) {
-    int64_t dist = rand.from_range(static_cast<int64_t>(1),
-                                   std::max(static_cast<int64_t>(1), num_rows / 4));
-    std::vector<int64_t> pos;
-    for (int64_t i = 0; i < num_rows + dist; ++i) {
-      pos.push_back(rand.from_range(static_cast<int64_t>(0), num_rows));
-    }
-    std::sort(pos.begin(), pos.end());
-    for (int64_t i = 0; i < num_rows; ++i) {
-      begins[i] = pos[i];
-      ends[i] = pos[i + dist];
-    }
-  } else {
-    int64_t num_partitions =
-        rand.from_range(static_cast<int64_t>(1), bit_util::CeilDiv(num_rows, 128LL));
-    std::set<int64_t> partition_ends_set;
-    std::vector<int64_t> partition_ends;
-    partition_ends_set.insert(num_rows);
-    partition_ends.push_back(num_rows);
-    for (int64_t i = 1; i < num_partitions; ++i) {
-      int64_t partition_end;
-      for (;;) {
-        partition_end = rand.from_range(static_cast<int64_t>(1), num_rows - 1);
-        if (partition_ends_set.find(partition_end) == partition_ends_set.end()) {
-          break;
-        }
-      }
-      partition_ends.push_back(partition_end);
-      partition_ends_set.insert(partition_end);
-    }
-    std::sort(partition_ends.begin(), partition_ends.end());
-    for (int64_t ipartition = 0; ipartition < num_partitions; ++ipartition) {
-      int64_t partition_begin = ipartition == 0 ? 0LL : partition_ends[ipartition - 1];
-      int64_t partition_end = partition_ends[ipartition];
-      int64_t partition_length = partition_end - partition_begin;
-      int64_t begin = rand.from_range(0LL, 2LL);
-
-      if (begin >= partition_length) {
-        begin = partition_length - 1;
-      }
-      int64_t end = begin + rand.from_range(0LL, 2LL);
-      if (end > partition_length) {
-        end = partition_length;
-      }
-      begins[partition_begin + 0] = partition_begin + begin;
-      ends[partition_begin + 0] = partition_begin + end;
-      for (int64_t i = 1; i < partition_length; ++i) {
-        int64_t end_step = rand.from_range(0LL, 2LL);
-        end += end_step;
-        if (end > partition_length) {
-          end = partition_length;
-        }
-        begins[partition_begin + i] = partition_begin + begin;
-        ends[partition_begin + i] = partition_begin + end;
-      }
-    }
-  }
-}
+enum class WindowFrameSequenceType { CUMMULATIVE, SLIDING, GENERIC };
 
 }  // namespace compute
 }  // namespace arrow

@@ -18,320 +18,288 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/exec/window_functions/bit_vector_navigator.h"
+#include "arrow/compute/exec/window_functions/window_frame.h"
 #include "arrow/util/bit_util.h"
-#include "bit_vector_navigator.h"
 
 namespace arrow {
 namespace compute {
 
-// TODO: Support multiple [begin, end) ranges in range and nth_element queries.
+// Represents a fixed set of 2D points with attributes X and Y.
+// Values of each attribute across points are unique integers in the range
+// [0, N - 1] for N points.
+// Supports two kinds of queries:
+// a) Nth element
+// b) Box count / box filter
 //
-
-// One way to think about MergeTree is that, when we traverse top down, we
-// switch to sortedness on X axis, and when we traverse bottom up, we switch to
-// sortedness on Y axis. At the lowest level of MergeTree rows are sorted on X
-// and the highest level they are sorted on Y.
+// Nth element query: filter points using range predicate on Y, return the nth
+// smallest X within the remaining points.
+//
+// Box count query: filter points using range predicate on X and less than
+// predicate on Y, count and return the number of remaining points.
 //
 class MergeTree {
  public:
-  MergeTree() : num_rows_(0) {}
-
-  void Build(int64_t num_rows, const int64_t* permutation, int num_levels_to_skip,
-             int64_t hardware_flags, util::TempVectorStack* temp_vector_stack);
-
-  int get_height() const { return num_rows_ ? 1 + arrow::bit_util::Log2(num_rows_) : 0; }
-
-  template <typename S>
-  void Split(
-      /* upper level */ int level, const S* in, S* out, int64_t hardware_flags,
-      util::TempVectorStack* temp_vector_stack) const {
-    int64_t lower_node_length = 1LL << (level - 1);
-    int64_t lower_node_mask = lower_node_length - 1LL;
-
-    int64_t batch_length_max = util::MiniBatch::kMiniBatchLength;
-    int num_ids;
-    auto ids_buf = util::TempVectorHolder<uint16_t>(
-        temp_vector_stack, static_cast<uint32_t>(batch_length_max));
-    uint16_t* ids = ids_buf.mutable_data();
-
-    // Break into mini-batches
-    int64_t rank_batch_begin[2];
-    rank_batch_begin[0] = 0;
-    rank_batch_begin[1] = 0;
-    for (int64_t batch_begin = 0; batch_begin < num_rows_;
-         batch_begin += batch_length_max) {
-      int64_t batch_length = std::min(num_rows_ - batch_begin, batch_length_max);
-
-      for (int child = 0; child <= 1; ++child) {
-        // Get parent node positions (relative to the batch) for all elements
-        // coming from left child
-        util::bit_util::bits_to_indexes(
-            child, hardware_flags, static_cast<int>(batch_length),
-            reinterpret_cast<const uint8_t*>(level_bitvecs_[level].data() +
-                                             batch_begin / 64),
-            &num_ids, ids);
-
-        for (int i = 0; i < num_ids; ++i) {
-          int64_t upper_pos = batch_begin + ids[i];
-          int64_t rank = rank_batch_begin[child] + i;
-          int64_t lower_pos = (rank & ~lower_node_mask) * 2 + child * lower_node_length +
-                              (rank & lower_node_mask);
-          out[lower_pos] = in[upper_pos];
-        }
-        rank_batch_begin[child] += num_ids;
-      }
-    }
-  }
-
-  // State or output for range query.
+  // Constant used in description of boundaries of the ranges of node elements
+  // to indicate an empty range.
   //
-  // Represents between zero and two different nodes from a single level of the
-  // tree.
+  static constexpr int64_t kEmptyRange = -1;
+
+  // Constant returned from nth element query when the result is outside of the
+  // input range of elements.
   //
-  // For each node remembers the length of its prefix, which represents a
-  // subrange of selected elements of that node.
+  static constexpr int64_t kOutOfBounds = -1;
+
+  int num_levels() const { return bit_util::Log2(length_) + 1; }
+
+  Status Build(int64_t length, int level_begin, int64_t* permutation_of_X,
+               ParallelForStream& parallel_fors);
+
+  // Internal state of a single box count / box filter query preserved between
+  // visiting different levels of the merge tree.
   //
-  // Length is between 1 and the number of node elements at this level (both
-  // bounds inclusive), because empty set of selected elements is represented by
-  // a special constant kEmpty.
-  //
-  struct RangeQueryState {
-    static constexpr int64_t kEmpty = ~static_cast<int64_t>(0);
-
-    static int64_t PosFromNodeAndLength(int level, int64_t node, int64_t length) {
-      if (length == 0) {
-        return kEmpty;
-      }
-      return (node << level) + length - 1;
-    }
-
-    static void NodeAndLengthFromPos(int level, int64_t pos, int64_t* node,
-                                     int64_t* length) {
-      ARROW_DCHECK(pos != kEmpty);
-      *node = pos >> level;
-      *length = 1 + pos - (*node << level);
-    }
-
-    void AppendPos(int64_t new_pos) {
-      // One of the two positions must be set to null
-      //
-      if (pos[0] == kEmpty) {
-        pos[0] = new_pos;
-      } else {
-        ARROW_DCHECK(pos[1] == kEmpty);
-        pos[1] = new_pos;
-      }
-    }
-
-    int64_t pos[2];
+  struct BoxQueryState {
+    // End positions for ranges of elements sorted on Y belonging to up
+    // to two nodes from a single level that are active for this box query.
+    //
+    // There may be between 0 and 2 nodes represented in this state.
+    // If it is less than 2 we mark the remaining elements in the ends array
+    // with the kEmptyRange constant.
+    //
+    int64_t ends[2];
   };
 
-  // Visiting each level updates state cursor pair and outputs state cursor
-  // pair.
+  // Input and mutable state for a series of box queries
   //
-  void RangeQueryStep(int level, int64_t num_queries, const int64_t* begins,
-                      const int64_t* ends, RangeQueryState* query_states,
-                      RangeQueryState* query_outputs) const;
-
-  int64_t NthElement(int64_t begin, int64_t end, int64_t n) const {
-    ARROW_DCHECK(n >= 0 && n < end - begin);
-    int64_t temp_begin = begin;
-    int64_t temp_end = end;
-    int64_t temp_n = n;
-
-    // Traverse the tree top-down
+  struct BoxQueryRequest {
+    // Callback for reporting partial query results for a batch of queries and a
+    // single level.
     //
-    int top_level = static_cast<int>(level_bitvecs_.size()) - 1;
-    for (int level = top_level; level > 0; --level) {
-      NthElementStep(level, &temp_begin, &temp_end, &temp_n);
-    }
+    // The arguments are:
+    // - tree level,
+    // - range of query indices (begin and end),
+    // - two arrays with one element per query in a batch containing two
+    // cursors. Each cursor represents a prefix of elements (sorted on Y) inside
+    // a single node from the specified level that satisfy the query. Each
+    // cursor can be set to kEmptyRange constant, which indicates empty result
+    // set.
+    //
+    using BoxQueryCallback = std::function<void(int, int64_t, int64_t, const int64_t*,
+                                                const int64_t*, ThreadContext&)>;
+    BoxQueryCallback report_results_callback_;
+    // Number of queries
+    //
+    int64_t num_queries;
+    // The predicate on X can represent a union of multiple ranges,
+    // but all queries need to use exactly the same number of ranges.
+    //
+    int num_x_ranges;
+    // Range predicates on X.
+    //
+    // Since every query can use multiple ranges it is an array of arrays.
+    //
+    // Beginnings and ends of corresponding ranges are stored in separate arrays
+    // of arrays.
+    //
+    const int64_t* xbegins[WindowFrames::kMaxRangesInFrame];
+    const int64_t* xends[WindowFrames::kMaxRangesInFrame];
+    // Range of tree levels to traverse.
+    //
+    // If the range does not represent the entire tree, then only part of
+    // the tree will be processed, starting from the query states provided in
+    // the array below. The array of query states will be updated afterwards,
+    // allowing subsequent call to continue processing for the remaining tree
+    // levels.
+    //
+    int level_begin;
+    int level_end;
+    // Query state is a pair of cursors pointing to two locations in two nodes
+    // in a single (level_begin) level of the tree. A cursor can be seen as a
+    // prefix of elements (sorted on Y) that belongs to a single node. The
+    // number of cursors may be less than 2, in which case one or two cursors
+    // are set to the kEmptyRange constant.
+    //
+    // Initially the first cursor should be set to exclusive upper bound on Y
+    // (kEmptyRange if 0) and the second cursor to kEmptyRange.
+    //
+    // If we split query processing into multiple steps (level_end > 0), then
+    // the state will be updated.
+    //
+    BoxQueryState* states;
+  };
 
-    return temp_begin;
-  }
+  void BoxQuery(const BoxQueryRequest& queries, ThreadContext& thread_ctx);
 
-  void NthElement(int64_t num_queries, const uint16_t* opt_ids, const int64_t* begins,
-                  const int64_t* ends,
-                  /* ns[i] must be in the range [0; ends[i] - begins[i]) */
-                  const int64_t* ns, int64_t* row_numbers,
-                  util::TempVectorStack* temp_vector_stack) const;
+  void BoxCountQuery(int64_t num_queries, int num_x_ranges_per_query,
+                     const int64_t** x_begins, const int64_t** x_ends,
+                     const int64_t* y_ends, int64_t* results,
+                     ThreadContext& thread_context);
 
-  const uint64_t* GetLevelBitvec(int level) const { return level_bitvecs_[level].data(); }
+  // Internal state of a single nth element query preserved between visiting
+  // different levels of the merge tree.
+  struct NthQueryState {
+    // Position within a single node from a single level that encodes:
+    // - the node from which the search will continue,
+    // - the relative position of the output X within the sorted sequence of X
+    // of points associated with this node.
+    int64_t pos;
+  };
 
-  void Cascade_Begin(int level, int64_t begin, int64_t* lbegin, int64_t* rbegin) const;
-  void Cascade_End(int level, int64_t end, int64_t* lend, int64_t* rend) const;
-  int64_t Cascade_Pos(int level, int64_t pos) const;
+  // Input and mutable state for a series of nth element queries
+  //
+  struct NthQueryRequest {
+    int64_t num_queries;
+    // Range predicates on Y.
+    //
+    // Since every query can use multiple ranges it is an array of arrays.
+    //
+    // Beginnings and ends of corresponding ranges are stored in separate arrays
+    // of arrays.
+    //
+    int num_y_ranges;
+    const int64_t** ybegins;
+    const int64_t** yends;
+    // State encodes a node (all states will point to nodes from the same level)
+    // and the N for the Nth element we are looking for.
+    //
+    // When the query starts it is set directly to N in the query (N part is the
+    // input and node part is zero).
+    //
+    // When the query finishes it is set to the query result - a value of X that
+    // is Nth in the given range of Y (node part is the result and N part is
+    // zero).
+    //
+    NthQueryState* states;
+  };
 
-  static constexpr int64_t kEmptyRangeBoundary = static_cast<int64_t>(~0ULL);
-
-  int64_t GetNodeBeginFromEnd(int level, int64_t end) const {
-    return ((end - 1) >> level) << level;
-  }
-  int64_t GetNodeEnd(int level, int64_t node_begin) const {
-    return std::min(num_rows_, node_begin + (static_cast<int64_t>(1) << level));
-  }
-
-  template <class T_PROCESS_OUTPUT_RANGE>
-  void MiniBatchRangeQuery(int64_t num_queries, const int64_t* x_begins,
-                           const int64_t* x_ends, int64_t* y_ends,
-                           util::TempVectorStack* temp_vector_stack,
-                           T_PROCESS_OUTPUT_RANGE process_output_range) {
-    ARROW_DCHECK(num_queries <= util::MiniBatch::kMiniBatchLength);
-
-    TEMP_VECTOR(int64_t, y_ends_2nd);
-
-    auto process_node = [&](int level, int64_t iquery, int64_t y_end) {
-      if (y_end != kEmptyRangeBoundary) {
-        int64_t begin = x_begins[iquery];
-        int64_t end = x_ends[iquery];
-        int64_t node_begin = GetNodeBeginFromEnd(level, y_end);
-        if (NodeFullyInsideRange(level, node_begin >> level, begin, end)) {
-          process_output_range(iquery, node_begin, y_end);
-        } else if (NodePartiallyInsideRange(level, node_begin >> level, begin, end)) {
-          if (y_ends[iquery] == kEmptyRangeBoundary) {
-            y_ends[iquery] = y_end;
-          } else {
-            ARROW_DCHECK(y_ends_2nd[iquery] == kEmptyRangeBoundary);
-            y_ends_2nd[iquery] = y_end;
-          }
-        }
-      }
-    };
-
-    for (int level = get_height() - 1; level >= 0; --level) {
-      bool is_top_level = (level == (get_height() - 1));
-      for (int64_t iquery = 0; iquery < num_queries; ++iquery) {
-        int64_t& y_end = y_ends[iquery];
-        int64_t& y_end_2nd = y_ends_2nd[iquery];
-
-        int64_t y_ends_new[4];
-        y_ends_new[0] = y_ends_new[1] = y_ends_new[2] = y_ends_new[3] =
-            kEmptyRangeBoundary;
-
-        if (is_top_level) {
-          y_ends_new[0] = y_end;
-        } else {
-          if (y_end != kEmptyRangeBoundary) {
-            Cascade_End(level + 1, y_end, &y_ends_new[0], &y_ends_new[1]);
-          }
-          if (y_ends_2nd[iquery] != kEmptyRangeBoundary) {
-            Cascade_End(level + 1, y_end_2nd, &y_ends_new[2], &y_ends_new[3]);
-          }
-        }
-
-        y_end = y_end_2nd = kEmptyRangeBoundary;
-        for (int i = 0; i < 4; ++i) {
-          process_node(level, iquery, y_ends_new[i]);
-        }
-      }
-    }
-  }
-
-  void BoxCount(int num_levels_to_skip, int num_ids, uint16_t* ids, const int64_t* begins,
-                const int64_t* ends, int64_t* lpos, int64_t* rpos,
-                int64_t* counters) const {
-    ARROW_DCHECK(num_rows_ > 0);
-    if (num_rows_ == 1) {
-      for (int i = 0; i < num_ids; ++i) {
-        uint16_t id = ids[i];
-        ARROW_DCHECK(ends[id] > begins[id] && lpos[id] != RangeQueryState::kEmpty &&
-                     lpos[id] > 0);
-        counters[id] = num_rows_;
-      }
-    }
-    for (int level = get_height() - 1 - num_levels_to_skip; level >= 0; --level) {
-      int num_ids_new = 0;
-      for (int64_t iquery = 0; iquery < num_ids; ++iquery) {
-        uint16_t id = ids[iquery];
-        int64_t begin = begins[id];
-        int64_t end = ends[id];
-        ARROW_DCHECK(end > begin);
-        int64_t lpos_new, rpos_new;
-        if (level == get_height() - 1 - num_levels_to_skip) {
-          lpos_new = lpos[id];
-          rpos_new = rpos[id];
-          ARROW_DCHECK(lpos_new != RangeQueryState::kEmpty &&
-                       rpos_new == RangeQueryState::kEmpty);
-          int64_t node_begin = (((lpos_new - 1) >> level) << level);
-          int64_t node_end =
-              std::min(num_rows_, node_begin + (static_cast<int64_t>(1) << level));
-          ARROW_DCHECK(begin >= node_begin && end < node_end);
-          if (begin == node_begin && end == node_end) {
-            counters[id] += lpos_new;
-            lpos_new = RangeQueryState::kEmpty;
-          }
-        } else {
-          int64_t pos_new[4];
-          pos_new[0] = pos_new[1] = pos_new[2] = pos_new[3] = RangeQueryState::kEmpty;
-          if (lpos[id] != RangeQueryState::kEmpty) {
-            Cascade_End(level + 1, lpos[id], &pos_new[0], &pos_new[1]);
-          }
-          if (rpos[id] != RangeQueryState::kEmpty) {
-            Cascade_End(level + 1, rpos[id], &pos_new[2], &pos_new[3]);
-          }
-          for (int i = 0; i < 4; ++i) {
-            if (pos_new[i] != RangeQueryState::kEmpty) {
-              int64_t node_begin = (((pos_new[i] - 1) >> level) << level);
-              int64_t node_end =
-                  std::min(num_rows_, node_begin + (static_cast<int64_t>(1) << level));
-              if (begin <= node_begin && end >= node_end) {
-                counters[id] += (pos_new[i] - node_begin);
-              } else if (end > node_begin && begin < node_end) {
-                if (lpos_new == RangeQueryState::kEmpty) {
-                  lpos_new = pos_new[i];
-                } else {
-                  ARROW_DCHECK(rpos_new == RangeQueryState::kEmpty);
-                  rpos_new = pos_new[i];
-                }
-              }
-            }
-          }
-        }
-        lpos[id] = lpos_new;
-        rpos[id] = rpos_new;
-        if (lpos_new != RangeQueryState::kEmpty) {
-          ids[num_ids_new++] = id;
-        }
-      }
-      num_ids = num_ids_new;
-    }
-  }
+  void NthQuery(const NthQueryRequest& queries, ThreadContext& thread_ctx);
 
  private:
-  /* output 0 if value comes from left child and 1 otherwise */
-  void GenBitvec(
-      /* level to generate for */ int level,
-      /* source permutation of rows for elements in this level */
-      const int64_t* permutation);
+  // Return true if the given array of N elements contains a permutation of
+  // integers from [0, N - 1] range.
+  //
+  bool IsPermutation(int64_t length, const int64_t* values);
 
-  void Cascade(int level, int64_t pos, RangeQueryState* result) const;
+  // Find the beginning (index in the split bit vector) of the merge tree node
+  // for a given position within the range of bits for that node.
+  //
+  inline int64_t NodeBegin(int level, int64_t pos) const;
 
-  bool NodeFullyInsideRange(int level, int64_t node, int64_t begin, int64_t end) const;
+  // Find the end (index one after the last) of the merge tree node given a
+  // position within its range.
+  //
+  // All nodes of the level have (1 << level) elements except for the last that
+  // can be truncated.
+  //
+  inline int64_t NodeEnd(int level, int64_t pos) const;
 
-  bool NodePartiallyInsideRange(int level, int64_t node, int64_t begin,
-                                int64_t end) const;
+  // Use split bit vector and bit vector navigator to map beginning of a
+  // range of Y from a parent node to both child nodes.
+  //
+  // If the child range is empty return kEmptyRange for it.
+  //
+  inline void CascadeBegin(int from_level, int64_t begin, int64_t* lbegin,
+                           int64_t* rbegin) const;
 
-  void NthElementStep(int level, int64_t* begin, int64_t* end, int64_t* n) const {
-    int64_t node_length = 1LL << level;
-    uint64_t node_mask = node_length - 1;
-    int64_t node_begin = (*begin & ~node_mask);
+  // Same as CascadeBegin but for the end (one after the last element) of the
+  // range.
+  //
+  // The difference is that end offset within the node can have values in
+  // [1; S] range, where S is the size of the node, while the beginning offset
+  // is in [0; S - 1].
+  //
+  inline void CascadeEnd(int from_level, int64_t end, int64_t* lend, int64_t* rend) const;
 
-    int64_t rank_begin = BitVectorNavigator::Rank(*begin, level_bitvecs_[level].data(),
-                                                  level_popcounts_[level].data());
-    int64_t rank_end = BitVectorNavigator::RankNext(
-        *end - 1, level_bitvecs_[level].data(), level_popcounts_[level].data());
-    int64_t length_left = (*end - *begin) - (rank_end - rank_begin);
-    int64_t child_mask = (length_left <= *n ? ~0LL : 0LL);
+  // Fractional cascading for a single element of a parent node.
+  //
+  inline int64_t CascadePos(int from_level, int64_t pos) const;
 
-    *begin = node_begin + ((node_length / 2 + rank_begin - node_begin / 2) & child_mask) +
-             (((*begin - node_begin) - (rank_begin - node_begin / 2)) & ~child_mask);
-    *end = *begin + ((rank_end - rank_begin) & child_mask) + (length_left & ~child_mask);
-    *n -= (length_left & child_mask);
-  }
+  enum class NodeSubsetType { EMPTY, PARTIAL, FULL };
 
-  int64_t num_rows_;
-  std::vector<std::vector<uint64_t>> level_bitvecs_;
-  std::vector<std::vector<uint64_t>> level_popcounts_;
+  // Check whether the intersection with respect to X axis of the range
+  // represented by the node and a given range is: a) empty, b) full node, c)
+  // partial node.
+  //
+  inline NodeSubsetType NodeIntersect(int level, int64_t pos, int64_t begin, int64_t end);
+
+  // Split a subset of elements from the source level.
+  //
+  // When MULTIPLE_SOURCE_NODES == false,
+  // then the subset must be contained in a single source node (it can also
+  // represent the entire source node).
+  //
+  template <typename T, bool MULTIPLE_SOURCE_NODES>
+  void SplitSubsetImp(const BitWeaverNavigator& split_bits, int source_level,
+                      const T* source_level_vector, T* target_level_vector,
+                      int64_t read_begin, int64_t read_end, int64_t write_begin_bit0,
+                      int64_t write_begin_bit1, ThreadContext& thread_ctx);
+
+  // Split a subset of elements from the source level.
+  //
+  template <typename T>
+  void SplitSubset(int source_level, const T* source_level_vector, T* target_level_vector,
+                   int64_t read_begin, int64_t read_end, ThreadContext& thread_ctx);
+
+  void SetMorselLoglen(int morsel_loglen);
+
+  // Load up to 64 bits from interleaved bit vector starting at an arbitrary bit
+  // index.
+  //
+  inline uint64_t GetWordUnaligned(const BitWeaverNavigator& source, int64_t bit_index,
+                                   int num_bits = 64);
+
+  // Set a subsequence of bits within a single word inside an interleaved bit
+  // vector.
+  //
+  inline void UpdateWord(BitWeaverNavigator& target, int64_t bit_index, int num_bits,
+                         uint64_t bits);
+
+  // Copy bits while reading and writing aligned 64-bit words only.
+  //
+  // Input and output bit vectors may be logical bit vectors inside a
+  // collection of interleaved bit vectors of the same length (accessed
+  // using BitWeaverNavigator).
+  //
+  void BitMemcpy(const BitWeaverNavigator& source, BitWeaverNavigator& target,
+                 int64_t source_begin, int64_t source_end, int64_t target_begin);
+
+  void GetChildrenBoundaries(const BitWeaverNavigator& split_bits,
+                             int64_t num_source_nodes, int64_t* source_node_begins,
+                             int64_t* target_node_begins);
+
+  void BuildUpperSliceMorsel(int level_begin, int64_t* permutation_of_X,
+                             int64_t* temp_permutation_of_X, int64_t morsel_index,
+                             ThreadContext& thread_ctx);
+
+  void CombineUpperSlicesMorsel(int level_begin, int64_t output_morsel,
+                                int64_t* input_permutation_of_X,
+                                int64_t* output_permutation_of_X,
+                                ThreadContext& thread_ctx);
+
+  void BuildLower(int level_begin, int64_t morsel_index, int64_t* begin_permutation_of_X,
+                  int64_t* temp_permutation_of_X, ThreadContext& thread_ctx);
+
+  bool NOutOfBounds(const NthQueryRequest& queries, int64_t query_index);
+
+  void DebugPrintToFile(const char* filename) const;
+
+  static constexpr int kBitMatrixBandSize = 4;
+  static constexpr int kMinMorselLoglen = BitVectorWithCounts::kLogBitsPerBlock;
+
+  int morsel_loglen_;
+  int64_t length_;
+
+  BitMatrixWithCounts bit_matrix_;
+  BitMatrixWithCounts bit_matrix_upper_slices_;
+
+  // Temp buffer used while building the tree for double buffering of the
+  // permutation of X (buffer for upper level is used to generate buffer for
+  // lower level, then we traverse down and swap the buffers).
+  // The other buffer is provided by the caller of the build method.
+  //
+  std::vector<int64_t> temp_permutation_of_X_;
 };
 
 }  // namespace compute
