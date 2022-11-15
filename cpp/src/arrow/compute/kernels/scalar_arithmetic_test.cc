@@ -1546,8 +1546,6 @@ TYPED_TEST(TestUnaryArithmeticFloating, Exp) {
   // Arrays with NaNs
   this->SetNansEqual(true);
   this->AssertUnaryOp(exp, "[NaN]", "[NaN]");
-  this->AssertUnaryOp(exp, "[NaN]", "[NaN]");
-  this->AssertUnaryOp(exp, "[NaN]", "[NaN]");
   // Min/max
   this->AssertUnaryOp(exp, min, 0.0);
   this->AssertUnaryOp(exp, max, std::numeric_limits<CType>::infinity());
