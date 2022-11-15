@@ -1,4 +1,44 @@
 
+# Apache Arrow 10.0.1 (2022-11-16)
+
+## New Features and Improvements
+
+* [ARROW-17487](https://issues.apache.org/jira/browse/ARROW-17487) - [Python][Packaging][CI] Add support for Python 3.11 (#14499)
+* [ARROW-17635](https://issues.apache.org/jira/browse/ARROW-17635) - [Python][CI] Sync conda recipe with the arrow-cpp feedstock (#14102)
+* [ARROW-18054](https://issues.apache.org/jira/browse/ARROW-18054) - [Python][CI] Enable Cython tests on windows wheels (#13552)
+* [ARROW-18080](https://issues.apache.org/jira/browse/ARROW-18080) - [C++] Remove gcc <= 4.9 workarounds (#14441)
+* [ARROW-18092](https://issues.apache.org/jira/browse/ARROW-18092) - [CI][Conan] Update versions of gRPC related dependencies (#14453)
+* [ARROW-18093](https://issues.apache.org/jira/browse/ARROW-18093) - [CI][Conda][Windows] Disable ORC (#14454)
+* [ARROW-18162](https://issues.apache.org/jira/browse/ARROW-18162) - [C++] Add Arm SVE compiler options (#14515)
+* [ARROW-18186](https://issues.apache.org/jira/browse/ARROW-18186) - [C++][MinGW] Make buildable with clang (#14536)
+* [ARROW-18255](https://issues.apache.org/jira/browse/ARROW-18255) - [C++] Don't fail cmake check for armv6 (#14611)
+* [ARROW-18260](https://issues.apache.org/jira/browse/ARROW-18260) - [C++][CMake] Add support for x64 for CMAKE_SYSTEM_PROCESSOR (#14598)
+* [ARROW-18299](https://issues.apache.org/jira/browse/ARROW-18299) - [CI][GLib][macOS] Fix dependency install failures (#14618)
+* [ARROW-18315](https://issues.apache.org/jira/browse/ARROW-18315) - [CI][deb][RPM] Pin createrepo_c on Travis CI arm64-graviton (#14625)
+* [ARROW-18325](https://issues.apache.org/jira/browse/ARROW-18325) - [Docs][Python] Add Python 3.11 to python/install.rst (#14630)
+* [ARROW-18326](https://issues.apache.org/jira/browse/ARROW-18326) - [Go] Add option to support dictionary deltas with IPC (#14639)
+* [ARROW-18327](https://issues.apache.org/jira/browse/ARROW-18327) - [CI][Release] verify-rc-source-*-macos-amd64 are failed (#14640)
+
+
+## Bug Fixes
+
+* [ARROW-18078](https://issues.apache.org/jira/browse/ARROW-18078) - [Docs][R] Fix broken link in R documentation (#14437)
+* [ARROW-18131](https://issues.apache.org/jira/browse/ARROW-18131) - [R] Correctly handle .data pronoun in group_by() (#14484)
+* [ARROW-18132](https://issues.apache.org/jira/browse/ARROW-18132) - [R] Add deprecation cycle for pull() change (#14475)
+* [ARROW-18190](https://issues.apache.org/jira/browse/ARROW-18190) - [CI][Packaging] Fix macOS mojave wheels test step to actually test wheels (#14540)
+* [ARROW-18251](https://issues.apache.org/jira/browse/ARROW-18251) - [CI][Python] Fix AMD64 macOS 12 Python 3 job (#14614)
+* [ARROW-18274](https://issues.apache.org/jira/browse/ARROW-18274) - [Go] StructBuilder premature release fields (#14604)
+* [ARROW-18285](https://issues.apache.org/jira/browse/ARROW-18285) - [R] Fix for failing test after lubridate 1.9 release (#14615)
+* [ARROW-18294](https://issues.apache.org/jira/browse/ARROW-18294) - [Java] Fix Flight SQL JDBC PreparedStatement#executeUpdate (#14616)
+* [ARROW-18296](https://issues.apache.org/jira/browse/ARROW-18296) - [Java] Honor Driver#connect API contract in JDBC driver (#14617)
+* [ARROW-18302](https://issues.apache.org/jira/browse/ARROW-18302) - [Python][Packaging] Update minimum vcpkg required version (#14634)
+* [ARROW-18305](https://issues.apache.org/jira/browse/ARROW-18305) - [R] Fix for dev purrr
+* [ARROW-18310](https://issues.apache.org/jira/browse/ARROW-18310) - [C++] Use atomic backpressure counter (#14622)
+* [ARROW-18317](https://issues.apache.org/jira/browse/ARROW-18317) - [Go] Dictionary replacement during IPC stream (#14636)
+* [ARROW-18322](https://issues.apache.org/jira/browse/ARROW-18322) - [Python] Add PYARROW_WITH_FLIGHT to PyArrow C++ cmake (#14642)
+
+
+
 # Apache Arrow 10.0.0 (2022-10-21)
 
 ## New Features and Improvements
