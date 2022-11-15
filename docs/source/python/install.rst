@@ -74,6 +74,5 @@ Optional dependencies
 * **pandas 1.0** or higher,
 * **cffi**.
 
-Additional packages PyArrow is compatible with are
-`fsspec <file:///Users/alenkafrim/repos/arrow/docs/_build/html/python/filesystems.html#using-fsspec-compatible-filesystems-with-arrow>`_
+Additional packages PyArrow is compatible with are :ref:`fsspec <filesystem-fsspec>`
 and **pytz**, **dateutil** or **tzdata** package for timezones.
