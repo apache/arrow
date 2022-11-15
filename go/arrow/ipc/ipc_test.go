@@ -24,12 +24,13 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/array"
 	"github.com/apache/arrow/go/v11/arrow/ipc"
 	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestArrow12072(t *testing.T) {
@@ -345,7 +346,7 @@ func TestDictionary(t *testing.T) {
 
 	// IPC writer and reader
 	var bufWriter bytes.Buffer
-	ipcWriter := ipc.NewWriter(&bufWriter, ipc.WithSchema(schema))
+	ipcWriter := ipc.NewWriter(&bufWriter, ipc.WithSchema(schema), ipc.WithAllocator(pool), ipc.WithDictionaryDeltas(false))
 	defer ipcWriter.Close()
 
 	bufReader := bytes.NewReader([]byte{})
@@ -377,6 +378,63 @@ func TestDictionary(t *testing.T) {
 
 	// record, _, err = array.RecordFromJSON(pool, schema, strings.NewReader(`[{"field": ["value_1"]}]`))
 	// require.NoError(t, err)
+	defer record.Release()
+
+	expectedJson, err = record.MarshalJSON()
+	require.NoError(t, err)
+	// Serialize and deserialize the record via an IPC stream
+	json, ipcReader, err = encodeDecodeIpcStream(t, record, &bufWriter, ipcWriter, bufReader, ipcReader)
+	require.NoError(t, err)
+	// Compare the expected JSON with the actual JSON
+	// field = "value_0" but should be "value_1"
+	require.JSONEq(t, string(expectedJson), string(json))
+	require.NoError(t, ipcReader.Err())
+	ipcReader.Release()
+}
+
+// ARROW-18326
+func TestDictionaryDeltas(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	// A schema with a single dictionary field
+	schema := arrow.NewSchema([]arrow.Field{{Name: "field", Type: &arrow.DictionaryType{
+		IndexType: arrow.PrimitiveTypes.Uint16,
+		ValueType: arrow.BinaryTypes.String,
+		Ordered:   false,
+	}}}, nil)
+
+	// IPC writer and reader
+	var bufWriter bytes.Buffer
+	ipcWriter := ipc.NewWriter(&bufWriter, ipc.WithSchema(schema), ipc.WithAllocator(pool), ipc.WithDictionaryDeltas(true))
+	defer ipcWriter.Close()
+
+	bufReader := bytes.NewReader([]byte{})
+	var ipcReader *ipc.Reader
+
+	bldr := array.NewBuilder(pool, schema.Field(0).Type)
+	defer bldr.Release()
+	require.NoError(t, bldr.UnmarshalJSON([]byte(`["value_0"]`)))
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+	// Create a first record with field = "value_0"
+	record := array.NewRecord(schema, []arrow.Array{arr}, 1)
+	defer record.Release()
+
+	expectedJson, err := record.MarshalJSON()
+	require.NoError(t, err)
+	// Serialize and deserialize the record via an IPC stream
+	json, ipcReader, err := encodeDecodeIpcStream(t, record, &bufWriter, ipcWriter, bufReader, ipcReader)
+	require.NoError(t, err)
+	// Compare the expected JSON with the actual JSON
+	require.JSONEq(t, string(expectedJson), string(json))
+
+	// Create a second record with field = "value_1"
+	require.NoError(t, bldr.UnmarshalJSON([]byte(`["value_1"]`)))
+	arr = bldr.NewArray()
+	defer arr.Release()
+	record = array.NewRecord(schema, []arrow.Array{arr}, 1)
 	defer record.Release()
 
 	expectedJson, err = record.MarshalJSON()
