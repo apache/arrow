@@ -329,7 +329,13 @@ class _PyArrowColumn:
         mask or a byte mask, the value (0 or 1) indicating a missing value.
         None otherwise.
         """
-        return ColumnNullType.USE_BITMASK, 0
+        # In case of no missing values, we need to set ColumnNullType to
+        # non nullable as in the current __dataframe__ protocol bit/byte masks
+        # can not be None
+        if self.null_count == 0:
+            return ColumnNullType.NON_NULLABLE, None
+        else:
+            return ColumnNullType.USE_BITMASK, 0
 
     @property
     def null_count(self) -> int:
