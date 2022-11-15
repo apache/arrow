@@ -435,9 +435,6 @@ func TestDictionaryDeltas(t *testing.T) {
 	arr = bldr.NewArray()
 	defer arr.Release()
 	record = array.NewRecord(schema, []arrow.Array{arr}, 1)
-
-	// record, _, err = array.RecordFromJSON(pool, schema, strings.NewReader(`[{"field": ["value_1"]}]`))
-	// require.NoError(t, err)
 	defer record.Release()
 
 	expectedJson, err = record.MarshalJSON()
