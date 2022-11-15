@@ -136,7 +136,6 @@ Maven
             -Pgenerate-libs-jni-macos-linux \
             -DARROW_GANDIVA=ON \
             -DARROW_JAVA_JNI_ENABLE_GANDIVA=ON \
-            -DARROW_JAVA_JNI_ENABLE_C=ON \
             -N
         $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
         |__ libarrow_dataset_jni.dylib
