@@ -20,9 +20,11 @@
 #include <algorithm>
 #include <chrono>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/visibility.h"
@@ -39,6 +41,8 @@
 #endif
 
 namespace arrow {
+using internal::AddWithOverflow;
+using internal::MultiplyWithOverflow;
 namespace py {
 namespace internal {
 
@@ -153,14 +157,24 @@ inline int64_t PyDelta_to_ms(PyDateTime_Delta* pytimedelta) {
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDelta_to_us(PyDateTime_Delta* pytimedelta) {
-  return (PyDelta_to_s(pytimedelta) * 1000000LL +
-          PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta));
+inline Result<int64_t> PyDelta_to_us(PyDateTime_Delta* pytimedelta) {
+  int64_t result = PyDelta_to_s(pytimedelta);
+  if (MultiplyWithOverflow(result, 1000000LL, &result)) {
+    return Status::Invalid("Timedelta too large to fit in 64-bit integer");
+  }
+  if (AddWithOverflow(result, PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta), &result)) {
+    return Status::Invalid("Timedelta too large to fit in 64-bit integer");
+  }
+  return result;
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
-  return PyDelta_to_us(pytimedelta) * 1000LL;
+inline Result<int64_t> PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
+  ARROW_ASSIGN_OR_RAISE(int64_t result, PyDelta_to_us(pytimedelta));
+  if (MultiplyWithOverflow(result, 1000LL, &result)) {
+    return Status::Invalid("Timedelta too large to fit in 64-bit integer");
+  }
+  return result;
 }
 
 ARROW_PYTHON_EXPORT
