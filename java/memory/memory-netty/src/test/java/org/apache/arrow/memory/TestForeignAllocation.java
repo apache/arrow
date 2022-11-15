@@ -41,24 +41,24 @@ public class TestForeignAllocation {
   @Test
   public void wrapForeignAllocation() {
     final long bufferSize = 16;
-    UnsafeForeignAllocationManager allocationManager = new UnsafeForeignAllocationManager(allocator, bufferSize);
+    UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
     try {
       assertEquals(0, allocator.getAllocatedMemory());
-      ArrowBuf buf = allocator.wrapForeignAllocation(allocationManager);
+      ArrowBuf buf = allocator.wrapForeignAllocation(allocation);
       assertEquals(bufferSize, buf.capacity());
       buf.close();
-      assertTrue(allocationManager.released);
+      assertTrue(allocation.released);
     } finally {
-      allocationManager.release0();
+      allocation.release0();
     }
     assertEquals(0, allocator.getAllocatedMemory());
   }
 
-  private static class UnsafeForeignAllocationManager extends ForeignAllocationManager {
+  private static class UnsafeForeignAllocation extends ForeignAllocation {
     boolean released = false;
 
-    public UnsafeForeignAllocationManager(BufferAllocator allocator, long bufferSize) {
-      super(allocator, bufferSize, MemoryUtil.UNSAFE.allocateMemory(bufferSize));
+    public UnsafeForeignAllocation(long bufferSize) {
+      super(bufferSize, MemoryUtil.UNSAFE.allocateMemory(bufferSize));
     }
 
     @Override

@@ -248,10 +248,11 @@ public interface BufferAllocator extends AutoCloseable {
    *
    * @param allocation The underlying allocation.
    */
-  default ArrowBuf wrapForeignAllocation(ForeignAllocationManager allocation) {
+  default ArrowBuf wrapForeignAllocation(ForeignAllocation allocation) {
     try {
       forceAllocate(allocation.getSize());
-      final BufferLedger ledger = allocation.associate(this);
+      final AllocationManager manager = new ForeignAllocationManager(this, allocation);
+      final BufferLedger ledger = manager.associate(this);
       final ArrowBuf buf =
           new ArrowBuf(ledger, /*bufferManager=*/null, allocation.getSize(), allocation.memoryAddress());
       buf.writerIndex(allocation.getSize());

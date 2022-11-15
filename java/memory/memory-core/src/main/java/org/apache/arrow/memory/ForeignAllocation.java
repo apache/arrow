@@ -18,28 +18,39 @@
 package org.apache.arrow.memory;
 
 /**
- * An AllocationManager wrapping a ForeignAllocation.
+ * An allocation of memory that does not come from a BufferAllocator, but rather an outside source (like JNI).
  */
-class ForeignAllocationManager extends AllocationManager {
-  private final ForeignAllocation allocation;
+public abstract class ForeignAllocation {
+  private final long memoryAddress;
+  private final long size;
 
-  protected ForeignAllocationManager(BufferAllocator accountingAllocator, ForeignAllocation allocation) {
-    super(accountingAllocator);
-    this.allocation = allocation;
+  /**
+   * Create a new AllocationManager representing an imported buffer.
+   *
+   * @param size The buffer size.
+   * @param memoryAddress The buffer address.
+   */
+  protected ForeignAllocation(long size, long memoryAddress) {
+    this.memoryAddress = memoryAddress;
+    this.size = size;
   }
 
-  @Override
+  /**
+   * Get the size of this allocation.
+   */
   public long getSize() {
-    return allocation.getSize();
+    return size;
   }
 
-  @Override
+  /**
+   * Get the address of this allocation.
+   */
   protected long memoryAddress() {
-    return allocation.memoryAddress();
+    return memoryAddress;
   }
 
-  @Override
-  protected void release0() {
-    allocation.release0();
-  }
+  /**
+   * Free this allocation. Will only be called once.
+   */
+  protected abstract void release0();
 }

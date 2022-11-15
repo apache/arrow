@@ -19,8 +19,9 @@ package org.apache.arrow.c;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.ForeignAllocationManager;
+import org.apache.arrow.memory.ForeignAllocation;
 
 /**
  * The owner of an imported C Data Interface array.
@@ -28,7 +29,7 @@ import org.apache.arrow.memory.ForeignAllocationManager;
  * <p>There is a fundamental mismatch here between memory allocation schemes: AllocationManager represents a single
  * allocation (= a single address and length). But an ArrowArray combines multiple allocations behind a single
  * deallocation callback. This class bridges the two by tracking a reference count, so that the single callback
- * can be managed by multiple {@link ForeignAllocationManager} instances.
+ * can be managed by multiple {@link ForeignAllocation} instances.
  */
 final class ReferenceCountedArrowArray {
   private final ArrowArray array;
@@ -56,18 +57,18 @@ final class ReferenceCountedArrowArray {
   }
 
   /**
-   * Create an AllocationManager wrapping a buffer from this ArrowArray associated with the given BufferAllocator.
+   * Create an ArrowBuf wrapping a buffer from this ArrowArray associated with the given BufferAllocator.
    *
    * <p>This method is "unsafe" because there is no validation of the given capacity or address. If the returned
-   * AllocationManager is not freed, a memory leak will occur.
+   * buffer is not freed, a memory leak will occur.
    */
-  ForeignAllocationManager unsafeAssociateAllocation(BufferAllocator allocator, long capacity, long memoryAddress) {
+  ArrowBuf unsafeAssociateAllocation(BufferAllocator trackingAllocator, long capacity, long memoryAddress) {
     retain();
-    return new ForeignAllocationManager(allocator, capacity, memoryAddress) {
+    return trackingAllocator.wrapForeignAllocation(new ForeignAllocation(capacity, memoryAddress) {
       @Override
       protected void release0() {
         ReferenceCountedArrowArray.this.release();
       }
-    };
+    });
   }
 }

@@ -27,7 +27,6 @@ import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.ForeignAllocationManager;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.DateDayVector;
@@ -94,9 +93,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   private ArrowBuf importFixedBits(ArrowType type, int index, long bitsPerSlot) {
     final long bufferPtr = getBufferPtr(type, index);
     final long capacity = DataSizeRoundingUtil.divideBy8Ceil(bitsPerSlot * fieldNode.getLength());
-    ForeignAllocationManager allocation =
-        underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
-    ArrowBuf buf = allocator.wrapForeignAllocation(allocation);
+    ArrowBuf buf = underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
     this.imported.add(buf);
     return buf;
   }
@@ -104,9 +101,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   private ArrowBuf importFixedBytes(ArrowType type, int index, long bytesPerSlot) {
     final long bufferPtr = getBufferPtr(type, index);
     final long capacity = bytesPerSlot * fieldNode.getLength();
-    ForeignAllocationManager allocation =
-        underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
-    ArrowBuf buf = allocator.wrapForeignAllocation(allocation);
+    ArrowBuf buf = underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
     this.imported.add(buf);
     return buf;
   }
@@ -114,18 +109,14 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   private ArrowBuf importOffsets(ArrowType type, long bytesPerSlot) {
     final long bufferPtr = getBufferPtr(type, 1);
     final long capacity = bytesPerSlot * (fieldNode.getLength() + 1);
-    ForeignAllocationManager allocation =
-        underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
-    ArrowBuf buf = allocator.wrapForeignAllocation(allocation);
+    ArrowBuf buf = underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
     this.imported.add(buf);
     return buf;
   }
 
   private ArrowBuf importData(ArrowType type, long capacity) {
     final long bufferPtr = getBufferPtr(type, 2);
-    ForeignAllocationManager allocation =
-        underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
-    ArrowBuf buf = allocator.wrapForeignAllocation(allocation);
+    ArrowBuf buf = underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
     this.imported.add(buf);
     return buf;
   }

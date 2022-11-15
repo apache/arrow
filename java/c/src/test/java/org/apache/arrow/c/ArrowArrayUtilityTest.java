@@ -24,7 +24,6 @@ import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.ForeignAllocationManager;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.MemoryUtil;
@@ -135,8 +134,7 @@ class ArrowArrayUtilityTest {
       ArrowArray array = ArrowArray.allocateNew(allocator);
       ReferenceCountedArrowArray handle = new ReferenceCountedArrowArray(array);
       assertThat(array.isClosed()).isFalse();
-      ForeignAllocationManager manager = handle.unsafeAssociateAllocation(allocator, bufferSize, address);
-      ArrowBuf buf = allocator.wrapForeignAllocation(manager);
+      ArrowBuf buf = handle.unsafeAssociateAllocation(allocator, bufferSize, address);
       assertThat(array.isClosed()).isFalse();
       buf.close();
       assertThat(array.isClosed()).isFalse();
