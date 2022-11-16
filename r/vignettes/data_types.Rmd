@@ -23,10 +23,10 @@ glimpse(arrow_table(starwars))
 The data represented are essentially the same, but the descriptions of the data types for the columns have changed. For example:
 
 - `name` is labelled `<chr>` (character vector) in the data frame; it is labelled `<string>` (a string type, also referred to as utf8 type) in the Arrow Table 
-- `height` is labelled `<int>` (integer vector) in the data frame; it is labelled `<int32>` (32-bit signed integer) in the Arrow Table
-- `mass` is labelled `<dbl>` (numeric vector) in the data frame; it is labelled `<double>` (64-bit floating point number) in the Arrow Table
+- `height` is labelled `<int>` (integer vector) in the data frame; it is labelled `<int32>` (32 bit signed integer) in the Arrow Table
+- `mass` is labelled `<dbl>` (numeric vector) in the data frame; it is labelled `<double>` (64 bit floating point number) in the Arrow Table
 
-Some of these differences are purely cosmetic: integers in R are in fact 32-bit signed integers, so the underlying data types in Arrow and R are direct analogs of one another. In other cases the differences are purely about the implementation: Arrow and R have different ways to store a vector of strings, but at a high level of abstraction the R character type and the Arrow string type can be viewed as direct analogs. In some cases, however, there are no clear analogs: while Arrow has an analog of POSIXct (the timestamp type) it does not have an analog of POSIXlt; conversely, while R can represent 32 bit signed integers, it does not have an equivalent of a 64 bit unsigned integer.
+Some of these differences are purely cosmetic: integers in R are in fact 32 bit signed integers, so the underlying data types in Arrow and R are direct analogs of one another. In other cases the differences are purely about the implementation: Arrow and R have different ways to store a vector of strings, but at a high level of abstraction the R character type and the Arrow string type can be viewed as direct analogs. In some cases, however, there are no clear analogs: while Arrow has an analog of POSIXct (the timestamp type) it does not have an analog of POSIXlt; conversely, while R can represent 32 bit signed integers, it does not have an equivalent of a 64 bit unsigned integer.
 
 When the `arrow` package converts between R data and Arrow data, it will first check to see if a Schema has been provided -- see `schema()` for more information -- and if none is available it will attempt to guess the appropriate type by following the default mappings. A complete listing of these mappings is provided at the end of the article, but the most common cases are depicted in the illustration below:
 
@@ -48,7 +48,7 @@ It is not strictly necessary to set `type = boolean()` in this example because t
 
 ## Integer types
 
-Base R natively supports only one type of integer, using 32 bits to represent signed numbers between -2147483648 and 2147483647, though R can also support 64 bit integers via the [`bit64`](https://cran.r-project.org/package=bit64) package. Arrow inherits signed and unsigned integer types from C++ in 8-bit, 16-bit, 32-bit, and 64-bit versions:
+Base R natively supports only one type of integer, using 32 bits to represent signed numbers between -2147483648 and 2147483647, though R can also support 64 bit integers via the [`bit64`](https://cran.r-project.org/package=bit64) package. Arrow inherits signed and unsigned integer types from C++ in 8 bit, 16 bit, 32 bit, and 64 bit versions:
 
 | Description     | Data Type Function | Smallest Value       |        Largest Value |
 | --------------- | -----------------: | -------------------: | -------------------: |
@@ -82,7 +82,7 @@ When translating from Arrow to R, integer types alway translate to R integers un
 
 ## Floating point numeric types
 
-R has one double-precision (64-bit) numeric type, which translates to the Arrow 64-bit floating point type by default. Arrow supports both single-precision (32-bit) and double-precision (64-bit) floating point numbers, specified using the `float32()` and `float64()` data type functions. Both of these are translated to doubles in R. Examples are shown below:
+R has one double-precision (64 bit) numeric type, which translates to the Arrow 64 bit floating point type by default. Arrow supports both single-precision (32 bit) and double-precision (64 bit) floating point numbers, specified using the `float32()` and `float64()` data type functions. Both of these are translated to doubles in R. Examples are shown below:
 
 ```{r}
 chunked_array(c(0.1, 0.2, 0.3), type = float64()) # default
@@ -92,11 +92,11 @@ arrow_double <- chunked_array(c(0.1, 0.2, 0.3), type = float64())
 as.vector(arrow_double)
 ```
 
-Note that the Arrow specification also permits half-precision (16-bit) floating point numbers, but these have not yet been implemented. 
+Note that the Arrow specification also permits half-precision (16 bit) floating point numbers, but these have not yet been implemented. 
 
 ## Fixed point decimal types
 
-Arrow also contains `decimal()` data types, in which numeric values are specified in decimal format rather than binary. Decimals in Arrow come in two varieties, a 128-bit version and a 256-bit version, but in most cases users should be able to use the more general `decimal()` data type function rather than the specific `decimal128()` and `decimal256()` functions. 
+Arrow also contains `decimal()` data types, in which numeric values are specified in decimal format rather than binary. Decimals in Arrow come in two varieties, a 128 bit version and a 256 bit version, but in most cases users should be able to use the more general `decimal()` data type function rather than the specific `decimal128()` and `decimal256()` functions. 
 
 The decimal types in Arrow are fixed-precision numbers (rather than floating-point), which means it is necessary to explicitly specify the `precision` and `scale` arguments:
 
@@ -151,7 +151,7 @@ Arrow dictionaries are slightly more flexible than R factors: values in a dictio
 
 ## Date types
 
-In R, dates are typically represented using the Date class. Internally a Date object is a numeric type whose value counts the number of days since the beginning of the Unix epoch (1 January 1970). Arrow supplies two data types that can be used to represent dates: the date32 type and the date64 type. The date32 type is similar to the Date class in R: internally it stores a 32-bit integer that counts the number of days since 1 January 1970. The default in `arrow` is to translate R Date objects to Arrow date32 types:
+In R, dates are typically represented using the Date class. Internally a Date object is a numeric type whose value counts the number of days since the beginning of the Unix epoch (1 January 1970). Arrow supplies two data types that can be used to represent dates: the date32 type and the date64 type. The date32 type is similar to the Date class in R: internally it stores a 32 bit integer that counts the number of days since 1 January 1970. The default in `arrow` is to translate R Date objects to Arrow date32 types:
 
 ```{r}
 nirvana_album_dates <- as.Date(c("1989-06-15", "1991-09-24", "1993-09-13"))
@@ -160,7 +160,7 @@ nirvana_32 <- chunked_array(nirvana_album_dates, type = date32()) # default
 nirvana_32
 ```
 
-Arrow also supplies a higher-precision date64 type, in which the date is represented as a 64-bit integer that encodes the number of *milliseconds* since 1970-01-01 00:00 UTC:
+Arrow also supplies a higher-precision date64 type, in which the date is represented as a 64 bit integer that encodes the number of *milliseconds* since 1970-01-01 00:00 UTC:
 
 ```{r}
 nirvana_64 <- chunked_array(nirvana_album_dates, type = date64())
@@ -181,7 +181,7 @@ class(as.vector(nirvana_64))
 
 ## Temporal/timestamp types
 
-In R there are two classes used to represent date and time information, POSIXct and POSIXlt. Arrow only has one: the timestamp type. Arrow timestamps are loosely analogous to the POSIXct class. Internally, a POSIXct object represents the date with as a numeric variable that stores the number of seconds since 1970-01-01 00:00 UTC. Internally, an Arrow timestamp is a 64-bit integer counting the number of milliseconds since 1970-01-01 00:00 UTC.
+In R there are two classes used to represent date and time information, POSIXct and POSIXlt. Arrow only has one: the timestamp type. Arrow timestamps are loosely analogous to the POSIXct class. Internally, a POSIXct object represents the date with as a numeric variable that stores the number of seconds since 1970-01-01 00:00 UTC. Internally, an Arrow timestamp is a 64 bit integer counting the number of milliseconds since 1970-01-01 00:00 UTC.
 
 Arrow and R both support timezone information, but display it differently in the printed object. In R, local time is printed with the timezone name adjacent to it:
 
@@ -209,7 +209,7 @@ For POSIXlt objects the behaviour is different. Internally a POSIXlt object is a
 
 Base R does not have a class to represent the time of day independent of the date (i.e., it is not possible to specify "3pm" without referring to a specific day), but it can be done with the help of the [`hms`](https://hms.tidyverse.org/) package. Internally, hms objects are always stored as the number of seconds since 00:00:00. 
 
-Arrow has two data types for this purposes. For time32 types, data are stored as a 32-bit integer that is interpreted either as the number of seconds or the number of milliseconds since 00:00:00. Note the difference between the following:
+Arrow has two data types for this purposes. For time32 types, data are stored as a 32 bit integer that is interpreted either as the number of seconds or the number of milliseconds since 00:00:00. Note the difference between the following:
 
 ```{r}
 time_of_day <- hms::hms(56, 34, 12)
@@ -217,7 +217,7 @@ chunked_array(time_of_day, type = time32(unit = "s"))
 chunked_array(time_of_day, type = time32(unit = "ms"))
 ```
 
-A time64 object is similar, but stores the time of day using a 64-bit integer and can represent the time at higher precision. It is possible to choose microseconds (`unit = "us"`) or nanoseconds (`unit = "ns"`), as shown below:
+A time64 object is similar, but stores the time of day using a 64 bit integer and can represent the time at higher precision. It is possible to choose microseconds (`unit = "us"`) or nanoseconds (`unit = "ns"`), as shown below:
 
 ```{r}
 chunked_array(time_of_day, type = time64(unit = "us"))
@@ -318,7 +318,7 @@ to Arrow list type (which is a "list of" some type).
 | union               | - ^2^                       |
 
 ^1^: These integer types may contain values that exceed the range of R's 
-`integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are 
+`integer` type (32 bit signed integer). When they do, `uint32` and `uint64` are 
 converted to `double` ("numeric") and `int64` is converted to 
 `bit64::integer64`. This conversion can be disabled (so that `int64` always
 yields a `bit64::integer64` vector) by setting `options(arrow.int64_downcast = FALSE)`.
