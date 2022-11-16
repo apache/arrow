@@ -323,7 +323,7 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
 template <typename T>
 struct TemporalScalar : internal::PrimitiveScalar<T> {
   using internal::PrimitiveScalar<T>::PrimitiveScalar;
-  using ValueType = typename TemporalScalar<T>::ValueType;
+  using ValueType = typename internal::PrimitiveScalar<T>::ValueType;
 
   TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
       : internal::PrimitiveScalar<T>(std::move(value), type) {}

@@ -31,9 +31,15 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/literal_operators.h"
 
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
+
+using arrow::util::arrow_literals::operator""_ts_s;
+using arrow::util::arrow_literals::operator""_ts_ns;
+using std::chrono_literals::operator""min;
+using std::chrono_literals::operator""h;
 
 namespace arrow {
 
@@ -57,6 +63,7 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("dict_str", dictionary(int32(), utf8())),
     field("dict_i32", dictionary(int32(), int32())),
     field("ts_ns", timestamp(TimeUnit::NANO)),
+    field("ts_s", timestamp(TimeUnit::SECOND)),
 });
 
 #define EXPECT_OK ARROW_EXPECT_OK
@@ -72,35 +79,6 @@ Expression true_unless_null(Expression argument) {
 
 Expression add(Expression l, Expression r) {
   return call("add", {std::move(l), std::move(r)});
-}
-
-namespace arrow_literals {
-
-using namespace std::chrono_literals;
-
-inline auto operator""_ts(const char* c, size_t s) {
-  return [s = StringScalar(std::string{c, s})](TimeUnit::type unit) {
-    return literal(*s.CastTo(timestamp(unit)));
-  };
-}
-
-}  // namespace arrow_literals
-
-template <typename Rep, typename Period>
-Expression literal(std::chrono::duration<Rep, Period> d) {
-  int64_t int_value = d.count();
-  TimeUnit::type unit;
-  if constexpr (std::is_same_v<Period, std::nano>) {
-    unit = TimeUnit::NANO;
-  } else if constexpr (std::is_same_v<Period, std::micro>) {
-    unit = TimeUnit::MICRO;
-  } else if constexpr (std::is_same_v<Period, std::milli>) {
-    unit = TimeUnit::MILLI;
-  } else {
-    unit = TimeUnit::SECOND;
-    int_value = std::chrono::duration_cast<std::chrono::seconds>(d).count();
-  }
-  return literal(*MakeScalar(int_value)->CastTo(duration(unit)));
 }
 
 template <typename Actual, typename Expected>
@@ -292,9 +270,7 @@ TEST(Expression, ToString) {
   EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
             "\"617A\"");
 
-  using namespace arrow_literals;
-  EXPECT_EQ("1990-10-23 10:23:33"_ts(TimeUnit::NANO).ToString(),
-            "1990-10-23 10:23:33.000000000");
+  EXPECT_EQ(literal("1990-10-23 10:23:33"_ts_ns).ToString(), "1990-10-23 10:23:33.000000000");
 
   EXPECT_EQ(add(literal(3), field_ref("beta")).ToString(), "add(3, beta)");
 
@@ -887,12 +863,11 @@ TEST(Expression, FoldConstants) {
   ExpectFoldsTo(equal(literal(3), literal(3)), literal(true));
 
   // addition of durations folds as expected
-  using namespace arrow_literals;
   ExpectFoldsTo(add(literal(5min), literal(5min)), literal(10min));
 
   // addition of duration, timestamp folds as expected
-  Expression ts = "1990-10-23 10:23:33"_ts(TimeUnit::SECOND),
-             ts_two_hours_later = "1990-10-23 12:23:33"_ts(TimeUnit::SECOND);
+  Expression ts = literal("1990-10-23 10:23:33"_ts_s),
+             ts_two_hours_later = literal("1990-10-23 12:23:33"_ts_s);
   ExpectFoldsTo(add(literal(2h), ts), ts_two_hours_later);
   ExpectFoldsTo(add(ts, literal(2h)), ts_two_hours_later);
 
@@ -1122,9 +1097,10 @@ TEST(Expression, CanonicalizeAnd) {
 
   // catches and_kleene even when it's a subexpression
   ExpectCanonicalizesTo(is_valid(and_(b, true_)), is_valid(and_(true_, b)));
+}
 
-  auto ts = field_ref("ts_ns");
-  using namespace arrow_literals;
+TEST(Expression, CanonicalizeAdd) {
+  auto ts = field_ref("ts_s");
   ExpectCanonicalizesTo(add(ts, literal(5min)), add(literal(5min), ts));
   ExpectCanonicalizesTo(add(add(ts, literal(5min)), add(literal(5min), literal(5min))),
                         add(add(add(literal(5min), literal(5min)), literal(5min)), ts));

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -115,6 +116,21 @@ struct ARROW_EXPORT Datum {
   explicit Datum(double value);
   explicit Datum(std::string value);
   explicit Datum(const char* value);
+
+  // Convenience constructor for a DurationScalar
+  template <typename Rep, typename Period>
+  explicit Datum(std::chrono::duration<Rep, Period> d) {
+    if constexpr (std::is_same_v<decltype(d), std::chrono::nanoseconds>) {
+      value = std::make_shared<DurationScalar>(d.count(), duration(TimeUnit::NANO));
+    } else if constexpr (std::is_same_v<decltype(d), std::chrono::microseconds>) {
+      value = std::make_shared<DurationScalar>(d.count(), duration(TimeUnit::MICRO));
+    } else if constexpr (std::is_same_v<decltype(d), std::chrono::milliseconds>) {
+      value = std::make_shared<DurationScalar>(d.count(), duration(TimeUnit::MILLI));
+    } else {
+      auto seconds = std::chrono::duration_cast<std::chrono::seconds>(d).count();
+      value = std::make_shared<DurationScalar>(seconds, duration(TimeUnit::SECOND));
+    }
+  }
 
   Datum::Kind kind() const {
     switch (this->value.index()) {

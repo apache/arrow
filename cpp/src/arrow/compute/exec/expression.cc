@@ -677,6 +677,10 @@ bool ExpressionHasFieldRefs(const Expression& expr) {
 }
 
 Result<Expression> FoldConstants(Expression expr) {
+  if (!expr.IsBound()) {
+    return Status::Invalid("Cannot fold constants in unbound expression.");
+  }
+
   return ModifyExpression(
       std::move(expr), [](Expression expr) { return expr; },
       [](Expression expr, ...) -> Result<Expression> {
@@ -894,6 +898,10 @@ Result<Expression> HandleInconsistentTypes(Expression::Call call,
 }  // namespace
 
 Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_context) {
+  if (!expr.IsBound()) {
+    return Status::Invalid("Cannot canonicalize an unbound expression.");
+  }
+
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
     return Canonicalize(std::move(expr), &exec_context);
