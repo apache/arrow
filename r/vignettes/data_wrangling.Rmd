@@ -29,7 +29,7 @@ result <- sw %>%
   select(name, height_in, mass_lbs)
 ```
 
-It is important to note that `arrow` users lazy evaluation to delay computation until the result is explicitly requested. This speeds up processing by enabling the Arrow C++ library to perform multiple computations in one operation. As a consequence of this design choice, we have not yet performed computations on the `sw` data have been performed. The `result` variable is an object with class `arrow_dplyr_query` that represents all the computations to be performed:
+It is important to note that `arrow` uses lazy evaluation to delay computation until the result is explicitly requested. This speeds up processing by enabling the Arrow C++ library to perform multiple computations in one operation. As a consequence of this design choice, we have not yet performed computations on the `sw` data. The `result` variable is an object with class `arrow_dplyr_query` that represents all the computations to be performed:
 
 ```{r}
 result
