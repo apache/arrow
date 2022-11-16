@@ -326,7 +326,7 @@ install_nodejs() {
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-    # ARROW-18335: "gulp bundle" is failed with Node.js 18.
+    # ARROW-18335: "gulp bundle" failed with Node.js 18.
     # nvm install --lts
     nvm install 16
     show_info "Installed NodeJS $(node --version)"
