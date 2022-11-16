@@ -36,10 +36,8 @@
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
 
-using arrow::util::arrow_literals::operator""_ts_s;
-using arrow::util::arrow_literals::operator""_ts_ns;
-using std::chrono_literals::operator""min;
-using std::chrono_literals::operator""h;
+using namespace arrow::util::arrow_literals;  // NOLINT build/namespaces
+using namespace std::chrono_literals;         // NOLINT build/namespaces
 
 namespace arrow {
 
