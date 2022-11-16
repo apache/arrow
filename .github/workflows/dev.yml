@@ -108,4 +108,6 @@ jobs:
           ci/scripts/release_test.sh $(pwd)
       - name: Run Merge Script Test
         shell: bash
+        env: 
+          MERGE_SCRIPT_DEFAULT_BRANCH_NAME: ${{ github.event.repository.default_branch }} 
         run: pytest -v dev/test_merge_arrow_pr.py

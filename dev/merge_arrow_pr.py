@@ -111,8 +111,7 @@ def strip_ci_directives(commit_message):
 
 
 def git_default_branch_name():
-    default_reference = run_cmd("git rev-parse --abbrev-ref origin/HEAD")
-    return default_reference.lstrip("origin/")
+    return os.getenv("MERGE_SCRIPT_DEFAULT_BRANCH_NAME")
 
 
 def fix_version_from_branch(branch, versions):
