@@ -634,6 +634,21 @@ std::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
   return folded;
 }
 
+template <typename BinOp, typename It,
+          typename Value = typename std::iterator_traits<It>::value_type,
+          typename Out = decltype(std::declval<BinOp>()(std::declval<Value>(),
+                                                        std::declval<Value>()))>
+std::optional<Out> MaybeFoldLeft(It begin, It end, const BinOp& bin_op) {
+  if (begin == end) return std::nullopt;
+
+  Value folded = std::move(*begin++);
+  while (begin != end) {
+    ARROW_ASSIGN_OR_RAISE(folded, bin_op(std::move(folded), std::move(*begin++)));
+  }
+  return folded;
+}
+
+
 }  // namespace
 
 std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
@@ -856,6 +871,27 @@ bool IsBinaryAssociativeCommutative(const Expression::Call& call) {
   return it != binary_associative_commutative.end();
 }
 
+Result<Expression> HandleInconsistentTypes(Expression::Call call,
+                                           compute::ExecContext* exec_context) {
+  // ARROW-18334: due to reordering of arguments, the call may have
+  // inconsistent argument types. For example, the call's kernel may
+  // correspond to `timestamp + duration` but the arguments happen to
+  // be `duration, timestamp`. The addition itself is still commutative,
+  // but the mismatch in declared argument types is potentially problematic
+  // if we ever start using the Expression::Call::kernel field more than
+  // we do currently. Check and rebind if necessary.
+  //
+  // The more correct fix for this problem is to ensure that all kernels of
+  // functions which are commutative be commutative as well, which would
+  // obviate rebinding like this. In the context of ARROW-18334, this
+  // would require rewriting KernelSignature so that a single kernel can
+  // handle both `timestamp + duration` and `duration + timestamp`.
+  if (call.kernel->signature->MatchesInputs(GetTypes(call.arguments))) {
+    return Expression(std::move(call));
+  }
+  return BindNonRecursive(std::move(call), /*insert_implicit_casts=*/false, exec_context);
+}
+
 }  // namespace
 
 Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_context) {
@@ -901,9 +937,12 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
           } CanonicalOrdering;
 
           FlattenedAssociativeChain chain(expr);
+
           if (chain.was_left_folded &&
               std::is_sorted(chain.fringe.begin(), chain.fringe.end(),
                              CanonicalOrdering)) {
+            // fast path for expressions which happen to have arrived in an
+            // already-canonical form
             AlreadyCanonicalized.Add(std::move(chain.exprs));
             return expr;
           }
@@ -911,15 +950,18 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
           std::stable_sort(chain.fringe.begin(), chain.fringe.end(), CanonicalOrdering);
 
           // fold the chain back up
-          auto folded =
-              FoldLeft(chain.fringe.begin(), chain.fringe.end(),
-                       [call, &AlreadyCanonicalized](Expression l, Expression r) {
-                         auto canonicalized_call = *call;
-                         canonicalized_call.arguments = {std::move(l), std::move(r)};
-                         Expression expr(std::move(canonicalized_call));
-                         AlreadyCanonicalized.Add({expr});
-                         return expr;
-                       });
+          std::optional folded = MaybeFoldLeft(
+              chain.fringe.begin(), chain.fringe.end(),
+              [&](Expression l, Expression r) -> Result<Expression> {
+                auto canonicalized_call = *call;
+                canonicalized_call.arguments = {std::move(l), std::move(r)};
+                ARROW_ASSIGN_OR_RAISE(
+                    auto expr,
+                    HandleInconsistentTypes(std::move(canonicalized_call), exec_context));
+                AlreadyCanonicalized.Add({expr});
+                return expr;
+              });
+          DCHECK(folded.has_value());
           return std::move(*folded);
         }
 
@@ -1414,8 +1456,8 @@ Expression and_(Expression lhs, Expression rhs) {
 }
 
 Expression and_(const std::vector<Expression>& operands) {
-  auto folded = FoldLeft<Expression(Expression, Expression)>(operands.begin(),
-                                                             operands.end(), and_);
+  std::optional folded = FoldLeft<Expression(Expression, Expression)>(
+      operands.begin(), operands.end(), and_);
   if (folded) {
     return std::move(*folded);
   }
@@ -1427,7 +1469,7 @@ Expression or_(Expression lhs, Expression rhs) {
 }
 
 Expression or_(const std::vector<Expression>& operands) {
-  auto folded =
+  std::optional folded =
       FoldLeft<Expression(Expression, Expression)>(operands.begin(), operands.end(), or_);
   if (folded) {
     return std::move(*folded);

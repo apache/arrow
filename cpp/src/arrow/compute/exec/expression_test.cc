@@ -69,6 +69,54 @@ Expression true_unless_null(Expression argument) {
   return call("true_unless_null", {std::move(argument)});
 }
 
+Expression add(Expression l, Expression r) {
+  return call("add", {std::move(l), std::move(r)});
+}
+
+Expression timestamp_literal(std::string repr, TimeUnit::type unit) {
+  return literal(*MakeScalar(std::move(repr))->CastTo(timestamp(TimeUnit::NANO)));
+}
+
+struct duration_literal {
+  int64_t days{0};
+  int8_t hours{0}, minutes{0}, seconds{0};
+  std::optional<int64_t> nanoseconds, microseconds, milliseconds;
+
+  operator Expression() {  // NOLINT runtime/explicit
+    int64_t int_value = days;
+
+    int_value *= 24;
+    int_value += hours;
+
+    int_value *= 60;
+    int_value += minutes;
+
+    int_value *= 60;
+    int_value += seconds;
+
+    TimeUnit::type unit;
+    if (nanoseconds) {
+      unit = TimeUnit::NANO;
+      int_value *= 1'000'000'000;
+      int_value += *nanoseconds;
+      DCHECK(!microseconds);
+      DCHECK(!milliseconds);
+    } else if (microseconds) {
+      unit = TimeUnit::MICRO;
+      int_value *= 1'000'000;
+      int_value += *microseconds;
+      DCHECK(!milliseconds);
+    } else if (milliseconds) {
+      unit = TimeUnit::MILLI;
+      int_value *= 1'000;
+      int_value += *milliseconds;
+    } else {
+      unit = TimeUnit::SECOND;
+    }
+    return literal(*MakeScalar(int_value)->CastTo(duration(unit)));
+  }
+};
+
 template <typename Actual, typename Expected>
 void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
   using MaybeActual = typename EnsureResult<typename std::decay<Actual>::type>::type;
@@ -258,10 +306,10 @@ TEST(Expression, ToString) {
   EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
             "\"617A\"");
 
-  auto ts = *MakeScalar("1990-10-23 10:23:33")->CastTo(timestamp(TimeUnit::NANO));
-  EXPECT_EQ(literal(ts).ToString(), "1990-10-23 10:23:33.000000000");
+  EXPECT_EQ(timestamp_literal("1990-10-23 10:23:33", TimeUnit::NANO).ToString(),
+            "1990-10-23 10:23:33.000000000");
 
-  EXPECT_EQ(call("add", {literal(3), field_ref("beta")}).ToString(), "add(3, beta)");
+  EXPECT_EQ(add(literal(3), field_ref("beta")).ToString(), "add(3, beta)");
 
   auto in_12 = call("index_in", {field_ref("beta")},
                     compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2]")});
@@ -326,20 +374,17 @@ TEST(Expression, Equality) {
   EXPECT_NE(field_ref("a"), field_ref("b"));
   EXPECT_NE(field_ref("a"), literal(2));
 
-  EXPECT_EQ(call("add", {literal(3), field_ref("a")}),
-            call("add", {literal(3), field_ref("a")}));
-  EXPECT_NE(call("add", {literal(3), field_ref("a")}),
-            call("add", {literal(2), field_ref("a")}));
-  EXPECT_NE(call("add", {field_ref("a"), literal(3)}),
-            call("add", {literal(3), field_ref("a")}));
+  EXPECT_EQ(add(literal(3), field_ref("a")), add(literal(3), field_ref("a")));
+  EXPECT_NE(add(literal(3), field_ref("a")), add(literal(2), field_ref("a")));
+  EXPECT_NE(add(field_ref("a"), literal(3)), add(literal(3), field_ref("a")));
 
   auto in_123 = compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]")};
-  EXPECT_EQ(call("add", {literal(3), call("index_in", {field_ref("beta")}, in_123)}),
-            call("add", {literal(3), call("index_in", {field_ref("beta")}, in_123)}));
+  EXPECT_EQ(add(literal(3), call("index_in", {field_ref("beta")}, in_123)),
+            add(literal(3), call("index_in", {field_ref("beta")}, in_123)));
 
   auto in_12 = compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2]")};
-  EXPECT_NE(call("add", {literal(3), call("index_in", {field_ref("beta")}, in_12)}),
-            call("add", {literal(3), call("index_in", {field_ref("beta")}, in_123)}));
+  EXPECT_NE(add(literal(3), call("index_in", {field_ref("beta")}, in_12)),
+            add(literal(3), call("index_in", {field_ref("beta")}, in_123)));
 
   EXPECT_EQ(cast(field_ref("a"), int32()), cast(field_ref("a"), int32()));
   EXPECT_NE(cast(field_ref("a"), int32()), cast(field_ref("a"), int64()));
@@ -470,7 +515,7 @@ TEST(Expression, FieldsInExpression) {
 TEST(Expression, ExpressionHasFieldRefs) {
   EXPECT_FALSE(ExpressionHasFieldRefs(literal(true)));
 
-  EXPECT_FALSE(ExpressionHasFieldRefs(call("add", {literal(1), literal(3)})));
+  EXPECT_FALSE(ExpressionHasFieldRefs(add(literal(1), literal(3))));
 
   EXPECT_TRUE(ExpressionHasFieldRefs(field_ref("a")));
 
@@ -557,17 +602,16 @@ TEST(Expression, BindNestedFieldRef) {
 }
 
 TEST(Expression, BindCall) {
-  auto expr = call("add", {field_ref("i32"), field_ref("i32_req")});
+  auto expr = add(field_ref("i32"), field_ref("i32_req"));
   EXPECT_FALSE(expr.IsBound());
 
   ExpectBindsTo(expr, no_change, &expr);
   EXPECT_TRUE(expr.type()->Equals(*int32()));
 
-  ExpectBindsTo(call("add", {field_ref("f32"), literal(3)}),
-                call("add", {field_ref("f32"), literal(3.0F)}));
+  ExpectBindsTo(add(field_ref("f32"), literal(3)), add(field_ref("f32"), literal(3.0F)));
 
-  ExpectBindsTo(call("add", {field_ref("i32"), literal(3.5F)}),
-                call("add", {cast(field_ref("i32"), float32()), literal(3.5F)}));
+  ExpectBindsTo(add(field_ref("i32"), literal(3.5F)),
+                add(cast(field_ref("i32"), float32()), literal(3.5F)));
 }
 
 TEST(Expression, BindWithImplicitCasts) {
@@ -601,10 +645,9 @@ TEST(Expression, BindWithImplicitCasts) {
 }
 
 TEST(Expression, BindNestedCall) {
-  auto expr =
-      call("add", {field_ref("a"),
-                   call("subtract", {call("multiply", {field_ref("b"), field_ref("c")}),
-                                     field_ref("d")})});
+  auto expr = add(field_ref("a"),
+                  call("subtract", {call("multiply", {field_ref("b"), field_ref("c")}),
+                                    field_ref("d")}));
   EXPECT_FALSE(expr.IsBound());
 
   ASSERT_OK_AND_ASSIGN(expr,
@@ -748,7 +791,7 @@ void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
 }
 
 TEST(Expression, ExecuteCall) {
-  ExpectExecute(call("add", {field_ref("a"), literal(3.5)}),
+  ExpectExecute(add(field_ref("a"), literal(3.5)),
                 ArrayFromJSON(struct_({field("a", float64())}), R"([
     {"a": 6.125},
     {"a": 0.0},
@@ -756,7 +799,7 @@ TEST(Expression, ExecuteCall) {
   ])"));
 
   ExpectExecute(
-      call("add", {field_ref("a"), call("subtract", {literal(3.5), field_ref("b")})}),
+      add(field_ref("a"), call("subtract", {literal(3.5), field_ref("b")})),
       ArrayFromJSON(struct_({field("a", float64()), field("b", float64())}), R"([
     {"a": 6.125, "b": 3.375},
     {"a": 0.0,   "b": 1},
@@ -771,20 +814,19 @@ TEST(Expression, ExecuteCall) {
     {"a": "12/11/1900"}
   ])"));
 
-  ExpectExecute(project({call("add", {field_ref("a"), literal(3.5)})}, {"a + 3.5"}),
+  ExpectExecute(project({add(field_ref("a"), literal(3.5))}, {"a + 3.5"}),
                 ArrayFromJSON(struct_({field("a", float64())}), R"([
     {"a": 6.125},
     {"a": 0.0},
     {"a": -1}
   ])"));
 
-  ExpectExecute(
-      call("add", {field_ref(FieldRef("a", "a")), field_ref(FieldRef("a", "b"))}),
-      ArrayFromJSON(struct_({field("a", struct_({
-                                            field("a", float64()),
-                                            field("b", float64()),
-                                        }))}),
-                    R"([
+  ExpectExecute(add(field_ref(FieldRef("a", "a")), field_ref(FieldRef("a", "b"))),
+                ArrayFromJSON(struct_({field("a", struct_({
+                                                      field("a", float64()),
+                                                      field("b", float64()),
+                                                  }))}),
+                              R"([
     {"a": {"a": 6.125, "b": 3.375}},
     {"a": {"a": 0.0,   "b": 1}},
     {"a": {"a": -1,    "b": 4.75}}
@@ -853,24 +895,31 @@ TEST(Expression, FoldConstants) {
   ExpectFoldsTo(field_ref("i32"), field_ref("i32"));
 
   // call against literals (3 + 2 == 5)
-  ExpectFoldsTo(call("add", {literal(3), literal(2)}), literal(5));
+  ExpectFoldsTo(add(literal(3), literal(2)), literal(5));
 
-  ExpectFoldsTo(call("equal", {literal(3), literal(3)}), literal(true));
+  ExpectFoldsTo(equal(literal(3), literal(3)), literal(true));
+
+  // addition of durations folds as expected
+  ExpectFoldsTo(add(duration_literal{.minutes = 5}, duration_literal{.minutes = 5}),
+                duration_literal{.minutes = 10});
+
+  // addition of duration, timestamp folds as expected
+  Expression ts = timestamp_literal("1990-10-23 10:23:33", TimeUnit::NANO),
+             two_days = duration_literal{.days = 2, .nanoseconds = 0},
+             ts_two_days_later = timestamp_literal("1990-10-25 10:23:33", TimeUnit::NANO);
+  ExpectFoldsTo(add(two_days, ts), ts_two_days_later);
+  ExpectFoldsTo(add(ts, two_days), ts_two_days_later);
 
   // call against literal and field_ref
-  ExpectFoldsTo(call("add", {literal(3), field_ref("i32")}),
-                call("add", {literal(3), field_ref("i32")}));
+  ExpectFoldsTo(add(literal(3), field_ref("i32")), add(literal(3), field_ref("i32")));
 
   // nested call against literals ((8 - (2 * 3)) + 2 == 4)
-  ExpectFoldsTo(call("add",
-                     {
-                         call("subtract",
-                              {
-                                  literal(8),
-                                  call("multiply", {literal(2), literal(3)}),
-                              }),
-                         literal(2),
-                     }),
+  ExpectFoldsTo(add(call("subtract",
+                         {
+                             literal(8),
+                             call("multiply", {literal(2), literal(3)}),
+                         }),
+                    literal(2)),
                 literal(4));
 
   // INTERSECTION null handling and null input -> null output
@@ -880,40 +929,34 @@ TEST(Expression, FoldConstants) {
   // nested call against literals with one field_ref
   // (i32 - (2 * 3)) + 2 == (i32 - 6) + 2
   // NB this could be improved further by using associativity of addition; another pass
-  ExpectFoldsTo(call("add",
-                     {
-                         call("subtract",
-                              {
-                                  field_ref("i32"),
-                                  call("multiply", {literal(2), literal(3)}),
-                              }),
-                         literal(2),
-                     }),
-                call("add", {
-                                call("subtract",
-                                     {
-                                         field_ref("i32"),
-                                         literal(6),
-                                     }),
-                                literal(2),
-                            }));
+  ExpectFoldsTo(add(call("subtract",
+                         {
+                             field_ref("i32"),
+                             call("multiply", {literal(2), literal(3)}),
+                         }),
+                    literal(2)),
+                add(call("subtract",
+                         {
+                             field_ref("i32"),
+                             literal(6),
+                         }),
+                    literal(2)));
 
   compute::SetLookupOptions in_123(ArrayFromJSON(int32(), "[1,2,3]"));
 
   ExpectFoldsTo(call("is_in", {literal(2)}, in_123), literal(true));
 
   ExpectFoldsTo(
-      call("is_in",
-           {call("add", {field_ref("i32"), call("multiply", {literal(2), literal(3)})})},
+      call("is_in", {add(field_ref("i32"), call("multiply", {literal(2), literal(3)}))},
            in_123),
-      call("is_in", {call("add", {field_ref("i32"), literal(6)})}, in_123));
+      call("is_in", {add(field_ref("i32"), literal(6))}, in_123));
 }
 
 TEST(Expression, FoldConstantsBoolean) {
   // test and_kleene/or_kleene-specific optimizations
   auto one = literal(1);
   auto two = literal(2);
-  auto whatever = equal(call("add", {one, field_ref("i32")}), two);
+  auto whatever = equal(add(one, field_ref("i32")), two);
 
   auto true_ = literal(true);
   auto false_ = literal(false);
@@ -1009,24 +1052,19 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
       DictionaryScalar::Make(MakeScalar(0), ArrayFromJSON(utf8(), R"(["3"])"))};
   ExpectReplacesTo(field_ref("dict_str"), {{"dict_str", dict_str}}, literal(dict_str));
 
-  ExpectReplacesTo(call("add",
-                        {
-                            call("subtract",
-                                 {
-                                     field_ref("i32"),
-                                     call("multiply", {literal(2), literal(3)}),
-                                 }),
-                            literal(2),
-                        }),
+  ExpectReplacesTo(add(call("subtract",
+                            {
+                                field_ref("i32"),
+                                call("multiply", {literal(2), literal(3)}),
+                            }),
+                       literal(2)),
                    i32_is_3,
-                   call("add", {
-                                   call("subtract",
-                                        {
-                                            literal(3),
-                                            call("multiply", {literal(2), literal(3)}),
-                                        }),
-                                   literal(2),
-                               }));
+                   add(call("subtract",
+                            {
+                                literal(3),
+                                call("multiply", {literal(2), literal(3)}),
+                            }),
+                       literal(2)));
 
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> i32_valid_str_null{
       {"i32", Datum(3)}, {"str", MakeNullScalar(utf8())}};
@@ -1098,6 +1136,12 @@ TEST(Expression, CanonicalizeAnd) {
 
   // catches and_kleene even when it's a subexpression
   ExpectCanonicalizesTo(is_valid(and_(b, true_)), is_valid(and_(true_, b)));
+
+  auto ts = field_ref("ts_ns");
+  Expression five_mins = duration_literal{.minutes = 5, .nanoseconds = 0};
+  ExpectCanonicalizesTo(add(ts, five_mins), add(five_mins, ts));
+  ExpectCanonicalizesTo(add(add(ts, five_mins), add(five_mins, five_mins)),
+                        add(add(add(five_mins, five_mins), five_mins), ts));
 }
 
 TEST(Expression, CanonicalizeComparison) {
@@ -1144,7 +1188,7 @@ TEST(Expression, SingleComparisonGuarantees) {
 
   // i32 is guaranteed equal to 3, so the projection can just materialize that constant
   // and need not incur IO
-  Simplify{project({call("add", {i32, literal(1)})}, {"i32 + 1"})}
+  Simplify{project({add(i32, literal(1))}, {"i32 + 1"})}
       .WithGuarantee(equal(i32, literal(3)))
       .Expect(literal(
           std::make_shared<StructScalar>(ScalarVector{std::make_shared<Int32Scalar>(4)},
@@ -1252,9 +1296,8 @@ TEST(Expression, SingleComparisonGuarantees) {
             all = false;
           }
         }
-        Simplify{filter}.WithGuarantee(guarantee).Expect(all    ? literal(true)
-                                                         : none ? literal(false)
-                                                                : filter);
+        Simplify{filter}.WithGuarantee(guarantee).Expect(
+            all ? literal(true) : none ? literal(false) : filter);
       }
     }
   }
