@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/expression.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -73,49 +74,34 @@ Expression add(Expression l, Expression r) {
   return call("add", {std::move(l), std::move(r)});
 }
 
-Expression timestamp_literal(std::string repr, TimeUnit::type unit) {
-  return literal(*MakeScalar(std::move(repr))->CastTo(timestamp(TimeUnit::NANO)));
+namespace arrow_literals {
+
+using namespace std::chrono_literals;
+
+inline auto operator""_ts(const char* c, size_t s) {
+  return [s = StringScalar(std::string{c, s})](TimeUnit::type unit) {
+    return literal(*s.CastTo(timestamp(unit)));
+  };
 }
 
-struct duration_literal {
-  int64_t days{0};
-  int8_t hours{0}, minutes{0}, seconds{0};
-  std::optional<int64_t> nanoseconds, microseconds, milliseconds;
+}  // namespace arrow_literals
 
-  operator Expression() {  // NOLINT runtime/explicit
-    int64_t int_value = days;
-
-    int_value *= 24;
-    int_value += hours;
-
-    int_value *= 60;
-    int_value += minutes;
-
-    int_value *= 60;
-    int_value += seconds;
-
-    TimeUnit::type unit;
-    if (nanoseconds) {
-      unit = TimeUnit::NANO;
-      int_value *= 1'000'000'000;
-      int_value += *nanoseconds;
-      DCHECK(!microseconds);
-      DCHECK(!milliseconds);
-    } else if (microseconds) {
-      unit = TimeUnit::MICRO;
-      int_value *= 1'000'000;
-      int_value += *microseconds;
-      DCHECK(!milliseconds);
-    } else if (milliseconds) {
-      unit = TimeUnit::MILLI;
-      int_value *= 1'000;
-      int_value += *milliseconds;
-    } else {
-      unit = TimeUnit::SECOND;
-    }
-    return literal(*MakeScalar(int_value)->CastTo(duration(unit)));
+template <typename Rep, typename Period>
+Expression literal(std::chrono::duration<Rep, Period> d) {
+  int64_t int_value = d.count();
+  TimeUnit::type unit;
+  if constexpr (std::is_same_v<Period, std::nano>) {
+    unit = TimeUnit::NANO;
+  } else if constexpr (std::is_same_v<Period, std::micro>) {
+    unit = TimeUnit::MICRO;
+  } else if constexpr (std::is_same_v<Period, std::milli>) {
+    unit = TimeUnit::MILLI;
+  } else {
+    unit = TimeUnit::SECOND;
+    int_value = std::chrono::duration_cast<std::chrono::seconds>(d).count();
   }
-};
+  return literal(*MakeScalar(int_value)->CastTo(duration(unit)));
+}
 
 template <typename Actual, typename Expected>
 void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
@@ -306,7 +292,8 @@ TEST(Expression, ToString) {
   EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
             "\"617A\"");
 
-  EXPECT_EQ(timestamp_literal("1990-10-23 10:23:33", TimeUnit::NANO).ToString(),
+  using namespace arrow_literals;
+  EXPECT_EQ("1990-10-23 10:23:33"_ts(TimeUnit::NANO).ToString(),
             "1990-10-23 10:23:33.000000000");
 
   EXPECT_EQ(add(literal(3), field_ref("beta")).ToString(), "add(3, beta)");
@@ -900,15 +887,14 @@ TEST(Expression, FoldConstants) {
   ExpectFoldsTo(equal(literal(3), literal(3)), literal(true));
 
   // addition of durations folds as expected
-  ExpectFoldsTo(add(duration_literal{.minutes = 5}, duration_literal{.minutes = 5}),
-                duration_literal{.minutes = 10});
+  using namespace arrow_literals;
+  ExpectFoldsTo(add(literal(5min), literal(5min)), literal(10min));
 
   // addition of duration, timestamp folds as expected
-  Expression ts = timestamp_literal("1990-10-23 10:23:33", TimeUnit::NANO),
-             two_days = duration_literal{.days = 2, .nanoseconds = 0},
-             ts_two_days_later = timestamp_literal("1990-10-25 10:23:33", TimeUnit::NANO);
-  ExpectFoldsTo(add(two_days, ts), ts_two_days_later);
-  ExpectFoldsTo(add(ts, two_days), ts_two_days_later);
+  Expression ts = "1990-10-23 10:23:33"_ts(TimeUnit::SECOND),
+             ts_two_hours_later = "1990-10-23 12:23:33"_ts(TimeUnit::SECOND);
+  ExpectFoldsTo(add(literal(2h), ts), ts_two_hours_later);
+  ExpectFoldsTo(add(ts, literal(2h)), ts_two_hours_later);
 
   // call against literal and field_ref
   ExpectFoldsTo(add(literal(3), field_ref("i32")), add(literal(3), field_ref("i32")));
@@ -1138,10 +1124,10 @@ TEST(Expression, CanonicalizeAnd) {
   ExpectCanonicalizesTo(is_valid(and_(b, true_)), is_valid(and_(true_, b)));
 
   auto ts = field_ref("ts_ns");
-  Expression five_mins = duration_literal{.minutes = 5, .nanoseconds = 0};
-  ExpectCanonicalizesTo(add(ts, five_mins), add(five_mins, ts));
-  ExpectCanonicalizesTo(add(add(ts, five_mins), add(five_mins, five_mins)),
-                        add(add(add(five_mins, five_mins), five_mins), ts));
+  using namespace arrow_literals;
+  ExpectCanonicalizesTo(add(ts, literal(5min)), add(literal(5min), ts));
+  ExpectCanonicalizesTo(add(add(ts, literal(5min)), add(literal(5min), literal(5min))),
+                        add(add(add(literal(5min), literal(5min)), literal(5min)), ts));
 }
 
 TEST(Expression, CanonicalizeComparison) {
