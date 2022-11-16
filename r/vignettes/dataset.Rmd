@@ -461,6 +461,7 @@ not have any such concept and a partially written CSV file may be detected as va
 - To learn about cloud storage, see the [cloud storage article](./fs.html).
 - To learn about `dplyr` with `arrow`, see the [data wrangling article](./data_wrangling.html).
 - To learn about reading and writing data, see the [read/write article](./read_write.html).
+- For specific recipes on reading and writing multi-file Datasets, see this [Arrow R cookbook chapter](https://arrow.apache.org/cookbook/r/reading-and-writing-data---multiple-files.html).
 - To manually enable cloud support on Linux, see the article on [installation on Linux](./install.html).
 - To learn about schemas and metadata, see the [metadata article](./metadata.html).
 
