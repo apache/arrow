@@ -19,7 +19,6 @@
 
 #include <functional>
 #include <limits>
-#include <list>
 #include <memory>
 #include <string_view>
 #include <tuple>
@@ -360,26 +359,25 @@ class RawArrayBuilder<Kind::kObject> {
       return -1;
     }
 
-    if (skip_index_queue_) {
+    if (next_index_ == -1) {
       return FindFieldIndex(name);
     }
 
-    // Field ordering has been predictable thus far, so check the LRU index first
-    auto index = index_queue_.front();
-    if (ARROW_PREDICT_TRUE(name == field_infos_[index].name)) {
-      // Front index was a match - rotate the queue
-      index_queue_.splice(index_queue_.cend(), index_queue_, index_queue_.cbegin());
-      return index;
+    if (next_index_ == num_fields()) {
+      next_index_ = 0;
+    }
+    // Field ordering has been predictable thus far, so check the expected index first
+    if (ARROW_PREDICT_TRUE(name == field_infos_[next_index_].name)) {
+      return next_index_++;
     }
 
     // Prediction failed - fall back to the map
-    index = FindFieldIndex(name);
+    auto index = FindFieldIndex(name);
     if (ARROW_PREDICT_FALSE(index != -1)) {
       // We already have this key, so the incoming fields are sparse and/or inconsistently
       // ordered. At the risk of introducing crippling overhead for worst-case input, we
       // bail on the optimization.
-      skip_index_queue_ = true;
-      index_queue_.clear();
+      next_index_ = -1;
     }
 
     return index;
@@ -393,9 +391,6 @@ class RawArrayBuilder<Kind::kObject> {
       index = num_fields();
       field_infos_.push_back(FieldInfo{name, builder});
       name_to_index_.emplace(name, index);
-      if (!skip_index_queue_) {
-        index_queue_.emplace_back(index);
-      }
     }
 
     return index;
@@ -449,11 +444,9 @@ class RawArrayBuilder<Kind::kObject> {
 
   TypedBufferBuilder<bool> null_bitmap_builder_;
 
-  // A rotating LRU-sorted queue of field indices used for optimizing name -> index
-  // lookups in cases where fields are consistently ordered. If the optimization is
-  // active, new fields are pushed to the back of the queue.
-  std::list<int> index_queue_;
-  bool skip_index_queue_ = false;
+  // Predictive index for optimizing name -> index lookups in cases where fields are
+  // consistently ordered.
+  int next_index_ = 0;
 };
 
 template <>
