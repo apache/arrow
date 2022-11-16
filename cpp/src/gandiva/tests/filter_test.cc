@@ -414,6 +414,39 @@ TEST_F(TestFilter, TestLike) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+
+  auto literal_escape_pattern =
+      TreeExprBuilder::MakeStringLiteral("%tu^_security^_freeze%");
+  auto escape_char = TreeExprBuilder::MakeStringLiteral("^");
+  like_func = TreeExprBuilder::MakeFunction(
+      "like", {node_f0, literal_escape_pattern, escape_char}, boolean());
+
+  condition = TreeExprBuilder::MakeCondition(like_func);
+
+  status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  num_records = 5;
+  array0 = MakeArrowArrayUtf8(
+      {"AAAtu_security_freezeBBB", "hello", "bye", "abc-x", "AAAtusecurityfreezeBBB"},
+      {true, true, true, true, true});
+
+  // expected output (indices for which condition matches)
+  exp = MakeArrowArrayUint16({0});
+
+  // prepare input record batch
+  in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Evaluate expression
+  status = filter->Evaluate(*in_batch, selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
 }  // namespace gandiva

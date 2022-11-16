@@ -83,6 +83,27 @@ test_that("logic ops with Array", {
   )
 })
 
+test_that("binary slice kernel with Array", {
+  binary_array <- Array$create(
+    iconv(c("a", "ab", "abc", "abcd"), toRaw = TRUE),
+    type = binary()
+  )
+
+  result <- call_function(
+    "binary_slice",
+    binary_array,
+    options = list(start = 0, stop = 1)
+  )
+  expect_equal(result$cast(string()), Array$create(c("a", "a", "a", "a")))
+
+  result <- call_function(
+    "binary_slice",
+    binary_array,
+    options = list(start = -1)
+  )
+  expect_equal(result$cast(string()), Array$create(c("a", "b", "c", "d")))
+})
+
 test_that("logic ops with ChunkedArray", {
   truth <- expand.grid(left = c(TRUE, FALSE, NA), right = c(TRUE, FALSE, NA))
   a_left <- ChunkedArray$create(truth$left)

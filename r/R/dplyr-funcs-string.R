@@ -495,8 +495,19 @@ register_bindings_string_other <- function() {
         stop <- 0
       }
 
+      # if the input is a string we use "utf8_slice_codeunits"; if the
+      # input is binary we use "binary_slice". This does not consider
+      # a binary Scalar.
+      x_is_binary <- inherits(x, "ArrowObject") &&
+        x$type_id() %in% c(Type$BINARY, Type$LARGE_BINARY, Type$FIXED_SIZE_BINARY)
+      if (x_is_binary) {
+        fun <- "binary_slice"
+      } else {
+        fun <- "utf8_slice_codeunits"
+      }
+
       Expression$create(
-        "utf8_slice_codeunits",
+        fun,
         x,
         # we don't need to subtract 1 from `stop` as C++ counts exclusively
         # which effectively cancels out the difference in indexing between R & C++
