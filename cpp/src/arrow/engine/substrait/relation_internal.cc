@@ -666,7 +666,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         case substrait::SetRel::SET_OP_UNION_ALL:
           break;
         default:
-          return Status::Invalid("Unsupported union type");
+          return Status::Invalid("Unknown union type");
       }
       int input_size = set.inputs_size();
       compute::Declaration union_declr{"union", compute::ExecNodeOptions{}};

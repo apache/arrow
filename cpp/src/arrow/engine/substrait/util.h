@@ -29,8 +29,8 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-
-#include "substrait/algebra.pb.h"  // IWYU pragma: export
+#include "arrow/engine/substrait/util_internal.h"
+#include "arrow/util/iterator.h"
 
 namespace arrow {
 
@@ -54,9 +54,6 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry();
 
 ARROW_ENGINE_EXPORT const std::string& default_extension_types_uri();
-
-ARROW_ENGINE_EXPORT
-std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor);
 
 }  // namespace engine
 
