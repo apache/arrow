@@ -19,10 +19,15 @@ The primary motivation for multi-file Datasets is to allow users to analyze extr
 
 This data set is comprised of 158 distinct Parquet files, each corresponding to a month of data. A single file is typically around 400-500MB in size, and the full data set is about 70GB in size. It is not a small data set -- it is slow to download and does not fit in memory on a typical machine 🙂  -- so we also host a "tiny" version of the NYC taxi data that is formatted in exactly the same way but includes only one out of every thousand entries in the original data set (i.e., individual files are <1MB in size, and the "tiny" data set is only 70MB) 
 
-If you have Amazon S3 and/or Google Cloud Storage support enabled in `arrow` (true for most users; see links at the end of this article if you need to troubleshoot this), you can connect to the "tiny taxi data" with either of the following commands:
+If you have Amazon S3 support enabled in `arrow` (true for most users; see links at the end of this article if you need to troubleshoot this), you can connect to a copy of the "tiny taxi data" stored on S3 with this command:
 
 ```r
 bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi-tiny")
+```
+
+Alternatively you could connect to a copy of the data on Google Cloud Storage (GCS) using the following command:
+
+```r
 bucket <- gs_bucket("voltrondata-labs-datasets/nyc-taxi-tiny", anonymous = TRUE)
 ```
 
