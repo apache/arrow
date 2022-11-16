@@ -113,21 +113,22 @@ def strip_ci_directives(commit_message):
 
 def git_default_branch_name():
     default_branch_name = os.getenv("MERGE_SCRIPT_DEFAULT_BRANCH_NAME")
-    
+
     if default_branch_name is None:
         try:
-            default_reference = run_cmd("git rev-parse --abbrev-ref origin/HEAD")
+            default_reference = run_cmd(
+                "git rev-parse --abbrev-ref origin/HEAD")
             default_branch_name = default_reference.lstrip("origin/")
         except subprocess.CalledProcessError:
             # TODO: ARROW-18011 to track changing the hard coded default
             # value from "master" to "main".
             default_branch_name = "master"
             warnings.warn('Unable to determine default branch name: '
-                            'MERGE_SCRIPT_DEFAULT_BRANCH_NAME environment '
-                            'variable is not set. Git repository does not '
-                            'contain a \'refs/remotes/origin/HEAD\'reference. '
-                            ' Setting the default branch name to ' +
-                            default_branch_name, RuntimeWarning)
+                          'MERGE_SCRIPT_DEFAULT_BRANCH_NAME environment '
+                          'variable is not set. Git repository does not '
+                          'contain a \'refs/remotes/origin/HEAD\'reference. '
+                          ' Setting the default branch name to ' +
+                          default_branch_name, RuntimeWarning)
 
     return default_branch_name
 
