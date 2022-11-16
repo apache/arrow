@@ -1718,7 +1718,7 @@ const FunctionDoc pow_doc{
     {"base", "exponent"}};
 
 const FunctionDoc exp_doc{
-    "Compute Euler's number raised to the specified power, element-wise",
+    "Compute Euler's number raised to the power of specified exponent, element-wise",
     ("If exponent is null the result will be null."),
     {"exponent"}};
 
