@@ -1438,9 +1438,9 @@ Expression and_(Expression lhs, Expression rhs) {
 Expression and_(const std::vector<Expression>& operands) {
   if (operands.empty()) return literal(true);
 
-  Expression folded = std::move(operands.front());
+  Expression folded = operands.front();
   for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
-    return and_(std::move(folded), std::move(*it));
+    folded = and_(std::move(folded), std::move(*it));
   }
   return folded;
 }
@@ -1452,9 +1452,9 @@ Expression or_(Expression lhs, Expression rhs) {
 Expression or_(const std::vector<Expression>& operands) {
   if (operands.empty()) return literal(false);
 
-  Expression folded = std::move(operands.front());
+  Expression folded = operands.front();
   for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
-    return or_(std::move(folded), std::move(*it));
+    folded = or_(std::move(folded), std::move(*it));
   }
   return folded;
 }
