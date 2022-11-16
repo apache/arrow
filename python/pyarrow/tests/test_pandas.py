@@ -1072,6 +1072,7 @@ class TestConvertDateTimeLikeTypes:
         from datetime import timezone
 
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
+        # also test with index to ensure both paths roundtrip (ARROW-9962)
         df = pd.DataFrame({'datetime': values}, index=values)
         _check_pandas_roundtrip(df, preserve_index=True)
 
