@@ -27,11 +27,6 @@ from pyarrow._feather import FeatherError  # noqa: F401
 from pyarrow.vendored.version import Version
 
 
-def _check_pandas_version():
-    if _pandas_api.loose_version < Version('0.17.0'):
-        raise ImportError("feather requires pandas >= 0.17.0")
-
-
 class FeatherDataset:
     """
     Encapsulates details of reading a list of Feather files.
