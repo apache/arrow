@@ -1519,6 +1519,39 @@ TEST_F(TestUnaryArithmeticDecimal, AbsoluteValue) {
   }
 }
 
+TYPED_TEST(TestUnaryArithmeticUnsigned, Exp) {
+  auto exp = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Exp(arg, ctx);
+  };
+  // Empty arrays
+  this->AssertUnaryOp(exp, "[]", ArrayFromJSON(float64(), "[]"));
+  // Array with nulls
+  this->AssertUnaryOp(exp, "[null]", ArrayFromJSON(float64(), "[null]"));
+  this->AssertUnaryOp(exp, this->MakeNullScalar(), arrow::MakeNullScalar(float64()));
+  this->AssertUnaryOp(
+      exp, "[null, 1, 10]",
+      ArrayFromJSON(float64(), "[null, 2.718281828459045, 22026.465794806718]"));
+  this->AssertUnaryOp(exp, this->MakeScalar(1),
+                      arrow::MakeScalar<double>(2.718281828459045F));
+}
+
+TYPED_TEST(TestUnaryArithmeticSigned, Exp) {
+  auto exp = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Exp(arg, ctx);
+  };
+  // Empty arrays
+  this->AssertUnaryOp(exp, "[]", ArrayFromJSON(float64(), "[]"));
+  // Array with nulls
+  this->AssertUnaryOp(exp, "[null]", ArrayFromJSON(float64(), "[null]"));
+  this->AssertUnaryOp(exp, this->MakeNullScalar(), arrow::MakeNullScalar(float64()));
+  this->AssertUnaryOp(exp, "[-10, -1, null, 1, 10]",
+                      ArrayFromJSON(float64(),
+                                    "[0.000045399929762484854, 0.36787944117144233, "
+                                    "null, 2.718281828459045, 22026.465794806718]"));
+  this->AssertUnaryOp(exp, this->MakeScalar(1),
+                      arrow::MakeScalar<double>(2.718281828459045F));
+}
+
 TYPED_TEST(TestUnaryArithmeticFloating, Exp) {
   using CType = typename TestFixture::CType;
 

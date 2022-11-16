@@ -450,7 +450,7 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+----------------------+-------+
 | divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
 +------------------+--------+-------------------------+----------------------+-------+
-| exp              | Unary  | Float32/Float64/Decimal | Float32/Float64      |       |
+| exp              | Unary  | Numeric                 | Float32/Float64      |       |
 +------------------+--------+-------------------------+----------------------+-------+
 | multiply         | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
 +------------------+--------+-------------------------+----------------------+-------+
