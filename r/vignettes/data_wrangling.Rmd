@@ -5,7 +5,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-The `arrow` package provides a `dplyr` back end that allows users to manipulate tabular Arrow data (`Table` and `Dataset` objects) using familiar `dplyr` syntax. To use this functionality, make sure that the `arrow` and `dplyr` packages are both loaded. In this article we will take the `starwars` data set included in `dplyr`, convert it to an Arrow Table, and then analyze this data. Note that, although these examples all use an in-memory `Table` object, the same functionality works for an on-disk `Dataset` object with only minor differences in behavior (documented later in the article).
+The `arrow` package provides functionality allowing users to manipulate tabular Arrow data (`Table` and `Dataset` objects) with familiar `dplyr` syntax. To enable this functionality, ensure that the `arrow` and `dplyr` packages are both loaded. In this article we will take the `starwars` data set included in `dplyr`, convert it to an Arrow Table, and then analyze this data. Note that, although these examples all use an in-memory `Table` object, the same functionality works for an on-disk `Dataset` object with only minor differences in behavior (documented later in the article).
 
 To get started let's load the packages and create the data:
 
