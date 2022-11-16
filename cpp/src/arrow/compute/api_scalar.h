@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -344,6 +345,25 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
   SliceOptions();
   static constexpr char const kTypeName[] = "SliceOptions";
   int64_t start, stop, step;
+};
+
+class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
+ public:
+  explicit ListSliceOptions(int64_t start, std::optional<int64_t> stop = std::nullopt,
+                            int64_t step = 1,
+                            std::optional<bool> return_fixed_size_list = std::nullopt);
+  ListSliceOptions();
+  static constexpr char const kTypeName[] = "ListSliceOptions";
+  /// The start of list slicing.
+  int64_t start;
+  /// Optional stop of list slicing. If not set, then slice to end. (NotImplemented)
+  std::optional<int64_t> stop;
+  /// Slicing step
+  int64_t step;
+  // Whether to return a FixedSizeListArray. If true _and_ stop is after
+  // a list element's length, nulls will be appended to create the requested slice size.
+  // Default of `nullopt` will return whatever type it got in.
+  std::optional<bool> return_fixed_size_list;
 };
 
 class ARROW_EXPORT NullOptions : public FunctionOptions {

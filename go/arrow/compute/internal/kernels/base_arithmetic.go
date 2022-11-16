@@ -18,6 +18,7 @@ package kernels
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/JohnCGriffin/overflow"
 	"github.com/apache/arrow/go/v11/arrow"
@@ -35,11 +36,18 @@ const (
 	OpSub
 	OpMul
 	OpDiv
+	OpAbsoluteValue
+	OpNegate
+	OpSqrt
+	OpSign
 
 	OpAddChecked
 	OpSubChecked
 	OpMulChecked
 	OpDivChecked
+	OpAbsoluteValueChecked
+	OpNegateChecked
+	OpSqrtChecked
 )
 
 func getGoArithmeticBinary[OutT, Arg0T, Arg1T exec.NumericTypes](op func(a Arg0T, b Arg1T, e *error) OutT) binaryOps[OutT, Arg0T, Arg1T] {
@@ -69,59 +77,124 @@ func getGoArithmeticBinary[OutT, Arg0T, Arg1T exec.NumericTypes](op func(a Arg0T
 }
 
 var (
-	errOverflow  = fmt.Errorf("%w: overflow", arrow.ErrInvalid)
-	errDivByZero = fmt.Errorf("%w: divide by zero", arrow.ErrInvalid)
+	errOverflow     = fmt.Errorf("%w: overflow", arrow.ErrInvalid)
+	errDivByZero    = fmt.Errorf("%w: divide by zero", arrow.ErrInvalid)
+	errNegativeSqrt = fmt.Errorf("%w: square root of negative number", arrow.ErrInvalid)
 )
 
-func getGoArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+func getGoArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
 	switch op {
 	case OpAdd:
-		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a + b }))
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a + b) }))
 	case OpSub:
-		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a - b }))
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a - b) }))
 	case OpMul:
-		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a * b }))
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a * b) }))
 	case OpDiv:
-		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) T {
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b InT, e *error) OutT {
 			if b == 0 {
 				*e = errDivByZero
 				return 0
 			}
-			return a / b
+			return OutT(a / b)
+		})
+	case OpAbsoluteValue:
+		if ones := ^InT(0); ones < 0 {
+			shiftBy := (SizeOf[InT]() * 8) - 1
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				// get abs without branching
+				for i, v := range arg {
+					// right shift (sign check)
+					mask := v >> shiftBy
+					// add the mask '+' and '-' balance
+					v = v + mask
+					// invert and return
+					out[i] = OutT(v ^ mask)
+				}
+				return nil
+			})
+		}
+
+		if SizeOf[InT]() == SizeOf[OutT]() {
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				in, output := exec.GetBytes(arg), exec.GetBytes(out)
+				copy(output, in)
+				return nil
+			})
+		} else {
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				DoStaticCast(arg, out)
+				return nil
+			})
+		}
+	case OpNegate:
+		return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+			for i, v := range arg {
+				out[i] = OutT(-v)
+			}
+			return nil
+		})
+	case OpSign:
+		if ^InT(0) < 0 {
+			var neg int8 = -1
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				neg := OutT(neg)
+				for i, v := range arg {
+					switch {
+					case v > 0:
+						out[i] = 1
+					case v < 0:
+						out[i] = neg
+					default:
+						out[i] = 0
+					}
+				}
+				return nil
+			})
+		}
+		return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+			for i, v := range arg {
+				if v > 0 {
+					out[i] = 1
+				} else {
+					out[i] = 0
+				}
+			}
+			return nil
 		})
 	case OpAddChecked:
-		shiftBy := (SizeOf[T]() * 8) - 1
+		shiftBy := (SizeOf[InT]() * 8) - 1
 		// ie: uint32 does a >> 31 at the end, int32 does >> 30
-		if ^T(0) < 0 {
+		if ^InT(0) < 0 {
 			shiftBy--
 		}
-		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
-			out = a + b
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b InT, e *error) (out OutT) {
+			out = OutT(a + b)
 			// see math/bits/bits.go Add64 for explanation of logic
-			carry := ((a & b) | ((a | b) &^ out)) >> shiftBy
+			carry := (OutT(a&b) | (OutT(a|b) &^ out)) >> shiftBy
 			if carry > 0 {
 				*e = errOverflow
 			}
 			return
 		})
 	case OpSubChecked:
-		shiftBy := (SizeOf[T]() * 8) - 1
+		shiftBy := (SizeOf[InT]() * 8) - 1
 		// ie: uint32 does a >> 31 at the end, int32 does >> 30
-		if ^T(0) < 0 {
+		if ^InT(0) < 0 {
 			shiftBy--
 		}
-		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
-			out = a - b
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b InT, e *error) (out OutT) {
+			out = OutT(a - b)
 			// see math/bits/bits.go Sub64 for explanation of bit logic
-			carry := ((^a & b) | (^(a ^ b) & out)) >> shiftBy
+			carry := (OutT(^a&b) | (^OutT(a^b) & out)) >> shiftBy
 			if carry > 0 {
 				*e = errOverflow
 			}
 			return
 		})
 	case OpMulChecked:
-		min, max := MinOf[T](), MaxOf[T]()
-		return ScalarBinary(getGoArithmeticBinary(func(a, b T, e *error) (out T) {
+		min, max := MinOf[InT](), MaxOf[InT]()
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, e *error) (out OutT) {
 			switch {
 			case a > 0:
 				if b > 0 {
@@ -147,45 +220,137 @@ func getGoArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op Arithm
 				}
 			}
 
-			return a * b
+			return OutT(a * b)
 		}))
 	case OpDivChecked:
-		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b InT, e *error) (out OutT) {
 			if b == 0 {
 				*e = errDivByZero
 				return
 			}
-			return a / b
+			return OutT(a / b)
 		})
+	case OpAbsoluteValueChecked:
+		if ones := ^InT(0); ones < 0 {
+			shiftBy := (SizeOf[InT]() * 8) - 1
+			min := MinOf[InT]()
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				for i, v := range arg {
+					if v == min {
+						return errOverflow
+					}
+
+					// right shift (sign check)
+					mask := v >> shiftBy
+					// add the mask '+' and '-' balance
+					v = v + mask
+					// invert and return
+					out[i] = OutT(v ^ mask)
+				}
+				return nil
+			})
+		}
+		if SizeOf[InT]() == SizeOf[OutT]() {
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				in, output := exec.GetBytes(arg), exec.GetBytes(out)
+				copy(output, in)
+				return nil
+			})
+		} else {
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				DoStaticCast(arg, out)
+				return nil
+			})
+		}
+	case OpNegateChecked:
+		if ones := ^InT(0); ones < 0 {
+			min := MinOf[InT]()
+			// signed
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				for i, v := range arg {
+					if v != min {
+						out[i] = OutT(-v)
+					} else {
+						return errOverflow
+					}
+				}
+				return nil
+			})
+		}
 	}
 	debug.Assert(false, "invalid arithmetic op")
 	return nil
 }
 
-func getGoArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+func getGoArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
 	if op == OpDivChecked {
-		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b InT, e *error) (out OutT) {
 			if b == 0 {
 				*e = errDivByZero
 				return
 			}
-			return a / b
+			return OutT(a / b)
 		})
 	}
 
-	if op >= OpAddChecked {
+	if op >= OpAddChecked && op != OpSqrtChecked {
 		op -= OpAddChecked // floating checked is the same as floating unchecked
 	}
 	switch op {
 	case OpAdd:
-		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a + b }))
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a + b) }))
 	case OpSub:
-		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a - b }))
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a - b) }))
 	case OpMul:
-		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a * b }))
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a * b) }))
 	case OpDiv:
-		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
-			return a / b
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b InT, e *error) (out OutT) {
+			return OutT(a / b)
+		})
+	case OpAbsoluteValue:
+		return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+			for i, v := range arg {
+				out[i] = OutT(math.Abs(float64(v)))
+			}
+			return nil
+		})
+	case OpNegate:
+		return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+			for i, v := range arg {
+				out[i] = OutT(-v)
+			}
+			return nil
+		})
+	case OpSqrt:
+		return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+			for i, v := range arg {
+				out[i] = OutT(math.Sqrt(float64(v)))
+			}
+			return nil
+		})
+	case OpSqrtChecked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			if arg < 0 {
+				*e = errNegativeSqrt
+				return OutT(math.NaN())
+			}
+			return OutT(math.Sqrt(float64(arg)))
+		})
+	case OpSign:
+		return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+			for i, v := range arg {
+				switch {
+				case math.IsNaN(float64(v)):
+					out[i] = OutT(v)
+				case v == 0:
+					out[i] = 0
+				case math.Signbit(float64(v)):
+					out[i] = -1
+				default:
+					out[i] = 1
+				}
+			}
+			return nil
 		})
 	}
 	debug.Assert(false, "invalid arithmetic op")
@@ -273,10 +438,13 @@ func SubtractDate32(op ArithmeticOp) exec.ArrayKernelExec {
 }
 
 type decOps[T decimal128.Num | decimal256.Num] struct {
-	Add func(T, T) T
-	Sub func(T, T) T
-	Div func(T, T) T
-	Mul func(T, T) T
+	Add  func(T, T) T
+	Sub  func(T, T) T
+	Div  func(T, T) T
+	Mul  func(T, T) T
+	Abs  func(T) T
+	Neg  func(T) T
+	Sign func(T) int
 }
 
 var dec128Ops = decOps[decimal128.Num]{
@@ -287,6 +455,9 @@ var dec128Ops = decOps[decimal128.Num]{
 		a, _ = a.Div(b)
 		return a
 	},
+	Abs:  func(a decimal128.Num) decimal128.Num { return a.Abs() },
+	Neg:  func(a decimal128.Num) decimal128.Num { return a.Negate() },
+	Sign: func(a decimal128.Num) int { return a.Sign() },
 }
 
 var dec256Ops = decOps[decimal256.Num]{
@@ -297,9 +468,12 @@ var dec256Ops = decOps[decimal256.Num]{
 		a, _ = a.Div(b)
 		return a
 	},
+	Abs:  func(a decimal256.Num) decimal256.Num { return a.Abs() },
+	Neg:  func(a decimal256.Num) decimal256.Num { return a.Negate() },
+	Sign: func(a decimal256.Num) int { return a.Sign() },
 }
 
-func getArithmeticBinaryOpDecimalImpl[T decimal128.Num | decimal256.Num](op ArithmeticOp, fns decOps[T]) exec.ArrayKernelExec {
+func getArithmeticOpDecimalImpl[T decimal128.Num | decimal256.Num](op ArithmeticOp, fns decOps[T]) exec.ArrayKernelExec {
 	if op >= OpAddChecked {
 		op -= OpAddChecked // decimal128/256 checked is the same as unchecked
 	}
@@ -326,45 +500,116 @@ func getArithmeticBinaryOpDecimalImpl[T decimal128.Num | decimal256.Num](op Arit
 			}
 			return fns.Div(arg0, arg1)
 		})
+	case OpAbsoluteValue:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg T, _ *error) T {
+			return fns.Abs(arg)
+		})
+	case OpNegate:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg T, _ *error) T {
+			return fns.Neg(arg)
+		})
+	case OpSign:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg T, _ *error) int64 {
+			return int64(fns.Sign(arg))
+		})
 	}
 	debug.Assert(false, "unimplemented arithemtic op")
 	return nil
 }
 
-func getArithmeticBinaryDecimal[T decimal128.Num | decimal256.Num](op ArithmeticOp) exec.ArrayKernelExec {
+func getArithmeticDecimal[T decimal128.Num | decimal256.Num](op ArithmeticOp) exec.ArrayKernelExec {
 	var def T
 	switch any(def).(type) {
 	case decimal128.Num:
-		return getArithmeticBinaryOpDecimalImpl(op, dec128Ops)
+		return getArithmeticOpDecimalImpl(op, dec128Ops)
 	case decimal256.Num:
-		return getArithmeticBinaryOpDecimalImpl(op, dec256Ops)
+		return getArithmeticOpDecimalImpl(op, dec256Ops)
 	}
 	panic("should never get here")
 }
 
-func ArithmeticExec(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
+func ArithmeticExecSameType(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
 	switch ty {
 	case arrow.INT8:
-		return getArithmeticBinaryOpIntegral[int8](op)
+		return getArithmeticOpIntegral[int8, int8](op)
 	case arrow.UINT8:
-		return getArithmeticBinaryOpIntegral[uint8](op)
+		return getArithmeticOpIntegral[uint8, uint8](op)
 	case arrow.INT16:
-		return getArithmeticBinaryOpIntegral[int16](op)
+		return getArithmeticOpIntegral[int16, int16](op)
 	case arrow.UINT16:
-		return getArithmeticBinaryOpIntegral[uint16](op)
+		return getArithmeticOpIntegral[uint16, uint16](op)
 	case arrow.INT32, arrow.TIME32:
-		return getArithmeticBinaryOpIntegral[int32](op)
+		return getArithmeticOpIntegral[int32, int32](op)
 	case arrow.UINT32:
-		return getArithmeticBinaryOpIntegral[uint32](op)
+		return getArithmeticOpIntegral[uint32, uint32](op)
 	case arrow.INT64, arrow.TIME64, arrow.DATE64, arrow.TIMESTAMP, arrow.DURATION:
-		return getArithmeticBinaryOpIntegral[int64](op)
+		return getArithmeticOpIntegral[int64, int64](op)
 	case arrow.UINT64:
-		return getArithmeticBinaryOpIntegral[uint64](op)
+		return getArithmeticOpIntegral[uint64, uint64](op)
 	case arrow.FLOAT32:
-		return getArithmeticBinaryOpFloating[float32](op)
+		return getArithmeticOpFloating[float32, float32](op)
 	case arrow.FLOAT64:
-		return getArithmeticBinaryOpFloating[float64](op)
+		return getArithmeticOpFloating[float64, float64](op)
 	}
 	debug.Assert(false, "invalid arithmetic type")
+	return nil
+}
+
+func arithmeticExec[InT exec.IntTypes | exec.UintTypes](oty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
+	switch oty {
+	case arrow.INT8:
+		return getArithmeticOpIntegral[InT, int8](op)
+	case arrow.UINT8:
+		return getArithmeticOpIntegral[InT, uint8](op)
+	case arrow.INT16:
+		return getArithmeticOpIntegral[InT, int16](op)
+	case arrow.UINT16:
+		return getArithmeticOpIntegral[InT, uint16](op)
+	case arrow.INT32, arrow.TIME32:
+		return getArithmeticOpIntegral[InT, int32](op)
+	case arrow.UINT32:
+		return getArithmeticOpIntegral[InT, uint32](op)
+	case arrow.INT64, arrow.TIME64, arrow.DATE64, arrow.TIMESTAMP, arrow.DURATION:
+		return getArithmeticOpIntegral[InT, int64](op)
+	case arrow.UINT64:
+		return getArithmeticOpIntegral[InT, uint64](op)
+	}
+	debug.Assert(false, "arithmetic integral to floating not implemented")
+	return nil
+}
+
+func ArithmeticExec(ity, oty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
+	if ity == oty {
+		return ArithmeticExecSameType(ity, op)
+	}
+
+	switch ity {
+	case arrow.INT8:
+		return arithmeticExec[int8](oty, op)
+	case arrow.UINT8:
+		return arithmeticExec[uint8](oty, op)
+	case arrow.INT16:
+		return arithmeticExec[int16](oty, op)
+	case arrow.UINT16:
+		return arithmeticExec[uint16](oty, op)
+	case arrow.INT32, arrow.TIME32:
+		return arithmeticExec[int32](oty, op)
+	case arrow.UINT32:
+		return arithmeticExec[uint32](oty, op)
+	case arrow.INT64, arrow.TIME64, arrow.DATE64, arrow.TIMESTAMP, arrow.DURATION:
+		return arithmeticExec[int64](oty, op)
+	case arrow.UINT64:
+		return arithmeticExec[uint64](oty, op)
+	case arrow.FLOAT32:
+		if oty == arrow.FLOAT32 {
+			return getArithmeticOpFloating[float32, float32](op)
+		}
+		return getArithmeticOpFloating[float32, float64](op)
+	case arrow.FLOAT64:
+		if oty == arrow.FLOAT32 {
+			return getArithmeticOpFloating[float64, float32](op)
+		}
+		return getArithmeticOpFloating[float64, float64](op)
+	}
 	return nil
 }

@@ -224,7 +224,7 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
   return Table::Make(schema, cv);
 }
 
-void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
+void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_tables,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize,
                                std::vector<int>* opt_selected_read_indices = nullptr) {
@@ -241,7 +241,9 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
-  ARROW_EXPECT_OK(writer->Write(*input_table));
+  for (const auto& input_table : input_tables) {
+    ARROW_EXPECT_OK(writer->Write(*input_table));
+  }
   ARROW_EXPECT_OK(writer->Close());
   EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
   std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
@@ -259,6 +261,48 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
 
+void AssertBatchWriteReadEqual(
+    const std::vector<std::shared_ptr<RecordBatch>>& input_batches,
+    const std::shared_ptr<Table>& expected_output_table,
+    const int64_t max_size = kDefaultSmallMemStreamSize) {
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
+                       io::BufferOutputStream::Create(max_size));
+  auto write_options = adapters::orc::WriteOptions();
+#ifdef ARROW_WITH_SNAPPY
+  write_options.compression = Compression::SNAPPY;
+#else
+  write_options.compression = Compression::UNCOMPRESSED;
+#endif
+  write_options.file_version = adapters::orc::FileVersion(0, 11);
+  write_options.compression_block_size = 32768;
+  write_options.row_index_stride = 5000;
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
+  for (auto& input_batch : input_batches) {
+    ARROW_EXPECT_OK(writer->Write(*input_batch));
+  }
+  ARROW_EXPECT_OK(writer->Close());
+  EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
+  EXPECT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  ASSERT_EQ(reader->GetFileVersion(), write_options.file_version);
+  ASSERT_EQ(reader->GetCompression(), write_options.compression);
+  ASSERT_EQ(reader->GetCompressionSize(), write_options.compression_block_size);
+  ASSERT_EQ(reader->GetRowIndexStride(), write_options.row_index_stride);
+  EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
+  AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
+}
+
+void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
+                               const std::shared_ptr<Table>& expected_output_table,
+                               const int64_t max_size = kDefaultSmallMemStreamSize,
+                               std::vector<int>* opt_selected_read_indices = nullptr) {
+  std::vector<std::shared_ptr<Table>> input_tables;
+  input_tables.push_back(input_table);
+  AssertTableWriteReadEqual(input_tables, expected_output_table, max_size,
+                            opt_selected_read_indices);
+}
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
@@ -767,4 +811,69 @@ TEST_F(TestORCWriterSingleArray, WriteListOfMap) {
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
 
+class TestORCWriterMultipleWrite : public ::testing::Test {
+ public:
+  TestORCWriterMultipleWrite() : rand(kRandomSeed) {}
+
+ protected:
+  random::RandomArrayGenerator rand;
+};
+
+TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
+  const int64_t num_rows = 1234;
+  const int num_writes = 5;
+  std::shared_ptr<Schema> input_schema = schema({field("col0", int32())});
+  ArrayVector vect;
+  std::vector<std::shared_ptr<Table>> input_tables;
+  for (int i = 0; i < num_writes; i++) {
+    auto array_int = rand.ArrayOf(int32(), num_rows, 0);
+    vect.push_back(array_int);
+    auto input_chunked_array = std::make_shared<ChunkedArray>(array_int);
+    input_tables.emplace_back(Table::Make(input_schema, {input_chunked_array}));
+  }
+  auto expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
+  std::shared_ptr<Table> expected_output_table =
+      Table::Make(input_schema, {expected_output_chunked_array});
+  AssertTableWriteReadEqual(input_tables, expected_output_table,
+                            kDefaultSmallMemStreamSize * 100);
+}
+
+TEST_F(TestORCWriterMultipleWrite, MultipleWritesIncoherentSchema) {
+  const int64_t num_rows = 1234;
+  auto array_int = rand.ArrayOf(int32(), num_rows, 0);
+  std::shared_ptr<Schema> input_schema = schema({field("col0", array_int->type())});
+  auto array_int2 = rand.ArrayOf(int64(), num_rows, 0);
+  std::shared_ptr<Schema> input_schema2 = schema({field("col0", array_int2->type())});
+
+  std::shared_ptr<Table> input_table = Table::Make(input_schema, {array_int});
+  std::shared_ptr<Table> input_table2 = Table::Make(input_schema2, {array_int2});
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
+                       io::BufferOutputStream::Create(kDefaultSmallMemStreamSize));
+  auto write_options = adapters::orc::WriteOptions();
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
+  ARROW_EXPECT_OK(writer->Write(*input_table));
+
+  // This should not pass
+  ASSERT_RAISES(TypeError, writer->Write(*input_table2));
+
+  ARROW_EXPECT_OK(writer->Close());
+}
+TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntFieldRecordBatch) {
+  const int64_t num_rows = 1234;
+  const int num_writes = 5;
+  std::shared_ptr<Schema> input_schema = schema({field("col0", int32())});
+  ArrayVector vect;
+  std::vector<std::shared_ptr<RecordBatch>> input_batches;
+  for (int i = 0; i < num_writes; i++) {
+    auto array_int = rand.ArrayOf(int32(), num_rows, 0);
+    vect.push_back(array_int);
+    input_batches.emplace_back(RecordBatch::Make(input_schema, num_rows, {array_int}));
+  }
+  auto expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
+  std::shared_ptr<Table> expected_output_table =
+      Table::Make(input_schema, {expected_output_chunked_array});
+  AssertBatchWriteReadEqual(input_batches, expected_output_table,
+                            kDefaultSmallMemStreamSize * 100);
+}
 }  // namespace arrow

@@ -32,6 +32,10 @@ const (
 	MaxScale     = 76
 )
 
+func GetMaxValue(prec int32) Num {
+	return scaleMultipliers[prec].Sub(FromU64(1))
+}
+
 type Num struct {
 	// arr[0] is the lowest bits, arr[3] is the highest bits
 	arr [4]uint64

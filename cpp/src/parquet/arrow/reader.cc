@@ -203,6 +203,15 @@ class FileReaderImpl : public FileReader {
                         const std::shared_ptr<std::unordered_set<int>>& included_leaves,
                         const std::vector<int>& row_groups,
                         std::unique_ptr<ColumnReaderImpl>* out) {
+    // Should be covered by GetRecordBatchReader checks but
+    // manifest_.schema_fields is a separate variable so be extra careful.
+    if (ARROW_PREDICT_FALSE(i < 0 ||
+                            static_cast<size_t>(i) >= manifest_.schema_fields.size())) {
+      return Status::Invalid("Column index out of bounds (got ", i,
+                             ", should be "
+                             "between 0 and ",
+                             manifest_.schema_fields.size(), ")");
+    }
     auto ctx = std::make_shared<ReaderContext>();
     ctx->reader = reader_.get();
     ctx->pool = pool_;

@@ -19,6 +19,8 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
+.. _compute-cpp:
+
 =================
 Compute Functions
 =================
@@ -1087,13 +1089,18 @@ semantics follow Python slicing semantics: the start index is inclusive,
 the stop index exclusive; if the step is negative, the sequence is followed
 in reverse order.
 
-+--------------------------+------------+----------------+-----------------+--------------------------+---------+
-| Function name            | Arity      | Input types    | Output type     | Options class            | Notes   |
-+==========================+============+================+=================+==========================+=========+
-| utf8_slice_codeunits     | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(1)    |
-+--------------------------+------------+----------------+-----------------+--------------------------+---------+
++--------------------------+------------+-------------------------+-------------------------+--------------------------+---------+
+| Function name            | Arity      | Input types             | Output type             | Options class            | Notes   |
++==========================+============+=========================+=========================+==========================+=========+
+| binary_slice             | Unary      | Binary-like             | Binary-like             | :struct:`SliceOptions`   | \(1)    |
++--------------------------+------------+-------------------------+-------------------------+--------------------------+---------+
+| utf8_slice_codeunits     | Unary      | String-like             | String-like             | :struct:`SliceOptions`   | \(2)    |
++--------------------------+------------+-------------------------+-------------------------+--------------------------+---------+
 
 * \(1) Slice string into a substring defined by (``start``, ``stop``, ``step``)
+  as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
+  in bytes. Null inputs emit null.
+* \(2) Slice string into a substring defined by (``start``, ``stop``, ``step``)
   as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
   in codeunits. Null inputs emit null.
 
@@ -1728,9 +1735,11 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_parent_indices | Unary      | List-like                           | Int64            |                              | \(3)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(4)   |
+| list_slice          | Unary      | List-like                           | List-like        | :struct:`ListSliceOptions`   | \(4)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(5)   |
+| map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(5)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(6)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
@@ -1744,12 +1753,16 @@ Structural transforms
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
 
-* \(4) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
+* \(4) For each list element, compute the slice of that list element, then
+  return another list-like array of those slices. Can return either a
+  fixed or variable size list-like array, as determined by options provided.
+
+* \(5) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
   map whose key match the given query key passed via options.
   The output type is an Array of items for the ``FIRST``/``LAST`` options
   and an Array of List of items for the ``ALL`` option.
 
-* \(5) Extract a child value based on a sequence of indices passed in
+* \(6) Extract a child value based on a sequence of indices passed in
   the options. The validity bitmap of the result will be the
   intersection of all intermediate validity bitmaps. For example, for
   an array with type ``struct<a: int32, b: struct<c: int64, d:

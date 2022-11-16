@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
-import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.Types;
@@ -73,23 +71,20 @@ public class ComplexCopier {
         break;
       case MAP:
         if (reader.isSet()) {
-          UnionMapWriter mapWriter = (UnionMapWriter) writer;
           UnionMapReader mapReader = (UnionMapReader) reader;
-
-          mapWriter.startMap();
+          writer.startMap();
           while (mapReader.next()) {
             FieldReader structReader = reader.reader();
-            UnionMapWriter structWriter = (UnionMapWriter) writer.struct();
             if (structReader.isSet()) {
-              mapWriter.startEntry();
-              writeValue(mapReader.key(), getStructWriterForReader(mapReader.key(), structWriter.key(), MapVector.KEY_NAME));
-              writeValue(mapReader.value(), getStructWriterForReader(mapReader.value(), structWriter.value(), MapVector.VALUE_NAME));
-              mapWriter.endEntry();
+              writer.startEntry();
+              writeValue(mapReader.key(), getMapWriterForReader(mapReader.key(), writer.key()));
+              writeValue(mapReader.value(), getMapWriterForReader(mapReader.value(), writer.value()));
+              writer.endEntry();
             } else {
-              structWriter.writeNull();
+              writer.writeNull();
             }
           }
-          mapWriter.endMap();
+          writer.endMap();
         } else {
           writer.writeNull();
         }
@@ -160,8 +155,9 @@ public class ComplexCopier {
       return (FieldWriter) writer.struct(name);
     case FIXED_SIZE_LIST:
     case LIST:
-    case MAP:
       return (FieldWriter) writer.list(name);
+    case MAP:
+      return (FieldWriter) writer.map(name);
     default:
       throw new UnsupportedOperationException(reader.getMinorType().toString());
     }
@@ -186,6 +182,29 @@ public class ComplexCopier {
       return (FieldWriter) writer.list();
     default:
       throw new UnsupportedOperationException(reader.getMinorType().toString());
+    }
+  }
+
+  private static FieldWriter getMapWriterForReader(FieldReader reader, MapWriter writer) {
+    switch (reader.getMinorType()) {
+    <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
+    <#assign fields = minor.fields!type.fields />
+    <#assign uncappedName = name?uncap_first/>
+    <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
+      case ${name?upper_case}:
+      return (FieldWriter) writer.<#if name == "Int">integer<#else>${uncappedName}</#if>();
+    </#if>
+    </#list></#list>
+      case STRUCT:
+        return (FieldWriter) writer.struct();
+      case FIXED_SIZE_LIST:
+      case LIST:
+      case NULL:
+        return (FieldWriter) writer.list();
+      case MAP:
+        return (FieldWriter) writer.map(false);
+      default:
+        throw new UnsupportedOperationException(reader.getMinorType().toString());
     }
   }
 }

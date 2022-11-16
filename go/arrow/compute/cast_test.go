@@ -228,10 +228,12 @@ var (
 		arrow.PrimitiveTypes.Uint32,
 		arrow.PrimitiveTypes.Uint64,
 	}
-	integerTypes = append(signedIntTypes, unsignedIntTypes...)
-	numericTypes = append(integerTypes,
+	integerTypes  = append(signedIntTypes, unsignedIntTypes...)
+	floatingTypes = []arrow.DataType{
 		arrow.PrimitiveTypes.Float32,
-		arrow.PrimitiveTypes.Float64)
+		arrow.PrimitiveTypes.Float64,
+	}
+	numericTypes    = append(integerTypes, floatingTypes...)
 	baseBinaryTypes = []arrow.DataType{
 		arrow.BinaryTypes.Binary,
 		arrow.BinaryTypes.LargeBinary,

@@ -25,10 +25,17 @@ import (
 )
 
 //go:noescape
-func _arithmetic_avx2(typ int, op int8, inLeft, inRight, out unsafe.Pointer, len int)
+func _arithmetic_unary_same_types_avx2(typ int, op int8, input, output unsafe.Pointer, len int)
+
+func arithmeticUnaryAvx2(typ arrow.Type, op ArithmeticOp, input, out []byte, len int) {
+	_arithmetic_unary_same_types_avx2(int(typ), int8(op), unsafe.Pointer(&input[0]), unsafe.Pointer(&out[0]), len)
+}
+
+//go:noescape
+func _arithmetic_binary_avx2(typ int, op int8, inLeft, inRight, out unsafe.Pointer, len int)
 
 func arithmeticAvx2(typ arrow.Type, op ArithmeticOp, left, right, out []byte, len int) {
-	_arithmetic_avx2(int(typ), int8(op), unsafe.Pointer(&left[0]), unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), len)
+	_arithmetic_binary_avx2(int(typ), int8(op), unsafe.Pointer(&left[0]), unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), len)
 }
 
 //go:noescape
@@ -43,4 +50,11 @@ func _arithmetic_scalar_arr_avx2(typ int, op int8, inLeft, inRight, out unsafe.P
 
 func arithmeticScalarArrAvx2(typ arrow.Type, op ArithmeticOp, left unsafe.Pointer, right, out []byte, len int) {
 	_arithmetic_scalar_arr_avx2(int(typ), int8(op), left, unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), len)
+}
+
+//go:noescape
+func _arithmetic_unary_diff_type_avx2(itype, otype int, op int8, input, output unsafe.Pointer, len int)
+
+func arithmeticUnaryDiffTypesAvx2(ityp, otyp arrow.Type, op ArithmeticOp, input, output []byte, len int) {
+	_arithmetic_unary_diff_type_avx2(int(ityp), int(otyp), int8(op), unsafe.Pointer(&input[0]), unsafe.Pointer(&output[0]), len)
 }

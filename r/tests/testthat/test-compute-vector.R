@@ -116,7 +116,7 @@ test_that("call_function validation", {
       Array$create(c(TRUE, FALSE, TRUE)),
       options = list(keep_na = TRUE)
     ),
-    "arguments must all be the same length"
+    "Arguments for execution of vector kernel function 'array_filter' must all be the same length"
   )
   expect_error(
     call_function("filter",

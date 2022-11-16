@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
@@ -72,7 +73,11 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     properties.putAll(info);
 
     if (url != null) {
-      final Map<Object, Object> propertiesFromUrl = getUrlsArgs(url);
+      final Optional<Map<Object, Object>> maybeProperties = getUrlsArgs(url);
+      if (!maybeProperties.isPresent()) {
+        return null;
+      }
+      final Map<Object, Object> propertiesFromUrl = maybeProperties.get();
       properties.putAll(propertiesFromUrl);
     }
 
@@ -199,11 +204,11 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * </table>
    *
    * @param url The url to parse.
-   * @return the parsed arguments.
+   * @return the parsed arguments, or an empty optional if the driver does not handle this URL.
    * @throws SQLException If an error occurs while trying to parse the URL.
    */
   @VisibleForTesting // ArrowFlightJdbcDriverTest
-  Map<Object, Object> getUrlsArgs(String url)
+  Optional<Map<Object, Object>> getUrlsArgs(String url)
       throws SQLException {
 
     /*
@@ -240,8 +245,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
     if (!Objects.equals(uri.getScheme(), "arrow-flight") &&
         !Objects.equals(uri.getScheme(), "arrow-flight-sql")) {
-      throw new SQLException("URL Scheme must be 'arrow-flight'. Expected format: " +
-          CONNECTION_STRING_EXPECTED);
+      return Optional.empty();
     }
 
     if (uri.getHost() == null) {
@@ -258,7 +262,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       resultMap.putAll(keyValuePairs);
     }
 
-    return resultMap;
+    return Optional.of(resultMap);
   }
 
   static Properties lowerCasePropertyKeys(final Properties properties) {

@@ -29,7 +29,7 @@ only_commits:
     - python/
 
 cache:
-  - C:\Users\Appveyor\clcache1
+  - C:\Users\appveyor\AppData\Local\ccache
 
 matrix:
   fast_finish: true
@@ -39,13 +39,6 @@ environment:
     APPVEYOR_SAVE_CACHE_ON_ERROR: true
     MSVC_DEFAULT_OPTIONS: ON
 
-    # Change the clcache dir to reset caches everywhere when a setting
-    # is changed incompatibly (e.g. CLCACHE_COMPRESS).
-    CLCACHE_DIR: C:\Users\Appveyor\clcache1
-    CLCACHE_SERVER: 1
-    CLCACHE_COMPRESS: 1
-    CLCACHE_COMPRESSLEVEL: 6
-
     ARCH: "64"
     ARROW_BUILD_FLIGHT: "ON"
     ARROW_BUILD_FLIGHT_SQL: "ON"
@@ -53,7 +46,7 @@ environment:
     ARROW_GCS: "ON"
     ARROW_S3: "ON"
     GENERATOR: Ninja
-    PYTHON: "3.8"
+    PYTHON: "3.10"
 
 before_build:
   - call ci\appveyor-cpp-setup.bat
@@ -65,4 +58,4 @@ build_script:
 test: off
 
 after_build:
-  - clcache -s
+  - ccache -s

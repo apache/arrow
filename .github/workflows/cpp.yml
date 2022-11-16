@@ -124,7 +124,7 @@ jobs:
           docker-compose run --rm minimal
 
   macos:
-    name: AMD64 macOS 11 C++
+    name: AMD64 macOS 12 C++
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
@@ -158,9 +158,7 @@ jobs:
           submodules: recursive
       - name: Install Dependencies
         run: |
-          rm -f /usr/local/bin/2to3
           brew update --preinstall
-          brew install --overwrite git
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
