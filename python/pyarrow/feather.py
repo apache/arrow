@@ -91,7 +91,6 @@ class FeatherDataset:
         pandas.DataFrame
             Content of the file as a pandas DataFrame (of columns)
         """
-        _check_pandas_version()
         return self.read_table(columns=columns).to_pandas(
             use_threads=use_threads)
 
@@ -140,7 +139,6 @@ def write_feather(df, dest, compression=None, compression_level=None,
         limited legacy format
     """
     if _pandas_api.have_pandas:
-        _check_pandas_version()
         if (_pandas_api.has_sparse and
                 isinstance(df, _pandas_api.pd.SparseDataFrame)):
             df = df.to_dense()
@@ -225,7 +223,6 @@ def read_feather(source, columns=None, use_threads=True,
     -------
     df : pandas.DataFrame
     """
-    _check_pandas_version()
     return (read_table(
         source, columns=columns, memory_map=memory_map,
         use_threads=use_threads).to_pandas(use_threads=use_threads, **kwargs))
