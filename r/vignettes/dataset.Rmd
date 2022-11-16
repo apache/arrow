@@ -126,7 +126,7 @@ month: int32
 
 ## Querying Datasets
 
-Now that we have a Dataset object that refers to out data, we can construct `dplyr`-style queries. This is possible because `arrow` supplies a back end that allows users to manipulate tabular Arrow data using `dplyr` verbs. Here's an example: suppose you are curious about tipping behavior in the longest taxi rides. Let's find the median tip percentage for rides with fares greater than $100 in 2015, broken down by the number of passengers:
+Now that we have a Dataset object that refers to our data, we can construct `dplyr`-style queries. This is possible because `arrow` supplies a back end that allows users to manipulate tabular Arrow data using `dplyr` verbs. Here's an example: suppose you are curious about tipping behavior in the longest taxi rides. Let's find the median tip percentage for rides with fares greater than $100 in 2015, broken down by the number of passengers:
 
 ```{r, eval = file.exists("nyc-taxi")}
 system.time(ds %>%
