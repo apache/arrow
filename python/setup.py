@@ -436,18 +436,8 @@ class build_ext(_build_ext):
             else:
                 build_prefix = self.build_type
 
-            # Copy PyArrow headers to pyarrow/include
             pyarrow_include = pjoin(build_lib, 'pyarrow', 'include')
-            def copy_pyarrow_cpp_headers():
-                pyarrow_cpp_include = pjoin(pyarrow_cpp_home, 'include')
-                if os.path.exists(pjoin(pyarrow_include, 'arrow', 'python')):
-                    shutil.rmtree(pjoin(pyarrow_include, 'arrow', 'python'))
-                shutil.copytree(pjoin(pyarrow_cpp_include, 'arrow', 'python'),
-                                pjoin(pyarrow_include, 'arrow', 'python'))
-            copy_pyarrow_cpp_headers()
-
-            # Move Arrow C++ and Pyarrow C++ headers to pyarrow/include
-            # if bundled build is specified
+            # Move Arrow C++ headers to pyarrow/include
             if self.bundle_arrow_cpp or self.bundle_arrow_cpp_headers:
                 arrow_cpp_include = pjoin(build_prefix, 'include')
                 print('Bundling includes: ' + arrow_cpp_include)
@@ -455,9 +445,14 @@ class build_ext(_build_ext):
                     shutil.rmtree(pyarrow_include)
                 shutil.move(arrow_cpp_include, pyarrow_include)
 
-                # pyarrow/include file is first deleted in the previous step
-                # so we need to add the PyArrow C++ include folder again
-                copy_pyarrow_cpp_headers()
+            # Move PyArrow headers to pyarrow/include
+            pyarrow_cpp_include = pjoin(pyarrow_cpp_home, 'include')
+            print('Moving PyArrow C++ includes: ' +
+                  pjoin(pyarrow_include, 'arrow', 'python'))
+            if os.path.exists(pjoin(pyarrow_include, 'arrow', 'python')):
+                shutil.rmtree(pjoin(pyarrow_include, 'arrow', 'python'))
+            shutil.move(pjoin(pyarrow_cpp_include, 'arrow', 'python'),
+                        pjoin(pyarrow_include, 'arrow', 'python'))
 
             # Move the built C-extension to the place expected by the Python
             # build
