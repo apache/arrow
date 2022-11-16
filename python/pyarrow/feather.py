@@ -24,7 +24,6 @@ from pyarrow.lib import (Codec, Table,  # noqa
 import pyarrow.lib as ext
 from pyarrow import _feather
 from pyarrow._feather import FeatherError  # noqa: F401
-from pyarrow.vendored.version import Version
 
 
 class FeatherDataset:
