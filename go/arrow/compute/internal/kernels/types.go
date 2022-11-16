@@ -57,15 +57,17 @@ var (
 		numericTypes...), baseBinaryTypes...)
 )
 
+//go:generate stringer -type=CompareOperator -linecomment
+
 type CompareOperator int8
 
 const (
-	CmpEQ CompareOperator = iota
-	CmpNE
-	CmpGT
-	CmpGE
-	CmpLT
-	CmpLE
+	CmpEQ CompareOperator = iota // equal
+	CmpNE                        // not_equal
+	CmpGT                        // greater
+	CmpGE                        // greater_equal
+	CmpLT                        // less
+	CmpLE                        // less_equal
 )
 
 type simpleBinaryKernel interface {
