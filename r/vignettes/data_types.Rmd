@@ -151,7 +151,7 @@ Arrow dictionaries are slightly more flexible than R factors: values in a dictio
 
 ## Date types
 
-In R, dates are typically represented using the Date class. Internally a Date object is a numeric type whose value counts the number of days since the beginning of the unix epoch (1 January 1970). Arrow supplies two data types that can be used to represent dates: the date32 type and the date64 type. The date32 type is similar to the Date class in R: internally it stores a 32-bit integer that counts the number of days since 1 January 1970. The default in `arrow` is to translate R Date objects to Arrow date32 types:
+In R, dates are typically represented using the Date class. Internally a Date object is a numeric type whose value counts the number of days since the beginning of the Unix epoch (1 January 1970). Arrow supplies two data types that can be used to represent dates: the date32 type and the date64 type. The date32 type is similar to the Date class in R: internally it stores a 32-bit integer that counts the number of days since 1 January 1970. The default in `arrow` is to translate R Date objects to Arrow date32 types:
 
 ```{r}
 nirvana_album_dates <- as.Date(c("1989-06-15", "1991-09-24", "1993-09-13"))
