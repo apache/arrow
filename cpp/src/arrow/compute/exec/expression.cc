@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/expression.h"
 
+#include <algorithm>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -622,32 +623,6 @@ ArgumentsAndFlippedArguments(const Expression::Call& call) {
                                                           call.arguments[0]}};
 }
 
-template <typename BinOp, typename It,
-          typename Out = typename std::iterator_traits<It>::value_type>
-std::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
-  if (begin == end) return std::nullopt;
-
-  Out folded = std::move(*begin++);
-  while (begin != end) {
-    folded = bin_op(std::move(folded), std::move(*begin++));
-  }
-  return folded;
-}
-
-template <typename BinOp, typename It,
-          typename Value = typename std::iterator_traits<It>::value_type,
-          typename Out = decltype(std::declval<BinOp>()(std::declval<Value>(),
-                                                        std::declval<Value>()))>
-std::optional<Out> MaybeFoldLeft(It begin, It end, const BinOp& bin_op) {
-  if (begin == end) return std::nullopt;
-
-  Value folded = std::move(*begin++);
-  while (begin != end) {
-    ARROW_ASSIGN_OR_RAISE(folded, bin_op(std::move(folded), std::move(*begin++)));
-  }
-  return folded;
-}
-
 }  // namespace
 
 std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
@@ -957,19 +932,17 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
           std::stable_sort(chain.fringe.begin(), chain.fringe.end(), CanonicalOrdering);
 
           // fold the chain back up
-          std::optional folded = MaybeFoldLeft(
-              chain.fringe.begin(), chain.fringe.end(),
-              [&](Expression l, Expression r) -> Result<Expression> {
-                auto canonicalized_call = *call;
-                canonicalized_call.arguments = {std::move(l), std::move(r)};
-                ARROW_ASSIGN_OR_RAISE(
-                    auto expr,
-                    HandleInconsistentTypes(std::move(canonicalized_call), exec_context));
-                AlreadyCanonicalized.Add({expr});
-                return expr;
-              });
-          DCHECK(folded.has_value());
-          return std::move(*folded);
+          Expression folded = std::move(chain.fringe.front());
+
+          for (auto it = chain.fringe.begin() + 1; it != chain.fringe.end(); ++it) {
+            auto canonicalized_call = *call;
+            canonicalized_call.arguments = {std::move(folded), std::move(*it)};
+            ARROW_ASSIGN_OR_RAISE(
+                folded,
+                HandleInconsistentTypes(std::move(canonicalized_call), exec_context));
+            AlreadyCanonicalized.Add({expr});
+          }
+          return folded;
         }
 
         if (auto cmp = Comparison::Get(call->function_name)) {
@@ -1463,12 +1436,13 @@ Expression and_(Expression lhs, Expression rhs) {
 }
 
 Expression and_(const std::vector<Expression>& operands) {
-  std::optional folded = FoldLeft<Expression(Expression, Expression)>(
-      operands.begin(), operands.end(), and_);
-  if (folded) {
-    return std::move(*folded);
+  if (operands.empty()) return literal(true);
+
+  Expression folded = std::move(operands.front());
+  for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
+    return and_(std::move(folded), std::move(*it));
   }
-  return literal(true);
+  return folded;
 }
 
 Expression or_(Expression lhs, Expression rhs) {
@@ -1476,12 +1450,13 @@ Expression or_(Expression lhs, Expression rhs) {
 }
 
 Expression or_(const std::vector<Expression>& operands) {
-  std::optional folded =
-      FoldLeft<Expression(Expression, Expression)>(operands.begin(), operands.end(), or_);
-  if (folded) {
-    return std::move(*folded);
+  if (operands.empty()) return literal(false);
+
+  Expression folded = std::move(operands.front());
+  for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
+    return or_(std::move(folded), std::move(*it));
   }
-  return literal(false);
+  return folded;
 }
 
 Expression not_(Expression operand) { return call("invert", {std::move(operand)}); }
