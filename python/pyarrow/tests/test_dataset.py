@@ -4922,7 +4922,7 @@ def test_dataset_partition_with_slash(tmpdir):
     dt_table = pa.Table.from_arrays([
         pa.array([1, 2, 3, 4, 5], pa.int32()),
         pa.array(["experiment/A/f.csv", "experiment/B/f.csv",
-                  "experiment/A/d.csv", "experiment/C/k.csv",
+                  "experiment/A/f.csv", "experiment/C/k.csv",
                   "experiment/M/i.csv"], pa.utf8())], ["exp_id", "exp_meta"])
 
     ds.write_dataset(
