@@ -1296,8 +1296,9 @@ TEST(Expression, SingleComparisonGuarantees) {
             all = false;
           }
         }
-        Simplify{filter}.WithGuarantee(guarantee).Expect(
-            all ? literal(true) : none ? literal(false) : filter);
+        Simplify{filter}.WithGuarantee(guarantee).Expect(all    ? literal(true)
+                                                         : none ? literal(false)
+                                                                : filter);
       }
     }
   }

@@ -648,7 +648,6 @@ std::optional<Out> MaybeFoldLeft(It begin, It end, const BinOp& bin_op) {
   return folded;
 }
 
-
 }  // namespace
 
 std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
