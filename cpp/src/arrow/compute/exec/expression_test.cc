@@ -270,7 +270,8 @@ TEST(Expression, ToString) {
   EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
             "\"617A\"");
 
-  EXPECT_EQ(literal("1990-10-23 10:23:33"_ts_ns).ToString(), "1990-10-23 10:23:33.000000000");
+  EXPECT_EQ(literal("1990-10-23 10:23:33"_ts_ns).ToString(),
+            "1990-10-23 10:23:33.000000000");
 
   EXPECT_EQ(add(literal(3), field_ref("beta")).ToString(), "add(3, beta)");
 
