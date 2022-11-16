@@ -36,6 +36,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 
@@ -608,6 +609,7 @@ class CompositeReferenceTable {
   }
 
           switch (field_type->id()) {
+            ASOFJOIN_MATERIALIZE_CASE(BOOL)
             ASOFJOIN_MATERIALIZE_CASE(INT8)
             ASOFJOIN_MATERIALIZE_CASE(INT16)
             ASOFJOIN_MATERIALIZE_CASE(INT32)
@@ -664,8 +666,21 @@ class CompositeReferenceTable {
   }
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_fixed_width_type<Type, Status> static BuilderAppend(
+  enable_if_boolean<Type, Status> static BuilderAppend(
       Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
+    if (source->IsNull(row)) {
+      builder.UnsafeAppendNull();
+      return Status::OK();
+    }
+    builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
+    return Status::OK();
+  }
+
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+  enable_if_t<is_fixed_width_type<Type>::value && !is_boolean_type<Type>::value,
+              Status> static BuilderAppend(Builder& builder,
+                                           const std::shared_ptr<ArrayData>& source,
+                                           row_index_t row) {
     if (source->IsNull(row)) {
       builder.UnsafeAppendNull();
       return Status::OK();
@@ -924,6 +939,7 @@ class AsofJoinNode : public ExecNode {
 
   static Status is_valid_data_field(const std::shared_ptr<Field>& field) {
     switch (field->type()->id()) {
+      case Type::BOOL:
       case Type::INT8:
       case Type::INT16:
       case Type::INT32:
