@@ -35,6 +35,13 @@ new RPC methods described here.
 .. warning:: Flight SQL is **experimental** and changes to the
              protocol may still be made.
 
+Examples
+===========
+
+Examples for implementing Flight SQL are available in the following languages:
+
+- `Go <https://github.com/apache/arrow/tree/master/go/arrow/flight/flightsql/example/>`_
+
 RPC Methods
 ===========
 
