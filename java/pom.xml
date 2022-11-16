@@ -1058,7 +1058,7 @@
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
-                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist
+                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
@@ -1175,7 +1175,7 @@
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
-                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist
+                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
