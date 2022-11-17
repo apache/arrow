@@ -97,6 +97,7 @@
 namespace arrow {
 
 using internal::TaskGroup;
+using internal::ToChars;
 using internal::Uri;
 using io::internal::SubmitIO;
 
@@ -968,7 +969,7 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
     }
   };
 
-  md->Append("Content-Length", std::to_string(result.GetContentLength()));
+  md->Append("Content-Length", ToChars(result.GetContentLength()));
   push("Cache-Control", result.GetCacheControl());
   push("Content-Type", result.GetContentType());
   push("Content-Language", result.GetContentLanguage());

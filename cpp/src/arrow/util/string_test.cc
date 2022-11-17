@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -216,6 +218,49 @@ TEST(RegexMatch, Basics) {
   check_match("acd", "", "c");
   check_match("abbcccd", "bb", "ccc");
 }
+
+TEST(ToChars, Integers) {
+  ASSERT_EQ(ToChars(static_cast<char>(0)), "0");
+  ASSERT_EQ(ToChars(static_cast<unsigned char>(0)), "0");
+  ASSERT_EQ(ToChars(static_cast<int8_t>(0)), "0");
+  ASSERT_EQ(ToChars(static_cast<uint64_t>(0)), "0");
+  ASSERT_EQ(ToChars(1234), "1234");
+  ASSERT_EQ(ToChars(-5678), "-5678");
+
+  ASSERT_EQ(ToChars(1234, /*base=*/2), "10011010010");
+
+  // Beyond pre-allocated result size
+  ASSERT_EQ(ToChars(9223372036854775807LL), "9223372036854775807");
+  ASSERT_EQ(ToChars(-9223372036854775807LL - 1), "-9223372036854775808");
+  ASSERT_EQ(ToChars(18446744073709551615ULL), "18446744073709551615");
+}
+
+TEST(ToChars, FloatingPoint) {
+  ASSERT_EQ(ToChars(0.0f), "0");
+  ASSERT_EQ(ToChars(0.0), "0");
+  ASSERT_EQ(ToChars(-0.0), "-0");
+  ASSERT_EQ(ToChars(0.25), "0.25");
+  ASSERT_EQ(ToChars(-0.25f), "-0.25");
+
+  ASSERT_EQ(ToChars(0.1111111111111111), "0.1111111111111111");
+  ASSERT_EQ(ToChars(0.1111111111111111, std::chars_format{}, /*precision=*/3), "0.111");
+
+  // Will overflow any small string optimization
+  auto long_result = ToChars(0.1111111111111111, std::chars_format{}, /*precision=*/40);
+  ASSERT_TRUE(StartsWith(long_result, "0.1111111111111111")) << long_result;
+}
+
+#if !defined(_WIN32) || defined(NDEBUG)
+
+TEST(ToChars, LocaleIndependent) {
+  // French locale uses the comma as decimal point
+  LocaleGuard locale_guard("fr_FR.UTF-8");
+
+  ASSERT_EQ(ToChars(0.25), "0.25");
+  ASSERT_EQ(ToChars(-0.25f), "-0.25");
+}
+
+#endif  // _WIN32
 
 }  // namespace internal
 }  // namespace arrow

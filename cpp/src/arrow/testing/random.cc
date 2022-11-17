@@ -45,12 +45,14 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/pcg_random.h"
+#include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::ToChars;
 
 namespace random {
 
@@ -662,8 +664,7 @@ enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metad
 std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> type,
                                                      int64_t size,
                                                      double null_probability) {
-  auto metadata =
-      key_value_metadata({"null_probability"}, {std::to_string(null_probability)});
+  auto metadata = key_value_metadata({"null_probability"}, {ToChars(null_probability)});
   auto field = ::arrow::field("", std::move(type), std::move(metadata));
   return ArrayOf(*field, size);
 }
@@ -880,8 +881,8 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
         ABORT_NOT_OK(Status::Invalid(field.ToString(), ": cannot specify min"));
       if (merged->Contains("max"))
         ABORT_NOT_OK(Status::Invalid(field.ToString(), ": cannot specify max"));
-      merged = merged->Merge(*key_value_metadata(
-          {{"min", "0"}, {"max", std::to_string(values_length - 1)}}));
+      merged = merged->Merge(
+          *key_value_metadata({{"min", "0"}, {"max", ToChars(values_length - 1)}}));
       auto indices = ArrayOf(
           *arrow::field("temporary", dict_type->index_type(), field.nullable(), merged),
           length);

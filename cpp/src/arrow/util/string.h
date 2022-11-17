@@ -17,9 +17,12 @@
 
 #pragma once
 
+#include <cassert>
+#include <charconv>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "arrow/result.h"
@@ -96,6 +99,32 @@ std::optional<std::string> Replace(std::string_view s, std::string_view token,
 /// Otherwise, returns Status::Invalid
 ARROW_EXPORT
 arrow::Result<bool> ParseBoolean(std::string_view value);
+
+/// \brief An ergonomic wrapper around std::to_chars, returning a std::string
+///
+/// For most inputs, the std::string result will not incur any heap allocation
+/// thanks to small string optimization.
+///
+/// Compared to std::to_string, this function gives locale-agnostic results
+/// and might also be faster.
+template <typename T, typename... Args>
+std::string ToChars(T value, Args&&... args) {
+  // According to various sources, the GNU libstdc++ and Microsoft's C++ STL
+  // allow up to 15 bytes of small string optimization, while clang's libc++
+  // goes up to 22 bytes. Choose the pessimistic value.
+  std::string out(15, 0);
+  auto res = std::to_chars(&out.front(), &out.back(), value, args...);
+  while (res.ec != std::errc{}) {
+    assert(res.ec == std::errc::value_too_large);
+    out.resize(out.capacity() * 2);
+    res = std::to_chars(&out.front(), &out.back(), value, args...);
+  }
+  const auto length = res.ptr - out.data();
+  assert(length <= static_cast<int64_t>(out.length()));
+  out[length] = 0;
+  out.resize(length);
+  return out;
+}
 
 }  // namespace internal
 }  // namespace arrow

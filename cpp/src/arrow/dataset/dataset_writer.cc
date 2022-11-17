@@ -32,7 +32,10 @@
 #include "arrow/util/string.h"
 
 namespace arrow {
+
 using internal::Executor;
+using internal::ToChars;
+
 namespace dataset {
 namespace internal {
 
@@ -297,8 +300,8 @@ class DatasetWriterDirectoryQueue {
   }
 
   Result<std::string> GetNextFilename() {
-    auto basename = ::arrow::internal::Replace(
-        write_options_.basename_template, kIntegerToken, std::to_string(file_counter_++));
+    auto basename = ::arrow::internal::Replace(write_options_.basename_template,
+                                               kIntegerToken, ToChars(file_counter_++));
     if (!basename) {
       return Status::Invalid("string interpolation of basename template failed");
     }
