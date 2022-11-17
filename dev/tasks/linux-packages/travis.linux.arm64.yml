@@ -79,7 +79,7 @@ before_script:
 
   # Build createrepo_c from source.
   # We can remove them when we can install createrepo_c package
-  - git clone --depth 1 https://github.com/rpm-software-management/createrepo_c.git
+  - git clone --depth 1 --branch 0.20.1 https://github.com/rpm-software-management/createrepo_c.git
   - pushd createrepo_c
   - |
       /usr/bin/cmake \

@@ -120,7 +120,7 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 macOS 11 Python 3
+    name: AMD64 macOS 12 Python 3
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -146,14 +146,21 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
-      CMAKE_ARGS: "-DPython3_EXECUTABLE=/usr/local/bin/python3"
+      PYARROW_BUNDLE_ARROW_CPP: ON
       PYARROW_TEST_LARGE_MEMORY: ON
+      # Current oldest supported version according to https://endoflife.date/macos
+      MACOSX_DEPLOYMENT_TARGET: 10.15
+      PYTEST_ADDOPTS: "-k 'not test_cython_api'"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
       - name: Install Dependencies
         shell: bash
         run: |
@@ -162,13 +169,13 @@ jobs:
           brew install --overwrite git
           brew bundle --file=cpp/Brewfile
           brew install coreutils
-          python3 -mpip install \
+          python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
       - name: Build
         shell: bash
         run: |
-          export PYTHON=python3
+          python -m pip install wheel
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
       - name: Test

@@ -48,7 +48,7 @@ INTEL_SOURCES := \
 assembly: $(INTEL_SOURCES)
 
 _lib/cast_numeric_avx2_amd64.s: _lib/cast_numeric.cc
-	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_AVX2) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
+	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_AVX2) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@	
 
 _lib/cast_numeric_sse4_amd64.s: _lib/cast_numeric.cc
 	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_SSE4) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
