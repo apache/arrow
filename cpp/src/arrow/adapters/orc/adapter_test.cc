@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include <orc/OrcFile.hh>
@@ -566,6 +567,21 @@ TEST_F(TestORCWriterTrivialWithConversion, writeChunkless) {
                          expected_output_table = TableFromJSON(output_schema, {});
   AssertTableWriteReadEqual(input_table, expected_output_table,
                             kDefaultSmallMemStreamSize / 16);
+}
+
+class TestORCWriterInvalidTypes : public ::testing::Test {};
+
+TEST_F(TestORCWriterInvalidTypes, noWriteInvalidTypes) {
+  // Unsigned integers are not supported by ORC
+  std::shared_ptr<arrow::Schema> table_schema = schema({field("uint64", uint64())});
+  const std::shared_ptr<Table> table = GenerateRandomTable(table_schema, 100, 1, 1, 0);
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
+                       io::BufferOutputStream::Create(kDefaultSmallMemStreamSize / 16));
+  EXPECT_OK_AND_ASSIGN(auto writer,
+                       adapters::orc::ORCFileWriter::Open(buffer_output_stream.get()));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  testing::HasSubstr("Unknown or unsupported Arrow type"),
+                                  writer->Write(*table));
 }
 
 // General
