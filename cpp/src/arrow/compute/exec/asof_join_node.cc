@@ -664,29 +664,20 @@ class CompositeReferenceTable {
   void AddRecordBatchRef(const std::shared_ptr<RecordBatch>& ref) {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
-
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_boolean<Type, Status> static BuilderAppend(
+  enable_if_fixed_width_type<Type, Status> static BuilderAppend(
       Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
     if (source->IsNull(row)) {
       builder.UnsafeAppendNull();
       return Status::OK();
     }
-    builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
-    return Status::OK();
-  }
 
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_t<is_fixed_width_type<Type>::value && !is_boolean_type<Type>::value,
-              Status> static BuilderAppend(Builder& builder,
-                                           const std::shared_ptr<ArrayData>& source,
-                                           row_index_t row) {
-    if (source->IsNull(row)) {
-      builder.UnsafeAppendNull();
-      return Status::OK();
+    if constexpr (is_boolean_type<Type>::value) {
+      builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
+    } else {
+      using CType = typename TypeTraits<Type>::CType;
+      builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
     }
-    using CType = typename TypeTraits<Type>::CType;
-    builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
     return Status::OK();
   }
 

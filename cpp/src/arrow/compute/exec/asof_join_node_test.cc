@@ -31,7 +31,6 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/test_util.h"
-#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -85,7 +84,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
   batches.schema = schema;
   int n_fields = schema->num_fields();
   for (auto num_batch : num_batches.batches) {
-    Datum two(ConstantArrayGenerator::Int32(num_batch.length, 2));
+    Datum two(Int32Scalar(2));
     std::vector<Datum> values;
     for (int i = 0; i < n_fields; i++) {
       auto type = schema->field(i)->type();
