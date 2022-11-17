@@ -32,7 +32,7 @@ In addition to these data objects, `arrow` defines the following classes for rep
 - A `Field` specifies a character string name and a `DataType`; and
 - A `DataType` is an attribute controlling how values are represented
 
-Metadata objects play an important role in making sure data are represented correctly. To learn more about the metadata classes, see the [metadata article](./metadata.html).
+These metadata objects play an important role in making sure data are represented correctly, and all three of the tabular data object types (Record Batch, Table, and Dataset) include explicit Schema objects used to represent metadata. To learn more about these metadata classes, see the [metadata article](./metadata.html).
 
 ## Scalars
 
@@ -115,7 +115,7 @@ Chunked Arrays are mutable, in a specific sense: Arrays can be added and removed
 
 ## Record Batches
 
-A Record Batch is tabular data structure comprised of named Arrays. Record Batches are a fundamental unit for data interchange in Arrow, but are not typically used for data analysis. Tables and Datasets are usually more convenient in analytic contexts.
+A Record Batch is tabular data structure comprised of named Arrays, and an accompanying Schema that specifies the name and data type associated with each Array. Record Batches are a fundamental unit for data interchange in Arrow, but are not typically used for data analysis. Tables and Datasets are usually more convenient in analytic contexts.
 
 These Arrays can be of different types but must all be the same length. Each Array is referred to as one of the "fields" or "columns" of the Record Batch. You can create a Record Batch using the `record_batch()` function or by using the `RecordBatch$create()` method. These functions are flexible and can accept inputs in several formats: you can pass a data frame, one or more named vectors, an input stream, or even a raw vector containing appropriate binary data. For example:
 
@@ -156,7 +156,9 @@ Record Batches cannot be concatenated: because they are comprised of Arrays, and
 
 ## Tables
 
-A Table is comprised of named Chunked Arrays, in the same way that a Record Batch is comprised of named Arrays. You can subset Tables with `$`, `[[`, and `[` the same way you can for Record Batches. Unlike Record Batches, Tables can be concatenated (because they are comprised of Chunked Arrays). Suppose a second Record Batch arrives:
+A Table is comprised of named Chunked Arrays, in the same way that a Record Batch is comprised of named Arrays. Like Record Batches, Tables include an explicit Schema specifying the name and data type for each Chunked Array.
+
+You can subset Tables with `$`, `[[`, and `[` the same way you can for Record Batches. Unlike Record Batches, Tables can be concatenated (because they are comprised of Chunked Arrays). Suppose a second Record Batch arrives:
 
 ```{r}
 new_rb <- record_batch(
@@ -192,9 +194,17 @@ The resulting object is shown schematically below:
 knitr::include_graphics("./table.png")
 ```
 
+## Datasets
+
+Like Record Batch and Table objects, a Dataset is used to represent tabular data. At an abstract level, a Dataset can be viewed as an object comprised of rows and columns, and just like Record Batches and Tables, it contains an explicit Schema that specifies the name and data type associated with each column.
+
+However, where Tables and Record Batches are data explicitly represented in-memory, a Dataset is not. Instead, a Dataset is an abstraction that refers to data stored on-disk in one or more files. Values stored in the data files are loaded into memory as a batched process. Loading takes place only as needed, and only when a query is executed against the data. In this respect Arrow Datasets are a very different kind of object to Arrow Tables, but the dplyr commands used to analyze them are essentially identical. In this section we'll talk about how Datasets are structured. If you want to learn more about the practical details of analyzing Datasets, see the article on [analyzing multi-file datasets](./dataset.html).
+
+
+
 ## Further reading 
 
 - To learn more about the internal structure of Arrays, see the article on [data object layout](./developers/data_object_layout.html).
-- To learn more about the different data types that can be represented in Arrow, see the article on [data types](./data_types.html).
-- To learn more about how Arrow objects are implemented, see the [Arrow specification](https://arrow.apache.org/docs/format/Columnar.html) page. 
+- To learn more about the different data types used by Arrow, see the article on [data types](./data_types.html).
+- To learn more about how Arrow objects are implemented, see the [Arrow specification](https://arrow.apache.org/docs/format/Columnar.html) page.
 
