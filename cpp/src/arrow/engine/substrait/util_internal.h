@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include "arrow/engine/substrait/visibility.h"
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
 
 namespace arrow {
-
 namespace engine {
 
 ARROW_ENGINE_EXPORT std::string EnumToString(
     int value, const google::protobuf::EnumDescriptor* descriptor);
 
-}
-
+}  // namespace engine
 }  // namespace arrow
