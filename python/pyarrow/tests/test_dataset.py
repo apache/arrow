@@ -27,6 +27,8 @@ import tempfile
 import threading
 import time
 
+from urllib.parse import quote
+
 import numpy as np
 import pytest
 
@@ -4942,3 +4944,10 @@ def test_dataset_partition_with_slash(tmpdir):
     ).to_table().combine_chunks()
 
     assert dt_table == read_table.sort_by("exp_id")
+
+    exp_meta = dt_table.column(1).to_pylist()
+    exp_meta = sorted(list(dict.fromkeys(exp_meta)))  # take unique
+    encoded_paths = ["exp_meta="+quote(path, safe='') for path in exp_meta]
+    file_paths = sorted(os.listdir(path))
+
+    assert encoded_paths == file_paths
