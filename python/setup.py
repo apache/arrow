@@ -447,12 +447,12 @@ class build_ext(_build_ext):
 
             # Move PyArrow headers to pyarrow/include
             pyarrow_cpp_include = pjoin(pyarrow_cpp_home, 'include')
-            print('Moving PyArrow C++ includes: ' +
-                  pjoin(pyarrow_include, 'arrow', 'python'))
-            if os.path.exists(pjoin(pyarrow_include, 'arrow', 'python')):
-                shutil.rmtree(pjoin(pyarrow_include, 'arrow', 'python'))
+            pyarrow_include_sub = pjoin(pyarrow_include, 'arrow', 'python')
+            print('Moving PyArrow C++ includes: ' + pyarrow_include_sub)
+            if os.path.exists(pyarrow_include_sub):
+                shutil.rmtree(pyarrow_include_sub)
             shutil.move(pjoin(pyarrow_cpp_include, 'arrow', 'python'),
-                        pjoin(pyarrow_include, 'arrow', 'python'))
+                        pyarrow_include_sub)
 
             # Move the built C-extension to the place expected by the Python
             # build
