@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from pathlib import Path
+import os
+
 from pyarrow._pyarrow_cpp_tests import get_cpp_tests
 
 
@@ -31,3 +34,19 @@ def inject_cpp_tests(ns):
 
 
 inject_cpp_tests(globals())
+
+
+def test_pyarrow_include():
+    # We need to make sure that pyarrow/include is always
+    # created. Either with PyArrow C++ header files or with
+    # Arrow C++ and PyArrow C++ header files together
+
+    cwd = os.getcwd()
+    pyarrow_include = os.path.join(cwd, 'pyarrow', 'include')
+    pyarrow_cpp_include = os.path.join(pyarrow_include, 'arrow', 'python')
+
+    obj_include = Path(pyarrow_include)
+    obj_python_include = Path(pyarrow_cpp_include)
+
+    assert obj_include.exists()
+    assert obj_python_include.exists()
