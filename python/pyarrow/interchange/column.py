@@ -453,6 +453,12 @@ class _PyArrowColumn:
         if pa.types.is_boolean(array.type):
             array = pc.cast(array, pa.uint8())
             dtype = _PyArrowColumn(array).dtype
+        # In case of dictionary arrays, use indices
+        # to define a buffer, codes are transferred through
+        # describe_categorical()
+        if pa.types.is_dictionary(array.type):
+            array = array.indices
+            dtype = _PyArrowColumn(array).dtype
 
         n = len(array.buffers())
         if n == 2:
