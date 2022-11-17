@@ -31,7 +31,7 @@ def test_datetime():
     table = pa.table(df)
     col = table.__dataframe__().get_column_by_name("A")
 
-    assert col.size() == 2
+    assert col.size == 2
     assert col.null_count == 1
     assert col.dtype[0] == DtypeKind.DATETIME
     assert col.describe_null == (ColumnNullType.USE_BITMASK, 0)
@@ -50,7 +50,7 @@ def test_array_to_pyarrowcolumn(test_data, kind):
     arr_column = _PyArrowColumn(arr)
 
     assert arr_column._col == arr
-    assert arr_column.size() == len(test_data)
+    assert arr_column.size == len(test_data)
     assert arr_column.dtype[0] == kind
     assert arr_column.num_chunks() == 1
     assert arr_column.null_count == 0

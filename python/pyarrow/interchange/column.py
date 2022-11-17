@@ -373,8 +373,8 @@ class _PyArrowColumn:
         See `DataFrame.get_chunks` for details on ``n_chunks``.
         """
         if n_chunks and n_chunks > 1:
-            chunk_size = self.size() // n_chunks
-            if self.size() % n_chunks != 0:
+            chunk_size = self.size // n_chunks
+            if self.size % n_chunks != 0:
                 chunk_size += 1
 
             if isinstance(self._col, pa.ChunkedArray):

@@ -39,7 +39,7 @@ def test_only_one_dtype(test_data):
         null_count = df.get_column_by_name(column).null_count
         assert null_count == 0
         assert isinstance(null_count, int)
-        assert df.get_column_by_name(column).size() == column_size
+        assert df.get_column_by_name(column).size == column_size
         assert df.get_column_by_name(column).offset == 0
 
 
@@ -64,7 +64,7 @@ def test_mixed_dtypes():
         col = df.get_column_by_name(column)
         assert col.null_count == 0
         assert isinstance(col.null_count, int)
-        assert col.size() == 3
+        assert col.size == 3
         assert col.offset == 0
 
         assert col.dtype[0] == kind
@@ -132,14 +132,14 @@ def test_column_get_chunks(size, n_chunks):
     df = table.__dataframe__()
     chunks = list(df.get_column(0).get_chunks(n_chunks))
     assert len(chunks) == n_chunks
-    assert sum(chunk.size() for chunk in chunks) == size
+    assert sum(chunk.size for chunk in chunks) == size
 
 
 def test_get_columns():
     table = pa.table({"a": [0, 1], "b": [2.5, 3.5]})
     df = table.__dataframe__()
     for col in df.get_columns():
-        assert col.size() == 2
+        assert col.size == 2
         assert col.num_chunks() == 1
     # for meanings of dtype[0] see the spec; we cannot import the
     # spec here as this file is expected to be vendored *anywhere*
