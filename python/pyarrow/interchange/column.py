@@ -200,6 +200,7 @@ class _PyArrowColumn:
         self._col = column
         self._allow_copy = allow_copy
 
+    @property
     def size(self) -> int:
         """
         Size of the column, in elements.
@@ -467,7 +468,7 @@ class _PyArrowColumn:
         mask.
         """
         # Define the dtype of the returned buffer
-        dtype = (DtypeKind.BOOL, 8, "b", Endianness.NATIVE)
+        dtype = (DtypeKind.BOOL, 1, "b", Endianness.NATIVE)
         if isinstance(self._col, pa.ChunkedArray):
             array = self._col.combine_chunks()
         else:
@@ -499,5 +500,5 @@ class _PyArrowColumn:
             )
         elif n == 3:
             # Define the dtype of the returned buffer
-            dtype = (DtypeKind.INT, 64, "L", Endianness.NATIVE)
-            return _PyArrowBuffer(array.buffers()[2]), dtype
+            dtype = (DtypeKind.INT, 32, "i", Endianness.NATIVE)
+            return _PyArrowBuffer(array.buffers()[1]), dtype
