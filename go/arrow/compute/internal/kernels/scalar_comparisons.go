@@ -403,22 +403,22 @@ func getBinaryCmp(op CompareOperator) binaryBinOp[bool] {
 }
 
 func numericCompareKernel[T exec.NumericTypes](ty exec.InputType, op CompareOperator) (kn exec.ScalarKernel) {
-	kn.Signature = &exec.KernelSignature{
+	ex, data := genCompareKernel(getCmpOp[T](op))
+	kn = exec.NewScalarKernelWithSig(&exec.KernelSignature{
 		InputTypes: []exec.InputType{ty, ty},
 		OutType:    exec.NewOutputType(arrow.FixedWidthTypes.Boolean),
-	}
-
-	kn.ExecFn, kn.Data = genCompareKernel(getCmpOp[T](op))
+	}, ex, nil)
+	kn.Data = data
 	return
 }
 
 func decimalCompareKernel[T decimal128.Num | decimal256.Num](ty exec.InputType, op CompareOperator) (kn exec.ScalarKernel) {
-	kn.Signature = &exec.KernelSignature{
+	ex, data := genDecimalCompareKernel[T](op)
+	kn = exec.NewScalarKernelWithSig(&exec.KernelSignature{
 		InputTypes: []exec.InputType{ty, ty},
 		OutType:    exec.NewOutputType(arrow.FixedWidthTypes.Boolean),
-	}
-
-	kn.ExecFn, kn.Data = genDecimalCompareKernel[T](op)
+	}, ex, nil)
+	kn.Data = data
 	return
 }
 

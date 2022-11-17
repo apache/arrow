@@ -319,6 +319,7 @@ func castBinaryDecimalArgs(promote decimalPromotion, vals ...arrow.DataType) err
 func commonTemporal(vals ...arrow.DataType) arrow.DataType {
 	var (
 		finestUnit           = arrow.Second
+		zone                 *string
 		loc                  *time.Location
 		sawDate32, sawDate64 bool
 	)
@@ -333,11 +334,14 @@ func commonTemporal(vals ...arrow.DataType) arrow.DataType {
 			sawDate64 = true
 		case arrow.TIMESTAMP:
 			ts := ty.(*arrow.TimestampType)
-			tz, _ := ts.GetZone()
-			if loc != nil && loc != tz {
-				return nil
+			if ts.TimeZone != "" {
+				tz, _ := ts.GetZone()
+				if loc != nil && loc != tz {
+					return nil
+				}
+				loc = tz
 			}
-			loc = tz
+			zone = &ts.TimeZone
 			finestUnit = exec.Max(finestUnit, ts.Unit)
 		default:
 			return nil
@@ -345,9 +349,9 @@ func commonTemporal(vals ...arrow.DataType) arrow.DataType {
 	}
 
 	switch {
-	case loc != nil:
+	case zone != nil:
 		// at least one timestamp seen
-		return &arrow.TimestampType{Unit: finestUnit, TimeZone: loc.String()}
+		return &arrow.TimestampType{Unit: finestUnit, TimeZone: *zone}
 	case sawDate64:
 		return arrow.FixedWidthTypes.Date64
 	case sawDate32:

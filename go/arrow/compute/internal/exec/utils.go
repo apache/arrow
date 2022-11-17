@@ -359,8 +359,7 @@ func NewVarBinaryIter[OffsetT int32 | int64](arr *ArraySpan) ArrayIter[[]byte] {
 func (v *VarBinaryIter[OffsetT]) Next() []byte {
 	cur := v.Pos
 	v.Pos++
-	len := v.Offsets[v.Pos] - v.Offsets[cur]
-	return v.Data[v.Offsets[cur]:v.Offsets[v.Pos]:len]
+	return v.Data[v.Offsets[cur]:v.Offsets[v.Pos]]
 }
 
 type FSBIter struct {
@@ -379,5 +378,5 @@ func NewFSBIter(arr *ArraySpan) ArrayIter[[]byte] {
 func (f *FSBIter) Next() []byte {
 	start := f.Width * int(f.Pos)
 	f.Pos++
-	return f.Data[start : start+f.Width : f.Width]
+	return f.Data[start : start+f.Width]
 }

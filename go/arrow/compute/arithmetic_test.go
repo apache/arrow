@@ -146,6 +146,12 @@ func (b *BinaryFuncTestSuite) TearDownTest() {
 	b.mem.AssertSize(b.T(), 0)
 }
 
+func (b *BinaryFuncTestSuite) getArr(dt arrow.DataType, str string) arrow.Array {
+	arr, _, err := array.FromJSON(b.mem, dt, strings.NewReader(str), array.WithUseNumber())
+	b.Require().NoError(err)
+	return arr
+}
+
 type Float16BinaryFuncTestSuite struct {
 	BinaryFuncTestSuite
 }
