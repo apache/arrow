@@ -2065,8 +2065,43 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 // ----------------------------------------------------------------------
 // DeltaBitPackEncoder
 
+constexpr uint32_t kMaxPageHeaderWriterSize = 32;
 constexpr uint32_t kValuesPerBlock = 128;
 constexpr uint32_t kMiniBlocksPerBlock = 4;
+
+/// DeltaBitPackEncoder is an encoder for the DeltaBinary Packing format
+/// as per the parquet spec. See:
+/// https://github.com/apache/parquet-format/blob/master/Encodings.md#delta-encoding-delta_binary_packed--5
+///
+/// Consists of a header followed by blocks of delta encoded values binary packed.
+///
+///  Format
+///    [header] [block 1] [block 2] ... [block N]
+///
+///  Header
+///    [block size] [number of mini blocks per block] [total value count] [first value]
+///
+///  Block
+///    [min delta] [list of bitwidths of the mini blocks] [miniblocks]
+///
+/// Sets aside bytes at the start of the internal buffer where the header will be written,
+/// and only writes the header when FlushValues is called before returning it.
+///
+/// To encode a block, we will:
+///
+/// 1. Compute the differences between consecutive elements. For the first element in the
+/// block, use the last element in the previous block or, in the case of the first block,
+/// use the first value of the whole sequence, stored in the header.
+///
+/// 2. Compute the frame of reference (the minimum of the deltas in the block). Subtract
+/// this min delta from all deltas in the block. This guarantees that all values are
+/// non-negative.
+///
+/// 3. Encode the frame of reference (min delta) as a zigzag ULEB128 int followed by the
+/// bit widths of the mini blocks and the delta values (minus the min delta) bit packed
+/// per mini block.
+///
+/// Supports only INT32 and INT64.
 
 template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
@@ -2082,10 +2117,15 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         mini_blocks_per_block_(mini_blocks_per_block),
         values_per_mini_block_(values_per_block / mini_blocks_per_block),
         deltas_(values_per_block, ::arrow::stl::allocator<T>(pool)),
-        bits_buffer_(AllocateBuffer(pool, (values_per_block + 3) * sizeof(T))),
+        bits_buffer_(AllocateBuffer(pool, kMaxPageHeaderWriterSize + values_per_block * sizeof(T))),
         sink_(pool),
         bit_writer_(bits_buffer_->mutable_data(),
                     static_cast<int>(bits_buffer_->size())) {
+    if (values_per_block_ % 32 != 0) {
+      throw ParquetException(
+          "the number of values in a block must be multiple of 128, but it's " +
+          std::to_string(values_per_block_));
+    }
     if (values_per_mini_block_ % 32 != 0) {
       throw ParquetException(
           "the number of values in a miniblock must be multiple of 32, but it's " +
@@ -2156,6 +2196,10 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
       *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_);
   bit_writer_.PutZigZagVlqInt(min_delta);
 
+  // If, in the last block, less than <number of miniblocks in a block> miniblocks are
+  // needed to store the values, the bytes storing the bit widths of the unneeded
+  // miniblocks are still present, their value should be zero, but readers must accept
+  // arbitrary values as well.
   std::vector<uint8_t, ::arrow::stl::allocator<uint8_t>> bit_widths(
       mini_blocks_per_block_, 0);
   uint8_t* bit_width_data = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
@@ -2180,6 +2224,7 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     } else {
       num_bits = bit_util::NumRequiredBits(static_cast<uint32_t>(max_delta_diff));
     }
+    // The minimum number of bytes required to write any of value in deltas_ vector.
     const int num_bytes = static_cast<int>(bit_util::BytesForBits(num_bits));
     bit_widths[i] = num_bits;
 
@@ -2187,8 +2232,8 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
       const T value = SafeSignedSubtract(deltas_[j], min_delta);
       bit_writer_.PutAligned<T>(value, num_bytes);
     }
-    // If there are not enough values to fill the last miniblock, we pad the miniblock
-    // with zeroes so that its length is the number of values in a full miniblock
+    // If there are not enough values to fill the last mini block, we pad the mini block
+    // with zeroes so that its length is the number of values in a full mini block
     // multiplied by the bit width.
     for (uint32_t j = values_current_mini_block; j < values_per_mini_block_; j++) {
       bit_writer_.PutAligned<T>(0, num_bytes);
@@ -2234,7 +2279,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
 
 template <>
 void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
-  const ArrayData& data = *values.data();
+  const ::arrow::ArrayData& data = *values.data();
   if (values.null_count() == 0) {
     Put(data.GetValues<int32_t>(1), static_cast<int>(data.length));
   } else {
@@ -2245,7 +2290,7 @@ void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
 
 template <>
 void DeltaBitPackEncoder<Int64Type>::Put(const ::arrow::Array& values) {
-  const ArrayData& data = *values.data();
+  const ::arrow::ArrayData& data = *values.data();
   if (values.null_count() == 0) {
     Put(data.GetValues<int64_t>(1), static_cast<int>(data.length));
   } else {
@@ -2355,6 +2400,11 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
     if (values_per_block_ == 0) {
       throw ParquetException("cannot have zero value per block");
+    }
+    if (values_per_block_ % 128 != 0) {
+      throw ParquetException(
+          "the number of values in a block must be multiple of 128, but it's " +
+          std::to_string(values_per_block_));
     }
     if (mini_blocks_per_block_ == 0) {
       throw ParquetException("cannot have zero miniblock per block");
