@@ -17,13 +17,15 @@
 
 #pragma once
 
+#include "arrow/engine/substrait/visibility.h"
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
 
 namespace arrow {
 
 namespace engine {
 
-std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor);
+ARROW_ENGINE_EXPORT std::string EnumToString(
+    int value, const google::protobuf::EnumDescriptor* descriptor);
 
 }
 
