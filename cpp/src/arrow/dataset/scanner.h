@@ -250,7 +250,7 @@ struct ARROW_DS_EXPORT ScanV2Options : public compute::ExecNodeOptions {
   /// one fragment at a time.
   int32_t fragment_readahead = kDefaultFragmentReadahead;
   /// \brief Options specific to the file format
-  const FragmentScanOptions* format_options = nullptr;
+  const FragmentScanOptions* format_options = NULLPTR;
 
   /// \brief Utility method to get a selection representing all columns in a dataset
   static std::vector<FieldPath> AllColumns(const Schema& dataset_schema);
