@@ -37,7 +37,6 @@ rc=$2
 version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
 crossbow_package_dir="${SOURCE_DIR}/../../packages"
-rc_branch="release-${version_with_rc}"
 
 : ${CROSSBOW_JOB_NUMBER:="0"}
 : ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
@@ -77,7 +76,6 @@ fi
 : ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_R:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_VERIFY:=${UPLOAD_DEFAULT}}
 
 rake_tasks=()
 apt_targets=()
@@ -116,37 +114,23 @@ if [ ${UPLOAD_UBUNTU} -gt 0 ]; then
 fi
 rake_tasks+=(summary:rc)
 
-if [ ${#rake_tasks[@]} -gt 1 ]; then
-  tmp_dir=binary/tmp
-  mkdir -p "${tmp_dir}"
-  source_artifacts_dir="${tmp_dir}/artifacts"
-  rm -rf "${source_artifacts_dir}"
-  cp -a "${artifact_dir}" "${source_artifacts_dir}"
+tmp_dir=binary/tmp
+mkdir -p "${tmp_dir}"
+source_artifacts_dir="${tmp_dir}/artifacts"
+rm -rf "${source_artifacts_dir}"
+cp -a "${artifact_dir}" "${source_artifacts_dir}"
 
-  docker_run \
-    ./runner.sh \
-    rake \
-      "${rake_tasks[@]}" \
-      APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
-      ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
-      ARTIFACTS_DIR="${tmp_dir}/artifacts" \
-      DEB_PACKAGE_NAME=${DEB_PACKAGE_NAME:-} \
-      DRY_RUN=${DRY_RUN:-no} \
-      GPG_KEY_ID="${GPG_KEY_ID}" \
-      RC=${rc} \
-      STAGING=${STAGING:-no} \
-      VERSION=${version} \
-      YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
-fi
-
-# Add Crossbow comment to run verify binaries and wheels tasks
-if [ ${UPLOAD_VERIFY} -gt 0 ]; then
-  archery crossbow \
-    verify-release-candidate \
-    --pr-title="WIP: [Release] Verify ${rc_branch}" \
-    --remote=https://github.com/apache/arrow \
-    --rc=${rc} \
-    --verify-binaries \
-    --verify-wheels \
-    --version=${version}
-fi
+docker_run \
+  ./runner.sh \
+  rake \
+    "${rake_tasks[@]}" \
+    APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
+    ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
+    ARTIFACTS_DIR="${tmp_dir}/artifacts" \
+    DEB_PACKAGE_NAME=${DEB_PACKAGE_NAME:-} \
+    DRY_RUN=${DRY_RUN:-no} \
+    GPG_KEY_ID="${GPG_KEY_ID}" \
+    RC=${rc} \
+    STAGING=${STAGING:-no} \
+    VERSION=${version} \
+    YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
