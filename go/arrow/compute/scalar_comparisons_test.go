@@ -17,6 +17,7 @@
 package compute_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/v11/arrow/compute"
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v11/arrow/internal/testing/gen"
 	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/apache/arrow/go/v11/arrow/scalar"
 	"github.com/stretchr/testify/suite"
@@ -226,7 +228,7 @@ type valuer[T any] interface {
 func simpleArrArrCompare[T exec.NumericTypes | string](mem memory.Allocator, op kernels.CompareOperator, lhs, rhs compute.Datum) compute.Datum {
 	var (
 		lArr   = lhs.(*compute.ArrayDatum).MakeArray()
-		rArr   = lhs.(*compute.ArrayDatum).MakeArray()
+		rArr   = rhs.(*compute.ArrayDatum).MakeArray()
 		length = lArr.Len()
 		bitmap = make([]bool, length)
 
@@ -956,6 +958,81 @@ func (c *CompareFixedSizeBinary) TestArrayArray() {
 	}
 }
 
+type CompareStringSuite struct {
+	CompareSuite
+}
+
+func (c *CompareStringSuite) TestSimpleCompareArrayScalar() {
+	one := compute.NewDatum(scalar.MakeScalar("one"))
+
+	dt := arrow.BinaryTypes.String
+
+	op := kernels.CmpEQ
+	c.validateCompareArrScalar(op, dt, `[]`, one, `[]`)
+	c.validateCompareArrScalar(op, dt, `[null]`, one, `[null]`)
+	c.validateCompareArrScalar(op, dt, `["zero", "zero", "one", "one", "two", "two"]`, one,
+		`[false, false, true, true, false, false]`)
+	c.validateCompareArrScalar(op, dt, `["zero", "one", "two", "three", "four", "five"]`, one,
+		`[false, true, false, false, false, false]`)
+	c.validateCompareArrScalar(op, dt, `["five", "four", "three", "two", "one", "zero"]`, one,
+		`[false, false, false, false, true, false]`)
+	c.validateCompareArrScalar(op, dt, `[null, "zero", "one", "one"]`, one, `[null, false, true, true]`)
+
+	na := compute.NewDatum(scalar.MakeNullScalar(dt))
+	c.validateCompareArrScalar(op, dt, `[null, "zero", "one", "one"]`, na, `[null, null, null, null]`)
+	c.validateCompareScalarArr(op, dt, na, `[null, "zero", "one", "one"]`, `[null, null, null, null]`)
+
+	op = kernels.CmpNE
+	c.validateCompareArrScalar(op, dt, `[]`, one, `[]`)
+	c.validateCompareArrScalar(op, dt, `[null]`, one, `[null]`)
+	c.validateCompareArrScalar(op, dt, `["zero", "zero", "one", "one", "two", "two"]`, one,
+		`[true, true, false, false, true, true]`)
+	c.validateCompareArrScalar(op, dt, `["zero", "one", "two", "three", "four", "five"]`, one,
+		`[true, false, true, true, true, true]`)
+	c.validateCompareArrScalar(op, dt, `["five", "four", "three", "two", "one", "zero"]`, one,
+		`[true, true, true, true, false, true]`)
+	c.validateCompareArrScalar(op, dt, `[null, "zero", "one", "one"]`, one, `[null, true, false, false]`)
+}
+
+func (c *CompareStringSuite) validateCompareComputed(op kernels.CompareOperator, lhs, rhs compute.Datum) {
+	var expected compute.Datum
+
+	hasScalar := lhs.Kind() == compute.KindScalar || rhs.Kind() == compute.KindScalar
+	if hasScalar {
+		expected = simpleScalarArrayCompareString(c.mem, op, lhs, rhs)
+	} else {
+		expected = simpleArrArrCompare[string](c.mem, op, lhs, rhs)
+	}
+
+	defer expected.Release()
+	c.CompareSuite.validateCompareDatum(op, lhs, rhs, expected)
+}
+
+func (c *CompareStringSuite) TestRandomCompareArrayArray() {
+	rng := gen.NewRandomArrayGenerator(0x5416447, c.mem)
+	for i := 3; i < 5; i++ {
+		c.Run(fmt.Sprintf("len=%d", 1<<i), func() {
+			for _, nullProb := range []float64{0.0, 0.01, 0.1, 0.25, 0.5, 1.0} {
+				c.Run(fmt.Sprintf("nullprob=%0.2f", nullProb), func() {
+					for _, op := range []kernels.CompareOperator{kernels.CmpEQ, kernels.CmpNE} {
+						c.Run(op.String(), func() {
+							length := int64(1 << i)
+							lhs := rng.String(length<<i, 0, 16, nullProb)
+							defer lhs.Release()
+							rhs := rng.String(length<<i, 0, 16, nullProb)
+							defer rhs.Release()
+
+							c.validateCompareComputed(op,
+								&compute.ArrayDatum{lhs.Data()},
+								&compute.ArrayDatum{rhs.Data()})
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestComparisons(t *testing.T) {
 	suite.Run(t, new(NumericCompareSuite[int8]))
 	suite.Run(t, new(NumericCompareSuite[int16]))
@@ -970,4 +1047,5 @@ func TestComparisons(t *testing.T) {
 	suite.Run(t, new(CompareTimestampSuite))
 	suite.Run(t, new(CompareDecimalSuite))
 	suite.Run(t, new(CompareFixedSizeBinary))
+	suite.Run(t, new(CompareStringSuite))
 }
