@@ -2198,8 +2198,7 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
   DCHECK_EQ(values_current_block_, 0);
 
   for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
-    T val = bit_util::ToLittleEndian(bit_widths[i]);
-    memcpy(bit_width_data + i, &val, 1);
+    bit_width_data[i] = bit_util::ToLittleEndian(bit_widths[i]);
   }
 
   bit_writer_.Flush();
@@ -2235,9 +2234,9 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
 
 template <>
 void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
-  const auto& data = *values.data();
+  const ArrayData& data = *values.data();
   if (values.null_count() == 0) {
-    Put(data.GetValues<int32_t>(1), static_cast<int>(values.length()));
+    Put(data.GetValues<int32_t>(1), static_cast<int>(data.length));
   } else {
     PutSpaced(data.GetValues<int32_t>(1), static_cast<int>(data.length),
               data.GetValues<uint8_t>(0, 0), data.offset);
@@ -2246,9 +2245,9 @@ void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
 
 template <>
 void DeltaBitPackEncoder<Int64Type>::Put(const ::arrow::Array& values) {
-  const auto& data = *values.data();
+  const ArrayData& data = *values.data();
   if (values.null_count() == 0) {
-    Put(data.GetValues<int64_t>(1), static_cast<int>(values.length()));
+    Put(data.GetValues<int64_t>(1), static_cast<int>(data.length));
   } else {
     PutSpaced(data.GetValues<int64_t>(1), static_cast<int>(data.length),
               data.GetValues<uint8_t>(0, 0), data.offset);
