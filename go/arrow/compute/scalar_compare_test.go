@@ -281,27 +281,77 @@ func (n *NumericCompareSuite[T]) TestSimpleCompareArrayScalar() {
 	one := compute.NewDatum(scalar.MakeScalar(T(1)))
 
 	n.Run(dt.String(), func() {
-		n.validateCompareArrScalar(kernels.CmpEQ, dt, `[]`, one, `[]`)
-		n.validateCompareArrScalar(kernels.CmpEQ, dt, `[null]`, one, `[null]`)
-		n.validateCompareArrScalar(kernels.CmpEQ, dt, `[0, 0, 1, 1, 2, 2]`, one,
+		op := kernels.CmpEQ
+		n.validateCompareArrScalar(op, dt, `[]`, one, `[]`)
+		n.validateCompareArrScalar(op, dt, `[null]`, one, `[null]`)
+		n.validateCompareArrScalar(op, dt, `[0, 0, 1, 1, 2, 2]`, one,
 			`[false, false, true, true, false, false]`)
-		n.validateCompareArrScalar(kernels.CmpEQ, dt, `[0, 1, 2, 3, 4, 5]`, one,
+		n.validateCompareArrScalar(op, dt, `[0, 1, 2, 3, 4, 5]`, one,
 			`[false, true, false, false, false, false]`)
-		n.validateCompareArrScalar(kernels.CmpEQ, dt, `[5, 4, 3, 2, 1, 0]`, one,
+		n.validateCompareArrScalar(op, dt, `[5, 4, 3, 2, 1, 0]`, one,
 			`[false, false, false, false, true, false]`)
-		n.validateCompareArrScalar(kernels.CmpEQ, dt, `[null, 0, 1, 1]`, one,
+		n.validateCompareArrScalar(op, dt, `[null, 0, 1, 1]`, one,
 			`[null, false, true, true]`)
 
-		n.validateCompareArrScalar(kernels.CmpNE, dt, `[]`, one, `[]`)
-		n.validateCompareArrScalar(kernels.CmpNE, dt, `[null]`, one, `[null]`)
-		n.validateCompareArrScalar(kernels.CmpNE, dt, `[0, 0, 1, 1, 2, 2]`, one,
+		op = kernels.CmpNE
+		n.validateCompareArrScalar(op, dt, `[]`, one, `[]`)
+		n.validateCompareArrScalar(op, dt, `[null]`, one, `[null]`)
+		n.validateCompareArrScalar(op, dt, `[0, 0, 1, 1, 2, 2]`, one,
 			`[true, true, false, false, true, true]`)
-		n.validateCompareArrScalar(kernels.CmpNE, dt, `[0, 1, 2, 3, 4, 5]`, one,
+		n.validateCompareArrScalar(op, dt, `[0, 1, 2, 3, 4, 5]`, one,
 			`[true, false, true, true, true, true]`)
-		n.validateCompareArrScalar(kernels.CmpNE, dt, `[5, 4, 3, 2, 1, 0]`, one,
+		n.validateCompareArrScalar(op, dt, `[5, 4, 3, 2, 1, 0]`, one,
 			`[true, true, true, true, false, true]`)
-		n.validateCompareArrScalar(kernels.CmpNE, dt, `[null, 0, 1, 1]`, one,
+		n.validateCompareArrScalar(op, dt, `[null, 0, 1, 1]`, one,
 			`[null, true, false, false]`)
+
+		op = kernels.CmpGT
+		n.validateCompareArrScalar(op, dt, `[]`, one, `[]`)
+		n.validateCompareArrScalar(op, dt, `[null]`, one, `[null]`)
+		n.validateCompareArrScalar(op, dt, `[0, 0, 1, 1, 2, 2]`, one,
+			`[false, false, false, false, true, true]`)
+		n.validateCompareArrScalar(op, dt, `[0, 1, 2, 3, 4, 5]`, one,
+			`[false, false, true, true, true, true]`)
+		n.validateCompareArrScalar(op, dt, `[4, 5, 6, 7, 8, 9]`, one,
+			`[true, true, true, true, true, true]`)
+		n.validateCompareArrScalar(op, dt, `[null, 0, 1, 1]`, one,
+			`[null, false, false, false]`)
+
+		op = kernels.CmpGE
+		n.validateCompareArrScalar(op, dt, `[]`, one, `[]`)
+		n.validateCompareArrScalar(op, dt, `[null]`, one, `[null]`)
+		n.validateCompareArrScalar(op, dt, `[0, 0, 1, 1, 2, 2]`, one,
+			`[false, false, true, true, true, true]`)
+		n.validateCompareArrScalar(op, dt, `[0, 1, 2, 3, 4, 5]`, one,
+			`[false, true, true, true, true, true]`)
+		n.validateCompareArrScalar(op, dt, `[4, 5, 6, 7, 8, 9]`, one,
+			`[true, true, true, true, true, true]`)
+		n.validateCompareArrScalar(op, dt, `[null, 0, 1, 1]`, one,
+			`[null, false, true, true]`)
+
+		op = kernels.CmpLT
+		n.validateCompareArrScalar(op, dt, `[]`, one, `[]`)
+		n.validateCompareArrScalar(op, dt, `[null]`, one, `[null]`)
+		n.validateCompareArrScalar(op, dt, `[0, 0, 1, 1, 2, 2]`, one,
+			`[true, true, false, false, false, false]`)
+		n.validateCompareArrScalar(op, dt, `[0, 1, 2, 3, 4, 5]`, one,
+			`[true, false, false, false, false, false]`)
+		n.validateCompareArrScalar(op, dt, `[4, 5, 6, 7, 8, 9]`, one,
+			`[false, false, false, false, false, false]`)
+		n.validateCompareArrScalar(op, dt, `[null, 0, 1, 1]`, one,
+			`[null, true, false, false]`)
+
+		op = kernels.CmpLE
+		n.validateCompareArrScalar(op, dt, `[]`, one, `[]`)
+		n.validateCompareArrScalar(op, dt, `[null]`, one, `[null]`)
+		n.validateCompareArrScalar(op, dt, `[0, 0, 1, 1, 2, 2]`, one,
+			`[true, true, true, true, false, false]`)
+		n.validateCompareArrScalar(op, dt, `[0, 1, 2, 3, 4, 5]`, one,
+			`[true, true, false, false, false, false]`)
+		n.validateCompareArrScalar(op, dt, `[4, 5, 6, 7, 8, 9]`, one,
+			`[false, false, false, false, false, false]`)
+		n.validateCompareArrScalar(op, dt, `[null, 0, 1, 1]`, one,
+			`[null, true, true, true]`)
 	})
 }
 
@@ -310,27 +360,77 @@ func (n *NumericCompareSuite[T]) TestSimpleCompareScalarArray() {
 	one := compute.NewDatum(scalar.MakeScalar(T(1)))
 
 	n.Run(dt.String(), func() {
-		n.validateCompareScalarArr(kernels.CmpEQ, dt, one, `[]`, `[]`)
-		n.validateCompareScalarArr(kernels.CmpEQ, dt, one, `[null]`, `[null]`)
-		n.validateCompareScalarArr(kernels.CmpEQ, dt, one, `[0, 0, 1, 1, 2, 2]`,
+		op := kernels.CmpEQ
+		n.validateCompareScalarArr(op, dt, one, `[]`, `[]`)
+		n.validateCompareScalarArr(op, dt, one, `[null]`, `[null]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 0, 1, 1, 2, 2]`,
 			`[false, false, true, true, false, false]`)
-		n.validateCompareScalarArr(kernels.CmpEQ, dt, one, `[0, 1, 2, 3, 4, 5]`,
+		n.validateCompareScalarArr(op, dt, one, `[0, 1, 2, 3, 4, 5]`,
 			`[false, true, false, false, false, false]`)
-		n.validateCompareScalarArr(kernels.CmpEQ, dt, one, `[5, 4, 3, 2, 1, 0]`,
+		n.validateCompareScalarArr(op, dt, one, `[5, 4, 3, 2, 1, 0]`,
 			`[false, false, false, false, true, false]`)
-		n.validateCompareScalarArr(kernels.CmpEQ, dt, one, `[null, 0, 1, 1]`,
+		n.validateCompareScalarArr(op, dt, one, `[null, 0, 1, 1]`,
 			`[null, false, true, true]`)
 
-		n.validateCompareScalarArr(kernels.CmpNE, dt, one, `[]`, `[]`)
-		n.validateCompareScalarArr(kernels.CmpNE, dt, one, `[null]`, `[null]`)
-		n.validateCompareScalarArr(kernels.CmpNE, dt, one, `[0, 0, 1, 1, 2, 2]`,
+		op = kernels.CmpNE
+		n.validateCompareScalarArr(op, dt, one, `[]`, `[]`)
+		n.validateCompareScalarArr(op, dt, one, `[null]`, `[null]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 0, 1, 1, 2, 2]`,
 			`[true, true, false, false, true, true]`)
-		n.validateCompareScalarArr(kernels.CmpNE, dt, one, `[0, 1, 2, 3, 4, 5]`,
+		n.validateCompareScalarArr(op, dt, one, `[0, 1, 2, 3, 4, 5]`,
 			`[true, false, true, true, true, true]`)
-		n.validateCompareScalarArr(kernels.CmpNE, dt, one, `[5, 4, 3, 2, 1, 0]`,
+		n.validateCompareScalarArr(op, dt, one, `[5, 4, 3, 2, 1, 0]`,
 			`[true, true, true, true, false, true]`)
-		n.validateCompareScalarArr(kernels.CmpNE, dt, one, `[null, 0, 1, 1]`,
+		n.validateCompareScalarArr(op, dt, one, `[null, 0, 1, 1]`,
 			`[null, true, false, false]`)
+
+		op = kernels.CmpGT
+		n.validateCompareScalarArr(op, dt, one, `[]`, `[]`)
+		n.validateCompareScalarArr(op, dt, one, `[null]`, `[null]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 0, 1, 1, 2, 2]`,
+			`[true, true, false, false, false, false]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 1, 2, 3, 4, 5]`,
+			`[true, false, false, false, false, false]`)
+		n.validateCompareScalarArr(op, dt, one, `[4, 5, 6, 7, 8, 9]`,
+			`[false, false, false, false, false, false]`)
+		n.validateCompareScalarArr(op, dt, one, `[null, 0, 1, 1]`,
+			`[null, true, false, false]`)
+
+		op = kernels.CmpGE
+		n.validateCompareScalarArr(op, dt, one, `[]`, `[]`)
+		n.validateCompareScalarArr(op, dt, one, `[null]`, `[null]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 0, 1, 1, 2, 2]`,
+			`[true, true, true, true, false, false]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 1, 2, 3, 4, 5]`,
+			`[true, true, false, false, false, false]`)
+		n.validateCompareScalarArr(op, dt, one, `[4, 5, 6, 7, 8, 9]`,
+			`[false, false, false, false, false, false]`)
+		n.validateCompareScalarArr(op, dt, one, `[null, 0, 1, 1]`,
+			`[null, true, true, true]`)
+
+		op = kernels.CmpLT
+		n.validateCompareScalarArr(op, dt, one, `[]`, `[]`)
+		n.validateCompareScalarArr(op, dt, one, `[null]`, `[null]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 0, 1, 1, 2, 2]`,
+			`[false, false, false, false, true, true]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 1, 2, 3, 4, 5]`,
+			`[false, false, true, true, true, true]`)
+		n.validateCompareScalarArr(op, dt, one, `[4, 5, 6, 7, 8, 9]`,
+			`[true, true, true, true, true, true]`)
+		n.validateCompareScalarArr(op, dt, one, `[null, 0, 1, 1]`,
+			`[null, false, false, false]`)
+
+		op = kernels.CmpLE
+		n.validateCompareScalarArr(op, dt, one, `[]`, `[]`)
+		n.validateCompareScalarArr(op, dt, one, `[null]`, `[null]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 0, 1, 1, 2, 2]`,
+			`[false, false, true, true, true, true]`)
+		n.validateCompareScalarArr(op, dt, one, `[0, 1, 2, 3, 4, 5]`,
+			`[false, true, true, true, true, true]`)
+		n.validateCompareScalarArr(op, dt, one, `[4, 5, 6, 7, 8, 9]`,
+			`[true, true, true, true, true, true]`)
+		n.validateCompareScalarArr(op, dt, one, `[null, 0, 1, 1]`,
+			`[null, false, true, true]`)
 	})
 }
 
@@ -357,6 +457,8 @@ func (n *NumericCompareSuite[T]) TestSimpleCompareArrArr() {
 		n.validateCompare(kernels.CmpEQ, dt, `[1]`, `[2]`, `[false]`)
 		n.validateCompare(kernels.CmpEQ, dt, `[null]`, `[1]`, `[null]`)
 		n.validateCompare(kernels.CmpEQ, dt, `[1]`, `[null]`, `[null]`)
+
+		n.validateCompare(kernels.CmpLE, dt, `[1, 2, 3, 4, 5]`, `[2, 3, 4, 5, 6]`, `[true, true, true, true, true]`)
 	})
 }
 
@@ -389,6 +491,11 @@ func (c *CompareTimestampSuite) TestBasics() {
 	checkCase(micro, kernels.CmpNE, `[true, true, false]`)
 	checkCase(nano, kernels.CmpNE, `[true, true, false]`)
 
+	checkCase(seconds, kernels.CmpLT, `[true, false, false]`)
+	checkCase(seconds, kernels.CmpLE, `[true, false, true]`)
+	checkCase(seconds, kernels.CmpGT, `[false, true, false]`)
+	checkCase(seconds, kernels.CmpGE, `[false, true, true]`)
+
 	secondsUTC := &arrow.TimestampType{Unit: arrow.Second, TimeZone: "utc"}
 	checkCase(secondsUTC, kernels.CmpEQ, `[false, false, true]`)
 }
@@ -400,6 +507,10 @@ func (c *CompareTimestampSuite) TestDiffParams() {
 	}{
 		{"equal", `[false, false, true]`},
 		{"not_equal", `[true, true, false]`},
+		{"less", `[true, false, false]`},
+		{"less_equal", `[true, false, true]`},
+		{"greater", `[false, true, false]`},
+		{"greater_equal", `[false, true, true]`},
 	}
 
 	const lhsJSON = `["1970-01-01", "2000-02-29", "1900-02-28"]`
@@ -493,6 +604,10 @@ func (c *CompareTimestampSuite) TestScalarArray() {
 			for _, tt := range tests {
 				checkArrCase(tt.t0, tt.t1, kernels.CmpEQ, `[true, false, null, false]`, `[true, false, null, false]`)
 				checkArrCase(tt.t0, tt.t1, kernels.CmpNE, `[false, true, null, true]`, `[false, true, null, true]`)
+				checkArrCase(tt.t0, tt.t1, kernels.CmpLT, `[false, true, null, false]`, `[false, false, null, true]`)
+				checkArrCase(tt.t0, tt.t1, kernels.CmpLE, `[true, true, null, false]`, `[true, false, null, true]`)
+				checkArrCase(tt.t0, tt.t1, kernels.CmpGT, `[false, false, null, true]`, `[false, true, null, false]`)
+				checkArrCase(tt.t0, tt.t1, kernels.CmpGE, `[true, false, null, true]`, `[true, true, null, false]`)
 			}
 		})
 	}
@@ -506,6 +621,10 @@ func (c *CompareDecimalSuite) TestArrayScalar() {
 	cases := []struct{ fn, exp string }{
 		{"equal", `[true, false, false, null]`},
 		{"not_equal", `[false, true, true, null]`},
+		{"less", `[false, false, true, null]`},
+		{"less_equal", `[true, false, true, null]`},
+		{"greater", `[false, true, false, null]`},
+		{"greater_equal", `[true, true, false, null]`},
 	}
 
 	for _, id := range []arrow.Type{arrow.DECIMAL128, arrow.DECIMAL256} {
@@ -548,6 +667,10 @@ func (c *CompareDecimalSuite) TestScalarArray() {
 	cases := []struct{ fn, exp string }{
 		{"equal", `[true, false, false, null]`},
 		{"not_equal", `[false, true, true, null]`},
+		{"less", `[false, true, false, null]`},
+		{"less_equal", `[true, true, false, null]`},
+		{"greater", `[false, false, true, null]`},
+		{"greater_equal", `[true, false, true, null]`},
 	}
 
 	for _, id := range []arrow.Type{arrow.DECIMAL128, arrow.DECIMAL256} {
@@ -590,6 +713,10 @@ func (c *CompareDecimalSuite) TestArrayArray() {
 	cases := []struct{ fn, exp string }{
 		{"equal", `[true, false, false, true, false, false, null, null]`},
 		{"not_equal", `[false, true, true, false, true, true, null, null]`},
+		{"less", `[false, true, false, false, true, false, null, null]`},
+		{"less_equal", `[true, true, false, true, true, false, null, null]`},
+		{"greater", `[false, false, true, false, false, true, null, null]`},
+		{"greater_equal", `[true, false, true, true, false, true, null, null]`},
 	}
 
 	for _, id := range []arrow.Type{arrow.DECIMAL128, arrow.DECIMAL256} {
@@ -657,6 +784,10 @@ func (c *CompareDecimalSuite) TestDiffParams() {
 	cases := []struct{ fn, exp string }{
 		{"equal", `[true, false, false, true, false, false]`},
 		{"not_equal", `[false, true, true, false, true, true]`},
+		{"less", `[false, true, false, false, true, false]`},
+		{"less_equal", `[true, true, false, true, true, false]`},
+		{"greater", `[false, false, true, false, false, true]`},
+		{"greater_equal", `[true, false, true, true, false, true]`},
 	}
 
 	for _, id := range []arrow.Type{arrow.DECIMAL128, arrow.DECIMAL256} {
@@ -713,8 +844,23 @@ func (c *CompareFixedSizeBinary) TestArrayScalar() {
 		{"not_equal", []string{
 			`[true, false, true, null]`,
 			`[true, true, true, null]`,
+			`[true, true, true, null]`}},
+		{"less", []string{
+			`[true, false, false, null]`,
 			`[true, true, true, null]`,
-		}},
+			`[true, false, false, null]`}},
+		{"less_equal", []string{
+			`[true, true, false, null]`,
+			`[true, true, true, null]`,
+			`[true, false, false, null]`}},
+		{"greater", []string{
+			`[false, false, true, null]`,
+			`[false, false, false, null]`,
+			`[false, true, true, null]`}},
+		{"greater_equal", []string{
+			`[false, true, true, null]`,
+			`[false, false, false, null]`,
+			`[false, true, true, null]`}},
 	}
 
 	// base64 encoding
@@ -793,8 +939,23 @@ func (c *CompareFixedSizeBinary) TestScalarArray() {
 		{"not_equal", []string{
 			`[true, false, true, null]`,
 			`[true, true, true, null]`,
-			`[true, true, true, null]`,
-		}},
+			`[true, true, true, null]`}},
+		{"less", []string{
+			`[false, false, true, null]`,
+			`[false, true, true, null]`,
+			`[false, false, false, null]`}},
+		{"less_equal", []string{
+			`[false, true, true, null]`,
+			`[false, true, true, null]`,
+			`[false, false, false, null]`}},
+		{"greater", []string{
+			`[true, false, false, null]`,
+			`[true, false, false, null]`,
+			`[true, true, true, null]`}},
+		{"greater_equal", []string{
+			`[true, true, false, null]`,
+			`[true, false, false, null]`,
+			`[true, true, true, null]`}},
 	}
 
 	// base64 encoding
@@ -880,6 +1041,34 @@ func (c *CompareFixedSizeBinary) TestArrayArray() {
 			`[false, true, true, null, null]`,
 			`[true, true, true, null, null]`,
 			`[true, true, true, null, null]`}},
+		{"less", []string{
+			`[false, true, false, null, null]`,
+			`[false, false, true, null, null]`,
+			`[false, true, false, null, null]`,
+			`[false, false, true, null, null]`,
+			`[false, true, true, null, null]`,
+			`[true, true, false, null, null]`}},
+		{"less_equal", []string{
+			`[true, true, false, null, null]`,
+			`[true, false, true, null, null]`,
+			`[true, true, false, null, null]`,
+			`[true, false, true, null, null]`,
+			`[false, true, true, null, null]`,
+			`[true, true, false, null, null]`}},
+		{"greater", []string{
+			`[false, false, true, null, null]`,
+			`[false, true, false, null, null]`,
+			`[false, false, true, null, null]`,
+			`[false, true, false, null, null]`,
+			`[true, false, false, null, null]`,
+			`[false, false, true, null, null]`}},
+		{"greater_equal", []string{
+			`[true, false, true, null, null]`,
+			`[true, true, false, null, null]`,
+			`[true, false, true, null, null]`,
+			`[true, true, false, null, null]`,
+			`[true, false, false, null, null]`,
+			`[false, false, true, null, null]`}},
 	}
 
 	// base64 encoding
@@ -1048,4 +1237,66 @@ func TestComparisons(t *testing.T) {
 	suite.Run(t, new(CompareDecimalSuite))
 	suite.Run(t, new(CompareFixedSizeBinary))
 	suite.Run(t, new(CompareStringSuite))
+}
+
+func TestCompareKernelsDispatchBest(t *testing.T) {
+	tests := []struct {
+		origLeft, origRight     arrow.DataType
+		expectLeft, expectRight arrow.DataType
+	}{
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32},
+		{arrow.PrimitiveTypes.Int32, arrow.Null, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32},
+		{arrow.Null, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32},
+
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int8, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32},
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32},
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int64},
+
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Uint8, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32},
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32},
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Uint32, arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int64},
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Uint64, arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int64},
+
+		{arrow.PrimitiveTypes.Uint8, arrow.PrimitiveTypes.Uint8, arrow.PrimitiveTypes.Uint8, arrow.PrimitiveTypes.Uint8},
+		{arrow.PrimitiveTypes.Uint8, arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Uint16},
+
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float32},
+		{arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float32},
+		{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64},
+
+		{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.PrimitiveTypes.Float64}, arrow.PrimitiveTypes.Float64,
+			arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64},
+		{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.PrimitiveTypes.Float64}, arrow.PrimitiveTypes.Int16,
+			arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64},
+
+		{arrow.FixedWidthTypes.Timestamp_us, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Timestamp_us, arrow.FixedWidthTypes.Timestamp_us},
+		{arrow.FixedWidthTypes.Timestamp_ms, arrow.FixedWidthTypes.Timestamp_us, arrow.FixedWidthTypes.Timestamp_us, arrow.FixedWidthTypes.Timestamp_us},
+
+		{arrow.BinaryTypes.String, arrow.BinaryTypes.Binary, arrow.BinaryTypes.Binary, arrow.BinaryTypes.Binary},
+		{arrow.BinaryTypes.LargeString, arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary, arrow.BinaryTypes.LargeBinary},
+		{arrow.BinaryTypes.LargeString, &arrow.FixedSizeBinaryType{ByteWidth: 2}, arrow.BinaryTypes.LargeBinary, arrow.BinaryTypes.LargeBinary},
+		{arrow.BinaryTypes.Binary, &arrow.FixedSizeBinaryType{ByteWidth: 2}, arrow.BinaryTypes.Binary, arrow.BinaryTypes.Binary},
+		{&arrow.FixedSizeBinaryType{ByteWidth: 4}, &arrow.FixedSizeBinaryType{ByteWidth: 2},
+			&arrow.FixedSizeBinaryType{ByteWidth: 4}, &arrow.FixedSizeBinaryType{ByteWidth: 2}},
+
+		{&arrow.Decimal128Type{Precision: 3, Scale: 2}, &arrow.Decimal128Type{Precision: 6, Scale: 3},
+			&arrow.Decimal128Type{Precision: 4, Scale: 3}, &arrow.Decimal128Type{Precision: 6, Scale: 3}},
+		{&arrow.Decimal128Type{Precision: 3, Scale: 2}, &arrow.Decimal256Type{Precision: 3, Scale: 2},
+			&arrow.Decimal256Type{Precision: 3, Scale: 2}, &arrow.Decimal256Type{Precision: 3, Scale: 2}},
+		{&arrow.Decimal128Type{Precision: 3, Scale: 2}, arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64},
+		{arrow.PrimitiveTypes.Float64, &arrow.Decimal128Type{Precision: 3, Scale: 2}, arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64},
+		{&arrow.Decimal128Type{Precision: 3, Scale: 2}, arrow.PrimitiveTypes.Int64,
+			&arrow.Decimal128Type{Precision: 3, Scale: 2}, &arrow.Decimal128Type{Precision: 21, Scale: 2}},
+		{arrow.PrimitiveTypes.Int64, &arrow.Decimal128Type{Precision: 3, Scale: 2},
+			&arrow.Decimal128Type{Precision: 21, Scale: 2}, &arrow.Decimal128Type{Precision: 3, Scale: 2}},
+	}
+
+	for _, name := range []string{"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"} {
+		t.Run(name, func(t *testing.T) {
+			for _, tt := range tests {
+				CheckDispatchBest(t, name, []arrow.DataType{tt.origLeft, tt.origRight},
+					[]arrow.DataType{tt.expectLeft, tt.expectRight})
+			}
+		})
+	}
 }

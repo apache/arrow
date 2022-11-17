@@ -19,6 +19,7 @@ package kernels
 import (
 	"bytes"
 	"fmt"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/bitutil"
@@ -30,7 +31,7 @@ import (
 	"github.com/apache/arrow/go/v11/internal/bitutils"
 )
 
-type binaryKernel[T exec.FixedWidthTypes] func(left, right []T, out []byte, offset int)
+type binaryKernel func(left, right, out []byte, offset int)
 
 type cmpFn[LeftT, RightT exec.FixedWidthTypes] func([]LeftT, []RightT, []uint32)
 type cmpScalarLeft[LeftT, RightT exec.FixedWidthTypes] func(LeftT, []RightT, []uint32)
@@ -42,10 +43,12 @@ type cmpOp[T exec.FixedWidthTypes] struct {
 	scalarArr cmpScalarLeft[T, T]
 }
 
-func comparePrimitiveArrayArray[T exec.FixedWidthTypes](op cmpFn[T, T]) binaryKernel[T] {
-	return func(left, right []T, out []byte, offset int) {
+func comparePrimitiveArrayArray[T exec.FixedWidthTypes](op cmpFn[T, T]) binaryKernel {
+	return func(leftBytes, rightBytes, out []byte, offset int) {
 		const batchSize = 32
 		var (
+			left      = exec.GetData[T](leftBytes)
+			right     = exec.GetData[T](rightBytes)
 			nvals     = len(left)
 			nbatches  = nvals / batchSize
 			tmpOutput [batchSize]uint32
@@ -78,11 +81,12 @@ func comparePrimitiveArrayArray[T exec.FixedWidthTypes](op cmpFn[T, T]) binaryKe
 	}
 }
 
-func comparePrimitiveArrayScalar[T exec.FixedWidthTypes](op cmpScalarRight[T, T]) binaryKernel[T] {
-	return func(left, right []T, out []byte, offset int) {
+func comparePrimitiveArrayScalar[T exec.FixedWidthTypes](op cmpScalarRight[T, T]) binaryKernel {
+	return func(leftBytes, rightBytes, out []byte, offset int) {
 		const batchSize = 32
 		var (
-			rightVal  = right[0]
+			left      = exec.GetData[T](leftBytes)
+			rightVal  = *(*T)(unsafe.Pointer(&rightBytes[0]))
 			nvals     = len(left)
 			nbatches  = nvals / batchSize
 			tmpOutput [batchSize]uint32
@@ -115,11 +119,13 @@ func comparePrimitiveArrayScalar[T exec.FixedWidthTypes](op cmpScalarRight[T, T]
 	}
 }
 
-func comparePrimitiveScalarArray[T exec.FixedWidthTypes](op cmpScalarLeft[T, T]) binaryKernel[T] {
-	return func(left, right []T, out []byte, offset int) {
+func comparePrimitiveScalarArray[T exec.FixedWidthTypes](op cmpScalarLeft[T, T]) binaryKernel {
+	return func(leftBytes, rightBytes, out []byte, offset int) {
 		const batchSize = 32
 		var (
-			leftVal   = left[0]
+			leftVal = *(*T)(unsafe.Pointer(&leftBytes[0]))
+			right   = exec.GetData[T](rightBytes)
+
 			nvals     = len(right)
 			nbatches  = nvals / batchSize
 			tmpOutput [batchSize]uint32
@@ -152,28 +158,43 @@ func comparePrimitiveScalarArray[T exec.FixedWidthTypes](op cmpScalarLeft[T, T])
 	}
 }
 
-type compareData[T exec.FixedWidthTypes] struct {
-	funcAA, funcSA, funcAS binaryKernel[T]
+type CompareData struct {
+	funcAA, funcSA, funcAS binaryKernel
+}
+
+func (c *CompareData) Funcs() *CompareData { return c }
+
+type CompareFuncData interface {
+	Funcs() *CompareData
+}
+
+func getOffsetSpanBytes(span *exec.ArraySpan) []byte {
+	if len(span.Buffers[1].Buf) == 0 {
+		return nil
+	}
+
+	buf := span.Buffers[1].Buf
+	byteWidth := int64(span.Type.(arrow.FixedWidthDataType).Bytes())
+	start := span.Offset * byteWidth
+	return buf[start : start+(span.Len*byteWidth)]
 }
 
 func compareKernel[T exec.FixedWidthTypes](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	kn := ctx.Kernel.(*exec.ScalarKernel)
-	knData := kn.Data.(*compareData[T])
+	knData := kn.Data.(CompareFuncData).Funcs()
 
 	outPrefix := int(out.Offset % 8)
 	outBuf := out.Buffers[1].Buf[out.Offset/8:]
 
 	if batch.Values[0].IsArray() && batch.Values[1].IsArray() {
-		knData.funcAA(exec.GetSpanValues[T](&batch.Values[0].Array, 1),
-			exec.GetSpanValues[T](&batch.Values[1].Array, 1), outBuf, outPrefix)
+		knData.funcAA(getOffsetSpanBytes(&batch.Values[0].Array),
+			getOffsetSpanBytes(&batch.Values[1].Array), outBuf, outPrefix)
 	} else if batch.Values[1].IsScalar() {
-		val := UnboxScalar[T](batch.Values[1].Scalar.(scalar.PrimitiveScalar))
-		knData.funcAS(exec.GetSpanValues[T](&batch.Values[0].Array, 1),
-			[]T{val}, outBuf, outPrefix)
+		knData.funcAS(getOffsetSpanBytes(&batch.Values[0].Array),
+			batch.Values[1].Scalar.(scalar.PrimitiveScalar).Data(), outBuf, outPrefix)
 	} else {
-		val := UnboxScalar[T](batch.Values[0].Scalar.(scalar.PrimitiveScalar))
-		knData.funcSA([]T{val}, exec.GetSpanValues[T](&batch.Values[1].Array, 1),
-			outBuf, outPrefix)
+		knData.funcSA(batch.Values[0].Scalar.(scalar.PrimitiveScalar).Data(),
+			getOffsetSpanBytes(&batch.Values[1].Array), outBuf, outPrefix)
 	}
 
 	return nil
@@ -181,7 +202,7 @@ func compareKernel[T exec.FixedWidthTypes](ctx *exec.KernelCtx, batch *exec.Exec
 
 func genCompareKernel[T exec.FixedWidthTypes](op *cmpOp[T]) (ex exec.ArrayKernelExec, data exec.KernelState) {
 	ex = compareKernel[T]
-	data = &compareData[T]{
+	data = &CompareData{
 		funcAA: comparePrimitiveArrayArray(op.arrArr),
 		funcAS: comparePrimitiveArrayScalar(op.arrScalar),
 		funcSA: comparePrimitiveScalarArray(op.scalarArr),
@@ -190,15 +211,18 @@ func genCompareKernel[T exec.FixedWidthTypes](op *cmpOp[T]) (ex exec.ArrayKernel
 }
 
 type decCmp[T decimal128.Num | decimal256.Num] struct {
-	Lt func(T, T) bool
+	Gt func(T, T) bool
+	Ge func(T, T) bool
 }
 
 var dec128Cmp = decCmp[decimal128.Num]{
-	Lt: func(a, b decimal128.Num) bool { return a.Less(b) },
+	Gt: func(a, b decimal128.Num) bool { return a.Greater(b) },
+	Ge: func(a, b decimal128.Num) bool { return a.GreaterEqual(b) },
 }
 
 var dec256Cmp = decCmp[decimal256.Num]{
-	Lt: func(a, b decimal256.Num) bool { return a.Less(b) },
+	Gt: func(a, b decimal256.Num) bool { return a.Greater(b) },
+	Ge: func(a, b decimal256.Num) bool { return a.GreaterEqual(b) },
 }
 
 func getCmpDec[T decimal128.Num | decimal256.Num](op CompareOperator, fns decCmp[T]) *cmpOp[T] {
@@ -263,11 +287,11 @@ func getCmpDec[T decimal128.Num | decimal256.Num](op CompareOperator, fns decCmp
 				}
 			},
 		}
-	case CmpLT:
+	case CmpGT:
 		return &cmpOp[T]{
 			arrArr: func(lt, rt []T, u []uint32) {
 				for i := range lt {
-					if fns.Lt(lt[i], rt[i]) {
+					if fns.Gt(lt[i], rt[i]) {
 						u[i] = 1
 					} else {
 						u[i] = 0
@@ -276,7 +300,7 @@ func getCmpDec[T decimal128.Num | decimal256.Num](op CompareOperator, fns decCmp
 			},
 			arrScalar: func(lt []T, rt T, u []uint32) {
 				for i := range lt {
-					if fns.Lt(lt[i], rt) {
+					if fns.Gt(lt[i], rt) {
 						u[i] = 1
 					} else {
 						u[i] = 0
@@ -285,7 +309,37 @@ func getCmpDec[T decimal128.Num | decimal256.Num](op CompareOperator, fns decCmp
 			},
 			scalarArr: func(lt T, rt []T, u []uint32) {
 				for i := range rt {
-					if fns.Lt(lt, rt[i]) {
+					if fns.Gt(lt, rt[i]) {
+						u[i] = 1
+					} else {
+						u[i] = 0
+					}
+				}
+			},
+		}
+	case CmpGE:
+		return &cmpOp[T]{
+			arrArr: func(lt, rt []T, u []uint32) {
+				for i := range lt {
+					if fns.Ge(lt[i], rt[i]) {
+						u[i] = 1
+					} else {
+						u[i] = 0
+					}
+				}
+			},
+			arrScalar: func(lt []T, rt T, u []uint32) {
+				for i := range lt {
+					if fns.Ge(lt[i], rt) {
+						u[i] = 1
+					} else {
+						u[i] = 0
+					}
+				}
+			},
+			scalarArr: func(lt T, rt []T, u []uint32) {
+				for i := range rt {
+					if fns.Ge(lt, rt[i]) {
 						u[i] = 1
 					} else {
 						u[i] = 0
@@ -305,14 +359,14 @@ func genDecimalCompareKernel[T decimal128.Num | decimal256.Num](op CompareOperat
 	switch any(def).(type) {
 	case decimal128.Num:
 		cmp := getCmpDec(op, dec128Cmp)
-		data = &compareData[decimal128.Num]{
+		data = &CompareData{
 			funcAA: comparePrimitiveArrayArray(cmp.arrArr),
 			funcAS: comparePrimitiveArrayScalar(cmp.arrScalar),
 			funcSA: comparePrimitiveScalarArray(cmp.scalarArr),
 		}
 	case decimal256.Num:
 		cmp := getCmpDec(op, dec256Cmp)
-		data = &compareData[decimal256.Num]{
+		data = &CompareData{
 			funcAA: comparePrimitiveArrayArray(cmp.arrArr),
 			funcAS: comparePrimitiveArrayScalar(cmp.arrScalar),
 			funcSA: comparePrimitiveScalarArray(cmp.scalarArr),
@@ -384,6 +438,66 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 				}
 			},
 		}
+	case CmpGT:
+		return &cmpOp[T]{
+			arrArr: func(lt, rt []T, u []uint32) {
+				for i := range lt {
+					if lt[i] > rt[i] {
+						u[i] = 1
+					} else {
+						u[i] = 0
+					}
+				}
+			},
+			arrScalar: func(lt []T, rt T, u []uint32) {
+				for i := range lt {
+					if lt[i] > rt {
+						u[i] = 1
+					} else {
+						u[i] = 0
+					}
+				}
+			},
+			scalarArr: func(lt T, rt []T, u []uint32) {
+				for i := range rt {
+					if lt > rt[i] {
+						u[i] = 1
+					} else {
+						u[i] = 0
+					}
+				}
+			},
+		}
+	case CmpGE:
+		return &cmpOp[T]{
+			arrArr: func(lt, rt []T, u []uint32) {
+				for i := range lt {
+					if lt[i] >= rt[i] {
+						u[i] = 1
+					} else {
+						u[i] = 0
+					}
+				}
+			},
+			arrScalar: func(lt []T, rt T, u []uint32) {
+				for i := range lt {
+					if lt[i] >= rt {
+						u[i] = 1
+					} else {
+						u[i] = 0
+					}
+				}
+			},
+			scalarArr: func(lt T, rt []T, u []uint32) {
+				for i := range rt {
+					if lt >= rt[i] {
+						u[i] = 1
+					} else {
+						u[i] = 0
+					}
+				}
+			},
+		}
 	}
 	return nil
 }
@@ -397,6 +511,14 @@ func getBinaryCmp(op CompareOperator) binaryBinOp[bool] {
 	case CmpNE:
 		return func(_ *exec.KernelCtx, arg0, arg1 []byte) bool {
 			return !bytes.Equal(arg0, arg1)
+		}
+	case CmpGT:
+		return func(_ *exec.KernelCtx, arg0, arg1 []byte) bool {
+			return bytes.Compare(arg0, arg1) == 1
+		}
+	case CmpGE:
+		return func(_ *exec.KernelCtx, arg0, arg1 []byte) bool {
+			return bytes.Compare(arg0, arg1) != -1
 		}
 	}
 	return nil
