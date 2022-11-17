@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <chrono>
 #include <cstdint>
 #include <memory>
+#include <ratio>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -117,20 +117,26 @@ struct ARROW_EXPORT Datum {
   explicit Datum(std::string value);
   explicit Datum(const char* value);
 
-  // Convenience constructor for a DurationScalar
-  template <typename Rep, typename Period>
-  explicit Datum(std::chrono::duration<Rep, Period> d) {
-    if constexpr (std::is_same_v<decltype(d), std::chrono::nanoseconds>) {
-      value = std::make_shared<DurationScalar>(d.count(), duration(TimeUnit::NANO));
-    } else if constexpr (std::is_same_v<decltype(d), std::chrono::microseconds>) {
-      value = std::make_shared<DurationScalar>(d.count(), duration(TimeUnit::MICRO));
-    } else if constexpr (std::is_same_v<decltype(d), std::chrono::milliseconds>) {
-      value = std::make_shared<DurationScalar>(d.count(), duration(TimeUnit::MILLI));
-    } else {
-      auto seconds = std::chrono::duration_cast<std::chrono::seconds>(d).count();
-      value = std::make_shared<DurationScalar>(seconds, duration(TimeUnit::SECOND));
-    }
-  }
+  // Convenience constructors for a DurationScalar from std::chrono::nanoseconds
+  template <template <typename, typename> class StdDuration, typename Rep>
+  explicit Datum(StdDuration<Rep, std::nano> d)
+      : Datum{DurationScalar(d.count(), duration(TimeUnit::NANO))} {}
+
+  // Convenience constructors for a DurationScalar from std::chrono::microseconds
+  template <template <typename, typename> class StdDuration, typename Rep>
+  explicit Datum(StdDuration<Rep, std::micro> d)
+      : Datum{DurationScalar(d.count(), duration(TimeUnit::MICRO))} {}
+
+  // Convenience constructors for a DurationScalar from std::chrono::milliseconds
+  template <template <typename, typename> class StdDuration, typename Rep>
+  explicit Datum(StdDuration<Rep, std::milli> d)
+      : Datum{DurationScalar(d.count(), duration(TimeUnit::MILLI))} {}
+
+  // Convenience constructors for a DurationScalar from std::chrono::seconds or
+  // units which are whole numbers of seconds
+  template <template <typename, typename> class StdDuration, typename Rep, intmax_t Num>
+  explicit Datum(StdDuration<Rep, std::ratio<Num, 1>> d)
+      : Datum{DurationScalar(d.count() * Num, duration(TimeUnit::SECOND))} {}
 
   Datum::Kind kind() const {
     switch (this->value.index()) {
