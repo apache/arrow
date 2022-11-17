@@ -575,10 +575,8 @@ Then run the unit tests with:
 
    .. code-block::
 
-      $ pushd arrow\python
-      $ export PYARROW_BUNDLE_ARROW_CPP=1
-      $ python -m pytest pyarrow
-      $ popd
+      $ set PYARROW_BUNDLE_ARROW_CPP=1
+      $ python setup.py build_ext --inplace
 
    Note that bundled Arrow C++ libraries will not be automatically
    updated when rebuilding the Arrow C++.
