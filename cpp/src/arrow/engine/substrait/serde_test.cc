@@ -207,8 +207,7 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   return compute::Expression{std::move(modified_call)};
 }
 
-void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
-                          const std::shared_ptr<Table> expected_table,
+void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
                           compute::ExecContext& exec_context,
                           std::shared_ptr<Buffer>& buf,
                           const std::vector<int>& include_columns = {},
@@ -223,7 +222,8 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
   auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
 
   ASSERT_OK_AND_ASSIGN(auto output_table,
-                       GetTableFromPlan(other_declrs, exec_context, output_schema));
+                       compute::DeclarationToTable(other_declrs, &exec_context));
+
   if (!include_columns.empty()) {
     ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
   }
@@ -2456,8 +2456,8 @@ TEST(SubstraitRoundTrip, ProjectRel) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
@@ -2575,8 +2575,8 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(SubstraitRoundTrip, ReadRelWithEmit) {
@@ -2634,8 +2634,8 @@ TEST(SubstraitRoundTrip, ReadRelWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(SubstraitRoundTrip, FilterRelWithEmit) {
@@ -2752,8 +2752,8 @@ TEST(SubstraitRoundTrip, FilterRelWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(SubstraitRoundTrip, JoinRel) {
@@ -2902,8 +2902,8 @@ TEST(SubstraitRoundTrip, JoinRel) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(SubstraitRoundTrip, JoinRelWithEmit) {
@@ -3054,8 +3054,8 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(SubstraitRoundTrip, AggregateRel) {
@@ -3163,8 +3163,8 @@ TEST(SubstraitRoundTrip, AggregateRel) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(SubstraitRoundTrip, AggregateRelEmit) {
@@ -3278,8 +3278,8 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(Substrait, IsthmusPlan) {
@@ -3382,8 +3382,8 @@ TEST(Substrait, IsthmusPlan) {
                                                    /*ignore_unknown_fields=*/false));
 
   auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
-  CheckRoundTripResult(std::move(test_schema), std::move(expected_table),
-                       *compute::default_exec_context(), buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), *compute::default_exec_context(), buf,
+                       {}, conversion_options);
 }
 
 TEST(Substrait, ProjectWithMultiFieldExpressions) {
@@ -3536,8 +3536,8 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
@@ -3623,8 +3623,8 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
@@ -3711,8 +3711,8 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 TEST(Substrait, ReadRelWithGlobFiles) {
@@ -3805,10 +3805,11 @@ TEST(Substrait, ReadRelWithGlobFiles) {
       }
     }]
   })"));
-
+  // To avoid unnecessar meta data columns being included in the final result
+  std::vector<int> include_columns = {0, 1, 2};
   compute::SortOptions options({compute::SortKey("A", compute::SortOrder::Ascending)});
-  CheckRoundTripResult(std::move(dummy_schema), std::move(expected_table), exec_context,
-                       buf, {}, {}, &options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       std::move(include_columns), {}, &options);
 }
 
 TEST(Substrait, RootRelationOutputNames) {
@@ -3916,8 +3917,8 @@ TEST(Substrait, RootRelationOutputNames) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
+                       conversion_options);
 }
 
 }  // namespace engine

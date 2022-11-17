@@ -96,22 +96,6 @@ using DeclarationFactory = std::function<Result<compute::Declaration>(
 
 namespace {
 
-compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
-                                               std::vector<std::string> names) {
-  int names_size = static_cast<int>(names.size());
-  if (names_size == 0) {
-    return input;
-  }
-  std::vector<compute::Expression> expressions;
-  for (int i = 0; i < names_size; i++) {
-    expressions.push_back(compute::field_ref(FieldRef(i)));
-  }
-  return compute::Declaration::Sequence(
-      {std::move(input),
-       {"project",
-        compute::ProjectNodeOptions{std::move(expressions), std::move(names)}}});
-}
-
 DeclarationFactory MakeConsumingSinkDeclarationFactory(
     const ConsumerFactory& consumer_factory) {
   return [&consumer_factory](
@@ -124,9 +108,8 @@ DeclarationFactory MakeConsumingSinkDeclarationFactory(
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::ConsumingSinkNodeOptions>(
             compute::ConsumingSinkNodeOptions{std::move(consumer), std::move(names)});
-    compute::Declaration projected = ProjectByNamesDeclaration(input, names);
     return compute::Declaration::Sequence(
-        {std::move(projected), {"consuming_sink", options}});
+        {std::move(input), {"consuming_sink", options}});
   };
 }
 
@@ -139,9 +122,8 @@ DeclarationFactory MakeWriteDeclarationFactory(
     if (options == nullptr) {
       return Status::Invalid("write options factory is exhausted");
     }
-    compute::Declaration projected = ProjectByNamesDeclaration(input, names);
     return compute::Declaration::Sequence(
-        {std::move(projected), {"write", std::move(*options)}});
+        {std::move(input), {"write", std::move(*options)}});
   };
 }
 
