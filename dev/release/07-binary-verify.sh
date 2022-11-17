@@ -21,11 +21,6 @@ set -e
 set -u
 set -o pipefail
 
-export LANG=C
-export LC_CTYPE=C
-
-SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <rc-num>"
   exit
@@ -34,8 +29,7 @@ fi
 version=$1
 rc=$2
 
-version_with_rc="${version}-rc${rc}"
-rc_branch="release-${version_with_rc}"
+rc_branch="release-${version}-rc${rc}"
 
 archery crossbow \
   verify-release-candidate \
