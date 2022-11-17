@@ -671,6 +671,7 @@ SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
 SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
 SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
 SCALAR_EAGER_UNARY(Atan, "atan")
+SCALAR_EAGER_UNARY(Exp, "exp")
 SCALAR_EAGER_UNARY(Sign, "sign")
 
 Result<Datum> Round(const Datum& arg, RoundOptions options, ExecContext* ctx) {
