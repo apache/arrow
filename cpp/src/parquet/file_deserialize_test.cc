@@ -349,7 +349,7 @@ TEST(SkipCallBack, DoesNotSkipDictionaryPages) {
   // Try to read it back while asking for all data pages to be skipped.
   auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer);
   std::unique_ptr<PageReader> page_reader =
-      PageReader::Open(stream, /*num_rows=*/100, Compression::UNCOMPRESSED);
+      PageReader::Open(stream, /*num_rows=*/300, Compression::UNCOMPRESSED);
   auto skip_all_pages = [](const DataPageStats* stats) -> bool { return true; };
 
   page_reader->set_skip_page_callback(skip_all_pages);

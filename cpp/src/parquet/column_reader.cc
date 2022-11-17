@@ -396,24 +396,29 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     }
 
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
+
     const bool is_data_page =
         page_type == PageType::DATA_PAGE || page_type == PageType::DATA_PAGE_V2;
+
+    // Update seen_num_values_ regardless of if we skipped the page or not.
+    std::variant<format::DataPageHeader, format::DataPageHeaderV2> data_page_header;
+    if (page_type == PageType::DATA_PAGE) {
+      data_page_header = current_page_header_.data_page_header;
+      seen_num_values_ += current_page_header_.data_page_header.num_values;
+    } else if (page_type == PageType::DATA_PAGE_V2) {
+      data_page_header = current_page_header_.data_page_header_v2;
+      seen_num_values_ += current_page_header_.data_page_header_v2.num_values;
+    }
 
     // Once we have the header, we will call the skip_page_call_back_ to
     // determine if we should be skipping this page. If yes, we will advance the
     // stream to the next page.
     if (skip_page_callback_ && is_data_page) {
-      std::variant<format::DataPageHeader, format::DataPageHeaderV2> data_page_header;
-      if (page_type == PageType::DATA_PAGE) {
-        data_page_header = current_page_header_.data_page_header;
-      } else {
-        data_page_header = current_page_header_.data_page_header_v2;
-      }
       std::unique_ptr<DataPageStats> data_page_stats =
           DataPageStats::Make(&data_page_header);
       if (skip_page_callback_(data_page_stats.get())) {
         PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
-        return NextPage();
+        continue;
       }
     }
 
@@ -469,7 +474,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         throw ParquetException("Invalid page header (negative number of values)");
       }
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
-      seen_num_values_ += header.num_values;
 
       // Uncompress if needed
       page_buffer =
@@ -496,7 +500,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           (header.__isset.is_compressed ? header.is_compressed : false) ||
           always_compressed_;
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
-      seen_num_values_ += header.num_values;
 
       // Uncompress if needed
       int levels_byte_len;
