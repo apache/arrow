@@ -31,7 +31,6 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow._fs cimport FileSystem
-from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._dataset cimport (
@@ -50,7 +49,7 @@ from pyarrow._dataset cimport (
 
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
-    FileMetaData, RowGroupMetaData, ColumnChunkMetaData
+    FileMetaData,
 )
 
 

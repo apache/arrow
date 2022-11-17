@@ -46,3 +46,8 @@ repos:
           - file
           - python
         exclude: vendored
+  - repo: https://github.com/MarcoGorelli/cython-lint
+    rev: v0.10.0
+    hooks:
+      - id: cython-lint
+        args: [--max-line-length=120]

@@ -17,14 +17,13 @@
 
 # cython: language_level = 3
 
-from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
+from pyarrow.lib cimport (pyarrow_wrap_metadata,
                           pyarrow_unwrap_metadata)
-from pyarrow.lib import frombytes, tobytes, KeyValueMetadata, ensure_metadata
+from pyarrow.lib import frombytes, tobytes, ensure_metadata
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem, TimePoint_to_ns, PyDateTime_to_TimePoint
-from cython.operator cimport dereference as deref
 
 from datetime import datetime, timedelta, timezone
 

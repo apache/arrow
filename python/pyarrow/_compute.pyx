@@ -24,7 +24,7 @@ from cython.operator cimport dereference as deref
 
 from collections import namedtuple
 
-from pyarrow.lib import frombytes, tobytes, ordered_dict, ArrowInvalid
+from pyarrow.lib import frombytes, tobytes, ArrowInvalid
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *

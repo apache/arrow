@@ -82,7 +82,7 @@ def run_query(plan, table_provider=None):
     ...        return test_table_2
     ...     else:
     ...        raise Exception("Unrecognized table name")
-    ... 
+    ...
     >>> substrait_query = '''
     ...         {
     ...             "relations": [
@@ -119,9 +119,7 @@ def run_query(plan, table_provider=None):
         CResult[shared_ptr[CRecordBatchReader]] c_res_reader
         shared_ptr[CRecordBatchReader] c_reader
         RecordBatchReader reader
-        c_string c_str_plan
         shared_ptr[CBuffer] c_buf_plan
-        function[CNamedTableProvider] c_named_table_provider
         CConversionOptions c_conversion_options
 
     if isinstance(plan, bytes):
