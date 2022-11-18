@@ -20,7 +20,7 @@ PERL_FIXUP_ROTATE=perl -i -pe 's/(ro[rl]\s+\w{2,3})$$/\1, 1/'
 C2GOASM=c2goasm
 CC=clang-11
 CXX=clang++-11
-C_FLAGS=-target x86_64-unknown-none -masm=intel -mno-red-zone -mstackrealign -mllvm -inline-threshold=1000 \
+C_FLAGS=-target x86_64-unknown-none -masm=intel -mno-red-zone -mstackrealign -mllvm -inline-threshold=5000 \
 				-fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -O3 -fno-builtin -ffast-math -fno-jump-tables -I_lib -I../../../../internal/utils/_lib
 ASM_FLAGS_AVX2=-mavx2 -mfma
 ASM_FLAGS_SSE4=-msse4
@@ -37,7 +37,8 @@ ALL_SOURCES := $(shell find . -path ./_lib -prune -o -name '*.go' -name '*.s' -n
 
 INTEL_SOURCES := \
 	cast_numeric_avx2_amd64.s cast_numeric_sse4_amd64.s constant_factor_avx2_amd64.s \
-	constant_factor_sse4_amd64.s base_arithmetic_avx2_amd64.s base_arithmetic_sse4_amd64.s
+	constant_factor_sse4_amd64.s base_arithmetic_avx2_amd64.s base_arithmetic_sse4_amd64.s \
+	scalar_comparison_avx2_amd64.s scalar_comparison_sse4_amd64.s
 
 #
 # ARROW-15336: DO NOT add the assembly target for Arm64 (ARM_SOURCES) until c2goasm added the Arm64 support.
@@ -60,6 +61,12 @@ _lib/base_arithmetic_avx2_amd64.s: _lib/base_arithmetic.cc
 	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_AVX2) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
 _lib/base_arithmetic_sse4_amd64.s: _lib/base_arithmetic.cc
+	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_SSE4) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
+
+_lib/scalar_comparison_avx2_amd64.s: _lib/scalar_comparison.cc
+	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_AVX2) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@	
+
+_lib/scalar_comparison_sse4_amd64.s: _lib/scalar_comparison.cc
 	$(CXX) -std=c++17 -S $(C_FLAGS) $(ASM_FLAGS_SSE4) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
 _lib/base_arithmetic_neon.s: _lib/base_arithmetic.cc
@@ -90,6 +97,12 @@ base_arithmetic_avx2_amd64.s: _lib/base_arithmetic_avx2_amd64.s
 	$(C2GOASM) -a -f $^ $@
 
 base_arithmetic_sse4_amd64.s: _lib/base_arithmetic_sse4_amd64.s
+	$(C2GOASM) -a -f $^ $@
+
+scalar_comparison_avx2_amd64.s: _lib/scalar_comparison_avx2_amd64.s	
+	$(C2GOASM) -a -f $^ $@
+
+scalar_comparison_sse4_amd64.s: _lib/scalar_comparison_sse4_amd64.s
 	$(C2GOASM) -a -f $^ $@
 
 clean:

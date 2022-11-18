@@ -200,14 +200,12 @@ func compareKernel[T exec.FixedWidthTypes](ctx *exec.KernelCtx, batch *exec.Exec
 	return nil
 }
 
-func genCompareKernel[T exec.FixedWidthTypes](op *cmpOp[T]) (ex exec.ArrayKernelExec, data exec.KernelState) {
-	ex = compareKernel[T]
-	data = &CompareData{
+func genGoCompareKernel[T exec.FixedWidthTypes](op *cmpOp[T]) *CompareData {
+	return &CompareData{
 		funcAA: comparePrimitiveArrayArray(op.arrArr),
 		funcAS: comparePrimitiveArrayScalar(op.arrScalar),
 		funcSA: comparePrimitiveScalarArray(op.scalarArr),
 	}
-	return
 }
 
 type decCmp[T decimal128.Num | decimal256.Num] struct {
@@ -525,12 +523,12 @@ func getBinaryCmp(op CompareOperator) binaryBinOp[bool] {
 }
 
 func numericCompareKernel[T exec.NumericTypes](ty exec.InputType, op CompareOperator) (kn exec.ScalarKernel) {
-	ex, data := genCompareKernel(getCmpOp[T](op))
+	ex := compareKernel[T]
 	kn = exec.NewScalarKernelWithSig(&exec.KernelSignature{
 		InputTypes: []exec.InputType{ty, ty},
 		OutType:    exec.NewOutputType(arrow.FixedWidthTypes.Boolean),
 	}, ex, nil)
-	kn.Data = data
+	kn.Data = genCompareKernel[T](op)
 	return
 }
 
