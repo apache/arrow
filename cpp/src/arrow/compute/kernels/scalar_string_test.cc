@@ -48,7 +48,6 @@ namespace compute {
 template <typename TestType>
 class BaseTestStringKernels : public ::testing::Test {
  protected:
-  using OffsetType = typename TypeTraits<TestType>::OffsetType;
   using ScalarType = typename TypeTraits<TestType>::ScalarType;
 
   void CheckUnary(std::string func_name, std::string json_input,
@@ -98,7 +97,14 @@ class BaseTestStringKernels : public ::testing::Test {
   }
 
   std::shared_ptr<DataType> offset_type() {
-    return TypeTraits<OffsetType>::type_singleton();
+    if constexpr (is_binary_view_like_type<TestType>::value) {
+      // Views do not have offsets, but Functions like binary_length
+      // will return the length as uint32
+      return uint32();
+    } else {
+      using OffsetType = typename TypeTraits<TestType>::OffsetType;
+      return TypeTraits<OffsetType>::type_singleton();
+    }
   }
 
   template <typename CType = const char*>

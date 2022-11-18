@@ -862,6 +862,9 @@ TEST(MakeStruct, Array) {
   EXPECT_THAT(MakeStructor({i32, str}, {"i", "s"}),
               ResultWith(Datum(*StructArray::Make({i32, str}, field_names))));
 
+  EXPECT_THAT(*MakeScalar("aa"), testing::Eq(StringScalar("aa")));
+  EXPECT_EQ(*MakeStructor({i32, MakeScalar("aa")}, {"i", "s"})->type(),
+            StructType({field("i", i32->type()), field("s", str->type())}));
   // Scalars are broadcast to the length of the arrays
   EXPECT_THAT(MakeStructor({i32, MakeScalar("aa")}, {"i", "s"}),
               ResultWith(Datum(*StructArray::Make({i32, str}, field_names))));

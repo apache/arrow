@@ -114,8 +114,14 @@ struct ARROW_EXPORT DataTypeLayout {
   std::vector<BufferSpec> buffers;
   /// Whether this type expects an associated dictionary array.
   bool has_dictionary = false;
+  /// If this is provided, the number of buffers expected is only lower-bounded by
+  /// buffers.size(). Buffers beyond this lower bound are expected to conform to
+  /// variadic_spec.
+  std::optional<BufferSpec> variadic_spec;
 
-  explicit DataTypeLayout(std::vector<BufferSpec> v) : buffers(std::move(v)) {}
+  explicit DataTypeLayout(std::vector<BufferSpec> buffers,
+                          std::optional<BufferSpec> variadic_spec = {})
+      : buffers(std::move(buffers)), variadic_spec(variadic_spec) {}
 };
 
 /// \brief Base class for all data types
@@ -725,7 +731,8 @@ class ARROW_EXPORT BinaryViewType : public DataType {
 
   DataTypeLayout layout() const override {
     return DataTypeLayout(
-        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(StringHeader))});
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(StringHeader))},
+        DataTypeLayout::VariableWidth());
   }
 
   std::string ToString() const override;

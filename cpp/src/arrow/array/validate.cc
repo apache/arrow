@@ -31,6 +31,7 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
@@ -43,10 +44,7 @@ namespace {
 struct UTF8DataValidator {
   const ArrayData& data;
 
-  Status Visit(const DataType&) {
-    // Default, should be unreachable
-    return Status::NotImplemented("");
-  }
+  Status Visit(const DataType&) { Unreachable("utf-8 validation of non string type"); }
 
   Status Visit(const StringViewType&) {
     util::InitializeUTF8();
@@ -87,10 +85,7 @@ struct BoundsChecker {
   int64_t min_value;
   int64_t max_value;
 
-  Status Visit(const DataType&) {
-    // Default, should be unreachable
-    return Status::NotImplemented("");
-  }
+  Status Visit(const DataType&) { Unreachable("bounds checking of non integer type"); }
 
   template <typename IntegerType>
   enable_if_integer<IntegerType, Status> Visit(const IntegerType&) {
@@ -261,9 +256,7 @@ struct ValidateArrayImpl {
 
   Status Visit(const LargeBinaryType& type) { return ValidateBinaryLike(type); }
 
-  Status Visit(const BinaryViewType& type) {
-    return Status::NotImplemented("binary / string view");
-  }
+  Status Visit(const BinaryViewType& type) { return ValidateBinaryView(type); }
 
   Status Visit(const ListType& type) { return ValidateListLike(type); }
 
@@ -470,7 +463,14 @@ struct ValidateArrayImpl {
       return Status::Invalid("Array length is negative");
     }
 
-    if (data.buffers.size() != layout.buffers.size()) {
+    if (layout.variadic_spec) {
+      if (data.buffers.size() < layout.buffers.size()) {
+        return Status::Invalid("Expected at least ", layout.buffers.size(),
+                               " buffers in array "
+                               "of type ",
+                               type.ToString(), ", got ", data.buffers.size());
+      }
+    } else if (data.buffers.size() != layout.buffers.size()) {
       return Status::Invalid("Expected ", layout.buffers.size(),
                              " buffers in array "
                              "of type ",
@@ -486,7 +486,9 @@ struct ValidateArrayImpl {
 
     for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {
       const auto& buffer = data.buffers[i];
-      const auto& spec = layout.buffers[i];
+      const auto& spec = i < static_cast<int>(layout.buffers.size())
+                             ? layout.buffers[i]
+                             : *layout.variadic_spec;
 
       if (buffer == nullptr) {
         continue;
@@ -610,6 +612,125 @@ struct ValidateArrayImpl {
       }
     }
     return Status::OK();
+  }
+
+  Status ValidateBinaryView(const BinaryViewType& type) {
+    int64_t headers_byte_size = data.buffers[1]->size();
+    int64_t required_headers = data.length + data.offset;
+    if (static_cast<int64_t>(headers_byte_size / sizeof(StringHeader)) <
+        required_headers) {
+      return Status::Invalid("Header buffer size (bytes): ", headers_byte_size,
+                             " isn't large enough for length: ", data.length,
+                             " and offset: ", data.offset);
+    }
+
+    if (!full_validation || BinaryViewArray::OptedOutOfViewValidation(data)) {
+      return Status::OK();
+    }
+
+    auto* headers = data.GetValues<StringHeader>(1);
+    std::string_view buffer_containing_previous_view;
+
+    auto IsSubrangeOf = [](std::string_view super, std::string_view sub) {
+      return super.data() <= sub.data() &&
+             super.data() + super.size() <= sub.data() + sub.size();
+    };
+
+    std::vector<std::string_view> buffers;
+    for (auto it = data.buffers.begin() + 2; it != data.buffers.end(); ++it) {
+      buffers.emplace_back(**it);
+    }
+
+    auto CheckViews = [&](auto in_a_buffer, auto check_previous_buffer) {
+      if constexpr (check_previous_buffer) {
+        buffer_containing_previous_view = buffers.front();
+      }
+
+      for (int64_t i = 0; i < data.length; ++i) {
+        if (headers[i].IsInline()) continue;
+
+        std::string_view view{headers[i]};
+
+        if constexpr (check_previous_buffer) {
+          if (ARROW_PREDICT_TRUE(IsSubrangeOf(buffer_containing_previous_view, view))) {
+            // Fast path: for most string view arrays, we'll have runs
+            // of views into the same buffer.
+            continue;
+          }
+        }
+
+        if (!in_a_buffer(view)) {
+          return Status::Invalid(
+              "String view at slot ", i,
+              " views memory not resident in any buffer managed by the array");
+        }
+      }
+      return Status::OK();
+    };
+
+    if (buffers.empty()) {
+      // there are no character buffers; the only way this array
+      // can be valid is if all views are inline
+      return CheckViews([](std::string_view) { return std::false_type{}; },
+                        /*check_previous_buffer=*/std::false_type{});
+    }
+
+    // Simplest check for view-in-buffer: loop through buffers and check each one.
+    auto Linear = [&](std::string_view view) {
+      for (std::string_view buffer : buffers) {
+        if (IsSubrangeOf(buffer, view)) {
+          buffer_containing_previous_view = buffer;
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (buffers.size() <= 32) {
+      // If there are few buffers to search through, sorting/binary search is not
+      // worthwhile. TODO(bkietz) benchmark this and get a less magic number here.
+      return CheckViews(Linear,
+                        /*check_previous_buffer=*/std::true_type{});
+    }
+
+    auto DataPtrLess = [](std::string_view l, std::string_view r) {
+      return l.data() < r.data();
+    };
+
+    std::sort(buffers.begin(), buffers.end(), DataPtrLess);
+    bool non_overlapping =
+        buffers.end() !=
+        std::adjacent_find(buffers.begin(), buffers.end(),
+                           [](std::string_view before, std::string_view after) {
+                             return before.data() + before.size() <= after.data();
+                           });
+    if (ARROW_PREDICT_FALSE(!non_overlapping)) {
+      // Using a binary search with overlapping buffers would not *uniquely* identify
+      // a potentially-containing buffer. Moreover this should be a fairly rare case
+      // so optimizing for it seems premature.
+      return CheckViews(Linear,
+                        /*check_previous_buffer=*/std::true_type{});
+    }
+
+    // More sophisticated check for view-in-buffer: binary search through the buffers.
+    return CheckViews(
+        [&](std::string_view view) {
+          // Find the first buffer whose data starts after the data in view-
+          // only buffers *before* this could contain view. Since we've additionally
+          // checked that the buffers do not overlap, only the buffer *immediately before*
+          // this could contain view.
+          auto one_past_potential_super =
+              std::upper_bound(buffers.begin(), buffers.end(), view, DataPtrLess);
+
+          if (one_past_potential_super == buffers.begin()) return false;
+
+          auto potential_super = *(one_past_potential_super - 1);
+          if (!IsSubrangeOf(potential_super, view)) return false;
+
+          buffer_containing_previous_view = potential_super;
+          return true;
+        },
+        /*check_previous_buffer=*/std::true_type{});
   }
 
   template <typename ListType>

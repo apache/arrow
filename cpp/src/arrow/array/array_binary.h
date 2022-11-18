@@ -230,16 +230,37 @@ class ARROW_EXPORT BinaryViewArray : public PrimitiveArray {
 
   explicit BinaryViewArray(const std::shared_ptr<ArrayData>& data);
 
-  BinaryViewArray(int64_t length, const std::shared_ptr<Buffer>& data,
-                  const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+  /// By default, ValidateFull() will check each view in a BinaryViewArray or
+  /// StringViewArray to ensure it references a memory range owned by one of the array's
+  /// buffers.
+  ///
+  /// If the last character buffer is null, ValidateFull will skip this step. Use this
+  /// for arrays which view memory elsewhere.
+  static BufferVector DoNotValidateViews(BufferVector char_buffers) {
+    char_buffers.push_back(NULLPTR);
+    return char_buffers;
+  }
+
+  static bool OptedOutOfViewValidation(const ArrayData& data) {
+    return data.buffers.back() == NULLPTR;
+  }
+  bool OptedOutOfViewValidation() const { return OptedOutOfViewValidation(*data_); }
+
+  BinaryViewArray(int64_t length, std::shared_ptr<Buffer> data, BufferVector char_buffers,
+                  std::shared_ptr<Buffer> null_bitmap = NULLPTR,
                   int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : PrimitiveArray(binary_view(), length, data, null_bitmap, null_count, offset) {}
+      : PrimitiveArray(binary_view(), length, std::move(data), std::move(null_bitmap),
+                       null_count, offset) {
+    for (auto& char_buffer : char_buffers) {
+      data_->buffers.push_back(std::move(char_buffer));
+    }
+  }
 
   const StringHeader* raw_values() const {
     return reinterpret_cast<const StringHeader*>(raw_values_) + data_->offset;
   }
 
-  StringHeader Value(int64_t i) const { return raw_values()[i]; }
+  const StringHeader& Value(int64_t i) const { return raw_values()[i]; }
 
   // For API compatibility with BinaryArray etc.
   std::string_view GetView(int64_t i) const { return std::string_view(Value(i)); }
@@ -264,10 +285,13 @@ class ARROW_EXPORT StringViewArray : public BinaryViewArray {
 
   explicit StringViewArray(const std::shared_ptr<ArrayData>& data);
 
-  StringViewArray(int64_t length, const std::shared_ptr<Buffer>& data,
-                  const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+  StringViewArray(int64_t length, std::shared_ptr<Buffer> data, BufferVector char_buffers,
+                  std::shared_ptr<Buffer> null_bitmap = NULLPTR,
                   int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : BinaryViewArray(utf8_view(), length, data, null_bitmap, null_count, offset) {}
+      : BinaryViewArray(length, std::move(data), std::move(char_buffers),
+                        std::move(null_bitmap), null_count, offset) {
+    data_->type = utf8_view();
+  }
 
   /// \brief Validate that this array contains only valid UTF8 entries
   ///

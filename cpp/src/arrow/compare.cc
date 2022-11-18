@@ -807,16 +807,10 @@ class ScalarEqualsVisitor {
   Status Visit(const DoubleScalar& left) { return CompareFloating(left); }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BaseBinaryScalar, T>::value, Status>::type
+  enable_if_t<std::is_base_of<BaseBinaryScalar, T>::value, Status>
   Visit(const T& left) {
     const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
-    return Status::OK();
-  }
-
-  Status Visit(const BinaryViewScalar& left) {
-    const auto& right = checked_cast<const BinaryViewScalar&>(right_);
-    result_ = left.value == right.value;
     return Status::OK();
   }
 

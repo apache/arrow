@@ -32,6 +32,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -365,38 +366,73 @@ TYPED_TEST(TestStringArray, TestValidateOffsets) { this->TestValidateOffsets(); 
 
 TYPED_TEST(TestStringArray, TestValidateData) { this->TestValidateData(); }
 
+TEST(StringViewArray, Validate) {
+  auto MakeArray = [](std::vector<StringHeader> headers, BufferVector char_buffers) {
+    auto length = static_cast<int64_t>(headers.size());
+    return StringViewArray(length, Buffer::Wrap(std::move(headers)),
+                           std::move(char_buffers));
+  };
+
+  // empty array is valid
+  EXPECT_THAT(MakeArray({}, {}).ValidateFull(), Ok());
+
+  // inline views need not have a corresponding buffer
+  EXPECT_THAT(MakeArray({"hello", "world", "inline me"}, {}).ValidateFull(), Ok());
+
+  auto buffer_s = Buffer::FromString("supercalifragilistic(sp?)");
+  auto buffer_y = Buffer::FromString("yyyyyyyyyyyyyyyyyyyyyyyyy");
+
+  // non-inline views are expected to reside in a buffer managed by the array
+  EXPECT_THAT(MakeArray({StringHeader(std::string_view{*buffer_s}),
+                         StringHeader(std::string_view{*buffer_y})},
+                        {buffer_s, buffer_y})
+                  .ValidateFull(),
+              Ok());
+
+  EXPECT_THAT(MakeArray({StringHeader(std::string_view{*buffer_s}),
+                         // if a view points outside the buffers, that is invalid
+                         StringHeader("from a galaxy far, far away"),
+                         StringHeader(std::string_view{*buffer_y})},
+                        {buffer_s, buffer_y})
+                  .ValidateFull(),
+              Raises(StatusCode::Invalid));
+
+  // ... unless specifically overridden
+  EXPECT_THAT(
+      MakeArray({"from a galaxy far, far away"}, StringViewArray::DoNotValidateViews({}))
+          .ValidateFull(),
+      Ok());
+}
+
 template <typename T>
 class TestUTF8Array : public ::testing::Test {
  public:
   using TypeClass = T;
-  using offset_type = typename TypeClass::offset_type;
   using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
 
-  Status ValidateUTF8(int64_t length, std::vector<offset_type> offsets,
-                      std::string_view data, int64_t offset = 0) {
-    ArrayType arr(length, Buffer::Wrap(offsets), std::make_shared<Buffer>(data),
-                  /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
-    return arr.ValidateUTF8();
+  Status ValidateUTF8(const Array& arr) {
+    return checked_cast<const ArrayType&>(arr).ValidateUTF8();
   }
 
-  Status ValidateUTF8(const std::string& json) {
-    auto ty = TypeTraits<T>::type_singleton();
-    auto arr = ArrayFromJSON(ty, json);
-    return checked_cast<const ArrayType&>(*arr).ValidateUTF8();
+  Status ValidateUTF8(std::vector<std::string> values) {
+    std::shared_ptr<Array> arr;
+    ArrayFromVector<T, std::string>(values, &arr);
+    return ValidateUTF8(*arr);
   }
 
   void TestValidateUTF8() {
-    ASSERT_OK(ValidateUTF8(R"(["Voix", "ambiguë", "d’un", "cœur"])"));
-    ASSERT_OK(ValidateUTF8(1, {0, 4}, "\xf4\x8f\xbf\xbf"));  // \U0010ffff
+    ASSERT_OK(ValidateUTF8(*ArrayFromJSON(TypeTraits<T>::type_singleton(),
+                                          R"(["Voix", "ambiguë", "d’un", "cœur"])")));
+    ASSERT_OK(ValidateUTF8({"\xf4\x8f\xbf\xbf"}));  // \U0010ffff
 
-    ASSERT_RAISES(Invalid, ValidateUTF8(1, {0, 1}, "\xf4"));
+    ASSERT_RAISES(Invalid, ValidateUTF8({"\xf4"}));
 
     // More tests in TestValidateData() above
     // (ValidateFull() calls ValidateUTF8() internally)
   }
 };
 
-TYPED_TEST_SUITE(TestUTF8Array, StringArrowTypes);
+TYPED_TEST_SUITE(TestUTF8Array, StringOrStringViewArrowTypes);
 
 TYPED_TEST(TestUTF8Array, TestValidateUTF8) { this->TestValidateUTF8(); }
 
@@ -907,9 +943,6 @@ class TestBaseBinaryDataVisitor : public ::testing::Test {
  protected:
   std::shared_ptr<DataType> type_;
 };
-
-using BinaryAndBin = ::testing::Types<BinaryType, LargeBinaryType, StringType,
-                                      LargeStringType, BinaryViewType, StringViewType>;
 
 TYPED_TEST_SUITE(TestBaseBinaryDataVisitor, BaseBinaryOrBinaryViewLikeArrowTypes);
 

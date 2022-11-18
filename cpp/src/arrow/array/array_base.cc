@@ -88,7 +88,9 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const BinaryViewArray& a) {
-    return Status::NotImplemented("ScalarFromArraySlot -> BinaryView");
+    StringHeader header = a.Value(index_);
+    std::string_view view{header};
+    return Finish(std::string{view});
   }
 
   Status Visit(const FixedSizeBinaryArray& a) { return Finish(a.GetString(index_)); }

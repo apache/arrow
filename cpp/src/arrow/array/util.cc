@@ -380,6 +380,10 @@ class NullArrayFactory {
       return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
     }
 
+    Status Visit(const BinaryViewType& type) {
+      return MaxOf(sizeof(StringHeader) * length_);
+    }
+
     Status Visit(const FixedSizeListType& type) {
       return MaxOf(GetBufferLength(type.value_type(), type.list_size() * length_));
     }
@@ -496,6 +500,11 @@ class NullArrayFactory {
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T&) {
     out_->buffers.resize(3, buffer_);
+    return Status::OK();
+  }
+
+  Status Visit(const BinaryViewType&) {
+    out_->buffers.resize(2, buffer_);
     return Status::OK();
   }
 
@@ -646,14 +655,27 @@ class RepeatedArrayFactory {
     RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
     auto size = static_cast<typename T::offset_type>(value->size());
     RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
-    out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(length_, offsets_buffer,
-                                                               values_buffer);
+    out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(
+        length_, std::move(offsets_buffer), std::move(values_buffer));
     return Status::OK();
   }
 
   template <typename T>
   enable_if_binary_view_like<T, Status> Visit(const T&) {
-    return Status::NotImplemented("binary / string view");
+    const std::shared_ptr<Buffer>& value =
+        checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
+
+    StringHeader header{std::string_view{*value}};
+    std::shared_ptr<Buffer> header_buffer;
+    RETURN_NOT_OK(CreateBufferOf(&header, sizeof(header), &header_buffer));
+
+    BufferVector char_buffers;
+    if (!header.IsInline()) {
+      char_buffers.push_back(value);
+    }
+    out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(
+        length_, std::move(header_buffer), std::move(char_buffers));
+    return Status::OK();
   }
 
   template <typename T>

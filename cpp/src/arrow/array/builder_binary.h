@@ -580,7 +580,6 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
   Status Append(StringHeader value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppend(value);
-    UnsafeAppendToBitmap(true);
     return Status::OK();
   }
 
@@ -595,7 +594,6 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
       value = data_heap_builder_.UnsafeAppend(value, length);
     }
     UnsafeAppend(StringHeader(value, length));
-    UnsafeAppendToBitmap(true);
   }
 
   void UnsafeAppend(const char* value, int64_t length) {
@@ -657,7 +655,7 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
   }
 
   void UnsafeAppendEmptyValue() {
-    data_builder_.UnsafeAppend(StringHeader(""));
+    data_builder_.UnsafeAppend(StringHeader());
     UnsafeAppendToBitmap(true);
   }
 
