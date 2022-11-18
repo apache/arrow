@@ -1389,3 +1389,99 @@ func TestCompareGreaterWithImplicitCastUint64EdgeCase(t *testing.T) {
 	_, err := compute.CallFunction(context.TODO(), "greater", nil, compute.NewDatumWithoutOwning(neg), compute.NewDatumWithoutOwning(big))
 	assert.ErrorIs(t, err, arrow.ErrInvalid)
 }
+
+const benchSeed = 0x94378165
+
+func benchArrayScalar(b *testing.B, sz int, nullprob float64, op string, dt arrow.DataType) {
+	b.Run(dt.String(), func(b *testing.B) {
+		rng := gen.NewRandomArrayGenerator(benchSeed, memory.DefaultAllocator)
+		arr := rng.ArrayOf(dt.ID(), int64(sz), nullprob)
+		defer arr.Release()
+		s := rng.ArrayOf(dt.ID(), 1, 0)
+		defer s.Release()
+		sc, _ := scalar.GetScalar(s, 0)
+
+		lhs := compute.NewDatumWithoutOwning(arr)
+		rhs := compute.NewDatumWithoutOwning(sc)
+
+		var nbytes int64
+		switch dt.ID() {
+		case arrow.STRING:
+			nbytes = int64(len(arr.(*array.String).ValueBytes()) + sc.(*scalar.String).Value.Len())
+		default:
+			nbytes = int64(arr.Data().Buffers()[1].Len() + len(sc.(scalar.PrimitiveScalar).Data()))
+		}
+		ctx := context.Background()
+		b.ResetTimer()
+		b.SetBytes(nbytes)
+		for n := 0; n < b.N; n++ {
+			result, err := compute.CallFunction(ctx, op, nil, lhs, rhs)
+			if err != nil {
+				b.Fatal(err)
+			}
+			result.Release()
+		}
+	})
+}
+
+func benchArrayArray(b *testing.B, sz int, nullprob float64, op string, dt arrow.DataType) {
+	b.Run(dt.String(), func(b *testing.B) {
+		rng := gen.NewRandomArrayGenerator(benchSeed, memory.DefaultAllocator)
+		lhsArr := rng.ArrayOf(dt.ID(), int64(sz), nullprob)
+		defer lhsArr.Release()
+		rhsArr := rng.ArrayOf(dt.ID(), int64(sz), nullprob)
+		defer rhsArr.Release()
+
+		lhs, rhs := compute.NewDatumWithoutOwning(lhsArr), compute.NewDatumWithoutOwning(rhsArr)
+		var nbytes int64
+		switch dt.ID() {
+		case arrow.STRING:
+			nbytes = int64(len(lhsArr.(*array.String).ValueBytes()) + len(rhsArr.(*array.String).ValueBytes()))
+		default:
+			nbytes = int64(lhsArr.Data().Buffers()[1].Len() + rhsArr.Data().Buffers()[1].Len())
+		}
+		ctx := context.Background()
+		b.ResetTimer()
+		b.SetBytes(nbytes)
+		for n := 0; n < b.N; n++ {
+			result, err := compute.CallFunction(ctx, op, nil, lhs, rhs)
+			if err != nil {
+				b.Fatal(err)
+			}
+			result.Release()
+		}
+	})
+}
+
+func BenchmarkCompare(b *testing.B) {
+	var (
+		sizes    = []int{CpuCacheSizes[0]}
+		nullProb = []float64{0.0001, 0.01, 0.1, 0.5, 1, 0}
+	)
+
+	b.Run("GreaterArrayScalar", func(b *testing.B) {
+		for _, sz := range sizes {
+			b.Run(fmt.Sprintf("size=%d", sz), func(b *testing.B) {
+				for _, np := range nullProb {
+					b.Run(fmt.Sprintf("nullprob=%f", np), func(b *testing.B) {
+						benchArrayScalar(b, sz, np, kernels.CmpGT.String(), arrow.PrimitiveTypes.Int64)
+						benchArrayScalar(b, sz, np, kernels.CmpGT.String(), arrow.BinaryTypes.String)
+					})
+				}
+			})
+		}
+	})
+
+	b.Run("GreaterArrayArray", func(b *testing.B) {
+		for _, sz := range sizes {
+			b.Run(fmt.Sprintf("size=%d", sz), func(b *testing.B) {
+				for _, np := range nullProb {
+					b.Run(fmt.Sprintf("nullprob=%f", np), func(b *testing.B) {
+						benchArrayArray(b, sz, np, kernels.CmpGT.String(), arrow.PrimitiveTypes.Int64)
+						benchArrayArray(b, sz, np, kernels.CmpGT.String(), arrow.BinaryTypes.String)
+					})
+				}
+			})
+		}
+	})
+}

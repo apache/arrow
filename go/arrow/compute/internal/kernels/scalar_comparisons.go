@@ -381,7 +381,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 	case CmpEQ:
 		return &cmpOp[T]{
 			arrArr: func(lt, rt []T, u []uint32) {
-				for i := range lt {
+				for i := range u {
 					if lt[i] == rt[i] {
 						u[i] = 1
 					} else {
@@ -390,7 +390,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 				}
 			},
 			arrScalar: func(lt []T, rt T, u []uint32) {
-				for i := range lt {
+				for i := range u {
 					if lt[i] == rt {
 						u[i] = 1
 					} else {
@@ -399,7 +399,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 				}
 			},
 			scalarArr: func(lt T, rt []T, u []uint32) {
-				for i := range rt {
+				for i := range u {
 					if lt == rt[i] {
 						u[i] = 1
 					} else {
@@ -411,7 +411,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 	case CmpNE:
 		return &cmpOp[T]{
 			arrArr: func(lt, rt []T, u []uint32) {
-				for i := range lt {
+				for i := range u {
 					if lt[i] != rt[i] {
 						u[i] = 1
 					} else {
@@ -420,7 +420,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 				}
 			},
 			arrScalar: func(lt []T, rt T, u []uint32) {
-				for i := range lt {
+				for i := range u {
 					if lt[i] != rt {
 						u[i] = 1
 					} else {
@@ -429,7 +429,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 				}
 			},
 			scalarArr: func(lt T, rt []T, u []uint32) {
-				for i := range rt {
+				for i := range u {
 					if lt != rt[i] {
 						u[i] = 1
 					} else {
@@ -441,7 +441,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 	case CmpGT:
 		return &cmpOp[T]{
 			arrArr: func(lt, rt []T, u []uint32) {
-				for i := range lt {
+				for i := range u {
 					if lt[i] > rt[i] {
 						u[i] = 1
 					} else {
@@ -450,7 +450,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 				}
 			},
 			arrScalar: func(lt []T, rt T, u []uint32) {
-				for i := range lt {
+				for i := range u {
 					if lt[i] > rt {
 						u[i] = 1
 					} else {
@@ -459,7 +459,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 				}
 			},
 			scalarArr: func(lt T, rt []T, u []uint32) {
-				for i := range rt {
+				for i := range u {
 					if lt > rt[i] {
 						u[i] = 1
 					} else {
@@ -471,7 +471,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 	case CmpGE:
 		return &cmpOp[T]{
 			arrArr: func(lt, rt []T, u []uint32) {
-				for i := range lt {
+				for i := range u {
 					if lt[i] >= rt[i] {
 						u[i] = 1
 					} else {
@@ -480,7 +480,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 				}
 			},
 			arrScalar: func(lt []T, rt T, u []uint32) {
-				for i := range lt {
+				for i := range u {
 					if lt[i] >= rt {
 						u[i] = 1
 					} else {
@@ -489,7 +489,7 @@ func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
 				}
 			},
 			scalarArr: func(lt T, rt []T, u []uint32) {
-				for i := range rt {
+				for i := range u {
 					if lt >= rt[i] {
 						u[i] = 1
 					} else {
