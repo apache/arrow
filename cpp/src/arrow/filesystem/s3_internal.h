@@ -87,6 +87,12 @@ inline std::optional<std::string> BucketRegionFromError(
   return std::nullopt;
 }
 
+template <typename ErrorType>
+inline std::optional<std::string> BucketRegionFromError(
+    const Aws::Client::AWSError<ErrorType>&) {
+  return std::nullopt;
+}
+
 inline bool IsNotFound(const Aws::Client::AWSError<Aws::S3::S3Errors>& error) {
   const auto error_type = error.GetErrorType();
   return (error_type == Aws::S3::S3Errors::NO_SUCH_BUCKET ||
