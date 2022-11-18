@@ -65,22 +65,25 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
       : buffer_(std::move(buffer)), compression_(compression) {}
 
   using CustomOpen = std::function<Result<std::shared_ptr<io::RandomAccessFile>>()>;
-  explicit FileSource(CustomOpen open, int64_t size)
+  FileSource(CustomOpen open, int64_t size)
       : custom_open_(std::move(open)), custom_size_(size) {}
 
   using CustomOpenWithCompression =
       std::function<Result<std::shared_ptr<io::RandomAccessFile>>(Compression::type)>;
-  explicit FileSource(CustomOpenWithCompression open_with_compression, int64_t size,
-                      Compression::type compression = Compression::UNCOMPRESSED)
+  FileSource(CustomOpenWithCompression open_with_compression, int64_t size,
+             Compression::type compression = Compression::UNCOMPRESSED)
       : custom_open_(std::bind(std::move(open_with_compression), compression)),
         custom_size_(size),
         compression_(compression) {}
 
-  explicit FileSource(std::shared_ptr<io::RandomAccessFile> file, int64_t size,
-                      Compression::type compression = Compression::UNCOMPRESSED)
+  FileSource(std::shared_ptr<io::RandomAccessFile> file, int64_t size,
+             Compression::type compression = Compression::UNCOMPRESSED)
       : custom_open_([=] { return ToResult(file); }),
         custom_size_(size),
         compression_(compression) {}
+
+  explicit FileSource(std::shared_ptr<io::RandomAccessFile> file,
+                      Compression::type compression = Compression::UNCOMPRESSED);
 
   FileSource() : custom_open_(CustomOpen{&InvalidOpen}) {}
 

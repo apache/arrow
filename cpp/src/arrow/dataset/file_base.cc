@@ -54,6 +54,19 @@ using internal::checked_pointer_cast;
 
 namespace dataset {
 
+FileSource::FileSource(std::shared_ptr<io::RandomAccessFile> file,
+                       Compression::type compression)
+    : custom_open_([=] { return ToResult(file); }),
+      custom_size_(-1),
+      compression_(compression) {
+  Result<int64_t> maybe_size = file->GetSize();
+  if (maybe_size.ok()) {
+    custom_size_ = *maybe_size;
+  } else {
+    custom_open_ = [st = maybe_size.status()] { return st; };
+  }
+}
+
 Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
   if (filesystem_) {
     return filesystem_->OpenInputFile(file_info_);
