@@ -104,19 +104,19 @@ TEST(Datum, Constructors) {
   Check(val6);
 
   AssertDatumsEqual(Datum{std::chrono::nanoseconds{1235}},
-                    Datum{DurationScalar{1235, duration(TimeUnit::NANO)}});
+                    Datum{DurationScalar{1235, TimeUnit::NANO}});
 
   AssertDatumsEqual(Datum{std::chrono::microseconds{58}},
-                    Datum{DurationScalar{58, duration(TimeUnit::MICRO)}});
+                    Datum{DurationScalar{58, TimeUnit::MICRO}});
 
   AssertDatumsEqual(Datum{std::chrono::milliseconds{952}},
-                    Datum{DurationScalar{952, duration(TimeUnit::MILLI)}});
+                    Datum{DurationScalar{952, TimeUnit::MILLI}});
 
   AssertDatumsEqual(Datum{std::chrono::seconds{625}},
-                    Datum{DurationScalar{625, duration(TimeUnit::SECOND)}});
+                    Datum{DurationScalar{625, TimeUnit::SECOND}});
 
   AssertDatumsEqual(Datum{std::chrono::minutes{2}},
-                    Datum{DurationScalar{120, duration(TimeUnit::SECOND)}});
+                    Datum{DurationScalar{120, TimeUnit::SECOND}});
 
   // finer than nanoseconds; we can't represent this without truncation
   using picoseconds = std::chrono::duration<int64_t, std::pico>;

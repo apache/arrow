@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <chrono>
 #include <limits>
 #include <memory>
 #include <ostream>
@@ -912,6 +913,30 @@ TEST(TestDurationScalars, Basics) {
     ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
     ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
   }
+
+  EXPECT_EQ(DurationScalar{std::chrono::nanoseconds{1235}},
+            DurationScalar(1235, TimeUnit::NANO));
+
+  EXPECT_EQ(DurationScalar{std::chrono::microseconds{58}},
+            DurationScalar(58, TimeUnit::MICRO));
+
+  EXPECT_EQ(DurationScalar{std::chrono::milliseconds{952}},
+            DurationScalar(952, TimeUnit::MILLI));
+
+  EXPECT_EQ(DurationScalar{std::chrono::seconds{625}},
+            DurationScalar(625, TimeUnit::SECOND));
+
+  EXPECT_EQ(DurationScalar{std::chrono::minutes{2}},
+            DurationScalar(120, TimeUnit::SECOND));
+
+  // finer than nanoseconds; we can't represent this without truncation
+  using picoseconds = std::chrono::duration<int64_t, std::pico>;
+  static_assert(!std::is_constructible_v<DurationScalar, picoseconds>);
+
+  // between seconds and milliseconds; we could represent this as milliseconds safely, but
+  // it's a pain to support
+  using centiseconds = std::chrono::duration<int64_t, std::centi>;
+  static_assert(!std::is_constructible_v<DurationScalar, centiseconds>);
 }
 
 TEST(TestMonthIntervalScalars, Basics) {

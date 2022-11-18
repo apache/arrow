@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <ratio>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -87,20 +86,25 @@ struct ARROW_EXPORT Datum {
   explicit Datum(const Table& value);
 
   // Cast from subtypes of Array or Scalar to Datum
-  template <typename T, bool IsArray = std::is_base_of<Array, T>::value,
-            bool IsScalar = std::is_base_of<Scalar, T>::value,
+  template <typename T, bool IsArray = std::is_base_of_v<Array, T>,
+            bool IsScalar = std::is_base_of_v<Scalar, T>,
             typename = enable_if_t<IsArray || IsScalar>>
   Datum(std::shared_ptr<T> value)  // NOLINT implicit conversion
       : Datum(std::shared_ptr<typename std::conditional<IsArray, Array, Scalar>::type>(
             std::move(value))) {}
 
   // Cast from subtypes of Array or Scalar to Datum
-  template <typename T, typename TV = typename std::remove_reference<T>::type,
-            bool IsArray = std::is_base_of<Array, T>::value,
-            bool IsScalar = std::is_base_of<Scalar, T>::value,
+  template <typename T, typename TV = typename std::remove_reference_t<T>,
+            bool IsArray = std::is_base_of_v<Array, T>,
+            bool IsScalar = std::is_base_of_v<Scalar, T>,
             typename = enable_if_t<IsArray || IsScalar>>
   Datum(T&& value)  // NOLINT implicit conversion
       : Datum(std::make_shared<TV>(std::forward<T>(value))) {}
+
+  // Many Scalars are copyable, let that happen
+  template <typename T, typename = enable_if_t<std::is_base_of_v<Scalar, T>>>
+  Datum(const T& value)  // NOLINT implicit conversion
+      : Datum(std::make_shared<T>(value)) {}
 
   // Convenience constructors
   explicit Datum(bool value);
@@ -117,26 +121,11 @@ struct ARROW_EXPORT Datum {
   explicit Datum(std::string value);
   explicit Datum(const char* value);
 
-  // Convenience constructors for a DurationScalar from std::chrono::nanoseconds
-  template <template <typename, typename> class StdDuration, typename Rep>
-  explicit Datum(StdDuration<Rep, std::nano> d)
-      : Datum{DurationScalar(d.count(), duration(TimeUnit::NANO))} {}
-
-  // Convenience constructors for a DurationScalar from std::chrono::microseconds
-  template <template <typename, typename> class StdDuration, typename Rep>
-  explicit Datum(StdDuration<Rep, std::micro> d)
-      : Datum{DurationScalar(d.count(), duration(TimeUnit::MICRO))} {}
-
-  // Convenience constructors for a DurationScalar from std::chrono::milliseconds
-  template <template <typename, typename> class StdDuration, typename Rep>
-  explicit Datum(StdDuration<Rep, std::milli> d)
-      : Datum{DurationScalar(d.count(), duration(TimeUnit::MILLI))} {}
-
-  // Convenience constructors for a DurationScalar from std::chrono::seconds or
-  // units which are whole numbers of seconds
-  template <template <typename, typename> class StdDuration, typename Rep, intmax_t Num>
-  explicit Datum(StdDuration<Rep, std::ratio<Num, 1>> d)
-      : Datum{DurationScalar(d.count() * Num, duration(TimeUnit::SECOND))} {}
+  // Forward to convenience constructors for a DurationScalar from std::chrono::duration
+  template <template <typename, typename> class StdDuration, typename Rep,
+            typename Period,
+            typename = decltype(DurationScalar{StdDuration<Rep, Period>{}})>
+  explicit Datum(StdDuration<Rep, Period> d) : Datum{DurationScalar(d)} {}
 
   Datum::Kind kind() const {
     switch (this->value.index()) {

@@ -31,13 +31,11 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/literal_operators.h"
 
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
 
-using namespace arrow::util::arrow_literals;  // NOLINT build/namespaces
-using namespace std::chrono_literals;         // NOLINT build/namespaces
+using namespace std::chrono_literals;  // NOLINT build/namespaces
 
 namespace arrow {
 
@@ -268,8 +266,8 @@ TEST(Expression, ToString) {
   EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
             "\"617A\"");
 
-  EXPECT_EQ(literal("1990-10-23 10:23:33"_ts_ns).ToString(),
-            "1990-10-23 10:23:33.000000000");
+  auto ts = *TimestampScalar::FromISO8601("1990-10-23 10:23:33", TimeUnit::NANO);
+  EXPECT_EQ(literal(ts).ToString(), "1990-10-23 10:23:33.000000000");
 
   EXPECT_EQ(add(literal(3), field_ref("beta")).ToString(), "add(3, beta)");
 
@@ -865,10 +863,11 @@ TEST(Expression, FoldConstants) {
   ExpectFoldsTo(add(literal(5min), literal(5min)), literal(10min));
 
   // addition of duration, timestamp folds as expected
-  Expression ts = literal("1990-10-23 10:23:33"_ts_s),
-             ts_two_hours_later = literal("1990-10-23 12:23:33"_ts_s);
-  ExpectFoldsTo(add(literal(2h), ts), ts_two_hours_later);
-  ExpectFoldsTo(add(ts, literal(2h)), ts_two_hours_later);
+  auto ts = *TimestampScalar::FromISO8601("1990-10-23 10:23:33", TimeUnit::SECOND);
+  auto ts_two_hours_later =
+      *TimestampScalar::FromISO8601("1990-10-23 12:23:33", TimeUnit::SECOND);
+  ExpectFoldsTo(add(literal(2h), literal(ts)), literal(ts_two_hours_later));
+  ExpectFoldsTo(add(literal(ts), literal(2h)), literal(ts_two_hours_later));
 
   // call against literal and field_ref
   ExpectFoldsTo(add(literal(3), field_ref("i32")), add(literal(3), field_ref("i32")));
@@ -1257,9 +1256,8 @@ TEST(Expression, SingleComparisonGuarantees) {
             all = false;
           }
         }
-        Simplify{filter}.WithGuarantee(guarantee).Expect(all    ? literal(true)
-                                                         : none ? literal(false)
-                                                                : filter);
+        Simplify{filter}.WithGuarantee(guarantee).Expect(
+            all ? literal(true) : none ? literal(false) : filter);
       }
     }
   }
