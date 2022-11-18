@@ -362,13 +362,12 @@ std::shared_ptr<Array> RandomArrayGenerator::Decimal256(std::shared_ptr<DataType
   return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
-template <typename TypeClass>
+template <typename TypeClass, typename offset_type = typename TypeClass::offset_type>
 static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int64_t size,
                                                   int32_t min_length, int32_t max_length,
                                                   double null_probability,
                                                   int64_t alignment,
                                                   MemoryPool* memory_pool) {
-  using offset_type = typename TypeClass::offset_type;
   using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
@@ -386,7 +385,7 @@ static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int
                  /*null_probability=*/0);
 
   std::vector<uint8_t> str_buffer(max_length);
-  BuilderType builder(memory_pool, alignment);
+  BuilderType builder{memory_pool, alignment};
 
   for (int64_t i = 0; i < size; ++i) {
     if (lengths->IsValid(i)) {
@@ -427,6 +426,15 @@ std::shared_ptr<Array> RandomArrayGenerator::BinaryWithRepeats(
                                    alignment, memory_pool);
   std::shared_ptr<Array> out;
   return *strings->View(binary());
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::StringView(int64_t size, int32_t min_length,
+                                                        int32_t max_length,
+                                                        double null_probability, 
+                                                        int64_t alignment,
+                                                        MemoryPool* memory_pool) {
+  return GenerateBinaryArray<StringViewType, uint32_t>(this, size, min_length, max_length,
+                                                       null_probability, alignment, memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(

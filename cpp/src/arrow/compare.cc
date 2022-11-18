@@ -263,7 +263,13 @@ class RangeDataEqualsImpl {
 
   // Also matches StringViewType
   Status Visit(const BinaryViewType& type) {
-    return Status::NotImplemented("Binary / string view");
+    auto* left_values = left_.GetValues<StringHeader>(1) + left_start_idx_;
+    auto* right_values = right_.GetValues<StringHeader>(1) + right_start_idx_;
+    VisitValidRuns([&](int64_t i, int64_t length) {
+      return std::equal(left_values + i, left_values + i + length,
+                        right_values + i, right_values + i + length);
+    });
+    return Status::OK();
   }
 
   // Also matches LargeStringType

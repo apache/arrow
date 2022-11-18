@@ -546,8 +546,15 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
  public:
   using TypeClass = BinaryViewType;
 
-  BinaryViewBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+  // this constructor provided for MakeBuilder compatibility
+  BinaryViewBuilder(const std::shared_ptr<DataType>&, MemoryPool* pool)
       : BinaryViewBuilder(pool) {}
+
+  explicit BinaryViewBuilder(MemoryPool* pool = default_memory_pool(),
+                             int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment),
+        data_builder_(pool, alignment),
+        data_heap_builder_(pool) {}
 
   int64_t current_block_bytes_remaining() const {
     return data_heap_builder_.current_remaining_bytes();
@@ -687,9 +694,6 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
   std::shared_ptr<DataType> type() const override { return binary_view(); }
 
  protected:
-  explicit BinaryViewBuilder(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), data_builder_(pool), data_heap_builder_(pool) {}
-
   static constexpr int64_t ValueSizeLimit() {
     return std::numeric_limits<uint32_t>::max();
   }

@@ -230,7 +230,29 @@ class ConcatenateImpl {
   }
 
   Status Visit(const BinaryViewType&) {
-    return Status::NotImplemented("binary / string view");
+    bool any_opted_out_of_view_validation = false;
+    out_->buffers.resize(2);
+
+    for (const auto& in_data : in_) {
+      auto begin = in_data->buffers.begin() + 2;
+      auto end = in_data->buffers.end();
+
+      if (BinaryViewArray::OptedOutOfViewValidation(*in_data)) {
+        any_opted_out_of_view_validation = true;
+        --end;
+      }
+
+      for (auto it = begin; it != end; ++it) {
+        out_->buffers.push_back(*it);
+      }
+    }
+
+    if (any_opted_out_of_view_validation) {
+      out_->buffers = BinaryViewArray::DoNotValidateViews(std::move(out_->buffers));
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto header_buffers, Buffers(1, sizeof(StringHeader)));
+    return ConcatenateBuffers(header_buffers, pool_).Value(&out_->buffers[1]);
   }
 
   Status Visit(const ListType&) {
