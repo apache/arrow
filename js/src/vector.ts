@@ -241,6 +241,11 @@ export class Vector<T extends DataType = any> {
      *  more than one chunk, the resulting TypedArray will be a copy of the data from each
      *  chunk's underlying TypedArray values.
      *
+     * @note This does _not_ respect null values. After all, if a typed array is returned
+     *  it can't contain nulls anyway. So be aware that calling toArray is not the same
+     *  as creating your own array copy using Vector.get(index) in a for-loop. In other
+     *  words, this function may not do what you expect when Vector.nullCount isn't zero.
+     *
      * @returns An Array or TypedArray of the Vector's elements, based on the Vector's DataType.
      */
     public toArray(): T['TArray'] {
