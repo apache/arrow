@@ -99,26 +99,24 @@ endif()
 set(ThriftAlt_LIB_NAME_BASE "thrift${THRIFT_MSVC_LIB_SUFFIX}")
 
 if(ARROW_THRIFT_USE_SHARED)
-  set(ThriftAlt_LIB_NAMES thrift)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
-    list(APPEND
-         ThriftAlt_LIB_NAMES
-         "${CMAKE_IMPORT_LIBRARY_PREFIX}${ThriftAlt_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    set(ThriftAlt_LIB_NAME
+        "${CMAKE_IMPORT_LIBRARY_PREFIX}${ThriftAlt_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    )
+  else()
+    set(ThriftAlt_LIB_NAME
+        "${CMAKE_SHARED_LIBRARY_PREFIX}${ThriftAlt_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}"
     )
   endif()
-  list(APPEND
-       ThriftAlt_LIB_NAMES
-       "${CMAKE_SHARED_LIBRARY_PREFIX}${ThriftAlt_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}"
-  )
 else()
-  set(ThriftAlt_LIB_NAMES
+  set(ThriftAlt_LIB_NAME
       "${CMAKE_STATIC_LIBRARY_PREFIX}${ThriftAlt_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 endif()
 
 if(Thrift_ROOT)
   find_library(ThriftAlt_LIB
-               NAMES ${ThriftAlt_LIB_NAMES}
+               NAMES ${ThriftAlt_LIB_NAME}
                PATHS ${Thrift_ROOT}
                PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
   find_path(ThriftAlt_INCLUDE_DIR thrift/Thrift.h
@@ -139,7 +137,7 @@ else()
     list(APPEND THRIFT_PC_LIBRARY_DIRS "${THRIFT_PC_LIBDIR}")
 
     find_library(ThriftAlt_LIB
-                 NAMES ${ThriftAlt_LIB_NAMES}
+                 NAMES ${ThriftAlt_LIB_NAME}
                  PATHS ${THRIFT_PC_LIBRARY_DIRS}
                  NO_DEFAULT_PATH)
     find_program(THRIFT_COMPILER thrift
@@ -149,7 +147,7 @@ else()
     set(ThriftAlt_VERSION ${THRIFT_PC_VERSION})
   else()
     find_library(ThriftAlt_LIB
-                 NAMES ${ThriftAlt_LIB_NAMES}
+                 NAMES ${ThriftAlt_LIB_NAME}
                  PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
     find_path(ThriftAlt_INCLUDE_DIR thrift/Thrift.h PATH_SUFFIXES "include")
     find_program(THRIFT_COMPILER thrift PATH_SUFFIXES "bin")
@@ -171,16 +169,20 @@ find_package_handle_standard_args(
 
 if(ThriftAlt_FOUND)
   set(Thrift_VERSION ${ThriftAlt_VERSION})
+  set(ThriftAlt_IMPORTED_PROPERTY_NAME IMPORTED_LOCATION)
   # Reuse partially defined thrift::thrift by ThriftConfig.cmake.
   if(NOT TARGET thrift::thrift)
     if(ARROW_THRIFT_USE_SHARED)
       add_library(thrift::thrift SHARED IMPORTED)
+      if(CMAKE_IMPORT_LIBRARY_SUFFIX)
+        set(ThriftAlt_IMPORTED_PROPERTY_NAME IMPORTED_IMPLIB)
+      endif()
     else()
       add_library(thrift::thrift STATIC IMPORTED)
     endif()
   endif()
   set_target_properties(thrift::thrift
-                        PROPERTIES IMPORTED_LOCATION "${ThriftAlt_LIB}"
+                        PROPERTIES ${ThriftAlt_IMPORTED_PROPERTY_NAME} "${ThriftAlt_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${ThriftAlt_INCLUDE_DIR}")
   if(WIN32 AND NOT MSVC_TOOLCHAIN)
