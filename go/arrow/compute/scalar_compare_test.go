@@ -17,6 +17,7 @@
 package compute_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -30,6 +31,8 @@ import (
 	"github.com/apache/arrow/go/v11/arrow/internal/testing/gen"
 	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/apache/arrow/go/v11/arrow/scalar"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -1299,4 +1302,90 @@ func TestCompareKernelsDispatchBest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCompareGreaterWithImplicitCasts(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	getArr := func(ty arrow.DataType, str string) arrow.Array {
+		arr, _, err := array.FromJSON(mem, ty, strings.NewReader(str), array.WithUseNumber())
+		require.NoError(t, err)
+		return arr
+	}
+
+	check := func(ty1 arrow.DataType, str1 string, ty2 arrow.DataType, str2 string, exp string) {
+		arr1, arr2 := getArr(ty1, str1), getArr(ty2, str2)
+		arrExp := getArr(arrow.FixedWidthTypes.Boolean, exp)
+
+		checkScalarBinary(t, "greater", compute.NewDatumWithoutOwning(arr1),
+			compute.NewDatumWithoutOwning(arr2),
+			compute.NewDatumWithoutOwning(arrExp), nil)
+
+		arr1.Release()
+		arr2.Release()
+		arrExp.Release()
+	}
+
+	tests := []struct {
+		ty1, ty2   arrow.DataType
+		str1, str2 string
+		exp        string
+	}{
+		{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Float64,
+			`[0, 1, 2, null]`, `[0.5, 1.0, 1.5, 2.0]`, `[false, false, true, null]`},
+		{arrow.PrimitiveTypes.Int8, arrow.PrimitiveTypes.Uint32,
+			`[-16, 0, 16, null]`, `[3, 4, 5, 7]`, `[false, false, true, null]`},
+		{arrow.PrimitiveTypes.Int8, arrow.PrimitiveTypes.Uint8,
+			`[-16, 0, 16, null]`, `[255, 254, 1, 0]`, `[false, false, true, null]`},
+		{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrow.PrimitiveTypes.Int32},
+			arrow.PrimitiveTypes.Uint32, `[0, 1, 2, null]`, `[3, 4, 5, 7]`, `[false, false, false, null]`},
+		{&arrow.TimestampType{Unit: arrow.Second}, arrow.FixedWidthTypes.Date64,
+			`["1970-01-01", "2000-02-29", "1900-02-28"]`, `[86400000, 0, 86400000]`,
+			`[false, true, false]`},
+		{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrow.PrimitiveTypes.Int8},
+			arrow.PrimitiveTypes.Uint32, `[3, -3, -28, null]`, `[3, 4, 5, 7]`,
+			`[false, false, false, null]`},
+	}
+
+	for _, tt := range tests {
+		check(tt.ty1, tt.str1, tt.ty2, tt.str2, tt.exp)
+	}
+}
+
+func TestCompareGreaterWithImplicitCastUint64EdgeCase(t *testing.T) {
+	// int64 is as wide as we can promote
+	CheckDispatchBest(t, "greater",
+		[]arrow.DataType{arrow.PrimitiveTypes.Int8, arrow.PrimitiveTypes.Uint64},
+		[]arrow.DataType{arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int64})
+
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	getArr := func(ty arrow.DataType, str string) arrow.Array {
+		arr, _, err := array.FromJSON(mem, ty, strings.NewReader(str), array.WithUseNumber())
+		require.NoError(t, err)
+		return arr
+	}
+
+	// this works sometimes
+	neg := getArr(arrow.PrimitiveTypes.Int8, `[-1]`)
+	defer neg.Release()
+	zero := getArr(arrow.PrimitiveTypes.Uint64, `[0]`)
+	defer zero.Release()
+	res := getArr(arrow.FixedWidthTypes.Boolean, `[false]`)
+	defer res.Release()
+
+	checkScalarBinary(t, "greater", compute.NewDatumWithoutOwning(neg),
+		compute.NewDatumWithoutOwning(zero), compute.NewDatumWithoutOwning(res), nil)
+
+	// ... but it can result in impossible implicit casts in the presence of uint64
+	// since some uint64 values cannot be cast to int64
+	neg = getArr(arrow.PrimitiveTypes.Int64, `[-1]`)
+	defer neg.Release()
+	big := getArr(arrow.PrimitiveTypes.Uint64, `[18446744073709551615]`)
+	defer big.Release()
+
+	_, err := compute.CallFunction(context.TODO(), "greater", nil, compute.NewDatumWithoutOwning(neg), compute.NewDatumWithoutOwning(big))
+	assert.ErrorIs(t, err, arrow.ErrInvalid)
 }
