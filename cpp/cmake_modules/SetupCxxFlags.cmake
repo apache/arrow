@@ -48,12 +48,16 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_SSE4_2_FLAG "")
     set(ARROW_AVX2_FLAG "/arch:AVX2")
     set(ARROW_AVX512_FLAG "/arch:AVX512")
+    set(ARROW_AVX512_ICX_FLAG "/arch:AVX512")
     set(CXX_SUPPORTS_SSE4_2 TRUE)
   else()
     set(ARROW_SSE4_2_FLAG "-msse4.2")
     set(ARROW_AVX2_FLAG "-march=haswell")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
     set(ARROW_AVX512_FLAG "-march=skylake-avx512 -mbmi2")
+    # icelake-server consists of AVX512VBMI,AVX512IFMA,AVX512VBMI2,AVX512VPOPCNTDQ
+    #   AVX512BITALG,AVX512VNN
+    set(ARROW_AVX512_ICX_FLAG "-march=icelake-server -mbmi2")
     # Append the avx2/avx512 subset option also, fix issue ARROW-9877 for homebrew-cpp
     set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2")
     set(ARROW_AVX512_FLAG
@@ -82,21 +86,29 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
         return 0;
       }"
                               CXX_SUPPORTS_AVX512)
+
+    check_cxx_compiler_flag(${ARROW_AVX512_ICX_FLAG} CXX_SUPPORTS_AVX512_ICX)
     set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
   if(CXX_SUPPORTS_SSE4_2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
-                             "^(SSE4_2|AVX2|AVX512|MAX)$")
+		          "^(SSE4_2|AVX2|AVX512|AVX512_ICX|MAX)$")
     set(ARROW_HAVE_RUNTIME_SSE4_2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
-  if(CXX_SUPPORTS_AVX2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX2|AVX512|MAX)$")
+  if(CXX_SUPPORTS_AVX2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
+		          "^(AVX2|AVX512|AVX512_ICX|MAX)$")
     set(ARROW_HAVE_RUNTIME_AVX2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX2 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
-  if(CXX_SUPPORTS_AVX512 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX512|MAX)$")
+  if(CXX_SUPPORTS_AVX512 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX512|AVX512_ICX|MAX)$")
     set(ARROW_HAVE_RUNTIME_AVX512 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX512 -DARROW_HAVE_RUNTIME_BMI2)
+  endif()
+  if(CXX_SUPPORTS_AVX512_ICX AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX512_ICX|MAX)$")
+    set(ARROW_HAVE_RUNTIME_AVX512_ICX ON)
+    add_definitions(-DARROW_HAVE_RUNTIME_AVX512_ICX -DARROW_HAVE_RUNTIME_AVX512 
+	    -DARROW_HAVE_RUNTIME_BMI2)
   endif()
   if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
     set(ARROW_SIMD_LEVEL "SSE4_2")
@@ -454,7 +466,14 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     # Enable _xgetbv() intrinsic to query OS support for ZMM register saves
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -mxsave")
   endif()
-  if(ARROW_SIMD_LEVEL STREQUAL "AVX512")
+  if(ARROW_SIMD_LEVEL STREQUAL "AVX512_ICX")
+    if(NOT CXX_SUPPORTS_AVX512_ICX)
+      message(FATAL_ERROR "AVX512_ICX required but compiler doesn't support it.")
+    endif()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_AVX512_ICX_FLAG}")
+    add_definitions(-DARROW_HAVE_AVX512_ICX -DARROW_HAVE_AVX512 -DARROW_HAVE_AVX2
+	            -DARROW_HAVE_BMI2 -DARROW_HAVE_SSE4_2)
+  elseif(ARROW_SIMD_LEVEL STREQUAL "AVX512")
     if(NOT CXX_SUPPORTS_AVX512)
       message(FATAL_ERROR "AVX512 required but compiler doesn't support it.")
     endif()

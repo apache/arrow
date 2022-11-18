@@ -25,6 +25,10 @@
 #include <cstdint>
 
 #include "arrow/util/bit_util.h"
+#if defined(ARROW_HAVE_RUNTIME_AVX512_ICX)
+#include "arrow/util/bpacking_avx512_icx.h"
+#include "arrow/util/bpacking_avx512_icx_inline.h"
+#endif
 #include "arrow/util/bpacking.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -340,17 +344,32 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     }
   }
 
+  int num_unpacked = 0;
   if (sizeof(T) == 4) {
-    int num_unpacked =
-        internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+    if (num_bits <= 16) {
+#if defined(ARROW_HAVE_RUNTIME_AVX512_ICX)
+      num_unpacked = (batch_size - i) / 32 * 32;
+      internal::BitPacking::UnpackValuesICX(num_bits,
+		          reinterpret_cast<const uint8_t*>(buffer + byte_offset),
+                          (batch_size - i) * num_bits / 8, batch_size - i,
+			  reinterpret_cast<uint32_t*>(v + i));
+#else
+      num_unpacked =
+          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
                            reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
+#endif
+    } else {
+      num_unpacked =
+          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+                           reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
+    }
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
   } else if (sizeof(T) == 8 && num_bits > 32) {
     // Use unpack64 only if num_bits is larger than 32
     // TODO (ARROW-13677): improve the performance of internal::unpack64
     // and remove the restriction of num_bits
-    int num_unpacked =
+    num_unpacked =
         internal::unpack64(buffer + byte_offset, reinterpret_cast<uint64_t*>(v + i),
                            batch_size - i, num_bits);
     i += num_unpacked;
@@ -362,9 +381,22 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     uint32_t unpack_buffer[buffer_size];
     while (i < batch_size) {
       int unpack_size = std::min(buffer_size, batch_size - i);
-      int num_unpacked =
+      if (num_bits <= 16) {
+#if defined(ARROW_HAVE_RUNTIME_AVX512_ICX)
+        num_unpacked = unpack_size / 32 * 32;
+        internal::BitPacking::UnpackValuesICX(num_bits,
+		            reinterpret_cast<const uint8_t*>(buffer + byte_offset),
+                            unpack_size * num_bits / 8, unpack_size, unpack_buffer);
+#else
+        num_unpacked =
           internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
                              unpack_buffer, unpack_size, num_bits);
+#endif
+      } else {
+        num_unpacked =
+          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+                             unpack_buffer, unpack_size, num_bits);
+      }
       if (num_unpacked == 0) {
         break;
       }
