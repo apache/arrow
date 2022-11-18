@@ -404,9 +404,9 @@ class ArrowConan(ConanFile):
             import shutil
             top_level = os.environ.get("ARROW_HOME")
             shutil.copytree(os.path.join(top_level, "cpp"),
-                            os.path.join(self._source_subfolder, "cpp"))
+                            os.path.join(self.source_folder, "cpp"))
             shutil.copytree(os.path.join(top_level, "format"),
-                            os.path.join(self._source_subfolder, "format"))
+                            os.path.join(self.source_folder, "format"))
             top_level_files = [
                 ".env",
                 "LICENSE.txt",
@@ -414,7 +414,7 @@ class ArrowConan(ConanFile):
             ]
             for top_level_file in top_level_files:
                 shutil.copy(os.path.join(top_level, top_level_file),
-                            self._source_subfolder)
+                            self.source_folder)
             return
         # END
         get(self, **self.conan_data["sources"][self.version],
