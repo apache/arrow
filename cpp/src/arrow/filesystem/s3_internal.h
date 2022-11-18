@@ -78,7 +78,7 @@ inline bool IsConnectError(const Aws::Client::AWSError<Error>& error) {
 
 inline std::optional<std::string> BucketRegionFromError(
     const Aws::Client::AWSError<Aws::S3::S3Errors>& error) {
-  const auto headers = error.GetResponseHeaders();
+  const auto& headers = error.GetResponseHeaders();
   const auto it = headers.find("x-amz-bucket-region");
   if (it != headers.end()) {
     const std::string region(it->second.begin(), it->second.end());
