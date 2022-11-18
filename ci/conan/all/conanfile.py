@@ -434,6 +434,7 @@ class ArrowConan(ConanFile):
         if is_msvc(self):
             tc.variables["ARROW_USE_STATIC_CRT"] = is_msvc_static_runtime(self)
         tc.variables["ARROW_DEPENDENCY_SOURCE"] = "SYSTEM"
+        tc.variables["ARROW_PACKAGE_KIND"] = "conan"
         tc.variables["ARROW_GANDIVA"] = bool(self.options.gandiva)
         tc.variables["ARROW_PARQUET"] = self._parquet()
         tc.variables["ARROW_SUBSTRAIT"] = bool(self.options.get_safe("substrait", False))
@@ -453,6 +454,7 @@ class ArrowConan(ConanFile):
         tc.variables["ARROW_CUDA"] = bool(self.options.with_cuda)
         tc.variables["ARROW_JEMALLOC"] = self._with_jemalloc()
         tc.variables["ARROW_MIMALLOC"] = bool(self.options.with_mimalloc)
+        tc.variables["jemalloc_SOURCE"] = "SYSTEM"
         tc.variables["ARROW_JSON"] = bool(self.options.with_json)
         tc.variables["google_cloud_cpp_SOURCE"] = "SYSTEM"
         tc.variables["ARROW_GCS"] = bool(self.options.get_safe("with_gcs", False))
@@ -540,7 +542,7 @@ class ArrowConan(ConanFile):
 
     def _patch_sources(self):
         apply_conandata_patches(self)
-        if Version(self.version) >= "7.0.0":
+        if Version(self.version) >= "7.0.0" and Version(self.version) < "11.0.0":
             for filename in glob.glob(os.path.join(self.source_folder, "cpp", "cmake_modules", "Find*.cmake")):
                 if os.path.basename(filename) not in [
                     "FindArrow.cmake",

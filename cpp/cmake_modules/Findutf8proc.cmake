@@ -19,7 +19,7 @@ if(utf8proc_FOUND)
   return()
 endif()
 
-if(ARROW_PACAKGE_KIND STREQUAL "vcpkg")
+if(ARROW_PACKAGE_KIND STREQUAL "vcpkg")
   set(find_package_args "")
   if(utf8proc_FIND_VERSION)
     list(APPEND find_package_args ${utf8proc_FIND_VERSION})

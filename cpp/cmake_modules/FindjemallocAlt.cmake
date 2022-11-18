@@ -14,35 +14,53 @@
 #
 # Usage of this module as follows:
 #
-#  find_package(jemalloc)
+#  find_package(jemallocAlt)
 #
 # This module defines
 #  jemalloc::jemalloc, target to use jemalloc
 
-if(jemalloc_FOUND)
+if(jemallocAlt_FOUND)
   return()
 endif()
 
+if(ARROW_PACKAGE_KIND STREQUAL "conan")
+  set(find_package_args "")
+  if(jemallocAlt_FIND_VERSION)
+    list(APPEND find_package_args ${jemallocAlt_FIND_VERSION})
+  endif()
+  if(jemallocAlt_FIND_QUIETLY)
+    list(APPEND find_package_args QUIET)
+  endif()
+  if(jemallocAlt_FIND_REQUIRED)
+    list(APPEND find_package_args REQUIRED)
+  endif()
+  find_package(jemallocAlt NAMES jemalloc ${find_package_args})
+  set(jemalloc_FOUND ${jemallocAlt_FOUND})
+  if(jemallocAlt_FOUND)
+    return()
+  endif()
+endif()
+
 if(ARROW_JEMALLOC_USE_SHARED)
-  set(jemalloc_LIB_NAMES)
+  set(jemallocAlt_LIB_NAMES)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
-    list(APPEND jemalloc_LIB_NAMES
+    list(APPEND jemallocAlt_LIB_NAMES
          "${CMAKE_IMPORT_LIBRARY_PREFIX}jemalloc${CMAKE_IMPORT_LIBRARY_SUFFIX}")
   endif()
-  list(APPEND jemalloc_LIB_NAMES
+  list(APPEND jemallocAlt_LIB_NAMES
        "${CMAKE_SHARED_LIBRARY_PREFIX}jemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
 else()
-  set(jemalloc_LIB_NAMES
+  set(jemallocAlt_LIB_NAMES
       "${CMAKE_STATIC_LIBRARY_PREFIX}jemalloc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 endif()
 
 if(jemalloc_ROOT)
-  find_library(jemalloc_LIB
-               NAMES ${jemallc_LIB_NAMES}
-               PATHS ${jemallc_ROOT}
+  find_library(jemallocAlt_LIB
+               NAMES ${jemallocAlt_LIB_NAMES}
+               PATHS ${jemalloc_ROOT}
                PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
-  find_path(jemalloc_INCLUDE_DIR
+  find_path(jemallocAlt_INCLUDE_DIR
             NAMES jemalloc/jemalloc.h
             PATHS ${jemalloc_ROOT}
             NO_DEFAULT_PATH
@@ -50,29 +68,29 @@ if(jemalloc_ROOT)
 
 else()
   find_package(PkgConfig QUIET)
-  pkg_check_modules(jemalloc_PC jemalloc)
-  if(jemalloc_PC_FOUND)
-    set(jemalloc_INCLUDE_DIR "${jemalloc_PC_INCLUDEDIR}")
-    list(APPEND jemalloc_PC_LIBRARY_DIRS "${jemalloc_PC_LIBDIR}")
-    find_library(jemalloc_LIB
-                 NAMES ${jemalloc_LIB_NAMES}
-                 PATHS ${jemalloc_PC_LIBRARY_DIRS}
+  pkg_check_modules(jemallocAlt_PC jemalloc)
+  if(jemallocAlt_PC_FOUND)
+    set(jemallocAlt_INCLUDE_DIR "${jemallocAlt_PC_INCLUDEDIR}")
+    list(APPEND jemallocAlt_PC_LIBRARY_DIRS "${jemallocAlt_PC_LIBDIR}")
+    find_library(jemallocAlt_LIB
+                 NAMES ${jemallocAlt_LIB_NAMES}
+                 PATHS ${jemallocAlt_PC_LIBRARY_DIRS}
                  NO_DEFAULT_PATH
                  PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
   else()
-    find_library(jemalloc_LIB
-                 NAMES ${jemalloc_LIB_NAMES}
+    find_library(jemallocAlt_LIB
+                 NAMES ${jemallocAlt_LIB_NAMES}
                  PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
-    find_path(jemalloc_INCLUDE_DIR
+    find_path(jemallocAlt_INCLUDE_DIR
               NAMES jemalloc/jemalloc.h
               PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
   endif()
 endif()
 
-find_package_handle_standard_args(jemalloc REQUIRED_VARS jemalloc_LIB
-                                                         jemalloc_INCLUDE_DIR)
-
-if(jemalloc_FOUND)
+find_package_handle_standard_args(jemallocAlt REQUIRED_VARS jemallocAlt_LIB
+                                                            jemallocAlt_INCLUDE_DIR)
+set(jemalloc_FOUND ${jemallocAlt_FOUND})
+if(jemallocAlt_FOUND)
   if(NOT TARGET jemalloc::jemalloc)
     if(ARROW_JEMALLOC_USE_SHARED)
       add_library(jemalloc::jemalloc SHARED IMPORTED)
@@ -80,8 +98,8 @@ if(jemalloc_FOUND)
       add_library(jemalloc::jemalloc STATIC IMPORTED)
     endif()
     set_target_properties(jemalloc::jemalloc
-                          PROPERTIES IMPORTED_LOCATION "${jemalloc_LIB}"
+                          PROPERTIES IMPORTED_LOCATION "${jemallocAlt_LIB}"
                                      INTERFACE_INCLUDE_DIRECTORIES
-                                     "${jemalloc_INCLUDE_DIR}")
+                                     "${jemallocAlt_INCLUDE_DIR}")
   endif()
 endif()
