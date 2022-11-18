@@ -83,7 +83,7 @@ struct StringHeader {
   StringHeader(const char* data, size_t len) : size_(static_cast<uint32_t>(len)) {
     if (size_ == 0) return;
 
-    // TODO: better option than assert?
+    // TODO(bkietz) better option than assert?
     assert(data);
     if (IsInline()) {
       // small string: inlined. Bytes beyond size_ are already 0
@@ -118,7 +118,8 @@ struct StringHeader {
 
   static constexpr bool IsInline(uint32_t size) { return size <= kInlineSize; }
 
-  const char* data() const { return IsInline() ? prefix_.data() : value_.data; }
+  const char* data() const& { return IsInline() ? prefix_.data() : value_.data; }
+  const char* data() && = delete;
 
   size_t size() const { return size_; }
 
@@ -179,11 +180,14 @@ struct StringHeader {
 
   std::string GetString() const { return std::string(data(), size()); }
 
-  explicit operator std::string_view() const { return std::string_view(data(), size()); }
+  explicit operator std::string_view() const& { return std::string_view(data(), size()); }
+  operator std::string_view() && = delete;
 
-  const char* begin() const { return data(); }
+  const char* begin() const& { return data(); }
+  const char* end() const& { return data() + size(); }
 
-  const char* end() const { return data() + size(); }
+  const char* begin() && = delete;
+  const char* end() && = delete;
 
   bool empty() const { return size() == 0; }
 
