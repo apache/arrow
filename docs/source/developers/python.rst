@@ -563,7 +563,7 @@ Then run the unit tests with:
    the Python extension. This is recommended for development as it allows the
    C++ libraries to be re-built separately.
 
-   If you are using conda package manager then conda will ensure Arrow C++
+   If you are using the conda package manager then conda will ensure Arrow C++
    libraries are found. In case you are *not* using conda then you have to
 
    * add the path of installed DLL libraries to ``PATH`` every time before
