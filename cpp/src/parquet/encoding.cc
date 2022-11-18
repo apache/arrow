@@ -2117,7 +2117,8 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         mini_blocks_per_block_(mini_blocks_per_block),
         values_per_mini_block_(values_per_block / mini_blocks_per_block),
         deltas_(values_per_block, ::arrow::stl::allocator<T>(pool)),
-        bits_buffer_(AllocateBuffer(pool, kMaxPageHeaderWriterSize + values_per_block * sizeof(T))),
+        bits_buffer_(AllocateBuffer(
+            pool, kMaxPageHeaderWriterSize + values_per_block * sizeof(T))),
         sink_(pool),
         bit_writer_(bits_buffer_->mutable_data(),
                     static_cast<int>(bits_buffer_->size())) {
