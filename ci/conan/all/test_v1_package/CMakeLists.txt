@@ -20,15 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cmake_minimum_required(VERSION 3.8)
-project(test_package LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.1)
 
-find_package(Arrow REQUIRED CONFIG)
+project(test_package)
 
-add_executable(${PROJECT_NAME} test_package.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE arrow::arrow)
-if (${Arrow_VERSION} VERSION_LESS "10.0.0")
-    target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_11)
-else()
-    target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
-endif()
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup(TARGETS)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../test_package/
+                 ${CMAKE_CURRENT_BINARY_DIR}/test_package/)
