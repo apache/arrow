@@ -32,6 +32,7 @@ std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
   res->include_header = cpp11::as_cpp<bool>(options["include_header"]);
   res->batch_size = cpp11::as_cpp<int>(options["batch_size"]);
   res->io_context = MainRThread::GetInstance().CancellableIOContext();
+  res->null_string = cpp11::as_cpp<std::string>(options["null_string"]);
   return res;
 }
 
