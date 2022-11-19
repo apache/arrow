@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 
+#include "metadata.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
@@ -123,6 +124,27 @@ class TestPageSerde : public ::testing::Test {
     ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
   }
 
+  void WriteDictionaryPageHeader(int32_t uncompressed_size = 0,
+                                 int32_t compressed_size = 0) {
+    page_header_.__set_dictionary_page_header(dictionary_page_header_);
+    page_header_.uncompressed_page_size = uncompressed_size;
+    page_header_.compressed_page_size = compressed_size;
+    page_header_.type = format::PageType::DICTIONARY_PAGE;
+
+    ThriftSerializer serializer;
+    ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
+  }
+
+  void WriteIndexPageHeader(int32_t uncompressed_size = 0, int32_t compressed_size = 0) {
+    page_header_.__set_index_page_header(index_page_header_);
+    page_header_.uncompressed_page_size = uncompressed_size;
+    page_header_.compressed_page_size = compressed_size;
+    page_header_.type = format::PageType::INDEX_PAGE;
+
+    ThriftSerializer serializer;
+    ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
+  }
+
   void ResetStream() { out_stream_ = CreateOutputStream(); }
 
   void EndStream() { PARQUET_ASSIGN_OR_THROW(out_buffer_, out_stream_->Finish()); }
@@ -135,6 +157,8 @@ class TestPageSerde : public ::testing::Test {
   format::PageHeader page_header_;
   format::DataPageHeader data_page_header_;
   format::DataPageHeaderV2 data_page_header_v2_;
+  format::IndexPageHeader index_page_header_;
+  format::DictionaryPageHeader dictionary_page_header_;
 };
 
 void CheckDataPageHeader(const format::DataPageHeader expected, const Page* page) {
@@ -239,30 +263,6 @@ using DataPageHeaderTypes =
     ::testing::Types<format::DataPageHeader, format::DataPageHeaderV2>;
 TYPED_TEST_SUITE(SkipPageTest, DataPageHeaderTypes);
 
-// Test the accessors for DataPageStats for the different data page types.
-TYPED_TEST(SkipPageTest, TestAccessors) {
-  this->WriteStream();
-  std::unique_ptr<DataPageStats> data_page_stats;
-  std::variant<format::DataPageHeader, format::DataPageHeaderV2> data_page_header;
-  if (std::is_same_v<TypeParam, format::DataPageHeader>) {
-    data_page_header = this->data_page_header_;
-    data_page_stats = DataPageStats::Make(&data_page_header);
-    ASSERT_EQ(data_page_stats->num_values(), 109);
-    ASSERT_THROW(data_page_stats->num_rows(), ParquetException);
-    ASSERT_EQ(data_page_stats->null_count(), 0);
-    ASSERT_EQ(data_page_stats->min_value(), "A");
-    ASSERT_EQ(data_page_stats->max_value(), "Z");
-  } else {
-    data_page_header = this->data_page_header_v2_;
-    data_page_stats = DataPageStats::Make(&data_page_header);
-    ASSERT_EQ(data_page_stats->num_values(), 109);
-    ASSERT_EQ(data_page_stats->num_rows(), 109);
-    ASSERT_EQ(data_page_stats->null_count(), 0);
-    ASSERT_EQ(data_page_stats->min_value(), "A");
-    ASSERT_EQ(data_page_stats->max_value(), "Z");
-  }
-}
-
 // Creates a number of pages and skips some of them with the skip page callback.
 TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
   this->WriteStream();
@@ -273,7 +273,7 @@ TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
         PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
 
     // This callback will always return false.
-    auto read_all_pages = [](const DataPageStats* stats) -> bool { return false; };
+    auto read_all_pages = [](const DataPageStats& stats) -> bool { return false; };
 
     this->page_reader_->set_skip_page_callback(read_all_pages);
     for (int i = 0; i < this->kNumPages; ++i) {
@@ -289,7 +289,7 @@ TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
     this->page_reader_ =
         PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
 
-    auto skip_all_pages = [](const DataPageStats* stats) -> bool { return true; };
+    auto skip_all_pages = [](const DataPageStats& stats) -> bool { return true; };
 
     this->page_reader_->set_skip_page_callback(skip_all_pages);
     std::shared_ptr<Page> current_page = this->page_reader_->NextPage();
@@ -302,12 +302,12 @@ TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
         PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
 
     // Skip pages with even number of values.
-    auto skip_all_pages = [](const DataPageStats* stats) -> bool {
-      if (stats->num_values() % 2 == 0) return true;
+    auto skip_even_pages = [](const DataPageStats& stats) -> bool {
+      if (stats.num_values() % 2 == 0) return true;
       return false;
     };
 
-    this->page_reader_->set_skip_page_callback(skip_all_pages);
+    this->page_reader_->set_skip_page_callback(skip_even_pages);
 
     for (int i = 0; i < this->kNumPages; ++i) {
       // Only pages with odd number of values are read.
@@ -324,41 +324,69 @@ TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
 }
 
 // Test that we do not skip dictionary pages.
-TEST(SkipCallBack, DoesNotSkipDictionaryPages) {
-  std::shared_ptr<::arrow::io::BufferOutputStream> out_stream = CreateOutputStream();
-  ThriftSerializer serializer;
-  // Write a data page.
-  format::DataPageHeader data_page_header;
-  data_page_header.__set_num_values(100);
-  format::PageHeader data_page;
-  data_page.__set_data_page_header(data_page_header);
-  data_page.type = format::PageType::DATA_PAGE;
-  ASSERT_NO_THROW(serializer.Serialize(&data_page, out_stream.get()));
-  // Write a dictionary page.
-  format::DictionaryPageHeader dictionary_page_header;
-  dictionary_page_header.__set_num_values(100);
-  format::PageHeader dict_page;
-  dict_page.__set_dictionary_page_header(dictionary_page_header);
-  dict_page.type = format::PageType::DICTIONARY_PAGE;
-  ASSERT_NO_THROW(serializer.Serialize(&dict_page, out_stream.get()));
-  // Write another data page.
-  ASSERT_NO_THROW(serializer.Serialize(&data_page, out_stream.get()));
-  std::shared_ptr<Buffer> out_buffer;
-  PARQUET_ASSIGN_OR_THROW(out_buffer, out_stream->Finish());
+TEST_F(TestPageSerde, DoesNotSkipDictionaryPages) {
+  int data_size = 1024;
+  std::vector<uint8_t> faux_data(data_size);
+
+  ASSERT_NO_FATAL_FAILURE(
+      WriteDataPageHeader(/*max_serialized_len=*/1024, data_size, data_size));
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+
+  ASSERT_NO_FATAL_FAILURE(WriteDictionaryPageHeader(data_size, data_size));
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+
+  ASSERT_NO_FATAL_FAILURE(
+      WriteDataPageHeader(/*max_serialized_len=*/1024, data_size, data_size));
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+  EndStream();
 
   // Try to read it back while asking for all data pages to be skipped.
-  auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer);
-  std::unique_ptr<PageReader> page_reader =
-      PageReader::Open(stream, /*num_rows=*/300, Compression::UNCOMPRESSED);
-  auto skip_all_pages = [](const DataPageStats* stats) -> bool { return true; };
+  auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
+  page_reader_ = PageReader::Open(stream, /*num_rows=*/100, Compression::UNCOMPRESSED);
 
-  page_reader->set_skip_page_callback(skip_all_pages);
+  auto skip_all_pages = [](const DataPageStats& stats) -> bool { return true; };
+
+  page_reader_->set_skip_page_callback(skip_all_pages);
   // The first data page is skipped, so we are now at the dictionary page.
-  std::shared_ptr<Page> current_page = page_reader->NextPage();
+  std::shared_ptr<Page> current_page = page_reader_->NextPage();
   ASSERT_NE(current_page, nullptr);
   ASSERT_EQ(current_page->type(), PageType::DICTIONARY_PAGE);
   // The data page after dictionary page is skipped.
-  ASSERT_EQ(page_reader->NextPage(), nullptr);
+  ASSERT_EQ(page_reader_->NextPage(), nullptr);
+}
+
+// Tests that we successfully skip non-data pages.
+TEST_F(TestPageSerde, SkipsNonDataPages) {
+  int data_size = 1024;
+  std::vector<uint8_t> faux_data(data_size);
+  ASSERT_NO_FATAL_FAILURE(WriteIndexPageHeader(data_size, data_size));
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+
+  ASSERT_NO_FATAL_FAILURE(
+      WriteDataPageHeader(/*max_serialized_len=*/1024, data_size, data_size));
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+
+  ASSERT_NO_FATAL_FAILURE(WriteIndexPageHeader(data_size, data_size));
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+  ASSERT_NO_FATAL_FAILURE(WriteIndexPageHeader(data_size, data_size));
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+
+  ASSERT_NO_FATAL_FAILURE(
+      WriteDataPageHeader(/*max_serialized_len=*/1024, data_size, data_size));
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+  ASSERT_NO_FATAL_FAILURE(WriteIndexPageHeader(data_size, data_size));
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
+  EndStream();
+
+  auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
+  page_reader_ = PageReader::Open(stream, /*num_rows=*/100, Compression::UNCOMPRESSED);
+
+  // Only the two data pages are returned.
+  std::shared_ptr<Page> current_page = page_reader_->NextPage();
+  ASSERT_EQ(current_page->type(), PageType::DATA_PAGE);
+  current_page = page_reader_->NextPage();
+  ASSERT_EQ(current_page->type(), PageType::DATA_PAGE);
+  ASSERT_EQ(page_reader_->NextPage(), nullptr);
 }
 
 TEST_F(TestPageSerde, DataPageV2) {

@@ -32,6 +32,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "column_reader.h"
+#include "metadata.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
@@ -429,80 +430,6 @@ std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() con
 bool ColumnChunkMetaData::Equals(const ColumnChunkMetaData& other) const {
   return impl_->Equals(*other.impl_);
 }
-
-class DataPageStats::DataPageStatsImpl {
- public:
-  explicit DataPageStatsImpl(const DataPageHeader* data_page_header)
-      : data_page_header_(data_page_header),
-        is_v2_(std::holds_alternative<format::DataPageHeaderV2>(*data_page_header_)) {}
-
-  inline const format::DataPageHeader& data_page_header() const {
-    return std::get<format::DataPageHeader>(*data_page_header_);
-  }
-
-  inline const format::DataPageHeaderV2& data_page_header_v2() const {
-    return std::get<format::DataPageHeaderV2>(*data_page_header_);
-  }
-
-  bool Equals(const DataPageStatsImpl& other) const {
-    return *data_page_header_ == *other.data_page_header_;
-  }
-
-  inline int32_t num_values() const {
-    if (is_v2_) return data_page_header_v2().num_values;
-    return data_page_header().num_values;
-  }
-
-  inline int32_t num_rows() const {
-    if (is_v2_) {
-      return data_page_header_v2().num_rows;
-    }
-    throw ParquetException("DataPageHeader for V1 Data pages does not have num_rows");
-  }
-
-  inline int32_t null_count() const {
-    if (is_v2_) return data_page_header_v2().statistics.null_count;
-    return data_page_header().statistics.null_count;
-  }
-
-  std::string min_value() const {
-    if (is_v2_) return data_page_header_v2().statistics.min_value;
-    return data_page_header().statistics.min_value;
-  }
-
-  std::string max_value() const {
-    if (is_v2_) return data_page_header_v2().statistics.max_value;
-    return data_page_header().statistics.max_value;
-  }
-
- private:
-  const DataPageHeader* data_page_header_;
-  const bool is_v2_;
-};
-
-std::unique_ptr<DataPageStats> DataPageStats::Make(const void* data_page_header) {
-  return std::unique_ptr<parquet::DataPageStats>(new DataPageStats(data_page_header));
-}
-
-DataPageStats::DataPageStats(const void* data_page_header)
-    : impl_{new DataPageStatsImpl(
-          reinterpret_cast<const DataPageHeader*>(data_page_header))} {}
-
-DataPageStats::~DataPageStats() = default;
-
-bool DataPageStats::Equals(const DataPageStats& other) const {
-  return impl_->Equals(*other.impl_);
-}
-
-int32_t DataPageStats::num_values() const { return impl_->num_values(); }
-
-int32_t DataPageStats::num_rows() const { return impl_->num_rows(); }
-
-int32_t DataPageStats::null_count() const { return impl_->null_count(); }
-
-std::string DataPageStats::min_value() const { return impl_->min_value(); }
-
-std::string DataPageStats::max_value() const { return impl_->max_value(); }
 
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {

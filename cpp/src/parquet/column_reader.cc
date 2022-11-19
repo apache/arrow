@@ -253,12 +253,6 @@ class SerializedPageReader : public PageReader {
 
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
-  bool set_skip_page_callback(
-      std::function<bool(const DataPageStats*)> skip_page_callback) override {
-    skip_page_callback_ = skip_page_callback;
-    return true;
-  }
-
  private:
   void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor, int8_t module_type,
                         const std::string& page_aad);
@@ -310,8 +304,6 @@ class SerializedPageReader : public PageReader {
   std::string data_page_header_aad_;
   // Encryption
   std::shared_ptr<ResizableBuffer> decryption_buffer_;
-  // Callback that decides if we should skip a page or not.
-  std::function<bool(const DataPageStats*)> skip_page_callback_;
 };
 
 void SerializedPageReader::InitDecryption() {
@@ -385,7 +377,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         }
       }
     }
-
     // Advance the stream offset
     PARQUET_THROW_NOT_OK(stream_->Advance(header_size));
 
@@ -395,31 +386,55 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       throw ParquetException("Invalid page header");
     }
 
+    // Do some checks before trying to decrypt and/or decompress the page.
+    // Also skip the page if skip_page_callback_ is set and returns true.
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
-
-    const bool is_data_page =
-        page_type == PageType::DATA_PAGE || page_type == PageType::DATA_PAGE_V2;
-
-    // Update seen_num_values_ regardless of if we skipped the page or not.
-    std::variant<format::DataPageHeader, format::DataPageHeaderV2> data_page_header;
+    EncodedStatistics page_statistics;
     if (page_type == PageType::DATA_PAGE) {
-      data_page_header = current_page_header_.data_page_header;
-      seen_num_values_ += current_page_header_.data_page_header.num_values;
-    } else if (page_type == PageType::DATA_PAGE_V2) {
-      data_page_header = current_page_header_.data_page_header_v2;
-      seen_num_values_ += current_page_header_.data_page_header_v2.num_values;
-    }
-
-    // Once we have the header, we will call the skip_page_call_back_ to
-    // determine if we should be skipping this page. If yes, we will advance the
-    // stream to the next page.
-    if (skip_page_callback_ && is_data_page) {
-      std::unique_ptr<DataPageStats> data_page_stats =
-          DataPageStats::Make(&data_page_header);
-      if (skip_page_callback_(data_page_stats.get())) {
-        PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
-        continue;
+      const format::DataPageHeader& header = current_page_header_.data_page_header;
+      if (header.num_values < 0) {
+        throw ParquetException("Invalid page header (negative number of values)");
       }
+      page_statistics = ExtractStatsFromHeader(header);
+      seen_num_values_ += header.num_values;
+      if (skip_page_callback_) {
+        DataPageStats data_page_stats(page_statistics, header.num_values,
+                                      /*num_rows=*/std::nullopt);
+        if (skip_page_callback_(data_page_stats)) {
+          PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
+          continue;
+        }
+      }
+    } else if (page_type == PageType::DATA_PAGE_V2) {
+      const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
+      if (header.num_values < 0) {
+        throw ParquetException("Invalid page header (negative number of values)");
+      }
+      if (header.definition_levels_byte_length < 0 ||
+          header.repetition_levels_byte_length < 0) {
+        throw ParquetException("Invalid page header (negative levels byte length)");
+      }
+      page_statistics = ExtractStatsFromHeader(header);
+      seen_num_values_ += header.num_values;
+      if (skip_page_callback_) {
+        DataPageStats data_page_stats(page_statistics, header.num_values,
+                                      header.num_rows);
+        if (skip_page_callback_(data_page_stats)) {
+          PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
+          continue;
+        }
+      }
+    } else if (page_type == PageType::DICTIONARY_PAGE) {
+      const format::DictionaryPageHeader& dict_header =
+          current_page_header_.dictionary_page_header;
+      if (dict_header.num_values < 0) {
+        throw ParquetException("Invalid page header (negative number of values)");
+      }
+    } else {
+      // We don't know what this page type is. We're allowed to skip non-data
+      // pages.
+      PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
+      continue;
     }
 
     if (crypto_ctx_.data_decryptor != nullptr) {
@@ -447,19 +462,13 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       page_buffer = decryption_buffer_;
     }
 
-    // There is only one dictionary page per column, and that is the very first
-    // page before all the data pages.
+    // Uncompress and construct the pages to return.
     if (page_type == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
       const format::DictionaryPageHeader& dict_header =
           current_page_header_.dictionary_page_header;
-
       bool is_sorted = dict_header.__isset.is_sorted ? dict_header.is_sorted : false;
-      if (dict_header.num_values < 0) {
-        throw ParquetException("Invalid page header (negative number of values)");
-      }
 
-      // Uncompress if needed
       page_buffer =
           DecompressIfNeeded(std::move(page_buffer), compressed_len, uncompressed_len);
 
@@ -469,13 +478,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     } else if (page_type == PageType::DATA_PAGE) {
       ++page_ordinal_;
       const format::DataPageHeader& header = current_page_header_.data_page_header;
-
-      if (header.num_values < 0) {
-        throw ParquetException("Invalid page header (negative number of values)");
-      }
-      EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
-
-      // Uncompress if needed
       page_buffer =
           DecompressIfNeeded(std::move(page_buffer), compressed_len, uncompressed_len);
 
@@ -488,18 +490,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
 
-      if (header.num_values < 0) {
-        throw ParquetException("Invalid page header (negative number of values)");
-      }
-      if (header.definition_levels_byte_length < 0 ||
-          header.repetition_levels_byte_length < 0) {
-        throw ParquetException("Invalid page header (negative levels byte length)");
-      }
       // Arrow prior to 3.0.0 set is_compressed to false but still compressed.
       bool is_compressed =
           (header.__isset.is_compressed ? header.is_compressed : false) ||
           always_compressed_;
-      EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
 
       // Uncompress if needed
       int levels_byte_len;
@@ -519,11 +513,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           LoadEnumSafe(&header.encoding), header.definition_levels_byte_length,
           header.repetition_levels_byte_length, uncompressed_len, is_compressed,
           page_statistics);
-    } else {
-      // We don't know what this page type is. We're allowed to skip non-data
-      // pages.
-      continue;
-    }
+    }  // We have already skipped non-data pages above.
   }
   return std::shared_ptr<Page>(nullptr);
 }

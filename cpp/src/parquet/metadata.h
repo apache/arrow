@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,6 +28,7 @@
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
 #include "parquet/types.h"
 
 namespace parquet {
@@ -182,26 +184,30 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
 };
 
-/// \brief DataPageStats is a proxy around stats in format::PageHeader.
+// \brief DataPageStats stores statistics about a data page including number of
+// values and rows.
 class PARQUET_EXPORT DataPageStats {
  public:
-  static std::unique_ptr<DataPageStats> Make(const void* page_header);
+  explicit DataPageStats(EncodedStatistics encoded_statistics, int32_t num_values,
+                             std::optional<int32_t> num_rows)
+      : encoded_statistics_(std::move(encoded_statistics)),
+        num_values_(num_values),
+        num_rows_(num_rows) {}
 
-  ~DataPageStats();
+  const EncodedStatistics& statistics() { return encoded_statistics_;}
 
-  bool Equals(const DataPageStats& other) const;
+  int32_t num_values() const {
+    return num_values_;
+  }
 
-  int32_t num_values() const;
-  int32_t num_rows() const;
-  int32_t null_count() const;
-  std::string min_value() const;
-  std::string max_value() const;
+  std::optional<int32_t> num_rows() const {
+    return num_rows_;
+  }
 
  private:
-  explicit DataPageStats(const void* page_header);
-  // PIMPL Idiom
-  class DataPageStatsImpl;
-  std::unique_ptr<DataPageStatsImpl> impl_;
+  const EncodedStatistics encoded_statistics_;
+  const int32_t num_values_;
+  const std::optional<int32_t> num_rows_;
 };
 
 /// \brief RowGroupMetaData is a proxy around format::RowGroupMetaData.

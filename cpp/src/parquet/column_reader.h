@@ -116,17 +116,15 @@ class PARQUET_EXPORT PageReader {
                                           bool always_compressed = false,
                                           const CryptoContext* ctx = NULLPTR);
 
-  // @returns: true if the skip callback was successfully set. Returns false
-  // if the callback was not set or not supported.
-  // If supported, NextPage() will use this callback to determine if it should
-  // return or skip and move to the next page. If the callback function returns
+  // If skip_page_callback_ is set, NextPage() must use this callback to determine if it
+  // should return or skip and move to the next page. If the callback function returns
   // true the page must be skipped. The callback will be called only if the page
   // type is DATA_PAGE or DATA_PAGE_V2. Dictionary pages must be read
   // regardless.
   // \note API EXPERIMENTAL
-  virtual bool set_skip_page_callback(
-      std::function<bool(const DataPageStats*)> skip_page_callback) {
-    return false;
+  void set_skip_page_callback(
+      std::function<bool(const DataPageStats&)> skip_page_callback) {
+    skip_page_callback_ = skip_page_callback;
   }
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
@@ -134,6 +132,10 @@ class PARQUET_EXPORT PageReader {
   virtual std::shared_ptr<Page> NextPage() = 0;
 
   virtual void set_max_page_header_size(uint32_t size) = 0;
+
+ protected:
+  // Callback that decides if we should skip a page or not.
+  std::function<bool(const DataPageStats&)> skip_page_callback_;
 };
 
 class PARQUET_EXPORT ColumnReader {
