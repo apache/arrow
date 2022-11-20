@@ -2610,7 +2610,7 @@ def udf_result_from_record_batch(record_batch):
 
     Parameters
     ----------
-    record_batch: object
+    record_batch : object
         An object holding a wrapped CRecordBatch
     """
     cdef:
