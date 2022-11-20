@@ -101,28 +101,20 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
   *ss << ']';
 }
 
-ExecBatch SelectBatchValues(const ExecBatch& batch, const std::vector<int>& ids) {
-  std::vector<Datum> values(ids.size());
-  for (size_t i = 0; i < ids.size(); i++) {
-    values[i] = batch.values[ids[i]];
-  }
-  return ExecBatch(std::move(values), batch.length);
-}
-
 template <typename BatchHandler>
 Status HandleSegments(std::unique_ptr<GroupingSegmenter>& segmenter,
                       const ExecBatch& batch, const std::vector<int>& ids,
                       const BatchHandler& handle_batch) {
   int64_t offset = 0;
   ARROW_RETURN_NOT_OK(segmenter->Reset());
-  auto segment_batch = SelectBatchValues(batch, ids);
-  do {
+  ARROW_ASSIGN_OR_RAISE(auto segment_batch, batch.SelectValues(ids));
+  while (true) {
     ARROW_ASSIGN_OR_RAISE(auto segment, segmenter->GetNextSegment(segment_batch, offset));
     if (segment.offset >= segment_batch.length) break;
     auto batch_slice = batch.Slice(segment.offset, segment.length);
     ARROW_RETURN_NOT_OK(handle_batch(ExecSpan(batch_slice), segment.is_open));
     offset = segment.offset + segment.length;
-  } while (true);
+  }
   return Status::OK();
 }
 
@@ -161,6 +153,10 @@ class ScalarAggregateNode : public ExecNode {
     std::vector<TypeHolder> segment_key_types(segment_keys.size());
     for (size_t i = 0; i < segment_keys.size(); i++) {
       ARROW_ASSIGN_OR_RAISE(auto match, segment_keys[i].FindOne(input_schema));
+      if (match.indices().size() > 1) {
+        // ARROW-18369: Support nested references as segment ids
+        return Status::Invalid("Nested references cannot be used as segment ids");
+      }
       segment_field_ids[i] = match[0];
       segment_key_types[i] = input_schema.field(match[0])->type().get();
     }

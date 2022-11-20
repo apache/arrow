@@ -2126,7 +2126,7 @@ def _group_by(args, keys, aggregations):
     cdef:
         vector[CDatum] c_args
         vector[CDatum] c_keys
-        # TODO: expose segment_keys
+        # ARROW-18368: expose segment_keys
         vector[CDatum] c_segment_keys
         vector[CAggregate] c_aggregations
         CDatum result

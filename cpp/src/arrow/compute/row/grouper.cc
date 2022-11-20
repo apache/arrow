@@ -76,13 +76,11 @@ Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
   return Status::OK();
 }
 
-Status CheckForGetNextSegment(const ExecSpan& batch, int64_t offset,
-                              const std::vector<TypeHolder>& key_types) {
-  return CheckForGetNextSegment(batch.values, batch.length, offset, key_types);
-}
-
-Status CheckForGetNextSegment(const ExecBatch& batch, int64_t offset,
-                              const std::vector<TypeHolder>& key_types) {
+template <typename Batch>
+enable_if_t<std::is_same<Batch, ExecSpan>::value || std::is_same<Batch, ExecBatch>::value,
+            Status>
+CheckForGetNextSegment(const Batch& batch, int64_t offset,
+                       const std::vector<TypeHolder>& key_types) {
   return CheckForGetNextSegment(batch.values, batch.length, offset, key_types);
 }
 
@@ -140,7 +138,7 @@ Result<GroupingSegment> GetNextSegmentChunked(
 }
 
 struct NoKeysGroupingSegmenter : public StatelessGroupingSegmenter {
-  static Result<std::unique_ptr<GroupingSegmenter>> Make() {
+  static std::unique_ptr<GroupingSegmenter> Make() {
     return std::make_unique<NoKeysGroupingSegmenter>();
   }
 
@@ -161,13 +159,12 @@ struct NoKeysGroupingSegmenter : public StatelessGroupingSegmenter {
 };
 
 struct SimpleKeyGroupingSegmenter : public StatelessGroupingSegmenter {
-  static Result<std::unique_ptr<GroupingSegmenter>> Make(
-      std::vector<TypeHolder> key_types) {
-    return std::make_unique<SimpleKeyGroupingSegmenter>(key_types);
+  static Result<std::unique_ptr<GroupingSegmenter>> Make(TypeHolder key_type) {
+    return std::make_unique<SimpleKeyGroupingSegmenter>(std::move(key_type));
   }
 
-  explicit SimpleKeyGroupingSegmenter(std::vector<TypeHolder> key_types)
-      : key_types_(std::move(key_types)) {}
+  explicit SimpleKeyGroupingSegmenter(TypeHolder key_type)
+      : key_type_(std::move(key_type)) {}
 
   Status CheckType(const DataType& type) {
     if (!is_fixed_width(type)) {
@@ -196,7 +193,7 @@ struct SimpleKeyGroupingSegmenter : public StatelessGroupingSegmenter {
   }
 
   Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
-    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {key_type_}));
     const auto& value = batch.values[0];
     if (value.is_scalar()) {
       return GetNextSegment(*value.scalar, offset, batch.length);
@@ -211,7 +208,7 @@ struct SimpleKeyGroupingSegmenter : public StatelessGroupingSegmenter {
 
   Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
                                          int64_t offset) override {
-    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {key_type_}));
     const auto& value = batch.values[0];
     if (value.is_scalar()) {
       return GetNextSegment(*value.scalar(), offset, batch.length);
@@ -234,7 +231,7 @@ struct SimpleKeyGroupingSegmenter : public StatelessGroupingSegmenter {
   }
 
  private:
-  const std::vector<TypeHolder> key_types_;
+  TypeHolder key_type_;
 };
 
 struct AnyKeysGroupingSegmenter : public StatelessGroupingSegmenter {
@@ -250,7 +247,8 @@ struct AnyKeysGroupingSegmenter : public StatelessGroupingSegmenter {
   template <typename Batch>
   Result<GroupingSegment> GetNextSegmentImpl(const Batch& batch, int64_t offset) {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
-    // TODO: make Grouper support Reset(), so it can be cached instead of recreated here
+    // ARROW-18311: make Grouper support Reset()
+    // so it can be cached instead of recreated here
     ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_types_, ctx_));
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper->Consume(batch, offset));
     if (datum.is_array()) {
@@ -305,7 +303,7 @@ Result<std::unique_ptr<GroupingSegmenter>> GroupingSegmenter::Make(
   } else if (key_types.size() == 1) {
     const DataType* type = key_types[0].type;
     if (type != NULLPTR && is_fixed_width(*type)) {
-      return SimpleKeyGroupingSegmenter::Make(std::move(key_types));
+      return SimpleKeyGroupingSegmenter::Make(std::move(key_types[0]));
     }
   }
   return AnyKeysGroupingSegmenter::Make(std::move(key_types), ctx);

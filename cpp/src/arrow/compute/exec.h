@@ -236,6 +236,17 @@ struct ARROW_EXPORT ExecBatch {
 
   ExecBatch Slice(int64_t offset, int64_t length) const;
 
+  Result<ExecBatch> SelectValues(const std::vector<int>& ids) const {
+    std::vector<Datum> selected_values(ids.size());
+    for (size_t i = 0; i < ids.size(); i++) {
+      if (ids[i] < 0 || static_cast<size_t>(ids[i]) >= values.size()) {
+        return Status::Invalid("ExecBatch invalid value selection: ", ids[i]);
+      }
+      selected_values[i] = values[ids[i]];
+    }
+    return ExecBatch(std::move(selected_values), length);
+  }
+
   /// \brief A convenience for returning the types from the batch.
   std::vector<TypeHolder> GetTypes() const {
     std::vector<TypeHolder> result;
