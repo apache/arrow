@@ -2798,8 +2798,8 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
                                    CFunctionRegistry* registry)
 
     CStatus RegisterTabularFunction(PyObject* function,
-                                   function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
-                                   CFunctionRegistry* registry)
+                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
+                                    CFunctionRegistry* registry)
 
     CResult[CRecordBatchIterator] GetRecordBatchesFromTabularFunction(
-            const c_string& func_name, CFunctionRegistry* registry)
+        const c_string& func_name, CFunctionRegistry* registry)

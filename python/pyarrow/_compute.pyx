@@ -2788,6 +2788,7 @@ def register_scalar_like_function(register_func, func, function_name, function_d
                                  <function[CallbackUdf]> &_scalar_udf_callback,
                                  c_options, c_func_registry))
 
+
 def get_record_batches_from_tabular_function(function_name, func_registry=None):
     cdef:
         c_string c_func_name
