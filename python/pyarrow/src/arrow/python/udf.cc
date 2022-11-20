@@ -251,8 +251,9 @@ Result<RecordBatchIterator> GetRecordBatchesFromTabularFunction(
   std::vector<TypeHolder> in_types;
   ARROW_ASSIGN_OR_RAISE(auto func_exec,
                         GetFunctionExecutor(func_name, in_types, NULLPTR, registry));
-  auto next_func = [schema, func_name,
-                    func_exec]() -> Result<std::shared_ptr<RecordBatch>> {
+  auto next_func =
+      [schema = std::move(schema),
+       func_exec = std::move(func_exec)]() -> Result<std::shared_ptr<RecordBatch>> {
     std::vector<Datum> args;
     // passed_length of -1 or 0 with args.size() of 0 leads to an empty ExecSpanIterator
     // in exec.cc and to never invoking the source function, so 1 is passed instead
