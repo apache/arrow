@@ -633,7 +633,7 @@ struct ValidateArrayImpl {
 
     auto IsSubrangeOf = [](std::string_view super, std::string_view sub) {
       return super.data() <= sub.data() &&
-             super.data() + super.size() <= sub.data() + sub.size();
+             super.data() + super.size() >= sub.data() + sub.size();
     };
 
     std::vector<std::string_view> buffers;
@@ -661,7 +661,7 @@ struct ValidateArrayImpl {
 
         if (!in_a_buffer(view)) {
           return Status::Invalid(
-              "String view at slot ", i,
+              "String view at slot ", i, " @", (std::uintptr_t)view.data(),
               " views memory not resident in any buffer managed by the array");
         }
       }

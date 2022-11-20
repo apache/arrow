@@ -92,7 +92,7 @@ class ConcatenateTest : public ::testing::Test {
       for (auto null_probability : this->null_probabilities_) {
         std::shared_ptr<Array> array;
         factory(size, null_probability, &array);
-          ASSERT_OK(array->ValidateFull());
+        ASSERT_OK(array->ValidateFull());
         auto expected = array->Slice(offsets.front(), offsets.back() - offsets.front());
         auto slices = this->Slices(array, offsets);
         ASSERT_OK_AND_ASSIGN(auto actual, Concatenate(slices));
