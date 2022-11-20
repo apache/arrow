@@ -36,6 +36,18 @@ import inspect
 import numpy as np
 
 
+def _forbid_instantiation(klass, subclasses_instead=True):
+    msg = '{} is an abstract class thus cannot be initialized.'.format(
+        klass.__name__
+    )
+    if subclasses_instead:
+        subclasses = [cls.__name__ for cls in klass.__subclasses__]
+        msg += ' Use one of the subclasses instead: {}'.format(
+            ', '.join(subclasses)
+        )
+    raise TypeError(msg)
+
+
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
     """
     Wrap a C++ scalar Function in a ScalarFunction object.
@@ -139,6 +151,38 @@ cdef wrap_hash_aggregate_kernel(const CHashAggregateKernel* c_kernel):
         HashAggregateKernel.__new__(HashAggregateKernel)
     kernel.init(c_kernel)
     return kernel
+
+
+cdef class RecordBatchIterator(_Weakrefable):
+    """An iterator over a sequence of record batches."""
+    cdef:
+        # An object that must be kept alive with the iterator.
+        object iterator_owner
+        # Iterator is a non-POD type and Cython uses offsetof, leading
+        # to a compiler warning unless wrapped like so
+        shared_ptr[CRecordBatchIterator] iterator
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__, subclasses_instead=False)
+
+    @staticmethod
+    cdef wrap(object owner, CRecordBatchIterator iterator):
+        cdef RecordBatchIterator self = \
+            RecordBatchIterator.__new__(RecordBatchIterator)
+        self.iterator_owner = owner
+        self.iterator = make_shared[CRecordBatchIterator](move(iterator))
+        return self
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        cdef shared_ptr[CRecordBatch] record_batch
+        with nogil:
+            record_batch = GetResultValue(move(self.iterator.get().Next()))
+        if record_batch == NULL:
+            raise StopIteration
+        return pyarrow_wrap_batch(record_batch)
 
 
 cdef class Kernel(_Weakrefable):
@@ -2558,8 +2602,55 @@ def _get_scalar_udf_context(memory_pool, batch_length):
     return context
 
 
-def register_scalar_function(func, function_name, function_doc, in_types,
-                             out_type):
+def udf_result_from_record_batch(record_batch):
+    cdef:
+        shared_ptr[CRecordBatch] c_record_batch
+        CResult[shared_ptr[CArray]] c_res_array
+
+    c_record_batch = pyarrow_unwrap_batch(record_batch)
+    c_res_array = <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray()
+    return pyarrow_wrap_array(GetResultValue(c_res_array))
+
+
+ctypedef CStatus (*CRegisterScalarLikeFunction)(PyObject* function,
+                                                function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
+                                                CFunctionRegistry* registry)
+
+cdef class RegisterScalarLikeFunction(_Weakrefable):
+    cdef CRegisterScalarLikeFunction register_func
+
+    cdef void init(self, const CRegisterScalarLikeFunction register_func):
+        self.register_func = register_func
+
+
+cdef GetRegisterScalarFunction():
+    cdef RegisterScalarLikeFunction reg = RegisterScalarLikeFunction.__new__(RegisterScalarLikeFunction)
+    reg.register_func = RegisterScalarFunction
+    return reg
+
+
+cdef GetRegisterTabularFunction():
+    cdef RegisterScalarLikeFunction reg = RegisterScalarLikeFunction.__new__(RegisterScalarLikeFunction)
+    reg.register_func = RegisterTabularFunction
+    return reg
+
+
+def register_scalar_function(func, function_name, function_doc, in_types, out_type,
+                             func_registry=None):
+    return register_scalar_like_function(GetRegisterScalarFunction(),
+                                         func, function_name, function_doc, in_types,
+                                         out_type, func_registry)
+
+
+def register_tabular_function(func, function_name, function_doc, in_types, out_type,
+                              func_registry=None):
+    return register_scalar_like_function(GetRegisterTabularFunction(),
+                                         func, function_name, function_doc, in_types,
+                                         out_type, func_registry)
+
+
+def register_scalar_like_function(register_func, func, function_name, function_doc, in_types,
+                                  out_type, func_registry=None):
     """
     Register a user-defined scalar function.
 
@@ -2574,6 +2665,10 @@ def register_scalar_function(func, function_name, function_doc, in_types,
 
     Parameters
     ----------
+    register_func: object
+        An object holding a CRegisterScalarLikeFunction in
+        a "register_func" attribute, such as:
+        GetRegisterScalarFunction, GetRegisterTabularFunction
     func : callable
         A callable implementing the user-defined function.
         The first argument is the context argument of type
@@ -2600,6 +2695,8 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         arity.
     out_type : DataType
         Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
 
     Examples
     --------
@@ -2630,6 +2727,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     ]
     """
     cdef:
+        CRegisterScalarLikeFunction c_register_func
         c_string c_func_name
         CArity c_arity
         CFunctionDoc c_func_doc
@@ -2637,6 +2735,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         PyObject* c_function
         shared_ptr[CDataType] c_out_type
         CScalarUdfOptions c_options
+        CFunctionRegistry* c_func_registry
 
     if callable(func):
         c_function = <PyObject*>func
@@ -2678,5 +2777,26 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     c_options.input_types = c_in_types
     c_options.output_type = c_out_type
 
-    check_status(RegisterScalarFunction(c_function,
-                                        <function[CallbackUdf]> &_scalar_udf_callback, c_options))
+    if func_registry is None:
+        c_func_registry = NULL
+    else:
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+
+    c_register_func = (<RegisterScalarLikeFunction>register_func).register_func
+
+    check_status(c_register_func(c_function,
+                                 <function[CallbackUdf]> &_scalar_udf_callback,
+                                 c_options, c_func_registry))
+
+def get_record_batches_from_tabular_function(function_name, func_registry=None):
+    cdef:
+        c_string c_func_name
+        CFunctionRegistry* c_func_registry
+
+    c_func_name = tobytes(function_name)
+    if func_registry is None:
+        c_func_registry = NULL
+    else:
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+
+    return RecordBatchIterator.wrap(None, move(GetResultValue(GetRecordBatchesFromTabularFunction(c_func_name, c_func_registry))))

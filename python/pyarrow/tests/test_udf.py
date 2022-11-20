@@ -504,3 +504,43 @@ def test_input_lifetime(unary_func_fixture):
     # Calling a UDF should not have kept `v` alive longer than required
     v = None
     assert proxy_pool.bytes_allocated() == 0
+
+
+def _record_batch_from_iters(schema, *iters):
+    arrays = [pa.array(list(v), type=schema[i].type) for i, v in enumerate(iters)]
+    return pa.RecordBatch.from_arrays(arrays=arrays, schema=schema)
+
+
+def _record_batch_for_range(schema, n):
+    return _record_batch_from_iters(schema, range(n, n + 10), range(n + 1, n + 11))
+
+
+def datasource1(ctx):
+    """A short dataset"""
+    import pyarrow as pa
+    schema = pa.schema([('', pa.int32()), ('', pa.int32())])
+    class Generator:
+        def __init__(self):
+            self.n = 3
+        def __call__(self, ctx):
+            if self.n == 0:
+                batch = _record_batch_from_iters(schema, [], [])
+            else:
+                self.n -= 1
+                batch = _record_batch_for_range(schema, self.n)
+            return pc.udf_result_from_record_batch(batch)
+    return Generator()
+
+
+def test_udt():
+    func = datasource1
+    func_name = "datasource1"
+    func_doc = {"summary": "datasource1 UDT", "description": "test datasource1 UDT"}
+    in_types = {}
+    out_type = pa.struct([("", pa.int32()), ("", pa.int32())])
+    schema = pa.schema([('', pa.int32()), ('', pa.int32())])
+    pc.register_tabular_function(func, func_name, func_doc, in_types, out_type)
+    n = 3;
+    for item in pc.get_record_batches_from_tabular_function(func_name):
+        n -= 1
+        assert item == _record_batch_for_range(schema, n)

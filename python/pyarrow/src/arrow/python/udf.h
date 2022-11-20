@@ -21,6 +21,8 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
 #include "arrow/python/platform.h"
+#include "arrow/record_batch.h"
+#include "arrow/util/iterator.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/pyarrow.h"
@@ -51,9 +53,17 @@ using ScalarUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;
 
 /// \brief register a Scalar user-defined-function from Python
-Status ARROW_PYTHON_EXPORT RegisterScalarFunction(PyObject* user_function,
-                                                  ScalarUdfWrapperCallback wrapper,
-                                                  const ScalarUdfOptions& options);
+Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
+    PyObject* user_function, ScalarUdfWrapperCallback wrapper,
+    const ScalarUdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
+
+/// \brief register a Table user-defined-function from Python
+Status ARROW_PYTHON_EXPORT RegisterTabularFunction(
+    PyObject* user_function, ScalarUdfWrapperCallback wrapper,
+    const ScalarUdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
+
+Result<RecordBatchIterator> ARROW_PYTHON_EXPORT GetRecordBatchesFromTabularFunction(
+    const std::string& func_name, compute::FunctionRegistry* registry = NULLPTR);
 
 }  // namespace py
 
