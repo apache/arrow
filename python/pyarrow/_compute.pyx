@@ -2603,6 +2603,16 @@ def _get_scalar_udf_context(memory_pool, batch_length):
 
 
 def udf_result_from_record_batch(record_batch):
+    """
+    Convert a record batch to a UDF result.
+
+    A UDF result is a struct array appropriate for returning from a UDF.
+
+    Parameters
+    ----------
+    record_batch: object
+        An object holding a wrapped CRecordBatch
+    """
     cdef:
         shared_ptr[CRecordBatch] c_record_batch
         CResult[shared_ptr[CArray]] c_res_array
@@ -2637,20 +2647,6 @@ cdef GetRegisterTabularFunction():
 
 def register_scalar_function(func, function_name, function_doc, in_types, out_type,
                              func_registry=None):
-    return register_scalar_like_function(GetRegisterScalarFunction(),
-                                         func, function_name, function_doc, in_types,
-                                         out_type, func_registry)
-
-
-def register_tabular_function(func, function_name, function_doc, in_types, out_type,
-                              func_registry=None):
-    return register_scalar_like_function(GetRegisterTabularFunction(),
-                                         func, function_name, function_doc, in_types,
-                                         out_type, func_registry)
-
-
-def register_scalar_like_function(register_func, func, function_name, function_doc, in_types,
-                                  out_type, func_registry=None):
     """
     Register a user-defined scalar function.
 
@@ -2665,10 +2661,6 @@ def register_scalar_like_function(register_func, func, function_name, function_d
 
     Parameters
     ----------
-    register_func: object
-        An object holding a CRegisterScalarLikeFunction in
-        a "register_func" attribute, such as:
-        GetRegisterScalarFunction, GetRegisterTabularFunction
     func : callable
         A callable implementing the user-defined function.
         The first argument is the context argument of type
@@ -2725,6 +2717,88 @@ def register_scalar_like_function(register_func, func, function_name, function_d
     [
       21
     ]
+    """
+    return register_scalar_like_function(GetRegisterScalarFunction(),
+                                         func, function_name, function_doc, in_types,
+                                         out_type, func_registry)
+
+
+def register_tabular_function(func, function_name, function_doc, in_types, out_type,
+                              func_registry=None):
+    """
+    Register a user-defined tabular function.
+
+    A tabular function is one accepting a context argument of type
+    ScalarUdfContext and returning a generator of struct arrays.
+    The in_types argument must be empty and the out_type argument
+    specifies a schema. Each struct array must have field types
+    correspoding to the schema.
+
+    Parameters
+    ----------
+    func : callable
+        A callable implementing the user-defined function.
+        The only argument is the context argument of type
+        ScalarUdfContext. It must return a callable that
+        returns on each invocation a StructArray matching
+        the out_type, where an empty array indicates end.
+    function_name : str
+        Name of the function. This name must be globally unique.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        Must be an empty dictionary.
+    out_type : DataType
+        Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+    """
+    return register_scalar_like_function(GetRegisterTabularFunction(),
+                                         func, function_name, function_doc, in_types,
+                                         out_type, func_registry)
+
+
+def register_scalar_like_function(register_func, func, function_name, function_doc, in_types,
+                                  out_type, func_registry=None):
+    """
+    Register a user-defined scalar-like function.
+
+    A scalar-like function is a callable accepting a first
+    context argument of type ScalarUdfContext as well as
+    possibly additional Arrow arguments, and returning a
+    an Arrow result appropriate for the kind of function.
+    A scalar function and a tabular function are examples
+    for scalar-like functions.
+    This function is normally not called directly but via
+    register_scalar_function or register_tabular_function.
+
+    Parameters
+    ----------
+    register_func: object
+        An object holding a CRegisterScalarLikeFunction in
+        a "register_func" attribute. Use
+        GetRegisterScalarFunction() for a scalar function and
+        GetRegisterTabularFunction() for a tabular function.
+    func : callable
+        A callable implementing the user-defined function.
+        See register_scalar_function and
+        register_tabular_function for details.
+
+    function_name : str
+        Name of the function. This name must be globally unique.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        See register_scalar_function and
+        register_tabular_function for details.
+    out_type : DataType
+        Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
     """
     cdef:
         CRegisterScalarLikeFunction c_register_func
@@ -2790,6 +2864,16 @@ def register_scalar_like_function(register_func, func, function_name, function_d
 
 
 def get_record_batches_from_tabular_function(function_name, func_registry=None):
+    """
+    Get a record batch iterator from a tabular function.
+
+    Parameters
+    ----------
+    function_name : str
+        Name of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+    """
     cdef:
         c_string c_func_name
         CFunctionRegistry* c_func_registry
