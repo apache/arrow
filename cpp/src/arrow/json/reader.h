@@ -56,8 +56,9 @@ ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
 /// `ReadOptions::block_size`). Each block is converted to a `RecordBatch`. Yielded
 /// batches have a consistent schema but may differ in row count.
 ///
-/// The supplied `ParseOptions` are used to determine a schema on the first non-empty
-/// block. Afterwards, the schema is frozen and unexpected fields will be ignored on
+/// The supplied `ParseOptions` are used to determine a schema, based either on a
+/// provided explicit schema or inferred from the first non-empty block.
+/// Afterwards, the schema is frozen and unexpected fields will be ignored on
 /// subsequent reads (unless `UnexpectedFieldBehavior::Error` was specified).
 ///
 /// For each block, the reader will launch its subsequent parsing/decoding task on the
