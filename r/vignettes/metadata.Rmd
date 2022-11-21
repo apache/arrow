@@ -53,7 +53,7 @@ arrow_table(df, schema = schema(x = float64(), y = utf8()))
 
 ## R object attributes
 
-Arrow supports custom key-value metadata attached to Schemas. When we convert a `data.frame` to an Arrow Table or RecordBatch, the package stores any `attributes()` attached to the columns of the `data.frame` in the Arrow object Schema. Attributes added to objects in this fasnion are stored under the `r` key, as shown below:
+Arrow supports custom key-value metadata attached to Schemas. When we convert a `data.frame` to an Arrow Table or RecordBatch, the package stores any `attributes()` attached to the columns of the `data.frame` in the Arrow object Schema. Attributes added to objects in this fashion are stored under the `r` key, as shown below:
 
 ```{r}
 # data frame with custom metadata
