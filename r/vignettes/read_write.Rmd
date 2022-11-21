@@ -11,7 +11,7 @@ returns an R data frame. To return an Arrow Table, set argument
 `as_data_frame = FALSE`.
 
 - `read_parquet()`: read a file in Parquet format
-- `read_feather()`: read a file in the Apache Arrow IPC format (also called the Feather format)
+- `read_feather()`: read a file in the Apache Arrow IPC format (formerly called the Feather format)
 - `read_delim_arrow()`: read a delimited text file (default delimiter is comma)
 - `read_csv_arrow()`: read a comma-separated values (CSV) file
 - `read_tsv_arrow()`: read a tab-separated values (TSV) file
