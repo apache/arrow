@@ -479,9 +479,6 @@ ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length,
                                                MemoryPool* pool = NULLPTR);
 
-ARROW_EXPORT
-Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out);
-
 /// \brief Allocate a zero-initialized bitmap buffer from a memory pool
 ///
 /// \param[in] length size in bits of bitmap to allocate

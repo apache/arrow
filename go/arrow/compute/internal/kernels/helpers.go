@@ -182,6 +182,12 @@ type binaryOps[OutT, Arg0T, Arg1T exec.FixedWidthTypes] struct {
 	scalarArr scalarArrFn[OutT, Arg0T, Arg1T]
 }
 
+type binaryBoolOps struct {
+	arrArr    func(ctx *exec.KernelCtx, lhs, rhs, out bitutil.Bitmap) error
+	arrScalar func(ctx *exec.KernelCtx, lhs bitutil.Bitmap, rhs bool, out bitutil.Bitmap) error
+	scalarArr func(ctx *exec.KernelCtx, lhs bool, rhs, out bitutil.Bitmap) error
+}
+
 func ScalarBinary[OutT, Arg0T, Arg1T exec.FixedWidthTypes](ops binaryOps[OutT, Arg0T, Arg1T]) exec.ArrayKernelExec {
 	arrayArray := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
 		var (
@@ -208,6 +214,52 @@ func ScalarBinary[OutT, Arg0T, Arg1T exec.FixedWidthTypes](ops binaryOps[OutT, A
 			outData = exec.GetSpanValues[OutT](out, 1)
 		)
 		return ops.scalarArr(ctx, a0, a1, outData)
+	}
+
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if batch.Values[0].IsArray() {
+			if batch.Values[1].IsArray() {
+				return arrayArray(ctx, &batch.Values[0].Array, &batch.Values[1].Array, out)
+			}
+			return arrayScalar(ctx, &batch.Values[0].Array, batch.Values[1].Scalar, out)
+		}
+
+		if batch.Values[1].IsArray() {
+			return scalarArray(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
+		}
+
+		debug.Assert(false, "should be unreachable")
+		return fmt.Errorf("%w: scalar binary with two scalars?", arrow.ErrInvalid)
+	}
+}
+
+func ScalarBinaryBools(ops *binaryBoolOps) exec.ArrayKernelExec {
+	arrayArray := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			a0Bm  = bitutil.Bitmap{Data: arg0.Buffers[1].Buf, Offset: arg0.Offset, Len: arg0.Len}
+			a1Bm  = bitutil.Bitmap{Data: arg1.Buffers[1].Buf, Offset: arg1.Offset, Len: arg1.Len}
+			outBm = bitutil.Bitmap{Data: out.Buffers[1].Buf, Offset: out.Offset, Len: out.Len}
+		)
+
+		return ops.arrArr(ctx, a0Bm, a1Bm, outBm)
+	}
+
+	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) error {
+		var (
+			a0Bm  = bitutil.Bitmap{Data: arg0.Buffers[1].Buf, Offset: arg0.Offset, Len: arg0.Len}
+			a1    = arg1.(*scalar.Boolean).Value
+			outBm = bitutil.Bitmap{Data: out.Buffers[1].Buf, Offset: out.Offset, Len: out.Len}
+		)
+		return ops.arrScalar(ctx, a0Bm, a1, outBm)
+	}
+
+	scalarArray := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			a0    = arg0.(*scalar.Boolean).Value
+			a1Bm  = bitutil.Bitmap{Data: arg1.Buffers[1].Buf, Offset: arg1.Offset, Len: arg1.Len}
+			outBm = bitutil.Bitmap{Data: out.Buffers[1].Buf, Offset: out.Offset, Len: out.Len}
+		)
+		return ops.scalarArr(ctx, a0, a1Bm, outBm)
 	}
 
 	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
@@ -318,6 +370,62 @@ func ScalarBinaryNotNull[OutT, Arg0T, Arg1T exec.FixedWidthTypes](op func(*exec.
 
 		if batch.Values[1].IsArray() {
 			return scalarArray(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
+		}
+
+		debug.Assert(false, "should be unreachable")
+		return fmt.Errorf("%w: scalar binary with two scalars?", arrow.ErrInvalid)
+	}
+}
+
+type binaryBinOp[T exec.FixedWidthTypes | bool] func(ctx *exec.KernelCtx, arg0, arg1 []byte) T
+
+func ScalarBinaryBinaryArgsBoolOut(itrFn func(*exec.ArraySpan) exec.ArrayIter[[]byte], op binaryBinOp[bool]) exec.ArrayKernelExec {
+	arrArr := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			arg0It = itrFn(arg0)
+			arg1It = itrFn(arg1)
+		)
+
+		bitutils.GenerateBitsUnrolled(out.Buffers[1].Buf, out.Offset, out.Len, func() bool {
+			return op(ctx, arg0It.Next(), arg1It.Next())
+		})
+		return nil
+	}
+
+	arrScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) error {
+		var (
+			arg0It = itrFn(arg0)
+			a1     = UnboxBinaryScalar(arg1.(scalar.BinaryScalar))
+		)
+
+		bitutils.GenerateBitsUnrolled(out.Buffers[1].Buf, out.Offset, out.Len, func() bool {
+			return op(ctx, arg0It.Next(), a1)
+		})
+		return nil
+	}
+
+	scalarArr := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			arg1It = itrFn(arg1)
+			a0     = UnboxBinaryScalar(arg0.(scalar.BinaryScalar))
+		)
+
+		bitutils.GenerateBitsUnrolled(out.Buffers[1].Buf, out.Offset, out.Len, func() bool {
+			return op(ctx, a0, arg1It.Next())
+		})
+		return nil
+	}
+
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if batch.Values[0].IsArray() {
+			if batch.Values[1].IsArray() {
+				return arrArr(ctx, &batch.Values[0].Array, &batch.Values[1].Array, out)
+			}
+			return arrScalar(ctx, &batch.Values[0].Array, batch.Values[1].Scalar, out)
+		}
+
+		if batch.Values[1].IsArray() {
+			return scalarArr(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
 		}
 
 		debug.Assert(false, "should be unreachable")
@@ -935,4 +1043,13 @@ func checkIndexBoundsChunked(values *arrow.Chunked, upperLimit uint64) error {
 		}
 	}
 	return nil
+}
+
+func packBits(vals [32]uint32, out []byte) {
+	const batchSize = 32
+	for i := 0; i < batchSize; i += 8 {
+		out[0] = byte(vals[i] | vals[i+1]<<1 | vals[i+2]<<2 | vals[i+3]<<3 |
+			vals[i+4]<<4 | vals[i+5]<<5 | vals[i+6]<<6 | vals[i+7]<<7)
+		out = out[1:]
+	}
 }

@@ -326,7 +326,9 @@ install_nodejs() {
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-    nvm install --lts
+    # ARROW-18335: "gulp bundle" failed with Node.js 18.
+    # nvm install --lts
+    nvm install 16
     show_info "Installed NodeJS $(node --version)"
   fi
 
@@ -843,7 +845,8 @@ test_js() {
   maybe_setup_conda nodejs=16 || exit 1
 
   if ! command -v yarn &> /dev/null; then
-    npm install -g yarn
+    npm install yarn
+    PATH=$PWD/node_modules/yarn/bin:$PATH
   fi
 
   pushd js

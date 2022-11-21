@@ -1,0 +1,58 @@
+name: Feature Request
+description: Request a new feature
+labels: ["Type: enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to share your feedback on ways Apache Arrow can be improved!
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the feature requested.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component does the feature most apply to?
+      options:
+        - Archery
+        - Benchmarking
+        - C
+        - C#
+        - C++
+        - C++ - Gandiva
+        - C++ - Plasma
+        - Compute IR
+        - Continuous Integration
+        - Dart
+        - Developer Tools
+        - Documentation
+        - FlightRPC
+        - Format
+        - GLib
+        - Go
+        - GPU
+        - Integration
+        - Java
+        - JavaScript
+        - Julia
+        - MATLAB
+        - Packaging
+        - Parquet
+        - Python
+        - R
+        - Ruby
+        - Rust
+        - Rust - Ballista
+        - Rust - DataFusion
+        - SQL
+        - Swift
+        - Website
+        - Wiki
+        - Other
+    validations:
+      required: true

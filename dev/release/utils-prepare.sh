@@ -187,12 +187,16 @@ update_versions() {
   git add go.work
   popd
 
-  pushd "${ARROW_DIR}"
-  ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
-                     . \
-                     "${base_version}" \
-                     "${next_version}"
-  git add docs/source/_static/versions.json
-  git add r/pkgdown/assets/versions.json
-  popd
+  case "${base_version}" in
+    *.0.0)
+      pushd "${ARROW_DIR}"
+      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
+                         . \
+                         "${base_version}" \
+                         "${next_version}"
+      git add docs/source/_static/versions.json
+      git add r/pkgdown/assets/versions.json
+      popd
+      ;;
+  esac
 }

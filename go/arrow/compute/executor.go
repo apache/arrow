@@ -613,6 +613,7 @@ func (s *scalarExecutor) executeSpans(data chan<- Datum) (err error) {
 
 		output = *s.prepareOutput(int(input.Len))
 		if err = s.executeSingleSpan(&input, &output); err != nil {
+			output.Release()
 			return
 		}
 		err = s.emitResult(&output, data)

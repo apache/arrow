@@ -568,7 +568,7 @@ func init() {
 // GetScalar creates a scalar object from the value at a given index in the
 // passed in array, returns an error if unable to do so.
 func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
-	if arr.IsNull(idx) {
+	if arr.DataType().ID() != arrow.DICTIONARY && arr.IsNull(idx) {
 		return MakeNullScalar(arr.DataType()), nil
 	}
 
@@ -675,13 +675,19 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return NewTimestampScalar(arr.Value(idx), arr.DataType()), nil
 	case *array.Dictionary:
 		ty := arr.DataType().(*arrow.DictionaryType)
-		index, err := MakeScalarParam(arr.GetValueIndex(idx), ty.IndexType)
-		if err != nil {
-			return nil, err
+		valid := arr.IsValid(idx)
+		scalar := &Dictionary{scalar: scalar{ty, valid}}
+		if valid {
+			index, err := MakeScalarParam(arr.GetValueIndex(idx), ty.IndexType)
+			if err != nil {
+				return nil, err
+			}
+
+			scalar.Value.Index = index
+		} else {
+			scalar.Value.Index = MakeNullScalar(ty.IndexType)
 		}
 
-		scalar := &Dictionary{scalar: scalar{ty, arr.IsValid(idx)}}
-		scalar.Value.Index = index
 		scalar.Value.Dict = arr.Dictionary()
 		scalar.Value.Dict.Retain()
 		return scalar, nil

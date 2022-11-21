@@ -134,6 +134,38 @@ func (cf *castFunction) DispatchExact(vals ...arrow.DataType) (exec.Kernel, erro
 	return candidates[0], nil
 }
 
+func unpackDictionary(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	var (
+		dictArr  = batch.Values[0].Array.MakeArray().(*array.Dictionary)
+		opts     = ctx.State.(kernels.CastState)
+		dictType = dictArr.DataType().(*arrow.DictionaryType)
+		toType   = opts.ToType
+	)
+	defer dictArr.Release()
+
+	if !arrow.TypeEqual(toType, dictType) && !CanCast(dictType, toType) {
+		return fmt.Errorf("%w: cast type %s incompatible with dictionary type %s",
+			arrow.ErrInvalid, toType, dictType)
+	}
+
+	unpacked, err := TakeArray(ctx.Ctx, dictArr.Dictionary(), dictArr.Indices())
+	if err != nil {
+		return err
+	}
+	defer unpacked.Release()
+
+	if !arrow.TypeEqual(dictType, toType) {
+		unpacked, err = CastArray(ctx.Ctx, unpacked, &opts)
+		if err != nil {
+			return err
+		}
+		defer unpacked.Release()
+	}
+
+	out.TakeOwnership(unpacked.Data())
+	return nil
+}
+
 func CastFromExtension(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	opts := ctx.State.(kernels.CastState)
 
@@ -402,6 +434,8 @@ func getTemporalCasts() []*castFunction {
 				panic(err)
 			}
 		}
+		fn.AddNewTypeCast(arrow.DICTIONARY, []exec.InputType{exec.NewIDInput(arrow.DICTIONARY)},
+			kernels[0].Signature.OutType, unpackDictionary, exec.NullComputedNoPrealloc, exec.MemNoPrealloc)
 		output = append(output, fn)
 	}
 
@@ -425,6 +459,10 @@ func getNumericCasts() []*castFunction {
 				panic(err)
 			}
 		}
+
+		fn.AddNewTypeCast(arrow.DICTIONARY, []exec.InputType{exec.NewIDInput(arrow.DICTIONARY)},
+			kns[0].Signature.OutType, unpackDictionary, exec.NullComputedNoPrealloc, exec.MemNoPrealloc)
+
 		return fn
 	}
 
@@ -486,6 +524,10 @@ func getBinaryLikeCasts() []*castFunction {
 				panic(err)
 			}
 		}
+
+		fn.AddNewTypeCast(arrow.DICTIONARY, []exec.InputType{exec.NewIDInput(arrow.DICTIONARY)},
+			kns[0].Signature.OutType, unpackDictionary, exec.NullComputedNoPrealloc, exec.MemNoPrealloc)
+
 		out = append(out, fn)
 	}
 

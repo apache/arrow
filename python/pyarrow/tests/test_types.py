@@ -857,6 +857,31 @@ def test_decimal_overflow():
             pa.decimal256(i, 0)
 
 
+def test_timedelta_overflow():
+    # microsecond resolution, overflow
+    d = datetime.timedelta(days=-106751992, seconds=71945, microseconds=224192)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(d)
+
+    # microsecond resolution, overflow
+    d = datetime.timedelta(days=106751991, seconds=14454, microseconds=775808)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(d)
+
+    # nanosecond resolution, overflow
+    d = datetime.timedelta(days=-106752, seconds=763, microseconds=145224)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(d, type=pa.duration('ns'))
+
+    # microsecond resolution, not overflow
+    pa.scalar(d, type=pa.duration('us')).as_py() == d
+
+    # second/millisecond resolution, not overflow
+    for d in [datetime.timedelta.min, datetime.timedelta.max]:
+        pa.scalar(d, type=pa.duration('ms')).as_py() == d
+        pa.scalar(d, type=pa.duration('s')).as_py() == d
+
+
 def test_type_equality_operators():
     many_types = get_many_types()
     non_pyarrow = ('foo', 16, {'s', 'e', 't'})

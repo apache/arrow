@@ -39,7 +39,7 @@ class TestLikeHolder : public ::testing::Test {
     auto pattern_node =
         std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
     auto escape_char_node = std::make_shared<LiteralNode>(
-        arrow::int8(), LiteralHolder((int8_t)escape_char), false);
+        arrow::utf8(), LiteralHolder(std::string(1, escape_char)), false);
     return FunctionNode("like", {field, pattern_node, escape_char_node},
                         arrow::boolean());
   }
@@ -177,7 +177,16 @@ TEST_F(TestLikeHolder, TestOptimise) {
   fnode = LikeHolder::TryOptimize(BuildLike("\\%xyz", '\\'));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
   EXPECT_EQ(fnode.ToString(),
-            "bool like((string) in, (const string) '\\%xyz', (const int8) \\)");
+            "bool like((string) in, (const string) '\\%xyz', (const string) '\\')");
+
+  // optimised for escape pattern that are pcre special chars.
+  fnode = LikeHolder::TryOptimize(BuildLike("%ab^_cd^_de%", '^'));
+  EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
+  EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) 'ab_cd_de')");
+
+  fnode = LikeHolder::TryOptimize(BuildLike("%ab^^cd^^de%", '^'));
+  EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
+  EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) 'ab^cd^de')");
 }
 
 TEST_F(TestLikeHolder, TestMatchOneEscape) {

@@ -16,7 +16,4 @@
 # under the License.
 
 blank_issues_enabled: false
-contact_links:
-  - name: Report an issue
-    url: https://issues.apache.org/jira/browse/ARROW
-    about: Please report bugs and request features on JIRA.
+

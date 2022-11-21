@@ -321,8 +321,12 @@ func (n Num) BigInt() *big.Int {
 	return toBigIntPositive(n)
 }
 
+func (n Num) Greater(other Num) bool {
+	return other.Less(n)
+}
+
 func (n Num) GreaterEqual(other Num) bool {
-	return n == other || !n.Less(other)
+	return !n.Less(other)
 }
 
 // Less returns true if the value represented by n is < other
