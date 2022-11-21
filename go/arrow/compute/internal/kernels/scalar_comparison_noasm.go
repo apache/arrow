@@ -14,9 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build noasm
+//go:build go1.18 && noasm
 
 package kernels
+
+import "github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 
 func genCompareKernel[T exec.NumericTypes](op CompareOperator) *CompareData {
 	return genGoCompareKernel(getCmpOp[T](op))
