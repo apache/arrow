@@ -137,18 +137,6 @@ class DecodeContext {
   MemoryPool* pool_;
 };
 
-Result<std::shared_ptr<RecordBatch>> ToRecordBatch(const StructArray& converted) {
-  std::vector<std::shared_ptr<Array>> columns;
-  columns.reserve(converted.num_fields());
-  for (const auto& f : converted.fields()) columns.push_back(f);
-  return RecordBatch::Make(schema(converted.type()->fields()), converted.length(),
-                           std::move(columns));
-}
-
-auto ToRecordBatch(const Array& converted) {
-  return ToRecordBatch(checked_cast<const StructArray&>(converted));
-}
-
 Result<std::shared_ptr<Array>> ParseBlock(const ChunkedBlock& block,
                                           const ParseOptions& parse_options,
                                           MemoryPool* pool, int64_t* out_size = nullptr) {
@@ -327,7 +315,7 @@ class DecodingOperator {
 
     std::shared_ptr<ChunkedArray> chunked;
     RETURN_NOT_OK(builder->Finish(&chunked));
-    ARROW_ASSIGN_OR_RAISE(auto batch, ToRecordBatch(*chunked->chunk(0)));
+    ARROW_ASSIGN_OR_RAISE(auto batch, RecordBatch::FromStructArray(chunked->chunk(0)));
 
     return DecodedBlock{std::move(batch), num_bytes};
   }
@@ -543,7 +531,7 @@ Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
   std::shared_ptr<ChunkedArray> converted_chunked;
   RETURN_NOT_OK(builder->Finish(&converted_chunked));
 
-  return ToRecordBatch(*converted_chunked->chunk(0));
+  return RecordBatch::FromStructArray(converted_chunked->chunk(0));
 }
 
 }  // namespace json
