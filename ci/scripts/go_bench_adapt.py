@@ -79,7 +79,11 @@ class GoAdapter(BenchmarkAdapter):
                         "params": '/'.join(pieces[1:]),
                     },
                     run_reason=RUN_REASON,
-                    github=None, # scrape info from cloned repo
+                    github={
+                        "repository": os.environ["GITHUB_REPOSITORY"],
+                        "commit": os.environ["GITHUB_SHA"],
+                        "pr_number": None,  # we currently only run this on the default branch
+                    },
                 )
                 parsed.run_name = f"{parsed.run_reason}: {parsed.github['commit']}"
                 parsed_results.append(parsed)
