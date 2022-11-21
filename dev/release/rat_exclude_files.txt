@@ -7,9 +7,6 @@
 *.csv
 *.json
 *.snap
-.github/ISSUE_TEMPLATE/bug_report.yaml
-.github/ISSUE_TEMPLATE/feature_request.yaml
-.github/ISSUE_TEMPLATE/usage_question.yaml
 ci/etc/rprofile
 ci/etc/*.patch
 ci/vcpkg/*.patch
