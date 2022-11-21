@@ -2065,10 +2065,6 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 // ----------------------------------------------------------------------
 // DeltaBitPackEncoder
 
-constexpr uint32_t kMaxPageHeaderWriterSize = 32;
-constexpr uint32_t kValuesPerBlock = 128;
-constexpr uint32_t kMiniBlocksPerBlock = 4;
-
 /// DeltaBitPackEncoder is an encoder for the DeltaBinary Packing format
 /// as per the parquet spec. See:
 /// https://github.com/apache/parquet-format/blob/master/Encodings.md#delta-encoding-delta_binary_packed--5
@@ -2105,6 +2101,10 @@ constexpr uint32_t kMiniBlocksPerBlock = 4;
 
 template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
+ static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
+ static constexpr uint32_t kValuesPerBlock = 128;
+ static constexpr uint32_t kMiniBlocksPerBlock = 4;
+
  public:
   using T = typename DType::c_type;
   using TypedEncoder<DType>::Put;
@@ -2122,7 +2122,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         sink_(pool),
         bit_writer_(bits_buffer_->mutable_data(),
                     static_cast<int>(bits_buffer_->size())) {
-    if (values_per_block_ % 32 != 0) {
+    if (values_per_block_ % 128 != 0) {
       throw ParquetException(
           "the number of values in a block must be multiple of 128, but it's " +
           std::to_string(values_per_block_));
@@ -2131,6 +2131,12 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
       throw ParquetException(
           "the number of values in a miniblock must be multiple of 32, but it's " +
           std::to_string(values_per_mini_block_));
+    }
+    if (values_per_block % mini_blocks_per_block != 0) {
+      throw ParquetException(
+          "the number of values per block % number of miniblocks per block must be 0, "
+          "but it's " +
+          std::to_string(values_per_block % mini_blocks_per_block));
     }
   }
 
@@ -2177,6 +2183,11 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
 
   while (idx < num_values) {
     T value = src[idx];
+    // Calculate deltas. The possible overflow is handled by SafeSignedSubtract that
+    // internally uses unsigned integers making subtraction operations well defined
+    // and correct even in case of overflow. Encoded integes will wrap back around on
+    // decoding.
+    // See http://en.wikipedia.org/wiki/Modular_arithmetic#Integers_modulo_n
     deltas_[values_current_block_] = SafeSignedSubtract(value, current_value_);
     current_value_ = value;
     idx++;
@@ -2201,15 +2212,15 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
   // needed to store the values, the bytes storing the bit widths of the unneeded
   // miniblocks are still present, their value should be zero, but readers must accept
   // arbitrary values as well.
-  std::vector<uint8_t, ::arrow::stl::allocator<uint8_t>> bit_widths(
-      mini_blocks_per_block_, 0);
+  std::vector<uint8_t> bit_widths(mini_blocks_per_block_, 0);
+  // Call to GetNextBytePtr reserves mini_blocks_per_block_ bytes of space to write
+  // bit widths of miniblocks as they become known during the encoding.
   uint8_t* bit_width_data = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
   DCHECK(bit_width_data != nullptr);
 
-  uint32_t num_miniblocks = std::min(
-      static_cast<uint32_t>(std::ceil(static_cast<float>(values_current_block_) /
-                                      static_cast<float>(values_per_mini_block_))),
-      mini_blocks_per_block_);
+  uint32_t num_miniblocks =
+      static_cast<uint32_t>(std::ceil(static_cast<double>(values_current_block_) /
+                                      static_cast<double>(values_per_mini_block_)));
   for (uint32_t i = 0; i < num_miniblocks; i++) {
     const uint32_t values_current_mini_block =
         std::min(values_per_mini_block_, values_current_block_);
@@ -2218,18 +2229,16 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     const T max_delta = *std::max_element(
         deltas_.begin() + start, deltas_.begin() + start + values_current_mini_block);
 
+    // See overflow comment above
     const T max_delta_diff = SafeSignedSubtract(max_delta, min_delta);
-    int num_bits;
-    if constexpr (std::is_same<T, int64_t>::value) {
-      num_bits = bit_util::NumRequiredBits(max_delta_diff);
-    } else {
-      num_bits = bit_util::NumRequiredBits(static_cast<uint32_t>(max_delta_diff));
-    }
+    const int num_bits =
+        bit_util::NumRequiredBits(static_cast<std::make_unsigned_t<T>>(max_delta_diff));
     // The minimum number of bytes required to write any of value in deltas_ vector.
     const int num_bytes = static_cast<int>(bit_util::BytesForBits(num_bits));
     bit_widths[i] = num_bits;
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
+      // See overflow comment above
       const T value = SafeSignedSubtract(deltas_[j], min_delta);
       bit_writer_.PutAligned<T>(value, num_bytes);
     }
@@ -2244,7 +2253,7 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
   DCHECK_EQ(values_current_block_, 0);
 
   for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
-    bit_width_data[i] = bit_util::ToLittleEndian(bit_widths[i]);
+    bit_width_data[i] = bit_widths[i];
   }
 
   bit_writer_.Flush();
@@ -2259,8 +2268,12 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
     FlushBlock();
   }
 
-  PARQUET_ASSIGN_OR_THROW(auto bit_buffer, sink_.Finish(/*shrink_to_fit=*/ true));
+  PARQUET_ASSIGN_OR_THROW(auto bit_buffer, sink_.Finish(/*shrink_to_fit=*/true));
 
+  if (bit_writer_.buffer_len() - bit_writer_.bytes_written() <
+      static_cast<int>(kMaxPageHeaderWriterSize)) {
+    throw ParquetException("not enough space to write header");
+  }
   if (!bit_writer_.PutVlqInt(values_per_block_) ||
       !bit_writer_.PutVlqInt(mini_blocks_per_block_) ||
       !bit_writer_.PutVlqInt(total_value_count_) ||
@@ -2269,6 +2282,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   }
   bit_writer_.Flush();
 
+  PARQUET_THROW_NOT_OK(sink_.Reserve(bit_writer_.bytes_written() + bit_buffer->size()));
   PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
   PARQUET_THROW_NOT_OK(sink_.Append(bit_buffer->mutable_data(), bit_buffer->size()));
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink_.Finish(/*shrink_to_fit=*/ true));
