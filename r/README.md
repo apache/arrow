@@ -25,7 +25,7 @@ tasks. It allows users to read and write data in a variety formats:
 -   Read and write Feather files, a format optimized for speed and
     interoperability
 -   Read and write CSV files with excellent speed and efficiency
--   Read and write multi-file larger-than-memory datasets
+-   Read and write multi-file and larger-than-memory datasets
 -   Read JSON files
 
 It provides data analysis tools for both in-memory and larger-than-memory data sets
