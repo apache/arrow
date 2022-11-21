@@ -43,7 +43,7 @@ The `schema()` function allows the following shorthand to define fields:
 schema(x = int32(), y = utf8())
 ```
 
-Sometimes it is important to specify the schema manually, particularly if you want fine grained control over the Arrow data types:
+Sometimes it is important to specify the schema manually, particularly if you want fine-grained control over the Arrow data types:
 
 ```{r}
 arrow_table(df, schema = schema(x = int64(), y = utf8()))
