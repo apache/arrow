@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute_test
 
 import (
@@ -106,53 +108,53 @@ func slowCompare[T exec.NumericTypes | string](op kernels.CompareOperator, lhs, 
 	}
 }
 
-func simpleScalarArrayCompare[T exec.NumericTypes](mem memory.Allocator, op kernels.CompareOperator, lhs, rhs compute.Datum) compute.Datum {
-	var (
-		swap  = lhs.Kind() == compute.KindArray
-		span  exec.ArraySpan
-		itr   exec.ArrayIter[T]
-		value T
-	)
+// func simpleScalarArrayCompare[T exec.NumericTypes](mem memory.Allocator, op kernels.CompareOperator, lhs, rhs compute.Datum) compute.Datum {
+// 	var (
+// 		swap  = lhs.Kind() == compute.KindArray
+// 		span  exec.ArraySpan
+// 		itr   exec.ArrayIter[T]
+// 		value T
+// 	)
 
-	if swap {
-		span.SetMembers(lhs.(*compute.ArrayDatum).Value)
-		itr = exec.NewPrimitiveIter[T](&span)
-		value = kernels.UnboxScalar[T](rhs.(*compute.ScalarDatum).Value.(scalar.PrimitiveScalar))
-	} else {
-		span.SetMembers(rhs.(*compute.ArrayDatum).Value)
-		itr = exec.NewPrimitiveIter[T](&span)
-		value = kernels.UnboxScalar[T](lhs.(*compute.ScalarDatum).Value.(scalar.PrimitiveScalar))
-	}
+// 	if swap {
+// 		span.SetMembers(lhs.(*compute.ArrayDatum).Value)
+// 		itr = exec.NewPrimitiveIter[T](&span)
+// 		value = kernels.UnboxScalar[T](rhs.(*compute.ScalarDatum).Value.(scalar.PrimitiveScalar))
+// 	} else {
+// 		span.SetMembers(rhs.(*compute.ArrayDatum).Value)
+// 		itr = exec.NewPrimitiveIter[T](&span)
+// 		value = kernels.UnboxScalar[T](lhs.(*compute.ScalarDatum).Value.(scalar.PrimitiveScalar))
+// 	}
 
-	bitmap := make([]bool, span.Len)
-	for i := 0; i < int(span.Len); i++ {
-		if swap {
-			bitmap[i] = slowCompare(op, itr.Next(), value)
-		} else {
-			bitmap[i] = slowCompare(op, value, itr.Next())
-		}
-	}
+// 	bitmap := make([]bool, span.Len)
+// 	for i := 0; i < int(span.Len); i++ {
+// 		if swap {
+// 			bitmap[i] = slowCompare(op, itr.Next(), value)
+// 		} else {
+// 			bitmap[i] = slowCompare(op, value, itr.Next())
+// 		}
+// 	}
 
-	var result arrow.Array
-	if span.Nulls == 0 {
-		result = exec.ArrayFromSlice(mem, bitmap)
-	} else {
-		nullBitmap := make([]bool, span.Len)
-		rdr := bitutil.NewBitmapReader(span.Buffers[0].Buf, int(span.Offset), int(span.Len))
-		for i := 0; i < int(span.Len); i++ {
-			nullBitmap[i] = rdr.Set()
-			rdr.Next()
-		}
-		bldr := array.NewBooleanBuilder(mem)
-		defer bldr.Release()
+// 	var result arrow.Array
+// 	if span.Nulls == 0 {
+// 		result = exec.ArrayFromSlice(mem, bitmap)
+// 	} else {
+// 		nullBitmap := make([]bool, span.Len)
+// 		rdr := bitutil.NewBitmapReader(span.Buffers[0].Buf, int(span.Offset), int(span.Len))
+// 		for i := 0; i < int(span.Len); i++ {
+// 			nullBitmap[i] = rdr.Set()
+// 			rdr.Next()
+// 		}
+// 		bldr := array.NewBooleanBuilder(mem)
+// 		defer bldr.Release()
 
-		bldr.AppendValues(bitmap, nullBitmap)
-		result = bldr.NewArray()
-	}
+// 		bldr.AppendValues(bitmap, nullBitmap)
+// 		result = bldr.NewArray()
+// 	}
 
-	defer result.Release()
-	return compute.NewDatum(result)
-}
+// 	defer result.Release()
+// 	return compute.NewDatum(result)
+// }
 
 func simpleScalarArrayCompareString(mem memory.Allocator, op kernels.CompareOperator, lhs, rhs compute.Datum) compute.Datum {
 	var (
@@ -265,19 +267,19 @@ type NumericCompareSuite[T exec.NumericTypes] struct {
 	CompareSuite
 }
 
-func (n *NumericCompareSuite[T]) validateCompareComputed(op kernels.CompareOperator, lhs, rhs compute.Datum) {
-	var expected compute.Datum
+// func (n *NumericCompareSuite[T]) validateCompareComputed(op kernels.CompareOperator, lhs, rhs compute.Datum) {
+// 	var expected compute.Datum
 
-	hasScalar := lhs.Kind() == compute.KindScalar || rhs.Kind() == compute.KindScalar
-	if hasScalar {
-		expected = simpleScalarArrayCompare[T](n.mem, op, lhs, rhs)
-	} else {
-		expected = simpleArrArrCompare[T](n.mem, op, lhs, rhs)
-	}
+// 	hasScalar := lhs.Kind() == compute.KindScalar || rhs.Kind() == compute.KindScalar
+// 	if hasScalar {
+// 		expected = simpleScalarArrayCompare[T](n.mem, op, lhs, rhs)
+// 	} else {
+// 		expected = simpleArrArrCompare[T](n.mem, op, lhs, rhs)
+// 	}
 
-	defer expected.Release()
-	n.CompareSuite.validateCompareDatum(op, lhs, rhs, expected)
-}
+// 	defer expected.Release()
+// 	n.CompareSuite.validateCompareDatum(op, lhs, rhs, expected)
+// }
 
 func (n *NumericCompareSuite[T]) TestSimpleCompareArrayScalar() {
 	dt := exec.GetDataType[T]()

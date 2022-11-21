@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package kernels
 
 import (
@@ -50,11 +52,6 @@ var (
 		arrow.BinaryTypes.LargeBinary,
 		arrow.BinaryTypes.String,
 		arrow.BinaryTypes.LargeString}
-	// non-parametric, non-nested types
-	primitiveTypes = append(append([]arrow.DataType{
-		arrow.Null, arrow.FixedWidthTypes.Boolean,
-		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64},
-		numericTypes...), baseBinaryTypes...)
 )
 
 //go:generate stringer -type=CompareOperator -linecomment

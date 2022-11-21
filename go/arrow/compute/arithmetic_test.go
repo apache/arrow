@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute_test
 
 import (
@@ -95,7 +97,7 @@ func assertNullToNull(t *testing.T, ctx context.Context, fn string, mem memory.A
 
 type unaryArithmeticFunc = func(context.Context, compute.ArithmeticOptions, compute.Datum) (compute.Datum, error)
 
-type unaryFunc = func(compute.Datum) (compute.Datum, error)
+// type unaryFunc = func(compute.Datum) (compute.Datum, error)
 
 type binaryArithmeticFunc = func(context.Context, compute.ArithmeticOptions, compute.Datum, compute.Datum) (compute.Datum, error)
 

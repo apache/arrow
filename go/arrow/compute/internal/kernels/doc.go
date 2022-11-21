@@ -14,11 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-go 1.18
-
-use (
-	./go
-	./go/arrow/compute
-)
-
-replace github.com/apache/arrow/go/v11 v11.0.0 => ./go
+// Package kernels defines all of the computation kernels for the compute
+// library. This requires >= go1.18 since it utilizes Go generics.
+package kernels
