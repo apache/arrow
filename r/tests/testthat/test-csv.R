@@ -432,6 +432,16 @@ test_that("Write a CSV with custom NA value", {
 
   tbl_in1 <- read_csv_arrow(csv_file, na = "NULL_VALUE")
   expect_identical(tbl_in1, tbl_no_dates)
+
+  # Also can use empty string
+  write_csv_arrow(tbl_no_dates, csv_file, na = "")
+  expect_true(file.exists(csv_file))
+
+  csv_contents <- readLines(csv_file)
+  expect_true(any(grepl(",,", csv_contents)))
+
+  tbl_in1 <- read_csv_arrow(csv_file)
+  expect_identical(tbl_in1, tbl_no_dates)
 })
 
 test_that("Write a CSV file with invalid null value", {

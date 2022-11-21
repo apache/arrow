@@ -419,7 +419,7 @@ CsvTableReader$create <- function(file,
 #' - `include_header` Whether to write an initial header line with column names
 #' - `batch_size` Maximum number of rows processed at a time. Default is 1024.
 #' - `null_string` The string to be written for null values. Must not contain
-#'   quotation marks. Default is `NA`.
+#'   quotation marks. Default is an empty string (`""`).
 #'
 #' @section Active bindings:
 #'
@@ -476,7 +476,7 @@ readr_to_csv_write_options <- function(include_header,
 #' @rdname CsvReadOptions
 #' @export
 CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
-CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L, null_string = "NA") {
+CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L, null_string = "") {
   assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
   csv___WriteOptions__initialize(
     list(
