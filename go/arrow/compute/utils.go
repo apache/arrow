@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"time"
 
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/bitutil"
@@ -313,4 +314,85 @@ func castBinaryDecimalArgs(promote decimalPromotion, vals ...arrow.DataType) err
 	}
 	vals[1], err = arrow.NewDecimalType(castedID, prec2+rightScaleup, scale2+rightScaleup)
 	return err
+}
+
+func commonTemporal(vals ...arrow.DataType) arrow.DataType {
+	var (
+		finestUnit           = arrow.Second
+		zone                 *string
+		loc                  *time.Location
+		sawDate32, sawDate64 bool
+	)
+
+	for _, ty := range vals {
+		switch ty.ID() {
+		case arrow.DATE32:
+			// date32's unit is days, but the coarsest we have is seconds
+			sawDate32 = true
+		case arrow.DATE64:
+			finestUnit = exec.Max(finestUnit, arrow.Millisecond)
+			sawDate64 = true
+		case arrow.TIMESTAMP:
+			ts := ty.(*arrow.TimestampType)
+			if ts.TimeZone != "" {
+				tz, _ := ts.GetZone()
+				if loc != nil && loc != tz {
+					return nil
+				}
+				loc = tz
+			}
+			zone = &ts.TimeZone
+			finestUnit = exec.Max(finestUnit, ts.Unit)
+		default:
+			return nil
+		}
+	}
+
+	switch {
+	case zone != nil:
+		// at least one timestamp seen
+		return &arrow.TimestampType{Unit: finestUnit, TimeZone: *zone}
+	case sawDate64:
+		return arrow.FixedWidthTypes.Date64
+	case sawDate32:
+		return arrow.FixedWidthTypes.Date32
+	}
+	return nil
+}
+
+func commonBinary(vals ...arrow.DataType) arrow.DataType {
+	var (
+		allUTF8, allOffset32, allFixedWidth = true, true, true
+	)
+
+	for _, ty := range vals {
+		switch ty.ID() {
+		case arrow.STRING:
+			allFixedWidth = false
+		case arrow.BINARY:
+			allFixedWidth, allUTF8 = false, false
+		case arrow.FIXED_SIZE_BINARY:
+			allUTF8 = false
+		case arrow.LARGE_BINARY:
+			allOffset32, allFixedWidth, allUTF8 = false, false, false
+		case arrow.LARGE_STRING:
+			allOffset32, allFixedWidth = false, false
+		default:
+			return nil
+		}
+	}
+
+	switch {
+	case allFixedWidth:
+		// at least for the purposes of comparison, no need to cast
+		return nil
+	case allUTF8:
+		if allOffset32 {
+			return arrow.BinaryTypes.String
+		}
+		return arrow.BinaryTypes.LargeString
+	case allOffset32:
+		return arrow.BinaryTypes.Binary
+	}
+	return arrow.BinaryTypes.LargeBinary
 }

@@ -239,8 +239,6 @@ func (d *TableDatum) Equals(other Datum) bool {
 	return false
 }
 
-// CollectionDatum is a slice of Datums
-
 // NewDatum will construct the appropriate Datum type based on what is passed in
 // as the argument.
 //
@@ -258,23 +256,38 @@ func NewDatum(value interface{}) Datum {
 		return NewDatum(v.data())
 	case arrow.Array:
 		v.Data().Retain()
-		return &ArrayDatum{v.Data().(*array.Data)}
-	case arrow.ArrayData:
+		return &ArrayDatum{v.Data()}
+	case scalar.Releasable:
 		v.Retain()
+		return NewDatumWithoutOwning(v)
+	case scalar.Scalar:
+		return &ScalarDatum{v}
+	default:
+		return &ScalarDatum{scalar.MakeScalar(value)}
+	}
+}
+
+// NewDatumWithoutOwning is like NewDatum only it does not call Retain on
+// the passed in value (if applicable). This means that if the resulting
+// Datum should not have Release called on it and the original value needs
+// to outlive the Datum.
+//
+// Only use this if you know what you're doing. For the most part this is
+// just a convenience function.+-
+
+func NewDatumWithoutOwning(value interface{}) Datum {
+	switch v := value.(type) {
+	case arrow.Array:
+		return &ArrayDatum{v.Data()}
+	case arrow.ArrayData:
 		return &ArrayDatum{v}
 	case *arrow.Chunked:
-		v.Retain()
 		return &ChunkedDatum{v}
 	case arrow.Record:
-		v.Retain()
 		return &RecordDatum{v}
 	case arrow.Table:
-		v.Retain()
 		return &TableDatum{v}
 	case scalar.Scalar:
-		if ls, ok := v.(scalar.Releasable); ok {
-			ls.Retain()
-		}
 		return &ScalarDatum{v}
 	default:
 		return &ScalarDatum{scalar.MakeScalar(value)}

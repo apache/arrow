@@ -25,6 +25,7 @@ import (
 
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
 	"github.com/apache/arrow/go/v11/arrow/decimal128"
 	"github.com/apache/arrow/go/v11/arrow/decimal256"
 	"github.com/apache/arrow/go/v11/arrow/float16"
@@ -99,7 +100,7 @@ func GetValues[T FixedWidthTypes](data arrow.ArrayData, i int) []T {
 	return ret[data.Offset():]
 }
 
-// GetSpanValues returns a properly typed slice bye reinterpreting
+// GetSpanValues returns a properly typed slice by reinterpreting
 // the buffer at index i using unsafe.Slice. This will take into account
 // the offset of the given ArraySpan.
 func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
@@ -158,6 +159,7 @@ func OptionsInit[T any](_ *KernelCtx, args KernelInitArgs) (KernelState, error) 
 }
 
 var typMap = map[reflect.Type]arrow.DataType{
+	reflect.TypeOf(false):           arrow.FixedWidthTypes.Boolean,
 	reflect.TypeOf(int8(0)):         arrow.PrimitiveTypes.Int8,
 	reflect.TypeOf(int16(0)):        arrow.PrimitiveTypes.Int16,
 	reflect.TypeOf(int32(0)):        arrow.PrimitiveTypes.Int32,
@@ -192,13 +194,13 @@ func GetType[T NumericTypes | bool | string]() arrow.Type {
 	return typMap[reflect.TypeOf(z)].ID()
 }
 
-type arrayBuilder[T NumericTypes] interface {
+type arrayBuilder[T NumericTypes | bool] interface {
 	array.Builder
 	Append(T)
 	AppendValues([]T, []bool)
 }
 
-func ArrayFromSlice[T NumericTypes](mem memory.Allocator, data []T) arrow.Array {
+func ArrayFromSlice[T NumericTypes | bool](mem memory.Allocator, data []T) arrow.Array {
 	bldr := array.NewBuilder(mem, typMap[reflect.TypeOf(data).Elem()]).(arrayBuilder[T])
 	defer bldr.Release()
 
@@ -302,4 +304,79 @@ func (c *ChunkResolver) Resolve(idx int64) (chunk, index int64) {
 	chunk, index = int64(chkIdx), idx-c.offsets[chkIdx]
 	atomic.StoreInt64(&c.cached, chunk)
 	return
+}
+
+type arrayTypes interface {
+	FixedWidthTypes | TemporalTypes | bool | string | []byte
+}
+
+type ArrayIter[T arrayTypes] interface {
+	Next() T
+}
+
+type BoolIter struct {
+	Rdr *bitutil.BitmapReader
+}
+
+func NewBoolIter(arr *ArraySpan) ArrayIter[bool] {
+	return &BoolIter{
+		Rdr: bitutil.NewBitmapReader(arr.Buffers[1].Buf, int(arr.Offset), int(arr.Len))}
+}
+
+func (b *BoolIter) Next() (out bool) {
+	out = b.Rdr.Set()
+	b.Rdr.Next()
+	return
+}
+
+type PrimitiveIter[T FixedWidthTypes] struct {
+	Values []T
+}
+
+func NewPrimitiveIter[T FixedWidthTypes](arr *ArraySpan) ArrayIter[T] {
+	return &PrimitiveIter[T]{Values: GetSpanValues[T](arr, 1)}
+}
+
+func (p *PrimitiveIter[T]) Next() (v T) {
+	v = p.Values[0]
+	p.Values = p.Values[1:]
+	return
+}
+
+type VarBinaryIter[OffsetT int32 | int64] struct {
+	Offsets []OffsetT
+	Data    []byte
+	Pos     int64
+}
+
+func NewVarBinaryIter[OffsetT int32 | int64](arr *ArraySpan) ArrayIter[[]byte] {
+	return &VarBinaryIter[OffsetT]{
+		Offsets: GetSpanOffsets[OffsetT](arr, 1),
+		Data:    arr.Buffers[2].Buf,
+	}
+}
+
+func (v *VarBinaryIter[OffsetT]) Next() []byte {
+	cur := v.Pos
+	v.Pos++
+	return v.Data[v.Offsets[cur]:v.Offsets[v.Pos]]
+}
+
+type FSBIter struct {
+	Data  []byte
+	Width int
+	Pos   int64
+}
+
+func NewFSBIter(arr *ArraySpan) ArrayIter[[]byte] {
+	return &FSBIter{
+		Data:  arr.Buffers[1].Buf,
+		Width: arr.Type.(arrow.FixedWidthDataType).Bytes(),
+	}
+}
+
+func (f *FSBIter) Next() []byte {
+	start := f.Width * int(f.Pos)
+	f.Pos++
+	return f.Data[start : start+f.Width]
 }
