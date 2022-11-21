@@ -1,0 +1,55 @@
+name: Bug Report
+description: File a bug report
+labels: ["Type: bug"]
+assignees: []
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug, including details regarding any error messages, version, and platform.
+      description: Please include what you expected.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component is principally affected?
+      options:
+        - Archery
+        - Benchmarking
+        - C
+        - C#
+        - C++
+        - C++ - Gandiva
+        - C++ - Plasma
+        - Compute IR
+        - Continuous Integration
+        - Dart
+        - Developer Tools
+        - Documentation
+        - FlightRPC
+        - Format
+        - GLib
+        - Go
+        - GPU
+        - Integration
+        - Java
+        - JavaScript
+        - Julia
+        - MATLAB
+        - Packaging
+        - Parquet
+        - Python
+        - R
+        - Ruby
+        - Rust
+        - Rust - Ballista
+        - Rust - DataFusion
+        - SQL
+        - Swift
+        - Website
+        - Wiki
+        - Other
+    validations:
+      required: true

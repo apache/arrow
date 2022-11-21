@@ -87,6 +87,198 @@ Status GetListElementIndex(const ExecValue& value, T* out) {
   return Status::OK();
 }
 
+template <typename T>
+std::string ToString(const std::optional<T>& o) {
+  return o.has_value() ? std::to_string(*o) : "(nullopt)";
+}
+
+template <typename Type>
+struct ListSlice {
+  using offset_type = typename Type::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
+
+    // Invariants
+    if (!opts.stop.has_value()) {
+      // TODO(ARROW-18280): Support slicing to arbitrary end
+      // For variable size list, this would be the largest difference in offsets
+      // For fixed size list, this would be the fixed size.
+      return Status::NotImplemented(
+          "Slicing to end not yet implemented, please set `stop` parameter.");
+    }
+    if (opts.start < 0 || opts.start >= opts.stop.value()) {
+      // TODO(ARROW-18281): support start == stop which should give empty lists
+      return Status::Invalid("`start`(", opts.start,
+                             ") should be greater than 0 and smaller than `stop`(",
+                             ToString(opts.stop), ")");
+    }
+    if (opts.step != 1) {
+      // TODO(ARROW-18282): support step in slicing
+      return Status::NotImplemented(
+          "Setting `step` to anything other than 1 is not supported; got step=",
+          opts.step);
+    }
+
+    const ArraySpan& list_array = batch[0].array;
+    const Type* list_type = checked_cast<const Type*>(list_array.type);
+    const auto value_type = list_type->field(0);
+    const auto return_fixed_size_list = opts.return_fixed_size_list.value_or(
+        list_type->id() == arrow::Type::FIXED_SIZE_LIST);
+    std::unique_ptr<ArrayBuilder> builder;
+
+    // construct array values
+    if (return_fixed_size_list) {
+      RETURN_NOT_OK(MakeBuilder(
+          ctx->memory_pool(),
+          fixed_size_list(value_type,
+                          static_cast<int32_t>(opts.stop.value() - opts.start)),
+          &builder));
+      RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
+    } else {
+      if constexpr (std::is_same_v<Type, LargeListType>) {
+        RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), large_list(value_type), &builder));
+        RETURN_NOT_OK(BuildArray<LargeListBuilder>(batch, opts, *builder));
+      } else {
+        RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), list(value_type), &builder));
+        RETURN_NOT_OK(BuildArray<ListBuilder>(batch, opts, *builder));
+      }
+    }
+
+    // build output arrays and set result
+    ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+    out->value = std::move(result->data());
+    return Status::OK();
+  }
+
+  template <typename BuilderType>
+  static Status BuildArray(const ExecSpan& batch, const ListSliceOptions& opts,
+                           ArrayBuilder& builder) {
+    if constexpr (std::is_same_v<Type, FixedSizeListType>) {
+      RETURN_NOT_OK(BuildArrayFromFixedSizeListType<BuilderType>(batch, opts, builder));
+    } else {
+      RETURN_NOT_OK(BuildArrayFromListType<BuilderType>(batch, opts, builder));
+    }
+    return Status::OK();
+  }
+
+  template <typename BuilderType>
+  static Status BuildArrayFromFixedSizeListType(const ExecSpan& batch,
+                                                const ListSliceOptions& opts,
+                                                ArrayBuilder& builder) {
+    const auto list_size =
+        checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
+    const ArraySpan& list_array = batch[0].array;
+    const ArraySpan& list_values = list_array.child_data[0];
+
+    auto list_builder = checked_cast<BuilderType*>(&builder);
+    for (auto i = 0; i < list_array.length; ++i) {
+      auto offset = (i + list_array.offset) * list_size;
+      auto next_offset = offset + list_size;
+      if (list_array.IsNull(i)) {
+        RETURN_NOT_OK(list_builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(SetValues<BuilderType>(list_builder, offset, next_offset, &opts,
+                                             &list_values));
+      }
+    }
+    return Status::OK();
+  }
+
+  template <typename BuilderType>
+  static Status BuildArrayFromListType(const ExecSpan& batch,
+                                       const ListSliceOptions& opts,
+                                       ArrayBuilder& builder) {
+    const ArraySpan& list_array = batch[0].array;
+    const offset_type* offsets = list_array.GetValues<offset_type>(1);
+
+    const ArraySpan& list_values = list_array.child_data[0];
+
+    auto list_builder = checked_cast<BuilderType*>(&builder);
+    for (auto i = 0; i < list_array.length; ++i) {
+      const offset_type offset = offsets[i];
+      const offset_type next_offset = offsets[i + 1];
+      if (list_array.IsNull(i)) {
+        RETURN_NOT_OK(list_builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(SetValues<BuilderType>(list_builder, offset, next_offset, &opts,
+                                             &list_values));
+      }
+    }
+    return Status::OK();
+  }
+  template <typename BuilderType>
+  static Status SetValues(BuilderType* list_builder, const offset_type offset,
+                          const offset_type next_offset, const ListSliceOptions* opts,
+                          const ArraySpan* list_values) {
+    auto value_builder = list_builder->value_builder();
+    auto cursor = offset;
+
+    RETURN_NOT_OK(list_builder->Append());
+    while (cursor < offset + (opts->stop.value() - opts->start)) {
+      if (cursor + opts->start >= next_offset) {
+        if constexpr (!std::is_same_v<BuilderType, FixedSizeListBuilder>) {
+          break;  // don't pad nulls for variable sized list output
+        }
+        RETURN_NOT_OK(value_builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(
+            value_builder->AppendArraySlice(*list_values, cursor + opts->start, 1));
+      }
+      ++cursor;
+    }
+    return Status::OK();
+  }
+};
+
+Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
+                                        const std::vector<TypeHolder>& types) {
+  const auto& opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
+  const auto list_type = checked_cast<const BaseListType*>(types[0].type);
+  const auto value_type = list_type->field(0);
+  const auto return_fixed_size_list =
+      opts.return_fixed_size_list.value_or(list_type->id() == Type::FIXED_SIZE_LIST);
+  if (return_fixed_size_list) {
+    if (!opts.stop.has_value()) {
+      return Status::NotImplemented(
+          "Unable to produce FixedSizeListArray without `stop` being set.");
+    }
+    return fixed_size_list(value_type,
+                           static_cast<int32_t>(opts.stop.value() - opts.start));
+  } else {
+    // Returning large list if that's what we got in and didn't ask for fixed size
+    if (list_type->id() == Type::LARGE_LIST) {
+      return large_list(value_type);
+    }
+    return list(value_type);
+  }
+}
+
+template <typename InListType>
+void AddListSliceKernels(ScalarFunction* func) {
+  auto inputs = {InputType(InListType::type_id)};
+  auto output = OutputType{MakeListSliceResolve};
+  ScalarKernel kernel(inputs, output, ListSlice<InListType>::Exec,
+                      OptionsWrapper<ListSliceOptions>::Init);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
+}
+
+void AddListSliceKernels(ScalarFunction* func) {
+  AddListSliceKernels<ListType>(func);
+  AddListSliceKernels<LargeListType>(func);
+  AddListSliceKernels<FixedSizeListType>(func);
+}
+
+const FunctionDoc list_slice_doc(
+    "Compute slice of list-like array",
+    ("`lists` must have a list-like type.\n"
+     "For each list element, compute a slice, returning a new list array.\n"
+     "A variable or fixed size list array is returned, depending on options."),
+    {"lists"}, "ListSliceOptions",
+    /*options_required=*/true);
+
 template <typename Type, typename IndexType>
 struct ListElement {
   using ListArrayType = typename TypeTraits<Type>::ArrayType;
@@ -603,6 +795,11 @@ void RegisterScalarNested(FunctionRegistry* registry) {
       std::make_shared<ScalarFunction>("list_element", Arity::Binary(), list_element_doc);
   AddListElementKernels(list_element.get());
   DCHECK_OK(registry->AddFunction(std::move(list_element)));
+
+  auto list_slice =
+      std::make_shared<ScalarFunction>("list_slice", Arity::Unary(), list_slice_doc);
+  AddListSliceKernels(list_slice.get());
+  DCHECK_OK(registry->AddFunction(std::move(list_slice)));
 
   auto struct_field =
       std::make_shared<ScalarFunction>("struct_field", Arity::Unary(), struct_field_doc);

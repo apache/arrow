@@ -32,6 +32,10 @@ const (
 	MaxScale     = 76
 )
 
+func GetMaxValue(prec int32) Num {
+	return scaleMultipliers[prec].Sub(FromU64(1))
+}
+
 type Num struct {
 	// arr[0] is the lowest bits, arr[3] is the highest bits
 	arr [4]uint64
@@ -352,11 +356,12 @@ func (n Num) BigInt() *big.Int {
 	return toBigIntPositive(n)
 }
 
+func (n Num) Greater(other Num) bool {
+	return other.Less(n)
+}
+
 func (n Num) GreaterEqual(other Num) bool {
-	return (n.arr[0] == other.arr[0] &&
-		n.arr[1] == other.arr[1] &&
-		n.arr[2] == other.arr[2] &&
-		n.arr[3] == other.arr[3]) || !n.Less(other)
+	return !n.Less(other)
 }
 
 func (n Num) Less(other Num) bool {

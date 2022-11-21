@@ -22,6 +22,7 @@ import (
 	"math/bits"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/arrow/go/v11/arrow"
@@ -404,6 +405,88 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 				return NewFixedSizeBinaryScalar(v, dt), nil
 			}
 			return nil, fmt.Errorf("invalid scalar value of len %d for type %s", v.Len(), dt)
+		}
+	case string:
+		switch {
+		case arrow.IsBaseBinary(dt.ID()):
+			buf := memory.NewBufferBytes([]byte(v))
+			defer buf.Release()
+
+			switch dt.ID() {
+			case arrow.BINARY:
+				return NewBinaryScalar(buf, dt), nil
+			case arrow.LARGE_BINARY:
+				return NewLargeBinaryScalar(buf), nil
+			case arrow.STRING:
+				return NewStringScalar(v), nil
+			case arrow.LARGE_STRING:
+				return NewLargeStringScalar(v), nil
+			}
+		case arrow.IsInteger(dt.ID()):
+			bits := dt.(arrow.FixedWidthDataType).BitWidth()
+			if arrow.IsUnsignedInteger(dt.ID()) {
+				val, err := strconv.ParseUint(v, 0, bits)
+				if err != nil {
+					return nil, err
+				}
+				return MakeUnsignedIntegerScalar(val, bits)
+			}
+			val, err := strconv.ParseInt(v, 0, bits)
+			if err != nil {
+				return nil, err
+			}
+			return MakeIntegerScalar(val, bits)
+		case arrow.IsFixedSizeBinary(dt.ID()):
+			switch dt.ID() {
+			case arrow.FIXED_SIZE_BINARY:
+				ty := dt.(*arrow.FixedSizeBinaryType)
+				if len(v) != ty.ByteWidth {
+					return nil, fmt.Errorf("%w: invalid length for fixed size binary scalar", arrow.ErrInvalid)
+				}
+				return NewFixedSizeBinaryScalar(memory.NewBufferBytes([]byte(v)), ty), nil
+			case arrow.DECIMAL128:
+				ty := dt.(*arrow.Decimal128Type)
+				n, err := decimal128.FromString(v, ty.Precision, ty.Scale)
+				if err != nil {
+					return nil, err
+				}
+				return NewDecimal128Scalar(n, ty), nil
+			case arrow.DECIMAL256:
+				ty := dt.(*arrow.Decimal256Type)
+				n, err := decimal256.FromString(v, ty.Precision, ty.Scale)
+				if err != nil {
+					return nil, err
+				}
+				return NewDecimal256Scalar(n, ty), nil
+			}
+		case arrow.IsFloating(dt.ID()):
+			bits := dt.(arrow.FixedWidthDataType).BitWidth()
+			val, err := strconv.ParseFloat(v, bits)
+			if err != nil {
+				return nil, err
+			}
+			if bits == 32 {
+				return NewFloat32Scalar(float32(val)), nil
+			}
+			return NewFloat64Scalar(val), nil
+		case dt.ID() == arrow.TIMESTAMP:
+			ty := dt.(*arrow.TimestampType)
+			if ty.TimeZone == "" || strings.ToLower(ty.TimeZone) == "utc" {
+				ts, err := arrow.TimestampFromString(v, ty.Unit)
+				if err != nil {
+					return nil, err
+				}
+				return NewTimestampScalar(ts, dt), nil
+			}
+			loc, err := time.LoadLocation(ty.TimeZone)
+			if err != nil {
+				return nil, err
+			}
+			ts, _, err := arrow.TimestampFromStringInLocation(v, ty.Unit, loc)
+			if err != nil {
+				return nil, err
+			}
+			return NewTimestampScalar(ts, ty), nil
 		}
 	case arrow.Time32:
 		return NewTime32Scalar(v, dt), nil

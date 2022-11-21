@@ -84,7 +84,7 @@ func OutputAllNull(_ *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult
 	return nil
 }
 
-func canCastFromDict(id arrow.Type) bool {
+func CanCastFromDict(id arrow.Type) bool {
 	return arrow.IsPrimitive(id) || arrow.IsBaseBinary(id) || arrow.IsFixedSizeBinary(id)
 }
 

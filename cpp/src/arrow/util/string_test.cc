@@ -16,6 +16,7 @@
 // under the License.
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -23,6 +24,7 @@
 
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/regex.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -192,6 +194,27 @@ TEST(EndsWith, Basics) {
   ASSERT_FALSE(EndsWith(abcdef, abc));
   ASSERT_FALSE(EndsWith(def, abcdef));
   ASSERT_FALSE(EndsWith(abcdef, abc));
+}
+
+TEST(RegexMatch, Basics) {
+  std::regex regex("a+(b*)(c+)d+");
+  std::string_view b, c;
+
+  ASSERT_FALSE(RegexMatch(regex, "", {&b, &c}));
+  ASSERT_FALSE(RegexMatch(regex, "ad", {&b, &c}));
+  ASSERT_FALSE(RegexMatch(regex, "bc", {&b, &c}));
+
+  auto check_match = [&](std::string_view target, std::string_view expected_b,
+                         std::string_view expected_c) {
+    b = c = "!!!";  // dummy init value
+    ASSERT_TRUE(RegexMatch(regex, target, {&b, &c}));
+    ASSERT_EQ(b, expected_b);
+    ASSERT_EQ(c, expected_c);
+  };
+
+  check_match("abcd", "b", "c");
+  check_match("acd", "", "c");
+  check_match("abbcccd", "bb", "ccc");
 }
 
 }  // namespace internal

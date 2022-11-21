@@ -154,6 +154,13 @@ Status DoInitializeS3(const S3GlobalOptions& options) {
     return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
         aws_options.loggingOptions.logLevel);
   };
+#if (defined(AWS_SDK_VERSION_MAJOR) &&                          \
+     (AWS_SDK_VERSION_MAJOR > 1 || AWS_SDK_VERSION_MINOR > 9 || \
+      (AWS_SDK_VERSION_MINOR == 9 && AWS_SDK_VERSION_PATCH >= 272)))
+  // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
+  // This configuration options is only available with AWS SDK 1.9.272 and later.
+  aws_options.httpOptions.compliantRfc3986Encoding = true;
+#endif
   Aws::InitAPI(aws_options);
   aws_initialized.store(true);
   return Status::OK();

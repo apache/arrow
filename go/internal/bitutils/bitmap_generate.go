@@ -84,6 +84,8 @@ func GenerateBitsUnrolled(bitmap []byte, start, length int64, g func() bool) {
 		for i := 0; i < 8; i++ {
 			if g() {
 				outResults[i] = 1
+			} else {
+				outResults[i] = 0
 			}
 		}
 		cur[0] = (outResults[0] | outResults[1]<<1 | outResults[2]<<2 |

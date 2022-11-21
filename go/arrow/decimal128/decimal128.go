@@ -30,6 +30,10 @@ var (
 	MaxDecimal128 = New(542101086242752217, 687399551400673280-1)
 )
 
+func GetMaxValue(prec int32) Num {
+	return scaleMultipliers[prec].Sub(FromU64(1))
+}
+
 // Num represents a signed 128-bit integer in two's complement.
 // Calculations wrap around and overflow is ignored.
 //
@@ -317,8 +321,12 @@ func (n Num) BigInt() *big.Int {
 	return toBigIntPositive(n)
 }
 
+func (n Num) Greater(other Num) bool {
+	return other.Less(n)
+}
+
 func (n Num) GreaterEqual(other Num) bool {
-	return n == other || !n.Less(other)
+	return !n.Less(other)
 }
 
 // Less returns true if the value represented by n is < other

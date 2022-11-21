@@ -114,6 +114,30 @@ BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,
                                         int multiplicity = 1);
 
 ARROW_TESTING_EXPORT
+Result<std::vector<std::shared_ptr<ArrayVector>>> ToArrayVectors(
+    const BatchesWithSchema& batches_with_schema);
+
+ARROW_TESTING_EXPORT
+Result<std::vector<std::shared_ptr<ExecBatch>>> ToExecBatches(
+    const BatchesWithSchema& batches);
+
+ARROW_TESTING_EXPORT
+Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
+    const BatchesWithSchema& batches);
+
+ARROW_TESTING_EXPORT
+Result<std::vector<std::shared_ptr<ArrayVector>>> ToArrayVectors(
+    const BatchesWithSchema& batches_with_schema);
+
+ARROW_TESTING_EXPORT
+Result<std::vector<std::shared_ptr<ExecBatch>>> ToExecBatches(
+    const BatchesWithSchema& batches);
+
+ARROW_TESTING_EXPORT
+Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
+    const BatchesWithSchema& batches);
+
+ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab);
 
 ARROW_TESTING_EXPORT
