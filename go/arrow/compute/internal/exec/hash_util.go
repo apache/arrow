@@ -16,10 +16,6 @@
 
 package exec
 
-import "hash/maphash"
-
-var hashSeed = maphash.MakeSeed()
-
 // ADAPTED FROM HASH UTILITIES FOR BOOST
 
 func HashCombine(seed, value uint64) uint64 {

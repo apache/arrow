@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package kernels
 
 import (
@@ -182,6 +184,12 @@ type binaryOps[OutT, Arg0T, Arg1T exec.FixedWidthTypes] struct {
 	scalarArr scalarArrFn[OutT, Arg0T, Arg1T]
 }
 
+type binaryBoolOps struct {
+	arrArr    func(ctx *exec.KernelCtx, lhs, rhs, out bitutil.Bitmap) error
+	arrScalar func(ctx *exec.KernelCtx, lhs bitutil.Bitmap, rhs bool, out bitutil.Bitmap) error
+	scalarArr func(ctx *exec.KernelCtx, lhs bool, rhs, out bitutil.Bitmap) error
+}
+
 func ScalarBinary[OutT, Arg0T, Arg1T exec.FixedWidthTypes](ops binaryOps[OutT, Arg0T, Arg1T]) exec.ArrayKernelExec {
 	arrayArray := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
 		var (
@@ -208,6 +216,52 @@ func ScalarBinary[OutT, Arg0T, Arg1T exec.FixedWidthTypes](ops binaryOps[OutT, A
 			outData = exec.GetSpanValues[OutT](out, 1)
 		)
 		return ops.scalarArr(ctx, a0, a1, outData)
+	}
+
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if batch.Values[0].IsArray() {
+			if batch.Values[1].IsArray() {
+				return arrayArray(ctx, &batch.Values[0].Array, &batch.Values[1].Array, out)
+			}
+			return arrayScalar(ctx, &batch.Values[0].Array, batch.Values[1].Scalar, out)
+		}
+
+		if batch.Values[1].IsArray() {
+			return scalarArray(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
+		}
+
+		debug.Assert(false, "should be unreachable")
+		return fmt.Errorf("%w: scalar binary with two scalars?", arrow.ErrInvalid)
+	}
+}
+
+func ScalarBinaryBools(ops *binaryBoolOps) exec.ArrayKernelExec {
+	arrayArray := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			a0Bm  = bitutil.Bitmap{Data: arg0.Buffers[1].Buf, Offset: arg0.Offset, Len: arg0.Len}
+			a1Bm  = bitutil.Bitmap{Data: arg1.Buffers[1].Buf, Offset: arg1.Offset, Len: arg1.Len}
+			outBm = bitutil.Bitmap{Data: out.Buffers[1].Buf, Offset: out.Offset, Len: out.Len}
+		)
+
+		return ops.arrArr(ctx, a0Bm, a1Bm, outBm)
+	}
+
+	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) error {
+		var (
+			a0Bm  = bitutil.Bitmap{Data: arg0.Buffers[1].Buf, Offset: arg0.Offset, Len: arg0.Len}
+			a1    = arg1.(*scalar.Boolean).Value
+			outBm = bitutil.Bitmap{Data: out.Buffers[1].Buf, Offset: out.Offset, Len: out.Len}
+		)
+		return ops.arrScalar(ctx, a0Bm, a1, outBm)
+	}
+
+	scalarArray := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			a0    = arg0.(*scalar.Boolean).Value
+			a1Bm  = bitutil.Bitmap{Data: arg1.Buffers[1].Buf, Offset: arg1.Offset, Len: arg1.Len}
+			outBm = bitutil.Bitmap{Data: out.Buffers[1].Buf, Offset: out.Offset, Len: out.Len}
+		)
+		return ops.scalarArr(ctx, a0, a1Bm, outBm)
 	}
 
 	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
@@ -318,6 +372,62 @@ func ScalarBinaryNotNull[OutT, Arg0T, Arg1T exec.FixedWidthTypes](op func(*exec.
 
 		if batch.Values[1].IsArray() {
 			return scalarArray(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
+		}
+
+		debug.Assert(false, "should be unreachable")
+		return fmt.Errorf("%w: scalar binary with two scalars?", arrow.ErrInvalid)
+	}
+}
+
+type binaryBinOp[T exec.FixedWidthTypes | bool] func(ctx *exec.KernelCtx, arg0, arg1 []byte) T
+
+func ScalarBinaryBinaryArgsBoolOut(itrFn func(*exec.ArraySpan) exec.ArrayIter[[]byte], op binaryBinOp[bool]) exec.ArrayKernelExec {
+	arrArr := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			arg0It = itrFn(arg0)
+			arg1It = itrFn(arg1)
+		)
+
+		bitutils.GenerateBitsUnrolled(out.Buffers[1].Buf, out.Offset, out.Len, func() bool {
+			return op(ctx, arg0It.Next(), arg1It.Next())
+		})
+		return nil
+	}
+
+	arrScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) error {
+		var (
+			arg0It = itrFn(arg0)
+			a1     = UnboxBinaryScalar(arg1.(scalar.BinaryScalar))
+		)
+
+		bitutils.GenerateBitsUnrolled(out.Buffers[1].Buf, out.Offset, out.Len, func() bool {
+			return op(ctx, arg0It.Next(), a1)
+		})
+		return nil
+	}
+
+	scalarArr := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			arg1It = itrFn(arg1)
+			a0     = UnboxBinaryScalar(arg0.(scalar.BinaryScalar))
+		)
+
+		bitutils.GenerateBitsUnrolled(out.Buffers[1].Buf, out.Offset, out.Len, func() bool {
+			return op(ctx, a0, arg1It.Next())
+		})
+		return nil
+	}
+
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if batch.Values[0].IsArray() {
+			if batch.Values[1].IsArray() {
+				return arrArr(ctx, &batch.Values[0].Array, &batch.Values[1].Array, out)
+			}
+			return arrScalar(ctx, &batch.Values[0].Array, batch.Values[1].Scalar, out)
+		}
+
+		if batch.Values[1].IsArray() {
+			return scalarArr(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
 		}
 
 		debug.Assert(false, "should be unreachable")
@@ -744,15 +854,6 @@ type execBufBuilder struct {
 	sz     int
 }
 
-func (bldr *execBufBuilder) resize(newcap int) {
-	if bldr.buffer == nil {
-		bldr.buffer = memory.NewResizableBuffer(bldr.mem)
-	}
-
-	bldr.buffer.ResizeNoShrink(newcap)
-	bldr.data = bldr.buffer.Bytes()
-}
-
 func (bldr *execBufBuilder) reserve(additional int) {
 	if bldr.buffer == nil {
 		bldr.buffer = memory.NewResizableBuffer(bldr.mem)
@@ -769,35 +870,6 @@ func (bldr *execBufBuilder) reserve(additional int) {
 func (bldr *execBufBuilder) unsafeAppend(data []byte) {
 	copy(bldr.data[bldr.sz:], data)
 	bldr.sz += len(data)
-}
-
-func (bldr *execBufBuilder) unsafeAppendN(n int, val byte) {
-	bldr.data[bldr.sz] = val
-	for i := 1; i < n; i *= 2 {
-		copy(bldr.data[bldr.sz+i:], bldr.data[bldr.sz:bldr.sz+i])
-	}
-	bldr.sz += n
-}
-
-func (bldr *execBufBuilder) append(data []byte) {
-	if bldr.sz+len(data) > cap(bldr.data) {
-		bldr.resize(bldr.sz + len(data))
-	}
-	bldr.unsafeAppend(data)
-}
-
-func (bldr *execBufBuilder) appendN(n int, val byte) {
-	bldr.reserve(n)
-	bldr.unsafeAppendN(n, val)
-}
-
-func (bldr *execBufBuilder) advance(n int) {
-	bldr.reserve(n)
-	bldr.sz += n
-}
-
-func (bldr *execBufBuilder) unsafeAdvance(n int) {
-	bldr.sz += n
 }
 
 func (bldr *execBufBuilder) finish() (buf *memory.Buffer) {
@@ -828,45 +900,15 @@ func (b *bufferBuilder[T]) reserve(additional int) {
 	b.execBufBuilder.reserve(additional * int(unsafe.Sizeof(b.zero)))
 }
 
-func (b *bufferBuilder[T]) resize(newcap int) {
-	b.execBufBuilder.resize(newcap * int(unsafe.Sizeof(b.zero)))
-}
-
 func (b *bufferBuilder[T]) unsafeAppend(value T) {
 	b.execBufBuilder.unsafeAppend(exec.GetBytes([]T{value}))
-}
-
-func (b *bufferBuilder[T]) unsafeAppendN(n int, value T) {
-	data := exec.GetData[T](b.data)[b.len():]
-	b.execBufBuilder.unsafeAdvance(n * int(unsafe.Sizeof(value)))
-	data[0] = value
-	for i := 1; i < n; i *= 2 {
-		copy(data[i:], data[:i])
-	}
 }
 
 func (b *bufferBuilder[T]) unsafeAppendSlice(values []T) {
 	b.execBufBuilder.unsafeAppend(exec.GetBytes(values))
 }
 
-func (b *bufferBuilder[T]) advance(n int) {
-	b.execBufBuilder.advance(n * int(unsafe.Sizeof(b.zero)))
-}
-
-func (b *bufferBuilder[T]) append(value T) {
-	b.execBufBuilder.append(exec.GetBytes([]T{value}))
-}
-
 func (b *bufferBuilder[T]) len() int { return b.sz / int(unsafe.Sizeof(b.zero)) }
-
-func (b *bufferBuilder[T]) appendN(n int, value T) {
-	b.reserve(n + b.len())
-	b.unsafeAppendN(n, value)
-}
-
-func (b *bufferBuilder[T]) appendSlice(values []T) {
-	b.execBufBuilder.append(exec.GetBytes(values))
-}
 
 func (b *bufferBuilder[T]) cap() int {
 	return cap(b.data) / int(unsafe.Sizeof(b.zero))
@@ -935,4 +977,13 @@ func checkIndexBoundsChunked(values *arrow.Chunked, upperLimit uint64) error {
 		}
 	}
 	return nil
+}
+
+func packBits(vals [32]uint32, out []byte) {
+	const batchSize = 32
+	for i := 0; i < batchSize; i += 8 {
+		out[0] = byte(vals[i] | vals[i+1]<<1 | vals[i+2]<<2 | vals[i+3]<<3 |
+			vals[i+4]<<4 | vals[i+5]<<5 | vals[i+6]<<6 | vals[i+7]<<7)
+		out = out[1:]
+	}
 }

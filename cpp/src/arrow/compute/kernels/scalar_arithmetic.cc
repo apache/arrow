@@ -1717,6 +1717,11 @@ const FunctionDoc pow_doc{
      "wraps around. If either base or exponent is null the result will be null."),
     {"base", "exponent"}};
 
+const FunctionDoc exp_doc{
+    "Compute Euler's number raised to the power of specified exponent, element-wise",
+    ("If exponent is null the result will be null."),
+    {"exponent"}};
+
 const FunctionDoc pow_checked_doc{
     "Raise arguments to power element-wise",
     ("An error is returned when integer to negative integer power is encountered,\n"
@@ -2223,6 +2228,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                     ArithmeticDecimalToFloatingPointFunction>(
           "power_checked", pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
+
+  // ----------------------------------------------------------------------
+  auto exp = MakeUnaryArithmeticFunctionFloatingPoint<Exp>("exp", exp_doc);
+  DCHECK_OK(registry->AddFunction(std::move(exp)));
 
   // ----------------------------------------------------------------------
   auto sqrt = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", sqrt_doc);

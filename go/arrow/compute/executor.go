@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute
 
 import (
@@ -613,6 +615,7 @@ func (s *scalarExecutor) executeSpans(data chan<- Datum) (err error) {
 
 		output = *s.prepareOutput(int(input.Len))
 		if err = s.executeSingleSpan(&input, &output); err != nil {
+			output.Release()
 			return
 		}
 		err = s.emitResult(&output, data)

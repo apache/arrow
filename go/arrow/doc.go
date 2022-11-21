@@ -28,6 +28,10 @@ The fundamental data structure in Arrow is an Array, which holds a sequence of v
 consists of memory holding the data and an additional validity bitmap that indicates if the corresponding entry in the
 array is valid (not null). If the array has no null entries, it is possible to omit this bitmap.
 
+Requirements
+
+Despite the go.mod stating go1.18, everything except for the compute package
+is able to be built with go1.17 (and most is also compatible with go1.16).
 */
 package arrow
 

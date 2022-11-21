@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute_test
 
 import (
@@ -95,7 +97,7 @@ func assertNullToNull(t *testing.T, ctx context.Context, fn string, mem memory.A
 
 type unaryArithmeticFunc = func(context.Context, compute.ArithmeticOptions, compute.Datum) (compute.Datum, error)
 
-type unaryFunc = func(compute.Datum) (compute.Datum, error)
+// type unaryFunc = func(compute.Datum) (compute.Datum, error)
 
 type binaryArithmeticFunc = func(context.Context, compute.ArithmeticOptions, compute.Datum, compute.Datum) (compute.Datum, error)
 
@@ -144,6 +146,12 @@ func (b *BinaryFuncTestSuite) SetupTest() {
 
 func (b *BinaryFuncTestSuite) TearDownTest() {
 	b.mem.AssertSize(b.T(), 0)
+}
+
+func (b *BinaryFuncTestSuite) getArr(dt arrow.DataType, str string) arrow.Array {
+	arr, _, err := array.FromJSON(b.mem, dt, strings.NewReader(str), array.WithUseNumber())
+	b.Require().NoError(err)
+	return arr
 }
 
 type Float16BinaryFuncTestSuite struct {
