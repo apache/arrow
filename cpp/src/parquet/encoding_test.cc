@@ -1326,7 +1326,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 };
 
-typedef ::testing::Types<Int32Type, Int64Type> TestDeltaBitPackEncodingTypes;
+using TestDeltaBitPackEncodingTypes = ::testing::Types<Int32Type, Int64Type>;
 TYPED_TEST_SUITE(TestDeltaBitPackEncoding, TestDeltaBitPackEncodingTypes);
 
 TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {

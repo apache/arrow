@@ -2259,9 +2259,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
     FlushBlock();
   }
 
-  std::shared_ptr<Buffer> bit_buffer;
-  PARQUET_ASSIGN_OR_THROW(bit_buffer, sink_.Finish());
-  sink_.Reset();
+  PARQUET_ASSIGN_OR_THROW(auto bit_buffer, sink_.Finish(/*shrink_to_fit=*/ true));
 
   if (!bit_writer_.PutVlqInt(values_per_block_) ||
       !bit_writer_.PutVlqInt(mini_blocks_per_block_) ||
@@ -2273,8 +2271,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
 
   PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
   PARQUET_THROW_NOT_OK(sink_.Append(bit_buffer->mutable_data(), bit_buffer->size()));
-  std::shared_ptr<Buffer> buffer;
-  PARQUET_THROW_NOT_OK(sink_.Finish(&buffer, true));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink_.Finish(/*shrink_to_fit=*/ true));
   return buffer;
 }
 
