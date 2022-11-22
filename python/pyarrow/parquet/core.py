@@ -3379,7 +3379,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
             metadata_collector[-1].set_file_path(outfile)
 
 
-def write_metadata(schema, where, metadata_collector=None, **kwargs):
+def write_metadata(schema, where, metadata_collector=None, filesystem=None,
+                   **kwargs):
     """
     Write metadata-only Parquet file from schema. This can be used with
     `write_to_dataset` to generate `_common_metadata` and `_metadata` sidecar
@@ -3391,6 +3392,9 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     where : string or pyarrow.NativeFile
     metadata_collector : list
         where to collect metadata information.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred from `where` if path-like, else
+        `where` is already a file-like object so no filesystem is needed.
     **kwargs : dict,
         Additional kwargs for ParquetWriter class. See docstring for
         `ParquetWriter` for more information.
@@ -3423,16 +3427,28 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     ...     table.schema, 'dataset_metadata/_metadata',
     ...     metadata_collector=metadata_collector)
     """
-    writer = ParquetWriter(where, schema, **kwargs)
+    filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+
+    if hasattr(where, "seek"):  # file-like
+        cursor_position = where.tell()
+
+    writer = ParquetWriter(where, schema, filesystem, **kwargs)
     writer.close()
 
     if metadata_collector is not None:
         # ParquetWriter doesn't expose the metadata until it's written. Write
         # it and read it again.
-        metadata = read_metadata(where)
+        metadata = read_metadata(where, filesystem=filesystem)
+        if hasattr(where, "seek"):
+            where.seek(cursor_position)  # file-like, set cursor back.
+
         for m in metadata_collector:
             metadata.append_row_groups(m)
-        metadata.write_metadata_file(where)
+        if filesystem is not None:
+            with filesystem.open_output_stream(where) as f:
+                metadata.write_metadata_file(f)
+        else:
+            metadata.write_metadata_file(where)
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,
