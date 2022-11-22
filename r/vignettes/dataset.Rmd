@@ -6,7 +6,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-Apache Arrow lets you work efficiently with multi-file data sets even when that data set is too large to be loaded into memory. With the help of Arrow Dataset objects you can analyze this kind of data using familiar  [dplyr](https://dplyr.tidyverse.org/) syntax. This article introduces Datasets and shows you how to analyze them with dplyr and arrow: we'll start by ensuring both packages are loaded
+Apache Arrow lets you work efficiently with single and multi-file data sets even when that data set is too large to be loaded into memory. With the help of Arrow Dataset objects you can analyze this kind of data using familiar  [dplyr](https://dplyr.tidyverse.org/) syntax. This article introduces Datasets and shows you how to analyze them with dplyr and arrow: we'll start by ensuring both packages are loaded
 
 ```{r}
 library(arrow, warn.conflicts = FALSE)
