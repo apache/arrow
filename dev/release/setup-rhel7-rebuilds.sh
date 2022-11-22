@@ -64,8 +64,8 @@ make install
 # CentOS7 default Openssl version 1.0 is not used, but the newer
 # version of Openssl that as just been installed is used by CMake
 echo 'export OPENSSL_ROOT_DIR=/usr/local/openssl' >> ~/.bash_profile
-echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/openssl/lib64' >> ~/.bash_profile
-echo 'export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/openssl/lib64' >> ~/.bash_profile
+echo 'export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/openssl/lib64' >> ~/.bash_profile
+echo 'export LIBRARY_PATH=\$LIBRARY_PATH:/usr/local/openssl/lib64' >> ~/.bash_profile
 
 echo "use "
 echo "$source  ~/.bash_profile"
