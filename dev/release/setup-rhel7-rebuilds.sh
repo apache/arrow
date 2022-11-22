@@ -52,6 +52,7 @@ yum -y install \
   which \
   zlib-devel
 
+chmod +x get-openssl.sh
 scl enable rh-python38 devtoolset-11 rh-ruby30 ./get-openssl.sh
 
 echo "use "
