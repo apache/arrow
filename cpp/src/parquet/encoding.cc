@@ -56,7 +56,6 @@ using arrow::Status;
 using arrow::VisitNullBitmapInline;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
-using arrow::internal::SafeSignedAdd;
 using arrow::internal::SafeSignedSubtract;
 using std::string_view;
 
@@ -2101,12 +2100,13 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
 template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
- static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
- static constexpr uint32_t kValuesPerBlock = 128;
- static constexpr uint32_t kMiniBlocksPerBlock = 4;
+  static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
+  static constexpr uint32_t kValuesPerBlock = 128;
+  static constexpr uint32_t kMiniBlocksPerBlock = 4;
 
  public:
   using T = typename DType::c_type;
+  using UT = std::make_unsigned_t<T>;
   using TypedEncoder<DType>::Put;
 
   explicit DeltaBitPackEncoder(const ColumnDescriptor* descr, MemoryPool* pool,
@@ -2117,11 +2117,11 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         mini_blocks_per_block_(mini_blocks_per_block),
         values_per_mini_block_(values_per_block / mini_blocks_per_block),
         deltas_(values_per_block, ::arrow::stl::allocator<T>(pool)),
-        bits_buffer_(AllocateBuffer(
-            pool, kMaxPageHeaderWriterSize + values_per_block * sizeof(T))),
+        bits_buffer_(
+            AllocateBuffer(pool, (kMiniBlocksPerBlock + values_per_block) * sizeof(T))),
         sink_(pool),
-        bit_writer_(bits_buffer_->mutable_data(),
-                    static_cast<int>(bits_buffer_->size())) {
+        bit_writer_(bits_buffer_->mutable_data(), static_cast<int>(bits_buffer_->size())),
+        bit_widths_(mini_blocks_per_block, 0) {
     if (values_per_block_ % 128 != 0) {
       throw ParquetException(
           "the number of values in a block must be multiple of 128, but it's " +
@@ -2138,6 +2138,8 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
           "but it's " +
           std::to_string(values_per_block % mini_blocks_per_block));
     }
+    // Reserve enough space at the beginning of the buffer for largest possible header.
+    PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
   }
 
   std::shared_ptr<Buffer> FlushValues() override;
@@ -2165,6 +2167,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::BufferBuilder sink_;
   ::arrow::bit_util::BitWriter bit_writer_;
+  std::vector<uint8_t> bit_widths_;
 };
 
 template <typename DType>
@@ -2188,7 +2191,8 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
     // and correct even in case of overflow. Encoded integes will wrap back around on
     // decoding.
     // See http://en.wikipedia.org/wiki/Modular_arithmetic#Integers_modulo_n
-    deltas_[values_current_block_] = SafeSignedSubtract(value, current_value_);
+    deltas_[values_current_block_] =
+        static_cast<UT>(value) - static_cast<UT>(current_value_);
     current_value_ = value;
     idx++;
     values_current_block_++;
@@ -2208,11 +2212,6 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
       *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_);
   bit_writer_.PutZigZagVlqInt(min_delta);
 
-  // If, in the last block, less than <number of miniblocks in a block> miniblocks are
-  // needed to store the values, the bytes storing the bit widths of the unneeded
-  // miniblocks are still present, their value should be zero, but readers must accept
-  // arbitrary values as well.
-  std::vector<uint8_t> bit_widths(mini_blocks_per_block_, 0);
   // Call to GetNextBytePtr reserves mini_blocks_per_block_ bytes of space to write
   // bit widths of miniblocks as they become known during the encoding.
   uint8_t* bit_width_data = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
@@ -2231,29 +2230,30 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
     // See overflow comment above
     const T max_delta_diff = SafeSignedSubtract(max_delta, min_delta);
-    const int num_bits =
-        bit_util::NumRequiredBits(static_cast<std::make_unsigned_t<T>>(max_delta_diff));
-    // The minimum number of bytes required to write any of value in deltas_ vector.
-    const int num_bytes = static_cast<int>(bit_util::BytesForBits(num_bits));
-    bit_widths[i] = num_bits;
+    // The minimum number of bits required to write any of values in deltas_ vector.
+    bit_widths_[i] = bit_util::NumRequiredBits(static_cast<UT>(max_delta_diff));
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // See overflow comment above
-      const T value = SafeSignedSubtract(deltas_[j], min_delta);
-      bit_writer_.PutAligned<T>(value, num_bytes);
+      auto value = static_cast<UT>(SafeSignedSubtract(deltas_[j], min_delta));
+      bit_writer_.PutValue(value, bit_widths_[i]);
     }
     // If there are not enough values to fill the last mini block, we pad the mini block
     // with zeroes so that its length is the number of values in a full mini block
     // multiplied by the bit width.
     for (uint32_t j = values_current_mini_block; j < values_per_mini_block_; j++) {
-      bit_writer_.PutAligned<T>(0, num_bytes);
+      bit_writer_.PutValue(UT(0), bit_widths_[i]);
     }
     values_current_block_ -= values_current_mini_block;
   }
   DCHECK_EQ(values_current_block_, 0);
 
+  // If, in the last block, less than <number of miniblocks in a block> miniblocks are
+  // needed to store the values, the bytes storing the bit widths of the unneeded
+  // miniblocks are still present, their value should be zero, but readers must accept
+  // arbitrary values as well.
   for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
-    bit_width_data[i] = bit_widths[i];
+    bit_width_data[i] = bit_widths_[i];
   }
 
   bit_writer_.Flush();
@@ -2267,26 +2267,27 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   if (values_current_block_ > 0) {
     FlushBlock();
   }
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink_.Finish(/*shrink_to_fit=*/true));
 
-  PARQUET_ASSIGN_OR_THROW(auto bit_buffer, sink_.Finish(/*shrink_to_fit=*/true));
-
-  if (bit_writer_.buffer_len() - bit_writer_.bytes_written() <
-      static_cast<int>(kMaxPageHeaderWriterSize)) {
-    throw ParquetException("not enough space to write header");
-  }
-  if (!bit_writer_.PutVlqInt(values_per_block_) ||
-      !bit_writer_.PutVlqInt(mini_blocks_per_block_) ||
-      !bit_writer_.PutVlqInt(total_value_count_) ||
-      !bit_writer_.PutZigZagVlqInt(first_value_)) {
+  uint8_t header_buffer_[kMaxPageHeaderWriterSize] = {};
+  bit_util::BitWriter header_writer(header_buffer_, sizeof(header_buffer_));
+  if (!header_writer.PutVlqInt(values_per_block_) ||
+      !header_writer.PutVlqInt(mini_blocks_per_block_) ||
+      !header_writer.PutVlqInt(total_value_count_) ||
+      !header_writer.PutZigZagVlqInt(first_value_)) {
     throw ParquetException("header writing error");
   }
-  bit_writer_.Flush();
+  header_writer.Flush();
 
-  PARQUET_THROW_NOT_OK(sink_.Reserve(bit_writer_.bytes_written() + bit_buffer->size()));
-  PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
-  PARQUET_THROW_NOT_OK(sink_.Append(bit_buffer->mutable_data(), bit_buffer->size()));
-  PARQUET_ASSIGN_OR_THROW(auto buffer, sink_.Finish(/*shrink_to_fit=*/ true));
-  return buffer;
+  // We reserved enough space at the beginning of the buffer for largest possible header
+  // and data was written immediately after. We now write the header data immediately
+  // before the end of reserved space.
+  const size_t offset_bytes = kMaxPageHeaderWriterSize - header_writer.bytes_written();
+  std::memcpy(buffer->mutable_data() + offset_bytes, header_buffer_,
+              header_writer.bytes_written());
+
+  // Excess bytes at the beginning will are sliced off and ignored.
+  return SliceBuffer(buffer, offset_bytes);
 }
 
 template <>
@@ -2488,8 +2489,9 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       for (int j = 0; j < values_decode; ++j) {
         // Addition between min_delta, packed int and last_value should be treated as
         // unsigned addition. Overflow is as expected.
-        const T delta = SafeSignedAdd(min_delta_, buffer[i + j]);
-        buffer[i + j] = SafeSignedAdd(delta, last_value_);
+        uint64_t delta =
+            static_cast<uint64_t>(min_delta_) + static_cast<uint64_t>(buffer[i + j]);
+        buffer[i + j] = static_cast<T>(delta + static_cast<uint64_t>(last_value_));
         last_value_ = buffer[i + j];
       }
       values_current_mini_block_ -= values_decode;
