@@ -130,12 +130,6 @@ data files, where the Arrow C++ options have been mapped to arguments in a
 way that mirrors the conventions used in `readr::read_delim()`, with a 
 `col_select` argument inspired by `vroom::vroom()`. 
 
-Although `read_csv_arrow()` currently has fewer parsing options for dealing 
-with every CSV format variation in the wild than other CSV readers available
-in R, for those files that it can read, it is often significantly faster than 
-other R CSV readers, such as `base::read.csv`, `readr::read_csv`, and
-`data.table::fread`.
-
 A simple example of writing and reading a CSV file with arrow is shown below:
 
 ```{r}
