@@ -76,6 +76,8 @@ ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM=2f723218f6cb709ae4cdc4fb5ed56a5951fc5d466f0
 # warnings.
 ARROW_RAPIDJSON_BUILD_VERSION=232389d4f1012dddec4ef84861face2d2ba85709
 ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM=b9290a9a6d444c8e049bd589ab804e0ccf2b05dc5984a19ed5ae75d090064806
+ARROW_QPL_BUILD_VERSION=v0.2.1
+ARROW_QPL_BUILD_SHA256_CHECKSUM=129c1c8754139ea9a7b92f4c92b9d3d09068a32b03b8c0dd551379574b0e970d
 ARROW_RE2_BUILD_VERSION=2022-06-01
 ARROW_RE2_BUILD_SHA256_CHECKSUM=f89c61410a072e5cbcf8c27e3a778da7d6fd2f2b5b1445cd4f4508bee946ab0f
 # 1.1.9 is patched to implement https://github.com/google/snappy/pull/148 if this is bumped, remove the patch
@@ -126,6 +128,7 @@ DEPENDENCIES=(
   "ARROW_OPENTELEMETRY_PROTO_URL opentelemetry-proto-${ARROW_OPENTELEMETRY_PROTO_BUILD_VERSION}.tar.gz https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/${ARROW_OPENTELEMETRY_PROTO_BUILD_VERSION}.tar.gz"
   "ARROW_ORC_URL orc-${ARROW_ORC_BUILD_VERSION}.tar.gz https://archive.apache.org/dist/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
   "ARROW_PROTOBUF_URL protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_BUILD_VERSION:1}.tar.gz"
+  "ARROW_QPL_URL qpl-${ARROW_QPL_BUILD_VERSION}.tar.gz https://github.com/intel/qpl/archive/refs/tags/${ARROW_QPL_BUILD_VERSION}.tar.gz"
   "ARROW_RAPIDJSON_URL rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
   "ARROW_RE2_URL re2-${ARROW_RE2_BUILD_VERSION}.tar.gz https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
   "ARROW_SNAPPY_URL snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"

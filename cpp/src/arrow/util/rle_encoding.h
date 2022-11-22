@@ -30,6 +30,7 @@
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/qpl_job_pool.h"
 
 namespace arrow {
 namespace util {
@@ -128,6 +129,12 @@ class RleDecoder {
   template <typename T>
   int GetBatchWithDict(const T* dictionary, int32_t dictionary_length, T* values,
                        int batch_size);
+
+#ifdef ARROW_WITH_QPL
+  template <typename T>
+  int GetBatchWithDictIAA(const T* dictionary, int32_t dictionary_length, T* values,
+                          int batch_size);
+#endif
 
   /// Like GetBatchWithDict but add spacing for null entries
   ///
@@ -597,6 +604,73 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
 
   return values_read;
 }
+
+#ifdef ARROW_WITH_QPL
+template <typename T, typename V>
+inline void CopyValues(const T* dictionary, const std::vector<uint8_t>& destination,
+                       T* values, int batch_size) {
+  auto* out = values;
+  auto* indices = reinterpret_cast<const V*>(destination.data());
+  for (int j = 0; j < batch_size; j++) {
+    auto idx = indices[j];
+    T val = dictionary[idx];
+    std::fill(out, out + 1, val);
+    out++;
+  }
+  return;
+}
+
+template <typename T>
+inline int RleDecoder::GetBatchWithDictIAA(const T* dictionary, int32_t dictionary_length,
+                                           T* values, int batch_size) {
+  if (batch_size <= 0) {
+    return batch_size;
+  }
+  if (!::arrow::util::internal::QplJobHWPool::GetInstance().job_ready() ||
+      bit_width_ <= 1) {
+    return GetBatchWithDict(dictionary, dictionary_length, values, batch_size);
+  }
+  uint32_t job_id = 0;
+  auto* job = ::arrow::util::internal::QplJobHWPool::GetInstance().AcquireJob(job_id);
+  if (!job) {
+    return -1;
+  }
+
+  std::vector<uint8_t> destination;
+  if (dictionary_length < 0xFF) {
+    job->out_bit_width = qpl_ow_8;
+    destination.resize(batch_size, 0);
+  } else if (dictionary_length < 0xFFFF) {
+    job->out_bit_width = qpl_ow_16;
+    destination.resize(batch_size * 2, 0);
+  } else {
+    job->out_bit_width = qpl_ow_32;
+    destination.resize(batch_size * 4, 0);
+  }
+
+  job->op = qpl_op_extract;
+  job->src1_bit_width = bit_width_;
+  job->parser = qpl_p_parquet_rle;
+  job->next_out_ptr = destination.data();
+  job->available_out = static_cast<uint32_t>(destination.size());
+
+  if (!bit_reader_.GetBatchWithQpl(batch_size, job)) {
+    return -1;
+  }
+
+  if (destination.size() / batch_size == qpl_ow_8) {
+    CopyValues<T, uint8_t>(dictionary, destination, values, batch_size);
+  } else if (destination.size() / batch_size == qpl_ow_16) {
+    CopyValues<T, uint16_t>(dictionary, destination, values, batch_size);
+  } else {
+    CopyValues<T, uint32_t>(dictionary, destination, values, batch_size);
+  }
+
+  (void)qpl_fini_job(job);
+  ::arrow::util::internal::QplJobHWPool::GetInstance().ReleaseJob(job_id);
+  return batch_size;
+}
+#endif
 
 template <typename T>
 inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,

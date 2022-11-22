@@ -389,6 +389,7 @@ add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
+add_parquet_benchmark(arrow/qpl_reader_benchmark)
 
 if(ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)

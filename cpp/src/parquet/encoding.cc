@@ -1494,8 +1494,13 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   int Decode(T* buffer, int num_values) override {
     num_values = std::min(num_values, num_values_);
     int decoded_values =
+#ifdef ARROW_WITH_QPL
+        idx_decoder_.GetBatchWithDictIAA(reinterpret_cast<const T*>(dictionary_->data()),
+                                         dictionary_length_, buffer, num_values);
+#else
         idx_decoder_.GetBatchWithDict(reinterpret_cast<const T*>(dictionary_->data()),
                                       dictionary_length_, buffer, num_values);
+#endif
     if (decoded_values != num_values) {
       ParquetException::EofException();
     }

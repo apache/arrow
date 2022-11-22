@@ -28,6 +28,7 @@
 #include "arrow/util/bpacking.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/qpl_job_pool.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
@@ -116,7 +117,11 @@ class BitReader {
  public:
   /// 'buffer' is the buffer to read from.  The buffer's length is 'buffer_len'.
   BitReader(const uint8_t* buffer, int buffer_len)
-      : buffer_(buffer), max_bytes_(buffer_len), byte_offset_(0), bit_offset_(0) {
+      : buffer_(buffer),
+        max_bytes_(buffer_len),
+        byte_offset_(0),
+        bit_offset_(0),
+        value_offset_(0) {
     int num_bytes = std::min(8, max_bytes_ - byte_offset_);
     memcpy(&buffered_values_, buffer_ + byte_offset_, num_bytes);
     buffered_values_ = arrow::bit_util::FromLittleEndian(buffered_values_);
@@ -137,6 +142,7 @@ class BitReader {
     int num_bytes = std::min(8, max_bytes_ - byte_offset_);
     memcpy(&buffered_values_, buffer_ + byte_offset_, num_bytes);
     buffered_values_ = arrow::bit_util::FromLittleEndian(buffered_values_);
+    value_offset_ = 0;
   }
 
   /// Gets the next value from the buffer.  Returns true if 'v' could be read or false if
@@ -147,6 +153,13 @@ class BitReader {
   /// Get a number of values from the buffer. Return the number of values actually read.
   template <typename T>
   int GetBatch(int num_bits, T* v, int batch_size);
+
+#ifdef ARROW_WITH_QPL
+  /// Get a number of values from the buffer by using Qpl.
+  /// The values actually read were stored in job pointer.
+  /// Return false if error happen, return ture if values were sucessfully read.
+  bool GetBatchWithQpl(int batch_size, qpl_job* job);
+#endif
 
   /// Reads a 'num_bytes'-sized value from the buffer and stores it in 'v'. T
   /// needs to be a little-endian native type and big enough to store
@@ -198,8 +211,9 @@ class BitReader {
   /// faster than reading values byte by byte directly from buffer_.
   uint64_t buffered_values_;
 
-  int byte_offset_;  // Offset in buffer_
-  int bit_offset_;   // Offset in buffered_values_
+  int byte_offset_;   // Offset in buffer_
+  int bit_offset_;    // Offset in buffered_values_
+  int value_offset_;  // Index of next value to read
 };
 
 inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
@@ -397,6 +411,27 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
   return batch_size;
 }
+
+#ifdef ARROW_WITH_QPL
+inline bool BitReader::GetBatchWithQpl(int batch_size, qpl_job* job) {
+  if (!job) {
+    return false;
+  }
+  job->param_low = value_offset_;
+  job->param_high = batch_size + value_offset_;
+  job->num_input_elements = batch_size + value_offset_;
+
+  job->next_in_ptr = const_cast<uint8_t*>(buffer_ - 1);
+  job->available_in = max_bytes_ + 1;
+
+  qpl_status status = qpl_execute_job(job);
+  if (status != QPL_STS_OK) {
+    return false;
+  }
+  value_offset_ += batch_size;
+  return true;
+}
+#endif
 
 template <typename T>
 inline bool BitReader::GetAligned(int num_bytes, T* v) {
