@@ -518,10 +518,28 @@ def _record_batch_for_range(schema, n):
                                     range(n + 1, n + 11))
 
 
-def datasource1(ctx):
+def make_udt_func(schema, batch_gen):
+    def udf_func(ctx):
+        class UDT:
+            def __init__(self):
+                self.caller = None
+            def __call__(self, ctx):
+                try:
+                    if self.caller is None:
+                        self.caller, ctx = batch_gen(ctx).send, None
+                    batch = self.caller(ctx)
+                except StopIteration:
+                    arrays = [pa.array([], type=field.type) for field in schema]
+                    batch = pa.RecordBatch.from_arrays(arrays=arrays, schema=schema)
+                return batch.to_struct_array()
+        return UDT()
+    return udf_func
+
+
+def datasource1_direct():
     """A short dataset"""
     import pyarrow as pa
-    schema = pa.schema([('', pa.int32()), ('', pa.int32())])
+    schema = datasource1_schema()
 
     class Generator:
         def __init__(self):
@@ -533,20 +551,59 @@ def datasource1(ctx):
             else:
                 self.n -= 1
                 batch = _record_batch_for_range(schema, self.n)
-            return pc.udf_result_from_record_batch(batch)
-    return Generator()
+            return batch.to_struct_array()
+    return lambda ctx: Generator()
 
 
-def test_udt():
-    func = datasource1
-    func_name = "datasource1"
-    func_doc = {"summary": "datasource1 UDT",
-                "description": "test datasource1 UDT"}
+def datasource1_generator():
+    schema = datasource1_schema()
+    def batch_gen(ctx):
+        for n in range(3, 0, -1):
+            ctx = yield _record_batch_for_range(schema, n - 1)
+    return make_udt_func(schema, batch_gen)
+
+
+def datasource1_exception():
+    schema = datasource1_schema()
+    def batch_gen(ctx):
+        for n in range(3, 0, -1):
+            ctx = yield _record_batch_for_range(schema, n - 1)
+        raise RuntimeError("datasource1_exception")
+    return make_udt_func(schema, batch_gen)
+
+
+def datasource1_schema():
+    return pa.schema([('', pa.int32()), ('', pa.int32())])
+
+
+def datasource1_args(func, func_name):
+    func_doc = {"summary": f"{func_name} UDT",
+                "description": "test {func_name} UDT"}
     in_types = {}
     out_type = pa.struct([("", pa.int32()), ("", pa.int32())])
-    schema = pa.schema([('', pa.int32()), ('', pa.int32())])
-    pc.register_tabular_function(func, func_name, func_doc, in_types, out_type)
+    return func, func_name, func_doc, in_types, out_type
+
+
+def _test_datasource1_udt(func_maker):
+    schema = datasource1_schema()
+    func = func_maker()
+    func_name = func_maker.__name__
+    func_args = datasource1_args(func, func_name)
+    pc.register_tabular_function(*func_args)
     n = 3
     for item in pc.get_record_batches_from_tabular_function(func_name):
         n -= 1
         assert item == _record_batch_for_range(schema, n)
+
+
+def test_udt_datasource1_direct():
+    _test_datasource1_udt(datasource1_direct)
+
+
+def test_udt_datasource1_generator():
+    _test_datasource1_udt(datasource1_generator)
+
+
+def test_udt_datasource1_exception():
+    with pytest.raises(RuntimeError, match='datasource1_exception'):
+        _test_datasource1_udt(datasource1_exception)

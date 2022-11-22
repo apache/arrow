@@ -22,15 +22,6 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
-
-using compute::ExecResult;
-using compute::ExecSpan;
-using compute::Function;
-using compute::OutputType;
-using compute::ScalarFunction;
-using compute::ScalarKernel;
-using internal::checked_cast;
-
 namespace py {
 
 namespace {
@@ -99,9 +90,9 @@ struct PythonUdf : public PythonScalarUdfKernelState {
   ScalarUdfWrapperCallback cb;
   compute::OutputType output_type;
 
-  Status Exec(compute::KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    auto state =
-        ::arrow::internal::checked_cast<PythonScalarUdfKernelState*>(ctx->state());
+  Status Exec(compute::KernelContext* ctx, const compute::ExecSpan& batch,
+              compute::ExecResult* out) {
+    auto state = arrow::internal::checked_cast<PythonScalarUdfKernelState*>(ctx->state());
     std::shared_ptr<OwnedRefNoGIL>& function = state->function;
     const int num_args = batch.num_values();
     ScalarUdfContext udf_context{ctx->memory_pool(), batch.length};
@@ -144,8 +135,8 @@ struct PythonUdf : public PythonScalarUdfKernelState {
   }
 };
 
-Status PythonUdfExec(compute::KernelContext* ctx, const ExecSpan& batch,
-                     ExecResult* out) {
+Status PythonUdfExec(compute::KernelContext* ctx, const compute::ExecSpan& batch,
+                     compute::ExecResult* out) {
   auto udf = static_cast<PythonUdf*>(ctx->kernel()->data.get());
   return SafeCallIntoPython([&]() -> Status { return udf->Exec(ctx, batch, out); });
 }
@@ -226,27 +217,29 @@ Result<RecordBatchIterator> GetRecordBatchesFromTabularFunction(
     registry = compute::GetFunctionRegistry();
   }
   ARROW_ASSIGN_OR_RAISE(auto func, registry->GetFunction(func_name));
-  if (func->kind() != Function::SCALAR) {
+  if (func->kind() != compute::Function::SCALAR) {
     return Status::Invalid("tabular function of non-scalar kind");
   }
   auto arity = func->arity();
   if (arity.num_args != 0 || arity.is_varargs) {
     return Status::Invalid("tabular function of non-null arity");
   }
-  auto kernels = ::arrow::internal::checked_pointer_cast<ScalarFunction>(func)->kernels();
+  auto kernels =
+      arrow::internal::checked_pointer_cast<compute::ScalarFunction>(func)->kernels();
   if (kernels.size() != 1) {
     return Status::Invalid("tabular function with non-single kernel");
   }
-  const ScalarKernel* kernel = kernels[0];
+  const compute::ScalarKernel* kernel = kernels[0];
   auto out_type = kernel->signature->out_type();
-  if (out_type.kind() != OutputType::FIXED) {
+  if (out_type.kind() != compute::OutputType::FIXED) {
     return Status::Invalid("tabular kernel of non-fixed kind");
   }
   auto datatype = out_type.type();
   if (datatype->id() != Type::type::STRUCT) {
     return Status::Invalid("tabular kernel with non-struct output");
   }
-  auto fields = checked_cast<const StructType*>(datatype.get())->fields();
+  auto fields =
+      arrow::internal::checked_cast<const StructType*>(datatype.get())->fields();
   auto schema = ::arrow::schema(fields);
   std::vector<TypeHolder> in_types;
   ARROW_ASSIGN_OR_RAISE(auto func_exec,
@@ -271,5 +264,4 @@ Result<RecordBatchIterator> GetRecordBatchesFromTabularFunction(
 }
 
 }  // namespace py
-
 }  // namespace arrow

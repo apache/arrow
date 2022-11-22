@@ -2602,26 +2602,6 @@ def _get_scalar_udf_context(memory_pool, batch_length):
     return context
 
 
-def udf_result_from_record_batch(record_batch):
-    """
-    Convert a record batch to a UDF result.
-
-    A UDF result is a struct array appropriate for returning from a UDF.
-
-    Parameters
-    ----------
-    record_batch : object
-        An object holding a wrapped CRecordBatch
-    """
-    cdef:
-        shared_ptr[CRecordBatch] c_record_batch
-        CResult[shared_ptr[CArray]] c_res_array
-
-    c_record_batch = pyarrow_unwrap_batch(record_batch)
-    c_res_array = <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray()
-    return pyarrow_wrap_array(GetResultValue(c_res_array))
-
-
 ctypedef CStatus (*CRegisterScalarLikeFunction)(PyObject* function,
                                                 function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
                                                 CFunctionRegistry* registry)
