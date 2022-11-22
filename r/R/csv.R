@@ -478,7 +478,7 @@ CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L) {
   )
 }
 
-readr_to_csv_read_options <- function(skip, col_names, col_types) {
+readr_to_csv_read_options <- function(skip = 0, col_names = TRUE, col_types = NULL) {
   if (isTRUE(col_names)) {
     # C++ default to parse is 0-length string array
     col_names <- character(0)
