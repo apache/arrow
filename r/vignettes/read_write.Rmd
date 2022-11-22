@@ -74,11 +74,13 @@ The default is to return a data frame or tibble. If we want an Arrow Table inste
 read_parquet(file_path, as_data_frame = FALSE)
 ```
 
-One useful feature of Parquet files is that they store data column-wise, and contain metadata that allow file readers to skip to the relevant sections of the file. That means it is possible to load only a subset of the columns without reading the complete file. The `col_select` argument to `read_parquet()` supports this functionality is supported in arrow:
+One useful feature of Parquet files is that they store data column-wise, and contain metadata that allow file readers to skip to the relevant sections of the file. That means it is possible to load only a subset of the columns without reading the complete file. The `col_select` argument to `read_parquet()` supports this functionality:
 
 ```{r}
 read_parquet(file_path, col_select = c("name", "height", "mass"))
 ```
+
+Fine-grained control over the Parquet reader is possible with the `props` argument. See `help("ParquetArrowReaderProperties", package = "arrow")` for details.
 
 R object attributes are preserved when writing data to Parquet or
 Arrow/Feather files and when reading those files back into R. This enables
@@ -137,6 +139,8 @@ file_path <- tempfile()
 write_csv_arrow(mtcars, file_path)
 read_csv_arrow(file_path, col_select = starts_with("d"))
 ```
+
+In addition to the options provided by the readr-style arguments (`delim`, `quote`, `escape_doubple`, `escape_backslash`, etc), you can use the `schema` argument to specify column types: see `schema()` help for details. There is also the option of using `parse_options`, `convert_options`, and `read_options` to exercise fine-grained control over the arrow csv reader: see `help("CsvReadOptions", package = "arrow")` for details. 
 
 ## JSON format
 
