@@ -42,8 +42,7 @@ yum -y install \
   ncurses-devel \
   ninja-build \
   perl-core \
-  rh-python38 \
-  rh-python38-scldevel \
+  rh-python38* \
   rh-ruby30* \
   sqlite-devel \
   tar \
