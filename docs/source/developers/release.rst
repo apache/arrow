@@ -493,7 +493,7 @@ Be sure to go through on the following checklist:
    is documented in the
    `Confluence release guide <https://cwiki.apache.org/confluence/display/ARROW/Release+Management+Guide#ReleaseManagementGuide-UpdatingRpackages>`_
    and the
-   `packaging checklist <https://github.com/apache/arrow/blob/master/r/DESCRIPTION>`_.
+   `packaging checklist <https://github.com/apache/arrow/blob/master/r/PACKAGING.md>`_.
 
 .. dropdown:: Update vcpkg port
    :animate: fade-in-slide-down

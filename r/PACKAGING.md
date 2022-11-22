@@ -30,28 +30,29 @@ For full documentation of the steps in this checklist, see the
 - [ ] Confirm that all
   [nightly tests and nightly packaging builds](https://lists.apache.org/list.html?builds@arrow.apache.org) are passing.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html)
-- [ ] Check README
+- [ ] Ensure the contents of the README is accurate
 - [ ] `urlchecker::url_check()`
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release)
 - [ ] Prepare tweet thread highlighting new features
 
-Make draft pull requests into the [autobrew](https://github.com/autobrew) and
+Make pull requests into the [autobrew](https://github.com/autobrew) and
 [rtools-packages](https://github.com/r-windows/rtools-packages) repositories
-used by the configure script on MacOS and Windows:
+used by the configure script on MacOS and Windows. These pull requests will
+use the release candidate as the source.
 
-- [ ] Open a draft pull request to modify 
+- [ ] Pull request to modify 
   [the apache-arrow autobrew formula]( https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow.rb) 
   to update the version, SHA, and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb)
-- [ ] Open a draft pull request to modify
+- [ ] Pull request to modify
   [the apache-arrow-static autobrew formula]( https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow-static.rb)
   to update the version, SHA, and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow-static.rb)
-- [ ] Open a draft pull request to modify the 
+- [ ] Pull request to modify the 
   [autobrew script](https://github.com/autobrew/scripts/blob/master/apache-arrow)
   to include any additions made to
   [r/tools/autobrew](https://github.com/apache/arrow/blob/master/r/tools/autobrew).
-- [ ] Open a draft pull request to modify the
+- [ ] Pull request to modify the
   [PKGBUILD script](https://github.com/r-windows/rtools-packages/blob/master/mingw-w64-arrow/PKGBUILD)
   to reflect changes in
   [ci/PKGBUILD](https://github.com/apache/arrow/blob/master/ci/scripts/PKGBUILD),
@@ -66,19 +67,19 @@ Prepare and check the .tar.gz that will be released to CRAN.
 - [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on Windows
 - [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on MacOS
 - [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on MacOS M1
-- [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on Linux
-- [ ] `rhub::check("arrow_X.X.X.tar.gz", platform=c("debian-gcc-patched", "fedora-clang-devel"))`
 - [ ] Run reverse dependency checks
 
 Wait for the official release...
   
-- [ ] Wait for the release vote to pass
-- [ ] Create a CRAN-release branch (TODO: previously this branch was on
-  Neal's fork but we may want to consider a branch elsewhere)
+- [ ] Release vote passed!
+- [ ] Create a CRAN-release branch from the official release commit
+- [ ] Remove badges from README.md
+- [ ] `urlchecker::url_check()`
 - [ ] Bump the Version in DESCRIPTION to X.X.X
-- [ ] Regenerate arrow_X.X.X.tar.gz (via `make release`?)
+- [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
-Finalize and merge draft PRs/ensure linux binary packages are available:
+Update autobrew and r-windows PRs to use the *release* instead of the
+*release candidate*; ensure linux binary packages are available:
 
 - [ ] PR into autobrew/homebrew-core
 - [ ] PR into autobrew/homebrew-core
@@ -95,7 +96,7 @@ Check binary Arrow C++ distributions specific to the R package:
   and confirm that the check is clean
 - [ ] Check `install.packages("arrow_X.X.X.tar.gz")` on Ubuntu and ensure that the
   hosted binaries are used
-  
+
 Submit!
 
 - [ ] Upload arrow_X.X.X.tar.gz to the
