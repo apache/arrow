@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path"
 	"reflect"
 	"strconv"
 	"testing"
@@ -688,8 +689,14 @@ func TestDeltaByteArrayEncoding(t *testing.T) {
 }
 
 func TestDeltaBitPacking(t *testing.T) {
-	require.FileExists(t, "testdata/timestamp.data")
-	f, err := os.Open("testdata/timestamp.data")
+	datadir := os.Getenv("ARROW_TEST_DATA")
+	if datadir == "" {
+		return
+	}
+
+	fname := path.Join(datadir, "parquet/timestamp.data")
+	require.FileExists(t, fname)
+	f, err := os.Open(fname)
 	if err != nil {
 		t.Fatal(err)
 	}
