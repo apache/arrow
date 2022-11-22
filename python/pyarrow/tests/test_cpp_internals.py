@@ -42,7 +42,7 @@ def test_pyarrow_include():
     # Arrow C++ and PyArrow C++ header files together
 
     source = os.path.dirname(os.path.abspath(__file__))
-    pyarrow_dir = os.path.abspath(pjoin(source, '..'))
+    pyarrow_dir = pjoin(source, '..')
     pyarrow_include = pjoin(pyarrow_dir, 'include')
     pyarrow_cpp_include = pjoin(pyarrow_include, 'arrow', 'python')
 
