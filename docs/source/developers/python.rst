@@ -563,15 +563,15 @@ Then run the unit tests with:
    the Python extension. This is recommended for development as it allows the
    C++ libraries to be re-built separately.
 
-   If you are using the conda package manager then conda will ensure Arrow C++
-   libraries are found. In case you are *not* using conda then you have to
+   If you are using the conda package manager then conda will ensure the Arrow C++
+   libraries are found. In case you are *not* using conda then you have to:
 
    * add the path of installed DLL libraries to ``PATH`` every time before
      importing ``pyarrow``, or
    * bundle the Arrow C++ libraries with ``pyarrow``.
 
-   If you want to bundle the Arrow C++ libraries with ``pyarrow``, use
-   ``PYARROW_BUNDLE_ARROW_CPP`` environment variable before building pyarrow:
+   If you want to bundle the Arrow C++ libraries with ``pyarrow``, set the
+   ``PYARROW_BUNDLE_ARROW_CPP`` environment variable before building ``pyarrow``:
 
    .. code-block::
 
@@ -579,7 +579,7 @@ Then run the unit tests with:
       $ python setup.py build_ext --inplace
 
    Note that bundled Arrow C++ libraries will not be automatically
-   updated when rebuilding the Arrow C++.
+   updated when rebuilding Arrow C++.
 
 Caveats
 -------
