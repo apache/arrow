@@ -1539,7 +1539,7 @@ cdef class FlightClient(_Weakrefable):
         result.reader.reset(reader.release())
         return result
 
-    def do_put(self, descriptor: FlightDescriptor, schema: Schema,
+    def do_put(self, descriptor: FlightDescriptor, Schema schema not None,
                options: FlightCallOptions = None):
         """Upload data to a flight.
 
@@ -1548,9 +1548,6 @@ cdef class FlightClient(_Weakrefable):
         writer : FlightStreamWriter
         reader : FlightMetadataReader
         """
-        if schema is None:
-            raise ValueError("`schema` cannot be None")
-
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
             CDoPutResult c_do_put_result
