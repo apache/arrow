@@ -535,6 +535,7 @@ std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
 }
 
 ThreadPool* GetCpuThreadPool() {
+  // Avoid using a global variable because of initialization order issues (ARROW-18383)
   static std::shared_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
   return singleton.get();
 }
