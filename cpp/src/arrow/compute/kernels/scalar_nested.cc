@@ -106,7 +106,7 @@ int MaxSliceLength(std::slice slice) {
     return 1;
   }
 
-  int length = std::floor((size - start) / stride);
+  auto length = static_cast<int>(std::floor((size - start) / stride));
   if (fmod(static_cast<float>(length), stride) > 0.0) {
     ++length;
   }
@@ -243,7 +243,7 @@ struct ListSlice {
         RETURN_NOT_OK(
             value_builder->AppendArraySlice(*list_values, cursor + opts->start, 1));
       }
-      cursor += opts->step;
+      cursor += static_cast<offset_type>(opts->step);
     }
     return Status::OK();
   }
