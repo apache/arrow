@@ -56,5 +56,5 @@ chmod +x get-openssl.sh
 scl enable rh-python38 devtoolset-11 rh-ruby30 ./get-openssl.sh
 
 echo "use "
-echo "$scl enable rh-python38 devtoolset-11 rh-ruby30"
+echo ">scl enable rh-python38 devtoolset-11 rh-ruby30 bash"
 echo "to get the updated Python, GCC compilers and Ruby within your shell environment"
