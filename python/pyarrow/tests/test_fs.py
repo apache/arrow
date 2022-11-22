@@ -1326,9 +1326,14 @@ def test_s3fs_wrong_region():
     msg = ("When getting information for bucket 'voltrondata-labs-datasets': "
            r"AWS Error UNKNOWN \(HTTP status 301\) during HeadBucket "
            "operation: No response body. Looks like the configured region is "
-           "'eu-north-1' while the bucket is located in 'us-east-2'.")
-    with pytest.raises(OSError, match=msg):
+           "'eu-north-1' while the bucket is located in 'us-east-2'."
+           "|NETWORK_CONNECTION")
+    with pytest.raises(OSError, match=msg) as exc:
         fs.get_file_info("voltrondata-labs-datasets")
+
+    # Sometimes fails on unrelated network error, so next call would also fail.
+    if 'NETWORK_CONNECTION' in str(exc.value):
+        return
 
     fs = S3FileSystem(region='us-east-2')
     fs.get_file_info("voltrondata-labs-datasets")
