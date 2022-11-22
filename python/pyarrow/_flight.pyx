@@ -1548,6 +1548,9 @@ cdef class FlightClient(_Weakrefable):
         writer : FlightStreamWriter
         reader : FlightMetadataReader
         """
+        if schema is None:
+            raise ValueError("`schema` cannot be None")
+
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
             CDoPutResult c_do_put_result
