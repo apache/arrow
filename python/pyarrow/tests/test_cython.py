@@ -155,7 +155,6 @@ def test_cython_api(tmpdir):
         if path_var:
             paths = sys.path
             paths += pa.get_library_dirs()
-            paths += [test_ld_path]
             paths += [subprocess_env.get(path_var, '')]
             paths = [path for path in paths if path]
             subprocess_env[path_var] = delim.join(paths)
