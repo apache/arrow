@@ -111,7 +111,7 @@ To learn more about reading and writing individual data files, see the [read/wri
 
 ### Multi-file data sets
 
-When a tabular data set becomes large, it is often good practice to partition the data into meaningful subsets and store each one in a separate file. Among other things, this means that if only one subset of the data are relevant to an analysis, only one (smaller) file needs to be read. The arrow package provides a convenient way to read, write, and analyze with data stored in this fashion using the Dataset interface. 
+When a tabular data set becomes large, it is often good practice to partition the data into meaningful subsets and store each one in a separate file. Among other things, this means that if only one subset of the data are relevant to an analysis, only one (smaller) file needs to be read. The arrow package provides the Dataset interface, a convenient way to read, write, and analyze a single data file that is larger-than-memory and multi-file data sets. 
 
 To illustrate the concepts, we'll create a nonsense data set with 100000 rows that can be split into 10 subsets:
 
