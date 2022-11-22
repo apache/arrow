@@ -2690,14 +2690,32 @@ def test_struct_fields_options():
     c = pa.StructArray.from_arrays([a, b], ["a", "b"])
     arr = pa.StructArray.from_arrays([a, c], ["a", "c"])
 
-    assert pc.struct_field(arr,
-                           indices=[1, 1]) == pa.array(["bar", None, ""])
-    assert pc.struct_field(arr, [1, 1]) == pa.array(["bar", None, ""])
-    assert pc.struct_field(arr, [0]) == pa.array([4, 5, 6], type=pa.int64())
+    assert pc.struct_field(arr, '.c.b') == b
+    assert pc.struct_field(arr, b'.c.b') == b
+    assert pc.struct_field(arr, ['c', 'b']) == b
+    assert pc.struct_field(arr, [1, 'b']) == b
+    assert pc.struct_field(arr, (b'c', 'b')) == b
+    assert pc.struct_field(arr, pc.field(('c', 'b'))) == b
+
+    assert pc.struct_field(arr, '.a') == a
+    assert pc.struct_field(arr, ['a']) == a
+    assert pc.struct_field(arr, 'a') == a
+    assert pc.struct_field(arr, pc.field(('a',))) == a
+
+    assert pc.struct_field(arr, indices=[1, 1]) == b
+    assert pc.struct_field(arr, (1, 1)) == b
+    assert pc.struct_field(arr, [0]) == a
     assert pc.struct_field(arr, []) == arr
 
-    with pytest.raises(TypeError, match="an integer is required"):
-        pc.struct_field(arr, indices=['a'])
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef"):
+        pc.struct_field(arr, 'foo')
+
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef"):
+        pc.struct_field(arr, '.c.foo')
+
+    # drill into a non-struct array and continue to ask for a field
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef"):
+        pc.struct_field(arr, '.a.foo')
 
     # TODO: https://issues.apache.org/jira/browse/ARROW-14853
     # assert pc.struct_field(arr) == arr
@@ -2863,6 +2881,7 @@ def test_expression_construction():
     false = pc.scalar(False)
     string = pc.scalar("string")
     field = pc.field("field")
+    nested_mixed_types = pc.field(b"a", 1, "b")
     nested_field = pc.field(("nested", "field"))
     nested_field2 = pc.field("nested", "field")
 
@@ -2872,6 +2891,7 @@ def test_expression_construction():
         field.cast(typ) == true
 
     field.isin([1, 2])
+    nested_mixed_types.isin(["foo", "bar"])
     nested_field.isin(["foo", "bar"])
     nested_field2.isin(["foo", "bar"])
 

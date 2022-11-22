@@ -388,9 +388,17 @@ const FunctionDoc list_element_doc(
 struct StructFieldFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
-
     std::shared_ptr<Array> current = MakeArray(batch[0].array.ToArrayData());
-    for (const auto& index : options.indices) {
+
+    FieldPath field_path;
+    if (options.field_ref.IsNested() || options.field_ref.IsName()) {
+      ARROW_ASSIGN_OR_RAISE(field_path, options.field_ref.FindOne(*current->type()));
+    } else {
+      DCHECK(options.field_ref.IsFieldPath());
+      field_path = *options.field_ref.field_path();
+    }
+
+    for (const auto& index : field_path.indices()) {
       RETURN_NOT_OK(CheckIndex(index, *current->type()));
       switch (current->type()->id()) {
         case Type::STRUCT: {
@@ -421,7 +429,8 @@ struct StructFieldFunctor {
               ArrayData(int32(), union_array.length(),
                         {std::move(take_bitmap), union_array.value_offsets()},
                         kUnknownNullCount, union_array.offset()));
-          // Do not slice the child since the indices are relative to the unsliced array.
+          // Do not slice the child since the indices are relative to the unsliced
+          // array.
           ARROW_ASSIGN_OR_RAISE(
               Datum result,
               CallFunction("take", {union_array.field(index), std::move(take_indices)}));
@@ -463,9 +472,17 @@ struct StructFieldFunctor {
 
 Result<TypeHolder> ResolveStructFieldType(KernelContext* ctx,
                                           const std::vector<TypeHolder>& types) {
-  const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
+  const auto& field_ref = OptionsWrapper<StructFieldOptions>::Get(ctx).field_ref;
   const DataType* type = types.front().type;
-  for (const auto& index : options.indices) {
+
+  FieldPath field_path;
+  if (field_ref.IsNested() || field_ref.IsName()) {
+    ARROW_ASSIGN_OR_RAISE(field_path, field_ref.FindOne(*type));
+  } else {
+    field_path = *field_ref.field_path();
+  }
+
+  for (const auto& index : field_path.indices()) {
     RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
     type = type->field(index)->type().get();
   }
