@@ -37,5 +37,5 @@ echo 'export OPENSSL_ROOT_DIR=/usr/local/openssl' >> ~/.bash_profile
 echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/openssl/lib64' >> ~/.bash_profile
 echo 'export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/openssl/lib64' >> ~/.bash_profile
 echo "use "
-echo "$source  ~/.bash_profile"
+echo ">source  ~/.bash_profile"
 echo "to set paths for installed version of OpenSSL"
