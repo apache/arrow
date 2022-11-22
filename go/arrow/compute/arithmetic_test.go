@@ -24,6 +24,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/array"
@@ -267,11 +268,11 @@ func (b *BinaryArithmeticSuite[T]) assertBinopArrScalar(fn binaryArithmeticFunc,
 }
 
 func (b *BinaryArithmeticSuite[T]) assertBinop(fn binaryArithmeticFunc, lhs, rhs, expected string) {
-	left, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(lhs))
+	left, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(lhs), array.WithUseNumber())
 	defer left.Release()
-	right, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(rhs))
+	right, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(rhs), array.WithUseNumber())
 	defer right.Release()
-	exp, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(expected))
+	exp, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(expected), array.WithUseNumber())
 	defer exp.Release()
 
 	assertBinop(b.T(), func(left, right compute.Datum) (compute.Datum, error) {
@@ -451,15 +452,153 @@ func (b *BinaryArithmeticSuite[T]) TestDivideByZero() {
 	}
 }
 
+func (b *BinaryArithmeticSuite[T]) TestPower() {
+	b.setNansEqual(true)
+	b.Run(b.DataType().String(), func() {
+		for _, checkOverflow := range []bool{false, true} {
+			b.Run(fmt.Sprintf("checkOverflow=%t", checkOverflow), func() {
+				b.setOverflowCheck(checkOverflow)
+
+				b.assertBinop(compute.Power, `[]`, `[]`, `[]`)
+				if !arrow.IsFloating(b.DataType().ID()) {
+					b.assertBinop(compute.Power, `[3, 2, 6, 2]`, `[1, 1, 2, 0]`, `[3, 2, 36, 1]`)
+					b.assertBinop(compute.Power, `[null, 2, 3, null, 20]`, `[1, 6, 2, 5, 1]`, `[null, 64, 9, null, 20]`)
+					b.assertBinopScalarValArr(compute.Power, 3, `[null, 3, 4, null, 2]`, `[null, 27, 81, null, 9]`)
+					b.assertBinopArrScalarVal(compute.Power, `[null, 10, 3, null, 2]`, 2, `[null, 100, 9, null, 4]`)
+					b.assertBinopScalars(compute.Power, 4, 3, 64)
+					b.assertBinop(compute.Power, `[0, 1, 0]`, `[0, 0, 42]`, `[1, 1, 0]`)
+
+					if checkOverflow {
+						b.assertBinopErr(compute.Power, fmt.Sprintf("[%v]", b.max), `[10]`, "overflow")
+					} else {
+						b.assertBinopScalars(compute.Power, b.max, 10, 1)
+					}
+				} else {
+					b.assertBinop(compute.Power, `[3.4, 16, 0.64, 1.2, 0]`, `[1, 0.5, 2, 4, 0]`, `[3.4, 4, 0.4096, 2.0736, 1]`)
+					b.assertBinop(compute.Power, `[null, 1, 3.3, null, 2]`, `[1, 4, 2, 5, 0.1]`, `[null, 1, 10.89, null, 1.07177346]`)
+					b.assertBinopScalarValArr(compute.Power, 10, `[null, 1, 2.5, null, 2, 5]`, `[null, 10, 316.227766017, null, 100, 100000]`)
+					b.assertBinopArrScalarVal(compute.Power, `[null, 1, 2.5, null, 2, 5]`, 10, `[null, 1, 9536.74316406, null, 1024, 9765625]`)
+					b.assertBinop(compute.Power, `[3.4, "Inf", "-Inf", 1.1, 10000]`, `[1, 2, 3, "Inf", 100000]`, `[3.4, "Inf", "-Inf", "Inf", "Inf"]`)
+					b.assertBinop(compute.Power, `[3.4, "NaN", 2.0]`, `[1, 2, 2.0]`, `[3.4, "NaN", 4.0]`)
+					b.assertBinop(compute.Power, `[0.0, 0.0]`, `[-1.0, -3.0]`, `["Inf", "Inf"]`)
+				}
+			})
+		}
+	})
+}
+
+type BinaryIntegralArithmeticSuite[T exec.IntTypes | exec.UintTypes] struct {
+	BinaryArithmeticSuite[T]
+}
+
+func (b *BinaryIntegralArithmeticSuite[T]) TestShiftLeft() {
+	b.Run(b.DataType().String(), func() {
+		for _, overflow := range []bool{false, true} {
+			b.Run(fmt.Sprintf("check_overflow=%t", overflow), func() {
+				b.setOverflowCheck(overflow)
+
+				b.assertBinop(compute.ShiftLeft, `[]`, `[]`, `[]`)
+				b.assertBinop(compute.ShiftLeft, `[0, 1, 2, 3]`, `[2, 3, 4, 5]`, `[0, 8, 32, 96]`)
+				b.assertBinop(compute.ShiftLeft, `[0, null, 2, 3]`, `[2, 3, 4, 5]`, `[0, null, 32, 96]`)
+				b.assertBinop(compute.ShiftLeft, `[0, 1, 2, 3]`, `[2, 3, null, 5]`, `[0, 8, null, 96]`)
+				b.assertBinop(compute.ShiftLeft, `[0, null, 2, 3]`, `[2, 3, null, 5]`, `[0, null, null, 96]`)
+				b.assertBinop(compute.ShiftLeft, `[null]`, `[null]`, `[null]`)
+				b.assertBinopScalarValArr(compute.ShiftLeft, 2, `[null, 5]`, `[null, 64]`)
+				b.assertBinopScalarArr(compute.ShiftLeft, b.makeNullScalar(), `[null, 5]`, `[null, null]`)
+				b.assertBinopArrScalarVal(compute.ShiftLeft, `[null, 5]`, 3, `[null, 40]`)
+				b.assertBinopArrScalar(compute.ShiftLeft, `[null, 5]`, b.makeNullScalar(), `[null, null]`)
+			})
+		}
+	})
+}
+
+func (b *BinaryIntegralArithmeticSuite[T]) TestShiftRight() {
+	b.Run(b.DataType().String(), func() {
+		for _, overflow := range []bool{false, true} {
+			b.Run(fmt.Sprintf("check_overflow=%t", overflow), func() {
+				b.setOverflowCheck(overflow)
+
+				b.assertBinop(compute.ShiftRight, `[]`, `[]`, `[]`)
+				b.assertBinop(compute.ShiftRight, `[0, 1, 4, 8]`, `[1, 1, 1, 4]`, `[0, 0, 2, 0]`)
+				b.assertBinop(compute.ShiftRight, `[0, null, 4, 8]`, `[1, 1, 1, 4]`, `[0, null, 2, 0]`)
+				b.assertBinop(compute.ShiftRight, `[0, 1, 4, 8]`, `[1, 1, null, 4]`, `[0, 0, null, 0]`)
+				b.assertBinop(compute.ShiftRight, `[0, null, 4, 8]`, `[1, 1, null, 4]`, `[0, null, null, 0]`)
+				b.assertBinop(compute.ShiftRight, `[null]`, `[null]`, `[null]`)
+				b.assertBinopScalarValArr(compute.ShiftRight, 64, `[null, 2, 6]`, `[null, 16, 1]`)
+				b.assertBinopScalarArr(compute.ShiftRight, b.makeNullScalar(), `[null, 2, 6]`, `[null, null, null]`)
+				b.assertBinopArrScalarVal(compute.ShiftRight, `[null, 3, 96]`, 3, `[null, 0, 12]`)
+				b.assertBinopArrScalar(compute.ShiftRight, `[null, 3, 96]`, b.makeNullScalar(), `[null, null, null]`)
+			})
+		}
+	})
+}
+
+func (b *BinaryIntegralArithmeticSuite[T]) TestShiftLeftOverflowError() {
+	b.Run(b.DataType().String(), func() {
+		bitWidth := b.DataType().(arrow.FixedWidthDataType).BitWidth()
+		if !arrow.IsUnsignedInteger(b.DataType().ID()) {
+			bitWidth--
+		}
+
+		b.setOverflowCheck(true)
+		b.assertBinop(compute.ShiftLeft, `[1]`, fmt.Sprintf("[%d]", bitWidth-1),
+			fmt.Sprintf("[%d]", T(1)<<(bitWidth-1)))
+		b.assertBinop(compute.ShiftLeft, `[2]`, fmt.Sprintf("[%d]", bitWidth-2),
+			fmt.Sprintf("[%d]", T(1)<<(bitWidth-1)))
+		if arrow.IsUnsignedInteger(b.DataType().ID()) {
+			b.assertBinop(compute.ShiftLeft, `[2]`, fmt.Sprintf("[%d]", bitWidth-1), `[0]`)
+			b.assertBinop(compute.ShiftLeft, `[4]`, fmt.Sprintf("[%d]", bitWidth-1), `[0]`)
+			b.assertBinopErr(compute.ShiftLeft, `[1]`, fmt.Sprintf("[%d]", bitWidth), "shift amount must be >= 0 and less than precision of type")
+		} else {
+			// shift a bit into the sign bit
+			b.assertBinop(compute.ShiftLeft, `[2]`, fmt.Sprintf("[%d]", bitWidth-1),
+				fmt.Sprintf("[%d]", b.min))
+			// shift a bit past the sign bit
+			b.assertBinop(compute.ShiftLeft, `[4]`, fmt.Sprintf("[%d]", bitWidth-1), `[0]`)
+			b.assertBinop(compute.ShiftLeft, fmt.Sprintf("[%d]", b.min), `[1]`, `[0]`)
+			b.assertBinopErr(compute.ShiftLeft, `[1, 2]`, `[1, -1]`, "shift amount must be >= 0 and less than precision of type")
+			b.assertBinopErr(compute.ShiftLeft, `[1]`, fmt.Sprintf("[%d]", bitWidth), "shift amount must be >= 0 and less than precision of type")
+
+			b.setOverflowCheck(false)
+			b.assertBinop(compute.ShiftLeft, `[1, 1]`, fmt.Sprintf("[-1, %d]", bitWidth), `[1, 1]`)
+		}
+	})
+}
+
+func (b *BinaryIntegralArithmeticSuite[T]) TestShiftRightOverflowError() {
+	b.Run(b.DataType().String(), func() {
+		bitWidth := b.DataType().(arrow.FixedWidthDataType).BitWidth()
+		if !arrow.IsUnsignedInteger(b.DataType().ID()) {
+			bitWidth--
+		}
+
+		b.setOverflowCheck(true)
+
+		b.assertBinop(compute.ShiftRight, fmt.Sprintf("[%d]", b.max), fmt.Sprintf("[%d]", bitWidth-1), `[1]`)
+		if arrow.IsUnsignedInteger(b.DataType().ID()) {
+			b.assertBinopErr(compute.ShiftRight, `[1]`, fmt.Sprintf("[%d]", bitWidth), "shift amount must be >= 0 and less than precision of type")
+		} else {
+			b.assertBinop(compute.ShiftRight, `[-1, -1]`, `[1, 5]`, `[-1, -1]`)
+			b.assertBinop(compute.ShiftRight, fmt.Sprintf("[%d]", b.min), `[1]`, fmt.Sprintf("[%d]", b.min/2))
+
+			b.assertBinopErr(compute.ShiftRight, `[1, 2]`, `[1, -1]`, "shift amount must be >= 0 and less than precision of type")
+			b.assertBinopErr(compute.ShiftRight, `[1]`, fmt.Sprintf("[%d]", bitWidth), "shift amount must be >= 0 and less than precision of type")
+
+			b.setOverflowCheck(false)
+			b.assertBinop(compute.ShiftRight, `[1, 1]`, fmt.Sprintf("[-1, %d]", bitWidth), `[1, 1]`)
+		}
+	})
+}
+
 func TestBinaryArithmetic(t *testing.T) {
-	suite.Run(t, &BinaryArithmeticSuite[int8]{min: math.MinInt8, max: math.MaxInt8})
-	suite.Run(t, &BinaryArithmeticSuite[uint8]{min: 0, max: math.MaxUint8})
-	suite.Run(t, &BinaryArithmeticSuite[int16]{min: math.MinInt16, max: math.MaxInt16})
-	suite.Run(t, &BinaryArithmeticSuite[uint16]{min: 0, max: math.MaxUint16})
-	suite.Run(t, &BinaryArithmeticSuite[int32]{min: math.MinInt32, max: math.MaxInt32})
-	suite.Run(t, &BinaryArithmeticSuite[uint32]{min: 0, max: math.MaxUint32})
-	suite.Run(t, &BinaryArithmeticSuite[int64]{min: math.MinInt64, max: math.MaxInt64})
-	suite.Run(t, &BinaryArithmeticSuite[uint64]{min: 0, max: math.MaxUint64})
+	suite.Run(t, &BinaryIntegralArithmeticSuite[int8]{BinaryArithmeticSuite[int8]{min: math.MinInt8, max: math.MaxInt8}})
+	suite.Run(t, &BinaryIntegralArithmeticSuite[uint8]{BinaryArithmeticSuite[uint8]{min: 0, max: math.MaxUint8}})
+	suite.Run(t, &BinaryIntegralArithmeticSuite[int16]{BinaryArithmeticSuite[int16]{min: math.MinInt16, max: math.MaxInt16}})
+	suite.Run(t, &BinaryIntegralArithmeticSuite[uint16]{BinaryArithmeticSuite[uint16]{min: 0, max: math.MaxUint16}})
+	suite.Run(t, &BinaryIntegralArithmeticSuite[int32]{BinaryArithmeticSuite[int32]{min: math.MinInt32, max: math.MaxInt32}})
+	suite.Run(t, &BinaryIntegralArithmeticSuite[uint32]{BinaryArithmeticSuite[uint32]{min: 0, max: math.MaxUint32}})
+	suite.Run(t, &BinaryIntegralArithmeticSuite[int64]{BinaryArithmeticSuite[int64]{min: math.MinInt64, max: math.MaxInt64}})
+	suite.Run(t, &BinaryIntegralArithmeticSuite[uint64]{BinaryArithmeticSuite[uint64]{min: 0, max: math.MaxUint64}})
 	suite.Run(t, &BinaryArithmeticSuite[float32]{min: -math.MaxFloat32, max: math.MaxFloat32})
 	suite.Run(t, &BinaryArithmeticSuite[float64]{min: -math.MaxFloat64, max: math.MaxFloat64})
 	suite.Run(t, new(Float16BinaryFuncTestSuite))
@@ -468,7 +607,7 @@ func TestBinaryArithmetic(t *testing.T) {
 }
 
 func TestBinaryArithmeticDispatchBest(t *testing.T) {
-	for _, name := range []string{"add", "sub"} {
+	for _, name := range []string{"add", "sub", "multiply", "divide", "power"} {
 		for _, suffix := range []string{"", "_unchecked"} {
 			name += suffix
 			t.Run(name, func(t *testing.T) {
@@ -725,6 +864,29 @@ func (ds *DecimalBinaryArithmeticSuite) TestDispatchBest() {
 						&arrow.Decimal128Type{Precision: 2, Scale: 0}})
 			})
 		}
+	}
+
+	for _, name := range []string{"power", "power_unchecked"} {
+		ds.Run(name, func() {
+			CheckDispatchBest(ds.T(), name, []arrow.DataType{
+				&arrow.Decimal128Type{Precision: 2, Scale: 1}, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
+				[]arrow.DataType{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64})
+			CheckDispatchBest(ds.T(), name, []arrow.DataType{
+				&arrow.Decimal256Type{Precision: 2, Scale: 1}, &arrow.Decimal256Type{Precision: 2, Scale: 1}},
+				[]arrow.DataType{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64})
+			CheckDispatchBest(ds.T(), name, []arrow.DataType{
+				&arrow.Decimal128Type{Precision: 2, Scale: 1}, arrow.PrimitiveTypes.Int64},
+				[]arrow.DataType{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64})
+			CheckDispatchBest(ds.T(), name, []arrow.DataType{
+				arrow.PrimitiveTypes.Int32, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
+				[]arrow.DataType{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64})
+			CheckDispatchBest(ds.T(), name, []arrow.DataType{
+				&arrow.Decimal128Type{Precision: 2, Scale: 1}, arrow.PrimitiveTypes.Float64},
+				[]arrow.DataType{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64})
+			CheckDispatchBest(ds.T(), name, []arrow.DataType{
+				arrow.PrimitiveTypes.Float32, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
+				[]arrow.DataType{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Float64})
+		})
 	}
 }
 
@@ -1610,6 +1772,89 @@ func TestUnaryArithmetic(t *testing.T) {
 	suite.Run(t, &UnaryArithmeticFloating[float32]{min: -math.MaxFloat32, max: math.MaxFloat32})
 	suite.Run(t, &UnaryArithmeticFloating[float64]{min: -math.MaxFloat64, max: math.MaxFloat64})
 	suite.Run(t, new(DecimalUnaryArithmeticSuite))
+}
+
+type BitwiseArithmeticSuite[T exec.IntTypes | exec.UintTypes] struct {
+	BinaryFuncTestSuite
+}
+
+func (bs *BitwiseArithmeticSuite[T]) datatype() arrow.DataType {
+	return exec.GetDataType[T]()
+}
+
+// to make it easier to test different widths, tests give bytes which
+// get repeated to make an array of the actual type
+func (bs *BitwiseArithmeticSuite[T]) expandByteArray(values []byte) arrow.Array {
+	vals := make([]T, len(values)+1)
+	sz := kernels.SizeOf[T]()
+	for i, v := range values {
+		memory.Set(unsafe.Slice((*byte)(unsafe.Pointer(&vals[i])), sz), v)
+	}
+	valid := make([]bool, len(vals))
+	for i := range values {
+		valid[i] = true
+	}
+	return exec.ArrayFromSliceWithValid(bs.mem, vals, valid)
+}
+
+func (bs *BitwiseArithmeticSuite[T]) assertBinaryOp(fn string, arg0, arg1, expected []byte) {
+	in0, in1 := bs.expandByteArray(arg0), bs.expandByteArray(arg1)
+	out := bs.expandByteArray(expected)
+	defer func() {
+		in0.Release()
+		in1.Release()
+		out.Release()
+	}()
+
+	actual, err := compute.CallFunction(bs.ctx, fn, nil, &compute.ArrayDatum{in0.Data()}, &compute.ArrayDatum{in1.Data()})
+	bs.Require().NoError(err)
+	defer actual.Release()
+	assertDatumsEqual(bs.T(), &compute.ArrayDatum{out.Data()}, actual)
+
+	for i := 0; i < out.Len(); i++ {
+		a0, err := scalar.GetScalar(in0, i)
+		bs.Require().NoError(err)
+		a1, err := scalar.GetScalar(in1, i)
+		bs.Require().NoError(err)
+		exp, err := scalar.GetScalar(out, i)
+		bs.Require().NoError(err)
+
+		actual, err := compute.CallFunction(bs.ctx, fn, nil, compute.NewDatum(a0), compute.NewDatum(a1))
+		bs.Require().NoError(err)
+		assertScalarEquals(bs.T(), exp, actual.(*compute.ScalarDatum).Value)
+	}
+}
+
+func (bs *BitwiseArithmeticSuite[T]) TestBitWiseAnd() {
+	bs.Run(bs.datatype().String(), func() {
+		bs.assertBinaryOp("bit_wise_and", []byte{0x00, 0xFF, 0x00, 0xFF},
+			[]byte{0x00, 0x00, 0xFF, 0xFF}, []byte{0x00, 0x00, 0x00, 0xFF})
+	})
+}
+
+func (bs *BitwiseArithmeticSuite[T]) TestBitWiseOr() {
+	bs.Run(bs.datatype().String(), func() {
+		bs.assertBinaryOp("bit_wise_or", []byte{0x00, 0xFF, 0x00, 0xFF},
+			[]byte{0x00, 0x00, 0xFF, 0xFF}, []byte{0x00, 0xFF, 0xFF, 0xFF})
+	})
+}
+
+func (bs *BitwiseArithmeticSuite[T]) TestBitWiseXor() {
+	bs.Run(bs.datatype().String(), func() {
+		bs.assertBinaryOp("bit_wise_xor", []byte{0x00, 0xFF, 0x00, 0xFF},
+			[]byte{0x00, 0x00, 0xFF, 0xFF}, []byte{0x00, 0xFF, 0xFF, 0x00})
+	})
+}
+
+func TestBitwiseArithmetic(t *testing.T) {
+	suite.Run(t, new(BitwiseArithmeticSuite[int8]))
+	suite.Run(t, new(BitwiseArithmeticSuite[uint8]))
+	suite.Run(t, new(BitwiseArithmeticSuite[int16]))
+	suite.Run(t, new(BitwiseArithmeticSuite[uint16]))
+	suite.Run(t, new(BitwiseArithmeticSuite[int32]))
+	suite.Run(t, new(BitwiseArithmeticSuite[uint32]))
+	suite.Run(t, new(BitwiseArithmeticSuite[int64]))
+	suite.Run(t, new(BitwiseArithmeticSuite[uint64]))
 }
 
 const seed = 0x94378165

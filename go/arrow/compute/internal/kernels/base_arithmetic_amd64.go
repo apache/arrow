@@ -64,7 +64,8 @@ func getSSE4ArithmeticBinaryNumeric[T exec.NumericTypes](op ArithmeticOp) binary
 }
 
 func getArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
-	if op >= OpAddChecked || op == OpDiv {
+	if op >= OpAddChecked || op == OpDiv || op == OpPower {
+		// no SIMD for POWER function
 		// integral checked funcs need to use NotNull versions
 		return getGoArithmeticOpIntegral[InT, OutT](op)
 	}
@@ -109,7 +110,8 @@ func getArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op Arithm
 }
 
 func getArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
-	if op == OpDiv || op == OpDivChecked {
+	if op == OpDiv || op == OpDivChecked || op == OpPower || op == OpPowerChecked {
+		// no SIMD for Power
 		return getGoArithmeticOpFloating[InT, OutT](op)
 	}
 
