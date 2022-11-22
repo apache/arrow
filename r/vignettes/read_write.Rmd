@@ -29,7 +29,7 @@ All these functions can read and write files in the local filesystem or
 to cloud storage. For more on cloud storage support in arrow, see the [cloud storage article](./fs.html).
 
 The arrow package also supports reading larger-than-memory single data files, and reading and writing multi-file data sets.
-which enable analysis and processing of larger-than-memory data, and provide 
+This enables analysis and processing of larger-than-memory data, and provides 
 the ability to partition data into smaller chunks without loading the full 
 data into memory. For more information on this topic, see the [dataset article](./dataset.html).
 
