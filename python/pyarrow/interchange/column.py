@@ -219,7 +219,12 @@ class _PyArrowColumn:
         equal size M (only the last chunk may be shorter),
         ``offset = n * M``, ``n = 0 .. N-1``.
         """
-        return 0
+        if isinstance(self._col, pa.Array):
+            return self._col.offset
+        else:
+            # ChunkedArray gets copied with `combine_chunks` so the offset will
+            # always be 0
+            return 0
 
     @property
     def dtype(self) -> Tuple[DtypeKind, int, str, str]:
