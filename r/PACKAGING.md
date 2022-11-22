@@ -76,7 +76,7 @@ Wait for the official release...
 - [ ] Create a CRAN-release branch (TODO: previously this branch was on
   Neal's fork but we may want to consider a branch elsewhere)
 - [ ] Bump the Version in DESCRIPTION to X.X.X
-- [ ] Regenerate arrow_X.X.X.tar.tz (via `make release`?)
+- [ ] Regenerate arrow_X.X.X.tar.gz (via `make release`?)
 
 Finalize and merge draft PRs/ensure linux binary packages are available:
 
