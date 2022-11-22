@@ -5,7 +5,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-The arrow package provides functions for reading single data files in
+The arrow package provides functions for reading single data files into memory, in
 several common formats. By default, calling any of these functions
 returns an R data frame. To return an Arrow Table, set argument
 `as_data_frame = FALSE`.
@@ -156,3 +156,4 @@ read_json_arrow(file_path)
 
 - To learn more about cloud storage, see the [cloud storage article](./fs.html).
 - To learn more about multi-file datasets, see the [datasets article](./dataset.html).
+- The Apache Arrow R cookbook has chapters on [reading and writing single files](https://arrow.apache.org/cookbook/r/reading-and-writing-data---single-files.html) into memory and working with [multi-file datasets](https://arrow.apache.org/cookbook/r/reading-and-writing-data---multiple-files.html) stored on-disk.
