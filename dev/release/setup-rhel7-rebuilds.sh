@@ -52,25 +52,8 @@ yum -y install \
   which \
   zlib-devel
 
-scl enable rh-python38 devtoolset-11 rh-ruby30 -- <<EOF
-python -m pip install -U pip
-wget https://www.openssl.org/source/openssl-3.0.7.tar.gz
-tar -xf openssl-3.0.7.tar.gz
-cd openssl-3.0.7
-./config --prefix=/usr/local/openssl --openssldir=/usr/local/openssl
-make
-make install
-# The command below is needed when building Arrow, so that the 
-# CentOS7 default Openssl version 1.0 is not used, but the newer
-# version of Openssl that as just been installed is used by CMake
-echo 'export OPENSSL_ROOT_DIR=/usr/local/openssl' >> ~/.bash_profile
-echo 'export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/openssl/lib64' >> ~/.bash_profile
-echo 'export LIBRARY_PATH=\$LIBRARY_PATH:/usr/local/openssl/lib64' >> ~/.bash_profile
+scl enable rh-python38 devtoolset-11 rh-ruby30 ./get-openssl.sh
 
-echo "use "
-echo "$source  ~/.bash_profile"
-echo "to set paths for installed version of OpenSSL"
 echo "use "
 echo "$scl enable rh-python38 devtoolset-11 rh-ruby30"
 echo "to get the updated Python, GCC compilers and Ruby within your shell environment"
-EOF
