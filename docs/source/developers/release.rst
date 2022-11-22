@@ -487,7 +487,13 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   TODO: Move from https://cwiki.apache.org/confluence/display/ARROW/Release+Management+Guide#ReleaseManagementGuide-UpdatingRpackages
+   The R package is distributed on the Comprehensive R Archive Network (CRAN),
+   which has an involved submission process with a number of automated and
+   manual checks. The pre- and post- release preparation for this packaging
+   is documented in the
+   `Confluence release guide <https://cwiki.apache.org/confluence/display/ARROW/Release+Management+Guide#ReleaseManagementGuide-UpdatingRpackages>`_
+   and the
+   `packaging checklist <https://github.com/apache/arrow/blob/master/r/DESCRIPTION>`_.
 
 .. dropdown:: Update vcpkg port
    :animate: fade-in-slide-down
