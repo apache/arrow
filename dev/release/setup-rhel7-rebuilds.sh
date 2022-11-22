@@ -51,6 +51,12 @@ yum -y install \
   wget \
   which \
   zlib-devel
+  
+alternatives --install /usr/local/bin/cmake cmake /usr/bin/cmake3 20 \
+  --slave /usr/local/bin/ctest ctest /usr/bin/ctest3 \
+  --slave /usr/local/bin/cpack cpack /usr/bin/cpack3 \
+  --slave /usr/local/bin/ccmake ccmake /usr/bin/ccmake3 \
+  --family cmake
 
 chmod +x get-openssl.sh
 scl enable rh-python38 devtoolset-11 rh-ruby30 ./get-openssl.sh
