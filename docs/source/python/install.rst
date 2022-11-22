@@ -61,3 +61,18 @@ Installing from source
 ----------------------
 
 See :ref:`python-development`.
+
+Dependencies
+------------
+
+Required dependency
+
+* **NumPy 1.16.6** or higher.
+
+Optional dependencies
+
+* **pandas 1.0** or higher,
+* **cffi**.
+
+Additional packages PyArrow is compatible with are :ref:`fsspec <filesystem-fsspec>`
+and **pytz**, **dateutil** or **tzdata** package for timezones.

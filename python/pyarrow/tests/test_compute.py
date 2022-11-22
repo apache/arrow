@@ -1812,14 +1812,6 @@ def test_strptime():
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="Timezone database is not available on Windows yet")
 def test_strftime():
-    from pyarrow.vendored.version import Version
-
-    def _fix_timestamp(s):
-        if Version(pd.__version__) < Version("1.0.0"):
-            return s.to_series().replace("NaT", pd.NaT)
-        else:
-            return s
-
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
 
@@ -1834,7 +1826,7 @@ def test_strftime():
             for fmt in formats:
                 options = pc.StrftimeOptions(fmt)
                 result = pc.strftime(tsa, options=options)
-                expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+                expected = pa.array(ts.strftime(fmt))
                 assert result.equals(expected)
 
         fmt = "%Y-%m-%dT%H:%M:%S"
@@ -1842,34 +1834,34 @@ def test_strftime():
         # Default format
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions())
-        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+        expected = pa.array(ts.strftime(fmt))
         assert result.equals(expected)
 
         # Default format plus timezone
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
-        expected = pa.array(_fix_timestamp(ts.strftime(fmt + "%Z")))
+        expected = pa.array(ts.strftime(fmt + "%Z"))
         assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         options = pc.StrftimeOptions("%S")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%S")))
+        expected = pa.array(ts.strftime("%S"))
         assert result.equals(expected)
 
         # Pandas %S.%f is equivalent to %S in arrow for unit="us"
         tsa = pa.array(ts, type=pa.timestamp("us", timezone))
         options = pc.StrftimeOptions("%S")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%S.%f")))
+        expected = pa.array(ts.strftime("%S.%f"))
         assert result.equals(expected)
 
         # Test setting locale
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         options = pc.StrftimeOptions(fmt, locale="C")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+        expected = pa.array(ts.strftime(fmt))
         assert result.equals(expected)
 
     # Test timestamps without timezone
@@ -1877,7 +1869,8 @@ def test_strftime():
     ts = pd.to_datetime(times)
     tsa = pa.array(ts, type=pa.timestamp("s"))
     result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
-    expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+    expected = pa.array(ts.strftime(fmt))
+
     # Positional format
     assert pc.strftime(tsa, fmt) == result
 
@@ -1956,8 +1949,6 @@ def _check_datetime_components(timestamps, timezone=None):
 
 @pytest.mark.pandas
 def test_extract_datetime_components():
-    from pyarrow.vendored.version import Version
-
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",
@@ -1983,8 +1974,6 @@ def test_extract_datetime_components():
     if sys.platform == 'win32':
         # TODO: We should test on windows once ARROW-13168 is resolved.
         pytest.skip('Timezone database is not available on Windows yet')
-    elif Version(pd.__version__) < Version('1.0.0'):
-        pytest.skip('Pandas < 1.0 extracts time components incorrectly.')
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
@@ -1995,8 +1984,6 @@ def test_extract_datetime_components():
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="Timezone database is not available on Windows yet")
 def test_assume_timezone():
-    from pyarrow.vendored.version import Version
-
     ts_type = pa.timestamp("ns")
     timestamps = pd.to_datetime(["1970-01-01T00:00:59.123456789",
                                  "2000-02-29T23:23:23.999999999",
@@ -2040,31 +2027,29 @@ def test_assume_timezone():
 
     timezone = "Europe/Brussels"
 
-    # nonexistent parameter was introduced in Pandas 0.24.0
-    if Version(pd.__version__) >= Version("0.24.0"):
-        options_nonexistent_raise = pc.AssumeTimezoneOptions(timezone)
-        options_nonexistent_earliest = pc.AssumeTimezoneOptions(
-            timezone, ambiguous="raise", nonexistent="earliest")
-        options_nonexistent_latest = pc.AssumeTimezoneOptions(
-            timezone, ambiguous="raise", nonexistent="latest")
+    options_nonexistent_raise = pc.AssumeTimezoneOptions(timezone)
+    options_nonexistent_earliest = pc.AssumeTimezoneOptions(
+        timezone, ambiguous="raise", nonexistent="earliest")
+    options_nonexistent_latest = pc.AssumeTimezoneOptions(
+        timezone, ambiguous="raise", nonexistent="latest")
 
-        with pytest.raises(ValueError,
-                           match="Timestamp doesn't exist in "
-                                 f"timezone '{timezone}'"):
-            pc.assume_timezone(nonexistent_array,
-                               options=options_nonexistent_raise)
+    with pytest.raises(ValueError,
+                       match="Timestamp doesn't exist in "
+                       f"timezone '{timezone}'"):
+        pc.assume_timezone(nonexistent_array,
+                           options=options_nonexistent_raise)
 
-        expected = pa.array(nonexistent.tz_localize(
-            timezone, nonexistent="shift_forward"))
-        result = pc.assume_timezone(
-            nonexistent_array, options=options_nonexistent_latest)
-        expected.equals(result)
+    expected = pa.array(nonexistent.tz_localize(
+        timezone, nonexistent="shift_forward"))
+    result = pc.assume_timezone(
+        nonexistent_array, options=options_nonexistent_latest)
+    expected.equals(result)
 
-        expected = pa.array(nonexistent.tz_localize(
-            timezone, nonexistent="shift_backward"))
-        result = pc.assume_timezone(
-            nonexistent_array, options=options_nonexistent_earliest)
-        expected.equals(result)
+    expected = pa.array(nonexistent.tz_localize(
+        timezone, nonexistent="shift_backward"))
+    result = pc.assume_timezone(
+        nonexistent_array, options=options_nonexistent_earliest)
+    expected.equals(result)
 
     options_ambiguous_raise = pc.AssumeTimezoneOptions(timezone)
     options_ambiguous_latest = pc.AssumeTimezoneOptions(
@@ -2199,11 +2184,6 @@ def _check_temporal_rounding(ts, values, unit):
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas
 def test_round_temporal(unit):
-    from pyarrow.vendored.version import Version
-
-    if Version(pd.__version__) < Version('1.0.0'):
-        pytest.skip('Pandas < 1.0 rounds differently.')
-
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
     timestamps = [
         "1923-07-07 08:52:35.203790336",
