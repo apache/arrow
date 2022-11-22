@@ -43,8 +43,8 @@ used by the configure script on MacOS and Windows:
   [the apache-arrow autobrew formula]( https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow.rb) 
   to update the version, SHA, and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb)
-- [ ] Open a draft pull request to modify 
-  [the apache-arrow-static autobrew formula]( https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow-static.rb) 
+- [ ] Open a draft pull request to modify
+  [the apache-arrow-static autobrew formula]( https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow-static.rb)
   to update the version, SHA, and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow-static.rb)
 - [ ] Open a draft pull request to modify the 
@@ -57,31 +57,24 @@ used by the configure script on MacOS and Windows:
   [ci/PKGBUILD](https://github.com/apache/arrow/blob/master/ci/scripts/PKGBUILD),
   uncommenting the line that says "uncomment to test the rc".
 
-Prepare and check the .tar.gz that will be released to CRAN:
+Prepare and check the .tar.gz that will be released to CRAN.
 
-TODO: The packaging guide says `make release` but isn't there also a step where
-we bundle Arrow C++ into tools/cpp and prune it so that the .tar.gz stays under 5 MB?
-
-- `git fetch upstream && git checkout release-X.X.X-rc0`
+- [ ] `git fetch upstream && git checkout release-X.X.X-rcXX`
+- [ ] `make build` (copies Arrow C++ into tools/cpp, prunes some unnecessary
+  components, and runs `R CMD build`)
 - [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on Linux
 - [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on Windows
 - [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on MacOS
 - [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on MacOS M1
 - [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on Linux
 - [ ] `rhub::check("arrow_X.X.X.tar.gz", platform=c("debian-gcc-patched", "fedora-clang-devel"))`
-  (TODO: as I understand it, we can't do rhub Windows and Mac checks because those
-  would require the PRs into autobrew/rtools-packages to be finalized? Or maybe
-  these already know about/use the nightly binaries?)
-- [ ] Run reverse dependency checks locally (TODO: document how to do this
-  since we can't just use `revdepcheck`)
+- [ ] Run reverse dependency checks
 
-After this step, we need an official release:
+Wait for the official release...
   
 - [ ] Wait for the release vote to pass
-
-TODO is this where we create a CRAN release branch where the minor CRAN-specific
-fixes get picked from master? What is the git incantation for that?
-
+- [ ] Create a CRAN-release branch (TODO: previously this branch was on
+  Neal's fork but we may want to consider a branch elsewhere)
 - [ ] Bump the Version in DESCRIPTION to X.X.X
 - [ ] Regenerate arrow_X.X.X.tar.tz (via `make release`?)
 
@@ -91,8 +84,8 @@ Finalize and merge draft PRs/ensure linux binary packages are available:
 - [ ] PR into autobrew/homebrew-core
 - [ ] PR into autobrew/scripts
 - [ ] PR into r-windows/rtools-packages
-- [ ] Ensure linux binaries are available (TODO: maybe document where these live?
-  I don't remember where this is at the top of my head)
+- [ ] Ensure linux binaries are available in the artifactory:
+  https://apache.jfrog.io/ui/repos/tree/General/arrow/r
 
 Check binary Arrow C++ distributions specific to the R package:
 
@@ -111,14 +104,13 @@ Submit!
 
 Wait for CRAN...
 
-Post release:
-
 - [ ] Accepted!
-- [ ] Tag the tip of the CRAN-specific release branch?
-- [ ] Bump the version number in DESCRIPTION to XXX?
+- [ ] Tag the tip of the CRAN-specific release branch
+- [ ] `usethis::use_dev_version()`
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/master/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
 - [ ] Update the packaging checklist template to reflect any new realities of the
   packaging process.
 - [ ] Wait for CRAN-hosted binaries on the
   [CRAN package page](https://cran.r-project.org/package=arrow) to reflect the
   new version
+- [ ] Tweet!
