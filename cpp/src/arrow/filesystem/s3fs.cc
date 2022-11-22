@@ -2310,10 +2310,9 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
     auto outcome = impl_->client_->HeadBucket(req);
     if (!outcome.IsSuccess()) {
       if (!IsNotFound(outcome.GetError())) {
-        return ErrorToStatus(
-            std::forward_as_tuple("When getting information for bucket '", path.bucket,
-                                  "': "),
-            "HeadBucket", outcome.GetError());
+        const auto msg = "When getting information for bucket '" + path.bucket + "': ";
+        return ErrorToStatus(msg, "HeadBucket", outcome.GetError(),
+                             impl_->options().region);
       }
       info.set_type(FileType::NotFound);
       return info;
@@ -2335,10 +2334,10 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
       return info;
     }
     if (!IsNotFound(outcome.GetError())) {
-      return ErrorToStatus(
-          std::forward_as_tuple("When getting information for key '", path.key,
-                                "' in bucket '", path.bucket, "': "),
-          "HeadObject", outcome.GetError());
+      const auto msg = "When getting information for key '" + path.key + "' in bucket '" +
+                       path.bucket + "': ";
+      return ErrorToStatus(msg, "HeadObject", outcome.GetError(),
+                           impl_->options().region);
     }
     // Not found => perhaps it's an empty "directory"
     ARROW_ASSIGN_OR_RAISE(bool is_dir, impl_->IsEmptyDirectory(path, &outcome));

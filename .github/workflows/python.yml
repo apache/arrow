@@ -54,7 +54,7 @@ jobs:
         name:
           - conda-python-docs
           - conda-python-3.8-nopandas
-          - conda-python-3.7-pandas-0.23
+          - conda-python-3.7-pandas-1.0
           - conda-python-3.9-pandas-latest
         include:
           - name: conda-python-docs
@@ -67,12 +67,12 @@ jobs:
             image: conda-python
             title: AMD64 Conda Python 3.8 Without Pandas
             python: 3.8
-          - name: conda-python-3.7-pandas-0.23
+          - name: conda-python-3.7-pandas-1.0
             cache: conda-python-3.7
             image: conda-python-pandas
-            title: AMD64 Conda Python 3.7 Pandas 0.23
+            title: AMD64 Conda Python 3.7 Pandas 1.0
             python: 3.7
-            pandas: 0.23
+            pandas: 1.0
             numpy: 1.16
           - name: conda-python-3.9-pandas-latest
             cache: conda-python-3.9

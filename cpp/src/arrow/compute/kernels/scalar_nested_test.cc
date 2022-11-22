@@ -261,6 +261,13 @@ TEST(TestScalarNested, StructField) {
   StructFieldOptions invalid2({2, 4});
   StructFieldOptions invalid3({3});
   StructFieldOptions invalid4({0, 1});
+
+  // Test using FieldRefs
+  StructFieldOptions extract0_field_ref_path(FieldRef(FieldPath({0})));
+  StructFieldOptions extract0_field_ref_name(FieldRef("a"));
+  ASSERT_OK_AND_ASSIGN(auto field_ref, FieldRef::FromDotPath(".c.d"));
+  StructFieldOptions extract20_field_ref_nest(field_ref);
+
   FieldVector fields = {field("a", int32()), field("b", utf8()),
                         field("c", struct_({
                                        field("d", int64()),
@@ -278,16 +285,25 @@ TEST(TestScalarNested, StructField) {
                 &extract0);
     CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[10, 11, 12, null]"),
                 &extract20);
+
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, 3, null]"),
+                &extract0_field_ref_path);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, 3, null]"),
+                &extract0_field_ref_name);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[10, 11, 12, null]"),
+                &extract20_field_ref_nest);
+
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid4));
   }
   {
@@ -303,16 +319,25 @@ TEST(TestScalarNested, StructField) {
                 &extract0);
     CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
                 &extract20);
+
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_path);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_name);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
+                &extract20_field_ref_nest);
+
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid4));
 
     // Test edge cases for union representation
@@ -352,16 +377,25 @@ TEST(TestScalarNested, StructField) {
                 &extract0);
     CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
                 &extract20);
+
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_path);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_name);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
+                &extract20_field_ref_nest);
+
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid4));
   }
   {

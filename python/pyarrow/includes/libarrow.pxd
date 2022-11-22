@@ -434,6 +434,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CFieldRef(c_string name)
         CFieldRef(int index)
         CFieldRef(vector[CFieldRef])
+
+        @staticmethod
+        CResult[CFieldRef] FromDotPath(c_string& dot_path)
         const c_string* name() const
 
     cdef cppclass CFieldRefHash" arrow::FieldRef::Hash":
@@ -2291,7 +2294,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CStructFieldOptions \
             "arrow::compute::StructFieldOptions"(CFunctionOptions):
         CStructFieldOptions(vector[int] indices)
+        CStructFieldOptions(CFieldRef field_ref)
         vector[int] indices
+        CFieldRef field_ref
 
     ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
@@ -2496,6 +2501,7 @@ cdef extern from "arrow/compute/exec/expression.h" \
         c_bool Equals(const CExpression& other) const
         c_string ToString() const
         CResult[CExpression] Bind(const CSchema&)
+        const CFieldRef* field_ref() const
 
     cdef CExpression CMakeScalarExpression \
         "arrow::compute::literal"(shared_ptr[CScalar] value)

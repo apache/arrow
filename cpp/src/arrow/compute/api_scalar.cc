@@ -365,7 +365,7 @@ static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("unit", &StrptimeOptions::unit),
     DataMember("error_is_null", &StrptimeOptions::error_is_null));
 static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
-    DataMember("indices", &StructFieldOptions::indices));
+    DataMember("field_ref", &StructFieldOptions::field_ref));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
     DataMember("characters", &TrimOptions::characters));
 static auto kUtf8NormalizeOptionsType = GetFunctionOptionsType<Utf8NormalizeOptions>(
@@ -578,8 +578,13 @@ StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::MICRO, false)
 constexpr char StrptimeOptions::kTypeName[];
 
 StructFieldOptions::StructFieldOptions(std::vector<int> indices)
-    : FunctionOptions(internal::kStructFieldOptionsType), indices(std::move(indices)) {}
-StructFieldOptions::StructFieldOptions() : StructFieldOptions(std::vector<int>()) {}
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(indices)) {}
+StructFieldOptions::StructFieldOptions(std::initializer_list<int> indices)
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(indices)) {}
+StructFieldOptions::StructFieldOptions(FieldRef ref)
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(ref)) {}
+StructFieldOptions::StructFieldOptions()
+    : FunctionOptions(internal::kStructFieldOptionsType) {}
 constexpr char StructFieldOptions::kTypeName[];
 
 TrimOptions::TrimOptions(std::string characters)

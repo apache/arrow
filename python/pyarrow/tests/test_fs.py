@@ -1316,6 +1316,29 @@ def test_s3_proxy_options(monkeypatch):
                                     'port': 8999})
 
 
+@pytest.mark.s3
+def test_s3fs_wrong_region():
+    from pyarrow.fs import S3FileSystem
+
+    # wrong region for bucket
+    fs = S3FileSystem(region='eu-north-1')
+
+    msg = ("When getting information for bucket 'voltrondata-labs-datasets': "
+           r"AWS Error UNKNOWN \(HTTP status 301\) during HeadBucket "
+           "operation: No response body. Looks like the configured region is "
+           "'eu-north-1' while the bucket is located in 'us-east-2'."
+           "|NETWORK_CONNECTION")
+    with pytest.raises(OSError, match=msg) as exc:
+        fs.get_file_info("voltrondata-labs-datasets")
+
+    # Sometimes fails on unrelated network error, so next call would also fail.
+    if 'NETWORK_CONNECTION' in str(exc.value):
+        return
+
+    fs = S3FileSystem(region='us-east-2')
+    fs.get_file_info("voltrondata-labs-datasets")
+
+
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_connection):
     from pyarrow.fs import HadoopFileSystem
