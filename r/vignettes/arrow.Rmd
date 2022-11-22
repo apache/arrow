@@ -76,7 +76,7 @@ several common formats. The arrow package supplies extremely fast CSV reading an
 
 ### Individual files
 
-When the goal is to read a single data file, there are several functions you can use:
+When the goal is to read a single data file into memory, there are several functions you can use:
 
 -   `read_parquet()`: read a file in Parquet format
 -   `read_feather()`: read a file in Arrow/Feather format
