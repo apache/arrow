@@ -52,7 +52,7 @@ yum -y install \
   which \
   zlib-devel
 
-scl enable rh-python38 devtoolset-11 llvm13 rh-ruby30 bash
+scl enable rh-python38 devtoolset-11 rh-ruby30 bash
 python -m pip install -U pip
 wget https://www.openssl.org/source/openssl-3.0.5.tar.gz
 tar -xf openssl-3.0.5.tar.gz
