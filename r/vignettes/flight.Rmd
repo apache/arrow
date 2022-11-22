@@ -12,18 +12,18 @@ output: rmarkdown::html_vignette
 * Flight allows for parallel data streaming.
 * Flight employs optimizations designed to take advantage of Arrow's columnar format.
 
-The `arrow` package provides methods for connecting to Flight servers to send and receive data.
+The arrow package provides methods for connecting to Flight servers to send and receive data.
 
 ## Prerequisites
 
-At present the `arrow` package in R does not supply an independent implementation of Arrow Flight: it works by calling [Flight methods supplied by PyArrow](https://arrow.apache.org/docs/python/api/flight.html) Python, and requires both the [`reticulate`](https://rstudio.github.io/reticulate/) package and the Python PyArrow library to be installed. If you are using them for the first time you can install them like this:
+At present the arrow package in R does not supply an independent implementation of Arrow Flight: it works by calling [Flight methods supplied by PyArrow](https://arrow.apache.org/docs/python/api/flight.html) Python, and requires both the [reticulate](https://rstudio.github.io/reticulate/) package and the Python PyArrow library to be installed. If you are using them for the first time you can install them like this:
 
 ```r
 install.packages("reticulate")
 arrow::install_pyarrow()
 ```
 
-See the [python integrations article](./python.html) for more details on setting up `pyarrow`.
+See the [python integrations article](./python.html) for more details on setting up pyarrow.
 
 ## Example
 
@@ -69,7 +69,7 @@ client %>%
 
 Because `flight_get()` returns an Arrow data structure, you can directly pipe
 its result into a [dplyr](https://dplyr.tidyverse.org/) workflow.
-See the article on [data wrangling](./data_wrangling.html) for more information on working with Arrow objects via a `dplyr` interface.
+See the article on [data wrangling](./data_wrangling.html) for more information on working with Arrow objects via a dplyr interface.
 
 ## Further reading
 

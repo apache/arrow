@@ -1,14 +1,14 @@
 ---
 title: "Integrating Arrow, Python, and R"
 description: > 
-  Learn how to use `arrow` and `reticulate` to efficiently transfer data 
+  Learn how to use arrow and reticulate to efficiently transfer data 
   between R and Python without making unnecessary copies
 output: rmarkdown::html_vignette
 ---
 
-The `arrow` package provides [reticulate](https://rstudio.github.io/reticulate/) methods for passing data between R and Python within the same process. This article provides a brief overview.
+The arrow package provides [reticulate](https://rstudio.github.io/reticulate/) methods for passing data between R and Python within the same process. This article provides a brief overview.
 
-Code in this article assumes `arrow` and `reticulate` are both loaded:
+Code in this article assumes arrow and reticulate are both loaded:
 
 ```r
 library(arrow, warn.conflicts = FALSE)
@@ -17,7 +17,7 @@ library(reticulate, warn.conflicts = FALSE)
 
 ## Motivation
 
-One reason you might want to use PyArrow in R is to take advantage of functionality that is better supported in Python than in R at the current state of development. For example, at one point in time the R `arrow` package didn't support `concat_arrays()` but PyArrow did, so this would have been a good use case at that time. At the time of current writing PyArrow has more comprehensive support for [Arrow Flight](https://arrow.apache.org/docs/format/Flight.html) than the R package -- but see [the article on Flight support in arrow](./flight.html) -- so that would be another instance in which PyArrow would be of benefit to R users.
+One reason you might want to use PyArrow in R is to take advantage of functionality that is better supported in Python than in R at the current state of development. For example, at one point in time the R arrow package didn't support `concat_arrays()` but PyArrow did, so this would have been a good use case at that time. At the time of current writing PyArrow has more comprehensive support for [Arrow Flight](https://arrow.apache.org/docs/format/Flight.html) than the R package -- but see [the article on Flight support in arrow](./flight.html) -- so that would be another instance in which PyArrow would be of benefit to R users.
 
 A second reason that R users may want to use PyArrow is to efficiently pass data objects between R and Python. With large data sets, it can be quite costly -- in terms of time and CPU cycles -- to perform the copy and covert operations required to translate a native data structure in R (e.g., a data frame) to an analogous structure in Python (e.g., a Pandas DataFrame) and vice versa. Because Arrow data objects such as Tables have the same in-memory format in R and Python, it is possible to perform "zero-copy" data transfers, in which only the metadata needs to be passed between languages. As illustrated later, this drastically improves performance. 
 
@@ -50,7 +50,7 @@ see the [reticulate documentation](https://rstudio.github.io/reticulate/articles
 
 ## Importing PyArrow
 
-Assuming that `arrow` and `reticulate` are both loaded in R, your first step is to make sure that the correct Python environment is being used. To do that with a virtual environment, use a command like this:
+Assuming that arrow and reticulate are both loaded in R, your first step is to make sure that the correct Python environment is being used. To do that with a virtual environment, use a command like this:
 
 ```r
 use_virtualenv("my-pyarrow-env")
@@ -88,7 +88,7 @@ Support for passing data to and from R is included in `pyarrow` versions 0.17 an
 
 ## Using PyArrow
 
-You can use the `reticulate` function `r_to_py()` to pass objects from R to Python, and similarly you can use `py_to_r()` to pull objects from the Python session into R. To illustrate this, let's create two objects in R: `df_random` is an R data frame containing 100 million rows of random data, and `tb_random` is the same data stored as an Arrow Table: 
+You can use the reticulate function `r_to_py()` to pass objects from R to Python, and similarly you can use `py_to_r()` to pull objects from the Python session into R. To illustrate this, let's create two objects in R: `df_random` is an R data frame containing 100 million rows of random data, and `tb_random` is the same data stored as an Arrow Table: 
 
 ```r
 set.seed(1234)

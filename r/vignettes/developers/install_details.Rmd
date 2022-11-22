@@ -1,7 +1,7 @@
 ---
 title: "Installation details"
 description: >
-  A low-level description of `arrow` installation intended for developers
+  A low-level description of arrow installation intended for developers
 output: rmarkdown::html_vignette
 ---
 

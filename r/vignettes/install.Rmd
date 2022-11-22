@@ -1,7 +1,7 @@
 ---
 title: "Installing on Linux"
 description: >
-  Installing `arrow` on linux usually "just works", but occasionally poses
+  Installing arrow on linux usually just works, but occasionally poses
   problems. Learn how to handle installation problems if and when they arise
 output: rmarkdown::html_vignette
 ---
@@ -14,7 +14,7 @@ The Apache Arrow project is implemented in multiple languages, and the R package
 
 This article outlines the recommend approaches to installing arrow on Linux, starting from the simplest and least customizable to the most complex but with more flexbility to customize your installation.
 
-The primary audience for this document is `arrow` R package _users_ on Linux, and not Arrow _developers_. Additional resources for developers are listed at the end of this article.
+The primary audience for this document is arrow R package _users_ on Linux, and not Arrow _developers_. Additional resources for developers are listed at the end of this article.
 
 ## System dependencies
 
@@ -136,13 +136,13 @@ See "System dependencies" above.
 knitr::include_graphics("./r_source_libarrow_source.png")
 ```
 
-The "less easy" way to install `arrow` is to install both the R package and the underlying Arrow C++ library (libarrow) from source. This method is somewhat more
+The "less easy" way to install arrow is to install both the R package and the underlying Arrow C++ library (libarrow) from source. This method is somewhat more
 difficult because compiling and installing R packages with C++ dependencies 
 generally requires installing system packages, which you may not have privileges 
 to do, and/or building the C++ dependencies separately, which introduces all sorts 
 of additional ways for things to go wrong.
 
-Installing from the full source build of `arrow`, compiling both C++ and R 
+Installing from the full source build of arrow, compiling both C++ and R 
 bindings, will handle most of the dependency management for you, but it is 
 much slower than using binaries. However, if  using binaries isn't an option 
 for you,or you wish to customize your Linux installation, the instructions in 
@@ -324,7 +324,7 @@ Arrow libraries on your system and instead will look to download/build them.
 The previous instructions are useful for a fresh arrow installation, but arrow
 provides the function `install_arrow()`. There are three common use cases for this function:
 
-- You have `arrow` installed and want to upgrade to a different version
+- You have arrow installed and want to upgrade to a different version
 - You want to try to reinstall and fix issues with Linux C++ binaries
 - You want to install a development build
 
@@ -336,7 +336,7 @@ install_arrow(nightly = TRUE) # install development version
 install_arrow(verbose = TRUE) # verbose output to debug install errors
 ```
 
-Although this function is part of the `arrow` package, it is also available as
+Although this function is part of the arrow package, it is also available as
 a standalone script, so you can access it without first installing the package:
 
 ```r
@@ -393,7 +393,7 @@ on a computer without internet access. The process is as follows:
 
 Notes:
 
-- `arrow` _can_ be installed on a computer without internet access 
+- arrow _can_ be installed on a computer without internet access 
 without using this function, but many useful features will be disabled, 
 as they depend on third-party components. More precisely,
 `arrow::arrow_info()$capabilities()` will be `FALSE` for every

@@ -1,11 +1,11 @@
 ---
 title: "Reading and writing data files"
 description: >
-  Learn how to read and write CSV, Parquet, and Feather files with `arrow` 
+  Learn how to read and write CSV, Parquet, and Feather files with arrow 
 output: rmarkdown::html_vignette
 ---
 
-The `arrow` package provides functions for reading single data files in
+The arrow package provides functions for reading single data files in
 several common formats. By default, calling any of these functions
 returns an R data frame. To return an Arrow Table, set argument
 `as_data_frame = FALSE`.
@@ -17,7 +17,7 @@ returns an R data frame. To return an Arrow Table, set argument
 - `read_tsv_arrow()`: read a tab-separated values (TSV) file
 - `read_json_arrow()`: read a JSON data file
 
-For writing data to single files, the `arrow` package provides the
+For writing data to single files, the arrow package provides the
 following functions, which can be used with both R data frames and 
 Arrow Tables:
 
@@ -26,9 +26,9 @@ Arrow Tables:
 - `write_csv_arrow()`: write a file in CSV format
 
 All these functions can read and write files in the local filesystem or
-to cloud storage. For more on cloud storage support in `arrow`, see the [cloud storage article](./fs.html).
+to cloud storage. For more on cloud storage support in arrow, see the [cloud storage article](./fs.html).
 
-The `arrow` package also supports reading and writing multi-file datasets,
+The arrow package also supports reading and writing multi-file datasets,
 which enable analysis and processing of larger-than-memory data, and provide 
 the ability to partition data into smaller chunks without loading the full 
 data into memory. For more information on this topic, see the [dataset article](./dataset.html).
@@ -39,10 +39,10 @@ data into memory. For more information on this topic, see the [dataset article](
 choice for storing analytics data; it is a binary format that is 
 optimized for reduced file sizes and fast read performance, especially 
 for column-based access patterns. The simplest way to read and write
-Parquet data using `arrow` is with the `read_parquet()` and 
+Parquet data using arrow is with the `read_parquet()` and 
 `write_parquet()` functions. To illustrate this, we'll write the 
-`starwars` data included in `dplyr` to a Parquet file, then read it 
-back in. First load the `arrow` and `dplyr` packages:
+`starwars` data included in dplyr to a Parquet file, then read it 
+back in. First load the arrow and dplyr packages:
 
 ```{r}
 library(arrow, warn.conflicts = FALSE)
@@ -58,7 +58,7 @@ write_parquet(starwars, file_path)
 
 The size of a Parquet file is typically much smaller than the corresponding CSV 
 file would have been. This is in part due to the use of file compression: by default, 
-Parquet files written with the `arrow` package use [Snappy compression](https://google.github.io/snappy/) but other options such as gzip 
+Parquet files written with the arrow package use [Snappy compression](https://google.github.io/snappy/) but other options such as gzip 
 are also supported. See `help("write_parquet", package = "arrow")` for more
 information.
 
@@ -74,7 +74,7 @@ The default is to return a data frame or tibble. If we want an Arrow Table inste
 read_parquet(file_path, as_data_frame = FALSE)
 ```
 
-One useful feature of Parquet files is that they store data column-wise, and contain metadata that allow file readers to skip to the relevant sections of the file. That means it is possible to load only a subset of the columns without reading the complete file. The `col_select` argument to `read_parquet()` supports this functionality is supported in `arrow`:
+One useful feature of Parquet files is that they store data column-wise, and contain metadata that allow file readers to skip to the relevant sections of the file. That means it is possible to load only a subset of the columns without reading the complete file. The `col_select` argument to `read_parquet()` supports this functionality is supported in arrow:
 
 ```{r}
 read_parquet(file_path, col_select = c("name", "height", "mass"))
@@ -84,7 +84,7 @@ R object attributes are preserved when writing data to Parquet or
 Arrow/Feather files and when reading those files back into R. This enables
 round-trip writing and reading of `sf::sf` objects, R data frames with
 with `haven::labelled` columns, and data frame with other custom
-attributes. To learn more about how metadata are handled in `arrow`, the [metadata article](./metadata.html).
+attributes. To learn more about how metadata are handled in arrow, the [metadata article](./metadata.html).
 
 ## Arrow/Feather format
 
@@ -123,7 +123,7 @@ read_feather(
 
 ## CSV format
 
-The read/write capabilities of the `arrow` package also include support for 
+The read/write capabilities of the arrow package also include support for 
 CSV and other text-delimited files. The `read_csv_arrow()`, `read_tsv_arrow()`, 
 and `read_delim_arrow()` functions all use the Arrow C++ CSV reader to read 
 data files, where the Arrow C++ options have been mapped to arguments in a 
@@ -136,7 +136,7 @@ in R, for those files that it can read, it is often significantly faster than
 other R CSV readers, such as `base::read.csv`, `readr::read_csv`, and
 `data.table::fread`.
 
-A simple example of writing and reading a CSV file with `arrow` is shown below:
+A simple example of writing and reading a CSV file with arrow is shown below:
 
 ```{r}
 file_path <- tempfile()
@@ -146,7 +146,7 @@ read_csv_arrow(file_path, col_select = starts_with("d"))
 
 ## JSON format
 
-The `arrow` package supports reading (but not writing) of tabular data from line-delimited JSON, using the `read_json_arrow()` function. A minimal example is shown below:
+The arrow package supports reading (but not writing) of tabular data from line-delimited JSON, using the `read_json_arrow()` function. A minimal example is shown below:
 
 ```{r}
 file_path <- tempfile()

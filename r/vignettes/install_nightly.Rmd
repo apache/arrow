@@ -1,11 +1,11 @@
 ---
 title: "Installing development versions"
 description: >
-  Learn how to install nightly builds of `arrow` 
+  Learn how to install nightly builds of arrow 
 output: rmarkdown::html_vignette
 ---
 
-Users of the `arrow` package will typically want to use the latest release version of the package, but may occasionally require a development build. Arrow developers are more likely to need the current development version. In this article we describe the process for installing the development version.
+Users of the arrow package will typically want to use the latest release version of the package, but may occasionally require a development build. Arrow developers are more likely to need the current development version. In this article we describe the process for installing the development version.
 
 ## Install nightly builds
 
@@ -15,19 +15,19 @@ These nightly package builds are not official Apache releases and are
 not recommended for production use. They may be useful for testing bug
 fixes and new features under active development.
 
-To install `arrow` from there, use the following command:
+To install arrow from there, use the following command:
 
 ``` r
 install.packages("arrow", repos = c(arrow = "https://nightlies.apache.org/arrow/r", getOption("repos")))
 ```
 
-Conda users can install `arrow` nightly builds with:
+Conda users can install arrow nightly builds with:
 
 ``` shell
 conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow
 ```
 
-If you already have a version of `arrow` installed, you can switch to
+If you already have a version of arrow installed, you can switch to
 the latest nightly development version as follows:
 
 ``` r

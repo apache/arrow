@@ -1,20 +1,20 @@
 ---
 title: "Data objects"
 description: > 
-  Learn about Scalar, Array, Table, and Dataset objects in `arrow` 
+  Learn about Scalar, Array, Table, and Dataset objects in arrow 
   (among others), how they relate to each other, as well as their 
   relationships to familiar R objects like data frames and vectors 
 output: rmarkdown::html_vignette
 ---
 
-This article describes the various data object types supplied by `arrow`, and documents how these objects are structured. 
+This article describes the various data object types supplied by arrow, and documents how these objects are structured. 
 
 ```{r include=FALSE}
 library(arrow, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 ```
 
-The `arrow` package supplies several object classes that are used to represent data. `RecordBatch`, `Table`, and `Dataset` objects are two-dimensional rectangular data structures used to store tabular data. For columnar, one-dimensional data, the `Array` and `ChunkedArray` classes are provided. Finally, `Scalar` objects represent individual values. The table below summarizes these objects and shows how you can create new instances using the [`R6`](https://r6.r-lib.org/) class object, as well as convenience functions that provide the same functionality in a more traditional R-like fashion:
+The arrow package supplies several object classes that are used to represent data. `RecordBatch`, `Table`, and `Dataset` objects are two-dimensional rectangular data structures used to store tabular data. For columnar, one-dimensional data, the `Array` and `ChunkedArray` classes are provided. Finally, `Scalar` objects represent individual values. The table below summarizes these objects and shows how you can create new instances using the [`R6`](https://r6.r-lib.org/) class object, as well as convenience functions that provide the same functionality in a more traditional R-like fashion:
 
 | Dim | Class          | How to create an instance                     | Convenience function                          |
 | --- | -------------- | ----------------------------------------------| --------------------------------------------- |
@@ -27,7 +27,7 @@ The `arrow` package supplies several object classes that are used to represent d
   
 Later in the article we'll look at each of these in more detail. For now we note that each of these object classes corresponds to a class of the same name in the underlying Arrow C++ library. 
 
-In addition to these data objects, `arrow` defines the following classes for representing metadata:
+In addition to these data objects, arrow defines the following classes for representing metadata:
 
 - A `Schema` is a list of `Field` objects used to describe the structure of a tabular data object; where
 - A `Field` specifies a character string name and a `DataType`; and
@@ -37,7 +37,7 @@ These metadata objects play an important role in making sure data are represente
 
 ## Scalars
 
-A Scalar object is simply a single value that can be of any type. It might be an integer, a string, a timestamp, or any of the different `DataType` objects that Arrow supports. Most users of the `arrow` R package are unlikely to create Scalars directly, but should there be a need you can do this by calling the `Scalar$create()` method:
+A Scalar object is simply a single value that can be of any type. It might be an integer, a string, a timestamp, or any of the different `DataType` objects that Arrow supports. Most users of the arrow R package are unlikely to create Scalars directly, but should there be a need you can do this by calling the `Scalar$create()` method:
 
 ```{r}
 Scalar$create("hello")
@@ -68,7 +68,7 @@ Arrays are immutable objects: once an Array has been created it cannot be modifi
 
 ## Chunked Arrays
 
-In practice, most users of the `arrow` R package are likely to use Chunked Arrays rather than simple Arrays. Under the hood, a Chunked Array is a collection of one or more Arrays that can be indexed _as if_ they were a single Array. The reasons that Arrow provides this functionality are described in the [data object layout article](./developers/data_object_layout.html) but for the present purposes it is sufficient to notice that Chunked Arrays behave like Arrays in regular data analysis.
+In practice, most users of the arrow R package are likely to use Chunked Arrays rather than simple Arrays. Under the hood, a Chunked Array is a collection of one or more Arrays that can be indexed _as if_ they were a single Array. The reasons that Arrow provides this functionality are described in the [data object layout article](./developers/data_object_layout.html) but for the present purposes it is sufficient to notice that Chunked Arrays behave like Arrays in regular data analysis.
 
 To illustrate, let's use the `chunked_array()` function:
 
@@ -135,7 +135,7 @@ This is a Record Batch containing 5 rows and 3 columns, and its conceptual struc
 knitr::include_graphics("./record_batch.png")
 ```
 
-The `arrow` package supplies a `$` method for Record Batch objects, used to extract a single column by name:
+The arrow package supplies a `$` method for Record Batch objects, used to extract a single column by name:
 
 ```{r}
 rb$strs

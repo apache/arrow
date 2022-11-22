@@ -1,7 +1,7 @@
 ---
 title: "Introduction for developers"
 description: >
-  Learn how to contribute to the `arrow` package
+  Learn how to contribute to the arrow package
 output: rmarkdown::html_vignette
 ---
 
@@ -12,18 +12,18 @@ If you're interested in contributing to arrow, this article explains our approac
 
 It helps to first outline the structure of the package. 
 
-C++ is an object-oriented language, so the core logic of the Arrow C++ library is encapsulated in classes and methods. In the `arrow` R package, these classes are implemented as [`R6`](https://r6.r-lib.org) classes, most of which are exported from the namespace.
+C++ is an object-oriented language, so the core logic of the Arrow C++ library is encapsulated in classes and methods. In the arrow R package, these classes are implemented as [R6](https://r6.r-lib.org) classes, most of which are exported from the namespace.
 
-In order to match the C++ naming conventions, the `R6` classes are named in "TitleCase", e.g. `RecordBatch`. This makes it easy to look up the relevant C++ implementations in the [code](https://github.com/apache/arrow/tree/master/cpp) or [documentation](https://arrow.apache.org/docs/cpp/). To simplify things in R, the C++ library namespaces are generally dropped or flattened; that is, where the C++ library has `arrow::io::FileOutputStream`, it is just `FileOutputStream` in the R package. One exception is for the file readers, where the namespace is necessary to disambiguate. So `arrow::csv::TableReader` becomes `CsvTableReader`, and `arrow::json::TableReader` becomes `JsonTableReader`.
+In order to match the C++ naming conventions, the R6 classes are named in "TitleCase", e.g. `RecordBatch`. This makes it easy to look up the relevant C++ implementations in the [code](https://github.com/apache/arrow/tree/master/cpp) or [documentation](https://arrow.apache.org/docs/cpp/). To simplify things in R, the C++ library namespaces are generally dropped or flattened; that is, where the C++ library has `arrow::io::FileOutputStream`, it is just `FileOutputStream` in the R package. One exception is for the file readers, where the namespace is necessary to disambiguate. So `arrow::csv::TableReader` becomes `CsvTableReader`, and `arrow::json::TableReader` becomes `JsonTableReader`.
 
 Some of these classes are not meant to be instantiated directly; they may be base classes or other kinds of helpers. For those that you should be able to create, use the `$create()` method to instantiate an object. For example, `rb <- RecordBatch$create(int = 1:10, dbl = as.numeric(1:10))` will create a `RecordBatch`. Many of these factory methods that an R user might most often encounter also have a "snake_case" alias, in order to be more familiar for contemporary R users. So `record_batch(int = 1:10, dbl = as.numeric(1:10))` would do the same as `RecordBatch$create()` above.
 
-The typical user of the `arrow` R package may never deal directly with the `R6` objects. We provide more R-friendly wrapper functions as a higher-level interface to the C++ library. An R user can call `read_parquet()` without knowing or caring that they're instantiating a `ParquetFileReader` object and calling the `$ReadFile()` method on it. The classes are there and available to the advanced programmer who wants fine-grained control over how the C++ library is used.
+The typical user of the arrow R package may never deal directly with the R6 objects. We provide more R-friendly wrapper functions as a higher-level interface to the C++ library. An R user can call `read_parquet()` without knowing or caring that they're instantiating a `ParquetFileReader` object and calling the `$ReadFile()` method on it. The classes are there and available to the advanced programmer who wants fine-grained control over how the C++ library is used.
 
 <!-- 
 [Temporarily hiding this in a comment until I have a plan]
 
-It is also worth mentioning that the `arrow` package also defines classes that do not exist in the C++ library including:
+It is also worth mentioning that the arrow package also defines classes that do not exist in the C++ library including:
 
 * `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
 * `ArrowTabular`: inherited by `RecordBatch` and `Table`

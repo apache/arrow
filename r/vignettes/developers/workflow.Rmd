@@ -1,7 +1,7 @@
 ---
 title: "Developer workflows"
 description: >
-  Learn about the workflows and conventions followed by `arrow` developers
+  Learn about the workflows and conventions followed by arrow developers
 output: rmarkdown::html_vignette
 ---
 

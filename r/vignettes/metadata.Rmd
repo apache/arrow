@@ -6,7 +6,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-This article describes the various data and metadata object types supplied by `arrow`, and documents how these objects are structured. 
+This article describes the various data and metadata object types supplied by arrow, and documents how these objects are structured. 
 
 ```{r include=FALSE}
 library(arrow, warn.conflicts = FALSE)
@@ -14,7 +14,7 @@ library(arrow, warn.conflicts = FALSE)
 
 ## Arrow metadata classes
 
-The `arrow` package defines the following classes for representing metadata:
+The arrow package defines the following classes for representing metadata:
 
 - A `Schema` is a list of `Field` objects used to describe the structure of a tabular data object; where
 - A `Field` specifies a character string name and a `DataType`; and
@@ -78,5 +78,5 @@ Note that the attributes stored in `$metadata$r` are only understood by R. If yo
 
 ## Further reading
 
-- To learn more about `arrow` metadata, see the documentation for `schema()`.
+- To learn more about arrow metadata, see the documentation for `schema()`.
 - To learn more about data types, see the [data types article](./data_types.html). 

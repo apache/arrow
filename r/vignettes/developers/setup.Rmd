@@ -2,7 +2,7 @@
 title: "Configuring a developer environment"
 description: >
   Learn how to configure your environment to allow you to contribute
-  to the `arrow` package
+  to the arrow package
 output: rmarkdown::html_vignette
 ---
 
@@ -144,7 +144,7 @@ pacman --sync --refresh --noconfirm \
 
 We recommend that you configure libarrow to be built to a user-level directory rather than a system directory for your development work.  This is so that the development version you are using doesn't overwrite a released version of libarrow you may already have installed, and so that you are also able work with more than one version of libarrow (by using different `ARROW_HOME` directories for the different versions).
 
-In the example below, libarrow is installed to a directory called `dist` that has the same parent directory as the `arrow` checkout.  Your installation of the Arrow R package can point to any directory with any name, though we recommend *not* placing it inside of the `arrow` git checkout directory as unwanted changes could stop it working properly.
+In the example below, libarrow is installed to a directory called `dist` that has the same parent directory as the arrow checkout.  Your installation of the Arrow R package can point to any directory with any name, though we recommend *not* placing it inside of the arrow git checkout directory as unwanted changes could stop it working properly.
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
@@ -165,7 +165,7 @@ export PATH=$ARROW_HOME/bin:$PATH
 echo "export PATH=\"$ARROW_HOME/bin:$PATH\"" >> ~/.bash_profile
 ```
 
-Start by navigating in a terminal to the `arrow` repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
+Start by navigating in a terminal to the arrow repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & !sys_install}
 pushd arrow

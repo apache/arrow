@@ -6,7 +6,7 @@ description: >
 output: rmarkdown::html_vignette
 ---
 
-Apache Arrow lets you work efficiently with multi-file data sets even when that data set is too large to be loaded into memory. With the help of Arrow Dataset objects you can analyze this kind of data using familiar  [`dplyr`](https://dplyr.tidyverse.org/) syntax. This article introduces Datasets and shows you how to analyze them with `dplyr` and `arrow`: we'll start by ensuring both packages are loaded
+Apache Arrow lets you work efficiently with multi-file data sets even when that data set is too large to be loaded into memory. With the help of Arrow Dataset objects you can analyze this kind of data using familiar  [dplyr](https://dplyr.tidyverse.org/) syntax. This article introduces Datasets and shows you how to analyze them with dplyr and arrow: we'll start by ensuring both packages are loaded
 
 ```{r}
 library(arrow, warn.conflicts = FALSE)
@@ -19,7 +19,7 @@ The primary motivation for multi-file Datasets is to allow users to analyze extr
 
 This data set is comprised of 158 distinct Parquet files, each corresponding to a month of data. A single file is typically around 400-500MB in size, and the full data set is about 70GB in size. It is not a small data set -- it is slow to download and does not fit in memory on a typical machine 🙂  -- so we also host a "tiny" version of the NYC taxi data that is formatted in exactly the same way but includes only one out of every thousand entries in the original data set (i.e., individual files are <1MB in size, and the "tiny" data set is only 70MB) 
 
-If you have Amazon S3 support enabled in `arrow` (true for most users; see links at the end of this article if you need to troubleshoot this), you can connect to a copy of the "tiny taxi data" stored on S3 with this command:
+If you have Amazon S3 support enabled in arrow (true for most users; see links at the end of this article if you need to troubleshoot this), you can connect to a copy of the "tiny taxi data" stored on S3 with this command:
 
 ```r
 bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi-tiny")
@@ -131,7 +131,7 @@ month: int32
 
 ## Querying Datasets
 
-Now that we have a Dataset object that refers to our data, we can construct `dplyr`-style queries. This is possible because `arrow` supplies a back end that allows users to manipulate tabular Arrow data using `dplyr` verbs. Here's an example: suppose you are curious about tipping behavior in the longest taxi rides. Let's find the median tip percentage for rides with fares greater than $100 in 2015, broken down by the number of passengers:
+Now that we have a Dataset object that refers to our data, we can construct dplyr-style queries. This is possible because arrow supplies a back end that allows users to manipulate tabular Arrow data using dplyr verbs. Here's an example: suppose you are curious about tipping behavior in the longest taxi rides. Let's find the median tip percentage for rides with fares greater than $100 in 2015, broken down by the number of passengers:
 
 ```{r, eval = file.exists("nyc-taxi")}
 system.time(ds %>%
@@ -170,9 +170,9 @@ cat("
 
 You've just selected a subset from a Dataset that contains around 2 billion rows, computed a new column, and aggregated it. All within a few seconds on a modern laptop. How does this work? 
 
-There are three reasons `arrow` can accomplish this task so quickly:
+There are three reasons arrow can accomplish this task so quickly:
 
-First, `arrow` adopts a lazy evaluation approach to queries: when `dplyr` verbs are called on the Dataset, they record their actions but do not evaluate those actions on the data until you run `collect()`. We can see this by taking the same code as before and leaving off the final step:
+First, arrow adopts a lazy evaluation approach to queries: when dplyr verbs are called on the Dataset, they record their actions but do not evaluate those actions on the data until you run `collect()`. We can see this by taking the same code as before and leaving off the final step:
 
 ```{r, eval = file.exists("nyc-taxi")}
 ds %>%
@@ -203,7 +203,7 @@ Second, all work is pushed down to the individual data files, and depending on t
 
 Third, because of partitioning, you can ignore some files entirely. In this example, by filtering `year == 2015`, all files corresponding to other years are immediately excluded: you don't have to load them in order to find that no rows match the filter. For Parquet files -- which contain row groups with statistics on the data contained within groups -- there may be entire chunks of data you can avoid scanning because they have no rows where `total_amount > 100`.
 
-One final thing to note about querying Datasets. Suppose you attempt to call unsupported `dplyr` verbs or unimplemented functions in your query on an Arrow Dataset. In that case, the `arrow` package raises an error. However, for `dplyr` queries on Arrow Table objects (which are already in-memory), the package automatically calls `collect()` before processing that `dplyr` verb. To learn more about the `dplyr` back end, see the [data wrangling article](./data_wrangling.html).
+One final thing to note about querying Datasets. Suppose you attempt to call unsupported dplyr verbs or unimplemented functions in your query on an Arrow Dataset. In that case, the arrow package raises an error. However, for dplyr queries on Arrow Table objects (which are already in-memory), the package automatically calls `collect()` before processing that dplyr verb. To learn more about the dplyr back end, see the [data wrangling article](./data_wrangling.html).
 
 ## Batch processing (experimental)
 
@@ -459,7 +459,7 @@ not have any such concept and a partially written CSV file may be detected as va
 ## Further reading
 
 - To learn about cloud storage, see the [cloud storage article](./fs.html).
-- To learn about `dplyr` with `arrow`, see the [data wrangling article](./data_wrangling.html).
+- To learn about dplyr with arrow, see the [data wrangling article](./data_wrangling.html).
 - To learn about reading and writing data, see the [read/write article](./read_write.html).
 - For specific recipes on reading and writing multi-file Datasets, see this [Arrow R cookbook chapter](https://arrow.apache.org/cookbook/r/reading-and-writing-data---multiple-files.html).
 - To manually enable cloud support on Linux, see the article on [installation on Linux](./install.html).

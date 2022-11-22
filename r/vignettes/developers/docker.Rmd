@@ -1,7 +1,7 @@
 ---
 title: "Using docker containers"
 description: >
-  A guide for `arrow` developers wanting to use docker
+  A guide for arrow developers wanting to use docker
 output: rmarkdown::html_vignette
 ---
 

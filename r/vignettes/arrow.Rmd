@@ -1,23 +1,23 @@
 ---
 title: "Get started with Arrow"
 description: >
-  An overview of the Apache Arrow project and the `arrow` R package
+  An overview of the Apache Arrow project and the arrow R package
 output: rmarkdown::html_vignette
 ---
 
 Apache Arrow is a software development platform for building high performance applications that process and transport large data sets. It is designed to improve the performance of data analysis methods, and to increase the efficiency of moving data from one system or programming language to another.
 
-The `arrow` package provides a standard way to use Apache Arrow in R. It provides a low-level interface to the [Arrow C++ library](https://arrow.apache.org/docs/cpp), and some higher-level tools for working with it in a way designed to feel natural to R users. This article provides an overview of how the pieces fit together, and it describes the conventions that the classes and methods follow in R.
+The arrow package provides a standard way to use Apache Arrow in R. It provides a low-level interface to the [Arrow C++ library](https://arrow.apache.org/docs/cpp), and some higher-level tools for working with it in a way designed to feel natural to R users. This article provides an overview of how the pieces fit together, and it describes the conventions that the classes and methods follow in R.
 
 ## Package conventions
 
-The `arrow` R package builds on top of the Arrow C++ library, and C++ is an object oriented language. As a consequence, the core logic of the Arrow C++ library is encapsulated in classes and methods. In the `arrow` R package these are implemented as [`R6`](https://r6.r-lib.org) classes that all adopt "TitleCase" naming conventions. Some examples of these include:
+The arrow R package builds on top of the Arrow C++ library, and C++ is an object oriented language. As a consequence, the core logic of the Arrow C++ library is encapsulated in classes and methods. In the arrow R package these are implemented as [`R6`](https://r6.r-lib.org) classes that all adopt "TitleCase" naming conventions. Some examples of these include:
 
 - Two-dimensional, tabular data structures such as `Table`, `RecordBatch`, and `Dataset`
 - One-dimensional, vector-like data structures such as `Array` and `ChunkedArray`
 - Classes for reading, writing, and streaming data such as `ParquetFileReader` and `CsvTableReader`
 
-This low-level interface allows you to interact with the Arrow C++ library in a very flexible way, but in many common situations you may never need to use it at all, because `arrow` also supplies a high-level interface using functions that follow a "snake_case" naming convention. Some examples of this include:
+This low-level interface allows you to interact with the Arrow C++ library in a very flexible way, but in many common situations you may never need to use it at all, because arrow also supplies a high-level interface using functions that follow a "snake_case" naming convention. Some examples of this include:
 
 - `arrow_table()` allows you to create Arrow tables without directly using the `Table` object
 - `read_parquet()` allows you to open Parquet files without directly using the `ParquetFileReader` object
@@ -29,7 +29,7 @@ For developers interested in learning more about the package structure, see the 
 
 ## Tabular data in Arrow 
 
-A critical component of Apache Arrow is its in-memory columnar format, a standardized, language-agnostic specification for representing structured, table-like datasets in-memory. In the `arrow` R package, the `Table` class is used to store these objects. Tables are roughly analogous to data frames and have similar behavior. The `arrow_table()` function allows you to generate new Arrow Tables in much the same way that `data.frame()` is used to create new data frames:
+A critical component of Apache Arrow is its in-memory columnar format, a standardized, language-agnostic specification for representing structured, table-like datasets in-memory. In the arrow R package, the `Table` class is used to store these objects. Tables are roughly analogous to data frames and have similar behavior. The `arrow_table()` function allows you to generate new Arrow Tables in much the same way that `data.frame()` is used to create new data frames:
 
 ```{r}
 library(arrow, warn.conflicts = FALSE)
@@ -54,7 +54,7 @@ Note the output: individual columns in an Arrow Table are represented as Chunked
 
 Tables are the primary way to represent rectangular data in-memory using Arrow, but they are not the only rectangular data structure used by the Arrow C++ library: there are also Datasets which are used for data stored on-disk rather than in-memory, and Record Batches which are fundamental building blocks but not typically used in data analysis. 
 
-To learn more about the different data object classes in `arrow`, see the article on [data objects](./data_objects.html).
+To learn more about the different data object classes in arrow, see the article on [data objects](./data_objects.html).
 
 ## Converting Tables to data frames
 
@@ -71,8 +71,8 @@ It is possible to exercise fine grained control over this conversion process. To
 
 ## Reading and writing data
 
-One of the main ways to use `arrow` is to read and write data files in
-several common formats. The `arrow` package supplies extremely fast CSV reading and writing capabilities, but in addition supports data formats like Parquet and Arrow (also called Feather) that are not widely supported in other packages. In addition, the `arrow` package supports multi-file data sets in which a single rectangular data set is stored across multiple files. 
+One of the main ways to use arrow is to read and write data files in
+several common formats. The arrow package supplies extremely fast CSV reading and writing capabilities, but in addition supports data formats like Parquet and Arrow (also called Feather) that are not widely supported in other packages. In addition, the arrow package supports multi-file data sets in which a single rectangular data set is stored across multiple files. 
 
 ### Individual files
 
@@ -90,7 +90,7 @@ that allows you to write data files in the appropriate format.
 
 By default, the `read_*()` functions will return a data frame or tibble, but you can also use them to read data into an Arrow Table. To do this, you need to set the `as_data_frame` argument to `FALSE`. 
 
-In the example below, we take the `starwars` data provided by the `dplyr` package and write it to a Parquet file using `write_parquet()`
+In the example below, we take the `starwars` data provided by the dplyr package and write it to a Parquet file using `write_parquet()`
 
 ```{r}
 library(dplyr, warn.conflicts = FALSE)
@@ -111,7 +111,7 @@ To learn more about reading and writing individual data files, see the [read/wri
 
 ### Multi-file data sets
 
-When a tabular data set becomes large, it is often good practice to partition the data into meaningful subsets and store each one in a separate file. Among other things, this means that if only one subset of the data are relevant to an analysis, only one (smaller) file needs to be read. The `arrow` package provides a convenient way to read, write, and analyze with data stored in this fashion using the Dataset interface. 
+When a tabular data set becomes large, it is often good practice to partition the data into meaningful subsets and store each one in a separate file. Among other things, this means that if only one subset of the data are relevant to an analysis, only one (smaller) file needs to be read. The arrow package provides a convenient way to read, write, and analyze with data stored in this fashion using the Dataset interface. 
 
 To illustrate the concepts, we'll create a nonsense data set with 100000 rows that can be split into 10 subsets:
 
@@ -131,7 +131,7 @@ What we might like to do is partition this data and then write it to 10 separate
 dataset_path <- file.path(tempdir(), "random_data")
 ```
 
-We can then use `group_by()` function from `dplyr` to specify that the data will be partitioned using the `subset` column, and then pass the grouped data to `write_dataset()`:
+We can then use `group_by()` function from dplyr to specify that the data will be partitioned using the `subset` column, and then pass the grouped data to `write_dataset()`:
 
 ```{r}
 random_data %>%
@@ -158,7 +158,7 @@ To learn more about Arrow Datasets, see the [dataset article](./dataset.html).
 
 ## Analyzing Arrow data with dplyr
 
-Arrow Tables and Datasets can be analyzed using `dplyr` syntax. This is possible because the `arrow` R package supplies a backend that translates `dplyr` verbs into commands that are understood by the Arrow C++ library, and will similarly translate R expressions that appear within a call to a `dplyr` verb. For example, although the `dset` Dataset is not a data frame (and does not store the data values in memory), you can still pass it to a `dplyr` pipeline like the one shown below:
+Arrow Tables and Datasets can be analyzed using dplyr syntax. This is possible because the arrow R package supplies a backend that translates dplyr verbs into commands that are understood by the Arrow C++ library, and will similarly translate R expressions that appear within a call to a dplyr verb. For example, although the `dset` Dataset is not a data frame (and does not store the data values in memory), you can still pass it to a dplyr pipeline like the one shown below:
 
 ```{r}
 dset %>%
@@ -175,18 +175,18 @@ To learn more about analyzing Arrow data, see the [data wrangling article](./dat
 
 ## Connecting to cloud storage
 
-Another use for the `arrow` R package is to read, write, and analyze data sets stored remotely on cloud services. The package currently supports both Amazon Simple Storage Service (S3) and Google Cloud Storage (GCS). The example below illustrates how you can use `s3_bucket()` to refer to a an S3 bucket, and use `open_dataset()` to connect to the data set stored there:
+Another use for the arrow R package is to read, write, and analyze data sets stored remotely on cloud services. The package currently supports both Amazon Simple Storage Service (S3) and Google Cloud Storage (GCS). The example below illustrates how you can use `s3_bucket()` to refer to a an S3 bucket, and use `open_dataset()` to connect to the data set stored there:
 
 ```{r, eval=FALSE}
 bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi")
 nyc_taxi <- open_dataset(bucket)
 ```
 
-To learn more about the support for cloud services in `arrow`, see the [cloud storage](./fs.html) article.
+To learn more about the support for cloud services in arrow, see the [cloud storage](./fs.html) article.
 
 ## Efficient data interchange between R and Python
 
-The [`reticulate`](https://rstudio.github.io/reticulate/) package provides an interface that allows you to call Python code from R. The `arrow` package is designed to be interoperable with `reticulate`. If the Python environment has the `pyarrow` library installed (the Python equivalent to the `arrow` package), you can pass an Arrow Table from R to Python using the `r_to_py()` function in `reticulate` as shown below:
+The [reticulate](https://rstudio.github.io/reticulate/) package provides an interface that allows you to call Python code from R. The arrow package is designed to be interoperable with reticulate. If the Python environment has the pyarrow library installed (the Python equivalent to the arrow package), you can pass an Arrow Table from R to Python using the `r_to_py()` function in reticulate as shown below:
 
 ```{r}
 library(reticulate)
@@ -206,16 +206,16 @@ To learn more about passing Arrow data between R and Python, see the article on 
 
 ## Access to Arrow messages, buffers, and streams
 
-The `arrow` package also provides many lower-level bindings to the C++ library, which enable you
+The arrow package also provides many lower-level bindings to the C++ library, which enable you
 to access and manipulate Arrow objects. You can use these to build connectors
 to other applications and services that use Arrow. One example is Spark: the
 [`sparklyr`](https://spark.rstudio.com/) package has support for using Arrow to
 move data to and from Spark, yielding [significant performance
 gains](https://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
 
-## Contributing to `arrow`
+## Contributing to arrow
 
-Apache Arrow is an extensive project spanning multiple languages, and the `arrow` R package is only one part of this large project. Because of this there are a number of special considerations for developers who would like to contribute to the package. To help make this process easier, there are several articles in the `arrow` documentation that discuss topics that are relevant to `arrow` developers, but are very unlikely to be needed by users.
+Apache Arrow is an extensive project spanning multiple languages, and the arrow R package is only one part of this large project. Because of this there are a number of special considerations for developers who would like to contribute to the package. To help make this process easier, there are several articles in the arrow documentation that discuss topics that are relevant to arrow developers, but are very unlikely to be needed by users.
 
 For an overview of the development process and a list of related articles for developers, see the [developer guide](./developing.html).
 
