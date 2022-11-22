@@ -89,7 +89,7 @@ Finalize and merge draft PRs/ensure linux binary packages are available:
 
 Check binary Arrow C++ distributions specific to the R package:
 
-- [ ] Upload the .tar.gz to [WinBuilder](https://win-builder.r-project.org/upload.aspx)
+- [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx)
   and confirm that the check is clean
 - [ ] Upload the .tar.gz to [MacBuilder](https://mac.r-project.org/macbuilder/submit.html)
   and confirm that the check is clean
