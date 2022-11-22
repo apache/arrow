@@ -657,12 +657,6 @@ else()
            "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
 endif()
 
-# Remove these two lines once https://github.com/substrait-io/substrait/pull/342 merges
-set(ENV{ARROW_SUBSTRAIT_URL} 
-  "https://github.com/substrait-io/substrait/archive/b175142622b83387b6214c2d5600ba484e735a9e.tar.gz")
-set(ARROW_SUBSTRAIT_BUILD_SHA256_CHECKSUM
-  "4d3311916f30fbe4fa1271ebc6a9d3b26eac162b6f69f15d13830e259f403d1b")
-
 if(DEFINED ENV{ARROW_SUBSTRAIT_URL})
   set(SUBSTRAIT_SOURCE_URL "$ENV{ARROW_SUBSTRAIT_URL}")
 else()
