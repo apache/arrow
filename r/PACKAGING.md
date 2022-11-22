@@ -21,7 +21,7 @@
 # Packaging checklist for CRAN release
 
 For full documentation of the steps in this checklist, see the
-[Apache Arrow Release Management Guide](https://cwiki.apache.org/confluence/display/ARROW/Release+Management+Guide#ReleaseManagementGuide-UpdatingRpackages).
+[Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
 
 - [ ] When a release candidate is created
   [Create a GitHub issue](https://github.com/apache/arrow/issues/new/)
