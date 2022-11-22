@@ -23,28 +23,33 @@ set -o pipefail
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : ${TEST_PYPI:=0}
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <version> <rc-num>"
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <version>"
   exit
 fi
 
 version=$1
-rc=$2
 
 tmp=$(mktemp -d -t "arrow-post-python.XXXXX")
-${PYTHON:-python} \
-  "${SOURCE_DIR}/download_rc_binaries.py" \
-  ${version} \
-  ${rc} \
-  --dest="${tmp}" \
-  --package_type=python \
-  --regex=".*\.(whl|tar\.gz)$"
+base_url=https://apache.jfrog.io/artifactory/arrow/python/${version}
+curl \
+  --location \
+  ${base_url} | \
+  grep -E -o "pyarrow-${version}[a-zA-Z0-9._-]*\\.(tar\\.gz|whl)" | \
+  sort | \
+  uniq | while read artifact; do
+  curl \
+    --fail \
+    --location \
+    --output ${tmp}/${artifact} \
+    ${base_url}/${artifact}
+done
 
 if [ ${TEST_PYPI} -gt 0 ]; then
   TWINE_ARGS="--repository-url https://test.pypi.org/legacy/"
 fi
 
-twine upload ${TWINE_ARGS} ${tmp}/python-rc/${version}-rc${rc}/*.{whl,tar.gz}
+twine upload ${TWINE_ARGS} ${tmp}/*
 
 rm -rf "${tmp}"
 
