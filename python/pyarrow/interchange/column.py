@@ -388,10 +388,7 @@ class _PyArrowColumn:
                     array.slice(start, chunk_size), self._allow_copy
                 )
                 i += 1
-            # In case when the size of the chunk is such that the resulting
-            # list is one less chunk then n_chunks -> append an empty chunk
-            if i == n_chunks - 1:
-                yield _PyArrowColumn(pa.array([]), self._allow_copy)
+
         elif isinstance(self._col, pa.ChunkedArray):
             return [
                 _PyArrowColumn(chunk, self._allow_copy)

@@ -178,7 +178,7 @@ class _PyArrowDataFrame:
             # In case when the size of the chunk is such that the resulting
             # list is one less chunk then n_chunks -> append an empty chunk
             if len(batches) == n_chunks - 1:
-                batches.append(pa.record_batch([]))
+                batches.append(pa.record_batch([[]], schema = self._df.schema))
         else:
             batches = self._df.to_batches()
 
