@@ -38,10 +38,10 @@ yum -y install \
   libtool \
   llvm13 \
   llvm13-devel \
-  maven \
   ncurses-devel \
   ninja-build \
   perl-core \
+  rh-maven33* \
   rh-python38* \
   rh-ruby30* \
   sqlite-devel \
@@ -61,5 +61,5 @@ chmod +x get-openssl.sh
 scl enable rh-python38 devtoolset-11 rh-ruby30 ./get-openssl.sh
 
 echo "use "
-echo ">scl enable rh-python38 devtoolset-11 rh-ruby30 bash"
+echo ">scl enable rh-python38 devtoolset-11 rh-ruby30 rh-maven33 bash"
 echo "to get the updated Python, GCC compilers and Ruby within your shell environment"
