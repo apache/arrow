@@ -267,6 +267,39 @@ TEST(BlockParser, Null) {
        R"([{"plain": null}, {"plain": null}])"});
 }
 
+TEST(BlockParser, InferNewFields) {
+  std::string src = R"(
+    {}
+    {"a": true}
+    {"a": false, "b": true}
+  )";
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  for (const auto& s : {schema({field("a", boolean()), field("b", boolean())}),
+                        std::shared_ptr<Schema>(nullptr)}) {
+    options.explicit_schema = s;
+    AssertParseColumns(options, src, {field("a", boolean()), field("b", boolean())},
+                       {"[null, true, false]", "[null, null, true]"});
+  }
+}
+
+TEST(BlockParser, InferNewFieldsInMiddle) {
+  std::string src = R"(
+    {"a": true, "b": false}
+    {"a": false, "c": "foo", "b": true}
+    {"b": false}
+  )";
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  for (const auto& s : {schema({field("a", boolean()), field("b", boolean())}),
+                        std::shared_ptr<Schema>(nullptr)}) {
+    options.explicit_schema = s;
+    AssertParseColumns(
+        options, src, {field("a", boolean()), field("b", boolean()), field("c", utf8())},
+        {"[true, false, null]", "[false, true, false]", "[null, \"foo\", null]"});
+  }
+}
+
 TEST(BlockParser, AdHoc) {
   auto options = ParseOptions::Defaults();
   options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
