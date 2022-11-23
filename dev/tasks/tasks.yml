@@ -1493,7 +1493,7 @@ tasks:
 
   ############################## Integration tests ############################
 
-{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.7", "0.24", "1.19", True),
+{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.7", "1.0", "1.19", True),
                                                                      ("3.7", "latest", "latest", False),
                                                                      ("3.8", "latest", "latest", False),
                                                                      ("3.8", "nightly", "nightly", False),
