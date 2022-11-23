@@ -56,7 +56,7 @@ sw %>%
   summarize(mean_height = mean(height, na.rm = TRUE)) %>%
   collect()
 
-sw %>% 
+sw %>%
   count(gender) %>%
   collect()
 ```
@@ -90,9 +90,9 @@ The arrow package makes it possible for users to supply bindings for custom func
 ```{r}
 to_snake_name <- function(context, string) {
   replace <- c(`'` = "", `"` = "", `-` = "", `\\.` = "_", ` ` = "_")
-  string %>% 
+  string %>%
     stringr::str_replace_all(replace) %>%
-    stringr::str_to_lower() %>% 
+    stringr::str_to_lower() %>%
     stringi::stri_trans_general(id = "Latin-ASCII")
 }
 ```
@@ -114,7 +114,7 @@ In this expression, the `name` argument specifies the name by which it will be r
 Once registered, the following works:
 
 ```{r}
-sw %>% 
+sw %>%
   mutate(name, snake_name = to_snake_name(name), .keep = "none") %>%
   collect()
 ```
@@ -132,8 +132,8 @@ implemented, so if we write code that computes the residuals for a
 linear regression model, this automatic collection takes place:
 
 ```{r}
-sw %>% 
-  filter(!is.na(height), !is.na(mass)) %>% 
+sw %>%
+  filter(!is.na(height), !is.na(mass)) %>%
   transmute(name, height, mass, res = residuals(lm(mass ~ height)))
 ```
 
@@ -151,16 +151,16 @@ write_dataset(starwars, dataset_path)
 sw2 <- open_dataset(dataset_path)
 
 # dplyr pipeline with unsupported expressions
-sw2 %>% 
-  filter(!is.na(height), !is.na(mass)) %>% 
+sw2 %>%
+  filter(!is.na(height), !is.na(mass)) %>%
   transmute(name, height, mass, res = residuals(lm(mass ~ height)))
 ```
 
 Calling `collect()` in the middle of the pipeline fixes the issue:
 
 ```{r}
-sw2 %>% 
-  filter(!is.na(height), !is.na(mass)) %>% 
+sw2 %>%
+  filter(!is.na(height), !is.na(mass)) %>%
   collect() %>%
   transmute(name, height, mass, res = residuals(lm(mass ~ height)))
 ```

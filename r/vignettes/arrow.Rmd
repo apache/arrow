@@ -119,7 +119,7 @@ To illustrate the concepts, we'll create a nonsense data set with 100000 rows th
 set.seed(1234)
 nrows <- 100000
 random_data <- data.frame(
-  x = rnorm(nrows), 
+  x = rnorm(nrows),
   y = rnorm(nrows),
   subset = sample(10, nrows, replace = TRUE)
 )
@@ -162,7 +162,7 @@ Arrow Tables and Datasets can be analyzed using dplyr syntax. This is possible b
 
 ```{r}
 dset %>%
-  group_by(subset) %>% 
+  group_by(subset) %>%
   summarize(mean_x = mean(x), min_y = min(y)) %>%
   filter(mean_x > 0) %>%
   arrange(subset) %>%

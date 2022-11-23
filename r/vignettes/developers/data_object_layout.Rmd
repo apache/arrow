@@ -70,7 +70,7 @@ Each integer occupies 4 bytes, as per the requirements of a 32-bit signed intege
 Some types of Arrow array include a third buffer known as the offset buffer. This is most frequently encountered in the context of string arrays, such as this one:
 
 ```{r}
-string_array <- Array$create(c("hello", "amazing", "and", "cruel", "world")) 
+string_array <- Array$create(c("hello", "amazing", "and", "cruel", "world"))
 string_array
 ```
 
@@ -139,7 +139,7 @@ Here is a record batch containing 5 rows and 3 columns:
 
 ```{r}
 rb <- record_batch(
-  strs = c("hello", "amazing", "and", "cruel", "world"), 
+  strs = c("hello", "amazing", "and", "cruel", "world"),
   ints = c(1L, NA, 2L, 4L, 8L),
   dbls = c(1.1, 3.2, 0.2, NA, 11)
 )
@@ -159,7 +159,7 @@ To deal with situations where a rectangular data set can grow over time (as more
 To illustrate, suppose we have a second set of data that arrives as a record batch: 
 ```{r}
 new_rb <- record_batch(
-  strs = c("I", "love", "you"), 
+  strs = c("I", "love", "you"),
   ints = c(5L, 0L, 0L),
   dbls = c(7.1, -0.1, 2)
 )

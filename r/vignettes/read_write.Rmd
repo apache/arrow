@@ -117,8 +117,8 @@ Like the Parquet reader, this reader supports reading a only subset of columns, 
 
 ```{r}
 read_feather(
-  file = file_path, 
-  col_select = c("name", "height", "mass"), 
+  file = file_path,
+  col_select = c("name", "height", "mass"),
   as_data_frame = FALSE
 )
 ```

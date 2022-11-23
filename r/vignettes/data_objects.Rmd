@@ -122,7 +122,7 @@ These Arrays can be of different types but must all be the same length. Each Arr
 
 ```{r}
 rb <- record_batch(
-  strs = string_array, 
+  strs = string_array,
   ints = integer_array,
   dbls = c(1.1, 3.2, 0.2, NA, 11)
 )
@@ -163,7 +163,7 @@ You can subset Tables with `$`, `[[`, and `[` the same way you can for Record Ba
 
 ```{r}
 new_rb <- record_batch(
-  strs = c("I", "love", "you"), 
+  strs = c("I", "love", "you"),
   ints = c(5L, 0L, 0L),
   dbls = c(7.1, -0.1, 2)
 )
@@ -227,7 +227,7 @@ The first step is to define and create a folder that will hold all the files:
 
 ```{r, include=FALSE}
 ds_dir <- "mini-dataset"
-if(dir.exists(ds_dir)) {
+if (dir.exists(ds_dir)) {
   unlink(ds_dir, recursive = TRUE)
 }
 ```
@@ -279,7 +279,7 @@ As you can see, the `ds` Dataset object aggregates the three separate data files
 It should be noted that in everyday data analysis work, you wouldn't need to do write the data files manually in this fashion. The example above is entirely for illustrative purposes. The exact same dataset could be created with the following command:
 
 ```{r, eval=FALSE}
-ds |> 
+ds |>
   group_by(subset) |>
   write_dataset("mini-dataset")
 ```
@@ -291,7 +291,7 @@ In fact, even if `ds` happens to refer to a data source that is larger than memo
 In the previous section we examined the on-disk structure of a Dataset. We now turn to the in-memory structure of the Dataset object itself (i.e., `ds` in the previous example). When the Dataset object is created, arrow searches the dataset folder looking for appropriate files, but does not load the contents of those files. Paths to these files are stored in an active binding `ds$files`:
 
 ```{r}
-ds$files 
+ds$files
 ```
 
 The other thing that happens when `open_dataset()` is called is that an explicit Schema for the Dataset is constructed and stored as `ds$schema`:
@@ -334,7 +334,7 @@ The scanner defined below mimics the dplyr pipeline shown above,
 
 ```{r}
 scan <- Scanner$create(
-  dataset = ds, 
+  dataset = ds,
   filter = Expression$field_ref("value") > 0,
   projection = list(
     id = Expression$field_ref("id"),
