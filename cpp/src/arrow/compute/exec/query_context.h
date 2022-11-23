@@ -24,16 +24,11 @@
 #pragma once
 
 namespace arrow {
-namespace internal {
-class CpuInfo;
-}
 
 using io::IOContext;
 namespace compute {
 struct ARROW_EXPORT QueryOptions {
   QueryOptions();
-  // 0 means unlimited
-  size_t max_memory_bytes;
 
   /// \brief Should the plan use a legacy batching strategy
   ///
@@ -55,7 +50,7 @@ class ARROW_EXPORT QueryContext {
   Status Init(size_t max_num_threads, util::AsyncTaskScheduler* scheduler);
 
   const ::arrow::internal::CpuInfo* cpu_info() const;
-  int64_t hardware_flags() const { return cpu_info()->hardware_flags(); }
+  int64_t hardware_flags() const;
   const QueryOptions& options() const { return options_; }
   MemoryPool* memory_pool() const { return exec_context_.memory_pool(); }
   ::arrow::internal::Executor* executor() const { return exec_context_.executor(); }
@@ -131,6 +126,8 @@ class ARROW_EXPORT QueryContext {
     TempFileIOMark(QueryContext* ctx, size_t bytes) : ctx_(ctx), bytes_(bytes) {
       ctx_->in_flight_bytes_to_disk_.fetch_add(bytes_, std::memory_order_acquire);
     }
+
+    ARROW_DISALLOW_COPY_AND_ASSIGN(TempFileIOMark);
 
     ~TempFileIOMark() {
       ctx_->in_flight_bytes_to_disk_.fetch_sub(bytes_, std::memory_order_release);

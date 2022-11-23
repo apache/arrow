@@ -22,10 +22,7 @@
 namespace arrow {
 using internal::CpuInfo;
 namespace compute {
-QueryOptions::QueryOptions()
-    : max_memory_bytes(
-          static_cast<size_t>(0.75f * ::arrow::internal::GetTotalMemoryBytes())),
-      use_legacy_batching(false) {}
+QueryOptions::QueryOptions() : use_legacy_batching(false) {}
 
 QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)
     : options_(opts),
@@ -33,6 +30,7 @@ QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)
       io_context_(exec_context_.memory_pool()) {}
 
 const CpuInfo* QueryContext::cpu_info() const { return CpuInfo::GetInstance(); }
+int64_t QueryContext::hardware_flags() const { return cpu_info()->hardware_flags(); }
 
 Status QueryContext::Init(size_t max_num_threads, util::AsyncTaskScheduler* scheduler) {
   tld_.resize(max_num_threads);
