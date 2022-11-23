@@ -523,14 +523,17 @@ def make_udt_func(schema, batch_gen):
         class UDT:
             def __init__(self):
                 self.caller = None
+
             def __call__(self, ctx):
                 try:
                     if self.caller is None:
                         self.caller, ctx = batch_gen(ctx).send, None
                     batch = self.caller(ctx)
                 except StopIteration:
-                    arrays = [pa.array([], type=field.type) for field in schema]
-                    batch = pa.RecordBatch.from_arrays(arrays=arrays, schema=schema)
+                    arrays = [pa.array([], type=field.type)
+                              for field in schema]
+                    batch = pa.RecordBatch.from_arrays(
+                        arrays=arrays, schema=schema)
                 return batch.to_struct_array()
         return UDT()
     return udf_func
@@ -557,6 +560,7 @@ def datasource1_direct():
 
 def datasource1_generator():
     schema = datasource1_schema()
+
     def batch_gen(ctx):
         for n in range(3, 0, -1):
             ctx = yield _record_batch_for_range(schema, n - 1)
@@ -565,6 +569,7 @@ def datasource1_generator():
 
 def datasource1_exception():
     schema = datasource1_schema()
+
     def batch_gen(ctx):
         for n in range(3, 0, -1):
             ctx = yield _record_batch_for_range(schema, n - 1)

@@ -190,7 +190,10 @@ Status RegisterTabularFunction(PyObject* user_function, ScalarUdfWrapperCallback
                                const ScalarUdfOptions& options,
                                compute::FunctionRegistry* registry) {
   if (options.arity.num_args != 0 || options.arity.is_varargs) {
-    return Status::Invalid("tabular function must have no arguments");
+    return Status::NotImplemented("tabular function of non-null arity");
+  }
+  if (options.output_type->id() != Type::type::STRUCT) {
+    return Status::Invalid("tabular function with non-struct output");
   }
   return RegisterScalarLikeFunction(
       user_function,
@@ -222,12 +225,12 @@ Result<RecordBatchIterator> GetRecordBatchesFromTabularFunction(
   }
   auto arity = func->arity();
   if (arity.num_args != 0 || arity.is_varargs) {
-    return Status::Invalid("tabular function of non-null arity");
+    return Status::NotImplemented("tabular function of non-null arity");
   }
   auto kernels =
       arrow::internal::checked_pointer_cast<compute::ScalarFunction>(func)->kernels();
   if (kernels.size() != 1) {
-    return Status::Invalid("tabular function with non-single kernel");
+    return Status::NotImplemented("tabular function with non-single kernel");
   }
   const compute::ScalarKernel* kernel = kernels[0];
   auto out_type = kernel->signature->out_type();
@@ -238,9 +241,8 @@ Result<RecordBatchIterator> GetRecordBatchesFromTabularFunction(
   if (datatype->id() != Type::type::STRUCT) {
     return Status::Invalid("tabular kernel with non-struct output");
   }
-  auto fields =
-      arrow::internal::checked_cast<const StructType*>(datatype.get())->fields();
-  auto schema = ::arrow::schema(fields);
+  auto struct_type = arrow::internal::checked_cast<StructType*>(datatype.get());
+  auto schema = ::arrow::schema(struct_type->fields());
   std::vector<TypeHolder> in_types;
   ARROW_ASSIGN_OR_RAISE(auto func_exec,
                         GetFunctionExecutor(func_name, in_types, NULLPTR, registry));
