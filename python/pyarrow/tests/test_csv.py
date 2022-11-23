@@ -1908,6 +1908,20 @@ def test_write_read_round_trip():
                              parse_options=parse_options)
 
 
+def test_write_quoting_style():
+    t = pa.Table.from_arrays([[1, 2, 3], ["a", "b", "c"]], ["c1", "c2"])
+    buf = io.BytesIO()
+    for write_options, res in [
+        (WriteOptions(quoting_style='none'), b'"c1","c2"\n1,a\n2,b\n3,c\n'),
+        (WriteOptions(), b'"c1","c2"\n1,"a"\n2,"b"\n3,"c"\n'),
+        (WriteOptions(quoting_style='all_valid'), b'"c1","c2"\n"1","a"\n"2","b"\n"3","c"\n'),
+    ]:
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            writer.write_table(t)
+        buf.seek(0)
+        assert buf.getvalue() == res
+
+
 def test_read_csv_reference_cycle():
     # ARROW-13187
     def inner():
