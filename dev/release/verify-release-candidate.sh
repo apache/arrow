@@ -1198,5 +1198,5 @@ test_binary_distribution
 
 TEST_SUCCESS=yes
 
-echo 'Release candidate looks good!'
+echo "Release candidate ${VERSION}-RC${RC_NUMBER} looks good!"
 exit 0
