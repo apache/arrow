@@ -47,7 +47,7 @@ func (c *CompareSuite) validateCompareDatum(op kernels.CompareOperator, lhs, rhs
 	c.Require().NoError(err)
 	defer result.Release()
 
-	assertDatumsEqual(c.T(), expected, result)
+	assertDatumsEqual(c.T(), expected, result, nil, nil)
 }
 
 func (c *CompareSuite) validateCompare(op kernels.CompareOperator, dt arrow.DataType, lhsStr, rhsStr, expStr string) {

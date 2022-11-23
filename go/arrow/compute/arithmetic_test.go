@@ -112,7 +112,7 @@ func assertBinop(t *testing.T, fn binaryFunc, left, right, expected arrow.Array,
 	actual, err := fn(&compute.ArrayDatum{Value: left.Data()}, &compute.ArrayDatum{Value: right.Data()})
 	require.NoError(t, err)
 	defer actual.Release()
-	assertDatumsEqual(t, &compute.ArrayDatum{Value: expected.Data()}, actual, opt...)
+	assertDatumsEqual(t, &compute.ArrayDatum{Value: expected.Data()}, actual, opt, scalarOpt)
 
 	// also check (Scalar, Scalar) operations
 	for i := 0; i < expected.Len(); i++ {
@@ -247,7 +247,17 @@ func (b *BinaryArithmeticSuite[T]) assertBinopScalarArr(fn binaryArithmeticFunc,
 	actual, err := fn(b.ctx, b.opts, &compute.ScalarDatum{Value: lhs}, &compute.ArrayDatum{Value: right.Data()})
 	b.NoError(err)
 	defer actual.Release()
-	assertDatumsEqual(b.T(), &compute.ArrayDatum{Value: exp.Data()}, actual)
+	assertDatumsEqual(b.T(), &compute.ArrayDatum{Value: exp.Data()}, actual, b.equalOpts, b.scalarEqualOpts)
+}
+
+func (b *BinaryArithmeticSuite[T]) assertBinopArrScalarExpArr(fn binaryArithmeticFunc, lhs string, rhs scalar.Scalar, exp arrow.Array) {
+	left, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(lhs))
+	defer left.Release()
+
+	actual, err := fn(b.ctx, b.opts, &compute.ArrayDatum{left.Data()}, compute.NewDatum(rhs))
+	b.Require().NoError(err)
+	defer actual.Release()
+	assertDatumsEqual(b.T(), &compute.ArrayDatum{exp.Data()}, actual, b.equalOpts, b.scalarEqualOpts)
 }
 
 func (b *BinaryArithmeticSuite[T]) assertBinopArrScalarVal(fn binaryArithmeticFunc, lhs string, rhs T, expected string) {
@@ -264,7 +274,22 @@ func (b *BinaryArithmeticSuite[T]) assertBinopArrScalar(fn binaryArithmeticFunc,
 	actual, err := fn(b.ctx, b.opts, &compute.ArrayDatum{Value: left.Data()}, &compute.ScalarDatum{Value: rhs})
 	b.NoError(err)
 	defer actual.Release()
-	assertDatumsEqual(b.T(), &compute.ArrayDatum{Value: exp.Data()}, actual, b.equalOpts...)
+	assertDatumsEqual(b.T(), &compute.ArrayDatum{Value: exp.Data()}, actual, b.equalOpts, b.scalarEqualOpts)
+}
+
+func (b *BinaryArithmeticSuite[T]) assertBinopArrs(fn binaryArithmeticFunc, lhs, rhs, exp arrow.Array) {
+	assertBinop(b.T(), func(left, right compute.Datum) (compute.Datum, error) {
+		return fn(b.ctx, b.opts, left, right)
+	}, lhs, rhs, exp, b.equalOpts, b.scalarEqualOpts)
+}
+
+func (b *BinaryArithmeticSuite[T]) assertBinopExpArr(fn binaryArithmeticFunc, lhs, rhs string, exp arrow.Array) {
+	left, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(lhs), array.WithUseNumber())
+	defer left.Release()
+	right, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(rhs), array.WithUseNumber())
+	defer right.Release()
+
+	b.assertBinopArrs(fn, left, right, exp)
 }
 
 func (b *BinaryArithmeticSuite[T]) assertBinop(fn binaryArithmeticFunc, lhs, rhs, expected string) {
@@ -275,9 +300,7 @@ func (b *BinaryArithmeticSuite[T]) assertBinop(fn binaryArithmeticFunc, lhs, rhs
 	exp, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(expected), array.WithUseNumber())
 	defer exp.Release()
 
-	assertBinop(b.T(), func(left, right compute.Datum) (compute.Datum, error) {
-		return fn(b.ctx, b.opts, left, right)
-	}, left, right, exp, b.equalOpts, b.scalarEqualOpts)
+	b.assertBinopArrs(fn, left, right, exp)
 }
 
 func (b *BinaryArithmeticSuite[T]) setOverflowCheck(value bool) {
@@ -487,6 +510,56 @@ func (b *BinaryArithmeticSuite[T]) TestPower() {
 	})
 }
 
+type BinaryFloatingArithmeticSuite[T constraints.Float] struct {
+	BinaryArithmeticSuite[T]
+
+	smallest T
+}
+
+func (bs *BinaryFloatingArithmeticSuite[T]) TestTrigAtan2() {
+	bs.setNansEqual(true)
+	atan2 := func(ctx context.Context, _ compute.ArithmeticOptions, x, y compute.Datum) (compute.Datum, error) {
+		return compute.Atan2(ctx, x, y)
+	}
+
+	bs.assertBinop(atan2, `[]`, `[]`, `[]`)
+	bs.assertBinop(atan2, `[0, 0, null, "NaN"]`, `[null, "NaN", 0, 0]`, `[null, "NaN", null, "NaN"]`)
+	bs.assertBinop(atan2, `[0, 0, -0.0, 0, -0.0, 0, 1, 0, -1, "Inf", "-Inf", 0, 0]`,
+		`[0, 0, 0, -0.0, -0.0, 1, 0, -1, 0, 0, 0, "Inf", "-Inf"]`,
+		fmt.Sprintf("[0, 0, -0.0, %f, %f, 0, %f, %f, %f, %f, %f, 0, %f]",
+			math.Pi, -math.Pi, math.Pi/2, math.Pi, -math.Pi/2, math.Pi/2, -math.Pi/2, math.Pi))
+}
+
+func (bs *BinaryFloatingArithmeticSuite[T]) TestLog() {
+	bs.setNansEqual(true)
+	for _, overflow := range []bool{false, true} {
+		bs.setOverflowCheck(overflow)
+		bs.assertBinop(compute.Logb, `[1, 10, null, "NaN", "Inf"]`, `[100, 10, null, 2, 10]`,
+			`[0, 1, null, "NaN", "Inf"]`)
+		bs.assertBinopScalars(compute.Logb, bs.smallest, 10, T(math.Log(float64(bs.smallest))/math.Log(10)))
+		bs.assertBinopScalars(compute.Logb, bs.max, 10, T(math.Log(float64(bs.max))/math.Log(10)))
+	}
+
+	bs.setOverflowCheck(true)
+	bs.assertBinop(compute.Logb, `[1, 10, null]`, `[10, 10, null]`, `[0, 1, null]`)
+	bs.assertBinop(compute.Logb, `[1, 2, null]`, `[2, 2, null]`, `[0, 1, null]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `[10, 100, 1000, null]`, 10, `[1, 2, 3, null]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `[1, 2, 4, 8]`, 0.25, `[-0.0, -0.5, -1.0, -1.5]`)
+
+	bs.setOverflowCheck(false)
+	bs.assertBinopArrScalarVal(compute.Logb, `["-Inf", -1, 0, "Inf"]`, 10, `["NaN", "NaN", "-Inf", "Inf"]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `["-Inf", -1, 0, "Inf"]`, 2, `["NaN", "NaN", "-Inf", "Inf"]`)
+	bs.assertBinop(compute.Logb, `["-Inf", -1, 0, "Inf"]`, `[2, 10, 0, 0]`, `["NaN", "NaN", "NaN", "NaN"]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `["-Inf", -1, 0, "Inf"]`, 0, `["NaN", "NaN", "NaN", "NaN"]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `["-Inf", -2, -1, "Inf"]`, 2, `["NaN", "NaN", "NaN", "Inf"]`)
+
+	bs.setOverflowCheck(true)
+	bs.assertBinopErr(compute.Logb, `[0]`, `[2]`, "logarithm of zero")
+	bs.assertBinopErr(compute.Logb, `[2]`, `[0]`, "logarithm of zero")
+	bs.assertBinopErr(compute.Logb, `[-1]`, `[2]`, "logarithm of negative number")
+	bs.assertBinopErr(compute.Logb, `["-Inf"]`, `[2]`, "logarithm of negative number")
+}
+
 type BinaryIntegralArithmeticSuite[T exec.IntTypes | exec.UintTypes] struct {
 	BinaryArithmeticSuite[T]
 }
@@ -590,6 +663,35 @@ func (b *BinaryIntegralArithmeticSuite[T]) TestShiftRightOverflowError() {
 	})
 }
 
+func (b *BinaryIntegralArithmeticSuite[T]) TestTrig() {
+	// integer arguments promoted to float64, sanity check here
+	ty := b.DataType()
+	b.setNansEqual(true)
+	atan2 := func(ctx context.Context, _ compute.ArithmeticOptions, x, y compute.Datum) (compute.Datum, error) {
+		return compute.Atan2(ctx, x, y)
+	}
+
+	lhs, rhs := b.getArr(ty, `[0, 1]`), b.getArr(ty, `[1, 0]`)
+	defer lhs.Release()
+	defer rhs.Release()
+	exp := b.getArr(arrow.PrimitiveTypes.Float64, fmt.Sprintf(`[0, %f]`, math.Pi/2))
+	defer exp.Release()
+
+	b.assertBinopArrs(atan2, lhs, rhs, exp)
+}
+
+func (b *BinaryIntegralArithmeticSuite[T]) TestLog() {
+	// integer arguments promoted to double, sanity check here
+	exp1 := b.getArr(arrow.PrimitiveTypes.Float64, `[0, 1, null]`)
+	exp2 := b.getArr(arrow.PrimitiveTypes.Float64, `[1, 2, null]`)
+	defer exp1.Release()
+	defer exp2.Release()
+
+	b.assertBinopExpArr(compute.Logb, `[1, 10, null]`, `[10, 10, null]`, exp1)
+	b.assertBinopExpArr(compute.Logb, `[1, 2, null]`, `[2, 2, null]`, exp1)
+	b.assertBinopArrScalarExpArr(compute.Logb, `[10, 100, null]`, scalar.MakeScalar(T(10)), exp2)
+}
+
 func TestBinaryArithmetic(t *testing.T) {
 	suite.Run(t, &BinaryIntegralArithmeticSuite[int8]{BinaryArithmeticSuite[int8]{min: math.MinInt8, max: math.MaxInt8}})
 	suite.Run(t, &BinaryIntegralArithmeticSuite[uint8]{BinaryArithmeticSuite[uint8]{min: 0, max: math.MaxUint8}})
@@ -599,8 +701,8 @@ func TestBinaryArithmetic(t *testing.T) {
 	suite.Run(t, &BinaryIntegralArithmeticSuite[uint32]{BinaryArithmeticSuite[uint32]{min: 0, max: math.MaxUint32}})
 	suite.Run(t, &BinaryIntegralArithmeticSuite[int64]{BinaryArithmeticSuite[int64]{min: math.MinInt64, max: math.MaxInt64}})
 	suite.Run(t, &BinaryIntegralArithmeticSuite[uint64]{BinaryArithmeticSuite[uint64]{min: 0, max: math.MaxUint64}})
-	suite.Run(t, &BinaryArithmeticSuite[float32]{min: -math.MaxFloat32, max: math.MaxFloat32})
-	suite.Run(t, &BinaryArithmeticSuite[float64]{min: -math.MaxFloat64, max: math.MaxFloat64})
+	suite.Run(t, &BinaryFloatingArithmeticSuite[float32]{BinaryArithmeticSuite[float32]{min: -math.MaxFloat32, max: math.MaxFloat32}, math.SmallestNonzeroFloat32})
+	suite.Run(t, &BinaryFloatingArithmeticSuite[float64]{BinaryArithmeticSuite[float64]{min: -math.MaxFloat64, max: math.MaxFloat64}, math.SmallestNonzeroFloat64})
 	suite.Run(t, new(Float16BinaryFuncTestSuite))
 	suite.Run(t, new(DecimalBinaryArithmeticSuite))
 	suite.Run(t, new(ScalarBinaryTemporalArithmeticSuite))
@@ -689,7 +791,7 @@ func (ds *DecimalArithmeticSuite) checkDecimalToFloat(fn string, args []compute.
 	ds.Require().NoError(err)
 	defer actual.Release()
 
-	assertDatumsEqual(ds.T(), expected, actual)
+	assertDatumsEqual(ds.T(), expected, actual, []array.EqualOption{array.WithNaNsEqual(true)}, []scalar.EqualOption{scalar.WithNaNsEqual(true)})
 }
 
 func (ds *DecimalArithmeticSuite) checkFail(fn string, args []compute.Datum, substr string, opts compute.FunctionOptions) {
@@ -866,7 +968,7 @@ func (ds *DecimalBinaryArithmeticSuite) TestDispatchBest() {
 		}
 	}
 
-	for _, name := range []string{"power", "power_unchecked"} {
+	for _, name := range []string{"power", "power_unchecked", "atan2", "logb", "logb_unchecked"} {
 		ds.Run(name, func() {
 			CheckDispatchBest(ds.T(), name, []arrow.DataType{
 				&arrow.Decimal128Type{Precision: 2, Scale: 1}, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
@@ -1192,6 +1294,135 @@ func (ds *DecimalBinaryArithmeticSuite) TestDivide() {
 	})
 }
 
+func (ds *DecimalBinaryArithmeticSuite) TestAtan2() {
+	// decimal arguments get promoted to float64, sanity check here
+	fn := "atan2"
+	for _, ty := range ds.positiveScales() {
+		empty := ds.getArr(ty, `[]`)
+		defer empty.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}, &compute.ArrayDatum{empty.Data()}})
+
+		larr := ds.getArr(ty, `["1.00", "10.00", "1.00", "2.00", null]`)
+		defer larr.Release()
+
+		ldatum := &compute.ArrayDatum{larr.Data()}
+
+		test := ds.getArr(ty, `["10.00", "10.00", "2.00", "2.00", null]`)
+		defer test.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+			&compute.ArrayDatum{test.Data()}})
+
+		test = ds.getArr(&arrow.Decimal128Type{Precision: 4, Scale: 2}, `["10.00", "10.00", "2.00", "2.00", null]`)
+		defer test.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+			&compute.ArrayDatum{test.Data()}})
+
+		ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+			compute.NewDatum(scalar.MakeScalar(int64(10)))})
+		ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+			compute.NewDatum(scalar.MakeScalar(float64(10)))})
+
+		larr = ds.getArr(arrow.PrimitiveTypes.Float64, `[1, 10, 1, 2, null]`)
+		defer larr.Release()
+
+		sc, _ := scalar.MakeScalarParam("10.00", ty)
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()},
+			compute.NewDatum(sc)})
+
+		larr = ds.getArr(arrow.PrimitiveTypes.Int64, `[1, 10, 1, 2, null]`)
+		defer larr.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()},
+			compute.NewDatum(sc)})
+	}
+
+	for _, ty := range ds.negativeScales() {
+		empty := ds.getArr(ty, `[]`)
+		defer empty.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}, &compute.ArrayDatum{empty.Data()}})
+
+		larr := ds.getArr(ty, `["12E2", "42E2", null]`)
+		defer larr.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()}, &compute.ArrayDatum{larr.Data()}})
+
+		rarr := ds.getArr(&arrow.Decimal128Type{Precision: 2, Scale: -2}, `["12E2", "42E2", null]`)
+		defer rarr.Release()
+
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()}, &compute.ArrayDatum{rarr.Data()}})
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()}, compute.NewDatum(scalar.MakeScalar(int64(10)))})
+	}
+}
+
+func (ds *DecimalBinaryArithmeticSuite) TestLogb() {
+	// decimal arguments get promoted to float64, sanity check here
+	for _, fn := range []string{"logb", "logb_unchecked"} {
+		ds.Run(fn, func() {
+			for _, ty := range ds.positiveScales() {
+				empty := ds.getArr(ty, `[]`)
+				defer empty.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}, &compute.ArrayDatum{empty.Data()}})
+
+				larr := ds.getArr(ty, `["1.00", "10.00", "1.00", "2.00", null]`)
+				defer larr.Release()
+
+				ldatum := &compute.ArrayDatum{larr.Data()}
+
+				test := ds.getArr(ty, `["10.00", "10.00", "2.00", "2.00", null]`)
+				defer test.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+					&compute.ArrayDatum{test.Data()}})
+
+				test = ds.getArr(&arrow.Decimal128Type{Precision: 4, Scale: 2}, `["10.00", "10.00", "2.00", "2.00", null]`)
+				defer test.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+					&compute.ArrayDatum{test.Data()}})
+
+				ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+					compute.NewDatum(scalar.MakeScalar(int64(10)))})
+				ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+					compute.NewDatum(scalar.MakeScalar(float64(10)))})
+
+				larr = ds.getArr(arrow.PrimitiveTypes.Float64, `[1, 10, 1, 2, null]`)
+				defer larr.Release()
+
+				sc, _ := scalar.MakeScalarParam("10.00", ty)
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()},
+					compute.NewDatum(sc)})
+
+				larr = ds.getArr(arrow.PrimitiveTypes.Int64, `[1, 10, 1, 2, null]`)
+				defer larr.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()},
+					compute.NewDatum(sc)})
+			}
+
+			for _, ty := range ds.negativeScales() {
+				empty := ds.getArr(ty, `[]`)
+				defer empty.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}, &compute.ArrayDatum{empty.Data()}})
+
+				larr := ds.getArr(ty, `["12E2", "42E2", null]`)
+				defer larr.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()}, &compute.ArrayDatum{larr.Data()}})
+
+				rarr := ds.getArr(&arrow.Decimal128Type{Precision: 2, Scale: -2}, `["12E2", "42E2", null]`)
+				defer rarr.Release()
+
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()}, &compute.ArrayDatum{rarr.Data()}})
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()}, compute.NewDatum(scalar.MakeScalar(int64(10)))})
+			}
+		})
+	}
+}
+
 type DecimalUnaryArithmeticSuite struct {
 	DecimalArithmeticSuite
 }
@@ -1319,6 +1550,140 @@ func (ds *DecimalUnaryArithmeticSuite) TestSquareRoot() {
 	}
 }
 
+func (ds *DecimalUnaryArithmeticSuite) TestSign() {
+	max128 := decimal128.GetMaxValue(38)
+	max256 := decimal256.GetMaxValue(76)
+
+	for _, ty := range ds.positiveScales() {
+		empty := ds.decimalArrayFromJSON(ty, `[]`)
+		defer empty.Release()
+		emptyOut := ds.decimalArrayFromJSON(arrow.PrimitiveTypes.Int64, `[]`)
+		defer emptyOut.Release()
+		in := ds.decimalArrayFromJSON(ty, `["1.00", "0.00", "-42.15", null]`)
+		defer in.Release()
+		exp := ds.decimalArrayFromJSON(arrow.PrimitiveTypes.Int64, `[1, 0, -1, null]`)
+		defer exp.Release()
+
+		checkScalar(ds.T(), "sign", []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+			&compute.ArrayDatum{emptyOut.Data()}, nil)
+		checkScalar(ds.T(), "sign", []compute.Datum{&compute.ArrayDatum{in.Data()}},
+			&compute.ArrayDatum{exp.Data()}, nil)
+	}
+
+	checkScalar(ds.T(), "sign", []compute.Datum{compute.NewDatum(
+		scalar.NewDecimal128Scalar(max128, &arrow.Decimal128Type{Precision: 38}))},
+		compute.NewDatum(scalar.MakeScalar(int64(1))), nil)
+	checkScalar(ds.T(), "sign", []compute.Datum{compute.NewDatum(
+		scalar.NewDecimal128Scalar(max128.Negate(), &arrow.Decimal128Type{Precision: 38}))},
+		compute.NewDatum(scalar.MakeScalar(int64(-1))), nil)
+	checkScalar(ds.T(), "sign", []compute.Datum{compute.NewDatum(
+		scalar.NewDecimal256Scalar(max256, &arrow.Decimal256Type{Precision: 38}))},
+		compute.NewDatum(scalar.MakeScalar(int64(1))), nil)
+	checkScalar(ds.T(), "sign", []compute.Datum{compute.NewDatum(
+		scalar.NewDecimal256Scalar(max256.Negate(), &arrow.Decimal256Type{Precision: 38}))},
+		compute.NewDatum(scalar.MakeScalar(int64(-1))), nil)
+
+	for _, ty := range ds.negativeScales() {
+		empty := ds.decimalArrayFromJSON(ty, `[]`)
+		defer empty.Release()
+		emptyOut := ds.decimalArrayFromJSON(arrow.PrimitiveTypes.Int64, `[]`)
+		defer emptyOut.Release()
+		in := ds.decimalArrayFromJSON(ty, `["12e2", "0.00", "-42E2", null]`)
+		defer in.Release()
+		exp := ds.decimalArrayFromJSON(arrow.PrimitiveTypes.Int64, `[1, 0, -1, null]`)
+		defer exp.Release()
+
+		checkScalar(ds.T(), "sign", []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+			&compute.ArrayDatum{emptyOut.Data()}, nil)
+		checkScalar(ds.T(), "sign", []compute.Datum{&compute.ArrayDatum{in.Data()}},
+			&compute.ArrayDatum{exp.Data()}, nil)
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestTrigAcosAsin() {
+	for _, fn := range []string{"acos", "acos_unchecked", "asin", "asin_unchecked"} {
+		ds.Run(fn, func() {
+			for _, ty := range ds.positiveScales() {
+				ds.Run(ty.String(), func() {
+					empty := ds.decimalArrayFromJSON(ty, `[]`)
+					defer empty.Release()
+					vals := ds.decimalArrayFromJSON(ty, `["0.00", "-1.00", "1.00", null]`)
+					defer vals.Release()
+					ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+					ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+				})
+			}
+		})
+	}
+
+	for _, fn := range []string{"acos", "asin"} {
+		ds.Run(fn, func() {
+			for _, ty := range ds.negativeScales() {
+				ds.Run(ty.String(), func() {
+					arr := ds.decimalArrayFromJSON(ty, `["12E2", "-42E2", null]`)
+					defer arr.Release()
+					ds.checkDecimalToFloat(fn+"_unchecked", []compute.Datum{&compute.ArrayDatum{arr.Data()}})
+					ds.checkFail(fn, []compute.Datum{&compute.ArrayDatum{arr.Data()}}, "domain error", nil)
+				})
+			}
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestAtan() {
+	fn := "atan"
+	for _, ty := range ds.positiveScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.decimalArrayFromJSON(ty, `[]`)
+			defer empty.Release()
+			vals := ds.decimalArrayFromJSON(ty, `["0.00", "-1.00", "1.00", null]`)
+			defer vals.Release()
+			ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+			ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+		})
+	}
+	for _, ty := range ds.negativeScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.decimalArrayFromJSON(ty, `[]`)
+			defer empty.Release()
+			vals := ds.decimalArrayFromJSON(ty, `["12E2", "-42E2", null]`)
+			defer vals.Release()
+			ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+			ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestTrig() {
+	for _, fn := range []string{"cos", "sin", "tan"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+			ds.Run(fn, func() {
+				for _, ty := range ds.positiveScales() {
+					ds.Run(ty.String(), func() {
+						empty := ds.decimalArrayFromJSON(ty, `[]`)
+						defer empty.Release()
+						vals := ds.decimalArrayFromJSON(ty, `["0.00", "-1.00", "1.00", null]`)
+						defer vals.Release()
+						ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+						ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+					})
+				}
+				for _, ty := range ds.negativeScales() {
+					ds.Run(ty.String(), func() {
+						empty := ds.decimalArrayFromJSON(ty, `[]`)
+						defer empty.Release()
+						vals := ds.decimalArrayFromJSON(ty, `["12E2", "-42E2", null]`)
+						defer vals.Release()
+						ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+						ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+					})
+				}
+			})
+		}
+	}
+}
+
 type ScalarBinaryTemporalArithmeticSuite struct {
 	BinaryFuncTestSuite
 }
@@ -1404,12 +1769,12 @@ func (s *ScalarBinaryTemporalArithmeticSuite) TestTemporalAddSub() {
 					// we get back time32/time64 in those cases and can
 					// compare them accurately.
 					if arrow.TypeEqual(arr1.DataType(), out.(*compute.ArrayDatum).Type()) {
-						assertDatumsEqual(s.T(), datum1, out)
+						assertDatumsEqual(s.T(), datum1, out, nil, nil)
 					} else {
 						casted, err := compute.CastDatum(s.ctx, out, compute.SafeCastOptions(arr1.DataType()))
 						s.Require().NoError(err)
 						defer casted.Release()
-						assertDatumsEqual(s.T(), datum1, casted)
+						assertDatumsEqual(s.T(), datum1, casted, nil, nil)
 					}
 
 				})
@@ -1457,17 +1822,75 @@ func TestUnaryDispatchBest(t *testing.T) {
 			}
 		})
 	}
+
+	// float types (with _unchecked variants)
+	for _, fn := range []string{"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+			t.Run(fn, func(t *testing.T) {
+				for _, ty := range floatingTypes {
+					t.Run(ty.String(), func(t *testing.T) {
+						CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{ty})
+						CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+							[]arrow.DataType{ty})
+					})
+				}
+			})
+		}
+	}
+
+	// float types (without _unchecked variants)
+	for _, fn := range []string{"atan", "sign"} {
+		t.Run(fn, func(t *testing.T) {
+			for _, ty := range floatingTypes {
+				t.Run(ty.String(), func(t *testing.T) {
+					CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{ty})
+					CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+						[]arrow.DataType{ty})
+				})
+			}
+		})
+	}
+
+	// integer -> float64 (with _unchecked variant)
+	for _, fn := range []string{"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+			t.Run(fn, func(t *testing.T) {
+				for _, ty := range integerTypes {
+					t.Run(ty.String(), func(t *testing.T) {
+						CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{arrow.PrimitiveTypes.Float64})
+						CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+							[]arrow.DataType{arrow.PrimitiveTypes.Float64})
+					})
+				}
+			})
+		}
+	}
+
+	// integer -> float64 (without _unchecked variants)
+	for _, fn := range []string{"atan"} {
+		t.Run(fn, func(t *testing.T) {
+			for _, ty := range integerTypes {
+				t.Run(ty.String(), func(t *testing.T) {
+					CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{arrow.PrimitiveTypes.Float64})
+					CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+						[]arrow.DataType{arrow.PrimitiveTypes.Float64})
+				})
+			}
+		})
+	}
 }
 
 func TestUnaryArithmeticNull(t *testing.T) {
-	for _, fn := range []string{"abs", "negate"} {
+	for _, fn := range []string{"abs", "negate", "acos", "asin", "cos", "ln", "log10", "log1p", "log2", "sin", "tan"} {
 		for _, suffix := range []string{"", "_unchecked"} {
 			fn += suffix
 			assertNullToNull(t, context.TODO(), fn, memory.DefaultAllocator)
 		}
 	}
 
-	for _, fn := range []string{"sign"} {
+	for _, fn := range []string{"sign", "atan", "bit_wise_not"} {
 		assertNullToNull(t, context.TODO(), fn, memory.DefaultAllocator)
 	}
 }
@@ -1507,6 +1930,16 @@ func (us *UnaryArithmeticSuite[T]) makeScalar(v T) scalar.Scalar {
 	return scalar.MakeScalar(v)
 }
 
+func (us *UnaryArithmeticSuite[T]) makeArray(v ...T) arrow.Array {
+	return exec.ArrayFromSlice(us.mem, v)
+}
+
+func (us *UnaryArithmeticSuite[T]) getArr(dt arrow.DataType, str string) arrow.Array {
+	arr, _, err := array.FromJSON(us.mem, dt, strings.NewReader(str), array.WithUseNumber())
+	us.Require().NoError(err)
+	return arr
+}
+
 func (us *UnaryArithmeticSuite[T]) assertUnaryOpValError(fn unaryArithmeticFunc, arg T, msg string) {
 	in := us.makeScalar(arg)
 	_, err := fn(us.ctx, us.opts, compute.NewDatum(in))
@@ -1527,13 +1960,13 @@ func (us *UnaryArithmeticSuite[T]) assertUnaryOpVals(fn unaryArithmeticFunc, arg
 
 	actual, err := fn(us.ctx, us.opts, compute.NewDatum(in))
 	us.Require().NoError(err)
-	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value)
+	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value, scalar.WithNaNsEqual(true))
 }
 
 func (us *UnaryArithmeticSuite[T]) assertUnaryOpScalars(fn unaryArithmeticFunc, arg, exp scalar.Scalar) {
 	actual, err := fn(us.ctx, us.opts, compute.NewDatum(arg))
 	us.Require().NoError(err)
-	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value)
+	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value, scalar.WithNaNsEqual(true))
 }
 
 func (us *UnaryArithmeticSuite[T]) assertUnaryOpArrs(fn unaryArithmeticFunc, arg, exp arrow.Array) {
@@ -1541,7 +1974,7 @@ func (us *UnaryArithmeticSuite[T]) assertUnaryOpArrs(fn unaryArithmeticFunc, arg
 	actual, err := fn(us.ctx, us.opts, datum)
 	us.Require().NoError(err)
 	defer actual.Release()
-	assertDatumsEqual(us.T(), &compute.ArrayDatum{exp.Data()}, actual)
+	assertDatumsEqual(us.T(), &compute.ArrayDatum{exp.Data()}, actual, []array.EqualOption{array.WithNaNsEqual(true)}, []scalar.EqualOption{scalar.WithNaNsEqual(true)})
 
 	// also check scalar ops
 	for i := 0; i < arg.Len(); i++ {
@@ -1552,7 +1985,7 @@ func (us *UnaryArithmeticSuite[T]) assertUnaryOpArrs(fn unaryArithmeticFunc, arg
 
 		actual, err := fn(us.ctx, us.opts, compute.NewDatum(argScalar))
 		us.Require().NoError(err)
-		assertDatumsEqual(us.T(), compute.NewDatum(expScalar), compute.NewDatum(actual))
+		assertDatumsEqual(us.T(), compute.NewDatum(expScalar), compute.NewDatum(actual), []array.EqualOption{array.WithNaNsEqual(true)}, []scalar.EqualOption{scalar.WithNaNsEqual(true)})
 	}
 }
 
@@ -1567,8 +2000,80 @@ func (us *UnaryArithmeticSuite[T]) assertUnaryOp(fn unaryArithmeticFunc, arg, ex
 	us.assertUnaryOpArrs(fn, in, expected)
 }
 
-type UnaryArithmeticSigned[T exec.IntTypes] struct {
+func (us *UnaryArithmeticSuite[T]) assertUnaryOpErr(fn unaryArithmeticFunc, arg string, msg string) {
+	in, _, err := array.FromJSON(us.mem, us.datatype(), strings.NewReader(arg), array.WithUseNumber())
+	us.Require().NoError(err)
+	defer in.Release()
+
+	_, err = fn(us.ctx, us.opts, &compute.ArrayDatum{in.Data()})
+	us.ErrorIs(err, arrow.ErrInvalid)
+	us.ErrorContains(err, msg)
+}
+
+type UnaryArithmeticIntegral[T exec.IntTypes | exec.UintTypes] struct {
 	UnaryArithmeticSuite[T]
+}
+
+func (us *UnaryArithmeticIntegral[T]) TestTrig() {
+	// integer arguments promoted to float64, sanity check here
+	atan := func(ctx context.Context, _ compute.ArithmeticOptions, arg compute.Datum) (compute.Datum, error) {
+		return compute.Atan(ctx, arg)
+	}
+
+	input := us.makeArray(0, 1)
+	defer input.Release()
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		sinOut := us.getArr(arrow.PrimitiveTypes.Float64, `[0, 0.8414709848078965]`)
+		defer sinOut.Release()
+		cosOut := us.getArr(arrow.PrimitiveTypes.Float64, `[1, 0.5403023058681398]`)
+		defer cosOut.Release()
+		tanOut := us.getArr(arrow.PrimitiveTypes.Float64, `[0, 1.5574077246549023]`)
+		defer tanOut.Release()
+		asinOut := us.getArr(arrow.PrimitiveTypes.Float64, fmt.Sprintf("[0, %f]", math.Pi/2))
+		defer asinOut.Release()
+		acosOut := us.getArr(arrow.PrimitiveTypes.Float64, fmt.Sprintf("[%f, 0]", math.Pi/2))
+		defer acosOut.Release()
+		atanOut := us.getArr(arrow.PrimitiveTypes.Float64, fmt.Sprintf("[0, %f]", math.Pi/4))
+		defer atanOut.Release()
+
+		us.assertUnaryOpArrs(compute.Sin, input, sinOut)
+		us.assertUnaryOpArrs(compute.Cos, input, cosOut)
+		us.assertUnaryOpArrs(compute.Tan, input, tanOut)
+		us.assertUnaryOpArrs(compute.Asin, input, asinOut)
+		us.assertUnaryOpArrs(compute.Acos, input, acosOut)
+		us.assertUnaryOpArrs(atan, input, atanOut)
+	}
+}
+
+func (us *UnaryArithmeticIntegral[T]) TestLog() {
+	// integer arguments promoted to double, sanity check here
+	ty := us.datatype()
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		exp1 := us.getArr(arrow.PrimitiveTypes.Float64, `[0, null]`)
+		defer exp1.Release()
+		exp2 := us.getArr(arrow.PrimitiveTypes.Float64, `[0, 1, null]`)
+		defer exp2.Release()
+
+		ln := us.getArr(ty, `[1, null]`)
+		defer ln.Release()
+		log10 := us.getArr(ty, `[1, 10, null]`)
+		defer log10.Release()
+		log2 := us.getArr(ty, `[1, 2, null]`)
+		defer log2.Release()
+		log1p := us.getArr(ty, `[0, null]`)
+		defer log1p.Release()
+
+		us.assertUnaryOpArrs(compute.Ln, ln, exp1)
+		us.assertUnaryOpArrs(compute.Log10, log10, exp2)
+		us.assertUnaryOpArrs(compute.Log2, log2, exp2)
+		us.assertUnaryOpArrs(compute.Log1p, log1p, exp1)
+	}
+}
+
+type UnaryArithmeticSigned[T exec.IntTypes] struct {
+	UnaryArithmeticIntegral[T]
 }
 
 func (us *UnaryArithmeticSigned[T]) TestAbsoluteValue() {
@@ -1648,7 +2153,7 @@ func (us *UnaryArithmeticSigned[T]) TestNegate() {
 }
 
 type UnaryArithmeticUnsigned[T exec.UintTypes] struct {
-	UnaryArithmeticSuite[T]
+	UnaryArithmeticIntegral[T]
 }
 
 func (us *UnaryArithmeticUnsigned[T]) TestAbsoluteValue() {
@@ -1699,6 +2204,7 @@ type UnaryArithmeticFloating[T constraints.Float] struct {
 	UnaryArithmeticSuite[T]
 
 	min, max T
+	smallest T
 }
 
 func (us *UnaryArithmeticFloating[T]) TestAbsoluteValue() {
@@ -1760,6 +2266,161 @@ func (us *UnaryArithmeticFloating[T]) TestNegate() {
 	})
 }
 
+func (us *UnaryArithmeticFloating[T]) TestTrigSin() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Sin, `["Inf", "-Inf"]`, `["NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Sin, `[]`, `[]`)
+		us.assertUnaryOp(compute.Sin, `[null, "NaN"]`, `[null, "NaN"]`)
+		arr := us.makeArray(0, math.Pi/2, math.Pi)
+		exp := us.makeArray(0, 1, 0)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Sin, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Sin, `["Inf", "-Inf"]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigCos() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Cos, `["Inf", "-Inf"]`, `["NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Cos, `[]`, `[]`)
+		us.assertUnaryOp(compute.Cos, `[null, "NaN"]`, `[null, "NaN"]`)
+		arr := us.makeArray(0, math.Pi/2, math.Pi)
+		exp := us.makeArray(1, 0, -1)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Cos, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Cos, `["Inf", "-Inf"]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigTan() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Tan, `["Inf", "-Inf"]`, `["NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Tan, `[]`, `[]`)
+		us.assertUnaryOp(compute.Tan, `[null, "NaN"]`, `[null, "NaN"]`)
+		// pi/2 isn't representable exactly -> there are no poles
+		// (i.e. tan(pi/2) is merely a large value and not +Inf)
+		arr := us.makeArray(0, math.Pi)
+		exp := us.makeArray(0, 0)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Tan, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Tan, `["Inf", "-Inf"]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigAsin() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Asin, `["Inf", "-Inf", -2, 2]`, `["NaN", "NaN", "NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Asin, `[]`, `[]`)
+		us.assertUnaryOp(compute.Asin, `[null, "NaN"]`, `[null, "NaN"]`)
+		arr := us.makeArray(0, 1, -1)
+		exp := us.makeArray(0, math.Pi/2, -math.Pi/2)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Asin, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Asin, `["Inf", "-Inf", -2, 2]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigAcos() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Acos, `["Inf", "-Inf", -2, 2]`, `["NaN", "NaN", "NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Acos, `[]`, `[]`)
+		us.assertUnaryOp(compute.Acos, `[null, "NaN"]`, `[null, "NaN"]`)
+		arr := us.makeArray(0, 1, -1)
+		exp := us.makeArray(math.Pi/2, 0, math.Pi)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Acos, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Acos, `["Inf", "-Inf", -2, 2]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigAtan() {
+	us.setOverflowCheck(false)
+	atan := func(ctx context.Context, _ compute.ArithmeticOptions, arg compute.Datum) (compute.Datum, error) {
+		return compute.Atan(ctx, arg)
+	}
+	us.assertUnaryOp(atan, `[]`, `[]`)
+	us.assertUnaryOp(atan, `[null, "NaN"]`, `[null, "NaN"]`)
+
+	arr := us.makeArray(0, 1, -1, T(math.Inf(1)), T(math.Inf(-1)))
+	exp := us.makeArray(0, math.Pi/4, -math.Pi/4, math.Pi/2, -math.Pi/2)
+	defer arr.Release()
+	defer exp.Release()
+	us.assertUnaryOpArrs(atan, arr, exp)
+}
+
+func (us *UnaryArithmeticFloating[T]) TestLog() {
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.Run(fmt.Sprintf("checked=%t", overflow), func() {
+			us.assertUnaryOp(compute.Ln, `[1, 2.718281828459045, null, "NaN", "Inf"]`,
+				`[0, 1, null, "NaN", "Inf"]`)
+			us.assertUnaryOpVals(compute.Ln, us.smallest, T(math.Log(float64(us.smallest))))
+			us.assertUnaryOpVals(compute.Ln, us.max, T(math.Log(float64(us.max))))
+			us.assertUnaryOp(compute.Log10, `[1, 10, null, "NaN", "Inf"]`, `[0, 1, null, "NaN", "Inf"]`)
+			us.assertUnaryOpVals(compute.Log10, us.smallest, T(math.Log10(float64(us.smallest))))
+			us.assertUnaryOpVals(compute.Log10, us.max, T(math.Log10(float64(us.max))))
+			us.assertUnaryOp(compute.Log2, `[1, 2, null, "NaN", "Inf"]`, `[0, 1, null, "NaN", "Inf"]`)
+			us.assertUnaryOpVals(compute.Log2, us.smallest, T(math.Log2(float64(us.smallest))))
+			us.assertUnaryOpVals(compute.Log2, us.max, T(math.Log2(float64(us.max))))
+			us.assertUnaryOp(compute.Log1p, `[0, 1.718281828459045, null, "NaN", "Inf"]`, `[0, 1, null, "NaN", "Inf"]`)
+			us.assertUnaryOpVals(compute.Log1p, us.smallest, T(math.Log1p(float64(us.smallest))))
+			us.assertUnaryOpVals(compute.Log1p, us.max, T(math.Log1p(float64(us.max))))
+		})
+	}
+
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Ln, `["-Inf", -1, 0, "Inf"]`, `["NaN", "NaN", "-Inf", "Inf"]`)
+	us.assertUnaryOp(compute.Log10, `["-Inf", -1, 0, "Inf"]`, `["NaN", "NaN", "-Inf", "Inf"]`)
+	us.assertUnaryOp(compute.Log2, `["-Inf", -1, 0, "Inf"]`, `["NaN", "NaN", "-Inf", "Inf"]`)
+	us.assertUnaryOp(compute.Log1p, `["-Inf", -2, -1, "Inf"]`, `["NaN", "NaN", "-Inf", "Inf"]`)
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Ln, `[0]`, "logarithm of zero")
+	us.assertUnaryOpErr(compute.Ln, `[-1]`, "logarithm of negative number")
+	us.assertUnaryOpErr(compute.Ln, `["-Inf"]`, "logarithm of negative number")
+	us.assertUnaryOpValError(compute.Ln, us.min, "logarithm of negative number")
+
+	us.assertUnaryOpErr(compute.Log10, `[0]`, "logarithm of zero")
+	us.assertUnaryOpErr(compute.Log10, `[-1]`, "logarithm of negative number")
+	us.assertUnaryOpErr(compute.Log10, `["-Inf"]`, "logarithm of negative number")
+	us.assertUnaryOpValError(compute.Log10, us.min, "logarithm of negative number")
+
+	us.assertUnaryOpErr(compute.Log2, `[0]`, "logarithm of zero")
+	us.assertUnaryOpErr(compute.Log2, `[-1]`, "logarithm of negative number")
+	us.assertUnaryOpErr(compute.Log2, `["-Inf"]`, "logarithm of negative number")
+	us.assertUnaryOpValError(compute.Log2, us.min, "logarithm of negative number")
+
+	us.assertUnaryOpErr(compute.Log1p, `[-1]`, "logarithm of zero")
+	us.assertUnaryOpErr(compute.Log1p, `[-2]`, "logarithm of negative number")
+	us.assertUnaryOpErr(compute.Log1p, `["-Inf"]`, "logarithm of negative number")
+	us.assertUnaryOpValError(compute.Log1p, us.min, "logarithm of negative number")
+}
+
 func TestUnaryArithmetic(t *testing.T) {
 	suite.Run(t, new(UnaryArithmeticSigned[int8]))
 	suite.Run(t, new(UnaryArithmeticSigned[int16]))
@@ -1769,8 +2430,8 @@ func TestUnaryArithmetic(t *testing.T) {
 	suite.Run(t, new(UnaryArithmeticUnsigned[uint16]))
 	suite.Run(t, new(UnaryArithmeticUnsigned[uint32]))
 	suite.Run(t, new(UnaryArithmeticUnsigned[uint64]))
-	suite.Run(t, &UnaryArithmeticFloating[float32]{min: -math.MaxFloat32, max: math.MaxFloat32})
-	suite.Run(t, &UnaryArithmeticFloating[float64]{min: -math.MaxFloat64, max: math.MaxFloat64})
+	suite.Run(t, &UnaryArithmeticFloating[float32]{min: -math.MaxFloat32, max: math.MaxFloat32, smallest: math.SmallestNonzeroFloat32})
+	suite.Run(t, &UnaryArithmeticFloating[float64]{min: -math.MaxFloat64, max: math.MaxFloat64, smallest: math.SmallestNonzeroFloat64})
 	suite.Run(t, new(DecimalUnaryArithmeticSuite))
 }
 
@@ -1809,7 +2470,7 @@ func (bs *BitwiseArithmeticSuite[T]) assertBinaryOp(fn string, arg0, arg1, expec
 	actual, err := compute.CallFunction(bs.ctx, fn, nil, &compute.ArrayDatum{in0.Data()}, &compute.ArrayDatum{in1.Data()})
 	bs.Require().NoError(err)
 	defer actual.Release()
-	assertDatumsEqual(bs.T(), &compute.ArrayDatum{out.Data()}, actual)
+	assertDatumsEqual(bs.T(), &compute.ArrayDatum{out.Data()}, actual, nil, nil)
 
 	for i := 0; i < out.Len(); i++ {
 		a0, err := scalar.GetScalar(in0, i)

@@ -38,6 +38,18 @@ enum class optype : int8_t {
     NEGATE,
     SQRT,
     POWER,
+    SIN,
+    COS,
+    TAN,
+    ASIN,
+    ACOS,
+    ATAN,
+    ATAN2,
+    LN,
+    LOG10,
+    LOG2,
+    LOG1P,
+    LOGB,
     SIGN,
 
     // this impl doesn't actually perform any overflow checks as we need
@@ -50,6 +62,16 @@ enum class optype : int8_t {
     NEGATE_CHECKED,
     SQRT_CHECKED,
     POWER_CHECKED,
+    SIN_CHECKED,
+    COS_CHECKED,
+    TAN_CHECKED,
+    ASIN_CHECKED,
+    ACOS_CHECKED,    
+    LN_CHECKED,
+    LOG10_CHECKED,
+    LOG2_CHECKED,
+    LOG1P_CHECKED,
+    LOGB_CHECKED,
 };
 
 struct Add {

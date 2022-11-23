@@ -382,11 +382,52 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	}{
 		{"sqrt_unchecked", kernels.OpSqrt, decPromoteNone},
 		{"sqrt", kernels.OpSqrtChecked, decPromoteNone},
+		{"sin_unchecked", kernels.OpSin, decPromoteNone},
+		{"sin", kernels.OpSinChecked, decPromoteNone},
+		{"cos_unchecked", kernels.OpCos, decPromoteNone},
+		{"cos", kernels.OpCosChecked, decPromoteNone},
+		{"tan_unchecked", kernels.OpTan, decPromoteNone},
+		{"tan", kernels.OpTanChecked, decPromoteNone},
+		{"asin_unchecked", kernels.OpAsin, decPromoteNone},
+		{"asin", kernels.OpAsinChecked, decPromoteNone},
+		{"acos_unchecked", kernels.OpAcos, decPromoteNone},
+		{"acos", kernels.OpAcosChecked, decPromoteNone},
+		{"atan", kernels.OpAtan, decPromoteNone},
+		{"ln_unchecked", kernels.OpLn, decPromoteNone},
+		{"ln", kernels.OpLnChecked, decPromoteNone},
+		{"log10_unchecked", kernels.OpLog10, decPromoteNone},
+		{"log10", kernels.OpLog10Checked, decPromoteNone},
+		{"log2_unchecked", kernels.OpLog2, decPromoteNone},
+		{"log2", kernels.OpLog2Checked, decPromoteNone},
+		{"log1p_unchecked", kernels.OpLog1p, decPromoteNone},
+		{"log1p", kernels.OpLog1pChecked, decPromoteNone},
 	}
 
 	for _, o := range ops {
 		fn := &arithmeticFloatingPointFunc{arithmeticFunction{*NewScalarFunction(o.funcName, Unary(), addDoc), decPromoteNone}}
 		kns := kernels.GetArithmeticUnaryFloatingPointKernels(o.op)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
+
+		reg.AddFunction(fn, false)
+	}
+
+	ops = []struct {
+		funcName   string
+		op         kernels.ArithmeticOp
+		decPromote decimalPromotion
+	}{
+		{"atan2", kernels.OpAtan2, decPromoteNone},
+		{"logb_unchecked", kernels.OpLogb, decPromoteNone},
+		{"logb", kernels.OpLogbChecked, decPromoteNone},
+	}
+
+	for _, o := range ops {
+		fn := &arithmeticFloatingPointFunc{arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), decPromoteNone}}
+		kns := kernels.GetArithmeticFloatingPointKernels(o.op)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
 				panic(err)
@@ -445,6 +486,15 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		}
 		reg.AddFunction(fn, false)
 	}
+
+	fn = &arithmeticFunction{*NewScalarFunction("bit_wise_not", Unary(), EmptyFuncDoc), decPromoteNone}
+	for _, k := range kernels.GetBitwiseUnaryKernels() {
+		if err := fn.AddKernel(k); err != nil {
+			panic(err)
+		}
+	}
+
+	reg.AddFunction(fn, false)
 
 	shiftOps := []struct {
 		funcName string
@@ -595,4 +645,92 @@ func ShiftRight(ctx context.Context, opts ArithmeticOptions, lhs, rhs Datum) (Da
 		fn += "_unchecked"
 	}
 	return CallFunction(ctx, fn, nil, lhs, rhs)
+}
+
+func Sin(ctx context.Context, opts ArithmeticOptions, arg Datum) (Datum, error) {
+	fn := "sin"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, arg)
+}
+
+func Cos(ctx context.Context, opts ArithmeticOptions, arg Datum) (Datum, error) {
+	fn := "cos"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, arg)
+}
+
+func Tan(ctx context.Context, opts ArithmeticOptions, arg Datum) (Datum, error) {
+	fn := "tan"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, arg)
+}
+
+func Asin(ctx context.Context, opts ArithmeticOptions, arg Datum) (Datum, error) {
+	fn := "asin"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, arg)
+}
+
+func Acos(ctx context.Context, opts ArithmeticOptions, arg Datum) (Datum, error) {
+	fn := "acos"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, arg)
+}
+
+func Atan(ctx context.Context, arg Datum) (Datum, error) {
+	return CallFunction(ctx, "atan", nil, arg)
+}
+
+func Atan2(ctx context.Context, x, y Datum) (Datum, error) {
+	return CallFunction(ctx, "atan2", nil, x, y)
+}
+
+func Ln(ctx context.Context, opts ArithmeticOptions, arg Datum) (Datum, error) {
+	fn := "ln"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, arg)
+}
+
+func Log10(ctx context.Context, opts ArithmeticOptions, arg Datum) (Datum, error) {
+	fn := "log10"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, arg)
+}
+
+func Log2(ctx context.Context, opts ArithmeticOptions, arg Datum) (Datum, error) {
+	fn := "log2"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, arg)
+}
+
+func Log1p(ctx context.Context, opts ArithmeticOptions, arg Datum) (Datum, error) {
+	fn := "log1p"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, arg)
+}
+
+func Logb(ctx context.Context, opts ArithmeticOptions, x, base Datum) (Datum, error) {
+	fn := "logb"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, x, base)
 }
