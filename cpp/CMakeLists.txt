@@ -384,8 +384,9 @@ if(NOT ARROW_BUILD_EXAMPLES)
   set(NO_EXAMPLES 1)
 endif()
 
-if(NOT ARROW_FUZZING)
-  set(NO_FUZZING 1)
+if(ARROW_FUZZING)
+  # Fuzzing builds enable ASAN without setting our home-grown option for it.
+  add_definitions(-DADDRESS_SANITIZER)
 endif()
 
 if(ARROW_LARGE_MEMORY_TESTS)
