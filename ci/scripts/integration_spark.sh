@@ -73,16 +73,26 @@ pushd ${spark_dir}
 
   # Run pyarrow related Python tests only
   spark_python_tests=(
-    "pyspark.sql.tests.test_arrow"
-    "pyspark.sql.tests.test_pandas_map"
-    "pyspark.sql.tests.test_pandas_cogrouped_map"
-    "pyspark.sql.tests.test_pandas_udf"
-    "pyspark.sql.tests.test_pandas_udf_scalar"
-    "pyspark.sql.tests.test_pandas_udf_grouped_agg"
-    "pyspark.sql.tests.test_pandas_udf_window")
+    "pyspark.sql.tests.test_arrow")
 
   if [ "${SPARK_VERSION}" != "master" ]; then
-    spark_python_tests+=("pyspark.sql.tests.test_pandas_grouped_map")
+    spark_python_tests+=(
+      "pyspark.sql.tests.test_pandas_grouped_map"
+      "pyspark.sql.tests.test_pandas_map"
+      "pyspark.sql.tests.test_pandas_cogrouped_map"
+      "pyspark.sql.tests.test_pandas_udf"
+      "pyspark.sql.tests.test_pandas_udf_scalar"
+      "pyspark.sql.tests.test_pandas_udf_grouped_agg"
+      "pyspark.sql.tests.test_pandas_udf_window")
+  else
+    spark_python_tests+=(
+      "pyspark.sql.tests.pandas.test_pandas_grouped_map"
+      "pyspark.sql.tests.pandas.test_pandas_map"
+      "pyspark.sql.tests.pandas.test_pandas_cogrouped_map"
+      "pyspark.sql.tests.pandas.test_pandas_udf"
+      "pyspark.sql.tests.pandas.test_pandas_udf_scalar"
+      "pyspark.sql.tests.pandas.test_pandas_udf_grouped_agg"
+      "pyspark.sql.tests.pandas.test_pandas_udf_window")
   fi
 
   (echo "Testing PySpark:"; IFS=$'\n'; echo "${spark_python_tests[*]}")
