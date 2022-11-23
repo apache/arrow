@@ -233,10 +233,14 @@ TEST(ToChars, Integers) {
   ASSERT_EQ(ToChars(9223372036854775807LL), "9223372036854775807");
   ASSERT_EQ(ToChars(-9223372036854775807LL - 1), "-9223372036854775808");
   ASSERT_EQ(ToChars(18446744073709551615ULL), "18446744073709551615");
+
+  // Will overflow any small string optimization
+  ASSERT_EQ(ToChars(18446744073709551615ULL, /*base=*/2),
+            "1111111111111111111111111111111111111111111111111111111111111111");
 }
 
 TEST(ToChars, FloatingPoint) {
-  if (HaveToChars<double>()) {
+  if constexpr (have_to_chars<double>) {
     ASSERT_EQ(ToChars(0.0f), "0");
     ASSERT_EQ(ToChars(0.0), "0");
     ASSERT_EQ(ToChars(-0.0), "-0");
@@ -244,11 +248,9 @@ TEST(ToChars, FloatingPoint) {
     ASSERT_EQ(ToChars(-0.25f), "-0.25");
 
     ASSERT_EQ(ToChars(0.1111111111111111), "0.1111111111111111");
-    ASSERT_EQ(ToChars(0.1111111111111111, std::chars_format{}, /*precision=*/3), "0.111");
 
-    // Will overflow any small string optimization
-    auto long_result = ToChars(0.1111111111111111, std::chars_format{}, /*precision=*/40);
-    ASSERT_TRUE(StartsWith(long_result, "0.1111111111111111")) << long_result;
+    // XXX Can't test std::chars_format as it's not defined by all standard libraries
+    // and even "if constexpr" wouldn't prevent the failing lookup.
   } else {
     // If std::to_chars isn't implemented for floating-point types, we fall back
     // to std::to_string which may make ad hoc formatting choices, so we cannot
@@ -263,7 +265,7 @@ TEST(ToChars, FloatingPoint) {
 #if !defined(_WIN32) || defined(NDEBUG)
 
 TEST(ToChars, LocaleIndependent) {
-  if (HaveToChars<double>()) {
+  if constexpr (have_to_chars<double>) {
     // French locale uses the comma as decimal point
     LocaleGuard locale_guard("fr_FR.UTF-8");
 

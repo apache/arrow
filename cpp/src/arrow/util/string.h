@@ -117,10 +117,7 @@ struct can_to_chars<
 /// This is useful as some C++ libraries do not implement all specified overloads
 /// for std::to_chars.
 template <typename T>
-constexpr bool HaveToChars() {
-  // (unfortunately std::is_invocable does not support overloaded functions)
-  return detail::can_to_chars<T>::value;
-}
+inline constexpr bool have_to_chars = detail::can_to_chars<T>::value;
 
 /// \brief An ergonomic wrapper around std::to_chars, returning a std::string
 ///
@@ -131,7 +128,7 @@ constexpr bool HaveToChars() {
 /// and might also be faster.
 template <typename T, typename... Args>
 std::string ToChars(T value, Args&&... args) {
-  if constexpr (!HaveToChars<T>()) {
+  if constexpr (!have_to_chars<T>) {
     // Some C++ standard libraries do not yet implement std::to_chars for all types,
     // in which case we have to fallback to std::string.
     return std::to_string(value);
