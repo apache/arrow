@@ -42,6 +42,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::EndsWith;
+using internal::ToChars;
 
 namespace compute {
 
@@ -1202,12 +1203,12 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
       auto ret = columns_.size();
       ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(scalar, 1));
       columns_.push_back(std::move(array));
-      return std::to_string(ret);
+      return ToChars(ret);
     }
 
     Status VisitFieldRef(const FieldRef& ref) {
       if (ref.nested_refs()) {
-        metadata_->Append("nested_field_ref", std::to_string(ref.nested_refs()->size()));
+        metadata_->Append("nested_field_ref", ToChars(ref.nested_refs()->size()));
         for (const auto& child : *ref.nested_refs()) {
           RETURN_NOT_OK(VisitFieldRef(child));
         }

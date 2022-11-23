@@ -41,6 +41,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/small_vector.h"
+#include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_type_inline.h"
 
@@ -56,6 +57,8 @@ using internal::ArrayExportGuard;
 using internal::ArrayExportTraits;
 using internal::SchemaExportGuard;
 using internal::SchemaExportTraits;
+
+using internal::ToChars;
 
 namespace {
 
@@ -334,18 +337,16 @@ struct SchemaExporter {
   Status Visit(const DoubleType& type) { return SetFormat("g"); }
 
   Status Visit(const FixedSizeBinaryType& type) {
-    return SetFormat("w:" + std::to_string(type.byte_width()));
+    return SetFormat("w:" + ToChars(type.byte_width()));
   }
 
   Status Visit(const DecimalType& type) {
     if (type.bit_width() == 128) {
       // 128 is the default bit-width
-      return SetFormat("d:" + std::to_string(type.precision()) + "," +
-                       std::to_string(type.scale()));
+      return SetFormat("d:" + ToChars(type.precision()) + "," + ToChars(type.scale()));
     } else {
-      return SetFormat("d:" + std::to_string(type.precision()) + "," +
-                       std::to_string(type.scale()) + "," +
-                       std::to_string(type.bit_width()));
+      return SetFormat("d:" + ToChars(type.precision()) + "," + ToChars(type.scale()) +
+                       "," + ToChars(type.bit_width()));
     }
   }
 
@@ -441,7 +442,7 @@ struct SchemaExporter {
   Status Visit(const LargeListType& type) { return SetFormat("+L"); }
 
   Status Visit(const FixedSizeListType& type) {
-    return SetFormat("+w:" + std::to_string(type.list_size()));
+    return SetFormat("+w:" + ToChars(type.list_size()));
   }
 
   Status Visit(const StructType& type) { return SetFormat("+s"); }
@@ -468,7 +469,7 @@ struct SchemaExporter {
       if (!first) {
         s += ",";
       }
-      s += std::to_string(code);
+      s += ToChars(code);
       first = false;
     }
     return Status::OK();

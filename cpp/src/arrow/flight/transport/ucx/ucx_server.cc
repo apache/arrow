@@ -36,10 +36,14 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace flight {
 namespace transport {
 namespace ucx {
@@ -273,8 +277,8 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
         raw_uri += uri.host();
       }
       raw_uri += ":";
-      raw_uri += std::to_string(
-          ntohs(reinterpret_cast<const sockaddr_in*>(&attr.sockaddr)->sin_port));
+      raw_uri +=
+          ToChars(ntohs(reinterpret_cast<const sockaddr_in*>(&attr.sockaddr)->sin_port));
       std::string listen_str;
       ARROW_UNUSED(SockaddrToString(attr.sockaddr).Value(&listen_str));
       FLIGHT_LOG(DEBUG) << "Listening on " << listen_str;
@@ -434,7 +438,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
   }
 
   void WorkerLoop(ucp_conn_request_h request) {
-    std::string peer = "unknown:" + std::to_string(counter_++);
+    std::string peer = "unknown:" + ToChars(counter_++);
     {
       ucp_conn_request_attr_t request_attr;
       std::memset(&request_attr, 0, sizeof(request_attr));

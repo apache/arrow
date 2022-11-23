@@ -34,6 +34,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
@@ -391,7 +392,7 @@ bool IsTimeInRange(Unit duration) {
 template <typename RawValue, typename Appender>
 Return<Appender> FormatOutOfRange(RawValue&& raw_value, Appender&& append) {
   // XXX locale-sensitive but good enough for now
-  std::string formatted = "<value out of range: " + std::to_string(raw_value) + ">";
+  std::string formatted = "<value out of range: " + ToChars(raw_value) + ">";
   return append(std::move(formatted));
 }
 

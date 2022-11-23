@@ -39,6 +39,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::StartsWith;
+using internal::ToChars;
 using internal::UriFromAbsolutePath;
 
 namespace engine {
@@ -389,8 +390,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                                 field_ref->FindOne(*input.output_schema));
           ARROW_ASSIGN_OR_RAISE(project_field, field_path.Get(*input.output_schema));
         } else if (auto* literal = des_expr.literal()) {
-          project_field =
-              field("field_" + std::to_string(num_columns + i), literal->type());
+          project_field = field("field_" + ToChars(num_columns + i), literal->type());
         }
         ARROW_ASSIGN_OR_RAISE(
             project_schema,

@@ -29,11 +29,13 @@
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/string.h"
 #include "arrow/visit_scalar_inline.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::ToChars;
 
 namespace engine {
 
@@ -250,7 +252,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
                               FromProto(if_.then(), ext_set, conversion_options));
         conditions.emplace_back(std::move(compute_if));
         args.emplace_back(std::move(compute_then));
-        condition_names.emplace_back("cond" + std::to_string(++name_counter));
+        condition_names.emplace_back("cond" + ToChars(++name_counter));
       }
       ARROW_ASSIGN_OR_RAISE(auto compute_else,
                             FromProto(if_then.else_(), ext_set, conversion_options));

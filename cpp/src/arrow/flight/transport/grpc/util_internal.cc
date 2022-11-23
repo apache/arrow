@@ -31,8 +31,12 @@
 #include "arrow/flight/transport.h"
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace flight {
 namespace transport {
 namespace grpc {
@@ -223,7 +227,7 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
 ::grpc::Status ToGrpcStatus(const Status& arrow_status, ::grpc::ServerContext* ctx) {
   ::grpc::Status status = ToRawGrpcStatus(arrow_status);
   if (!status.ok() && ctx) {
-    const std::string code = std::to_string(static_cast<int>(arrow_status.code()));
+    const std::string code = ToChars(static_cast<int>(arrow_status.code()));
     ctx->AddTrailingMetadata(kGrpcStatusCodeHeader, code);
     ctx->AddTrailingMetadata(kGrpcStatusMessageHeader, arrow_status.message());
     if (arrow_status.detail()) {

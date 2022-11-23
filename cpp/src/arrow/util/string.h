@@ -17,10 +17,17 @@
 
 #pragma once
 
+#include <cassert>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 #include <vector>
+
+#if __has_include(<charconv>)
+#include <charconv>
+#endif
 
 #include "arrow/result.h"
 #include "arrow/util/visibility.h"
@@ -96,6 +103,69 @@ std::optional<std::string> Replace(std::string_view s, std::string_view token,
 /// Otherwise, returns Status::Invalid
 ARROW_EXPORT
 arrow::Result<bool> ParseBoolean(std::string_view value);
+
+#if __has_include(<charconv>)
+
+namespace detail {
+template <typename T, typename = void>
+struct can_to_chars : public std::false_type {};
+
+template <typename T>
+struct can_to_chars<
+    T, std::void_t<decltype(std::to_chars(std::declval<char*>(), std::declval<char*>(),
+                                          std::declval<std::remove_reference_t<T>>()))>>
+    : public std::true_type {};
+}  // namespace detail
+
+/// \brief Whether std::to_chars exists for the current value type.
+///
+/// This is useful as some C++ libraries do not implement all specified overloads
+/// for std::to_chars.
+template <typename T>
+inline constexpr bool have_to_chars = detail::can_to_chars<T>::value;
+
+/// \brief An ergonomic wrapper around std::to_chars, returning a std::string
+///
+/// For most inputs, the std::string result will not incur any heap allocation
+/// thanks to small string optimization.
+///
+/// Compared to std::to_string, this function gives locale-agnostic results
+/// and might also be faster.
+template <typename T, typename... Args>
+std::string ToChars(T value, Args&&... args) {
+  if constexpr (!have_to_chars<T>) {
+    // Some C++ standard libraries do not yet implement std::to_chars for all types,
+    // in which case we have to fallback to std::string.
+    return std::to_string(value);
+  } else {
+    // According to various sources, the GNU libstdc++ and Microsoft's C++ STL
+    // allow up to 15 bytes of small string optimization, while clang's libc++
+    // goes up to 22 bytes. Choose the pessimistic value.
+    std::string out(15, 0);
+    auto res = std::to_chars(&out.front(), &out.back(), value, args...);
+    while (res.ec != std::errc{}) {
+      assert(res.ec == std::errc::value_too_large);
+      out.resize(out.capacity() * 2);
+      res = std::to_chars(&out.front(), &out.back(), value, args...);
+    }
+    const auto length = res.ptr - out.data();
+    assert(length <= static_cast<int64_t>(out.length()));
+    out.resize(length);
+    return out;
+  }
+}
+
+#else  // !__has_include(<charconv>)
+
+template <typename T>
+inline constexpr bool have_to_chars = false;
+
+template <typename T, typename... Args>
+std::string ToChars(T value, Args&&... args) {
+  return std::to_string(value);
+}
+
+#endif
 
 }  // namespace internal
 }  // namespace arrow

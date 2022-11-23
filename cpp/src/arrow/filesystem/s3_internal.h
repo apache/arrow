@@ -36,6 +36,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/print.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 namespace fs {
@@ -156,7 +157,7 @@ inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
 
 #undef S3_ERROR_CASE
     default:
-      return "[code " + std::to_string(static_cast<int>(error_type)) + "]";
+      return "[code " + ::arrow::internal::ToChars(static_cast<int>(error_type)) + "]";
   }
 }
 
