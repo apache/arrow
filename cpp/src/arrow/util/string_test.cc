@@ -227,16 +227,20 @@ TEST(ToChars, Integers) {
   ASSERT_EQ(ToChars(1234), "1234");
   ASSERT_EQ(ToChars(-5678), "-5678");
 
-  ASSERT_EQ(ToChars(1234, /*base=*/2), "10011010010");
+  if constexpr (have_to_chars<int>) {
+    ASSERT_EQ(ToChars(1234, /*base=*/2), "10011010010");
+  }
 
   // Beyond pre-allocated result size
   ASSERT_EQ(ToChars(9223372036854775807LL), "9223372036854775807");
   ASSERT_EQ(ToChars(-9223372036854775807LL - 1), "-9223372036854775808");
   ASSERT_EQ(ToChars(18446744073709551615ULL), "18446744073709551615");
 
-  // Will overflow any small string optimization
-  ASSERT_EQ(ToChars(18446744073709551615ULL, /*base=*/2),
-            "1111111111111111111111111111111111111111111111111111111111111111");
+  if constexpr (have_to_chars<unsigned long long>) {  // NOLINT: runtime/int
+    // Will overflow any small string optimization
+    ASSERT_EQ(ToChars(18446744073709551615ULL, /*base=*/2),
+              "1111111111111111111111111111111111111111111111111111111111111111");
+  }
 }
 
 TEST(ToChars, FloatingPoint) {

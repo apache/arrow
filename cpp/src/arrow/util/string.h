@@ -18,13 +18,16 @@
 #pragma once
 
 #include <cassert>
-#include <charconv>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#if __has_include(<charconv>)
+#include <charconv>
+#endif
 
 #include "arrow/result.h"
 #include "arrow/util/visibility.h"
@@ -101,6 +104,8 @@ std::optional<std::string> Replace(std::string_view s, std::string_view token,
 ARROW_EXPORT
 arrow::Result<bool> ParseBoolean(std::string_view value);
 
+#if __has_include(<charconv>)
+
 namespace detail {
 template <typename T, typename = void>
 struct can_to_chars : public std::false_type {};
@@ -149,6 +154,18 @@ std::string ToChars(T value, Args&&... args) {
     return out;
   }
 }
+
+#else  // !__has_include(<charconv>)
+
+template <typename T>
+inline constexpr bool have_to_chars = false;
+
+template <typename T, typename... Args>
+std::string ToChars(T value, Args&&... args) {
+  return std::to_string(value);
+}
+
+#endif
 
 }  // namespace internal
 }  // namespace arrow
