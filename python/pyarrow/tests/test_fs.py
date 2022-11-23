@@ -1321,6 +1321,7 @@ def test_s3fs_wrong_region():
     from pyarrow.fs import S3FileSystem
 
     # wrong region for bucket
+    # anonymous=True incase CI/etc has invalid credentials
     fs = S3FileSystem(region='eu-north-1', anonymous=True)
 
     msg = ("When getting information for bucket 'voltrondata-labs-datasets': "
