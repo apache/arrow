@@ -37,6 +37,7 @@ enum class optype : int8_t {
     ABSOLUTE_VALUE,
     NEGATE,
     SQRT,
+    POWER,
     SIGN,
 
     // this impl doesn't actually perform any overflow checks as we need
@@ -48,6 +49,7 @@ enum class optype : int8_t {
     ABSOLUTE_VALUE_CHECKED,
     NEGATE_CHECKED,
     SQRT_CHECKED,
+    POWER_CHECKED,
 };
 
 struct Add {
@@ -294,7 +296,7 @@ static inline void arithmetic_op(const int type, const void* in_left, const void
 template <typename Op, template <typename...> typename Impl, typename Input>
 static inline void arithmetic_op(const int otype, const void* input, void* output, const int len) {
     const auto outtype = static_cast<arrtype>(otype);
-    
+
     switch (outtype) {
     case arrtype::UINT8:
         return Impl<Input, Op, uint8_t>::exec(input, output, len);
@@ -325,7 +327,7 @@ static inline void arithmetic_op(const int otype, const void* input, void* outpu
 template <typename Op, template <typename...> typename Impl>
 static inline void arithmetic_op(const int type, const void* input, void* output, const int len) {
     const auto intype = static_cast<arrtype>(type);
-    
+
     switch (intype) {
     case arrtype::UINT8:
         return Impl<uint8_t, Op>::exec(input, output, len);
@@ -409,7 +411,7 @@ static inline void arithmetic_unary_impl(const int itype, const int otype, const
 
     switch (opt) {
     case optype::SIGN:
-        return arithmetic_op<Sign, Impl>(itype, otype, input, output, len);    
+        return arithmetic_op<Sign, Impl>(itype, otype, input, output, len);
     default:
         break;
     }
@@ -432,7 +434,6 @@ static inline void arithmetic_binary_impl(const int type, const int8_t op, const
         return arithmetic_op<Multiply, Impl>(type, in_left, in_right, out, len);
     case optype::MUL_CHECKED:
         return arithmetic_op<MultiplyChecked, Impl>(type, in_left, in_right, out, len);
-    
     default:
         // don't implement divide here as we can only divide on non-null entries
         // so we can avoid dividing by zero
