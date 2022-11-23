@@ -1321,7 +1321,8 @@ def test_s3fs_wrong_region():
     from pyarrow.fs import S3FileSystem
 
     # wrong region for bucket
-    fs = S3FileSystem(region='eu-north-1')
+    # anonymous=True incase CI/etc has invalid credentials
+    fs = S3FileSystem(region='eu-north-1', anonymous=True)
 
     msg = ("When getting information for bucket 'voltrondata-labs-datasets': "
            r"AWS Error UNKNOWN \(HTTP status 301\) during HeadBucket "
@@ -1335,7 +1336,7 @@ def test_s3fs_wrong_region():
     if 'NETWORK_CONNECTION' in str(exc.value):
         return
 
-    fs = S3FileSystem(region='us-east-2')
+    fs = S3FileSystem(region='us-east-2', anonymous=True)
     fs.get_file_info("voltrondata-labs-datasets")
 
 
