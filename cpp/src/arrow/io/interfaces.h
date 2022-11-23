@@ -320,11 +320,11 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// \return A future that will complete with the data from the requested range is
   /// available
   virtual std::vector<Future<std::shared_ptr<Buffer>>> ReadManyAsync(
-     const IOContext&, const std::vector<ReadRange>& ranges);
+      const IOContext&, const std::vector<ReadRange>& ranges);
 
   /// EXPERIMENTAL: Explicit multi-read, using the file's IOContext.
   std::vector<Future<std::shared_ptr<Buffer>>> ReadManyAsync(
-     const std::vector<ReadRange>& ranges);
+      const std::vector<ReadRange>& ranges);
 
   /// EXPERIMENTAL: Inform that the given ranges may be read soon.
   ///
