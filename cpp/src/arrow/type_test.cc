@@ -434,6 +434,43 @@ TEST(TestFieldRef, DotPathRoundTrip) {
   check_roundtrip(FieldRef("foo", 1, FieldRef("bar", 2, 3), FieldRef()));
 }
 
+TEST(TestFieldRef, NestedWithList) {
+  // Single list type
+  auto type =
+      struct_({field("c", list(struct_({field("d", int32()), field("e", int8())})))});
+  // Note numeric values here go unused, outside of indicating a further step, during
+  // FindAll, only used by kernels for which list element to take. When FindAll encounters
+  // a list, it assumes the list value type.
+  // Not b/c they are numeric, but they are the position referencing a specific list
+  // element.
+  EXPECT_THAT(FieldRef("c", 0, "d").FindAll(*type), ElementsAre(FieldPath{0, 0, 0}));
+  EXPECT_THAT(FieldRef("c", 0, "e").FindAll(*type), ElementsAre(FieldPath{0, 0, 1}));
+  EXPECT_THAT(FieldRef("c", 1, "d").FindAll(*type), ElementsAre(FieldPath{0, 1, 0}));
+  EXPECT_THAT(FieldRef("c", 1, "e").FindAll(*type), ElementsAre(FieldPath{0, 1, 1}));
+
+  // Double list and nested
+  type = struct_({field("a", list(type)), field("b", list(type))});
+  EXPECT_THAT(FieldRef("a", 0, "c", 0, "d").FindAll(*type),
+              ElementsAre(FieldPath{0, 0, 0, 0, 0}));
+  EXPECT_THAT(FieldRef("b", 1, "c", 1, "e").FindAll(*type),
+              ElementsAre(FieldPath{1, 1, 0, 1, 1}));
+
+  // Again, noting the 1 and 3 indexes refer to the specific list element
+  // and are not used in getting the type, only that its presence indicates
+  // further drilling into the list value type is needed.
+  // The values are used however in the kernel implementations for selecting
+  // from the specific list element.
+  ASSERT_OK_AND_ASSIGN(auto field, FieldPath({0, 0, 0, 0, 0}).Get(*type))
+  ASSERT_EQ(field->type(), int32());
+  ASSERT_OK_AND_ASSIGN(field, FieldPath({0, 1, 0, 1, 0}).Get(*type));
+  ASSERT_EQ(field->type(), int32());
+
+  ASSERT_OK_AND_ASSIGN(field, FieldPath({1, 0, 0, 0, 1}).Get(*type));
+  ASSERT_EQ(field->type(), int8());
+  ASSERT_OK_AND_ASSIGN(field, FieldPath({1, 1, 0, 1, 1}).Get(*type));
+  ASSERT_EQ(field->type(), int8());
+}
+
 TEST(TestFieldPath, Nested) {
   auto f0 = field("alpha", int32());
   auto f1_0 = field("alpha", int32());
