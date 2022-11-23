@@ -177,7 +177,8 @@ def test_parquet_file_pass_directory_instead_of_file(tempdir):
     path = tempdir / 'directory'
     os.mkdir(str(path))
 
-    with pytest.raises(IOError, match="Expected file path"):
+    msg = f"Cannot open for reading: path '{str(path)}' is a directory"
+    with pytest.raises(IOError, match=msg):
         pq.ParquetFile(path)
 
 
@@ -329,3 +330,22 @@ def test_parquet_file_explicitly_closed(tempdir):
         p.read()
         assert not p.closed
     assert p.closed  # parquet file obj reports as closed
+
+
+@pytest.mark.s3
+def test_parquet_file_with_filesystem(tempdir, s3_example_s3fs):
+    s3_fs, s3_path = s3_example_s3fs
+
+    table = pa.table({"a": range(10)})
+    pq.write_table(table, s3_path, filesystem=s3_fs)
+
+    parquet_file = pq.ParquetFile(s3_path, filesystem=s3_fs)
+    assert parquet_file.read() == table
+    assert not parquet_file.closed
+    parquet_file.close()
+    assert parquet_file.closed
+
+    with pq.ParquetFile(s3_path, filesystem=s3_fs) as f:
+        assert f.read() == table
+        assert not f.closed
+    assert f.closed
