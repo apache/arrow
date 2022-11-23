@@ -122,7 +122,6 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   private ArrowBuf maybeImportBitmap(ArrowType type) {
-    // Don't use the helpers here so we can see this more easily in test coverage?
     checkState(
         buffers.length > 0,
         "Expected at least %s buffers for type %s, but found %s", 1, type, buffers.length);

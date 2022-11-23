@@ -237,7 +237,7 @@ public interface BufferAllocator extends AutoCloseable {
   }
 
   /**
-   * Wrap an allocation created outside this BufferAllocator.
+   * EXPERIMENTAL: Wrap an allocation created outside this BufferAllocator.
    *
    * <p>This is useful to integrate allocations from native code into the same memory management framework as
    * Java-allocated buffers, presenting users a consistent API. The created buffer will be tracked by this allocator

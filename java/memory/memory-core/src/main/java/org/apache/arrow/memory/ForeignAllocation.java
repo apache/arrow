@@ -18,7 +18,9 @@
 package org.apache.arrow.memory;
 
 /**
- * An allocation of memory that does not come from a BufferAllocator, but rather an outside source (like JNI).
+ * EXPERIMENTAL: a memory allocation that does not come from a BufferAllocator, but rather an outside source (like JNI).
+ *
+ * <p>To use this, subclass this class and implement {@link #release0()} to free the allocation.
  */
 public abstract class ForeignAllocation {
   private final long memoryAddress;
