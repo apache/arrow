@@ -1369,9 +1369,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
   std::vector<uint8_t> output_bytes_;
 };
 
-// TODO: Int64Type
-// using TestDeltaBitPackEncodingTypes = ::testing::Types<Int64Type>;
-using TestDeltaBitPackEncodingTypes = ::testing::Types<Int32Type>;
+using TestDeltaBitPackEncodingTypes = ::testing::Types<Int32Type, Int64Type>;
 TYPED_TEST_SUITE(TestDeltaBitPackEncoding, TestDeltaBitPackEncodingTypes);
 
 TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {

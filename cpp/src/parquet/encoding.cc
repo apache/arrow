@@ -56,7 +56,6 @@ using arrow::Status;
 using arrow::VisitNullBitmapInline;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
-using arrow::internal::SafeSignedSubtract;
 using std::string_view;
 
 template <typename T>
@@ -2161,9 +2160,9 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   const uint32_t values_per_mini_block_;
   uint32_t values_current_block_{0};
   uint32_t total_value_count_{0};
-  T first_value_{0};
-  T current_value_{0};
-  ArrowPoolVector<T> deltas_;
+  UT first_value_{0};
+  UT current_value_{0};
+  ArrowPoolVector<UT> deltas_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::BufferBuilder sink_;
   ::arrow::bit_util::BitWriter bit_writer_;
@@ -2185,14 +2184,12 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
   total_value_count_ += num_values;
 
   while (idx < num_values) {
-    T value = src[idx];
-    // Calculate deltas. The possible overflow is handled by SafeSignedSubtract that
-    // internally uses unsigned integers making subtraction operations well defined
-    // and correct even in case of overflow. Encoded integes will wrap back around on
-    // decoding.
+    UT value = static_cast<UT>(src[idx]);
+    // Calculate deltas. The possible overflow is handled by use of unsigned integers
+    // making subtraction operations well defined and correct even in case of overflow.
+    // Encoded integes will wrap back around on decoding.
     // See http://en.wikipedia.org/wiki/Modular_arithmetic#Integers_modulo_n
-    deltas_[values_current_block_] =
-        static_cast<UT>(value) - static_cast<UT>(current_value_);
+    deltas_[values_current_block_] = value - current_value_;
     current_value_ = value;
     idx++;
     values_current_block_++;
@@ -2208,9 +2205,9 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     return;
   }
 
-  const T min_delta =
-      *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_);
-  bit_writer_.PutZigZagVlqInt(min_delta);
+  auto min_delta = static_cast<UT>(
+      *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_));
+  bit_writer_.PutZigZagVlqInt(static_cast<T>(min_delta));
 
   // Call to GetNextBytePtr reserves mini_blocks_per_block_ bytes of space to write
   // bit widths of miniblocks as they become known during the encoding.
@@ -2225,24 +2222,23 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
         std::min(values_per_mini_block_, values_current_block_);
 
     const uint32_t start = i * values_per_mini_block_;
-    const T max_delta = *std::max_element(
-        deltas_.begin() + start, deltas_.begin() + start + values_current_mini_block);
+    auto max_delta = static_cast<UT>(*std::max_element(
+        deltas_.begin() + start, deltas_.begin() + start + values_current_mini_block));
 
-    // See overflow comment above
-    const T max_delta_diff = SafeSignedSubtract(max_delta, min_delta);
     // The minimum number of bits required to write any of values in deltas_ vector.
-    bit_widths_[i] = bit_util::NumRequiredBits(static_cast<UT>(max_delta_diff));
+    // See overflow comment above.
+    bit_widths_[i] = bit_util::NumRequiredBits(max_delta - min_delta);
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
-      // See overflow comment above
-      auto value = static_cast<UT>(SafeSignedSubtract(deltas_[j], min_delta));
+      // See overflow comment above.
+      const UT value = deltas_[j] - min_delta;
       bit_writer_.PutValue(value, bit_widths_[i]);
     }
     // If there are not enough values to fill the last mini block, we pad the mini block
     // with zeroes so that its length is the number of values in a full mini block
     // multiplied by the bit width.
     for (uint32_t j = values_current_mini_block; j < values_per_mini_block_; j++) {
-      bit_writer_.PutValue(UT(0), bit_widths_[i]);
+      bit_writer_.PutValue(0, bit_widths_[i]);
     }
     values_current_block_ -= values_current_mini_block;
   }
@@ -2274,7 +2270,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   if (!header_writer.PutVlqInt(values_per_block_) ||
       !header_writer.PutVlqInt(mini_blocks_per_block_) ||
       !header_writer.PutVlqInt(total_value_count_) ||
-      !header_writer.PutZigZagVlqInt(first_value_)) {
+      !header_writer.PutZigZagVlqInt(static_cast<T>(first_value_))) {
     throw ParquetException("header writing error");
   }
   header_writer.Flush();
@@ -2340,6 +2336,7 @@ template <typename DType>
 class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DType> {
  public:
   typedef typename DType::c_type T;
+  using UT = std::make_unsigned_t<T>;
 
   explicit DeltaBitPackDecoder(const ColumnDescriptor* descr,
                                MemoryPool* pool = ::arrow::default_memory_pool())
@@ -2489,9 +2486,8 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       for (int j = 0; j < values_decode; ++j) {
         // Addition between min_delta, packed int and last_value should be treated as
         // unsigned addition. Overflow is as expected.
-        uint64_t delta =
-            static_cast<uint64_t>(min_delta_) + static_cast<uint64_t>(buffer[i + j]);
-        buffer[i + j] = static_cast<T>(delta + static_cast<uint64_t>(last_value_));
+        buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
+                        static_cast<UT>(last_value_);
         last_value_ = buffer[i + j];
       }
       values_current_mini_block_ -= values_decode;
