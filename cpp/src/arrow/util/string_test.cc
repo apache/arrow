@@ -236,28 +236,40 @@ TEST(ToChars, Integers) {
 }
 
 TEST(ToChars, FloatingPoint) {
-  ASSERT_EQ(ToChars(0.0f), "0");
-  ASSERT_EQ(ToChars(0.0), "0");
-  ASSERT_EQ(ToChars(-0.0), "-0");
-  ASSERT_EQ(ToChars(0.25), "0.25");
-  ASSERT_EQ(ToChars(-0.25f), "-0.25");
+  if (HaveToChars<double>()) {
+    ASSERT_EQ(ToChars(0.0f), "0");
+    ASSERT_EQ(ToChars(0.0), "0");
+    ASSERT_EQ(ToChars(-0.0), "-0");
+    ASSERT_EQ(ToChars(0.25), "0.25");
+    ASSERT_EQ(ToChars(-0.25f), "-0.25");
 
-  ASSERT_EQ(ToChars(0.1111111111111111), "0.1111111111111111");
-  ASSERT_EQ(ToChars(0.1111111111111111, std::chars_format{}, /*precision=*/3), "0.111");
+    ASSERT_EQ(ToChars(0.1111111111111111), "0.1111111111111111");
+    ASSERT_EQ(ToChars(0.1111111111111111, std::chars_format{}, /*precision=*/3), "0.111");
 
-  // Will overflow any small string optimization
-  auto long_result = ToChars(0.1111111111111111, std::chars_format{}, /*precision=*/40);
-  ASSERT_TRUE(StartsWith(long_result, "0.1111111111111111")) << long_result;
+    // Will overflow any small string optimization
+    auto long_result = ToChars(0.1111111111111111, std::chars_format{}, /*precision=*/40);
+    ASSERT_TRUE(StartsWith(long_result, "0.1111111111111111")) << long_result;
+  } else {
+    // If std::to_chars isn't implemented for floating-point types, we fall back
+    // to std::to_string which may make ad hoc formatting choices, so we cannot
+    // really test much about the result.
+    auto result = ToChars(0.0f);
+    ASSERT_TRUE(StartsWith(result, "0")) << result;
+    result = ToChars(0.25);
+    ASSERT_TRUE(StartsWith(result, "0.25")) << result;
+  }
 }
 
 #if !defined(_WIN32) || defined(NDEBUG)
 
 TEST(ToChars, LocaleIndependent) {
-  // French locale uses the comma as decimal point
-  LocaleGuard locale_guard("fr_FR.UTF-8");
+  if (HaveToChars<double>()) {
+    // French locale uses the comma as decimal point
+    LocaleGuard locale_guard("fr_FR.UTF-8");
 
-  ASSERT_EQ(ToChars(0.25), "0.25");
-  ASSERT_EQ(ToChars(-0.25f), "-0.25");
+    ASSERT_EQ(ToChars(0.25), "0.25");
+    ASSERT_EQ(ToChars(-0.25f), "-0.25");
+  }
 }
 
 #endif  // _WIN32
