@@ -27,26 +27,54 @@
 
 namespace arrow {
 namespace compute {
-static void ConsumeWhitespace(std::string_view& view) {
+static void ConsumeWhitespace(std::string_view* view) {
   constexpr const char* kWhitespaces = " \f\n\r\t\v";
-  size_t first_nonwhitespace = view.find_first_not_of(kWhitespaces);
-  view.remove_prefix(first_nonwhitespace);
+  size_t first_nonwhitespace = view->find_first_not_of(kWhitespaces);
+  view->remove_prefix(first_nonwhitespace);
 }
 
-static std::string_view ExtractUntil(std::string_view& view,
+static std::string ProcessEscapes(std::string_view view) {
+  std::string processed = "";
+  bool prev_was_backslash = false;
+  for (size_t i = 0; i < view.size(); i++) {
+    if (prev_was_backslash) {
+      processed += view[i];
+      prev_was_backslash = false;
+    } else {
+      if (view[i] == '\\')
+        prev_was_backslash = true;
+      else
+        processed += view[i];
+    }
+  }
+  return processed;
+}
+
+static std::string_view ExtractUntil(std::string_view* view,
                                      const std::string_view separators) {
-  size_t separator = view.find_first_of(separators);
-  std::string_view result = view.substr(0, separator);
-  view.remove_prefix(separator);
-  return result;
+  size_t separator = 0;
+  do {
+    std::string_view after_last_separator = view->substr(separator);
+    size_t next_separator = after_last_separator.find_first_of(separators);
+    if (next_separator == after_last_separator.npos)
+      next_separator = after_last_separator.size();
+    separator += next_separator;  // after_last_separator is offset by separator
+    if (separator > 0 && view->at(separator - 1) == '\\')
+      separator++;
+    else
+      break;
+  } while (separator < view->size());
+  std::string_view prefix = view->substr(0, separator);
+  view->remove_prefix(separator);
+  return prefix;
 }
 
-static std::string_view TrimUntilNextSeparator(std::string_view& view) {
-  constexpr const char* separators = " \f\n\r\t\v),";
+static std::string_view TrimUntilNextSeparator(std::string_view* view) {
+  constexpr const char* separators = "\f\n\r\t\v),";
   return ExtractUntil(view, separators);
 }
 
-static std::string_view ExtractArgument(std::string_view& view) {
+static std::string_view ExtractArgument(std::string_view* view) {
   constexpr const char* separators = ",)";
   return ExtractUntil(view, separators);
 }
@@ -65,7 +93,6 @@ static const std::unordered_map<std::string_view, std::shared_ptr<DataType>>
         {"uint64", uint64()},
         {"float16", float16()},
         {"float32", float32()},
-        {"float64", float64()},
         {"utf8", utf8()},
         {"large_utf8", large_utf8()},
         {"binary", binary()},
@@ -84,7 +111,7 @@ using InstantiateTypeFn =
     std::add_pointer_t<Result<std::shared_ptr<DataType>>(std::string_view&)>;
 
 static Result<int32_t> ParseInt32(std::string_view& args) {
-  ConsumeWhitespace(args);
+  ConsumeWhitespace(&args);
   int32_t result;
   auto [finish, ec] = std::from_chars(args.data(), args.data() + args.size(), result);
   if (ec == std::errc::invalid_argument)
@@ -95,7 +122,7 @@ static Result<int32_t> ParseInt32(std::string_view& args) {
 }
 
 static Status ParseComma(std::string_view& args) {
-  ConsumeWhitespace(args);
+  ConsumeWhitespace(&args);
   if (args.empty() || args[0] != ',')
     return Status::Invalid("Expected comma-separated args list near ", args);
   args.remove_prefix(1);
@@ -154,7 +181,7 @@ static Result<std::shared_ptr<DataType>> ParseFixedSizeList(std::string_view& ar
 }
 
 static Result<TimeUnit::type> ParseTimeUnit(std::string_view& args) {
-  ConsumeWhitespace(args);
+  ConsumeWhitespace(&args);
   if (args.empty()) return Status::Invalid("Expected a time unit near ", args);
 
   const std::string_view options[4] = {"SECOND", "MILLI", "MICRO", "NANO"};
@@ -214,17 +241,17 @@ static const std::unordered_map<std::string_view, InstantiateTypeFn>
 static Result<Expression> ParseExpr(std::string_view& expr);
 
 static Result<Expression> ParseCall(std::string_view& expr) {
-  ConsumeWhitespace(expr);
+  ConsumeWhitespace(&expr);
   if (expr.empty()) return Status::Invalid("Found empty expression");
 
-  std::string_view function_name = ExtractUntil(expr, "(");
+  std::string_view function_name = ExtractUntil(&expr, "(");
   if (expr.empty())
     return Status::Invalid("Expected argument list after function name", function_name);
   expr.remove_prefix(1);  // Remove the open paren
 
   std::vector<Expression> args;
   do {
-    ConsumeWhitespace(expr);
+    ConsumeWhitespace(&expr);
     if (expr.empty())
       return Status::Invalid("Found unterminated expression argument list");
     if (expr[0] == ')') break;
@@ -241,7 +268,7 @@ static Result<Expression> ParseCall(std::string_view& expr) {
 static Result<Expression> ParseFieldRef(std::string_view& expr) {
   if (expr.empty()) return Status::Invalid("Found an empty named fieldref");
 
-  std::string_view dot_path = ExtractArgument(expr);
+  std::string_view dot_path = ExtractArgument(&expr);
   ARROW_ASSIGN_OR_RAISE(FieldRef field, FieldRef::FromDotPath(dot_path));
   return field_ref(std::move(field));
 }
@@ -258,7 +285,7 @@ static Result<std::shared_ptr<DataType>> ParseParameterizedDataType(
     return Status::Invalid("Unknown base type name ", base_type_name);
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<DataType> parsed_type, it->second(type));
-  ConsumeWhitespace(type);
+  ConsumeWhitespace(&type);
   if (type.empty() || type[0] != ')')
     return Status::Invalid("Unterminated data type arg list!");
   type.remove_prefix(1);
@@ -282,16 +309,22 @@ static Result<Expression> ParseLiteral(std::string_view& expr) {
   ARROW_DCHECK_EQ(expr[0], ':');
   expr.remove_prefix(1);
 
-  std::string_view value = TrimUntilNextSeparator(expr);
-
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<DataType> type, ParseDataType(type_name));
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, Scalar::Parse(type, value));
+  std::string_view value = TrimUntilNextSeparator(&expr);
+
+  std::shared_ptr<Scalar> scalar;
+  if (value.find('\\') == value.npos) {
+    ARROW_ASSIGN_OR_RAISE(scalar, Scalar::Parse(type, value));
+  } else {
+    std::string escaped = ProcessEscapes(value);
+    ARROW_ASSIGN_OR_RAISE(scalar, Scalar::Parse(type, escaped));
+  }
   return literal(std::move(scalar));
 }
 
 static Result<Expression> ParseExpr(std::string_view& expr) {
-  ConsumeWhitespace(expr);
+  ConsumeWhitespace(&expr);
   if (expr.empty()) return Status::Invalid("Expression is empty!");
   switch (expr[0]) {
     case '.':
@@ -304,8 +337,29 @@ static Result<Expression> ParseExpr(std::string_view& expr) {
   }
 }
 
+static Status FormatErrorMessage(std::string_view original_expr, std::string_view parsed,
+                                 const Status& st) {
+  ssize_t error_idx = static_cast<ssize_t>(original_expr.size() - parsed.size());
+
+  constexpr ssize_t kCharactersBehindPreview = 5;
+  constexpr ssize_t kCharactersPreview = 15;
+  ssize_t preview_start =
+      std::max(static_cast<ssize_t>(0), error_idx - kCharactersBehindPreview);
+  ssize_t preview_end = std::min(preview_start + kCharactersPreview,
+                                 static_cast<ssize_t>(original_expr.size()));
+  std::string new_error =
+      "Error at index " + std::to_string(error_idx) + ": " + st.message() + "\n";
+  if (preview_start > 0) new_error += "...";
+  new_error += original_expr.substr(preview_start, preview_end);
+  if (preview_end < static_cast<ssize_t>(original_expr.size())) new_error += "...";
+  return st.WithMessage(std::move(new_error));
+}
+
 Result<Expression> Expression::FromString(std::string_view expr) {
-  return ParseExpr(expr);
+  std::string_view original = expr;
+  Result<Expression> parsed = ParseExpr(expr);
+  if (!parsed.ok()) return FormatErrorMessage(original, expr, parsed.status());
+  return parsed;
 }
 }  // namespace compute
 }  // namespace arrow

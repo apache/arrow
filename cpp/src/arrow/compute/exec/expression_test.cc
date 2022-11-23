@@ -1605,6 +1605,23 @@ TEST(Expression, ParseComplexScalar) {
   ASSERT_TRUE(result.scalar()->Equals(expected));
 }
 
+TEST(Expression, ParseEscaped) {
+  const char* expr_str = "$utf8:hello\\, \\(world\\)";
+  ASSERT_OK_AND_ASSIGN(Expression expr, Expression::FromString(expr_str));
+  std::shared_ptr<Schema> empty_schema = schema({});
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*empty_schema.get()));
+  ASSERT_OK_AND_ASSIGN(Datum result, ExecuteScalarExpression(expr, {}));
+  StringScalar expected("hello, (world)");
+  ASSERT_TRUE(result.scalar()->Equals(expected));
+}
+
+TEST(Expression, ParseErrorMessage) {
+  const char* expr_str = "$asdfasdf:horoshaya_kartoshka";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("...asdf:horoshaya_karto..."),
+                                  Expression::FromString(expr_str));
+}
+
 TEST(Projection, AugmentWithNull) {
   // NB: input contains *no columns* except i32
   auto input = ArrayFromJSON(struct_({kBoringSchema->GetFieldByName("i32")}),
