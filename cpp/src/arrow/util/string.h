@@ -148,7 +148,6 @@ std::string ToChars(T value, Args&&... args) {
     }
     const auto length = res.ptr - out.data();
     assert(length <= static_cast<int64_t>(out.length()));
-    out[length] = 0;
     out.resize(length);
     return out;
   }
