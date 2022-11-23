@@ -210,6 +210,14 @@ func ArrayFromSlice[T NumericTypes | bool](mem memory.Allocator, data []T) arrow
 	return bldr.NewArray()
 }
 
+func ArrayFromSliceWithValid[T NumericTypes | bool](mem memory.Allocator, data []T, valid []bool) arrow.Array {
+	bldr := array.NewBuilder(mem, typMap[reflect.TypeOf(data).Elem()]).(arrayBuilder[T])
+	defer bldr.Release()
+
+	bldr.AppendValues(data, valid)
+	return bldr.NewArray()
+}
+
 func RechunkArraysConsistently(groups [][]arrow.Array) [][]arrow.Array {
 	if len(groups) <= 1 {
 		return groups

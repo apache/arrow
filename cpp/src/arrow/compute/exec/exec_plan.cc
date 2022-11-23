@@ -37,12 +37,14 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::ToChars;
 
 namespace compute {
 
@@ -66,7 +68,7 @@ struct ExecPlanImpl : public ExecPlan {
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
     if (node->label().empty()) {
-      node->SetLabel(std::to_string(auto_label_counter_++));
+      node->SetLabel(ToChars(auto_label_counter_++));
     }
     if (node->num_inputs() == 0) {
       sources_.push_back(node.get());

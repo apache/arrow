@@ -24,8 +24,12 @@
 #include "arrow/result.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bitmap_generate.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace compute {
 namespace internal {
 namespace {
@@ -89,7 +93,7 @@ Status GetListElementIndex(const ExecValue& value, T* out) {
 
 template <typename T>
 std::string ToString(const std::optional<T>& o) {
-  return o.has_value() ? std::to_string(*o) : "(nullopt)";
+  return o.has_value() ? ToChars(*o) : "(nullopt)";
 }
 
 template <typename Type>
@@ -524,7 +528,7 @@ Result<TypeHolder> MakeStructResolve(KernelContext* ctx,
     metadata.resize(types.size(), nullptr);
     int i = 0;
     for (auto& name : names) {
-      name = std::to_string(i++);
+      name = ToChars(i++);
     }
   } else if (names.size() != types.size() || nullable.size() != types.size() ||
              metadata.size() != types.size()) {

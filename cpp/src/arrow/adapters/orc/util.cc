@@ -31,6 +31,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/string.h"
 #include "arrow/visit_data_inline.h"
 
 #include "orc/Exceptions.hh"
@@ -43,6 +44,7 @@ namespace liborc = orc;
 namespace arrow {
 
 using internal::checked_cast;
+using internal::ToChars;
 
 namespace adapters {
 namespace orc {
@@ -1020,7 +1022,7 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       std::vector<int8_t> type_codes(subtype_count);
       for (int child = 0; child < subtype_count; ++child) {
         ARROW_ASSIGN_OR_RAISE(auto elem_type, GetArrowType(type->getSubtype(child)));
-        fields[child] = field("_union_" + std::to_string(child), std::move(elem_type));
+        fields[child] = field("_union_" + ToChars(child), std::move(elem_type));
         type_codes[child] = static_cast<int8_t>(child);
       }
       return sparse_union(std::move(fields), std::move(type_codes));

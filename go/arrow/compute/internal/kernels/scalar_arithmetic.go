@@ -19,12 +19,16 @@
 package kernels
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v11/arrow/decimal128"
 	"github.com/apache/arrow/go/v11/arrow/decimal256"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/scalar"
 )
 
 // scalar kernel that ignores (assumed all-null inputs) and returns null
@@ -162,4 +166,206 @@ func GetArithmeticUnaryFixedIntOutKernels(otype arrow.DataType, op ArithmeticOp)
 		getArithmeticDecimal[decimal256.Num](op), nil))
 
 	return append(kernels, NullExecKernel(1))
+}
+
+type BitwiseOp int8
+
+const (
+	OpBitAnd BitwiseOp = iota
+	OpBitOr
+	OpBitXor
+)
+
+func bitwiseKernelOp(op BitwiseOp) exec.ArrayKernelExec {
+	var fn func([]byte, []byte, int64, int64, []byte, int64, int64)
+	switch op {
+	case OpBitOr:
+		fn = bitutil.BitmapOr
+	case OpBitAnd:
+		fn = bitutil.BitmapAnd
+	case OpBitXor:
+		fn = bitutil.BitmapXor
+	}
+
+	arrayArray := func(left, right *exec.ArraySpan, out *exec.ExecResult) error {
+		bits := int64(left.Type.(arrow.FixedWidthDataType).BitWidth())
+		fn(left.Buffers[1].Buf, right.Buffers[1].Buf,
+			bits*left.Offset, bits*right.Offset,
+			out.Buffers[1].Buf, bits*out.Offset, bits*left.Len)
+		return nil
+	}
+
+	arrayScalar := func(arr *exec.ArraySpan, sc scalar.Scalar, out *exec.ExecResult) error {
+		if !sc.IsValid() {
+			// no work to be done, everything is null
+			return nil
+		}
+
+		val := sc.(scalar.PrimitiveScalar).Data()
+		byteWidth := int64(len(val))
+		bitWidth := byteWidth * 8
+		arrBuf := arr.Buffers[1].Buf[byteWidth*arr.Offset:]
+		outBuf := out.Buffers[1].Buf[byteWidth*out.Offset:]
+
+		for i := int64(0); i < arr.Len; i++ {
+			fn(arrBuf, val, 0, 0, outBuf, 0, bitWidth)
+			arrBuf, outBuf = arrBuf[byteWidth:], outBuf[byteWidth:]
+		}
+		return nil
+	}
+
+	return func(_ *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if batch.Values[0].IsArray() {
+			if batch.Values[1].IsArray() {
+				return arrayArray(&batch.Values[0].Array, &batch.Values[1].Array, out)
+			}
+			return arrayScalar(&batch.Values[0].Array, batch.Values[1].Scalar, out)
+		}
+
+		if batch.Values[1].IsArray() {
+			return arrayScalar(&batch.Values[1].Array, batch.Values[0].Scalar, out)
+		}
+
+		debug.Assert(false, "should be unreachable")
+		return fmt.Errorf("%w: scalar binary with two scalars?", arrow.ErrInvalid)
+	}
+}
+
+func GetBitwiseBinaryKernels(op BitwiseOp) []exec.ScalarKernel {
+	kernels := make([]exec.ScalarKernel, 0)
+	for _, ty := range intTypes {
+		ex := bitwiseKernelOp(op)
+		inType := exec.NewExactInput(ty)
+		kernels = append(kernels, exec.NewScalarKernel([]exec.InputType{
+			inType, inType}, exec.NewOutputType(ty), ex, nil))
+	}
+	return append(kernels, NullExecKernel(2))
+}
+
+type ShiftDir int8
+
+const (
+	ShiftLeft ShiftDir = iota
+	ShiftRight
+)
+
+func shiftKernelSignedImpl[T exec.IntTypes, Unsigned exec.UintTypes](dir ShiftDir, checked bool) exec.ArrayKernelExec {
+	errShift := fmt.Errorf("%w: shift amount must be >= 0 and less than precision of type", arrow.ErrInvalid)
+	maxShift := T(8*SizeOf[T]() - 1)
+
+	switch dir {
+	case ShiftLeft:
+		if checked {
+			return ScalarBinaryNotNull(func(_ *exec.KernelCtx, lhs, rhs T, e *error) T {
+				if rhs < 0 || rhs >= maxShift {
+					*e = errShift
+					return lhs
+				}
+				return T(Unsigned(lhs) << Unsigned(rhs))
+			})
+		}
+
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, lhs, rhs T, _ *error) T {
+			if rhs < 0 || rhs >= maxShift {
+				return lhs
+			}
+
+			return T(Unsigned(lhs) << Unsigned(rhs))
+		})
+	case ShiftRight:
+		if checked {
+			return ScalarBinaryNotNull(func(_ *exec.KernelCtx, lhs, rhs T, e *error) T {
+				if rhs < 0 || rhs >= maxShift {
+					*e = errShift
+					return lhs
+				}
+				return lhs >> rhs
+			})
+		}
+
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, lhs, rhs T, e *error) T {
+			if rhs < 0 || rhs >= maxShift {
+				return lhs
+			}
+			return lhs >> rhs
+		})
+	}
+	return nil
+}
+
+func shiftKernelUnsignedImpl[T exec.UintTypes](dir ShiftDir, checked bool) exec.ArrayKernelExec {
+	errShift := fmt.Errorf("%w: shift amount must be >= 0 and less than precision of type", arrow.ErrInvalid)
+	maxShift := T(8 * SizeOf[T]())
+
+	switch dir {
+	case ShiftLeft:
+		if checked {
+			return ScalarBinaryNotNull(func(_ *exec.KernelCtx, lhs, rhs T, e *error) T {
+				if rhs < 0 || rhs >= maxShift {
+					*e = errShift
+					return lhs
+				}
+				return lhs << rhs
+			})
+		}
+
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, lhs, rhs T, _ *error) T {
+			if rhs < 0 || rhs >= maxShift {
+				return lhs
+			}
+			return lhs << rhs
+		})
+	case ShiftRight:
+		if checked {
+			return ScalarBinaryNotNull(func(_ *exec.KernelCtx, lhs, rhs T, e *error) T {
+				if rhs < 0 || rhs >= maxShift {
+					*e = errShift
+					return lhs
+				}
+				return lhs >> rhs
+			})
+		}
+
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, lhs, rhs T, _ *error) T {
+			if rhs < 0 || rhs >= maxShift {
+				return lhs
+			}
+			return lhs >> rhs
+		})
+	}
+	return nil
+}
+
+func shiftKernel(dir ShiftDir, checked bool, ty arrow.Type) exec.ArrayKernelExec {
+	switch ty {
+	case arrow.INT8:
+		return shiftKernelSignedImpl[int8, uint8](dir, checked)
+	case arrow.UINT8:
+		return shiftKernelUnsignedImpl[uint8](dir, checked)
+	case arrow.INT16:
+		return shiftKernelSignedImpl[int16, uint16](dir, checked)
+	case arrow.UINT16:
+		return shiftKernelUnsignedImpl[uint16](dir, checked)
+	case arrow.INT32:
+		return shiftKernelSignedImpl[int32, uint32](dir, checked)
+	case arrow.UINT32:
+		return shiftKernelUnsignedImpl[uint32](dir, checked)
+	case arrow.INT64:
+		return shiftKernelSignedImpl[int64, uint64](dir, checked)
+	case arrow.UINT64:
+		return shiftKernelUnsignedImpl[uint64](dir, checked)
+	}
+	panic("invalid type for shift kernels")
+}
+
+func GetShiftKernels(dir ShiftDir, checked bool) []exec.ScalarKernel {
+	kernels := make([]exec.ScalarKernel, 0)
+	for _, ty := range intTypes {
+		inType := exec.NewExactInput(ty)
+		ex := shiftKernel(dir, checked, ty.ID())
+		kernels = append(kernels, exec.NewScalarKernel(
+			[]exec.InputType{inType, inType}, exec.NewOutputType(ty),
+			ex, nil))
+	}
+	return append(kernels, NullExecKernel(2))
 }

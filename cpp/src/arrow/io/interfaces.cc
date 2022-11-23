@@ -50,12 +50,14 @@ using internal::ThreadPool;
 
 namespace io {
 
-static IOContext g_default_io_context{};
-
 IOContext::IOContext(MemoryPool* pool, StopToken stop_token)
     : IOContext(pool, internal::GetIOThreadPool(), std::move(stop_token)) {}
 
-const IOContext& default_io_context() { return g_default_io_context; }
+const IOContext& default_io_context() {
+  // Avoid using a global variable because of initialization order issues (ARROW-18383)
+  static IOContext g_default_io_context{};
+  return g_default_io_context;
+}
 
 int GetIOThreadPoolCapacity() { return internal::GetIOThreadPool()->GetCapacity(); }
 
@@ -103,7 +105,7 @@ class InputStreamBlockIterator {
 
 }  // namespace
 
-const IOContext& Readable::io_context() const { return g_default_io_context; }
+const IOContext& Readable::io_context() const { return default_io_context(); }
 
 Status InputStream::Advance(int64_t nbytes) { return Read(nbytes).status(); }
 

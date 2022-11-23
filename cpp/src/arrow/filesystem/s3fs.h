@@ -336,9 +336,17 @@ Status InitializeS3(const S3GlobalOptions& options);
 ARROW_EXPORT
 Status EnsureS3Initialized();
 
+/// Whether S3 was initialized, and not finalized.
+ARROW_EXPORT
+bool IsS3Initialized();
+
 /// Shutdown the S3 APIs.
 ARROW_EXPORT
 Status FinalizeS3();
+
+/// Ensure the S3 APIs are shutdown, but only if not already done.
+ARROW_EXPORT
+Status EnsureS3Finalized();
 
 ARROW_EXPORT
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket);

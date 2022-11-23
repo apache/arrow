@@ -43,6 +43,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
+#include "arrow/util/string.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
 
@@ -1004,7 +1005,7 @@ std::string FieldPath::ToString() const {
 
   std::string repr = "FieldPath(";
   for (auto index : this->indices()) {
-    repr += std::to_string(index) + " ";
+    repr += internal::ToChars(index) + " ";
   }
   repr.back() = ')';
   return repr;
@@ -1311,7 +1312,7 @@ std::string FieldRef::ToDotPath() const {
     std::string operator()(const FieldPath& path) {
       std::string out;
       for (int i : path.indices()) {
-        out += "[" + std::to_string(i) + "]";
+        out += "[" + internal::ToChars(i) + "]";
       }
       return out;
     }
@@ -2388,7 +2389,7 @@ FieldVector FieldsFromArraysAndNames(std::vector<std::string> names,
   int i = 0;
   if (names.empty()) {
     for (const auto& array : arrays) {
-      fields[i] = field(std::to_string(i), array->type());
+      fields[i] = field(internal::ToChars(i), array->type());
       ++i;
     }
   } else {

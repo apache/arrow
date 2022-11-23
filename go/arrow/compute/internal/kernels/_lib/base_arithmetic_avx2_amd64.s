@@ -29,7 +29,7 @@ arithmetic_binary_avx2:                 # @arithmetic_binary_avx2
 	push	rbp
 	mov	rbp, rsp
 	and	rsp, -8
-	cmp	sil, 7
+	cmp	sil, 8
 	jg	.LBB0_11
 # %bb.1:
 	test	sil, sil
@@ -99,13 +99,13 @@ arithmetic_binary_avx2:                 # @arithmetic_binary_avx2
 	jne	.LBB0_634
 	jmp	.LBB0_825
 .LBB0_11:
-	cmp	sil, 8
+	cmp	sil, 9
 	je	.LBB0_154
 # %bb.12:
-	cmp	sil, 9
+	cmp	sil, 10
 	je	.LBB0_420
 # %bb.13:
-	cmp	sil, 10
+	cmp	sil, 11
 	jne	.LBB0_825
 # %bb.14:
 	cmp	edi, 6
@@ -5838,7 +5838,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	push	rbp
 	mov	rbp, rsp
 	and	rsp, -8
-	cmp	sil, 7
+	cmp	sil, 8
 	jg	.LBB1_12
 # %bb.1:
 	test	sil, sil
@@ -5917,13 +5917,13 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jne	.LBB1_668
 	jmp	.LBB1_1109
 .LBB1_12:
-	cmp	sil, 8
+	cmp	sil, 9
 	je	.LBB1_39
 # %bb.13:
-	cmp	sil, 9
+	cmp	sil, 10
 	je	.LBB1_47
 # %bb.14:
-	cmp	sil, 10
+	cmp	sil, 11
 	jne	.LBB1_1109
 # %bb.15:
 	cmp	edi, 6
@@ -13039,7 +13039,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	push	rbp
 	mov	rbp, rsp
 	and	rsp, -8
-	cmp	sil, 7
+	cmp	sil, 8
 	jg	.LBB2_12
 # %bb.1:
 	test	sil, sil
@@ -13118,13 +13118,13 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	jne	.LBB2_668
 	jmp	.LBB2_1109
 .LBB2_12:
-	cmp	sil, 8
+	cmp	sil, 9
 	je	.LBB2_39
 # %bb.13:
-	cmp	sil, 9
+	cmp	sil, 10
 	je	.LBB2_47
 # %bb.14:
-	cmp	sil, 10
+	cmp	sil, 11
 	jne	.LBB2_1109
 # %bb.15:
 	cmp	edi, 6
@@ -20079,16 +20079,16 @@ arithmetic_unary_same_types_avx2:       # @arithmetic_unary_same_types_avx2
 	push	rbp
 	mov	rbp, rsp
 	and	rsp, -8
-	cmp	sil, 6
+	cmp	sil, 7
 	jle	.LBB3_12
 # %bb.1:
-	cmp	sil, 7
+	cmp	sil, 8
 	je	.LBB3_22
 # %bb.2:
-	cmp	sil, 12
+	cmp	sil, 13
 	je	.LBB3_30
 # %bb.3:
-	cmp	sil, 13
+	cmp	sil, 14
 	jne	.LBB3_865
 # %bb.4:
 	cmp	edi, 6
@@ -25335,7 +25335,7 @@ arithmetic_unary_diff_type_avx2:        # @arithmetic_unary_diff_type_avx2
 	push	r14
 	push	rbx
 	and	rsp, -8
-	cmp	dl, 7
+	cmp	dl, 8
 	jne	.LBB4_1351
 # %bb.1:
 	cmp	edi, 6
