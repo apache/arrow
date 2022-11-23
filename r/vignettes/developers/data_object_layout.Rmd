@@ -15,7 +15,7 @@ library(arrow, warn.conflicts = FALSE)
 
 We begin by describing two key concepts:
 
-- Values in an array are stored in one or more **buffers**. A buffer is a sequential virtual address space (i.e., block of memory) with a given length. Given a  pointer specifying the memory address where the buffer starts, you can reach any byte in the buffer with an "offset" value that specifies a location relative to the start of the buffer. 
+- Values in an array are stored in one or more **buffers**. A buffer is a sequential virtual address space (i.e., block of memory) with a given length. Given a pointer specifying the memory address where the buffer starts, you can reach any byte in the buffer with an "offset" value that specifies a location relative to the start of the buffer. 
 - The **physical layout** of an array is a term used to describe how data in an array is laid out in memory, without taking into account how that information is interpreted. As an example: a 32-bit signed integer and 32-bit floating point number have the same layout: they are both 32 bits, represented as 4 contiguous bytes in memory. The meaning is different, but the layout is the same.
 
 We can unpack these ideas using a simple array of integer values:
