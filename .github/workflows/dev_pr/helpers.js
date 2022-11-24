@@ -69,8 +69,24 @@ async function getJiraInfo(jiraID) {
     });
 }
 
+/**
+ * Given the title of a PullRequest checks if it contains a GitHub issue ID
+ * @param {String} title
+ * @returns {Boolean} true if title starts with a GitHub ID or MINOR:
+ */
+ function haveGitHubIssueID(title) {
+    if (!title) {
+      return false;
+    }
+    if (title.startsWith("MINOR: ")) {
+      return true;
+    }
+    return /^(WIP:?\s*)?(GH)-\d+/.test(title);
+}
+
 module.exports = {
     detectJIRAID,
     haveJIRAID,
-    getJiraInfo
+    getJiraInfo,
+    haveGitHubIssueID
 };
