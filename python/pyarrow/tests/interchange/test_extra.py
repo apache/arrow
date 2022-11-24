@@ -73,8 +73,8 @@ def test_offset_of_sliced_array():
     arr = pa.array([1, 2, 3, 4])
     arr_sliced = arr.slice(2, 2)
 
-    table = pa.table([arr], names = ["arr"])
-    table_sliced = pa.table([arr_sliced], names = ["arr_sliced"])
+    table = pa.table([arr], names=["arr"])
+    table_sliced = pa.table([arr_sliced], names=["arr_sliced"])
 
     df = from_dataframe(table)
     df_sliced = from_dataframe(table_sliced)
