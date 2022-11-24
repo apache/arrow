@@ -68,6 +68,23 @@ class RandomArrayTest : public ::testing::TestWithParam<RandomTestParam> {
       GetAllBuffers(*child, out);
     }
   }
+
+  bool HasList(const DataType& type) {
+    if (is_list_like(type.id()) && type.id() != Type::FIXED_SIZE_LIST) {
+      return true;
+    }
+    for (const auto& child : type.fields()) {
+      if (HasList(*child->type())) {
+        return true;
+      }
+    }
+    if (type.id() == Type::DICTIONARY) {
+      if (HasList(*checked_cast<const DictionaryType&>(type).value_type())) {
+        return true;
+      }
+    }
+    return false;
+  }
 };
 
 TEST_P(RandomArrayTest, GenerateArray) {
@@ -81,7 +98,7 @@ TEST_P(RandomArrayTest, GenerateArray) {
 TEST_P(RandomArrayTest, GenerateArrayAlignment) {
   const int64_t alignment = 1024;
   auto field = GetField();
-  if (is_list_like(field->type()->id())) {
+  if (HasList(*field->type())) {
     GTEST_SKIP() << "ListArray::FromArrays does not conserve buffer alignment";
   }
   auto array = GenerateArray(*field, /*size=*/13, 0xDEADBEEF, alignment);
