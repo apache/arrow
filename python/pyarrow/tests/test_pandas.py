@@ -20,6 +20,7 @@ import decimal
 import json
 import multiprocessing as mp
 import sys
+import warnings
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
@@ -239,10 +240,9 @@ class TestConvertMetadata:
         # attributes -> can be removed if support < pd 0.25 is dropped
         df = pd.DataFrame(np.random.randn(4, 2), columns=['a', 'b'])
 
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="error")
             _check_pandas_roundtrip(df, preserve_index=True)
-
-        assert len(record) == 0, [r.message for r in record]
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
@@ -290,10 +290,9 @@ class TestConvertMetadata:
         columns = pd.MultiIndex.from_arrays([['one', 'two'], ['X', 'Y']])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
 
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="error")
             _check_pandas_roundtrip(df, preserve_index=True)
-
-        assert len(record) == 0, [r.message for r in record]
 
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
