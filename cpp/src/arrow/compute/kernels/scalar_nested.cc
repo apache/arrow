@@ -148,8 +148,9 @@ struct ListSlice {
     // construct array values
     if (return_fixed_size_list) {
       const auto length = MaxSliceLength(opts.start, opts.stop.value(), opts.step);
-      RETURN_NOT_OK(
-          MakeBuilder(ctx->memory_pool(), fixed_size_list(value_type, length), &builder));
+      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(),
+                                fixed_size_list(value_type, static_cast<int32_t>(length)),
+                                &builder));
       RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
     } else {
       if constexpr (std::is_same_v<Type, LargeListType>) {
