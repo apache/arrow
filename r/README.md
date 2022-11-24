@@ -31,7 +31,7 @@ tasks. It allows users to read and write data in a variety formats:
 It provides data analysis tools for both in-memory and larger-than-memory data sets
 
 -   Analyze and process larger-than-memory datasets
--   Manipulate and analyze Arrow data with `dplyr` verbs
+-   Manipulate and analyze Arrow data with dplyr verbs
 
 It provides access to remote filesystems and servers
 
