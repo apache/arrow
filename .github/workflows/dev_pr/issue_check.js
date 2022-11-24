@@ -78,11 +78,36 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
     }
 }
 
+async function verifyGitHubIssue(github, context, pullRequestNumber, issueID) {
+    const issue = await github.rest.issues.get({
+        issue_number: issueID,
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+      })
+    await github.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: pullRequestNumber,
+        body: ":warning: Ticket **has not been started in JIRA**, please click 'Start Progress'." + issue
+    })
+    //if(!ticketInfo["fields"]["components"].length) {
+    //    await commentMissingComponents(github, context, pullRequestNumber);
+    //}
+
+    //if(ticketInfo["fields"]["status"]["id"] == 1) {
+    //    // "status": {"name":"Open","id":"1"
+    //    //            "description":"The issue is open and ready for the assignee to start work on it.", 
+    //    await commentNotStartedTicket(github, context, pullRequestNumber);
+    //}
+}
+
 module.exports = async ({github, context}) => {
     const pullRequestNumber = context.payload.number;
     const title = context.payload.pull_request.title;
-    const jiraID = helpers.detectJIRAID(title);
-    if (jiraID) {
-          await verifyJIRAIssue(github, context, pullRequestNumber, jiraID);
+    const issueID = helpers.detectIssueID(title)
+    if (helpers.haveJIRAID(title)) {
+          await verifyJIRAIssue(github, context, pullRequestNumber, issueID);
+    } else if(helpers.haveGitHubIssueID(title)) {
+        await verifyGitHubIssue(github, context, pullRequestNumber, issueID);
     }
 };
