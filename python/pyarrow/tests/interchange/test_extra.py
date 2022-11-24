@@ -17,6 +17,7 @@
 
 from datetime import datetime as dt
 import pyarrow as pa
+from pyarrow.vendored.version import Version
 import pytest
 
 from pyarrow.interchange.column import (
@@ -70,6 +71,9 @@ def test_array_to_pyarrowcolumn(test_data, kind):
 
 @pytest.mark.pandas
 def test_offset_of_sliced_array():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
     arr = pa.array([1, 2, 3, 4])
     arr_sliced = arr.slice(2, 2)
 
