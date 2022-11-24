@@ -4851,8 +4851,8 @@ def test_dataset_join_collisions(tempdir):
 ])
 def test_dataset_filter(tempdir, dstype):
     t1 = pa.table({
-        "colA": [1, 2, 6],
-        "col2": ["a", "b", "f"]
+        "colA": [1, 2, 6, 8],
+        "col2": ["a", "b", "f", "g"]
     })
     if dstype == "fs":
         ds.write_dataset(t1, tempdir / "t1", format="ipc")
@@ -4862,6 +4862,7 @@ def test_dataset_filter(tempdir, dstype):
     else:
         raise NotImplementedError
 
+    # Ensure chained filtering works.
     result = ds1.filter(pc.field("colA") < 3).filter(pc.field("col2") == "a")
     assert result.to_table() == pa.table({
         "colA": [1],
@@ -4875,6 +4876,14 @@ def test_dataset_filter(tempdir, dstype):
         "col2": ["a"]
     })
 
+    # Ensure that further filtering with scanners works too
+    r2 = ds1.filter(pc.field("colA") < 8).filter(pc.field("colA") > 1).scanner(filter=pc.field("colA") != 6)
+    assert r2.to_table() == pa.table({
+        "colA": [2],
+        "col2": ["b"]
+    })
+
+    # Ensure that writing back to disk works.
     ds.write_dataset(result, tempdir / "filtered", format="ipc")
     filtered = ds.dataset(tempdir / "filtered", format="ipc")
     assert filtered.to_table() == pa.table({

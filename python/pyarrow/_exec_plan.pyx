@@ -113,7 +113,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
             current_decl = CDeclaration(tobytes("filter"), no_c_inputs,
                                         static_pointer_cast[CExecNodeOptions, CFilterNodeOptions](
                 make_shared[CFilterNodeOptions](
-                    deref(deref(c_scanopts).scan_options).filter, True)
+                    deref(deref(c_scanopts).scan_options).filter)
             )
             )
             current_decl.inputs.push_back(

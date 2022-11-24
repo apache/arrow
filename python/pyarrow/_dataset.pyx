@@ -2472,10 +2472,9 @@ cdef class Scanner(_Weakrefable):
         return GetResultValue(deref(builder).GetScanOptions())
 
     @staticmethod
-    def from_dataset(Dataset dataset not None,
-                     bint use_threads=True, object use_async=None,
-                     MemoryPool memory_pool=None,
-                     object columns=None, Expression filter=None,
+    def from_dataset(Dataset dataset not None, *,
+                     object columns=None,
+                     Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                      int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
