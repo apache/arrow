@@ -75,7 +75,18 @@ pushd ${spark_dir}
   spark_python_tests=(
     "pyspark.sql.tests.test_arrow")
 
-  if [ "${SPARK_VERSION}" != "master" ]; then
+  old_test_modules=false
+  # Spark <= 2.x or <= 3.3.x
+  if [ "${SPARK_VERSION:0:2}" == "2." ]; then
+    old_test_modules=true
+  elif [ "${SPARK_VERSION:0:2}" == "3." ]; then
+    if [ "${SPARK_VERSION:2:4}" == "1." ] || \
+       [ "${SPARK_VERSION:2:4}" == "2." ] || \
+       [ "${SPARK_VERSION:2:4}" == "3." ]; then
+        old_test_modules=true
+    fi
+  fi
+  if [ ${old_test_modules} == "true" ]; then
     spark_python_tests+=(
       "pyspark.sql.tests.test_pandas_grouped_map"
       "pyspark.sql.tests.test_pandas_map"
