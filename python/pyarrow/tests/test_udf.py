@@ -562,7 +562,7 @@ def datasource1_generator():
 
     def batch_gen(ctx):
         for n in range(3, 0, -1):
-            #ctx =
+            # ctx =
             yield _record_batch_for_range(schema, n - 1)
     return make_udt_func(schema, batch_gen)
 
@@ -572,7 +572,7 @@ def datasource1_exception():
 
     def batch_gen(ctx):
         for n in range(3, 0, -1):
-            #ctx =
+            # ctx =
             yield _record_batch_for_range(schema, n - 1)
         raise RuntimeError("datasource1_exception")
     return make_udt_func(schema, batch_gen)
