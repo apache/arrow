@@ -357,18 +357,19 @@ def signal_wakeup_fd(*, warn_on_full_buffer=False):
 
 def _ensure_minio_component_version(component, minimum_year):
     full_args = [component, '--version']
-    proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, encoding='utf-8')
-    if proc.wait(10) != 0:
-        return False
-    stdout = proc.stdout.read()
-    pattern = component + r' version RELEASE\.(\d+)-.*'
-    version_match = re.search(pattern, stdout)
-    if version_match:
-        version_year = version_match.group(1)
-        return int(version_year) >= minimum_year
-    else:
-        raise FileNotFoundError("minio component older than the minimum year")
+    with subprocess.Popen(full_args, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, encoding='utf-8') as proc:
+        if proc.wait(10) != 0:
+            return False
+        stdout = proc.stdout.read()
+        pattern = component + r' version RELEASE\.(\d+)-.*'
+        version_match = re.search(pattern, stdout)
+        if version_match:
+            version_year = version_match.group(1)
+            return int(version_year) >= minimum_year
+        else:
+            raise FileNotFoundError(
+                "minio component older than the minimum year")
 
 
 def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
@@ -385,16 +386,16 @@ def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
 
 def _run_mc_command(mcdir, *args):
     full_args = ['mc', '-C', mcdir] + list(args)
-    proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, encoding='utf-8')
-    retval = proc.wait(10)
-    cmd_str = ' '.join(full_args)
-    print(f'Cmd: {cmd_str}')
-    print(f'  Return: {retval}')
-    print(f'  Stdout: {proc.stdout.read()}')
-    print(f'  Stderr: {proc.stderr.read()}')
-    if retval != 0:
-        raise ChildProcessError("Could not run mc")
+    with subprocess.Popen(full_args, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, encoding='utf-8') as proc:
+        retval = proc.wait(10)
+        cmd_str = ' '.join(full_args)
+        print(f'Cmd: {cmd_str}')
+        print(f'  Return: {retval}')
+        print(f'  Stdout: {proc.stdout.read()}')
+        print(f'  Stderr: {proc.stderr.read()}')
+        if retval != 0:
+            raise ChildProcessError("Could not run mc")
 
 
 def _configure_s3_limited_user(s3_server, policy):
