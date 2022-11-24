@@ -156,6 +156,7 @@ cdef class Dataset(_Weakrefable):
     cdef void init(self, const shared_ptr[CDataset]& sp):
         self.wrapped = sp
         self.dataset = sp.get()
+        self._scan_options = dict()
 
     @staticmethod
     cdef wrap(const shared_ptr[CDataset]& sp):
@@ -231,8 +232,23 @@ cdef class Dataset(_Weakrefable):
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
 
-    def scanner_options(self, options):
-        return options
+    def _scanner_options(self, options):
+        """Returns the default options to create a new Scanner.
+
+        This is automatically invoked by :meth:`Dataset.scanner`
+        and there is no need to use it.
+        """
+        new_options = options.copy()
+
+        # at the moment only support filter
+        requested_filter = options.get("filter")
+        current_filter = self._scan_options.get("filter")
+        if requested_filter is not None and current_filter is not None:
+            new_options["filter"] = current_filter & requested_filter
+        elif current_filter is not None:
+            new_options["filter"] = current_filter
+
+        return new_options
 
     def scanner(self, **kwargs):
         """
@@ -399,9 +415,19 @@ cdef class Dataset(_Weakrefable):
 
         Returns
         -------
-        FilteredDataset
+        Dataset
         """
-        return FilteredDataset(self, expression)
+        cdef:
+            Dataset filtered_dataset
+
+        try:
+            new_filter = self._scan_options["filter"] & expression
+        except KeyError:
+            new_filter = expression
+        filtered_dataset = self.__class__.__new__(self.__class__)
+        filtered_dataset.init(self.wrapped)
+        filtered_dataset._scan_options = dict(filter=new_filter)
+        return filtered_dataset
 
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
@@ -450,63 +476,6 @@ cdef class Dataset(_Weakrefable):
                                               left_suffix=left_suffix, right_suffix=right_suffix,
                                               use_threads=use_threads, coalesce_keys=coalesce_keys,
                                               output_type=InMemoryDataset)
-
-cdef class FilteredDataset(Dataset):
-    """
-    A Dataset with an applied filter.
-
-    Parameters
-    ----------
-    dataset : Dataset
-        The dataset to which the filter should be applied.
-    expression : Expression
-        The filter that should be applied to the dataset.
-    """
-
-    def __init__(self, dataset, expression):
-        self.init(<shared_ptr[CDataset]>(<Dataset>dataset).wrapped)
-        self._scan_options = dict(filter=expression)
-
-    cdef void init(self, const shared_ptr[CDataset]& sp):
-        Dataset.init(self, sp)
-        self._scan_options = dict()
-
-    def filter(self, expression):
-        """Apply an additional row filter to the filtered dataset.
-
-        Parameters
-        ----------
-        expression : Expression
-            The filter that should be applied to the dataset.
-
-        Returns
-        -------
-        FilteredDataset
-        """
-        cdef:
-            FilteredDataset filtered_dataset
-
-        try:
-            new_filter = self._scan_options["filter"] & expression
-        except KeyError:
-            new_filter = expression
-        filtered_dataset = self.__class__.__new__(self.__class__)
-        filtered_dataset.init(self.wrapped)
-        filtered_dataset._scan_options = dict(filter=new_filter)
-        return filtered_dataset
-
-    def scanner_options(self, options):
-        new_options = options.copy()
-
-        # at the moment only support filter
-        requested_filter = options.get("filter")
-        current_filter = self._scan_options.get("filter")
-        if requested_filter is not None and current_filter is not None:
-            new_options["filter"] = current_filter & requested_filter
-        elif current_filter is not None:
-            new_options["filter"] = current_filter
-
-        return new_options
 
 cdef class InMemoryDataset(Dataset):
     """
@@ -2452,7 +2421,7 @@ cdef class Scanner(_Weakrefable):
         cdef:
             shared_ptr[CScannerBuilder] builder = make_shared[CScannerBuilder](dataset.unwrap())
 
-        py_scanoptions = dataset.scanner_options(py_scanoptions)
+        py_scanoptions = dataset._scanner_options(py_scanoptions)
 
         # Need to explicitly expand the arguments as Cython doesn't support
         # keyword expansion in cdef functions.

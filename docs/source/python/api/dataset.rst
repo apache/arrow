@@ -60,7 +60,6 @@ Classes
    HivePartitioning
    FilenamePartitioning
    Dataset
-   FilteredDataset
    FileSystemDataset
    FileSystemFactoryOptions
    FileSystemDatasetFactory

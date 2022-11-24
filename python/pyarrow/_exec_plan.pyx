@@ -31,7 +31,7 @@ from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wra
                           RecordBatchReader)
 from pyarrow.lib import tobytes
 from pyarrow._compute cimport Expression, _true
-from pyarrow._dataset cimport Dataset, FilteredDataset, Scanner
+from pyarrow._dataset cimport Dataset, Scanner
 from pyarrow._dataset import InMemoryDataset
 
 Initialize()  # Initialise support for Datasets in ExecPlan

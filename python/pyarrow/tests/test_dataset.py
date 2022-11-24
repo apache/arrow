@@ -4864,12 +4864,13 @@ def test_dataset_filter(tempdir, dstype):
 
     # Ensure chained filtering works.
     result = ds1.filter(pc.field("colA") < 3).filter(pc.field("col2") == "a")
+    assert type(result) == (ds.FileSystemDataset if dstype ==
+                            "fs" else ds.InMemoryDataset)
+
     assert result.to_table() == pa.table({
         "colA": [1],
         "col2": ["a"]
     })
-
-    assert type(result) == ds.FilteredDataset
 
     assert result.head(5) == pa.table({
         "colA": [1],
@@ -4877,7 +4878,8 @@ def test_dataset_filter(tempdir, dstype):
     })
 
     # Ensure that further filtering with scanners works too
-    r2 = ds1.filter(pc.field("colA") < 8).filter(pc.field("colA") > 1).scanner(filter=pc.field("colA") != 6)
+    r2 = ds1.filter(pc.field("colA") < 8).filter(
+        pc.field("colA") > 1).scanner(filter=pc.field("colA") != 6)
     assert r2.to_table() == pa.table({
         "colA": [2],
         "col2": ["b"]
@@ -4891,6 +4893,7 @@ def test_dataset_filter(tempdir, dstype):
         "col2": ["a"]
     })
 
+    # Ensure that joining to a filtered Dataset works.
     joined = result.join(ds.dataset(pa.table({
         "colB": [10, 20],
         "col2": ["a", "b"]
