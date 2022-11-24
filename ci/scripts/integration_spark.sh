@@ -80,9 +80,9 @@ pushd ${spark_dir}
   if [ "${SPARK_VERSION:0:2}" == "2." ]; then
     old_test_modules=true
   elif [ "${SPARK_VERSION:0:2}" == "3." ]; then
-    if [ "${SPARK_VERSION:2:4}" == "1." ] || \
-       [ "${SPARK_VERSION:2:4}" == "2." ] || \
-       [ "${SPARK_VERSION:2:4}" == "3." ]; then
+    if [ "${SPARK_VERSION:2:2}" == "1." ] || \
+       [ "${SPARK_VERSION:2:2}" == "2." ] || \
+       [ "${SPARK_VERSION:2:2}" == "3." ]; then
         old_test_modules=true
     fi
   fi
