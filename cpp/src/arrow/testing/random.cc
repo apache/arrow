@@ -314,7 +314,7 @@ struct DecimalGenerator {
 
     // Second compute decimal values from the individual components,
     // building up a decimal array.
-    DecimalBuilderType builder(type_);
+    DecimalBuilderType builder(type_, memory_pool, alignment);
     ABORT_NOT_OK(builder.Reserve(size));
 
     const DecimalValue kDigitsMultiplier =
@@ -386,7 +386,7 @@ static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int
                  /*null_probability=*/0);
 
   std::vector<uint8_t> str_buffer(max_length);
-  BuilderType builder;
+  BuilderType builder(memory_pool, alignment);
 
   for (int64_t i = 0; i < size; ++i) {
     if (lengths->IsValid(i)) {
@@ -544,8 +544,6 @@ template <typename OffsetArrayType>
 std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
                                                bool force_empty_nulls, int64_t alignment,
                                                MemoryPool* memory_pool) {
-  DCHECK(lengths->length() == 0 || !lengths->IsNull(0));
-  DCHECK(lengths->length() == 0 || !lengths->IsNull(lengths->length() - 1));
   // Need N + 1 offsets for N items
   int64_t size = lengths->length() + 1;
   BufferVector buffers{2};
@@ -569,6 +567,9 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
       arrow::bit_util::SetBit(null_bitmap, index);
       data[index] = data[index - 1] + *length;
       DCHECK_GE(*length, 0);
+    } else if (index == size - 1) {
+      // Last list offset is non-null (see above)
+      data[index] = data[index - 1];
     } else {
       data[index] = data[index - 1];
       null_count++;
@@ -577,8 +578,8 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
   }
 
   if (force_empty_nulls) {
-    arrow::internal::BitmapReader reader(null_bitmap, 0, size);
-    for (int64_t i = 0; i < size; ++i) {
+    arrow::internal::BitmapReader reader(null_bitmap, 0, size - 1);
+    for (int64_t i = 0; i < size - 1; ++i) {
       if (reader.IsNotSet()) {
         // Ensure a null entry corresponds to a 0-sized list extent
         // (note this can be neither the first nor the last list entry, see above)
@@ -662,7 +663,7 @@ std::shared_ptr<Array> RandomArrayGenerator::DenseUnion(const ArrayVector& field
 
   // Generate array of offsets
   const auto& concrete_ids = checked_cast<const Int8Array&>(*type_ids);
-  Int32Builder offsets_builder;
+  Int32Builder offsets_builder(memory_pool, alignment);
   ABORT_NOT_OK(offsets_builder.Reserve(size));
   std::vector<int32_t> last_offsets(fields.size(), 0);
   for (int64_t i = 0; i < size; ++i) {
@@ -909,7 +910,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       ArrayVector child_arrays(field.type()->num_fields());
       for (int i = 0; i < field.type()->num_fields(); i++) {
         const auto& child_field = field.type()->field(i);
-        child_arrays[i] = ArrayOf(*child_field, length);
+        child_arrays[i] = ArrayOf(*child_field, length, alignment, memory_pool);
       }
       auto array = field.type()->id() == Type::type::SPARSE_UNION
                        ? SparseUnion(child_arrays, length, alignment, memory_pool)
@@ -924,7 +925,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       // TODO: no way to control generation of dictionary
       auto values =
           ArrayOf(*arrow::field("temporary", dict_type->value_type(), /*nullable=*/false),
-                  values_length);
+                  values_length, alignment, memory_pool);
       auto merged = field.metadata() ? field.metadata() : key_value_metadata({}, {});
       if (merged->Contains("min"))
         ABORT_NOT_OK(Status::Invalid(field.ToString(), ": cannot specify min"));
