@@ -18,19 +18,22 @@
 const https = require('https');
 
 /**
- * Given the title of a PullRequest return the ID of the JIRA issue
+ * Given the title of a PullRequest return the ID of the JIRA or GitHub issue
  * @param {String} title 
- * @returns {String} the ID of the associated JIRA issue
+ * @returns {String} the ID of the associated JIRA or GitHub issue
  */
-function detectJIRAID(title) {
+function detectIssueID(title) {
     if (!title) {
         return null;
     }
     const matched = /^(WIP:?\s*)?((ARROW|PARQUET)-\d+)/.exec(title);
-    if (!matched) {
-        return null;
+    const matched_gh = /^(WIP:?\s*)?(GH-)(\d+)/.exec(title);
+    if (matched) {
+        return matched[2];
+    } else if (matched_gh) {
+        return matched_gh[3]
     }
-    return matched[2];
+    return null;
 }
 
 /**
@@ -69,8 +72,44 @@ async function getJiraInfo(jiraID) {
     });
 }
 
+/**
+ * Retrieves information about a GitHub issue.
+ * @param {String} issueID
+ * @returns {Object} the information about a GitHub issue.
+ */
+ async function getGitHubInfo(github, context, issueID, pullRequestNumber) {
+    try {
+        const response = await github.issues.get({
+            issue_number: issueID,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+        })
+        return response.data
+    } catch (error) {
+        console.log(`${error.name}: ${error.code}`);
+        return false
+    }
+}
+
+/**
+ * Given the title of a PullRequest checks if it contains a GitHub issue ID
+ * @param {String} title
+ * @returns {Boolean} true if title starts with a GitHub ID or MINOR:
+ */
+ function haveGitHubIssueID(title) {
+    if (!title) {
+      return false;
+    }
+    if (title.startsWith("MINOR: ")) {
+      return true;
+    }
+    return /^(WIP:?\s*)?(GH)-\d+/.test(title);
+}
+
 module.exports = {
-    detectJIRAID,
+    detectIssueID,
     haveJIRAID,
-    getJiraInfo
+    getJiraInfo,
+    haveGitHubIssueID,
+    getGitHubInfo
 };

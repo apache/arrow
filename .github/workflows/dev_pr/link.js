@@ -51,11 +51,30 @@ async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
   });
 }
 
+async function commentGitHubURL(github, context, pullRequestNumber, issueID) {
+  // Make the call to ensure issue exists before adding comment
+  const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
+  // TODO: Check if comment is already there
+  //if (await haveComment(github, context, pullRequestNumber, jiraURL)) {
+  //  return;
+  //}
+  if (issueInfo){
+    await github.issues.createComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: pullRequestNumber,
+      body: "* Github Issue: #" + issueInfo.number
+    });
+  }
+}
+
 module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
-  const jiraID = helpers.detectJIRAID(title);
-  if (jiraID) {
-    await commentJIRAURL(github, context, pullRequestNumber, jiraID);
+  const issueID = helpers.detectIssueID(title);
+  if (helpers.haveJIRAID(title)) {
+    await commentJIRAURL(github, context, pullRequestNumber, issueID);
+  } else if (helpers.haveGitHubIssueID(title)) {
+    await commentGitHubURL(github, context, pullRequestNumber, issueID);
   }
 };

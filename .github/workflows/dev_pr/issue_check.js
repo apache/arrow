@@ -78,11 +78,42 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
     }
 }
 
+async function verifyGitHubIssue(github, context, pullRequestNumber, issueID) {
+    const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
+    if (issueInfo) {
+        if (!issueInfo.assignees.length) {
+            await github.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pullRequestNumber,
+                body: ":warning: GitHub issue #" + issueID + " **has not been assigned in GitHub**, please assign the ticket."
+            })
+        }
+        if(!issueInfo.labels.length) {
+            await github.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pullRequestNumber,
+                body: ":warning: GitHub issue #" + issueID + " **has no labels in GitHub**, please add labels for components."
+            })
+        }
+    } else {
+        await github.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: pullRequestNumber,
+            body: ":warning: GitHub issue #" + issueID + " could not be retrieved."
+        })
+    }
+}
+
 module.exports = async ({github, context}) => {
     const pullRequestNumber = context.payload.number;
     const title = context.payload.pull_request.title;
-    const jiraID = helpers.detectJIRAID(title);
-    if (jiraID) {
-          await verifyJIRAIssue(github, context, pullRequestNumber, jiraID);
+    const issueID = helpers.detectIssueID(title)
+    if (helpers.haveJIRAID(title)) {
+          await verifyJIRAIssue(github, context, pullRequestNumber, issueID);
+    } else if(helpers.haveGitHubIssueID(title)) {
+        await verifyGitHubIssue(github, context, pullRequestNumber, issueID);
     }
 };
