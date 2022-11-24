@@ -79,7 +79,7 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
 }
 
 async function verifyGitHubIssue(github, context, pullRequestNumber, issueID) {
-    const issue = await github.rest.issues.get({
+    const issue = await github.issues.get({
         issue_number: issueID,
         owner: context.repo.owner,
         repo: context.repo.repo,

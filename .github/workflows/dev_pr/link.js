@@ -51,11 +51,28 @@ async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
   });
 }
 
+async function commentGitHubURL(github, context, pullRequestNumber, issueID) {
+  // TODO: Change url and probably use the issues endpoint to retrieve it
+  const issueURL = `https://github.com/raulcd/arrow/issues/${issueID}`;
+  // TODO: Check if comment is already there
+  //if (await haveComment(github, context, pullRequestNumber, jiraURL)) {
+  //  return;
+  //}
+  await github.issues.createComment({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    issue_number: pullRequestNumber,
+    body: issueURL
+  });
+}
+
 module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
-  const jiraID = helpers.detectIssueID(title);
-  if (jiraID) {
-    await commentJIRAURL(github, context, pullRequestNumber, jiraID);
+  const issueID = helpers.detectIssueID(title);
+  if (helpers.haveJIRAID(title)) {
+    await commentJIRAURL(github, context, pullRequestNumber, issueID);
+  } else if (helpers.haveGitHubIssueID(title)) {
+    await commentGitHubURL(github, context, pullRequestNumber, issueID);
   }
 };
