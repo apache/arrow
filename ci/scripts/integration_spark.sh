@@ -86,7 +86,7 @@ pushd ${spark_dir}
         old_test_modules=true
     fi
   fi
-  if [ ${old_test_modules} == "true" ]; then
+  if [ "${old_test_modules}" == "true" ]; then
     spark_python_tests+=(
       "pyspark.sql.tests.test_pandas_grouped_map"
       "pyspark.sql.tests.test_pandas_map"
