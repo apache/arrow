@@ -4377,6 +4377,7 @@ def make_df_with_timestamps():
 
 
 @pytest.mark.parquet
+@pytest.mark.filterwarnings("ignore:Parquet format '2.0':FutureWarning")
 def test_timestamp_as_object_parquet(tempdir):
     # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
