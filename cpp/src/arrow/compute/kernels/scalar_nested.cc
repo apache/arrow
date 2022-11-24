@@ -17,7 +17,7 @@
 
 // Vector kernels involving nested types
 
-#include <valarray>
+#include <cmath>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
@@ -97,17 +97,17 @@ std::string ToString(const std::optional<T>& o) {
   return o.has_value() ? ToChars(*o) : "(nullopt)";
 }
 
-int MaxSliceLength(std::slice slice) {
-  const auto start = static_cast<float>(slice.start());
-  const auto size = static_cast<float>(slice.size());
-  const auto stride = static_cast<float>(slice.stride());
+int64_t MaxSliceLength(const int64_t start, const int64_t stop, const int64_t step) {
+  const auto startf = static_cast<float>(start);
+  const auto stopf = static_cast<float>(stop);
+  const auto stepf = static_cast<float>(step);
 
-  if (size - start <= stride) {
+  if (stopf - startf <= stepf) {
     return 1;
   }
 
-  auto length = static_cast<int>(std::floor((size - start) / stride));
-  if (fmod(static_cast<float>(length), stride) > 0.0) {
+  auto length = static_cast<int64_t>(std::floor((stopf - startf) / stepf));
+  if (fmod(static_cast<float>(length), stepf) > 0.0) {
     ++length;
   }
   return length;
@@ -147,9 +147,7 @@ struct ListSlice {
 
     // construct array values
     if (return_fixed_size_list) {
-      const auto length = MaxSliceLength(std::slice(
-          static_cast<size_t>(opts.start), static_cast<size_t>(opts.stop.value()),
-          static_cast<size_t>(opts.step)));
+      const auto length = MaxSliceLength(opts.start, opts.stop.value(), opts.step);
       RETURN_NOT_OK(
           MakeBuilder(ctx->memory_pool(), fixed_size_list(value_type, length), &builder));
       RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
@@ -261,9 +259,7 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
       return Status::NotImplemented(
           "Unable to produce FixedSizeListArray without `stop` being set.");
     }
-    const auto length = MaxSliceLength(std::slice(static_cast<size_t>(opts.start),
-                                                  static_cast<size_t>(opts.stop.value()),
-                                                  static_cast<size_t>(opts.step)));
+    const auto length = MaxSliceLength(opts.start, opts.stop.value(), opts.step);
     return fixed_size_list(value_type, length);
   } else {
     // Returning large list if that's what we got in and didn't ask for fixed size
