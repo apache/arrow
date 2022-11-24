@@ -54,7 +54,7 @@ async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
 module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
-  const jiraID = helpers.detectJIRAID(title);
+  const jiraID = helpers.detectIssueID(title);
   if (jiraID) {
     await commentJIRAURL(github, context, pullRequestNumber, jiraID);
   }
