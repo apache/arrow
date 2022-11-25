@@ -57,7 +57,7 @@ Id NormalizeFunctionName(Id id) {
 Status DecodeArg(const substrait::FunctionArgument& arg, int idx, SubstraitCall* call,
                  const ExtensionSet& ext_set,
                  const ConversionOptions& conversion_options) {
-  if (arg.has_enum_()) {
+  if (!arg.enum_().empty()) {
     call->SetEnumArg(idx, arg.enum_());
   } else if (arg.has_value()) {
     ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
