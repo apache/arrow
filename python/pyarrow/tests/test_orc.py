@@ -52,8 +52,10 @@ def fix_example_values(actual_cols, expected_cols):
         if (name == "map" and
                 [d.keys() == {'key', 'value'} for m in expected for d in m]):
             # convert [{'key': k, 'value': v}, ...] to [(k, v), ...]
+            col = expected_cols[name].copy()
             for i, m in enumerate(expected):
-                expected_cols[name][i] = [(d['key'], d['value']) for d in m]
+                col[i] = [(d['key'], d['value']) for d in m]
+            expected_cols[name] = col
             continue
 
         typ = actual[0].__class__
