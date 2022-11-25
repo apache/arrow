@@ -492,6 +492,25 @@ def test_scanner(dataset, dataset_reader):
 
 
 @pytest.mark.parquet
+def test_scanner_memory_pool(dataset):
+    # honor default pool - https://issues.apache.org/jira/browse/ARROW-18164
+    old_pool = pa.default_memory_pool()
+    # TODO(ARROW-18293) we should be able to use the proxy memory pool for
+    # for testing, but this crashes
+    # pool = pa.proxy_memory_pool(old_pool)
+    pool = pa.system_memory_pool()
+    pa.set_memory_pool(pool)
+
+    try:
+        allocated_before = pool.bytes_allocated()
+        scanner = ds.Scanner.from_dataset(dataset)
+        _ = scanner.to_table()
+        assert pool.bytes_allocated() > allocated_before
+    finally:
+        pa.set_memory_pool(old_pool)
+
+
+@pytest.mark.parquet
 def test_scanner_async_deprecated(dataset):
     with pytest.warns(FutureWarning):
         dataset.scanner(use_async=False)

@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute
 
 import (
@@ -81,6 +83,79 @@ func (fn *arithmeticFunction) DispatchBest(vals ...arrow.DataType) (exec.Kernel,
 	return fn.DispatchExact(vals...)
 }
 
+// an arithmetic function which promotes integers and decimal
+// arguments to doubles.
+type arithmeticFloatingPointFunc struct {
+	arithmeticFunction
+}
+
+func (fn *arithmeticFloatingPointFunc) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	return execInternal(ctx, fn, opts, -1, args...)
+}
+
+func (fn *arithmeticFloatingPointFunc) DispatchBest(vals ...arrow.DataType) (exec.Kernel, error) {
+	if err := fn.checkArity(len(vals)); err != nil {
+		return nil, err
+	}
+
+	if kn, err := fn.DispatchExact(vals...); err == nil {
+		return kn, nil
+	}
+
+	ensureDictionaryDecoded(vals...)
+
+	if len(vals) == 2 {
+		replaceNullWithOtherType(vals...)
+	}
+
+	for i, v := range vals {
+		if arrow.IsInteger(v.ID()) || arrow.IsDecimal(v.ID()) {
+			vals[i] = arrow.PrimitiveTypes.Float64
+		}
+	}
+
+	if dt := commonNumeric(vals...); dt != nil {
+		replaceTypes(dt, vals...)
+	}
+
+	return fn.DispatchExact(vals...)
+}
+
+type arithmeticDecimalToFloatingPointFunc struct {
+	arithmeticFunction
+}
+
+func (fn *arithmeticDecimalToFloatingPointFunc) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	return execInternal(ctx, fn, opts, -1, args...)
+}
+
+func (fn *arithmeticDecimalToFloatingPointFunc) DispatchBest(vals ...arrow.DataType) (exec.Kernel, error) {
+	if err := fn.checkArity(len(vals)); err != nil {
+		return nil, err
+	}
+
+	if kn, err := fn.DispatchExact(vals...); err == nil {
+		return kn, nil
+	}
+
+	ensureDictionaryDecoded(vals...)
+	if len(vals) == 2 {
+		replaceNullWithOtherType(vals...)
+	}
+
+	for i, t := range vals {
+		if arrow.IsDecimal(t.ID()) {
+			vals[i] = arrow.PrimitiveTypes.Float64
+		}
+	}
+
+	if dt := commonNumeric(vals...); dt != nil {
+		replaceTypes(dt, vals...)
+	}
+
+	return fn.DispatchExact(vals...)
+}
+
 var (
 	addDoc FunctionDoc
 )
@@ -97,7 +172,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 	for _, o := range ops {
 		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
-		kns := append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
+		kns := append(kernels.GetArithmeticBinaryKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
 		kns = append(kns, kernels.GetArithmeticFunctionTimeDuration(o.op)...)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
@@ -108,7 +183,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		for _, unit := range arrow.TimeUnitValues {
 			inType := exec.NewMatchedInput(exec.TimestampTypeUnit(unit))
 			inDuration := exec.NewExactInput(&arrow.DurationType{Unit: unit})
-			ex := kernels.ArithmeticExec(arrow.TIMESTAMP, o.op)
+			ex := kernels.ArithmeticExecSameType(arrow.TIMESTAMP, o.op)
 			err := fn.AddNewKernel([]exec.InputType{inType, inDuration}, kernels.OutputFirstType, ex, nil)
 			if err != nil {
 				panic(err)
@@ -119,7 +194,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 			}
 
 			matchDur := exec.NewMatchedInput(exec.DurationTypeUnit(unit))
-			ex = kernels.ArithmeticExec(arrow.DURATION, o.op)
+			ex = kernels.ArithmeticExecSameType(arrow.DURATION, o.op)
 			err = fn.AddNewKernel([]exec.InputType{matchDur, matchDur}, exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
 			if err != nil {
 				panic(err)
@@ -140,7 +215,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 	for _, o := range ops {
 		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
-		kns := append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
+		kns := append(kernels.GetArithmeticBinaryKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
 		kns = append(kns, kernels.GetArithmeticFunctionTimeDuration(o.op)...)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
@@ -151,7 +226,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		for _, unit := range arrow.TimeUnitValues {
 			// timestamp - timestamp => duration
 			inType := exec.NewMatchedInput(exec.TimestampTypeUnit(unit))
-			ex := kernels.ArithmeticExec(arrow.TIMESTAMP, o.op)
+			ex := kernels.ArithmeticExecSameType(arrow.TIMESTAMP, o.op)
 			err := fn.AddNewKernel([]exec.InputType{inType, inType}, kernels.OutputResolveTemporal, ex, nil)
 			if err != nil {
 				panic(err)
@@ -159,7 +234,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 			// timestamp - duration => timestamp
 			inDuration := exec.NewExactInput(&arrow.DurationType{Unit: unit})
-			ex = kernels.ArithmeticExec(arrow.TIMESTAMP, o.op)
+			ex = kernels.ArithmeticExecSameType(arrow.TIMESTAMP, o.op)
 			err = fn.AddNewKernel([]exec.InputType{inType, inDuration}, kernels.OutputFirstType, ex, nil)
 			if err != nil {
 				panic(err)
@@ -167,7 +242,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 			// duration - duration = duration
 			matchDur := exec.NewMatchedInput(exec.DurationTypeUnit(unit))
-			ex = kernels.ArithmeticExec(arrow.DURATION, o.op)
+			ex = kernels.ArithmeticExecSameType(arrow.DURATION, o.op)
 			err = fn.AddNewKernel([]exec.InputType{matchDur, matchDur}, exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
 			if err != nil {
 				panic(err)
@@ -177,7 +252,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		// time32 - time32 = duration
 		for _, unit := range []arrow.TimeUnit{arrow.Second, arrow.Millisecond} {
 			inType := exec.NewMatchedInput(exec.Time32TypeUnit(unit))
-			internalEx := kernels.ArithmeticExec(arrow.TIME32, o.op)
+			internalEx := kernels.ArithmeticExecSameType(arrow.TIME32, o.op)
 			ex := func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 				if err := internalEx(ctx, batch, out); err != nil {
 					return err
@@ -204,7 +279,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		// time64 - time64 = duration
 		for _, unit := range []arrow.TimeUnit{arrow.Microsecond, arrow.Nanosecond} {
 			inType := exec.NewMatchedInput(exec.Time64TypeUnit(unit))
-			ex := kernels.ArithmeticExec(arrow.TIME64, o.op)
+			ex := kernels.ArithmeticExecSameType(arrow.TIME64, o.op)
 			err := fn.AddNewKernel([]exec.InputType{inType, inType}, exec.NewOutputType(&arrow.DurationType{Unit: unit}), ex, nil)
 			if err != nil {
 				panic(err)
@@ -219,7 +294,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		}
 
 		inDate64 := exec.NewExactInput(arrow.FixedWidthTypes.Date64)
-		ex = kernels.ArithmeticExec(arrow.DATE64, o.op)
+		ex = kernels.ArithmeticExecSameType(arrow.DATE64, o.op)
 		err = fn.AddNewKernel([]exec.InputType{inDate64, inDate64}, exec.NewOutputType(arrow.FixedWidthTypes.Duration_ms), ex, nil)
 		if err != nil {
 			panic(err)
@@ -242,7 +317,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 	for _, o := range oplist {
 		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
-		for _, k := range append(kernels.GetArithmeticKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...) {
+		for _, k := range append(kernels.GetArithmeticBinaryKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...) {
 			if err := fn.AddKernel(k); err != nil {
 				panic(err)
 			}
@@ -252,7 +327,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 			durInput := exec.NewExactInput(&arrow.DurationType{Unit: unit})
 			i64Input := exec.NewExactInput(arrow.PrimitiveTypes.Int64)
 			durOutput := exec.NewOutputType(&arrow.DurationType{Unit: unit})
-			ex := kernels.ArithmeticExec(arrow.DURATION, o.op)
+			ex := kernels.ArithmeticExecSameType(arrow.DURATION, o.op)
 			err := fn.AddNewKernel([]exec.InputType{durInput, i64Input}, durOutput, ex, nil)
 			if err != nil {
 				panic(err)
@@ -265,6 +340,131 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 			}
 		}
 
+		reg.AddFunction(fn, false)
+	}
+
+	ops = []struct {
+		funcName   string
+		op         kernels.ArithmeticOp
+		decPromote decimalPromotion
+	}{
+		{"abs_unchecked", kernels.OpAbsoluteValue, decPromoteNone},
+		{"abs", kernels.OpAbsoluteValueChecked, decPromoteNone},
+		{"negate_unchecked", kernels.OpNegate, decPromoteNone},
+	}
+
+	for _, o := range ops {
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Unary(), addDoc), decPromoteNone}
+		kns := append(kernels.GetArithmeticUnaryKernels(o.op), kernels.GetDecimalUnaryKernels(o.op)...)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
+
+		reg.AddFunction(fn, false)
+	}
+
+	fn := &arithmeticFunction{*NewScalarFunction("negate", Unary(), addDoc), decPromoteNone}
+	kns := append(kernels.GetArithmeticUnarySignedKernels(kernels.OpNegateChecked), kernels.GetDecimalUnaryKernels(kernels.OpNegateChecked)...)
+	for _, k := range kns {
+		if err := fn.AddKernel(k); err != nil {
+			panic(err)
+		}
+	}
+
+	reg.AddFunction(fn, false)
+
+	ops = []struct {
+		funcName   string
+		op         kernels.ArithmeticOp
+		decPromote decimalPromotion
+	}{
+		{"sqrt_unchecked", kernels.OpSqrt, decPromoteNone},
+		{"sqrt", kernels.OpSqrtChecked, decPromoteNone},
+	}
+
+	for _, o := range ops {
+		fn := &arithmeticFloatingPointFunc{arithmeticFunction{*NewScalarFunction(o.funcName, Unary(), addDoc), decPromoteNone}}
+		kns := kernels.GetArithmeticUnaryFloatingPointKernels(o.op)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
+
+		reg.AddFunction(fn, false)
+	}
+
+	fn = &arithmeticFunction{*NewScalarFunction("sign", Unary(), addDoc), decPromoteNone}
+	kns = kernels.GetArithmeticUnaryFixedIntOutKernels(arrow.PrimitiveTypes.Int8, kernels.OpSign)
+	for _, k := range kns {
+		if err := fn.AddKernel(k); err != nil {
+			panic(err)
+		}
+	}
+
+	reg.AddFunction(fn, false)
+
+	ops = []struct {
+		funcName   string
+		op         kernels.ArithmeticOp
+		decPromote decimalPromotion
+	}{
+		{"power_unchecked", kernels.OpPower, decPromoteNone},
+		{"power", kernels.OpPowerChecked, decPromoteNone},
+	}
+
+	for _, o := range ops {
+		fn := &arithmeticDecimalToFloatingPointFunc{arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), EmptyFuncDoc), o.decPromote}}
+		kns := kernels.GetArithmeticBinaryKernels(o.op)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
+		reg.AddFunction(fn, false)
+	}
+
+	bitWiseOps := []struct {
+		funcName string
+		op       kernels.BitwiseOp
+	}{
+		{"bit_wise_and", kernels.OpBitAnd},
+		{"bit_wise_or", kernels.OpBitOr},
+		{"bit_wise_xor", kernels.OpBitXor},
+	}
+
+	for _, o := range bitWiseOps {
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), EmptyFuncDoc), decPromoteNone}
+		kns := kernels.GetBitwiseBinaryKernels(o.op)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
+		reg.AddFunction(fn, false)
+	}
+
+	shiftOps := []struct {
+		funcName string
+		dir      kernels.ShiftDir
+		checked  bool
+	}{
+		{"shift_left", kernels.ShiftLeft, true},
+		{"shift_left_unchecked", kernels.ShiftLeft, false},
+		{"shift_right", kernels.ShiftRight, true},
+		{"shift_right_unchecked", kernels.ShiftRight, false},
+	}
+
+	for _, o := range shiftOps {
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), EmptyFuncDoc), decPromoteNone}
+		kns := kernels.GetShiftKernels(o.dir, o.checked)
+		for _, k := range kns {
+			if err := fn.AddKernel(k); err != nil {
+				panic(err)
+			}
+		}
 		reg.AddFunction(fn, false)
 	}
 }
@@ -321,4 +521,78 @@ func Multiply(ctx context.Context, opts ArithmeticOptions, left, right Datum) (D
 // overflows.
 func Divide(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
 	return impl(ctx, "divide", opts, left, right)
+}
+
+// AbsoluteValue returns the AbsoluteValue for each element in the input
+// argument. It accepts either a scalar or an array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// performance is faster if not explicitly checking for overflows but
+// will error on an overflow if CheckOverflow is true.
+func AbsoluteValue(ctx context.Context, opts ArithmeticOptions, input Datum) (Datum, error) {
+	fn := "abs"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, input)
+}
+
+// Negate returns a result containing the negation of each element in the
+// input argument. It accepts either a scalar or an array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// or to throw an error on unsigned types.
+func Negate(ctx context.Context, opts ArithmeticOptions, input Datum) (Datum, error) {
+	fn := "negate"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, input)
+}
+
+// Sign returns -1, 0, or 1 depending on the sign of each element in the
+// input. For x in the input:
+//
+//	if x > 0: 1
+//  if x < 0: -1
+//  if x == 0: 0
+//
+func Sign(ctx context.Context, input Datum) (Datum, error) {
+	return CallFunction(ctx, "sign", nil, input)
+}
+
+// Power returns base**exp for each element in the input arrays. Should work
+// for both Arrays and Scalars
+func Power(ctx context.Context, opts ArithmeticOptions, base, exp Datum) (Datum, error) {
+	fn := "power"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, base, exp)
+}
+
+// ShiftLeft only accepts integral types and shifts each element of the
+// first argument to the left by the value of the corresponding element
+// in the second argument.
+//
+// The value to shift by should be >= 0 and < precision of the type.
+func ShiftLeft(ctx context.Context, opts ArithmeticOptions, lhs, rhs Datum) (Datum, error) {
+	fn := "shift_left"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, lhs, rhs)
+}
+
+// ShiftRight only accepts integral types and shifts each element of the
+// first argument to the right by the value of the corresponding element
+// in the second argument.
+//
+// The value to shift by should be >= 0 and < precision of the type.
+func ShiftRight(ctx context.Context, opts ArithmeticOptions, lhs, rhs Datum) (Datum, error) {
+	fn := "shift_right"
+	if opts.NoCheckOverflow {
+		fn += "_unchecked"
+	}
+	return CallFunction(ctx, fn, nil, lhs, rhs)
 }

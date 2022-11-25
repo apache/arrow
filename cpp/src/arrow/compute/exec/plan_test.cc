@@ -295,6 +295,85 @@ TEST(ExecPlanExecution, TableSourceSinkError) {
               Raises(StatusCode::Invalid, HasSubstr("batch_size > 0")));
 }
 
+template <typename ElementType, typename OptionsType>
+void TestSourceSinkError(
+    std::string source_factory_name,
+    std::function<Result<std::vector<ElementType>>(const BatchesWithSchema&)>
+        to_elements) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  std::shared_ptr<Schema> no_schema;
+
+  auto exp_batches = MakeBasicBatches();
+  ASSERT_OK_AND_ASSIGN(auto elements, to_elements(exp_batches));
+  auto element_it_maker = [&elements]() {
+    return MakeVectorIterator<ElementType>(elements);
+  };
+
+  auto null_executor_options = OptionsType{exp_batches.schema, element_it_maker};
+  ASSERT_OK(MakeExecNode(source_factory_name, plan.get(), {}, null_executor_options));
+
+  auto null_schema_options = OptionsType{no_schema, element_it_maker};
+  ASSERT_THAT(MakeExecNode(source_factory_name, plan.get(), {}, null_schema_options),
+              Raises(StatusCode::Invalid, HasSubstr("not null")));
+}
+
+template <typename ElementType, typename OptionsType>
+void TestSourceSink(
+    std::string source_factory_name,
+    std::function<Result<std::vector<ElementType>>(const BatchesWithSchema&)>
+        to_elements) {
+  ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
+  ExecContext exec_context(default_memory_pool(), io_executor.get());
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_context));
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+
+  auto exp_batches = MakeBasicBatches();
+  ASSERT_OK_AND_ASSIGN(auto elements, to_elements(exp_batches));
+  auto element_it_maker = [&elements]() {
+    return MakeVectorIterator<ElementType>(elements);
+  };
+
+  ASSERT_OK(Declaration::Sequence({
+                                      {source_factory_name,
+                                       OptionsType{exp_batches.schema, element_it_maker}},
+                                      {"sink", SinkNodeOptions{&sink_gen}},
+                                  })
+                .AddToPlan(plan.get()));
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
+}
+
+TEST(ExecPlanExecution, ArrayVectorSourceSink) {
+  TestSourceSink<std::shared_ptr<ArrayVector>, ArrayVectorSourceNodeOptions>(
+      "array_vector_source", ToArrayVectors);
+}
+
+TEST(ExecPlanExecution, ArrayVectorSourceSinkError) {
+  TestSourceSinkError<std::shared_ptr<ArrayVector>, ArrayVectorSourceNodeOptions>(
+      "array_vector_source", ToArrayVectors);
+}
+
+TEST(ExecPlanExecution, ExecBatchSourceSink) {
+  TestSourceSink<std::shared_ptr<ExecBatch>, ExecBatchSourceNodeOptions>(
+      "exec_batch_source", ToExecBatches);
+}
+
+TEST(ExecPlanExecution, ExecBatchSourceSinkError) {
+  TestSourceSinkError<std::shared_ptr<ExecBatch>, ExecBatchSourceNodeOptions>(
+      "exec_batch_source", ToExecBatches);
+}
+
+TEST(ExecPlanExecution, RecordBatchSourceSink) {
+  TestSourceSink<std::shared_ptr<RecordBatch>, RecordBatchSourceNodeOptions>(
+      "record_batch_source", ToRecordBatches);
+}
+
+TEST(ExecPlanExecution, RecordBatchSourceSinkError) {
+  TestSourceSinkError<std::shared_ptr<RecordBatch>, RecordBatchSourceNodeOptions>(
+      "record_batch_source", ToRecordBatches);
+}
+
 TEST(ExecPlanExecution, SinkNodeBackpressure) {
   std::optional<ExecBatch> batch =
       ExecBatchFromJSON({int32(), boolean()},
@@ -519,7 +598,7 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
             : batches_seen(batches_seen), finish(std::move(finish)) {}
 
         Status Init(const std::shared_ptr<Schema>& schema,
-                    BackpressureControl* backpressure_control) override {
+                    BackpressureControl* backpressure_control, ExecPlan* plan) override {
           return Status::OK();
         }
 
@@ -593,7 +672,7 @@ TEST(ExecPlanExecution, ConsumingSinkNames) {
   struct SchemaKeepingConsumer : public SinkNodeConsumer {
     std::shared_ptr<Schema> schema_;
     Status Init(const std::shared_ptr<Schema>& schema,
-                BackpressureControl* backpressure_control) override {
+                BackpressureControl* backpressure_control, ExecPlan* plan) override {
       schema_ = schema;
       return Status::OK();
     }
@@ -631,7 +710,7 @@ TEST(ExecPlanExecution, ConsumingSinkNames) {
 TEST(ExecPlanExecution, ConsumingSinkError) {
   struct InitErrorConsumer : public SinkNodeConsumer {
     Status Init(const std::shared_ptr<Schema>& schema,
-                BackpressureControl* backpressure_control) override {
+                BackpressureControl* backpressure_control, ExecPlan* plan) override {
       return Status::Invalid("XYZ");
     }
     Status Consume(ExecBatch batch) override { return Status::OK(); }
@@ -639,7 +718,7 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
   };
   struct ConsumeErrorConsumer : public SinkNodeConsumer {
     Status Init(const std::shared_ptr<Schema>& schema,
-                BackpressureControl* backpressure_control) override {
+                BackpressureControl* backpressure_control, ExecPlan* plan) override {
       return Status::OK();
     }
     Status Consume(ExecBatch batch) override { return Status::Invalid("XYZ"); }
@@ -647,7 +726,7 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
   };
   struct FinishErrorConsumer : public SinkNodeConsumer {
     Status Init(const std::shared_ptr<Schema>& schema,
-                BackpressureControl* backpressure_control) override {
+                BackpressureControl* backpressure_control, ExecPlan* plan) override {
       return Status::OK();
     }
     Status Consume(ExecBatch batch) override { return Status::OK(); }
@@ -665,20 +744,9 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
                     SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
                    {"consuming_sink", ConsumingSinkNodeOptions(consumer)}})
                   .AddToPlan(plan.get()));
-    ASSERT_OK_AND_ASSIGN(
-        auto source,
-        MakeExecNode("source", plan.get(), {},
-                     SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
-    ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
-                           ConsumingSinkNodeOptions(consumer)));
-    // If we fail at init we see it during StartProducing.  Other
-    // failures are not seen until we start running.
-    if (std::dynamic_pointer_cast<InitErrorConsumer>(consumer)) {
-      ASSERT_RAISES(Invalid, plan->StartProducing());
-    } else {
-      ASSERT_OK(plan->StartProducing());
-      ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
-    }
+    // Since the source node is not parallel the entire plan is run during StartProducing
+    ASSERT_RAISES(Invalid, plan->StartProducing());
+    ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
   }
 }
 

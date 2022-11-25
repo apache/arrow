@@ -157,3 +157,7 @@ if(ARROW_PARQUET AND ARROW_DATASET)
   endif()
 
 endif()
+
+if(ARROW_GANDIVA)
+  add_arrow_example(gandiva_example EXTRA_LINK_LIBS gandiva_shared)
+endif()

@@ -14,11 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -66,22 +67,10 @@ type Expression interface {
 	Hash() uint64
 	Equals(Expression) bool
 
-	// Bind binds this expression to the given input schema, looking up appropriate
-	// underlying implementations and some expression simplification may be performed
-	// along with implicit casts being inserted.
-	// Any state necessary for execution will be initialized.
-	//
-	// This only works in conjunction with cgo and being able to link against the
-	// C++ libarrow.so compute library. If this was not built with the libarrow compute
-	// support, this will panic.
-	Bind(context.Context, memory.Allocator, *arrow.Schema) (Expression, error)
-
 	// Release releases the underlying bound C++ memory that is allocated when
 	// a Bind is performed. Any bound expression should get released to ensure
 	// no memory leaks.
 	Release()
-
-	boundExpr() boundRef
 }
 
 func printDatum(datum Datum) string {
@@ -108,13 +97,10 @@ func printDatum(datum Datum) string {
 // as a scalar, an array, or so on.
 type Literal struct {
 	Literal Datum
-
-	bound boundRef
 }
 
 func (Literal) FieldRef() *FieldRef     { return nil }
 func (l *Literal) String() string       { return printDatum(l.Literal) }
-func (l *Literal) boundExpr() boundRef  { return l.bound }
 func (l *Literal) Type() arrow.DataType { return l.Literal.(ArrayLikeDatum).Type() }
 func (l *Literal) IsBound() bool        { return l.Type() != nil }
 func (l *Literal) IsScalarExpr() bool   { return l.Literal.Kind() == KindScalar }
@@ -152,20 +138,8 @@ func (l *Literal) Hash() uint64 {
 	return 0
 }
 
-func (l *Literal) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Schema) (Expression, error) {
-	bound, _, _, _, err := bindExprSchema(ctx, mem, l, schema)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Literal{l.Literal, bound}, nil
-}
-
 func (l *Literal) Release() {
 	l.Literal.Release()
-	if l.bound != 0 {
-		l.bound.release()
-	}
 }
 
 // Parameter represents a field reference and needs to be bound in order to determine
@@ -176,12 +150,9 @@ type Parameter struct {
 	// post bind props
 	dt    arrow.DataType
 	index int
-
-	bound boundRef
 }
 
 func (Parameter) IsNullLiteral() bool     { return false }
-func (p *Parameter) boundExpr() boundRef  { return p.bound }
 func (p *Parameter) Type() arrow.DataType { return p.dt }
 func (p *Parameter) IsBound() bool        { return p.Type() != nil }
 func (p *Parameter) IsScalarExpr() bool   { return p.ref != nil }
@@ -208,25 +179,7 @@ func (p *Parameter) Equals(other Expression) bool {
 	return false
 }
 
-func (p *Parameter) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Schema) (Expression, error) {
-	bound, dt, index, _, err := bindExprSchema(ctx, mem, p, schema)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Parameter{
-		ref:   p.ref,
-		index: index,
-		dt:    dt,
-		bound: bound,
-	}, nil
-}
-
-func (p *Parameter) Release() {
-	if p.bound != 0 {
-		p.bound.release()
-	}
-}
+func (p *Parameter) Release() {}
 
 type comparisonType int8
 
@@ -319,10 +272,8 @@ type Call struct {
 	options  FunctionOptions
 
 	cachedHash uint64
-	bound      boundRef
 }
 
-func (c *Call) boundExpr() boundRef  { return c.bound }
 func (c *Call) IsNullLiteral() bool  { return false }
 func (c *Call) FieldRef() *FieldRef  { return nil }
 func (c *Call) Type() arrow.DataType { return c.dt }
@@ -388,15 +339,13 @@ func (c *Call) IsScalarExpr() bool {
 			return false
 		}
 	}
-	return isFuncScalar(c.funcName)
+
+	return false
+	// return isFuncScalar(c.funcName)
 }
 
 func (c *Call) IsBound() bool {
-	if c.Type() == nil {
-		return false
-	}
-
-	return c.bound != 0
+	return c.Type() != nil
 }
 
 func (c *Call) Equals(other Expression) bool {
@@ -421,23 +370,12 @@ func (c *Call) Equals(other Expression) bool {
 	return reflect.DeepEqual(c.options, rhs.options)
 }
 
-func (c *Call) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Schema) (Expression, error) {
-	_, _, _, output, err := bindExprSchema(ctx, mem, c, schema)
-	if err != nil {
-		return nil, err
-	}
-	return output, nil
-}
-
 func (c *Call) Release() {
 	for _, a := range c.args {
 		a.Release()
 	}
 	if r, ok := c.options.(releasable); ok {
 		r.Release()
-	}
-	if c.bound != 0 {
-		c.bound.release()
 	}
 }
 

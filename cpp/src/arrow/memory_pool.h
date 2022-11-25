@@ -73,13 +73,22 @@ class ARROW_EXPORT MemoryPool {
   /// Allocate a new memory region of at least size bytes.
   ///
   /// The allocated region shall be 64-byte aligned.
-  virtual Status Allocate(int64_t size, uint8_t** out) = 0;
+  Status Allocate(int64_t size, uint8_t** out) {
+    return Allocate(size, kDefaultBufferAlignment, out);
+  }
+
+  /// Allocate a new memory region of at least size bytes aligned to alignment.
+  virtual Status Allocate(int64_t size, int64_t alignment, uint8_t** out) = 0;
 
   /// Resize an already allocated memory section.
   ///
   /// As by default most default allocators on a platform don't support aligned
   /// reallocation, this function can involve a copy of the underlying data.
-  virtual Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) = 0;
+  virtual Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                            uint8_t** ptr) = 0;
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+    return Reallocate(old_size, new_size, kDefaultBufferAlignment, ptr);
+  }
 
   /// Free an allocated region.
   ///
@@ -87,7 +96,11 @@ class ARROW_EXPORT MemoryPool {
   /// @param size Allocated size located at buffer. An allocator implementation
   ///   may use this for tracking the amount of allocated bytes as well as for
   ///   faster deallocation if supported by its backend.
-  virtual void Free(uint8_t* buffer, int64_t size) = 0;
+  /// @param alignment The alignment of the allocation. Defaults to 64 bytes.
+  virtual void Free(uint8_t* buffer, int64_t size, int64_t alignment) = 0;
+  void Free(uint8_t* buffer, int64_t size) {
+    Free(buffer, size, kDefaultBufferAlignment);
+  }
 
   /// Return unused memory to the OS
   ///
@@ -118,10 +131,14 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   explicit LoggingMemoryPool(MemoryPool* pool);
   ~LoggingMemoryPool() override = default;
 
-  Status Allocate(int64_t size, uint8_t** out) override;
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+  using MemoryPool::Allocate;
+  using MemoryPool::Free;
+  using MemoryPool::Reallocate;
 
-  void Free(uint8_t* buffer, int64_t size) override;
+  Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                    uint8_t** ptr) override;
+  void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
 
   int64_t bytes_allocated() const override;
 
@@ -142,10 +159,14 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   explicit ProxyMemoryPool(MemoryPool* pool);
   ~ProxyMemoryPool() override;
 
-  Status Allocate(int64_t size, uint8_t** out) override;
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+  using MemoryPool::Allocate;
+  using MemoryPool::Free;
+  using MemoryPool::Reallocate;
 
-  void Free(uint8_t* buffer, int64_t size) override;
+  Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                    uint8_t** ptr) override;
+  void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
 
   int64_t bytes_allocated() const override;
 

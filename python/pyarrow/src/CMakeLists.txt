@@ -253,7 +253,7 @@ if(ARROW_BUILD_STATIC AND MSVC)
   target_compile_definitions(arrow_python_static PUBLIC ARROW_STATIC)
 endif()
 
-if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
+if(PYARROW_WITH_FLIGHT AND ARROW_FLIGHT AND ARROW_BUILD_SHARED)
    # Must link to shared libarrow_flight: we don't want to link more than one
    # copy of gRPC into the eventual Cython shared object, otherwise gRPC calls
    # fail with weird errors due to multiple copies of global static state (The

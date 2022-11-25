@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//go:build go1.18
+
 package compute_test
 
 import (

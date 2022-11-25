@@ -959,7 +959,7 @@ struct ExampleState : public KernelState {
 Result<std::unique_ptr<KernelState>> InitStateful(KernelContext*,
                                                   const KernelInitArgs& args) {
   auto func_options = static_cast<const ExampleOptions*>(args.options);
-  return std::make_unique<ExampleState>(func_options->value);
+  return std::make_unique<ExampleState>(func_options ? func_options->value : nullptr);
 }
 
 Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -1073,36 +1073,134 @@ class TestCallScalarFunction : public TestComputeInternals {
 
 bool TestCallScalarFunction::initialized_ = false;
 
-TEST_F(TestCallScalarFunction, ArgumentValidation) {
+class FunctionCaller {
+ public:
+  virtual ~FunctionCaller() = default;
+
+  virtual Result<Datum> Call(const std::vector<Datum>& args,
+                             const FunctionOptions* options,
+                             ExecContext* ctx = NULLPTR) = 0;
+  virtual Result<Datum> Call(const std::vector<Datum>& args,
+                             ExecContext* ctx = NULLPTR) = 0;
+};
+
+using FunctionCallerMaker = std::function<Result<std::shared_ptr<FunctionCaller>>(
+    const std::string& func_name, std::vector<TypeHolder> in_types)>;
+
+class SimpleFunctionCaller : public FunctionCaller {
+ public:
+  explicit SimpleFunctionCaller(const std::string& func_name) : func_name(func_name) {}
+
+  static Result<std::shared_ptr<FunctionCaller>> Make(const std::string& func_name) {
+    return std::make_shared<SimpleFunctionCaller>(func_name);
+  }
+
+  static Result<std::shared_ptr<FunctionCaller>> Maker(const std::string& func_name,
+                                                       std::vector<TypeHolder> in_types) {
+    return Make(func_name);
+  }
+
+  Result<Datum> Call(const std::vector<Datum>& args, const FunctionOptions* options,
+                     ExecContext* ctx) override {
+    return CallFunction(func_name, args, options, ctx);
+  }
+  Result<Datum> Call(const std::vector<Datum>& args, ExecContext* ctx) override {
+    return CallFunction(func_name, args, ctx);
+  }
+
+  std::string func_name;
+};
+
+class ExecFunctionCaller : public FunctionCaller {
+ public:
+  explicit ExecFunctionCaller(std::shared_ptr<FunctionExecutor> func_exec)
+      : func_exec(std::move(func_exec)) {}
+
+  static Result<std::shared_ptr<FunctionCaller>> Make(
+      const std::string& func_name, const std::vector<Datum>& args,
+      const FunctionOptions* options = nullptr,
+      FunctionRegistry* func_registry = nullptr) {
+    ARROW_ASSIGN_OR_RAISE(auto func_exec,
+                          GetFunctionExecutor(func_name, args, options, func_registry));
+    return std::make_shared<ExecFunctionCaller>(std::move(func_exec));
+  }
+
+  static Result<std::shared_ptr<FunctionCaller>> Make(
+      const std::string& func_name, std::vector<TypeHolder> in_types,
+      const FunctionOptions* options = nullptr,
+      FunctionRegistry* func_registry = nullptr) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto func_exec, GetFunctionExecutor(func_name, in_types, options, func_registry));
+    return std::make_shared<ExecFunctionCaller>(std::move(func_exec));
+  }
+
+  static Result<std::shared_ptr<FunctionCaller>> Maker(const std::string& func_name,
+                                                       std::vector<TypeHolder> in_types) {
+    return Make(func_name, std::move(in_types));
+  }
+
+  Result<Datum> Call(const std::vector<Datum>& args, const FunctionOptions* options,
+                     ExecContext* ctx) override {
+    ARROW_RETURN_NOT_OK(func_exec->Init(options, ctx));
+    return func_exec->Execute(args);
+  }
+  Result<Datum> Call(const std::vector<Datum>& args, ExecContext* ctx) override {
+    return Call(args, nullptr, ctx);
+  }
+
+  std::shared_ptr<FunctionExecutor> func_exec;
+};
+
+class TestCallScalarFunctionArgumentValidation : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionArgumentValidation::DoTest(FunctionCallerMaker caller_maker) {
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {int32()}));
+
   // Copy accepts only a single array argument
   Datum d1(GetInt32Array(10));
 
   // Too many args
   std::vector<Datum> args = {d1, d1};
-  ASSERT_RAISES(Invalid, CallFunction("test_copy", args));
+  ASSERT_RAISES(Invalid, test_copy->Call(args));
 
   // Too few
   args = {};
-  ASSERT_RAISES(Invalid, CallFunction("test_copy", args));
+  ASSERT_RAISES(Invalid, test_copy->Call(args));
 
   // Cannot do scalar
   Datum d1_scalar(std::make_shared<Int32Scalar>(5));
-  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("test_copy", {d1}));
-  ASSERT_OK_AND_ASSIGN(result, CallFunction("test_copy", {d1_scalar}));
+  ASSERT_OK_AND_ASSIGN(auto result, test_copy->Call({d1}));
+  ASSERT_OK_AND_ASSIGN(result, test_copy->Call({d1_scalar}));
 }
 
-TEST_F(TestCallScalarFunction, PreallocationCases) {
+TEST_F(TestCallScalarFunctionArgumentValidation, SimpleCall) {
+  TestCallScalarFunctionArgumentValidation::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionArgumentValidation, ExecCall) {
+  TestCallScalarFunctionArgumentValidation::DoTest(ExecFunctionCaller::Maker);
+}
+
+class TestCallScalarFunctionPreallocationCases : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionPreallocationCases::DoTest(FunctionCallerMaker caller_maker) {
   double null_prob = 0.2;
 
   auto arr = GetUInt8Array(100, null_prob);
 
-  auto CheckFunction = [&](std::string func_name) {
+  auto CheckFunction = [&](std::shared_ptr<FunctionCaller> test_copy) {
     ResetContexts();
 
     // The default should be a single array output
     {
       std::vector<Datum> args = {Datum(arr)};
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args));
       ASSERT_EQ(Datum::ARRAY, result.kind());
       AssertArraysEqual(*arr, *result.make_array());
     }
@@ -1112,7 +1210,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(80);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args, exec_ctx_.get()));
       AssertArraysEqual(*arr, *result.make_array());
     }
 
@@ -1120,7 +1218,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
       // Chunksize not multiple of 8
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(11);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args, exec_ctx_.get()));
       AssertArraysEqual(*arr, *result.make_array());
     }
 
@@ -1129,7 +1227,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
       auto carr =
           std::make_shared<ChunkedArray>(ArrayVector{arr->Slice(0, 10), arr->Slice(10)});
       std::vector<Datum> args = {Datum(carr)};
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args, exec_ctx_.get()));
       std::shared_ptr<ChunkedArray> actual = result.chunked_array();
       ASSERT_EQ(1, actual->num_chunks());
       AssertChunkedEquivalent(*carr, *actual);
@@ -1140,7 +1238,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_preallocate_contiguous(false);
       exec_ctx_->set_exec_chunksize(40);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args, exec_ctx_.get()));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
@@ -1150,11 +1248,28 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     }
   };
 
-  CheckFunction("test_copy");
-  CheckFunction("test_copy_computed_bitmap");
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {uint8()}));
+  CheckFunction(test_copy);
+  ASSERT_OK_AND_ASSIGN(auto test_copy_computed_bitmap,
+                       caller_maker("test_copy_computed_bitmap", {uint8()}));
+  CheckFunction(test_copy_computed_bitmap);
 }
 
-TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
+TEST_F(TestCallScalarFunctionPreallocationCases, SimpleCaller) {
+  TestCallScalarFunctionPreallocationCases::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionPreallocationCases, ExecCaller) {
+  TestCallScalarFunctionPreallocationCases::DoTest(ExecFunctionCaller::Maker);
+}
+
+class TestCallScalarFunctionBasicNonStandardCases : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionBasicNonStandardCases::DoTest(
+    FunctionCallerMaker caller_maker) {
   // Test a handful of cases
   //
   // * Validity bitmap computed by kernel rather than using PropagateNulls
@@ -1166,19 +1281,19 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
   auto arr = GetUInt8Array(1000, null_prob);
   std::vector<Datum> args = {Datum(arr)};
 
-  auto CheckFunction = [&](std::string func_name) {
+  auto CheckFunction = [&](std::shared_ptr<FunctionCaller> test_nopre) {
     ResetContexts();
 
     // The default should be a single array output
     {
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_nopre->Call(args));
       AssertArraysEqual(*arr, *result.make_array(), true);
     }
 
     // Split execution into 3 chunks
     {
       exec_ctx_->set_exec_chunksize(400);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_nopre->Call(args, exec_ctx_.get()));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
@@ -1188,29 +1303,71 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
     }
   };
 
-  CheckFunction("test_nopre_data");
-  CheckFunction("test_nopre_validity_or_data");
+  ASSERT_OK_AND_ASSIGN(auto test_nopre_data, caller_maker("test_nopre_data", {uint8()}));
+  CheckFunction(test_nopre_data);
+  ASSERT_OK_AND_ASSIGN(auto test_nopre_validity_or_data,
+                       caller_maker("test_nopre_validity_or_data", {uint8()}));
+  CheckFunction(test_nopre_validity_or_data);
 }
 
-TEST_F(TestCallScalarFunction, StatefulKernel) {
+TEST_F(TestCallScalarFunctionBasicNonStandardCases, SimpleCall) {
+  TestCallScalarFunctionBasicNonStandardCases::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionBasicNonStandardCases, ExecCall) {
+  TestCallScalarFunctionBasicNonStandardCases::DoTest(ExecFunctionCaller::Maker);
+}
+
+class TestCallScalarFunctionStatefulKernel : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionStatefulKernel::DoTest(FunctionCallerMaker caller_maker) {
+  ASSERT_OK_AND_ASSIGN(auto test_stateful, caller_maker("test_stateful", {int32()}));
+
   auto input = ArrayFromJSON(int32(), "[1, 2, 3, null, 5]");
   auto multiplier = std::make_shared<Int32Scalar>(2);
   auto expected = ArrayFromJSON(int32(), "[2, 4, 6, null, 10]");
 
   ExampleOptions options(multiplier);
   std::vector<Datum> args = {Datum(input)};
-  ASSERT_OK_AND_ASSIGN(Datum result, CallFunction("test_stateful", args, &options));
+  ASSERT_OK_AND_ASSIGN(Datum result, test_stateful->Call(args, &options));
   AssertArraysEqual(*expected, *result.make_array());
 }
 
-TEST_F(TestCallScalarFunction, ScalarFunction) {
+TEST_F(TestCallScalarFunctionStatefulKernel, Simplecall) {
+  TestCallScalarFunctionStatefulKernel::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionStatefulKernel, ExecCall) {
+  TestCallScalarFunctionStatefulKernel::DoTest(ExecFunctionCaller::Maker);
+}
+
+class TestCallScalarFunctionScalarFunction : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionScalarFunction::DoTest(FunctionCallerMaker caller_maker) {
+  ASSERT_OK_AND_ASSIGN(auto test_scalar_add_int32,
+                       caller_maker("test_scalar_add_int32", {int32(), int32()}));
+
   std::vector<Datum> args = {Datum(std::make_shared<Int32Scalar>(5)),
                              Datum(std::make_shared<Int32Scalar>(7))};
-  ASSERT_OK_AND_ASSIGN(Datum result, CallFunction("test_scalar_add_int32", args));
+  ASSERT_OK_AND_ASSIGN(Datum result, test_scalar_add_int32->Call(args));
   ASSERT_EQ(Datum::SCALAR, result.kind());
 
   auto expected = std::make_shared<Int32Scalar>(12);
   ASSERT_TRUE(expected->Equals(*result.scalar()));
+}
+
+TEST_F(TestCallScalarFunctionScalarFunction, SimpleCall) {
+  TestCallScalarFunctionScalarFunction::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionScalarFunction, ExecCall) {
+  TestCallScalarFunctionScalarFunction::DoTest(ExecFunctionCaller::Maker);
 }
 
 }  // namespace detail

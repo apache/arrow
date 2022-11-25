@@ -44,10 +44,10 @@ using internal::checked_cast;
 // Fixed width binary
 
 FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                                               MemoryPool* pool)
-    : ArrayBuilder(pool),
+                                               MemoryPool* pool, int64_t alignment)
+    : ArrayBuilder(pool, alignment),
       byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()),
-      byte_builder_(pool) {}
+      byte_builder_(pool, alignment) {}
 
 void FixedSizeBinaryBuilder::CheckValueSize(int64_t size) {
   DCHECK_EQ(size, byte_width_) << "Appending wrong size to FixedSizeBinaryBuilder";

@@ -132,7 +132,11 @@ Maven
         $ cd arrow/java
         $ export JAVA_HOME=<absolute path to your java home>
         $ java --version
-        $ mvn generate-resources -Pgenerate-libs-jni-macos-linux -N
+        $ mvn generate-resources \
+            -Pgenerate-libs-jni-macos-linux \
+            -DARROW_GANDIVA=ON \
+            -DARROW_JAVA_JNI_ENABLE_GANDIVA=ON \
+            -N
         $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
         |__ libarrow_dataset_jni.dylib
         |__ libarrow_orc_jni.dylib
@@ -318,7 +322,10 @@ Building Java JNI Modules
     .. code-block::
 
         $ cd arrow/java
-        $ mvn -Darrow.cpp.build.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-jni clean install
+        $ mvn \
+            -Darrow.cpp.build.dir=<absolute path to your arrow folder>/java-dist/lib/ \
+            -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib/ \
+            -Parrow-jni clean install
 
 IDE Configuration
 =================

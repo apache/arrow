@@ -18,6 +18,7 @@
 from datetime import datetime
 from functools import lru_cache, partial
 import inspect
+import itertools
 import os
 import pickle
 import pytest
@@ -137,6 +138,7 @@ def test_option_class_equality():
         pc.FilterOptions(),
         pc.IndexOptions(pa.scalar(1)),
         pc.JoinOptions(),
+        pc.ListSliceOptions(0, -1, 1, True),
         pc.MakeStructOptions(["field", "names"],
                              field_nullability=[True, True],
                              field_metadata=[pa.KeyValueMetadata({"a": "1"}),
@@ -534,6 +536,22 @@ def test_slice_compatibility():
                 # Positional options
                 assert pc.utf8_slice_codeunits(arr,
                                                start, stop, step) == result
+
+
+def test_binary_slice_compatibility():
+    arr = pa.array([b"", b"a", b"a\xff", b"ab\x00", b"abc\xfb", b"ab\xf2de"])
+    for start, stop, step in itertools.product(range(-6, 6),
+                                               range(-6, 6),
+                                               range(-3, 4)):
+        if step == 0:
+            continue
+        expected = pa.array([k.as_py()[start:stop:step]
+                             for k in arr])
+        result = pc.binary_slice(
+            arr, start=start, stop=stop, step=step)
+        assert expected.equals(result)
+        # Positional options
+        assert pc.binary_slice(arr, start, stop, step) == result
 
 
 def test_split_pattern():
@@ -1794,14 +1812,6 @@ def test_strptime():
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="Timezone database is not available on Windows yet")
 def test_strftime():
-    from pyarrow.vendored.version import Version
-
-    def _fix_timestamp(s):
-        if Version(pd.__version__) < Version("1.0.0"):
-            return s.to_series().replace("NaT", pd.NaT)
-        else:
-            return s
-
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
 
@@ -1816,7 +1826,7 @@ def test_strftime():
             for fmt in formats:
                 options = pc.StrftimeOptions(fmt)
                 result = pc.strftime(tsa, options=options)
-                expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+                expected = pa.array(ts.strftime(fmt))
                 assert result.equals(expected)
 
         fmt = "%Y-%m-%dT%H:%M:%S"
@@ -1824,34 +1834,34 @@ def test_strftime():
         # Default format
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions())
-        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+        expected = pa.array(ts.strftime(fmt))
         assert result.equals(expected)
 
         # Default format plus timezone
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
-        expected = pa.array(_fix_timestamp(ts.strftime(fmt + "%Z")))
+        expected = pa.array(ts.strftime(fmt + "%Z"))
         assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         options = pc.StrftimeOptions("%S")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%S")))
+        expected = pa.array(ts.strftime("%S"))
         assert result.equals(expected)
 
         # Pandas %S.%f is equivalent to %S in arrow for unit="us"
         tsa = pa.array(ts, type=pa.timestamp("us", timezone))
         options = pc.StrftimeOptions("%S")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%S.%f")))
+        expected = pa.array(ts.strftime("%S.%f"))
         assert result.equals(expected)
 
         # Test setting locale
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         options = pc.StrftimeOptions(fmt, locale="C")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+        expected = pa.array(ts.strftime(fmt))
         assert result.equals(expected)
 
     # Test timestamps without timezone
@@ -1859,7 +1869,8 @@ def test_strftime():
     ts = pd.to_datetime(times)
     tsa = pa.array(ts, type=pa.timestamp("s"))
     result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
-    expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+    expected = pa.array(ts.strftime(fmt))
+
     # Positional format
     assert pc.strftime(tsa, fmt) == result
 
@@ -1938,8 +1949,6 @@ def _check_datetime_components(timestamps, timezone=None):
 
 @pytest.mark.pandas
 def test_extract_datetime_components():
-    from pyarrow.vendored.version import Version
-
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",
@@ -1965,8 +1974,6 @@ def test_extract_datetime_components():
     if sys.platform == 'win32':
         # TODO: We should test on windows once ARROW-13168 is resolved.
         pytest.skip('Timezone database is not available on Windows yet')
-    elif Version(pd.__version__) < Version('1.0.0'):
-        pytest.skip('Pandas < 1.0 extracts time components incorrectly.')
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
@@ -1977,8 +1984,6 @@ def test_extract_datetime_components():
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="Timezone database is not available on Windows yet")
 def test_assume_timezone():
-    from pyarrow.vendored.version import Version
-
     ts_type = pa.timestamp("ns")
     timestamps = pd.to_datetime(["1970-01-01T00:00:59.123456789",
                                  "2000-02-29T23:23:23.999999999",
@@ -2022,31 +2027,29 @@ def test_assume_timezone():
 
     timezone = "Europe/Brussels"
 
-    # nonexistent parameter was introduced in Pandas 0.24.0
-    if Version(pd.__version__) >= Version("0.24.0"):
-        options_nonexistent_raise = pc.AssumeTimezoneOptions(timezone)
-        options_nonexistent_earliest = pc.AssumeTimezoneOptions(
-            timezone, ambiguous="raise", nonexistent="earliest")
-        options_nonexistent_latest = pc.AssumeTimezoneOptions(
-            timezone, ambiguous="raise", nonexistent="latest")
+    options_nonexistent_raise = pc.AssumeTimezoneOptions(timezone)
+    options_nonexistent_earliest = pc.AssumeTimezoneOptions(
+        timezone, ambiguous="raise", nonexistent="earliest")
+    options_nonexistent_latest = pc.AssumeTimezoneOptions(
+        timezone, ambiguous="raise", nonexistent="latest")
 
-        with pytest.raises(ValueError,
-                           match="Timestamp doesn't exist in "
-                                 f"timezone '{timezone}'"):
-            pc.assume_timezone(nonexistent_array,
-                               options=options_nonexistent_raise)
+    with pytest.raises(ValueError,
+                       match="Timestamp doesn't exist in "
+                       f"timezone '{timezone}'"):
+        pc.assume_timezone(nonexistent_array,
+                           options=options_nonexistent_raise)
 
-        expected = pa.array(nonexistent.tz_localize(
-            timezone, nonexistent="shift_forward"))
-        result = pc.assume_timezone(
-            nonexistent_array, options=options_nonexistent_latest)
-        expected.equals(result)
+    expected = pa.array(nonexistent.tz_localize(
+        timezone, nonexistent="shift_forward"))
+    result = pc.assume_timezone(
+        nonexistent_array, options=options_nonexistent_latest)
+    expected.equals(result)
 
-        expected = pa.array(nonexistent.tz_localize(
-            timezone, nonexistent="shift_backward"))
-        result = pc.assume_timezone(
-            nonexistent_array, options=options_nonexistent_earliest)
-        expected.equals(result)
+    expected = pa.array(nonexistent.tz_localize(
+        timezone, nonexistent="shift_backward"))
+    result = pc.assume_timezone(
+        nonexistent_array, options=options_nonexistent_earliest)
+    expected.equals(result)
 
     options_ambiguous_raise = pc.AssumeTimezoneOptions(timezone)
     options_ambiguous_latest = pc.AssumeTimezoneOptions(
@@ -2181,11 +2184,6 @@ def _check_temporal_rounding(ts, values, unit):
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas
 def test_round_temporal(unit):
-    from pyarrow.vendored.version import Version
-
-    if Version(pd.__version__) < Version('1.0.0'):
-        pytest.skip('Pandas < 1.0 rounds differently.')
-
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
     timestamps = [
         "1923-07-07 08:52:35.203790336",
@@ -2692,14 +2690,32 @@ def test_struct_fields_options():
     c = pa.StructArray.from_arrays([a, b], ["a", "b"])
     arr = pa.StructArray.from_arrays([a, c], ["a", "c"])
 
-    assert pc.struct_field(arr,
-                           indices=[1, 1]) == pa.array(["bar", None, ""])
-    assert pc.struct_field(arr, [1, 1]) == pa.array(["bar", None, ""])
-    assert pc.struct_field(arr, [0]) == pa.array([4, 5, 6], type=pa.int64())
+    assert pc.struct_field(arr, '.c.b') == b
+    assert pc.struct_field(arr, b'.c.b') == b
+    assert pc.struct_field(arr, ['c', 'b']) == b
+    assert pc.struct_field(arr, [1, 'b']) == b
+    assert pc.struct_field(arr, (b'c', 'b')) == b
+    assert pc.struct_field(arr, pc.field(('c', 'b'))) == b
+
+    assert pc.struct_field(arr, '.a') == a
+    assert pc.struct_field(arr, ['a']) == a
+    assert pc.struct_field(arr, 'a') == a
+    assert pc.struct_field(arr, pc.field(('a',))) == a
+
+    assert pc.struct_field(arr, indices=[1, 1]) == b
+    assert pc.struct_field(arr, (1, 1)) == b
+    assert pc.struct_field(arr, [0]) == a
     assert pc.struct_field(arr, []) == arr
 
-    with pytest.raises(TypeError, match="an integer is required"):
-        pc.struct_field(arr, indices=['a'])
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef"):
+        pc.struct_field(arr, 'foo')
+
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef"):
+        pc.struct_field(arr, '.c.foo')
+
+    # drill into a non-struct array and continue to ask for a field
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef"):
+        pc.struct_field(arr, '.a.foo')
 
     # TODO: https://issues.apache.org/jira/browse/ARROW-14853
     # assert pc.struct_field(arr) == arr
@@ -2865,6 +2881,7 @@ def test_expression_construction():
     false = pc.scalar(False)
     string = pc.scalar("string")
     field = pc.field("field")
+    nested_mixed_types = pc.field(b"a", 1, "b")
     nested_field = pc.field(("nested", "field"))
     nested_field2 = pc.field("nested", "field")
 
@@ -2874,6 +2891,7 @@ def test_expression_construction():
         field.cast(typ) == true
 
     field.isin([1, 2])
+    nested_mixed_types.isin(["foo", "bar"])
     nested_field.isin(["foo", "bar"])
     nested_field2.isin(["foo", "bar"])
 
@@ -2927,5 +2945,105 @@ def test_expression_call_function():
 def test_cast_table_raises():
     table = pa.table({'a': [1, 2]})
 
-    with pytest.raises(pa.lib.ArrowInvalid):
+    with pytest.raises(pa.lib.ArrowTypeError):
         pc.cast(table, pa.int64())
+
+
+@pytest.mark.parametrize("start,stop,expected", (
+    (0, 1, [[1], [4], [6], None]),
+    (0, 2, [[1, 2], [4, 5], [6, None], None]),
+    (1, 2, [[2], [5], [None], None]),
+    (2, 4, [[3, None], [None, None], [None, None], None])
+))
+@pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
+@pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
+def test_list_slice_output_fixed(start, stop, expected, value_type, list_type):
+    if list_type == "fixed":
+        arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None], None],
+                       pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
+    else:
+        arr = pa.array([[1, 2, 3], [4, 5], [6], None],
+                       pa.list_(pa.int8())).cast(list_type(value_type()))
+    result = pc.list_slice(arr, start, stop, return_fixed_size_list=True)
+    pylist = result.cast(pa.list_(pa.int8(), stop-start)).to_pylist()
+    assert pylist == expected
+
+
+@pytest.mark.parametrize("start,stop", (
+    (0, 1,),
+    (0, 2,),
+    (1, 2,),
+    (2, 4,)
+))
+@pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
+@pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
+def test_list_slice_output_variable(start, stop, value_type, list_type):
+    if list_type == "fixed":
+        data = [[1, 2, 3], [4, 5, None], [6, None, None], None]
+        arr = pa.array(
+            data,
+            pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
+    else:
+        data = [[1, 2, 3], [4, 5], [6], None]
+        arr = pa.array(data,
+                       pa.list_(pa.int8())).cast(list_type(value_type()))
+
+    # Gets same list type (ListArray vs LargeList)
+    if list_type == "fixed":
+        list_type = pa.list_  # non fixed output type
+
+    result = pc.list_slice(arr, start, stop, return_fixed_size_list=False)
+    assert result.type == list_type(value_type())
+
+    pylist = result.cast(pa.list_(pa.int8())).to_pylist()
+
+    # Variable output slicing follows Python's slice semantics
+    expected = [d[start:stop] if d is not None else None for d in data]
+    assert pylist == expected
+
+
+@pytest.mark.parametrize("return_fixed_size", (True, False, None))
+@pytest.mark.parametrize("type", (
+    lambda: pa.list_(pa.field('col', pa.int8())),
+    lambda: pa.list_(pa.field('col', pa.int8()), 1),
+    lambda: pa.large_list(pa.field('col', pa.int8()))))
+def test_list_slice_field_names_retained(return_fixed_size, type):
+    arr = pa.array([[1]], type())
+    out = pc.list_slice(arr, 0, 1, return_fixed_size_list=return_fixed_size)
+    assert arr.type.field(0).name == out.type.field(0).name
+
+    # Verify out type matches in type if return_fixed_size_list==None
+    if return_fixed_size is None:
+        assert arr.type == out.type
+
+
+def test_list_slice_bad_parameters():
+    arr = pa.array([[1]], pa.list_(pa.int8(), 1))
+    msg = r"`start`(.*) should be greater than 0 and smaller than `stop`(.*)"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pc.list_slice(arr, -1, 1)  # negative start?
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pc.list_slice(arr, 2, 1)  # start > stop?
+
+    # TODO(ARROW-18281): start==stop -> empty lists
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pc.list_slice(arr, 0, 0)  # start == stop?
+
+    # TODO(ARROW-18282): support step in slicing
+    msg = "Setting `step` to anything other than 1 is not supported; "\
+        "got step=2"
+    with pytest.raises(NotImplementedError, match=msg):
+        pc.list_slice(arr, 0, 1, step=2)
+
+    # TODO(ARROW-18280): support stop == None; slice to end
+    # This fails first at resolve, b/c it doesn't now how big the
+    # resulting FixedSizeListArray item size will be
+    msg = "Unable to produce FixedSizeListArray without `stop`"
+    with pytest.raises(NotImplementedError, match=msg):
+        pc.list_slice(arr, 0, return_fixed_size_list=True)
+
+    # cont. This fails inside of kernel function; resolver doesn't
+    # need to know the item size for ListArray.
+    msg = "Slicing to end not yet implemented*"
+    with pytest.raises(NotImplementedError, match=msg):
+        pc.list_slice(arr, 0, return_fixed_size_list=False)

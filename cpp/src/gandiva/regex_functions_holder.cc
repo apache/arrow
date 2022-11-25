@@ -27,14 +27,7 @@ RE2 LikeHolder::ends_with_regex_(R"(\.\*([^\.\*])*)");
 RE2 LikeHolder::is_substr_regex_(R"(\.\*([^\.\*])*\.\*)");
 
 std::string& RemovePatternEscapeChars(const FunctionNode& node, std::string& pattern) {
-  if (node.children().size() != 2) {
-    auto escape_char = dynamic_cast<LiteralNode*>(node.children().at(2).get());
-    pattern.erase(std::remove(pattern.begin(), pattern.end(),
-                              std::get<std::string>(escape_char->holder()).at(0)),
-                  pattern.end());  // remove escape chars
-  } else {
-    pattern.erase(std::remove(pattern.begin(), pattern.end(), '\\'), pattern.end());
-  }
+  pattern.erase(std::remove(pattern.begin(), pattern.end(), '\\'), pattern.end());
   return pattern;
 }
 

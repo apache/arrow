@@ -131,15 +131,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "go.work",
-        hunks: [
-          [
-            "-replace github.com/apache/arrow/go/v#{@snapshot_major_version} v#{@release_version} => ./go",
-            "+replace github.com/apache/arrow/go/v#{@next_major_version} v#{@next_version} => ./go",
-          ],
-        ],
-      },
-      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",
@@ -208,18 +199,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           [
             "-const PkgVersion = \"#{@snapshot_version}\"",
             "+const PkgVersion = \"#{@next_snapshot_version}\"",
-          ],
-        ]}
-        next
-      elsif path == "go/arrow/compute/go.mod"
-        expected_changes << {
-          path: path,
-          hunks: [
-          [
-            "-module github.com/apache/arrow/go/v#{@snapshot_major_version}/arrow/compute",
-            "+module github.com/apache/arrow/go/v#{@next_major_version}/arrow/compute",            
-            "-\tgithub.com/apache/arrow/go/v#{@snapshot_major_version} v#{@release_version}",
-            "+\tgithub.com/apache/arrow/go/v#{@next_major_version} v#{@next_version}",
           ],
         ]}
         next

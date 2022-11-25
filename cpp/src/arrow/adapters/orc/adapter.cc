@@ -727,12 +727,23 @@ class ORCFileWriter::Impl {
   }
 
   Status Write(const Table& table) {
-    ARROW_ASSIGN_OR_RAISE(auto orc_schema, GetOrcType(*(table.schema())));
-    ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
+    if (!writer_.get()) {
+      ARROW_ASSIGN_OR_RAISE(orc_schema_, GetOrcType(*(table.schema())));
+      ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
+      arrow_schema_ = table.schema();
+      ORC_CATCH_NOT_OK(
+          writer_ = liborc::createWriter(*orc_schema_, out_stream_.get(), orc_options))
+    } else {
+      bool schemas_matching = table.schema()->Equals(arrow_schema_, false);
+      if (!schemas_matching) {
+        return Status::TypeError(
+            "The schema of the RecordBatch does not match"
+            " the initial schema. All exported RecordBatches/Tables"
+            " must have the same schema.\nInitial:\n",
+            *arrow_schema_, "\nCurrent:\n", *table.schema());
+      }
+    }
     auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
-    ORC_CATCH_NOT_OK(
-        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), orc_options))
-
     int64_t num_rows = table.num_rows();
     const int num_cols = table.num_columns();
     std::vector<int64_t> arrow_index_offset(num_cols, 0);
@@ -744,7 +755,7 @@ class ORCFileWriter::Impl {
     while (num_rows > 0) {
       for (int i = 0; i < num_cols; i++) {
         RETURN_NOT_OK(adapters::orc::WriteBatch(
-            *(table.column(i)), batch_size, &(arrow_chunk_offset[i]),
+            *table.column(i), batch_size, &(arrow_chunk_offset[i]),
             &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
@@ -765,7 +776,9 @@ class ORCFileWriter::Impl {
  private:
   std::unique_ptr<liborc::Writer> writer_;
   std::unique_ptr<liborc::OutputStream> out_stream_;
+  std::shared_ptr<Schema> arrow_schema_;
   WriteOptions write_options_;
+  ORC_UNIQUE_PTR<liborc::Type> orc_schema_;
 };
 
 ORCFileWriter::~ORCFileWriter() {}
@@ -782,6 +795,11 @@ Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
 }
 
 Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }
+
+Status ORCFileWriter::Write(const RecordBatch& record_batch) {
+  auto table = Table::Make(record_batch.schema(), record_batch.columns());
+  return impl_->Write(*table);
+}
 
 Status ORCFileWriter::Close() { return impl_->Close(); }
 

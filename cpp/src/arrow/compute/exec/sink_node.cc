@@ -16,6 +16,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
 #include <mutex>
 #include <optional>
 
@@ -303,7 +304,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
       }
       output_schema = schema(std::move(fields));
     }
-    RETURN_NOT_OK(consumer_->Init(output_schema, this));
+    RETURN_NOT_OK(consumer_->Init(output_schema, this, plan_));
     return Status::OK();
   }
 
@@ -376,17 +377,25 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
 
  protected:
   void Finish(const Status& finish_st) {
-    consumer_->Finish().AddCallback([this, finish_st](const Status& st) {
-      // Prefer the plan error over the consumer error
-      Status final_status = finish_st & st;
-      finished_.MarkFinished(std::move(final_status));
+    plan_->async_scheduler()->AddSimpleTask([this, &finish_st] {
+      return consumer_->Finish().Then(
+          [this, finish_st]() {
+            finished_.MarkFinished(finish_st);
+            return finish_st;
+          },
+          [this, finish_st](const Status& st) {
+            // Prefer the plan error over the consumer error
+            Status final_status = finish_st & st;
+            finished_.MarkFinished(final_status);
+            return final_status;
+          });
     });
   }
 
   AtomicCounter input_counter_;
   std::shared_ptr<SinkNodeConsumer> consumer_;
   std::vector<std::string> names_;
-  int32_t backpressure_counter_ = 0;
+  std::atomic<int32_t> backpressure_counter_ = 0;
 };
 static Result<ExecNode*> MakeTableConsumingSinkNode(
     compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,

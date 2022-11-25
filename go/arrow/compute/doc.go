@@ -15,24 +15,18 @@
 // limitations under the License.
 
 // Package compute is a native-go implementation of an Acero-like
-// arrow compute engine.
-//
-// For now in order to properly use the compute library you'll need to run:
-//
-//     go mod edit -replace github.com/apache/arrow/go/v${major_version}/arrow/compute=github.com/apache/arrow/go/arrow/compute
-//
-// In order to import "github.com/apache/arrow/go/v${major_version}/arrow/compute"
-// in your package. This is due to it being a separate module so that it can
-// utilize go1.18. After the release of go1.20, the Arrow modules will be bumped to
-// a minimum go.mod of go1.18 and the compute package will be integrated
-// into the arrow module proper, rather than being a separate module. At that
-// point, the replace directive will no longer be needed.
+// arrow compute engine. It requires go1.18+
 //
 // While consumers of Arrow that are able to use CGO could utilize the
 // C Data API (using the cdata package) and could link against the
 // acero library directly, there are consumers who cannot use CGO. This
 // is an attempt to provide for those users, and in general create a
 // native-go arrow compute engine.
+//
+// The overwhemling majority of things in this package require go1.18 as
+// it utilizes generics. The files in this package and its sub-packages
+// are all excluded from being built by go versions lower than 1.18 so
+// that the larger Arrow module itself is still compatible with go1.17.
 //
 // Everything in this package should be considered Experimental for now.
 package compute

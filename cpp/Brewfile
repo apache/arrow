@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "automake"
 brew "aws-sdk-cpp"
 brew "bash"
 brew "boost"
