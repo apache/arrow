@@ -18,7 +18,16 @@
 const helpers = require("./helpers.js");
 
 
-async function haveComment(github, context, pullRequestNumber, body) {
+/**
+ * Checks whether message is present on Pull Request list of comments.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ * @param {String} message
+ * @returns {Boolean} true if message was found.
+ */
+async function haveComment(github, context, pullRequestNumber, message) {
   const options = {
     owner: context.repo.owner,
     repo: context.repo.repo,
@@ -27,7 +36,7 @@ async function haveComment(github, context, pullRequestNumber, body) {
   };
   while (true) {
     const response = await github.issues.listComments(options);
-    if (response.data.some(comment => comment.body === body)) {
+    if (response.data.some(comment => comment.body === message)) {
       return true;
     }
     if (!/;\s*rel="next"/.test(response.headers.link || "")) {
@@ -38,6 +47,14 @@ async function haveComment(github, context, pullRequestNumber, body) {
   return false;
 }
 
+/**
+ * Adds a comment on the Pull Request linking the JIRA issue.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ * @param {String} jiraID
+ */
 async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
   const jiraURL = `https://issues.apache.org/jira/browse/${jiraID}`;
   if (await haveComment(github, context, pullRequestNumber, jiraURL)) {
@@ -51,6 +68,14 @@ async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
   });
 }
 
+/**
+ * Adds a comment on the Pull Request linking the GitHub issue.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber - String containing numeric id of PR
+ * @param {String} issueID - String containing numeric id of the github issue
+ */
 async function commentGitHubURL(github, context, pullRequestNumber, issueID) {
   // Make the call to ensure issue exists before adding comment
   const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
@@ -71,10 +96,12 @@ async function commentGitHubURL(github, context, pullRequestNumber, issueID) {
 module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
-  const issueID = helpers.detectIssueID(title);
-  if (helpers.haveJIRAID(title)) {
-    await commentJIRAURL(github, context, pullRequestNumber, issueID);
-  } else if (helpers.haveGitHubIssueID(title)) {
-    await commentGitHubURL(github, context, pullRequestNumber, issueID);
+  const issue = helpers.detectIssue(title);
+  if (issue){
+    if (issue.kind == "jira") {
+      await commentJIRAURL(github, context, pullRequestNumber, issue.id);
+    } else if (issue.kind == "github") {
+      await commentGitHubURL(github, context, pullRequestNumber, issue.id);
+    }
   }
 };

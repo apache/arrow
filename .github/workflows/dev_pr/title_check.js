@@ -41,7 +41,8 @@ async function commentOpenGitHubIssue(github, context, pullRequestNumber) {
 module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
-  if (!helpers.haveJIRAID(title) || !helpers.haveGitHubIssueID(title)) {
+  const issue = helpers.detectIssue(title)
+  if (!issue) {
     await commentOpenGitHubIssue(github, context, pullRequestNumber);
   }
 };
