@@ -546,7 +546,8 @@ tasks:
                   "debian-bookworm",
                   "ubuntu-bionic",
                   "ubuntu-focal",
-                  "ubuntu-jammy"] %}
+                  "ubuntu-jammy",
+                  "ubuntu-kinetic"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     {% if architecture == "amd64" %}
