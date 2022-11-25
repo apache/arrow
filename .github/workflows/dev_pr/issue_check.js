@@ -41,7 +41,7 @@ async function verifyJIRAIssue(github, context, pullRequestNumber, jiraID) {
 }
 
 /**
- * Adds a comment to add components ticket in JIRA.
+ * Adds a comment to add components on the JIRA ticket.
  *
  * @param {Object} github
  * @param {Object} context
@@ -72,7 +72,7 @@ async function commentMissingComponents(github, context, pullRequestNumber) {
 }
 
 /**
- * Adds a comment to start ticket in JIRA.
+ * Adds a comment to start the ticket in JIRA.
  *
  * @param {Object} github
  * @param {Object} context
