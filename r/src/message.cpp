@@ -50,6 +50,12 @@ arrow::ipc::MessageType ipc___Message__type(
 }
 
 // [[arrow::export]]
+arrow::ipc::MessageType ipc___Message__type1(
+    const std::unique_ptr<arrow::ipc::Message>& message) {
+  return message->type();
+}
+
+// [[arrow::export]]
 bool ipc___Message__Equals(const std::unique_ptr<arrow::ipc::Message>& x,
                            const std::unique_ptr<arrow::ipc::Message>& y) {
   return x->Equals(*y);
