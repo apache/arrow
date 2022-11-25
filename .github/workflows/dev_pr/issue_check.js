@@ -17,6 +17,16 @@
 
 const helpers = require("./helpers.js");
 
+/**
+ * Performs checks on the JIRA Issue:
+ * - The issue is started in JIRA.
+ * - The issue contains components.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ * @param {String} jiraID
+ */
 async function verifyJIRAIssue(github, context, pullRequestNumber, jiraID) {
     const ticketInfo = await helpers.getJiraInfo(jiraID);
     if(!ticketInfo["fields"]["components"].length) {
@@ -30,6 +40,13 @@ async function verifyJIRAIssue(github, context, pullRequestNumber, jiraID) {
     }
 }
 
+/**
+ * Adds a comment to add components ticket in JIRA.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ */
 async function commentMissingComponents(github, context, pullRequestNumber) {
     const {data: comments} = await github.issues.listComments({
         owner: context.repo.owner,
@@ -54,6 +71,13 @@ async function commentMissingComponents(github, context, pullRequestNumber) {
     }
 }
 
+/**
+ * Adds a comment to start ticket in JIRA.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ */
 async function commentNotStartedTicket(github, context, pullRequestNumber) {
     const {data: comments} = await github.issues.listComments({
         owner: context.repo.owner,
@@ -78,6 +102,14 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
     }
 }
 
+/**
+ * Assigns the Github Issue to the PR creator.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ * @param {Object} issueInfo
+ */
 async function assignGitHubIssue(github, context, pullRequestNumber, issueInfo) {
     await github.issues.addAssignees({
         owner: context.repo.owner,
@@ -93,6 +125,17 @@ async function assignGitHubIssue(github, context, pullRequestNumber, issueInfo) 
     });
 }
 
+/**
+ * Performs checks on the GitHub Issue:
+ * - The issue is assigned to someone. If not assign it gets automatically
+ *   assigned to the PR creator.
+ * - The issue contains any label.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ * @param {String} issueID
+ */
 async function verifyGitHubIssue(github, context, pullRequestNumber, issueID) {
     const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
     if (issueInfo) {
