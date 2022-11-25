@@ -160,5 +160,9 @@ module Arrow
                                       nil,
                                       0)
     end
+
+    def to_arrow_chunked_array
+      ChunkedArray.new([to_arrow_array])
+    end
   end
 end
