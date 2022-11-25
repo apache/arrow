@@ -20,10 +20,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cmake_minimum_required(VERSION 3.1)
-project(cmake_wrapper)
+from conans import ConanFile, CMake
+from conan.tools.build import cross_building
+import os
 
-include(conanbuildinfo.cmake)
-conan_basic_setup()
 
-add_subdirectory(source_subfolder/cpp)
+class TestPackageV1Conan(ConanFile):
+    settings = "os", "arch", "compiler", "build_type"
+    generators = "cmake", "cmake_find_package_multi"
+
+    def build(self):
+        cmake = CMake(self)
+        cmake.configure()
+        cmake.build()
+
+    def test(self):
+        if not cross_building(self):
+            bin_path = os.path.join("bin", "test_package")
+            self.run(bin_path, run_environment=True)

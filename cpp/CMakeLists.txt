@@ -883,8 +883,8 @@ if(ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_JEMALLOC)
-  list(APPEND ARROW_SHARED_LINK_LIBS jemalloc)
-  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc)
+  list(APPEND ARROW_SHARED_LINK_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)
