@@ -1165,8 +1165,10 @@ class ParquetDatasetPiece:
         -------
         metadata : FileMetaData
         """
-        with self.open() as parquet:
-            return parquet.metadata
+        parquet = self.open()
+        meta = parquet.metadata
+        parquet.close(True)
+        return meta
 
     def open(self):
         """
