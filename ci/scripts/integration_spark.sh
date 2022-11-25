@@ -30,7 +30,7 @@ spark_version=${SPARK_VERSION:-master}
 # Use old behavior that always dropped tiemzones.
 export PYARROW_IGNORE_TIMEZONE=1
 
-if [ "${SPARK_VERSION:0:2}" == "2." ]; then
+if [ "${SPARK_VERSION:1:2}" == "2." ]; then
   # https://github.com/apache/spark/blob/master/docs/sql-pyspark-pandas-with-arrow.md#compatibility-setting-for-pyarrow--0150-and-spark-23x-24x
   export ARROW_PRE_0_15_IPC_FORMAT=1
 fi
@@ -75,17 +75,14 @@ pushd ${spark_dir}
   spark_python_tests=(
     "pyspark.sql.tests.test_arrow")
 
-  old_test_modules=false
-  # Spark <= 2.x or <= 3.3.x
-  if [ "${SPARK_VERSION:0:2}" == "2." ]; then
-    old_test_modules=true
-  elif [ "${SPARK_VERSION:0:2}" == "3." ]; then
-    if [ "${SPARK_VERSION:2:2}" == "1." ] || \
-       [ "${SPARK_VERSION:2:2}" == "2." ] || \
-       [ "${SPARK_VERSION:2:2}" == "3." ]; then
-        old_test_modules=true
-    fi
-  fi
+  case "${SPARK_VERSION}" in
+    v1.*|v2.*|v3.0.*|v3.1.*|v3.2.*|v3.3.*)
+      old_test_modules=true
+      ;;
+    *)
+      old_test_modules=false
+      ;;
+  esac
   if [ "${old_test_modules}" == "true" ]; then
     spark_python_tests+=(
       "pyspark.sql.tests.test_pandas_grouped_map"
