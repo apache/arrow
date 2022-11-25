@@ -272,6 +272,8 @@ if [ $? -eq 0 ]; then
     PKG_LIBS="$PKG_LIBS $GCS_LIBS"
   fi
 
+  # prepend PKG_DIRS to PKG_LIBS
+  PKG_LIBS="$PKG_DIRS $PKG_LIBS"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else
