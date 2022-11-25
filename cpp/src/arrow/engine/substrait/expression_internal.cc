@@ -54,22 +54,11 @@ Id NormalizeFunctionName(Id id) {
 
 }  // namespace
 
-Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
-                 SubstraitCall* call, const ExtensionSet& ext_set,
+Status DecodeArg(const substrait::FunctionArgument& arg, int idx, SubstraitCall* call,
+                 const ExtensionSet& ext_set,
                  const ConversionOptions& conversion_options) {
   if (arg.has_enum_()) {
-    const substrait::FunctionArgument::Enum& enum_val = arg.enum_();
-    switch (enum_val.enum_kind_case()) {
-      case substrait::FunctionArgument::Enum::EnumKindCase::kSpecified:
-        call->SetEnumArg(idx, enum_val.specified());
-        break;
-      case substrait::FunctionArgument::Enum::EnumKindCase::kUnspecified:
-        call->SetEnumArg(idx, std::nullopt);
-        break;
-      default:
-        return Status::Invalid("Unrecognized enum kind case: ",
-                               enum_val.enum_kind_case());
-    }
+    call->SetEnumArg(idx, arg.enum_());
   } else if (arg.has_value()) {
     ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
                           FromProto(arg.value(), ext_set, conversion_options));
@@ -82,6 +71,19 @@ Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
   return Status::OK();
 }
 
+Status DecodeOption(const substrait::FunctionOption& opt, SubstraitCall* call) {
+  std::vector<std::string_view> prefs;
+  if (opt.preference_size() == 0) {
+    return Status::Invalid("Invalid Substrait plan.  The option ", opt.name(),
+                           " is specified but does not list any choices");
+  }
+  for (const auto& preference : opt.preference()) {
+    prefs.push_back(preference);
+  }
+  call->SetOption(opt.name(), prefs);
+  return Status::OK();
+}
+
 Result<SubstraitCall> DecodeScalarFunction(
     Id id, const substrait::Expression::ScalarFunction& scalar_fn,
     const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
@@ -89,8 +91,11 @@ Result<SubstraitCall> DecodeScalarFunction(
                         FromProto(scalar_fn.output_type(), ext_set, conversion_options));
   SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second);
   for (int i = 0; i < scalar_fn.arguments_size(); i++) {
-    ARROW_RETURN_NOT_OK(DecodeArg(scalar_fn.arguments(i), static_cast<uint32_t>(i), &call,
-                                  ext_set, conversion_options));
+    ARROW_RETURN_NOT_OK(
+        DecodeArg(scalar_fn.arguments(i), i, &call, ext_set, conversion_options));
+  }
+  for (const auto& opt : scalar_fn.options()) {
+    ARROW_RETURN_NOT_OK(DecodeOption(opt, &call));
   }
   return std::move(call);
 }
@@ -929,17 +934,11 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
       ToProto(*call.output_type(), call.output_nullable(), ext_set, conversion_options));
   scalar_fn->set_allocated_output_type(output_type.release());
 
-  for (uint32_t i = 0; i < call.size(); i++) {
+  for (int i = 0; i < call.size(); i++) {
     substrait::FunctionArgument* arg = scalar_fn->add_arguments();
     if (call.HasEnumArg(i)) {
-      auto enum_val = std::make_unique<substrait::FunctionArgument::Enum>();
-      ARROW_ASSIGN_OR_RAISE(std::optional<std::string_view> enum_arg, call.GetEnumArg(i));
-      if (enum_arg) {
-        enum_val->set_specified(std::string(*enum_arg));
-      } else {
-        enum_val->set_allocated_unspecified(new google::protobuf::Empty());
-      }
-      arg->set_allocated_enum_(enum_val.release());
+      ARROW_ASSIGN_OR_RAISE(std::string_view enum_val, call.GetEnumArg(i));
+      arg->set_enum_(std::string(enum_val));
     } else if (call.HasValueArg(i)) {
       ARROW_ASSIGN_OR_RAISE(compute::Expression value_arg, call.GetValueArg(i));
       ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression> value_expr,
