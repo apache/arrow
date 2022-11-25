@@ -30,9 +30,13 @@ import numpy as np
 import pyarrow as pa
 
 
-# ignore all Plasma deprecation warnings in this file, we test that the
-# warnings are actually raised in test_plasma_deprecated.py
-pytestmark = pytest.mark.filterwarnings("ignore:Plasma:DeprecationWarning")
+pytestmark = [
+    # ignore all Plasma deprecation warnings in this file, we test that the
+    # warnings are actually raised in test_plasma_deprecated.py
+    pytest.mark.filterwarnings("ignore:Plasma:DeprecationWarning"),
+    # Ignore other ResourceWarning as plasma is soon to be removed in ~12.0.0
+    pytest.mark.filterwarnings("ignore:subprocess:ResourceWarning")
+]
 
 DEFAULT_PLASMA_STORE_MEMORY = 10 ** 8
 USE_VALGRIND = os.getenv("PLASMA_VALGRIND") == "1"
