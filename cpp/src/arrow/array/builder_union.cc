@@ -68,9 +68,12 @@ Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 BasicUnionBuilder::BasicUnionBuilder(
-    MemoryPool* pool, const std::vector<std::shared_ptr<ArrayBuilder>>& children,
+    MemoryPool* pool, int64_t alignment,
+    const std::vector<std::shared_ptr<ArrayBuilder>>& children,
     const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(pool), child_fields_(children.size()), types_builder_(pool) {
+    : ArrayBuilder(pool, alignment),
+      child_fields_(children.size()),
+      types_builder_(pool, alignment) {
   const auto& union_type = checked_cast<const UnionType&>(*type);
   mode_ = union_type.mode();
 
