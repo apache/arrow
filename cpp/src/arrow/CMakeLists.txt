@@ -451,6 +451,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
        compute/kernels/vector_replace.cc
+       compute/kernels/vector_select_k.cc
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
        compute/row/encode_internal.cc
