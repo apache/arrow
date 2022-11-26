@@ -325,6 +325,118 @@ TEST(ReaderTest, FailOnInvalidEOF) {
   }
 }
 
+// ARROW-18106
+TEST(ReaderTest, FailOnTimeUnitMismatch) {
+  std::string json = R"({"t":"2022-09-05T08:08:46.000"})";
+
+  auto read_options = ReadOptions::Defaults();
+  read_options.use_threads = false;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.explicit_schema = schema({field("t", timestamp(TimeUnit::SECOND))});
+
+  std::shared_ptr<io::InputStream> input;
+  std::shared_ptr<TableReader> reader;
+  for (auto behavior : {UnexpectedFieldBehavior::Error, UnexpectedFieldBehavior::Ignore,
+                        UnexpectedFieldBehavior::InferType}) {
+    parse_options.unexpected_field_behavior = behavior;
+    ASSERT_OK(MakeStream(json, &input));
+    ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
+                                                   read_options, parse_options));
+    ASSERT_RAISES(Invalid, reader->Read());
+  }
+}
+
+TEST(ReaderTest, InferNestedFieldsWithSchema) {
+  std::string json = R"({}
+    {"a": {"c": null}}
+    {"a": {"c": {}}}
+    {"a": {"c": {"d": null}}}
+    {"a": {"c": {"d": []}}}
+    {"a": {"c": {"d": [null]}}}
+    {"a": {"c": {"d": [{}]}}}
+    {"a": {"c": {"d": [{"e": null}]}}}
+    {"a": {"c": {"d": [{"e": true}]}}}
+  )";
+
+  auto read_options = ReadOptions::Defaults();
+  read_options.use_threads = false;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.explicit_schema =
+      schema({field("a", struct_({field("b", timestamp(TimeUnit::SECOND))}))});
+  parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+
+  auto expected_schema = schema({field(
+      "a", struct_({field("b", timestamp(TimeUnit::SECOND)),
+                    field("c", struct_({field(
+                                   "d", list(struct_({field("e", boolean())})))}))}))});
+  auto expected_batch = RecordBatchFromJSON(expected_schema, R"([
+    {"a": null},
+    {"a": {"b": null, "c": null}},
+    {"a": {"b": null, "c": {"d": null}}},
+    {"a": {"b": null, "c": {"d": null}}},
+    {"a": {"b": null, "c": {"d": []}}},
+    {"a": {"b": null, "c": {"d": [null]}}},
+    {"a": {"b": null, "c": {"d": [{"e": null}]}}},
+    {"a": {"b": null, "c": {"d": [{"e": null}]}}},
+    {"a": {"b": null, "c": {"d": [{"e": true}]}}}
+  ])");
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({expected_batch}));
+
+  std::shared_ptr<io::InputStream> input;
+  std::shared_ptr<TableReader> reader;
+  ASSERT_OK(MakeStream(json, &input));
+  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
+                                                 read_options, parse_options));
+  ASSERT_OK_AND_ASSIGN(auto actual_table, reader->Read());
+  AssertTablesEqual(*actual_table, *expected_table);
+
+  json += std::string(R"({"a": {"b": "2022-09-05T08:08:46.000"}})") + "\n";
+  ASSERT_OK(MakeStream(json, &input));
+  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
+                                                 read_options, parse_options));
+  ASSERT_RAISES(Invalid, reader->Read());
+}
+
+TEST(ReaderTest, InferNestedFieldsInListWithSchema) {
+  std::string json = R"({}
+    {"a": [{"b": "2022-09-05T08:08:00"}]}
+    {"a": [{"b": "2022-09-05T08:08:01", "c": null}]}
+    {"a": [{"b": "2022-09-05T08:08:02", "c": {"d": true}}]}
+  )";
+
+  auto read_options = ReadOptions::Defaults();
+  read_options.use_threads = false;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.explicit_schema =
+      schema({field("a", list(struct_({field("b", timestamp(TimeUnit::SECOND))})))});
+  parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+
+  auto expected_schema =
+      schema({field("a", list(struct_({field("b", timestamp(TimeUnit::SECOND)),
+                                       field("c", struct_({field("d", boolean())}))})))});
+  auto expected_batch = RecordBatchFromJSON(expected_schema, R"([
+    {"a": null},
+    {"a": [{"b": "2022-09-05T08:08:00", "c": null}]},
+    {"a": [{"b": "2022-09-05T08:08:01", "c": null}]},
+    {"a": [{"b": "2022-09-05T08:08:02", "c": {"d": true}}]}
+  ])");
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({expected_batch}));
+
+  std::shared_ptr<io::InputStream> input;
+  std::shared_ptr<TableReader> reader;
+  ASSERT_OK(MakeStream(json, &input));
+  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
+                                                 read_options, parse_options));
+  ASSERT_OK_AND_ASSIGN(auto actual_table, reader->Read());
+  AssertTablesEqual(*actual_table, *expected_table);
+
+  json += std::string(R"({"a": {"b": "2022-09-05T08:08:03.000", "c": {}}})") + "\n";
+  ASSERT_OK(MakeStream(json, &input));
+  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
+                                                 read_options, parse_options));
+  ASSERT_RAISES(Invalid, reader->Read());
+}
+
 class StreamingReaderTestBase {
  public:
   virtual ~StreamingReaderTestBase() = default;
