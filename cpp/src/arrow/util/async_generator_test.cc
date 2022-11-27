@@ -705,6 +705,7 @@ TEST_P(MergedGeneratorTestFixture, MergedLimitedSubscriptions) {
   AssertGeneratorExhausted(merged);
 }
 
+#ifndef ARROW_VALGRIND
 TEST_P(MergedGeneratorTestFixture, MergedStress) {
   constexpr int NGENERATORS = 10;
   constexpr int NITEMS = 10;
@@ -739,6 +740,7 @@ TEST_P(MergedGeneratorTestFixture, MergedParallelStress) {
     ASSERT_EQ(NITEMS * NGENERATORS, items.size());
   }
 }
+#endif
 
 TEST_P(MergedGeneratorTestFixture, MergedRecursion) {
   // Regression test for an edge case in MergedGenerator. Ensure if

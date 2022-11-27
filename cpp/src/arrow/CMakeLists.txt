@@ -192,6 +192,7 @@ set(ARROW_SRCS
     io/stdio.cc
     io/transform.cc
     util/async_util.cc
+    util/atfork_internal.cc
     util/basic_decimal.cc
     util/bit_block_counter.cc
     util/bit_run_reader.cc
@@ -426,6 +427,7 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_cast_boolean.cc
        compute/kernels/scalar_cast_dictionary.cc
+       compute/kernels/scalar_cast_extension.cc
        compute/kernels/scalar_cast_internal.cc
        compute/kernels/scalar_cast_nested.cc
        compute/kernels/scalar_cast_numeric.cc

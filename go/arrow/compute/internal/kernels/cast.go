@@ -14,12 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package kernels
 
 import (
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 )
 
 type CastOptions struct {
@@ -84,7 +86,7 @@ func OutputAllNull(_ *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult
 	return nil
 }
 
-func canCastFromDict(id arrow.Type) bool {
+func CanCastFromDict(id arrow.Type) bool {
 	return arrow.IsPrimitive(id) || arrow.IsBaseBinary(id) || arrow.IsFixedSizeBinary(id)
 }
 

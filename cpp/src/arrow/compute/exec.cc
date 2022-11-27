@@ -33,6 +33,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
@@ -169,6 +170,9 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values, int64_t length) {
 
 Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     std::shared_ptr<Schema> schema, MemoryPool* pool) const {
+  if (static_cast<size_t>(schema->num_fields()) > values.size()) {
+    return Status::Invalid("ExecBatch::ToTRecordBatch mismatching schema size");
+  }
   ArrayVector columns(schema->num_fields());
 
   for (size_t i = 0; i < columns.size(); ++i) {
@@ -176,8 +180,13 @@ Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     if (value.is_array()) {
       columns[i] = value.make_array();
       continue;
+    } else if (value.is_scalar()) {
+      ARROW_ASSIGN_OR_RAISE(columns[i],
+                            MakeArrayFromScalar(*value.scalar(), length, pool));
+    } else {
+      return Status::TypeError("ExecBatch::ToRecordBatch value ", i, " with unsupported ",
+                               "value kind ", ::arrow::ToString(value.kind()));
     }
-    ARROW_ASSIGN_OR_RAISE(columns[i], MakeArrayFromScalar(*value.scalar(), length, pool));
   }
 
   return RecordBatch::Make(std::move(schema), length, std::move(columns));
@@ -874,6 +883,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       }
     }
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
+      data_preallocated_.clear();
       ComputeDataPreallocate(*output_type_.type, &data_preallocated_);
     }
 
@@ -957,6 +967,7 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
         (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
          kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL);
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
+      data_preallocated_.clear();
       ComputeDataPreallocate(*output_type_.type, &data_preallocated_);
     }
 
@@ -1305,6 +1316,26 @@ Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
 Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
                            ExecContext* ctx) {
   return CallFunction(func_name, batch, /*options=*/nullptr, ctx);
+}
+
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, std::vector<TypeHolder> in_types,
+    const FunctionOptions* options, FunctionRegistry* func_registry) {
+  if (func_registry == NULLPTR) {
+    func_registry = GetFunctionRegistry();
+  }
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
+                        func_registry->GetFunction(func_name));
+  ARROW_ASSIGN_OR_RAISE(auto func_exec, func->GetBestExecutor(std::move(in_types)));
+  ARROW_RETURN_NOT_OK(func_exec->Init(options));
+  return func_exec;
+}
+
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const std::vector<Datum>& args,
+    const FunctionOptions* options, FunctionRegistry* func_registry) {
+  ARROW_ASSIGN_OR_RAISE(auto in_types, internal::GetFunctionArgumentTypes(args));
+  return GetFunctionExecutor(func_name, std::move(in_types), options, func_registry);
 }
 
 }  // namespace compute

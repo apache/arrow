@@ -160,16 +160,6 @@ cdef class DataType(_Weakrefable):
         return ty.bit_width()
 
     @property
-    def num_children(self):
-        """
-        The number of child fields.
-        """
-        import warnings
-        warnings.warn("num_children is deprecated, use num_fields",
-                      FutureWarning)
-        return self.num_fields
-
-    @property
     def num_fields(self):
         """
         The number of child fields.
@@ -1317,11 +1307,6 @@ cdef class Field(_Weakrefable):
         else:
             return wrapped
 
-    def add_metadata(self, metadata):
-        warnings.warn("The 'add_metadata' method is deprecated, use "
-                      "'with_metadata' instead", FutureWarning, stacklevel=2)
-        return self.with_metadata(metadata)
-
     def with_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Field
@@ -2276,6 +2261,8 @@ def unify_schemas(schemas):
         Schema schema
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
+        if not isinstance(schema, Schema):
+            raise TypeError("Expected Schema, got {}".format(type(schema)))
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
     return pyarrow_wrap_schema(GetResultValue(UnifySchemas(c_schemas)))
 

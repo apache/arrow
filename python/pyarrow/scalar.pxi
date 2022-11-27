@@ -414,6 +414,11 @@ cdef class Time32Scalar(Scalar):
     Concrete class for time32 scalars.
     """
 
+    @property
+    def value(self):
+        cdef CTime32Scalar* sp = <CTime32Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
+
     def as_py(self):
         """
         Return this value as a Python datetime.timedelta instance.
@@ -432,6 +437,11 @@ cdef class Time64Scalar(Scalar):
     """
     Concrete class for time64 scalars.
     """
+
+    @property
+    def value(self):
+        cdef CTime64Scalar* sp = <CTime64Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
 
     def as_py(self):
         """
@@ -835,19 +845,6 @@ cdef class DictionaryScalar(Scalar):
         Return this encoded value as a Python object.
         """
         return self.value.as_py() if self.is_valid else None
-
-    @property
-    def index_value(self):
-        warnings.warn("`index_value` property is deprecated as of 1.0.0"
-                      "please use the `index` property instead",
-                      FutureWarning)
-        return self.index
-
-    @property
-    def dictionary_value(self):
-        warnings.warn("`dictionary_value` property is deprecated as of 1.0.0, "
-                      "please use the `value` property instead", FutureWarning)
-        return self.value
 
 
 cdef class UnionScalar(Scalar):

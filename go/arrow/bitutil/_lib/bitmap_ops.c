@@ -32,3 +32,15 @@ void FULL_NAME(bitmap_aligned_or)(const uint8_t* left, const uint8_t* right, uin
         out[i] = left[i] | right[i];
     }
 }
+
+void FULL_NAME(bitmap_aligned_and_not)(const uint8_t* left, const uint8_t* right, uint8_t* out, const int64_t nbytes) {
+    for (int64_t i = 0; i < nbytes; ++i) {
+        out[i] = left[i] & ~right[i];
+    }
+}
+
+void FULL_NAME(bitmap_aligned_xor)(const uint8_t* left, const uint8_t* right, uint8_t* out, const int64_t nbytes) {
+    for (int64_t i = 0; i < nbytes; ++i) {
+        out[i] = left[i] ^ right[i];
+    }
+}

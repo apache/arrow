@@ -184,6 +184,7 @@ install:
   - sudo -H pip3 install -e dev/archery[docker]
 
 script:
+  - export ARCHERY_DEFAULT_BRANCH=$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)
   - |
     archery docker run \
       ${DOCKER_RUN_ARGS} \

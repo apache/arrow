@@ -188,9 +188,13 @@ module Arrow
       end
     end
 
-    def build_array(values)
+    def array_class
       base_name = self.class.name.gsub(/DataType\z/, "")
-      builder_class = self.class.const_get("#{base_name}ArrayBuilder")
+      ::Arrow.const_get("#{base_name}Array")
+    end
+
+    def build_array(values)
+      builder_class = array_class.builder_class
       args = [values]
       args.unshift(self) unless builder_class.buildable?(args)
       builder_class.build(*args)

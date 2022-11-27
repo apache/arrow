@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import warnings
 
 from pyarrow._plasma import (ObjectID, ObjectNotAvailable,  # noqa
                              PlasmaBuffer, PlasmaClient, connect,
@@ -84,7 +85,11 @@ def start_plasma_store(plasma_store_memory,
                        plasma_directory=None, use_hugepages=False,
                        external_store=None):
     """
-    Start a plasma store process.
+    DEPRECATED: Start a plasma store process.
+
+    .. deprecated:: 10.0.0
+       Plasma is deprecated since Arrow 10.0.0. It will be removed
+       in 12.0.0 or so.
 
     Parameters
     ----------
@@ -109,6 +114,11 @@ def start_plasma_store(plasma_store_memory,
         A tuple of the name of the plasma store socket and the process ID of
         the plasma store process.
     """
+    warnings.warn(
+        "Plasma is deprecated since Arrow 10.0.0. It will be removed in "
+        "12.0.0 or so.",
+        DeprecationWarning)
+
     if use_valgrind and use_profiler:
         raise Exception("Cannot use valgrind and profiler at the same time.")
 

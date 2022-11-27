@@ -22,11 +22,11 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	shared_utils "github.com/apache/arrow/go/v10/internal/utils"
-	"github.com/apache/arrow/go/v10/parquet"
-	"github.com/apache/arrow/go/v10/parquet/internal/utils"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v11/internal/utils"
+	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v11/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -182,14 +182,13 @@ func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
 
 		// copy as many values from our mini block as we can into out
 		start := int(d.valsPerMini - d.currentMiniBlockVals)
-		end := shared_utils.MinInt(int(d.valsPerMini), len(out))
-		copy(out, d.miniBlockValues[start:end])
+		numCopied := copy(out, d.miniBlockValues[start:])
 
-		numCopied := end - start
 		out = out[numCopied:]
 		d.currentBlockVals -= uint32(numCopied)
 		d.currentMiniBlockVals -= uint32(numCopied)
 	}
+	d.nvals -= max
 	return max, nil
 }
 
@@ -271,14 +270,13 @@ func (d *DeltaBitPackInt64Decoder) Decode(out []int64) (int, error) {
 		}
 
 		start := int(d.valsPerMini - d.currentMiniBlockVals)
-		end := shared_utils.MinInt(int(d.valsPerMini), len(out))
-		copy(out, d.miniBlockValues[start:end])
+		numCopied := copy(out, d.miniBlockValues[start:])
 
-		numCopied := end - start
 		out = out[numCopied:]
 		d.currentBlockVals -= uint32(numCopied)
 		d.currentMiniBlockVals -= uint32(numCopied)
 	}
+	d.nvals -= max
 	return max, nil
 }
 

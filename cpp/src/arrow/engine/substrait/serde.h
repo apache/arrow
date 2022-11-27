@@ -261,10 +261,17 @@ Status CheckMessagesEquivalent(std::string_view message_name, const Buffer& l_bu
 ///
 /// \param[in] type_name the name of the Substrait message type to convert
 /// \param[in] json the JSON string to convert
+/// \param[in] ignore_unknown_fields if true then unknown fields will be ignored and
+///            will not cause an error
+///
+///            This should generally be true to allow consumption of plans from newer
+///            producers but setting to false can be useful if you are testing
+///            conformance to a specific Substrait version
 /// \return a buffer filled with the binary protobuf serialization of message
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
-                                                  std::string_view json);
+                                                  std::string_view json,
+                                                  bool ignore_unknown_fields = true);
 
 /// \brief Utility function to convert a binary protobuf serialization of a Substrait
 /// message to JSON

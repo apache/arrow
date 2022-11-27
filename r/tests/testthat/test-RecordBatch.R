@@ -642,14 +642,19 @@ test_that("Handling string data with embedded nuls", {
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
-    expect_warning(
-      expect_equal(
-        as.data.frame(batch_with_nul)$b,
-        c("person", "woman", "man", "camera", "tv"),
-        ignore_attr = TRUE
-      ),
-      "Stripping '\\0' (nul) from character vector",
-      fixed = TRUE
+    # Because expect_equal() may call identical(x, y) more than once,
+    # the string with a nul may be created more than once and multiple
+    # warnings may be issued.
+    suppressWarnings(
+      expect_warning(
+        expect_equal(
+          as.data.frame(batch_with_nul)$b,
+          c("person", "woman", "man", "camera", "tv"),
+          ignore_attr = TRUE
+        ),
+        "Stripping '\\0' (nul) from character vector",
+        fixed = TRUE
+      )
     )
   })
 })

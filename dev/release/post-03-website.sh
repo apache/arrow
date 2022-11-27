@@ -22,7 +22,7 @@ set -u
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARROW_DIR="${SOURCE_DIR}/../.."
-ARROW_SITE_DIR="${ARROW_DIR}/../arrow-site"
+: ${ARROW_SITE_DIR:="${ARROW_DIR}/../arrow-site"}
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <previous-version> <version>"

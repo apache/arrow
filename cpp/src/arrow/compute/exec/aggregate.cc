@@ -30,9 +30,13 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace compute {
 namespace internal {
 
@@ -290,7 +294,7 @@ class GroupByProcess {
         });
       }
 
-      ARROW_RETURN_NOT_OK(task_group->Finish());
+     ARROW_RETURN_NOT_OK(task_group->Finish());
       return Status::OK();
     }
 
@@ -372,7 +376,7 @@ class GroupByProcess {
     int i = 0;
     for (auto types : {key_types, segment_key_types}) {
       for (const TypeHolder& type : types) {
-        key_fields.push_back(field("key_" + std::to_string(i++), type.GetSharedPtr()));
+        key_fields.push_back(field("key_" + ToChars(i++), type.GetSharedPtr()));
       }
     }
   }

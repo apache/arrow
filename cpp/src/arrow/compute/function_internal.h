@@ -74,7 +74,7 @@ Result<Enum> ValidateEnumValue(CType raw) {
   return Status::Invalid("Invalid value for ", EnumTraits<Enum>::name(), ": ", raw);
 }
 
-class GenericOptionsType : public FunctionOptionsType {
+class ARROW_EXPORT GenericOptionsType : public FunctionOptionsType {
  public:
   Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
   Result<std::unique_ptr<FunctionOptions>> Deserialize(
@@ -101,6 +101,12 @@ static inline enable_if_t<!has_enum_traits<T>::value, std::string> GenericToStri
   std::stringstream ss;
   ss << value;
   return ss.str();
+}
+
+template <typename T>
+static inline enable_if_t<!has_enum_traits<T>::value, std::string> GenericToString(
+    const std::optional<T>& value) {
+  return value.has_value() ? GenericToString(value.value()) : "nullopt";
 }
 
 static inline std::string GenericToString(bool value) { return value ? "true" : "false"; }
@@ -277,6 +283,12 @@ static inline Result<decltype(MakeScalar(std::declval<T>()))> GenericToScalar(
   return MakeScalar(value);
 }
 
+template <typename T>
+static inline Result<decltype(MakeScalar(std::declval<T>()))> GenericToScalar(
+    const std::optional<T>& value) {
+  return value.has_value() ? MakeScalar(value.value()) : MakeScalar(nullptr);
+}
+
 // For Clang/libc++: when iterating through vector<bool>, we can't
 // pass it by reference so the overload above doesn't apply
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(bool value) {
@@ -390,6 +402,26 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   ARROW_ASSIGN_OR_RAISE(auto raw_val,
                         GenericFromScalar<typename EnumTraits<T>::CType>(value));
   return ValidateEnumValue<T>(raw_val);
+}
+
+template <typename>
+constexpr bool is_optional_impl = false;
+template <typename T>
+constexpr bool is_optional_impl<std::optional<T>> = true;
+
+template <typename T>
+using is_optional =
+    std::integral_constant<bool, is_optional_impl<std::decay_t<T>> ||
+                                     std::is_same<T, std::nullopt_t>::value>;
+
+template <typename T, typename R = void>
+using enable_if_optional = enable_if_t<is_optional<T>::value, Result<T>>;
+
+template <typename T>
+static inline enable_if_optional<T> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
+  using value_type = typename T::value_type;
+  return GenericFromScalar<value_type>(value);
 }
 
 template <typename T, typename U>
@@ -663,6 +695,11 @@ const FunctionOptionsType* GetFunctionOptionsType(const Properties&... propertie
   } instance(arrow::internal::MakeProperties(properties...));
   return &instance;
 }
+
+Status CheckAllArrayOrScalar(const std::vector<Datum>& values);
+
+ARROW_EXPORT
+Result<std::vector<TypeHolder>> GetFunctionArgumentTypes(const std::vector<Datum>& args);
 
 }  // namespace internal
 }  // namespace compute

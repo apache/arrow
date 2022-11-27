@@ -303,6 +303,20 @@ std::shared_ptr<arrow::Table> Table__from_record_batches(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__from_schema(
+    const std::shared_ptr<arrow::Schema>& schema) {
+  int64_t num_fields = schema->num_fields();
+
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
+  for (int i = 0; i < num_fields; i++) {
+    auto maybe_column = arrow::ChunkedArray::Make({}, schema->field(i)->type());
+    columns[i] = ValueOrStop(maybe_column);
+  }
+
+  return (arrow::Table::Make(schema, std::move(columns)));
+}
+
+// [[arrow::export]]
 r_vec_size Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table) {
   return r_vec_size(ValueOrStop(arrow::util::ReferencedBufferSize(*table)));
 }

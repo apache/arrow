@@ -20,7 +20,7 @@
 
 filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   # TODO something with the .preserve argument
-  filts <- quos(...)
+  filts <- expand_across(.data, quos(...))
   if (length(filts) == 0) {
     # Nothing to do
     return(.data)

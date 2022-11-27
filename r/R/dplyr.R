@@ -49,6 +49,12 @@ arrow_dplyr_query <- function(.data) {
   if (inherits(.data, "data.frame")) {
     .data <- Table$create(.data)
   }
+  # ARROW-17737: If .data is a Table, remove groups from metadata
+  # (we've already grabbed the groups above)
+  if (inherits(.data, "ArrowTabular")) {
+    .data <- ungroup.ArrowTabular(.data)
+  }
+
   # Evaluating expressions on a dataset with duplicated fieldnames will error
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
@@ -182,7 +188,7 @@ dim.arrow_dplyr_query <- function(x) {
     # Query on in-memory Table, so evaluate the filter
     # Don't need any columns
     x <- select.arrow_dplyr_query(x, NULL)
-    rows <- nrow(compute.arrow_dplyr_query(x))
+    rows <- nrow(as_arrow_table(x))
   }
   c(rows, cols)
 }
@@ -215,12 +221,22 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   x$head <- n
   collapse.arrow_dplyr_query(x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   x$tail <- n
   collapse.arrow_dplyr_query(x)
 }
@@ -238,7 +254,11 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 
   if (!missing(i)) {
     out <- take_dataset_rows(x, i)
-    x <- restore_dplyr_features(out, x)
+    x <- set_group_attributes(
+      out,
+      dplyr::group_vars(x),
+      dplyr::group_by_drop_default(x)
+    )
   }
   x
 }

@@ -55,9 +55,8 @@ read_parquet <- function(file,
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
     # infer which columns to keep from schema
-    schema <- reader$GetSchema()
-    names <- names(schema)
-    indices <- match(vars_select(names, !!col_select), names) - 1L
+    sim_df <- as.data.frame(reader$GetSchema())
+    indices <- eval_select(col_select, sim_df) - 1L
     tab <- tryCatch(
       reader$ReadTable(indices),
       error = read_compressed_error

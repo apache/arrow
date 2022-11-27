@@ -40,6 +40,22 @@ class TableTest < Test::Unit::TestCase
     @table = Arrow::Table.new(schema, [@count_array, @visible_array])
   end
 
+  sub_test_case(".new") do
+    test("{Symbol: Arrow::Tensor}") do
+      assert_equal(Arrow::Table.new(numbers: Arrow::UInt8Array.new([1, 2, 3])),
+                   Arrow::Table.new(numbers: Arrow::Tensor.new([1, 2, 3])))
+    end
+
+    test("{Symbol: #to_ary}") do
+      array_like = Object.new
+      def array_like.to_ary
+        [1, 2, 3]
+      end
+      assert_equal(Arrow::Table.new(numbers: Arrow::UInt8Array.new([1, 2, 3])),
+                   Arrow::Table.new(numbers: array_like))
+    end
+  end
+
   test("#columns") do
     assert_equal([
                    Arrow::Column.new(@table, 0),

@@ -118,7 +118,7 @@ If you are authorized to install system packages and you're installing a CRAN re
 you may want to use the official Apache Arrow release packages corresponding to 
 the R package version via software distribution tools such as `apt` or `yum` 
 (though there are some drawbacks: see the 
-["Troubleshooting" section in the main installation docs]("../install.html)).
+["Troubleshooting" section in the main installation docs](../install.html#troubleshooting)).
 See the [Arrow project installation page](https://arrow.apache.org/install/)
 to find pre-compiled binary packages for some common Linux distributions,
 including Debian, Ubuntu, and CentOS.
