@@ -652,7 +652,6 @@ struct BatchConverter {
         });
   }
 
-  // TODO: Should use exec context owned by the plan
   std::shared_ptr<ExecContext> exec_context;
   AsyncGenerator<std::optional<ExecBatch>> exec_batch_gen;
   std::shared_ptr<Schema> schema;
@@ -679,7 +678,7 @@ Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGen
 Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration declaration,
                                                                bool use_threads) {
   std::shared_ptr<Schema> schema;
-  auto batch_itr = std::make_unique<Iterator<std::shared_ptr<RecordBatch>>>(
+  auto batch_iterator = std::make_unique<Iterator<std::shared_ptr<RecordBatch>>>(
       ::arrow::internal::IterateSynchronously<std::shared_ptr<RecordBatch>>(
           [&](::arrow::internal::Executor* executor)
               -> Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> {
@@ -713,7 +712,7 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration decla
     std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator_;
   };
 
-  return std::make_unique<PlanReader>(std::move(schema), std::move(batch_itr));
+  return std::make_unique<PlanReader>(std::move(schema), std::move(batch_iterator));
 }
 
 namespace internal {

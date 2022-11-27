@@ -116,6 +116,7 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
   Result<std::shared_ptr<io::RandomAccessFile>> Open() const;
 
   /// \brief Get the size (in bytes) of the file or buffer
+  /// If the file is compressed this should be the compressed (on-disk) size.
   int64_t Size() const;
 
   /// \brief Get an InputStream which views this file source (and decompresses if needed)

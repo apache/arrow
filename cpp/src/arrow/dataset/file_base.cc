@@ -134,13 +134,13 @@ Future<std::optional<int64_t>> FileFormat::CountRows(
 Future<std::shared_ptr<InspectedFragment>> FileFormat::InspectFragment(
     const FileSource& source, const FragmentScanOptions* format_options,
     compute::ExecContext* exec_context) const {
-  return Status::NotImplemented("The new scanner is not yet supported on this format");
+  return Status::NotImplemented("This format does not yet support the scan2 node");
 }
 
 Future<std::shared_ptr<FragmentScanner>> FileFormat::BeginScan(
     const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
     const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
-  return Status::NotImplemented("The new scanner is not yet supported on this format");
+  return Status::NotImplemented("This format does not yet support the scan2 node");
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(

@@ -74,7 +74,7 @@ class CsvFileScanner : public FragmentScanner {
         best_guess_bytes_per_batch_(best_guess_bytes_per_batch) {}
 
   Future<std::shared_ptr<RecordBatch>> ScanBatch(int batch_number) override {
-    // We should be called in increasing order but let's verify that in case it changes.
+    // This should be called in increasing order but let's verify that in case it changes.
     // It would be easy enough to handle out of order but no need for that complexity at
     // the moment.
     DCHECK_EQ(scanned_so_far_++, batch_number);
