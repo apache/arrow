@@ -30,6 +30,7 @@
 #include "arrow/array/data.h"
 #include "arrow/chunk_resolver.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/chunked_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
@@ -1907,6 +1908,119 @@ class SelectKUnstableMetaFunction : public MetaFunction {
 
 // ----------------------------------------------------------------------
 // Rank implementation
+template <typename T>
+Result<Datum> CreateRankings(ExecContext* ctx, const NullPartitionResult& sorted,
+                             const NullPlacement null_placement,
+                             const RankOptions::Tiebreaker tiebreaker,
+                             std::function<T(int64_t)> value_selector) {
+  auto length = sorted.overall_end() - sorted.overall_begin();
+  ARROW_ASSIGN_OR_RAISE(auto rankings,
+                        MakeMutableUInt64Array(uint64(), length, ctx->memory_pool()));
+  auto out_begin = rankings->GetMutableValues<uint64_t>(1);
+  uint64_t rank;
+
+  switch (tiebreaker) {
+    case RankOptions::Dense: {
+      T curr_value, prev_value{};
+      rank = 0;
+
+      if (null_placement == NullPlacement::AtStart && sorted.null_count() > 0) {
+        rank++;
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+
+      for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
+        curr_value = value_selector(*it);
+        if (it == sorted.non_nulls_begin || curr_value != prev_value) {
+          rank++;
+        }
+
+        out_begin[*it] = rank;
+        prev_value = curr_value;
+      }
+
+      if (null_placement == NullPlacement::AtEnd) {
+        rank++;
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+      break;
+    }
+
+    case RankOptions::First: {
+      rank = 0;
+      for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
+        out_begin[*it] = ++rank;
+      }
+      break;
+    }
+
+    case RankOptions::Min: {
+      T curr_value, prev_value{};
+      rank = 0;
+
+      if (null_placement == NullPlacement::AtStart) {
+        rank++;
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+
+      for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
+        curr_value = value_selector(*it);
+        if (it == sorted.non_nulls_begin || curr_value != prev_value) {
+          rank = (it - sorted.overall_begin()) + 1;
+        }
+        out_begin[*it] = rank;
+        prev_value = curr_value;
+      }
+
+      if (null_placement == NullPlacement::AtEnd) {
+        rank = sorted.non_null_count() + 1;
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+      break;
+    }
+
+    case RankOptions::Max: {
+      // The algorithm for Max is just like Min, but in reverse order.
+      T curr_value, prev_value{};
+      rank = length;
+
+      if (null_placement == NullPlacement::AtEnd) {
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+
+      for (auto it = sorted.non_nulls_end - 1; it >= sorted.non_nulls_begin; it--) {
+        curr_value = value_selector(*it);
+
+        if (it == sorted.non_nulls_end - 1 || curr_value != prev_value) {
+          rank = (it - sorted.overall_begin()) + 1;
+        }
+        out_begin[*it] = rank;
+        prev_value = curr_value;
+      }
+
+      if (null_placement == NullPlacement::AtStart) {
+        rank = sorted.null_count();
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+
+      break;
+    }
+  }
+
+  return Datum(rankings);
+}
 
 const RankOptions* GetDefaultRankOptions() {
   static const auto kDefaultRankOptions = RankOptions::Defaults();
@@ -2182,114 +2296,13 @@ class ChunkedArrayRanker : public TypeVisitor {
     // Note that "nulls" can also include NaNs, hence the >= check
     DCHECK_GE(sorted[0].null_count(), null_count);
 
-    auto length = indices_end_ - indices_begin_;
-    ARROW_ASSIGN_OR_RAISE(auto rankings,
-                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
-    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
-    uint64_t rank;
-
-    switch (tiebreaker_) {
-      case RankOptions::Dense: {
-        T curr_value, prev_value{};
-        rank = 0;
-
-        if (null_placement_ == NullPlacement::AtStart && sorted[0].null_count() > 0) {
-          rank++;
-          for (auto it = sorted[0].nulls_begin; it < sorted[0].nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        for (auto it = sorted[0].non_nulls_begin; it < sorted[0].non_nulls_end; it++) {
-          curr_value = resolver.Resolve<ArrayType>(*it).Value();
-          if (it == sorted[0].non_nulls_begin || curr_value != prev_value) {
-            rank++;
-          }
-
-          out_begin[*it] = rank;
-          prev_value = curr_value;
-        }
-
-        if (null_placement_ == NullPlacement::AtEnd) {
-          rank++;
-          for (auto it = sorted[0].nulls_begin; it < sorted[0].nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-        break;
-      }
-
-      case RankOptions::First: {
-        rank = 0;
-        for (auto it = sorted[0].overall_begin(); it < sorted[0].overall_end(); it++) {
-          out_begin[*it] = ++rank;
-        }
-        break;
-      }
-
-      case RankOptions::Min: {
-        T curr_value, prev_value{};
-        rank = 0;
-
-        if (null_placement_ == NullPlacement::AtStart) {
-          rank++;
-          for (auto it = sorted[0].nulls_begin; it < sorted[0].nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        for (auto it = sorted[0].non_nulls_begin; it < sorted[0].non_nulls_end; it++) {
-          curr_value = resolver.Resolve<ArrayType>(*it).Value();
-          if (it == sorted[0].non_nulls_begin || curr_value != prev_value) {
-            rank = (it - sorted[0].overall_begin()) + 1;
-          }
-          out_begin[*it] = rank;
-          prev_value = curr_value;
-        }
-
-        if (null_placement_ == NullPlacement::AtEnd) {
-          rank = sorted[0].non_null_count() + 1;
-          for (auto it = sorted[0].nulls_begin; it < sorted[0].nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-        break;
-      }
-
-      case RankOptions::Max: {
-        // The algorithm for Max is just like Min, but in reverse order.
-        T curr_value, prev_value{};
-        rank = length;
-
-        if (null_placement_ == NullPlacement::AtEnd) {
-          for (auto it = sorted[0].nulls_begin; it < sorted[0].nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        for (auto it = sorted[0].non_nulls_end - 1; it >= sorted[0].non_nulls_begin;
-             it--) {
-          curr_value = resolver.Resolve<ArrayType>(*it).Value();
-
-          if (it == sorted[0].non_nulls_end - 1 || curr_value != prev_value) {
-            rank = (it - sorted[0].overall_begin()) + 1;
-          }
-          out_begin[*it] = rank;
-          prev_value = curr_value;
-        }
-
-        if (null_placement_ == NullPlacement::AtStart) {
-          rank = sorted[0].null_count();
-          for (auto it = sorted[0].nulls_begin; it < sorted[0].nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        break;
-      }
-    }
-
-    *output_ = Datum(rankings);
+    auto value_selector = [resolver](int64_t index) {
+      return resolver.Resolve<ArrayType>(index).Value();
+    };
+    auto rankings =
+        CreateRankings<T>(ctx_, sorted[0], null_placement_, tiebreaker_, value_selector);
+    ARROW_ASSIGN_OR_RAISE(auto output, rankings);
+    *output_ = output;
     return Status::OK();
   }
 
