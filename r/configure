@@ -204,6 +204,9 @@ else
           # This case must be ARROW_DEPENDENCY_SOURCE=BUNDLED.
           PKG_CFLAGS="-I${LIB_DIR}/../include $PKG_CFLAGS"
           PKG_DIRS="-L${LIB_DIR}"
+          if [ "${OPENSSL_ROOT_DIR}" != "" ]; then
+            PKG_DIRS="${PKG_DIRS} -L${OPENSSL_ROOT_DIR}/lib"
+          fi
           PKG_LIBS="-larrow -larrow_bundled_dependencies"
           S3_LIBS="-lcurl -lssl -lcrypto"
           GCS_LIBS="-lcurl -lssl -lcrypto"
