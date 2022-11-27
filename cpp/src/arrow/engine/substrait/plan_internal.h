@@ -33,8 +33,6 @@
 namespace arrow {
 namespace engine {
 
-namespace substrait = ::substrait;
-
 /// \brief Replaces the extension information of a Substrait Plan message with the given
 /// extension set, such that the anchors defined therein can be used in the rest of the
 /// plan.
@@ -43,7 +41,7 @@ namespace substrait = ::substrait;
 /// \param[in,out] plan the Substrait plan message that is to be updated
 /// \return success or failure
 ARROW_ENGINE_EXPORT
-Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan);
+Status AddExtensionSetToPlan(const ExtensionSet& ext_set, ::substrait::Plan* plan);
 
 /// \brief Interprets the extension information of a Substrait Plan message into an
 /// ExtensionSet.
@@ -55,10 +53,10 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 /// correspond to Substrait's URI/name pairs
 ARROW_ENGINE_EXPORT
 Result<ExtensionSet> GetExtensionSetFromPlan(
-    const substrait::Plan& plan, const ConversionOptions& conversion_options,
+    const ::substrait::Plan& plan, const ConversionOptions& conversion_options,
     const ExtensionIdRegistry* registry = default_extension_id_registry());
 
-/// \brief Serialize a declaration into a substrait::Plan.
+/// \brief Serialize a declaration into a ::substrait::Plan.
 ///
 /// Note that, this is a part of a roundtripping test API and not
 /// designed for use in production
@@ -66,7 +64,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(
 /// \param[in, out] ext_set the extension set to be updated
 /// \param[in] conversion_options options to control serialization behavior
 /// \return the serialized plan
-ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Plan>> PlanToProto(
+ARROW_ENGINE_EXPORT Result<std::unique_ptr<::substrait::Plan>> PlanToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
 

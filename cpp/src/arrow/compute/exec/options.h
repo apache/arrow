@@ -488,13 +488,13 @@ class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
     /// \brief "on" key for the join.
     ///
     /// The input table must be sorted by the "on" key. Must be a single field of a common
-    /// type. Inexact match is used on the "on" key. i.e., a row is considered match iff
+    /// type. Inexact match is used on the "on" key. i.e., a row is considered a match iff
     /// left_on - tolerance <= right_on <= left_on.
     /// Currently, the "on" key must be of an integer, date, or timestamp type.
     FieldRef on_key;
     /// \brief "by" key for the join.
     ///
-    /// The input table must have each field of the "by" key.  Exact equality is used for
+    /// Each input table must have each field of the "by" key.  Exact equality is used for
     /// each field of the "by" key.
     /// Currently, each field of the "by" key must be of an integer, date, timestamp, or
     /// base-binary type.
@@ -506,7 +506,7 @@ class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
 
   /// \brief AsofJoin keys per input table.
   ///
-  /// See `Keys` for details.
+  /// \see `Keys` for details.
   std::vector<Keys> input_keys;
   /// \brief Tolerance for inexact "on" key matching.  Must be non-negative.
   ///

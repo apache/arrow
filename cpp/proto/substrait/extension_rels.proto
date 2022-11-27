@@ -16,7 +16,7 @@
 // under the License.
 syntax = "proto3";
 
-package arrow.substrait;
+package arrow.substrait_ext;
 
 import "substrait/algebra.proto";
 

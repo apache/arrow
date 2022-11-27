@@ -4104,7 +4104,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
               }
             ],
             "detail": {
-              "@type": "/arrow.substrait.AsOfJoinRel",
+              "@type": "/arrow.substrait_ext.AsOfJoinRel",
               "keys" : [
                 {
                   "on": {
