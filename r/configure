@@ -110,8 +110,8 @@ else
     FOUND_LIB_DIR=`echo $PKGCONFIG_DIRS | sed -e 's/^-L//'`
     echo "*** Arrow C++ libraries found via pkg-config at $FOUND_LIB_DIR"
     PKG_CFLAGS="$PKGCONFIG_CFLAGS $PKG_CFLAGS"
-    PKG_LIBS="$PKGCONFIG_LIBS"
-    PKG_DIRS="$PKGCONFIG_DIRS"
+    PKG_LIBS="${PKGCONFIG_LIBS}"
+    PKG_DIRS="${PKGCONFIG_DIRS}"
 
     # Check for version mismatch
     PC_LIB_VERSION=`pkg-config --modversion arrow`
