@@ -2074,112 +2074,14 @@ class ArrayRanker : public TypeVisitor {
 
     NullPartitionResult sorted =
         array_sorter(sort_begin, sort_end, arr, 0, array_options);
-    uint64_t rank;
 
-    ARROW_ASSIGN_OR_RAISE(auto rankings,
-                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
-    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
-
-    switch (tiebreaker_) {
-      case RankOptions::Dense: {
-        T curr_value, prev_value{};
-        rank = 0;
-
-        if (null_placement_ == NullPlacement::AtStart && sorted.null_count() > 0) {
-          rank++;
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
-          curr_value = GetView::LogicalValue(arr.GetView(*it));
-          if (it == sorted.non_nulls_begin || curr_value != prev_value) {
-            rank++;
-          }
-
-          out_begin[*it] = rank;
-          prev_value = curr_value;
-        }
-
-        if (null_placement_ == NullPlacement::AtEnd) {
-          rank++;
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-        break;
-      }
-
-      case RankOptions::First: {
-        rank = 0;
-        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
-          out_begin[*it] = ++rank;
-        }
-        break;
-      }
-
-      case RankOptions::Min: {
-        T curr_value, prev_value{};
-        rank = 0;
-
-        if (null_placement_ == NullPlacement::AtStart) {
-          rank++;
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
-          curr_value = GetView::LogicalValue(arr.GetView(*it));
-          if (it == sorted.non_nulls_begin || curr_value != prev_value) {
-            rank = (it - sorted.overall_begin()) + 1;
-          }
-          out_begin[*it] = rank;
-          prev_value = curr_value;
-        }
-
-        if (null_placement_ == NullPlacement::AtEnd) {
-          rank = sorted.non_null_count() + 1;
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-        break;
-      }
-
-      case RankOptions::Max: {
-        // The algorithm for Max is just like Min, but in reverse order.
-        T curr_value, prev_value{};
-        rank = length;
-
-        if (null_placement_ == NullPlacement::AtEnd) {
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        for (auto it = sorted.non_nulls_end - 1; it >= sorted.non_nulls_begin; it--) {
-          curr_value = GetView::LogicalValue(arr.GetView(*it));
-          if (it == sorted.non_nulls_end - 1 || curr_value != prev_value) {
-            rank = (it - sorted.overall_begin()) + 1;
-          }
-          out_begin[*it] = rank;
-          prev_value = curr_value;
-        }
-
-        if (null_placement_ == NullPlacement::AtStart) {
-          rank = sorted.null_count();
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        break;
-      }
-    }
-
-    *output_ = Datum(rankings);
+    auto value_selector = [&arr](int64_t index) {
+      return GetView::LogicalValue(arr.GetView(index));
+    };
+    auto rankings =
+        CreateRankings<T>(ctx_, sorted, null_placement_, tiebreaker_, value_selector);
+    ARROW_ASSIGN_OR_RAISE(auto output, rankings);
+    *output_ = output;
     return Status::OK();
   }
 
