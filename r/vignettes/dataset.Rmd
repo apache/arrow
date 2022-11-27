@@ -313,7 +313,7 @@ percentage of rows from each batch:
 sampled_data <- ds %>%
   filter(year == 2015) %>%
   select(tip_amount, total_amount, passenger_count) %>%
-  map_batches(~ as_record_batch(sample_frac(as.data.frame(.), 1e-4))) %>%
+  map_batches(~ as_record_batch(slice_sample(as.data.frame(.), prop = 1e-4))) %>%
   mutate(tip_pct = tip_amount / total_amount) %>%
   collect()
 
