@@ -30,7 +30,6 @@
 #include "arrow/array/data.h"
 #include "arrow/chunk_resolver.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/chunked_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
