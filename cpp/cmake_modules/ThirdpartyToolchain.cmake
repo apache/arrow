@@ -1233,7 +1233,12 @@ macro(build_brotli)
 endmacro()
 
 if(ARROW_WITH_BROTLI)
-  resolve_dependency(Brotli PC_PACKAGE_NAMES libbrotlidec libbrotlienc)
+  resolve_dependency(Brotli
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     libbrotlidec
+                     libbrotlienc)
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
@@ -1843,15 +1848,15 @@ macro(build_jemalloc)
   set(JEMALLOC_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
-  add_library(jemalloc STATIC IMPORTED)
-  set_target_properties(jemalloc
+  add_library(jemalloc::jemalloc STATIC IMPORTED)
+  set_target_properties(jemalloc::jemalloc
                         PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
                                    IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${JEMALLOC_INCLUDE_DIR}")
-  add_dependencies(jemalloc jemalloc_ep)
+  add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
 
   set(jemalloc_VENDORED TRUE)
   # For config.h.cmake
@@ -1859,7 +1864,7 @@ macro(build_jemalloc)
 endmacro()
 
 if(ARROW_JEMALLOC)
-  resolve_dependency(jemalloc)
+  resolve_dependency(jemalloc HAVE_ALT TRUE)
 endif()
 
 # ----------------------------------------------------------------------
