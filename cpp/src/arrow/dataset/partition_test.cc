@@ -28,12 +28,15 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/dataset/dataset.h"
+#include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/range.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 
@@ -1046,6 +1049,64 @@ TEST(TestStripPrefixAndFilename, Basic) {
   auto paths = StripPrefixAndFilename(input, "/data");
   EXPECT_THAT(paths, testing::ElementsAre("year=2019", "year=2019/month=12",
                                           "year=2019/month=12/day=01"));
+}
+
+TEST_F(TestPartitioning, PartitioningWithDataWithFilePaths) {
+  fs::TimePoint mock_now = std::chrono::system_clock::now();
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> filesystem,
+                       fs::internal::MockFileSystem::Make(mock_now, {}));
+  auto base_path = "";
+  ASSERT_OK(filesystem->CreateDir(base_path));
+  // Create an Arrow Table
+  auto schema = arrow::schema(
+      {arrow::field("a", arrow::int64()), arrow::field("part", arrow::utf8())});
+  std::vector<std::shared_ptr<arrow::Array>> arrays(2);
+  arrow::NumericBuilder<arrow::Int64Type> builder;
+  ASSERT_OK(builder.AppendValues({0, 1, 2, 3, 4}));
+  ASSERT_OK(builder.Finish(&arrays[0]));
+  arrow::StringBuilder string_builder;
+  std::vector<std::string> partitions = {"experiment/A/f.csv", "experiment/B/f.csv",
+                                         "experiment/A/f.csv", "experiment/C/k.csv",
+                                         "experiment/M/i.csv"};
+  ASSERT_OK(string_builder.AppendValues(partitions));
+  ASSERT_OK(string_builder.Finish(&arrays[1]));
+  auto table = arrow::Table::Make(schema, arrays);
+  // Write it using Datasets
+  auto dataset = std::make_shared<dataset::InMemoryDataset>(table);
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
+  // The partition schema determines which fields are part of the partitioning.
+  auto partition_schema = arrow::schema({arrow::field("part", arrow::utf8())});
+  // We'll use Hive-style partitioning, which creates directories with "key=value" pairs.
+  auto partitioning = std::make_shared<dataset::HivePartitioning>(partition_schema);
+  // We'll write Parquet files.
+  auto ipc_format = std::make_shared<dataset::IpcFileFormat>();
+  dataset::FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = ipc_format->DefaultWriteOptions();
+  write_options.filesystem = filesystem;
+  write_options.base_dir = base_path;
+  write_options.partitioning = partitioning;
+  write_options.basename_template = "part{i}.arrow";
+  ASSERT_OK(dataset::FileSystemDataset::Write(write_options, scanner));
+
+  auto mockfs =
+      arrow::internal::checked_pointer_cast<fs::internal::MockFileSystem>(filesystem);
+  auto all_dirs = mockfs->AllDirs();
+
+  std::vector<std::string> encoded_paths;
+  std::vector<std::string> unique_partitions = {
+      "experiment/A/f.csv", "experiment/B/f.csv", "experiment/C/k.csv",
+      "experiment/M/i.csv"};
+  for (auto partition : unique_partitions) {
+    encoded_paths.push_back("part=" + arrow::internal::UriEscape(partition));
+  }
+
+  ASSERT_EQ(all_dirs.size(), encoded_paths.size());
+
+  for (size_t i = 0; i < all_dirs.size(); i++) {
+    ASSERT_EQ(all_dirs[i].full_path, encoded_paths[i]);
+  }
 }
 
 }  // namespace dataset
