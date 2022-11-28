@@ -197,6 +197,13 @@ else
             # that arrow.pc exists as its prefix instead of
             # "/arrow/r/libarrow/dist".
             PKG_CONFIG="${PKG_CONFIG} --define-prefix"
+          else
+            # Rewrite prefix= in arrow.pc on CentOS 7.
+            sed \
+              -i.bak \
+              -e "s,prefix=/arrow/r/libarrow/dist,prefix=${LIB_DIR}/..,g" \
+              ${LIB_DIR}/pkgconfig/*.pc
+            rm -f ${LIB_DIR}/pkgconfig/*.pc.bak
           fi
           PKG_CONFIG="${PKG_CONFIG} --static --silence-errors"
           PKG_CFLAGS="`${PKG_CONFIG} --cflags ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
