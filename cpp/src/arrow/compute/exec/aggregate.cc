@@ -187,7 +187,6 @@ class GroupByProcess {
 
   struct StateInfo {
     GroupByProcess& process;
-    std::shared_ptr<arrow::internal::TaskGroup> task_group;
     std::vector<std::unique_ptr<Grouper>> groupers;
     std::vector<const HashAggregateKernel*> kernels;
     std::vector<std::vector<std::unique_ptr<KernelState>>> states;
@@ -198,6 +197,10 @@ class GroupByProcess {
 
     explicit StateInfo(GroupByProcess& process) : process(process) {}
 
+    int parallelism() {
+      return process.use_threads ? arrow::internal::GetCpuThreadPool()->GetCapacity() : 1;
+    }
+
     Status Init() {
       const std::vector<TypeHolder>& argument_types = process.argument_types;
       const std::vector<TypeHolder>& key_types = process.key_types;
@@ -205,11 +208,8 @@ class GroupByProcess {
       ExecContext* ctx = process.ctx;
       const FieldVector& key_fields = process.key_fields;
 
-      task_group = process.use_threads ? arrow::internal::TaskGroup::MakeThreaded(
-                                             arrow::internal::GetCpuThreadPool())
-                                       : arrow::internal::TaskGroup::MakeSerial();
-
-      groupers.resize(task_group->parallelism());
+      groupers.clear();
+      groupers.resize(parallelism());
       for (auto& grouper : groupers) {
         ARROW_ASSIGN_OR_RAISE(grouper, Grouper::Make(key_types, ctx));
       }
@@ -218,7 +218,7 @@ class GroupByProcess {
         // Construct and initialize HashAggregateKernels
         ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, argument_types));
 
-        states.resize(task_group->parallelism());
+        states.resize(parallelism());
         for (auto& state : states) {
           ARROW_ASSIGN_OR_RAISE(state,
                                 InitKernels(kernels, ctx, aggregates, argument_types));
@@ -267,6 +267,10 @@ class GroupByProcess {
 
       ThreadIndexer thread_indexer;
 
+      auto task_group = process.use_threads ? arrow::internal::TaskGroup::MakeThreaded(
+                                                  arrow::internal::GetCpuThreadPool())
+                                            : arrow::internal::TaskGroup::MakeSerial();
+
       // start "streaming" execution
       ExecSpan key_batch, argument_batch;
       while ((argument_types.empty() || argument_iterator.Next(&argument_batch)) &&
@@ -294,13 +298,13 @@ class GroupByProcess {
         });
       }
 
-     ARROW_RETURN_NOT_OK(task_group->Finish());
+      ARROW_RETURN_NOT_OK(task_group->Finish());
       return Status::OK();
     }
 
     Status Merge() {
       ExecContext* ctx = process.ctx;
-      size_t num_threads = static_cast<size_t>(task_group->parallelism());
+      size_t num_threads = static_cast<size_t>(parallelism());
       for (size_t thread_index = 1; thread_index < num_threads; ++thread_index) {
         ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, groupers[thread_index]->GetUniques());
         ARROW_ASSIGN_OR_RAISE(Datum transposition,
