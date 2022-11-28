@@ -152,7 +152,7 @@ class JiraIssue(object):
 
         return [x for x in versions if mainline_regex.match(x.name)]
 
-    def resolve(self, fix_versions, comment):
+    def resolve(self, fix_version, comment):
         fields = self.issue.fields
         cur_status = fields.status.name
 
@@ -160,27 +160,25 @@ class JiraIssue(object):
             self.cmd.fail("JIRA issue %s already has status '%s'"
                           % (self.jira_id, cur_status))
 
-        if DEBUG:
-            print("JIRA issue %s untouched" % (self.jira_id))
-            return
-
         resolve = [x for x in self.jira_con.transitions(self.jira_id)
                    if x['name'] == "Resolve Issue"][0]
 
         # ARROW-6915: do not overwrite existing fix versions corresponding to
         # point releases
-        fix_versions = list(fix_versions)
+        fix_versions = [v.raw for v in self.jira_con.project_versions(self.project) if v.name == fix_version]
         fix_version_names = set(x['name'] for x in fix_versions)
         for version in self.current_fix_versions:
             major, minor, patch = version.name.split('.')
             if patch != '0' and version.name not in fix_version_names:
                 fix_versions.append(version.raw)
 
-        self.jira_con.transition_issue(self.jira_id, resolve["id"],
-                                       comment=comment,
-                                       fixVersions=fix_versions)
-
-        print("Successfully resolved %s!" % (self.jira_id))
+        if DEBUG:
+            print("JIRA issue %s untouched -> %s" % (self.jira_id, [v["name"] for v in fix_versions]))
+        else:
+            self.jira_con.transition_issue(self.jira_id, resolve["id"],
+                                        comment=comment,
+                                        fixVersions=fix_versions)
+            print("Successfully resolved %s!" % (self.jira_id))
 
         self.issue = self.jira_con.issue(self.jira_id)
         self.show()
@@ -228,7 +226,7 @@ class GitHubIssue(object):
 
         return unreleased_versions
 
-    def resolve(self, fix_versions, comment):
+    def resolve(self, fix_version, comment):
         cur_status = self.issue["state"]
 
         if cur_status == "closed":
@@ -236,11 +234,10 @@ class GitHubIssue(object):
                           % (self.github_id, cur_status))
 
         if DEBUG:
-            print("GitHub issue %s untouched -> %s" % (self.github_id, fix_versions))
+            print("GitHub issue %s untouched -> %s" % (self.github_id, fix_version))
         else:
-            self.jira_con.transition_issue(self.jira_id, resolve["id"],
-                                        comment=comment,
-                                        fixVersions=fix_versions)
+            self.github_api.assign_milestone(self.github_id, fix_version)
+            self.github_api.close_issue(self.github_id, comment)
             print("Successfully resolved %s!" % (self.jira_id))
 
         self.issue = self.github_api.get_issue_data(self.github_id)
@@ -253,9 +250,9 @@ class GitHubIssue(object):
                                   self.components))
 
 
-def get_candidate_fix_versions(mainline_versions,
-                               merge_branches=('master',),
-                               maintenance_branches=()):
+def get_candidate_fix_version(mainline_versions,
+                              merge_branches=('master',),
+                              maintenance_branches=()):
     all_versions = [getattr(v, "name", v) for v in mainline_versions]
 
     def version_tuple(x):
@@ -282,7 +279,7 @@ def get_candidate_fix_versions(mainline_versions,
         fix_version_from_branch(x, mainline_versions)
         for x in merge_branches]
 
-    return all_versions, default_fix_versions
+    return default_fix_versions[0]
 
 
 def format_issue_output(issue_type, issue_id, status, summary, assignee, components):
@@ -336,6 +333,11 @@ class GitHubAPI(object):
         return get_json("%s/milestones" % (self.github_api, ),
                         headers=self.headers)
 
+    def get_milestone_number(self, version):
+        return next((
+            m["number"] for m in self.get_milestones() if m["title"] == version
+        ), None)
+
     def get_issue_data(self, number):
         return get_json("%s/issues/%s" % (self.github_api, number),
                         headers=self.headers)
@@ -351,6 +353,31 @@ class GitHubAPI(object):
     def get_branches(self):
         return get_json("%s/branches" % (self.github_api),
                         headers=self.headers)
+
+    def close_issue(self, number, comment):
+        issue_url = f'{self.github_api}/issues/{number}'
+        comment_url = f'{self.github_api}/issues/{number}/comments'
+
+        r = requests.post(comment_url, json={"body": comment}, headers=self.headers)
+        if r.status_code != 200:
+            raise ValueError(f"Failed request: {comment_url} -> {r.json()}")
+
+        r = requests.patch(issue_url, json={"state": "closed"}, headers=self.headers)
+        if r.status_code != 200:
+            raise ValueError(f"Failed request: {issue_url} -> {r.json()}")
+
+    def assign_milestone(self, number, version):
+        url = f'{self.github_api}/issues/{number}'
+        milestone_number = self.get_milestone_number(version)
+        if not milestone_number:
+            raise ValueError(f"Invalid version {version}, milestone not found")
+        payload = {
+            'milestone': milestone_number
+        }
+        r = requests.patch(url, headers=self.headers, json=payload)
+        if r.status_code != 200:
+            raise ValueError(f"Failed request: {url} -> {r.json()}")
+        return r.json()
 
     def merge_pr(self, number, commit_title, commit_message):
         url = f'{self.github_api}/pulls/{number}/merge'
@@ -565,26 +592,18 @@ def get_primary_author(cmd, distinct_authors):
 
 
 def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
-    (all_versions,
-     default_fix_versions) = get_candidate_fix_versions(
+    default_fix_version = get_candidate_fix_version(
         issue.current_versions,
         maintenance_branches=maintenance_branches
     )
 
-    default_fix_versions = ",".join(default_fix_versions)
-
-    issue_fix_versions = cmd.prompt("Enter comma-separated "
+    issue_fix_version = cmd.prompt("Enter comma-separated "
                                     "fix version(s) [%s]: "
-                                    % default_fix_versions)
-    if issue_fix_versions == "":
-        issue_fix_versions = default_fix_versions
-    issue_fix_versions = issue_fix_versions.replace(" ", "").split(",")
-
-    def get_version_json(version_str):
-        return [v for v in all_versions if v == version_str][0]
-
-    return [get_version_json(v) for v in issue_fix_versions]
-
+                                    % default_fix_version)
+    if issue_fix_version == "":
+        issue_fix_version = default_fix_version
+    issue_fix_version = issue_fix_version.strip()
+    return issue_fix_version
 
 CONFIG_FILE = "~/.config/arrow/merge.conf"
 
@@ -670,9 +689,9 @@ def cli():
            "https://github.com/apache/" + PROJECT_NAME + "/pull",
            pr_num))
 
-    fix_versions_json = prompt_for_fix_version(cmd, pr.issue,
-                                               pr.maintenance_branches)
-    pr.issue.resolve(fix_versions_json, issue_comment)
+    fix_version = prompt_for_fix_version(cmd, pr.issue,
+                                         pr.maintenance_branches)
+    pr.issue.resolve(fix_version, issue_comment)
 
 
 if __name__ == '__main__':
