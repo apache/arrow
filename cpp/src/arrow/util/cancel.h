@@ -42,6 +42,7 @@ class ARROW_EXPORT StopSource {
   // Consumer API (the side that stops)
   void RequestStop();
   void RequestStop(Status error);
+  // Async-signal-safe. TODO Deprecate this?
   void RequestStopFromSignal(int signum);
 
   StopToken token();
@@ -103,6 +104,10 @@ ARROW_EXPORT
 void ResetSignalStopSource();
 
 /// EXPERIMENTAL: Register signal handler triggering the signal-receiving StopSource
+///
+/// Note that those handlers are automatically un-registered in a fork()ed process,
+/// therefore the child process will need to call RegisterCancellingSignalHandler()
+/// if desired.
 ARROW_EXPORT
 Status RegisterCancellingSignalHandler(const std::vector<int>& signals);
 

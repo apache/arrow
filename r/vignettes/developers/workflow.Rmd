@@ -1,4 +1,10 @@
-# Common developer workflow tasks
+---
+title: "Developer workflows"
+description: >
+  Learn about the workflows and conventions followed by arrow developers
+output: rmarkdown::html_vignette
+---
+
 
 ```{r setup-options, include=FALSE}
 knitr::opts_chunk$set(error = TRUE, eval = FALSE)

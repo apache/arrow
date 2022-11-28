@@ -423,15 +423,18 @@ class MyMemoryPool : public MemoryPool {
  public:
   MyMemoryPool() : num_allocations_(0) {}
 
-  Status Allocate(int64_t size, uint8_t** out) override {
+  Status Allocate(int64_t size, int64_t /*alignment*/, uint8_t** out) override {
     *out = reinterpret_cast<uint8_t*>(std::malloc(size));
     ++num_allocations_;
     return Status::OK();
   }
 
-  void Free(uint8_t* buffer, int64_t size) override { std::free(buffer); }
+  void Free(uint8_t* buffer, int64_t size, int64_t /*alignment*/) override {
+    std::free(buffer);
+  }
 
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+  Status Reallocate(int64_t old_size, int64_t new_size, int64_t /*alignment*/,
+                    uint8_t** ptr) override {
     *ptr = reinterpret_cast<uint8_t*>(std::realloc(*ptr, new_size));
 
     if (*ptr == NULL) {

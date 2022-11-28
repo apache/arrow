@@ -125,13 +125,17 @@ class SubstraitCall {
   bool output_nullable() const { return output_nullable_; }
   bool is_hash() const { return is_hash_; }
 
-  bool HasEnumArg(uint32_t index) const;
-  Result<std::optional<std::string_view>> GetEnumArg(uint32_t index) const;
-  void SetEnumArg(uint32_t index, std::optional<std::string> enum_arg);
-  Result<compute::Expression> GetValueArg(uint32_t index) const;
-  bool HasValueArg(uint32_t index) const;
-  void SetValueArg(uint32_t index, compute::Expression value_arg);
-  uint32_t size() const { return size_; }
+  bool HasEnumArg(int index) const;
+  Result<std::string_view> GetEnumArg(int index) const;
+  void SetEnumArg(int index, std::string enum_arg);
+  Result<compute::Expression> GetValueArg(int index) const;
+  bool HasValueArg(int index) const;
+  void SetValueArg(int index, compute::Expression value_arg);
+  std::optional<std::vector<std::string> const*> GetOption(
+      std::string_view option_name) const;
+  void SetOption(std::string_view option_name,
+                 const std::vector<std::string_view>& option_preferences);
+  int size() const { return size_; }
 
  private:
   Id id_;
@@ -140,9 +144,10 @@ class SubstraitCall {
   // Only needed when converting from Substrait -> Arrow aggregates.  The
   // Arrow function name depends on whether or not there are any groups
   bool is_hash_;
-  std::unordered_map<uint32_t, std::optional<std::string>> enum_args_;
-  std::unordered_map<uint32_t, compute::Expression> value_args_;
-  uint32_t size_ = 0;
+  std::unordered_map<int, std::string> enum_args_;
+  std::unordered_map<int, compute::Expression> value_args_;
+  std::unordered_map<std::string, std::vector<std::string>> options_;
+  int size_ = 0;
 };
 
 /// Substrait identifies functions and custom data types using a (uri, name) pair.

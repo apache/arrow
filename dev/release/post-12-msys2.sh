@@ -93,3 +93,4 @@ owner=$(git remote get-url origin | \
           cut -d/ -f1)
 echo "Create a pull request:"
 echo "  https://github.com/${owner}/MINGW-packages/pull/new/${branch}"
+echo "with title: 'arrow: Update to ${version}'"

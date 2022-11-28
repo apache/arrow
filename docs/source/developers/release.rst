@@ -470,8 +470,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-09-python.sh 10.0.0 0
-      dev/release/post-09-python.sh <version> <rc number>
+      # dev/release/post-09-python.sh 10.0.0
+      dev/release/post-09-python.sh <version>
 
 .. dropdown:: Publish Maven packages
    :animate: fade-in-slide-down

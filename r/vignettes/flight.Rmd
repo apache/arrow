@@ -1,48 +1,34 @@
 ---
-title: "Connecting to Flight RPC Servers"
+title: "Connecting to a Flight server"
+description: >
+  Learn how to efficiently stream Apache Arrow data objects across a 
+  network using Arrow Flight 
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Connecting to Flight RPC Servers}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
-[**Flight**](https://arrow.apache.org/blog/2019/10/13/introducing-arrow-flight/)
-is a general-purpose client-server framework for high performance
-transport of large datasets over network interfaces, built as part of the
-[Apache Arrow](https://arrow.apache.org) project.
+[Arrow Flight](https://arrow.apache.org/blog/2019/10/13/introducing-arrow-flight/) is a general-purpose client-server framework for high performance transport of large datasets over network interfaces, built as part of the Apache Arrow project. It allows for highly efficient data transfer by several means:
 
-Flight allows for highly efficient data transfer as it:
+* Flight removes the need for deserialization during data transfer.
+* Flight allows for parallel data streaming.
+* Flight employs optimizations designed to take advantage of Arrow's columnar format.
 
-* removes the need for deserialization during data transfer
-* allows for parallel data streaming
-* is highly optimized to take advantage of Arrow's columnar format.
+The arrow package provides methods for connecting to Flight servers to send and receive data.
 
-The arrow package provides methods for connecting to Flight RPC servers
-to send and receive data.
+## Prerequisites
 
-## Getting Started
-
-The `flight` functions in the package use [reticulate](https://rstudio.github.io/reticulate/) to call methods in the
-[pyarrow](https://arrow.apache.org/docs/python/api/flight.html) Python package.
-
-Before using them for the first time,
-you'll need to be sure you have reticulate and pyarrow installed:
+At present the arrow package in R does not supply an independent implementation of Arrow Flight: it works by calling [Flight methods supplied by PyArrow](https://arrow.apache.org/docs/python/api/flight.html) Python, and requires both the [reticulate](https://rstudio.github.io/reticulate/) package and the Python PyArrow library to be installed. If you are using them for the first time you can install them like this:
 
 ```r
 install.packages("reticulate")
 arrow::install_pyarrow()
 ```
 
-See `vignette("python", package = "arrow")` for more details on setting up
-`pyarrow`.
+See the [python integrations article](./python.html) for more details on setting up pyarrow.
 
 ## Example
 
 The package includes methods for starting a Python-based Flight server, as well
-as methods for connecting to a Flight server running elsewhere.
-
-To illustrate both sides, in one process let's start a demo server:
+as methods for connecting to a Flight server running elsewhere. To illustrate both sides, in one R process we'll start a demo server:
 
 ```r
 library(arrow)
@@ -58,11 +44,10 @@ In a different R process, let's connect to it and put some data in it.
 ```r
 library(arrow)
 client <- flight_connect(port = 8089)
-# Upload some data to our server so there's something to demo
 flight_put(client, iris, path = "test_data/iris")
 ```
 
-Now, in a new R process, let's connect to the server and pull the data we
+Now, in yet another R process, we can connect to the server and pull the data we
 put there:
 
 ```r
@@ -84,6 +69,13 @@ client %>%
 
 Because `flight_get()` returns an Arrow data structure, you can directly pipe
 its result into a [dplyr](https://dplyr.tidyverse.org/) workflow.
-See `vignette("dataset", package = "arrow")` for more information on working with Arrow objects via a dplyr interface.
+See the article on [data wrangling](./data_wrangling.html) for more information on working with Arrow objects via a dplyr interface.
 
-# [Flight best practices](../cpp/flight.html#best-practices)
+## Further reading
+
+- The specification of the [Flight remote procedure call protocol](https://arrow.apache.org/docs/format/Flight.html) is listed on the Arrow project homepage
+- The Arrow C++ documentation contains a list of [best practices](https://arrow.apache.org/docs/cpp/flight.html#best-practices) for Arrow Flight.
+- A detailed worked example of an Arrow Flight server in Python is provided in the [Apache Arrow Python Cookbook](https://arrow.apache.org/cookbook/py/flight.html).
+
+
+
