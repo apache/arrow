@@ -227,7 +227,7 @@ class ARROW_EXPORT RecordBatchFileReader
   virtual Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> GetRecordBatchGenerator(
       const bool coalesce = false,
       const io::IOContext& io_context = io::default_io_context(),
-      const io::CacheOptions cache_options = io::CacheOptions::LazyDefaults(),
+      const io::CoalesceOptions cache_options = io::CoalesceOptions::LazyDefaults(),
       arrow::internal::Executor* executor = NULLPTR) = 0;
 };
 

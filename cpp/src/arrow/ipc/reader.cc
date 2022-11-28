@@ -1308,7 +1308,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> GetRecordBatchGenerator(
       const bool coalesce, const io::IOContext& io_context,
-      const io::CacheOptions cache_options,
+      const io::CoalesceOptions cache_options,
       arrow::internal::Executor* executor) override {
     auto state = std::dynamic_pointer_cast<RecordBatchFileReaderImpl>(shared_from_this());
     // Prebuffering causes us to use a lot of futures which, at the moment,
@@ -1537,7 +1537,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           owned_file(std::move(owned_file)),
           loader(batch, context.metadata_version, context.options, block_data_offset),
           columns(schema->num_fields()),
-          cache(file, file->io_context(), io::CacheOptions::LazyDefaults()),
+          cache(file, file->io_context(), io::CoalesceOptions::LazyDefaults()),
           length(batch->length()) {}
 
     Status CalculateLoadRequest() {

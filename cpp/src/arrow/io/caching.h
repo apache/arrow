@@ -30,7 +30,7 @@
 namespace arrow {
 namespace io {
 
-struct ARROW_EXPORT CacheOptions {
+struct ARROW_EXPORT CoalesceOptions {
   static constexpr double kDefaultIdealBandwidthUtilizationFrac = 0.9;
   static constexpr int64_t kDefaultMaxIdealRequestSizeMib = 64;
 
@@ -44,7 +44,7 @@ struct ARROW_EXPORT CacheOptions {
   /// \brief A lazy cache does not perform any I/O until requested.
   bool lazy;
 
-  bool operator==(const CacheOptions& other) const {
+  bool operator==(const CoalesceOptions& other) const {
     return hole_size_limit == other.hole_size_limit &&
            range_size_limit == other.range_size_limit && lazy == other.lazy;
   }
@@ -63,14 +63,16 @@ struct ARROW_EXPORT CacheOptions {
   ///   to maximize the net data load.
   ///   The value is a positive integer.
   /// \return A new instance of CacheOptions.
-  static CacheOptions MakeFromNetworkMetrics(
+  static CoalesceOptions MakeFromNetworkMetrics(
       int64_t time_to_first_byte_millis, int64_t transfer_bandwidth_mib_per_sec,
       double ideal_bandwidth_utilization_frac = kDefaultIdealBandwidthUtilizationFrac,
       int64_t max_ideal_request_size_mib = kDefaultMaxIdealRequestSizeMib);
 
-  static CacheOptions Defaults();
-  static CacheOptions LazyDefaults();
+  static CoalesceOptions Defaults();
+  static CoalesceOptions LazyDefaults();
 };
+
+using CacheOptions [[deprecated]] = CoalesceOptions;
 
 namespace internal {
 
@@ -104,15 +106,15 @@ class ARROW_EXPORT ReadRangeCache {
 
   /// Construct a read cache with default
   explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx)
-      : ReadRangeCache(file, file.get(), std::move(ctx), CacheOptions::Defaults()) {}
+      : ReadRangeCache(file, file.get(), std::move(ctx), CoalesceOptions::Defaults()) {}
 
   /// Construct a read cache with given options
   explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx,
-                          CacheOptions options)
+                          CoalesceOptions options)
       : ReadRangeCache(file, file.get(), ctx, options) {}
 
   /// Construct a read cache with an unowned file
-  ReadRangeCache(RandomAccessFile* file, IOContext ctx, CacheOptions options)
+  ReadRangeCache(RandomAccessFile* file, IOContext ctx, CoalesceOptions options)
       : ReadRangeCache(NULLPTR, file, ctx, options) {}
 
   ~ReadRangeCache();
@@ -137,7 +139,7 @@ class ARROW_EXPORT ReadRangeCache {
   struct LazyImpl;
 
   ReadRangeCache(std::shared_ptr<RandomAccessFile> owned_file, RandomAccessFile* file,
-                 IOContext ctx, CacheOptions options);
+                 IOContext ctx, CoalesceOptions options);
 
   std::unique_ptr<Impl> impl_;
 };

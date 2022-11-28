@@ -996,10 +996,11 @@ class ObjectInputFile final : public io::RandomAccessFile {
  public:
   ObjectInputFile(std::shared_ptr<Aws::S3::S3Client> client,
                   const io::IOContext& io_context, const S3Path& path,
-                  int64_t size = kNoSize)
+                  const io::CoalesceOptions& coalesceOptions, int64_t size = kNoSize)
       : client_(std::move(client)),
         io_context_(io_context),
         path_(path),
+        coalesceOptions(coalesceOptions),
         content_length_(size) {}
 
   Status Init() {
@@ -1128,6 +1129,14 @@ class ObjectInputFile final : public io::RandomAccessFile {
     return bytes_read;
   }
 
+  std::vector<Future<std::shared_ptr<Buffer>>> ReadManyAsync(
+      const io::IOContext& ctx, const std::vector<io::ReadRange>& ranges) override {
+    return RandomAccessFile::ReadManyAsync(
+        ctx, io::internal::CoalesceReadRanges(std::move(ranges),
+                                              coalesceOptions.hole_size_limit,
+                                              coalesceOptions.range_size_limit));
+  }
+
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
     pos_ += buffer->size();
@@ -1138,6 +1147,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   std::shared_ptr<Aws::S3::S3Client> client_;
   const io::IOContext io_context_;
   S3Path path_;
+  io::CoalesceOptions coalesceOptions;
 
   bool closed_ = false;
   int64_t pos_ = 0;
@@ -2178,7 +2188,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
     RETURN_NOT_OK(ValidateFilePath(path));
 
-    auto ptr = std::make_shared<ObjectInputFile>(client_, fs->io_context(), path);
+    auto ptr = std::make_shared<ObjectInputFile>(client_, fs->io_context(), path,
+                                                 builder_.options().coalesceOptions);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -2196,8 +2207,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
     RETURN_NOT_OK(ValidateFilePath(path));
 
-    auto ptr =
-        std::make_shared<ObjectInputFile>(client_, fs->io_context(), path, info.size());
+    auto ptr = std::make_shared<ObjectInputFile>(
+        client_, fs->io_context(), path, builder_.options().coalesceOptions, info.size());
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }

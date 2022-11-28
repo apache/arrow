@@ -148,7 +148,7 @@ struct ARROW_EXPORT IpcReadOptions {
   /// \brief Options to control caching behavior when pre-buffering is requested
   ///
   /// The lazy property will always be reset to true to deliver the expected behavior
-  io::CacheOptions pre_buffer_cache_options = io::CacheOptions::LazyDefaults();
+  io::CoalesceOptions pre_buffer_cache_options = io::CoalesceOptions::LazyDefaults();
 
   static IpcReadOptions Defaults();
 };

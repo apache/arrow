@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/io/caching.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
 
@@ -166,6 +167,12 @@ struct ARROW_EXPORT S3Options {
   /// Optional retry strategy to determine which error types should be retried, and the
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
+
+  /// Coalesce options for requesting multiple reads at once
+  io::CoalesceOptions coalesceOptions = io::CoalesceOptions::Defaults();
+
+  int64_t hole_size_limit = 1;
+  int64_t range_size_limit = 100;
 
   S3Options();
 

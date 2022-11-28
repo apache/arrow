@@ -32,22 +32,21 @@
 namespace arrow {
 namespace io {
 
-CacheOptions CacheOptions::Defaults() {
-  return CacheOptions{internal::ReadRangeCache::kDefaultHoleSizeLimit,
-                      internal::ReadRangeCache::kDefaultRangeSizeLimit,
-                      /*lazy=*/false};
+CoalesceOptions CoalesceOptions::Defaults() {
+  return CoalesceOptions{internal::ReadRangeCache::kDefaultHoleSizeLimit,
+                         internal::ReadRangeCache::kDefaultRangeSizeLimit,
+                         /*lazy=*/false};
 }
 
-CacheOptions CacheOptions::LazyDefaults() {
-  return CacheOptions{internal::ReadRangeCache::kDefaultHoleSizeLimit,
-                      internal::ReadRangeCache::kDefaultRangeSizeLimit,
-                      /*lazy=*/true};
+CoalesceOptions CoalesceOptions::LazyDefaults() {
+  return CoalesceOptions{internal::ReadRangeCache::kDefaultHoleSizeLimit,
+                         internal::ReadRangeCache::kDefaultRangeSizeLimit,
+                         /*lazy=*/true};
 }
 
-CacheOptions CacheOptions::MakeFromNetworkMetrics(int64_t time_to_first_byte_millis,
-                                                  int64_t transfer_bandwidth_mib_per_sec,
-                                                  double ideal_bandwidth_utilization_frac,
-                                                  int64_t max_ideal_request_size_mib) {
+CoalesceOptions CoalesceOptions::MakeFromNetworkMetrics(
+    int64_t time_to_first_byte_millis, int64_t transfer_bandwidth_mib_per_sec,
+    double ideal_bandwidth_utilization_frac, int64_t max_ideal_request_size_mib) {
   //
   // The I/O coalescing algorithm uses two parameters:
   //   1. hole_size_limit (a.k.a max_io_gap): Max I/O gap/hole size in bytes
@@ -147,7 +146,7 @@ struct ReadRangeCache::Impl {
   std::shared_ptr<RandomAccessFile> owned_file;
   RandomAccessFile* file;
   IOContext ctx;
-  CacheOptions options;
+  CoalesceOptions options;
 
   // Ordered by offset (so as to find a matching region by binary search)
   std::vector<RangeCacheEntry> entries;
@@ -292,7 +291,7 @@ struct ReadRangeCache::LazyImpl : public ReadRangeCache::Impl {
 
 ReadRangeCache::ReadRangeCache(std::shared_ptr<RandomAccessFile> owned_file,
                                RandomAccessFile* file, IOContext ctx,
-                               CacheOptions options)
+                               CoalesceOptions options)
     : impl_(options.lazy ? new LazyImpl() : new Impl()) {
   impl_->owned_file = std::move(owned_file);
   impl_->file = file;
