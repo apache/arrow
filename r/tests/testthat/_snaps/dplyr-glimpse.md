@@ -87,7 +87,7 @@
 
     Code
       example_data %>% as_record_batch_reader() %>% glimpse()
-    Message <simpleMessage>
+    Message
       Cannot glimpse() data from a RecordBatchReader because it can only be read one time; call `as_arrow_table()` to consume it first.
     Output
       RecordBatchReader
@@ -103,7 +103,7 @@
 
     Code
       example_data %>% as_record_batch_reader() %>% select(int) %>% glimpse()
-    Message <simpleMessage>
+    Message
       Cannot glimpse() data from a RecordBatchReader because it can only be read one time. Call `compute()` to evaluate the query first.
     Output
       RecordBatchReader (query)
@@ -131,7 +131,7 @@
 
     Code
       ds %>% summarize(max(int)) %>% glimpse()
-    Message <simpleMessage>
+    Message
       This query requires a full table scan, so glimpse() may be expensive. Call `compute()` to evaluate the query first.
     Output
       FileSystemDataset (query)
