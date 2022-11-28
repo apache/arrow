@@ -133,15 +133,17 @@ struct ListSlice {
 
     // construct array values
     if (return_fixed_size_list) {
-      const auto stop =
-          opts.stop.has_value()
-              ? opts.stop.value()
-              : checked_cast<const FixedSizeListType*>(list_type)->list_size();
-      const auto size = stop - opts.start;
-      RETURN_NOT_OK(MakeBuilder(
-          ctx->memory_pool(),
-          fixed_size_list(value_type, std::max(static_cast<int32_t>(size), 0)),
-          &builder));
+      const auto stop = [&]() {
+        if (opts.stop.has_value()) {
+          return static_cast<int32_t>(opts.stop.value());
+        } else {
+          DCHECK_EQ(list_type->id(), arrow::Type::FIXED_SIZE_LIST);
+          return checked_cast<const FixedSizeListType*>(list_type)->list_size();
+        }
+      }();
+      const auto size = std::max(stop - static_cast<int32_t>(opts.start), 0);
+      RETURN_NOT_OK(
+          MakeBuilder(ctx->memory_pool(), fixed_size_list(value_type, size), &builder));
       RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
     } else {
       if constexpr (std::is_same_v<Type, LargeListType>) {
