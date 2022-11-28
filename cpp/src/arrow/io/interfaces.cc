@@ -176,10 +176,10 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
 }
 
 std::vector<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadManyAsync(
-    const IOContext&, const std::vector<ReadRange>& ranges) {
+    const IOContext& ctx, const std::vector<ReadRange>& ranges) {
   std::vector<Future<std::shared_ptr<Buffer>>> ret;
   for (auto r : ranges) {
-    ret.push_back(this->ReadAsync(r.offset, r.length));
+    ret.push_back(this->ReadAsync(ctx, r.offset, r.length));
   }
   return ret;
 }
