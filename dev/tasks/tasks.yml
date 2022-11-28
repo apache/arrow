@@ -1491,7 +1491,7 @@ tasks:
     ci: github
     template: vcpkg-tests/github.windows.yml
 
-  ############################## ARM tests ####################################
+  ############################# ARM and s390x tests ###########################
 
 {% for architecture in ["arm64-graviton2", "s390x"] %}
   test-go-{{ architecture }}:

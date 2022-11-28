@@ -45,7 +45,7 @@ jobs:
   include:
     - name: "Docker Test {{ image }} {{ architecture|default("") }}"
       os: linux
-      arch: {{ architecture|default("") }}
+      arch: "{{ architecture|default("") }}"
       group: edge
       virt: vm
       {{ macros.github_set_env(env) }}
