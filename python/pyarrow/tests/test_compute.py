@@ -2950,6 +2950,7 @@ def test_cast_table_raises():
 
 
 @pytest.mark.parametrize("start,stop,expected", (
+    (0, None, [[1, 2, 3], [4, 5, None], [6, None, None], None]),
     (0, 1, [[1], [4], [6], None]),
     (0, 2, [[1, 2], [4, 5], [6, None], None]),
     (1, 2, [[2], [5], [None], None]),
@@ -2958,18 +2959,30 @@ def test_cast_table_raises():
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
 @pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
 def test_list_slice_output_fixed(start, stop, expected, value_type, list_type):
+
     if list_type == "fixed":
         arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None], None],
                        pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
     else:
         arr = pa.array([[1, 2, 3], [4, 5], [6], None],
                        pa.list_(pa.int8())).cast(list_type(value_type()))
-    result = pc.list_slice(arr, start, stop, return_fixed_size_list=True)
-    pylist = result.cast(pa.list_(pa.int8(), stop-start)).to_pylist()
-    assert pylist == expected
+    if stop is not None or list_type == "fixed":
+        result = pc.list_slice(arr, start, stop, return_fixed_size_list=True)
+        size = (stop or arr.type.list_size) - start
+        pylist = result.cast(pa.list_(pa.int8(), size)).to_pylist()
+        assert pylist == expected
+    else:
+        # This fails at resolve, b/c it doesn't know what the max list
+        # element is from the context of DataType == list<item: int8> in order
+        # to set the FixedSizeListArray::list_size.
+        msg = ("Unable to produce FixedSizeListArray from "
+               "non-FixedSizeListArray without `stop` being set.")
+        with pytest.raises(NotImplementedError, match=msg):
+            pc.list_slice(arr, start, stop, return_fixed_size_list=True)
 
 
 @pytest.mark.parametrize("start,stop", (
+    (0, None,),
     (0, 1,),
     (0, 2,),
     (1, 2,),
@@ -3034,16 +3047,3 @@ def test_list_slice_bad_parameters():
         "got step=2"
     with pytest.raises(NotImplementedError, match=msg):
         pc.list_slice(arr, 0, 1, step=2)
-
-    # TODO(ARROW-18280): support stop == None; slice to end
-    # This fails first at resolve, b/c it doesn't now how big the
-    # resulting FixedSizeListArray item size will be
-    msg = "Unable to produce FixedSizeListArray without `stop`"
-    with pytest.raises(NotImplementedError, match=msg):
-        pc.list_slice(arr, 0, return_fixed_size_list=True)
-
-    # cont. This fails inside of kernel function; resolver doesn't
-    # need to know the item size for ListArray.
-    msg = "Slicing to end not yet implemented*"
-    with pytest.raises(NotImplementedError, match=msg):
-        pc.list_slice(arr, 0, return_fixed_size_list=False)
