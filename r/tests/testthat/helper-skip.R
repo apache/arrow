@@ -107,6 +107,10 @@ skip_on_python_older_than <- function(python_version) {
     return()
   }
 
+  if (!reticulate::py_available(initialize = TRUE)) {
+    skip("Python isn't available")
+  }
+
   if (reticulate::py_version() < python_version) {
     skip(paste("Python version:", reticulate::py_version()))
   }
