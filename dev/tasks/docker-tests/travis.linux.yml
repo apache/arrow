@@ -35,7 +35,7 @@ services:
 
 # Note that the global "env" setting isn't inherited automatically by
 # matrix entries with their own "env", so we have to insert it explicitly.
-env: &global_env
+env:
   ARROW_ENABLE_TIMING_TESTS: "OFF"
   COMPOSE_DOCKER_CLI_BUILD: 1
   DOCKER_BUILDKIT: 0
@@ -48,9 +48,7 @@ jobs:
       arch: "{{ architecture|default("") }}"
       group: edge
       virt: vm
-      {{ macros.github_set_env(env) }}
-        <<: *global_env   
-    runs-on: ubuntu-latest
+{{ macros.travis_expand_env(env) }}
 
 before_script:
   - set -e

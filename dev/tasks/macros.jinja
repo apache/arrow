@@ -186,6 +186,15 @@ on:
   - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
 {% endmacro %}
 
+{%- macro travis_expand_env(env) -%}
+  {% if env is defined %}
+      env:
+      {% for key, value in env.items() %}
+        {{ key }}: "{{ value }}"
+      {% endfor %}
+  {% endif %}
+{%- endmacro -%}
+
 {%- macro travis_upload_releases(pattern) -%}
   - sudo -H pip3 install pygit2==1.8.0 cryptography==36
   - sudo -H pip3 install -e arrow/dev/archery[crossbow]
