@@ -459,7 +459,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
 
 readr_to_csv_write_options <- function(include_header,
                                        batch_size = 1024L,
-                                       na = "NA") {
+                                       na = "") {
   assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
   assert_that(is.logical(include_header))
   assert_that(is.character(na))
@@ -675,7 +675,7 @@ readr_to_csv_convert_options <- function(na,
 #'     `include_headers`, not both.
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024.
 #' @param na value to write for NA values. Must not contain quote marks. Default
-#'     is `"NA"`.
+#'     is `""`.
 #' @param write_options see [file reader options][CsvWriteOptions]
 #' @param ... additional parameters
 #'
@@ -693,7 +693,7 @@ write_csv_arrow <- function(x,
                             include_header = TRUE,
                             col_names = NULL,
                             batch_size = 1024L,
-                            na = "NA",
+                            na = "",
                             write_options = NULL,
                             ...) {
   unsupported_passed_args <- names(list(...))
