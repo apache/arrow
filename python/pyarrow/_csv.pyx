@@ -1274,9 +1274,11 @@ def open_csv(input_file, read_options=None, parse_options=None,
                  move(c_convert_options), memory_pool)
     return reader
 
+
 def _raise_invalid_function_option(value, description, *,
                                    exception_class=ValueError):
     raise exception_class(f"\"{value}\" is not a valid {description}")
+
 
 cdef CQuotingStyle unwrap_quoting_style(quoting_style) except *:
     if quoting_style == "needed":
@@ -1286,6 +1288,15 @@ cdef CQuotingStyle unwrap_quoting_style(quoting_style) except *:
     elif quoting_style == "none":
         return CQuotingStyle_None
     _raise_invalid_function_option(quoting_style, "quoting style")
+
+
+cdef wrap_quoting_style(quoting_style):
+    if quoting_style == CQuotingStyle_Needed:
+        return 'needed'
+    elif quoting_style == CQuotingStyle_AllValid:
+        return 'all_valid'
+    elif quoting_style == CQuotingStyle_None:
+        return 'none'
 
 
 cdef class WriteOptions(_Weakrefable):
@@ -1303,7 +1314,12 @@ cdef class WriteOptions(_Weakrefable):
         The character delimiting individual cells in the CSV data.
     quoting_style : str, optional (default "needed")
         Whether to quote values, and if so, which quoting style to use.
-        Accepted values are "needed", "all_valid", "none"
+        The following values are accepted:
+        - "needed" (default): only enclose values in quotes when needed.
+        - "all_valid": enclose all valid values in quotes; nulls are not quoted.
+        - "none": do not enclose any values in quotes; values containing
+          special characters (such as quotes, cell delimiters or line endings)
+          will raise an error.
     """
 
     # Avoid mistakingly creating attributes
@@ -1358,9 +1374,15 @@ cdef class WriteOptions(_Weakrefable):
     @property
     def quoting_style(self):
         """
-        Quoting style for CSV writing.
+        Whether to quote values, and if so, which quoting style to use.
+        The following values are accepted:
+        - "needed" (default): only enclose values in quotes when needed.
+        - "all_valid": enclose all valid values in quotes; nulls are not quoted.
+        - "none": do not enclose any values in quotes; values containing
+          special characters (such as quotes, cell delimiters or line endings)
+          will raise an error.
         """
-        return deref(self.options).quoting_style
+        return wrap_quoting_style(deref(self.options).quoting_style)
 
     @quoting_style.setter
     def quoting_style(self, value):
