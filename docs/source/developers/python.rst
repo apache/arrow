@@ -184,11 +184,11 @@ Pull in the test data and setup the environment variables:
 
 .. code-block::
 
-   $ pushd arrow
-   $ git submodule update --init
-   $ export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data"
-   $ export ARROW_TEST_DATA="${PWD}/testing/data"
-   $ popd
+   $ pushd arrow && \
+          git submodule update --init && \
+          export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data" && \
+          export ARROW_TEST_DATA="${PWD}/testing/data" && \
+          popd
 
 Using Conda
 ~~~~~~~~~~~
