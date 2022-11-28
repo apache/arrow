@@ -850,6 +850,16 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
                   ->View(field.type());
     }
 
+    case Type::type::STRING_VIEW:
+    case Type::type::BINARY_VIEW: {
+      const auto min_length =
+          GetMetadata<int32_t>(field.metadata().get(), "min_length", 0);
+      const auto max_length =
+          GetMetadata<int32_t>(field.metadata().get(), "max_length", 20);
+      return *StringView(length, min_length, max_length, null_probability)
+                  ->View(field.type());
+    }
+
     case Type::type::DECIMAL128:
       return Decimal128(field.type(), length, null_probability, alignment, memory_pool);
 

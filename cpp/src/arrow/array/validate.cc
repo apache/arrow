@@ -31,13 +31,141 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/sort.h"
+#include "arrow/util/string.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
+
+/// visitor will be called once for each non-inlined StringHeader.
+/// It will be passed the index of each non-inlined StringHeader,
+/// as well as a `const shared_ptr<Buffer>&` of the buffer
+/// wherein the viewed memory resides, or nullptr if the viewed memory
+/// is not in a buffer managed by this array.
+template <typename Visitor>
+Status VisitNonInlinedViewsAndOwningBuffers(const ArrayData& data,
+                                            const Visitor& visitor) {
+  auto* headers = data.buffers[1]->data_as<StringHeader>();
+
+  static const std::shared_ptr<Buffer> kNullBuffer = nullptr;
+
+  if (data.buffers.size() == 2 ||
+      (data.buffers.size() == 3 && data.buffers.back() == nullptr)) {
+    // there are no character buffers, just visit a null buffer
+    for (int64_t i = 0; i < data.length; ++i) {
+      if (headers[i].IsInline()) continue;
+      RETURN_NOT_OK(visitor(i, kNullBuffer));
+    }
+    return Status::OK();
+  }
+
+  auto IsSubrangeOf = [](std::string_view super, StringHeader sub) {
+    return super.data() <= sub.data() &&
+           super.data() + super.size() >= sub.data() + sub.size();
+  };
+
+  std::vector<std::string_view> buffers;
+  std::vector<const std::shared_ptr<Buffer>*> owning_buffers;
+  for (auto it = data.buffers.begin() + 2; it != data.buffers.end(); ++it) {
+    if (*it != nullptr) {
+      buffers.emplace_back(**it);
+      owning_buffers.push_back(&*it);
+    }
+  }
+
+  const int not_found = static_cast<int>(buffers.size());
+
+  auto DoVisit = [&](auto get_buffer) {
+    DCHECK(!buffers.empty());
+
+    // owning_buffers[not_found] points to the null placeholder
+    owning_buffers.push_back(&kNullBuffer);
+
+    std::string_view buffer_containing_previous_view = buffers.front();
+    int buffer_i = 0;
+
+    for (int64_t i = 0; i < data.length; ++i) {
+      if (headers[i].IsInline()) continue;
+
+      if (ARROW_PREDICT_TRUE(IsSubrangeOf(buffer_containing_previous_view, headers[i]))) {
+        // Fast path: for most string view arrays, we'll have runs
+        // of views into the same buffer.
+      } else {
+        buffer_i = get_buffer(headers[i]);
+        if (buffer_i != not_found) {
+          // if we didn't find a buffer which owns headers[i], we can hope
+          // that there was just one out of line string and check
+          // buffer_containing_previous_view next iteration
+          buffer_containing_previous_view = buffers[buffer_i];
+        }
+      }
+
+      RETURN_NOT_OK(visitor(i, *owning_buffers[buffer_i]));
+    }
+    return Status::OK();
+  };
+
+  // Simplest check for view-in-buffer: loop through buffers and check each one.
+  auto Linear = [&](StringHeader view) {
+    int i = 0;
+    for (std::string_view buffer : buffers) {
+      if (IsSubrangeOf(buffer, view)) return i;
+      ++i;
+    }
+    return not_found;
+  };
+
+  if (buffers.size() <= 32) {
+    // If there are few buffers to search through, sorting/binary search is not
+    // worthwhile. TODO(bkietz) benchmark this and get a less magic number here.
+    return DoVisit(Linear);
+  }
+
+  auto DataPtrLess = [](std::string_view l, std::string_view r) {
+    return l.data() < r.data();
+  };
+
+  {
+    auto sort_indices = ArgSort(buffers, DataPtrLess);
+    Permute(sort_indices, &buffers);
+    Permute(sort_indices, &owning_buffers);
+  }
+
+  bool non_overlapping =
+      buffers.end() !=
+      std::adjacent_find(buffers.begin(), buffers.end(),
+                         [](std::string_view before, std::string_view after) {
+                           return before.data() + before.size() <= after.data();
+                         });
+  if (ARROW_PREDICT_FALSE(!non_overlapping)) {
+    // Using a binary search with overlapping buffers would not *uniquely* identify
+    // a potentially-containing buffer. Moreover this should be a fairly rare case
+    // so optimizing for it seems premature.
+    return DoVisit(Linear);
+  }
+
+  // More sophisticated check for view-in-buffer: binary search through the buffers.
+  return DoVisit([&](StringHeader view) {
+    // Find the first buffer whose data starts after the data in view-
+    // only buffers *before* this could contain view. Since we've additionally
+    // checked that the buffers do not overlap, only the buffer *immediately before*
+    // this could contain view.
+    int one_past_potential_super =
+        static_cast<int>(std::upper_bound(buffers.begin(), buffers.end(),
+                                          std::string_view{view}, DataPtrLess) -
+                         buffers.begin());
+
+    if (one_past_potential_super == 0) return not_found;
+
+    int i = one_past_potential_super - 1;
+    if (IsSubrangeOf(buffers[i], view)) return i;
+
+    return not_found;
+  });
+}
 
 namespace {
 
@@ -628,109 +756,16 @@ struct ValidateArrayImpl {
       return Status::OK();
     }
 
-    auto* headers = data.GetValues<StringHeader>(1);
-    std::string_view buffer_containing_previous_view;
+    return VisitNonInlinedViewsAndOwningBuffers(
+        data, [&](int64_t i, const std::shared_ptr<Buffer>& owner) {
+          if (ARROW_PREDICT_TRUE(owner != nullptr)) return Status::OK();
 
-    auto IsSubrangeOf = [](std::string_view super, std::string_view sub) {
-      return super.data() <= sub.data() &&
-             super.data() + super.size() >= sub.data() + sub.size();
-    };
-
-    std::vector<std::string_view> buffers;
-    for (auto it = data.buffers.begin() + 2; it != data.buffers.end(); ++it) {
-      buffers.emplace_back(**it);
-    }
-
-    auto CheckViews = [&](auto in_a_buffer, auto check_previous_buffer) {
-      if constexpr (check_previous_buffer) {
-        buffer_containing_previous_view = buffers.front();
-      }
-
-      for (int64_t i = 0; i < data.length; ++i) {
-        if (headers[i].IsInline()) continue;
-
-        std::string_view view{headers[i]};
-
-        if constexpr (check_previous_buffer) {
-          if (ARROW_PREDICT_TRUE(IsSubrangeOf(buffer_containing_previous_view, view))) {
-            // Fast path: for most string view arrays, we'll have runs
-            // of views into the same buffer.
-            continue;
-          }
-        }
-
-        if (!in_a_buffer(view)) {
+          auto* ptr = data.buffers[1]->data_as<StringHeader>()[i].data();
           return Status::Invalid(
-              "String view at slot ", i, " @", (std::uintptr_t)view.data(),
+              "String view at slot ", i, " @",
+              arrow::HexEncode(reinterpret_cast<uint8_t*>(&ptr), sizeof(ptr)),
               " views memory not resident in any buffer managed by the array");
-        }
-      }
-      return Status::OK();
-    };
-
-    if (buffers.empty()) {
-      // there are no character buffers; the only way this array
-      // can be valid is if all views are inline
-      return CheckViews([](std::string_view) { return std::false_type{}; },
-                        /*check_previous_buffer=*/std::false_type{});
-    }
-
-    // Simplest check for view-in-buffer: loop through buffers and check each one.
-    auto Linear = [&](std::string_view view) {
-      for (std::string_view buffer : buffers) {
-        if (IsSubrangeOf(buffer, view)) {
-          buffer_containing_previous_view = buffer;
-          return true;
-        }
-      }
-      return false;
-    };
-
-    if (buffers.size() <= 32) {
-      // If there are few buffers to search through, sorting/binary search is not
-      // worthwhile. TODO(bkietz) benchmark this and get a less magic number here.
-      return CheckViews(Linear,
-                        /*check_previous_buffer=*/std::true_type{});
-    }
-
-    auto DataPtrLess = [](std::string_view l, std::string_view r) {
-      return l.data() < r.data();
-    };
-
-    std::sort(buffers.begin(), buffers.end(), DataPtrLess);
-    bool non_overlapping =
-        buffers.end() !=
-        std::adjacent_find(buffers.begin(), buffers.end(),
-                           [](std::string_view before, std::string_view after) {
-                             return before.data() + before.size() <= after.data();
-                           });
-    if (ARROW_PREDICT_FALSE(!non_overlapping)) {
-      // Using a binary search with overlapping buffers would not *uniquely* identify
-      // a potentially-containing buffer. Moreover this should be a fairly rare case
-      // so optimizing for it seems premature.
-      return CheckViews(Linear,
-                        /*check_previous_buffer=*/std::true_type{});
-    }
-
-    // More sophisticated check for view-in-buffer: binary search through the buffers.
-    return CheckViews(
-        [&](std::string_view view) {
-          // Find the first buffer whose data starts after the data in view-
-          // only buffers *before* this could contain view. Since we've additionally
-          // checked that the buffers do not overlap, only the buffer *immediately before*
-          // this could contain view.
-          auto one_past_potential_super =
-              std::upper_bound(buffers.begin(), buffers.end(), view, DataPtrLess);
-
-          if (one_past_potential_super == buffers.begin()) return false;
-
-          auto potential_super = *(one_past_potential_super - 1);
-          if (!IsSubrangeOf(potential_super, view)) return false;
-
-          buffer_containing_previous_view = potential_super;
-          return true;
-        },
-        /*check_previous_buffer=*/std::true_type{});
+        });
   }
 
   template <typename ListType>
@@ -943,5 +978,4 @@ Status ValidateUTF8(const ArrayData& data) {
 ARROW_EXPORT
 Status ValidateUTF8(const Array& array) { return ValidateUTF8(*array.data()); }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -722,32 +722,32 @@ TEST_F(TestArray, TestMakeEmptyArray) {
   FieldVector union_fields2({field("a", null()), field("b", list(large_utf8()))});
   std::vector<int8_t> union_type_codes{7, 42};
 
-  std::shared_ptr<DataType> types[] = {null(),
-                                       boolean(),
-                                       int8(),
-                                       uint16(),
-                                       int32(),
-                                       uint64(),
-                                       float64(),
-                                       binary(),
-                                       large_binary(),
-                                       fixed_size_binary(3),
-                                       decimal(16, 4),
-                                       utf8(),
-                                       large_utf8(),
-                                       list(utf8()),
-                                       list(int64()),
-                                       large_list(large_utf8()),
-                                       fixed_size_list(utf8(), 3),
-                                       fixed_size_list(int64(), 4),
-                                       dictionary(int32(), utf8()),
-                                       struct_({field("a", utf8()), field("b", int32())}),
-                                       sparse_union(union_fields1, union_type_codes),
-                                       sparse_union(union_fields2, union_type_codes),
-                                       dense_union(union_fields1, union_type_codes),
-                                       dense_union(union_fields2, union_type_codes)};
-
-  for (auto type : types) {
+  for (auto type : {null(),
+                    boolean(),
+                    int8(),
+                    uint16(),
+                    int32(),
+                    uint64(),
+                    float64(),
+                    binary(),
+                    binary_view(),
+                    large_binary(),
+                    fixed_size_binary(3),
+                    decimal(16, 4),
+                    utf8(),
+                    utf8_view(),
+                    large_utf8(),
+                    list(utf8()),
+                    list(int64()),
+                    large_list(large_utf8()),
+                    fixed_size_list(utf8(), 3),
+                    fixed_size_list(int64(), 4),
+                    dictionary(int32(), utf8()),
+                    struct_({field("a", utf8()), field("b", int32())}),
+                    sparse_union(union_fields1, union_type_codes),
+                    sparse_union(union_fields2, union_type_codes),
+                    dense_union(union_fields1, union_type_codes),
+                    dense_union(union_fields2, union_type_codes)}) {
     ARROW_SCOPED_TRACE("type = ", type->ToString());
     ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(type));
     ASSERT_OK(array->ValidateFull());

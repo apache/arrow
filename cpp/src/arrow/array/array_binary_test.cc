@@ -389,6 +389,14 @@ TEST(StringViewArray, Validate) {
                   .ValidateFull(),
               Ok());
 
+  // overlapping views and buffers are allowed
+  EXPECT_THAT(MakeArray({StringHeader(std::string_view{*buffer_s}),
+                         StringHeader(std::string_view{*buffer_s}.substr(5, 5)),
+                         StringHeader(std::string_view{*buffer_s}.substr(9, 4))},
+                        {buffer_s, SliceBuffer(buffer_s, 1, 1), SliceBuffer(buffer_s, 3, 6)})
+                  .ValidateFull(),
+              Ok());
+
   EXPECT_THAT(MakeArray({StringHeader(std::string_view{*buffer_s}),
                          // if a view points outside the buffers, that is invalid
                          StringHeader("from a galaxy far, far away"),

@@ -186,6 +186,10 @@ class ARROW_EXPORT Buffer {
 #endif
     return ARROW_PREDICT_TRUE(is_cpu_) ? data_ : NULLPTR;
   }
+  template <typename T>
+  const T* data_as() const {
+    return reinterpret_cast<const T*>(data());
+  }
 
   /// \brief Return a writable pointer to the buffer's data
   ///
@@ -202,6 +206,10 @@ class ARROW_EXPORT Buffer {
 #endif
     return ARROW_PREDICT_TRUE(is_cpu_ && is_mutable_) ? const_cast<uint8_t*>(data_)
                                                       : NULLPTR;
+  }
+  template <typename T>
+  T* mutable_data_as() {
+    return reinterpret_cast<T*>(mutable_data());
   }
 
   /// \brief Return the device address of the buffer's data
