@@ -1076,11 +1076,8 @@ TEST_F(TestPartitioning, PartitioningWithDataWithFilePaths) {
   ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
   ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
 
-  // The partition schema determines which fields are part of the partitioning.
   auto partition_schema = arrow::schema({arrow::field("part", arrow::utf8())});
-  // We'll use Hive-style partitioning, which creates directories with "key=value" pairs.
   auto partitioning = std::make_shared<dataset::HivePartitioning>(partition_schema);
-  // We'll write Parquet files.
   auto ipc_format = std::make_shared<dataset::IpcFileFormat>();
   dataset::FileSystemDatasetWriteOptions write_options;
   write_options.file_write_options = ipc_format->DefaultWriteOptions();
