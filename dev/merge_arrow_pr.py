@@ -73,6 +73,8 @@ JIRA_API_BASE = "https://issues.apache.org/jira"
 
 def get_json(url, headers=None):
     response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise ValueError(response.json())
     return response.json()
 
 
@@ -112,7 +114,7 @@ def fix_version_from_branch(branch, versions):
         return versions[-1]
     else:
         branch_ver = branch.replace("branch-", "")
-        return [x for x in versions if x.name.startswith(branch_ver)][-1]
+        return [v for v in versions if v.startswith(branch_ver)][-1]
 
 
 class JiraIssue(object):
@@ -132,46 +134,15 @@ class JiraIssue(object):
     def current_fix_versions(self):
         return self.issue.fields.fixVersions
 
-    @classmethod
-    def sort_versions(cls, versions):
-        def version_tuple(x):
-            # Parquet versions are something like cpp-1.2.0
-            numeric_version = x.name.split("-", 1)[-1]
-            return tuple(int(_) for _ in numeric_version.split("."))
-        return sorted(versions, key=version_tuple, reverse=True)
-
-    def get_candidate_fix_versions(self, merge_branches=('master',),
-                                   maintenance_branches=()):
+    @property
+    def current_versions(self):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
         all_versions = self.jira_con.project_versions(self.project)
         unreleased_versions = [x for x in all_versions
                                if not x.raw['released']]
 
         mainline_versions = self._filter_mainline_versions(unreleased_versions)
-        mainline_versions = self.sort_versions(mainline_versions)
-
-        mainline_non_patch_versions = []
-        for v in mainline_versions:
-            (major, minor, patch) = v.name.split(".")
-            if patch == "0":
-                mainline_non_patch_versions.append(v)
-
-        if len(mainline_versions) > len(mainline_non_patch_versions):
-            # If there is a non-patch release, suggest that instead
-            mainline_versions = mainline_non_patch_versions
-
-        mainline_versions = self._filter_maintenance_versions(
-            mainline_versions, maintenance_branches
-        )
-        default_fix_versions = [
-            fix_version_from_branch(x, mainline_versions).name
-            for x in merge_branches]
-
-        return all_versions, default_fix_versions
-
-    def _filter_maintenance_versions(self, versions, maintenance_branches):
-        return [v for v in versions
-                if f"maint-{v.name}" not in maintenance_branches]
+        return mainline_versions
 
     def _filter_mainline_versions(self, versions):
         if self.project == 'PARQUET':
@@ -216,9 +187,9 @@ class JiraIssue(object):
 
     def show(self):
         fields = self.issue.fields
-        print(format_jira_output(self.jira_id, fields.status.name,
-                                 fields.summary, fields.assignee,
-                                 fields.components))
+        print(format_issue_output("jira", self.jira_id, fields.status.name,
+                                  fields.summary, fields.assignee,
+                                  fields.components))
 
 class GitHubIssue(object):
 
@@ -232,118 +203,111 @@ class GitHubIssue(object):
         except Exception as e:
             self.cmd.fail("Github could not find %s\n%s" % (github_id, e))
 
+    def get_label(self, prefix):
+        prefix = f"{prefix}:"
+        return [l["name"][len(prefix):].strip() for l in self.issue["labels"] if l["name"].startswith(prefix)]
+
+    @property
+    def components(self):
+        return self.get_label("Component")
+
+    @property
+    def assignees(self):
+        return [a["login"] for a in self.issue["assignees"]]
+
     @property
     def current_fix_versions(self):
-        return self.issue.fields.fixVersions
+        return self.issue.get("milestone", {}).get("title")
 
-    @classmethod
-    def sort_versions(cls, versions):
-        def version_tuple(x):
-            # Parquet versions are something like cpp-1.2.0
-            numeric_version = x.name.split("-", 1)[-1]
-            return tuple(int(_) for _ in numeric_version.split("."))
-        return sorted(versions, key=version_tuple, reverse=True)
+    @property
+    def current_versions(self):
+        all_versions = self.github_api.get_milestones()
 
-    def get_candidate_fix_versions(self, merge_branches=('master',),
-                                   maintenance_branches=()):
-        # Only suggest versions starting with a number, like 0.x but not JS-0.x
-        all_versions = self.jira_con.project_versions(self.project)
-        unreleased_versions = [x for x in all_versions
-                               if not x.raw['released']]
+        unreleased_versions = [x for x in all_versions if x["state"] == "open"]
+        unreleased_versions = [x["title"] for x in unreleased_versions]
 
-        mainline_versions = self._filter_mainline_versions(unreleased_versions)
-        mainline_versions = self.sort_versions(mainline_versions)
-
-        mainline_non_patch_versions = []
-        for v in mainline_versions:
-            (major, minor, patch) = v.name.split(".")
-            if patch == "0":
-                mainline_non_patch_versions.append(v)
-
-        if len(mainline_versions) > len(mainline_non_patch_versions):
-            # If there is a non-patch release, suggest that instead
-            mainline_versions = mainline_non_patch_versions
-
-        mainline_versions = self._filter_maintenance_versions(
-            mainline_versions, maintenance_branches
-        )
-        default_fix_versions = [
-            fix_version_from_branch(x, mainline_versions).name
-            for x in merge_branches]
-
-        return all_versions, default_fix_versions
-
-    def _filter_maintenance_versions(self, versions, maintenance_branches):
-        return [v for v in versions
-                if f"maint-{v.name}" not in maintenance_branches]
-
-    def _filter_mainline_versions(self, versions):
-        if self.project == 'PARQUET':
-            mainline_regex = re.compile(r'cpp-\d.*')
-        else:
-            mainline_regex = re.compile(r'\d.*')
-
-        return [x for x in versions if mainline_regex.match(x.name)]
+        return unreleased_versions
 
     def resolve(self, fix_versions, comment):
-        fields = self.issue.fields
-        cur_status = fields.status.name
+        cur_status = self.issue["state"]
 
-        if cur_status == "Resolved" or cur_status == "Closed":
-            self.cmd.fail("JIRA issue %s already has status '%s'"
-                          % (self.jira_id, cur_status))
+        if cur_status == "closed":
+            self.cmd.fail("GitHub issue %s already has status '%s'"
+                          % (self.github_id, cur_status))
 
         if DEBUG:
-            print("JIRA issue %s untouched" % (self.jira_id))
-            return
+            print("GitHub issue %s untouched -> %s" % (self.github_id, fix_versions))
+        else:
+            self.jira_con.transition_issue(self.jira_id, resolve["id"],
+                                        comment=comment,
+                                        fixVersions=fix_versions)
+            print("Successfully resolved %s!" % (self.jira_id))
 
-        resolve = [x for x in self.jira_con.transitions(self.jira_id)
-                   if x['name'] == "Resolve Issue"][0]
-
-        # ARROW-6915: do not overwrite existing fix versions corresponding to
-        # point releases
-        fix_versions = list(fix_versions)
-        fix_version_names = set(x['name'] for x in fix_versions)
-        for version in self.current_fix_versions:
-            major, minor, patch = version.name.split('.')
-            if patch != '0' and version.name not in fix_version_names:
-                fix_versions.append(version.raw)
-
-        self.jira_con.transition_issue(self.jira_id, resolve["id"],
-                                       comment=comment,
-                                       fixVersions=fix_versions)
-
-        print("Successfully resolved %s!" % (self.jira_id))
-
-        self.issue = self.jira_con.issue(self.jira_id)
+        self.issue = self.github_api.get_issue_data(self.github_id)
         self.show()
 
     def show(self):
-        fields = self.issue.fields
-        print(format_jira_output(self.jira_id, fields.status.name,
-                                 fields.summary, fields.assignee,
-                                 fields.components))
+        issue = self.issue
+        print(format_issue_output("github", self.github_id, issue["state"],
+                                  issue["title"], ', '.join(self.assignees),
+                                  self.components))
 
 
+def get_candidate_fix_versions(mainline_versions,
+                               merge_branches=('master',),
+                               maintenance_branches=()):
+    all_versions = [getattr(v, "name", v) for v in mainline_versions]
 
-def format_jira_output(jira_id, status, summary, assignee, components):
-    if assignee is None:
+    def version_tuple(x):
+        # Parquet versions are something like cpp-1.2.0
+        numeric_version = getattr(x, "name", x).split("-", 1)[-1]
+        return tuple(int(_) for _ in numeric_version.split("."))
+    all_versions = sorted(all_versions, key=version_tuple, reverse=True)
+
+    # Only suggest versions starting with a number, like 0.x but not JS-0.x
+    mainline_versions = all_versions
+    mainline_non_patch_versions = []
+    for v in mainline_versions:
+        (major, minor, patch) = v.split(".")
+        if patch == "0":
+            mainline_non_patch_versions.append(v)
+
+    if len(mainline_versions) > len(mainline_non_patch_versions):
+        # If there is a non-patch release, suggest that instead
+        mainline_versions = mainline_non_patch_versions
+
+    mainline_versions = [v for v in mainline_versions
+            if f"maint-{v}" not in maintenance_branches]
+    default_fix_versions = [
+        fix_version_from_branch(x, mainline_versions)
+        for x in merge_branches]
+
+    return all_versions, default_fix_versions
+
+
+def format_issue_output(issue_type, issue_id, status, summary, assignee, components):
+    if not assignee:
         assignee = "NOT ASSIGNED!!!"
     else:
-        assignee = assignee.displayName
+        assignee = getattr(assignee, "displayName", assignee)
 
     if len(components) == 0:
         components = 'NO COMPONENTS!!!'
     else:
-        components = ', '.join((x.name for x in components))
+        components = ', '.join((getattr(x, "name", x) for x in components))
 
-    return """=== JIRA {} ===
+    if issue_type == "jira":
+        url = '/'.join((JIRA_API_BASE, 'browse', issue_id))
+    else:
+        url = f'https://github.com/apache/arrow/issues/{issue_id}'
+
+    return """=== {} {} ===
 Summary\t\t{}
 Assignee\t{}
 Components\t{}
 Status\t\t{}
-URL\t\t{}/{}""".format(jira_id, summary, assignee, components, status,
-                       '/'.join((JIRA_API_BASE, 'browse')), jira_id)
+URL\t\t{}""".format(issue_type.upper(), issue_id, summary, assignee, 
+                    components, status, url)
 
 
 class GitHubAPI(object):
@@ -367,6 +331,10 @@ class GitHubAPI(object):
             'Authorization': 'token {0}'.format(token),
         }
         self.headers = headers
+
+    def get_milestones(self):
+        return get_json("%s/milestones" % (self.github_api, ),
+                        headers=self.headers)
 
     def get_issue_data(self, number):
         return get_json("%s/issues/%s" % (self.github_api, number),
@@ -426,7 +394,7 @@ class CommandInput(object):
 
 class PullRequest(object):
     # We can merge both ARROW and PARQUET patches
-    GITHUB_PR_TITLE_REGEXEN = r'^(GH-[0-9]+)\b.*$'
+    GITHUB_PR_TITLE_REGEXEN = re.compile(r'^GH-([0-9]+)\b.*$')
     JIRA_SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
     JIRA_PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
                              for project in JIRA_SUPPORTED_PROJECTS]
@@ -456,8 +424,8 @@ class PullRequest(object):
         print("\n=== Pull Request #%s ===" % self.number)
         print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
               % (self.title, self.description, self.target_ref, self.url))
-        if self.jira_issue is not None:
-            self.jira_issue.show()
+        if self.issue is not None:
+            self.issue.show()
         else:
             print("Minor PR.  Please ensure it meets guidelines for minor.\n")
 
@@ -596,9 +564,10 @@ def get_primary_author(cmd, distinct_authors):
     return primary_author, distinct_other_authors
 
 
-def prompt_for_fix_version(cmd, jira_issue, maintenance_branches=()):
+def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
     (all_versions,
-     default_fix_versions) = jira_issue.get_candidate_fix_versions(
+     default_fix_versions) = get_candidate_fix_versions(
+        issue.current_versions,
         maintenance_branches=maintenance_branches
     )
 
@@ -612,7 +581,7 @@ def prompt_for_fix_version(cmd, jira_issue, maintenance_branches=()):
     issue_fix_versions = issue_fix_versions.replace(" ", "").split(",")
 
     def get_version_json(version_str):
-        return [x for x in all_versions if x.name == version_str][0].raw
+        return [v for v in all_versions if v == version_str][0]
 
     return [get_version_json(v) for v in issue_fix_versions]
 
@@ -690,20 +659,20 @@ def cli():
 
     pr.merge()
 
-    if pr.jira_issue is None:
-        print("Minor PR.  No JIRA issue to update.\n")
+    if pr.issue is None:
+        print("Minor PR.  No issue to update.\n")
         return
 
     cmd.continue_maybe("Would you like to update the associated JIRA?")
-    jira_comment = (
+    issue_comment = (
         "Issue resolved by pull request %s\n[%s/%s]"
         % (pr_num,
            "https://github.com/apache/" + PROJECT_NAME + "/pull",
            pr_num))
 
-    fix_versions_json = prompt_for_fix_version(cmd, pr.jira_issue,
+    fix_versions_json = prompt_for_fix_version(cmd, pr.issue,
                                                pr.maintenance_branches)
-    pr.jira_issue.resolve(fix_versions_json, jira_comment)
+    pr.issue.resolve(fix_versions_json, issue_comment)
 
 
 if __name__ == '__main__':
