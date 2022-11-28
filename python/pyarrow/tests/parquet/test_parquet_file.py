@@ -178,8 +178,11 @@ def test_parquet_file_pass_directory_instead_of_file(tempdir):
     os.mkdir(str(path))
 
     msg = f"Cannot open for reading: path '{str(path)}' is a directory"
-    with pytest.raises(IOError, match=msg):
+    with pytest.raises(IOError) as exc:
         pq.ParquetFile(path)
+    if exc.errisinstance(PermissionError):
+        return  # Windows CI can get a PermissionError here.
+    exc.match(msg)
 
 
 def test_read_column_invalid_index():
