@@ -62,7 +62,7 @@ PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache")
 
 # For testing to avoid accidentally pushing to apache
 DEBUG = bool(int(os.environ.get("DEBUG", 0)))
-
+DEBUG = True
 
 if DEBUG:
     print("**************** DEBUGGING ****************")
@@ -113,12 +113,6 @@ def fix_version_from_branch(branch, versions):
     else:
         branch_ver = branch.replace("branch-", "")
         return [x for x in versions if x.name.startswith(branch_ver)][-1]
-
-
-# We can merge both ARROW and PARQUET patches
-SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
-PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
-                    for project in SUPPORTED_PROJECTS]
 
 
 class JiraIssue(object):
@@ -226,6 +220,111 @@ class JiraIssue(object):
                                  fields.summary, fields.assignee,
                                  fields.components))
 
+class GitHubIssue(object):
+
+    def __init__(self, github_api, github_id, cmd):
+        self.github_api = github_api
+        self.github_id = github_id
+        self.cmd = cmd
+
+        try:
+            self.issue = self.github_api.get_issue_data(github_id)
+        except Exception as e:
+            self.cmd.fail("Github could not find %s\n%s" % (github_id, e))
+
+    @property
+    def current_fix_versions(self):
+        return self.issue.fields.fixVersions
+
+    @classmethod
+    def sort_versions(cls, versions):
+        def version_tuple(x):
+            # Parquet versions are something like cpp-1.2.0
+            numeric_version = x.name.split("-", 1)[-1]
+            return tuple(int(_) for _ in numeric_version.split("."))
+        return sorted(versions, key=version_tuple, reverse=True)
+
+    def get_candidate_fix_versions(self, merge_branches=('master',),
+                                   maintenance_branches=()):
+        # Only suggest versions starting with a number, like 0.x but not JS-0.x
+        all_versions = self.jira_con.project_versions(self.project)
+        unreleased_versions = [x for x in all_versions
+                               if not x.raw['released']]
+
+        mainline_versions = self._filter_mainline_versions(unreleased_versions)
+        mainline_versions = self.sort_versions(mainline_versions)
+
+        mainline_non_patch_versions = []
+        for v in mainline_versions:
+            (major, minor, patch) = v.name.split(".")
+            if patch == "0":
+                mainline_non_patch_versions.append(v)
+
+        if len(mainline_versions) > len(mainline_non_patch_versions):
+            # If there is a non-patch release, suggest that instead
+            mainline_versions = mainline_non_patch_versions
+
+        mainline_versions = self._filter_maintenance_versions(
+            mainline_versions, maintenance_branches
+        )
+        default_fix_versions = [
+            fix_version_from_branch(x, mainline_versions).name
+            for x in merge_branches]
+
+        return all_versions, default_fix_versions
+
+    def _filter_maintenance_versions(self, versions, maintenance_branches):
+        return [v for v in versions
+                if f"maint-{v.name}" not in maintenance_branches]
+
+    def _filter_mainline_versions(self, versions):
+        if self.project == 'PARQUET':
+            mainline_regex = re.compile(r'cpp-\d.*')
+        else:
+            mainline_regex = re.compile(r'\d.*')
+
+        return [x for x in versions if mainline_regex.match(x.name)]
+
+    def resolve(self, fix_versions, comment):
+        fields = self.issue.fields
+        cur_status = fields.status.name
+
+        if cur_status == "Resolved" or cur_status == "Closed":
+            self.cmd.fail("JIRA issue %s already has status '%s'"
+                          % (self.jira_id, cur_status))
+
+        if DEBUG:
+            print("JIRA issue %s untouched" % (self.jira_id))
+            return
+
+        resolve = [x for x in self.jira_con.transitions(self.jira_id)
+                   if x['name'] == "Resolve Issue"][0]
+
+        # ARROW-6915: do not overwrite existing fix versions corresponding to
+        # point releases
+        fix_versions = list(fix_versions)
+        fix_version_names = set(x['name'] for x in fix_versions)
+        for version in self.current_fix_versions:
+            major, minor, patch = version.name.split('.')
+            if patch != '0' and version.name not in fix_version_names:
+                fix_versions.append(version.raw)
+
+        self.jira_con.transition_issue(self.jira_id, resolve["id"],
+                                       comment=comment,
+                                       fixVersions=fix_versions)
+
+        print("Successfully resolved %s!" % (self.jira_id))
+
+        self.issue = self.jira_con.issue(self.jira_id)
+        self.show()
+
+    def show(self):
+        fields = self.issue.fields
+        print(format_jira_output(self.jira_id, fields.status.name,
+                                 fields.summary, fields.assignee,
+                                 fields.components))
+
+
 
 def format_jira_output(jira_id, status, summary, assignee, components):
     if assignee is None:
@@ -268,6 +367,10 @@ class GitHubAPI(object):
             'Authorization': 'token {0}'.format(token),
         }
         self.headers = headers
+
+    def get_issue_data(self, number):
+        return get_json("%s/issues/%s" % (self.github_api, number),
+                        headers=self.headers)
 
     def get_pr_data(self, number):
         return get_json("%s/pulls/%s" % (self.github_api, number),
@@ -322,6 +425,11 @@ class CommandInput(object):
 
 
 class PullRequest(object):
+    # We can merge both ARROW and PARQUET patches
+    GITHUB_PR_TITLE_REGEXEN = r'^(GH-[0-9]+)\b.*$'
+    JIRA_SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
+    JIRA_PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
+                             for project in JIRA_SUPPORTED_PROJECTS]
 
     def __init__(self, cmd, github_api, git_remote, jira_con, number):
         self.cmd = cmd
@@ -342,7 +450,7 @@ class PullRequest(object):
             raise
         self.description = "%s/%s" % (self.user_login, self.base_ref)
 
-        self.jira_issue = self._get_jira()
+        self.issue = self._get_issue()
 
     def show(self):
         print("\n=== Pull Request #%s ===" % self.number)
@@ -366,24 +474,25 @@ class PullRequest(object):
         return [x["name"] for x in self._github_api.get_branches()
                 if x["name"].startswith("maint-")]
 
-    def _get_jira(self):
+    def _get_issue(self):
         if self.title.startswith("MINOR:"):
             return None
 
-        jira_id = None
-        for project, regex in PR_TITLE_REGEXEN:
+        m = self.GITHUB_PR_TITLE_REGEXEN.search(self.title)
+        if m:
+            github_id = m.group(1)
+            return GitHubIssue(self._github_api, github_id, self.cmd)
+
+        for project, regex in self.JIRA_PR_TITLE_REGEXEN:
             m = regex.search(self.title)
             if m:
                 jira_id = m.group(1)
-                break
+                return JiraIssue(self.con, jira_id, project, self.cmd)
 
-        if jira_id is None:
-            options = ' or '.join('{0}-XXX'.format(project)
-                                  for project in SUPPORTED_PROJECTS)
-            self.cmd.fail("PR title should be prefixed by a jira id "
-                          "{0}, but found {1}".format(options, self.title))
-
-        return JiraIssue(self.con, jira_id, project, self.cmd)
+        options = ' or '.join('{0}-XXX'.format(project)
+                                for project in self.JIRA_SUPPORTED_PROJECTS)
+        self.cmd.fail("PR title should be prefixed by a jira id "
+                        "{0}, but found {1}".format(options, self.title))
 
     def merge(self):
         """
