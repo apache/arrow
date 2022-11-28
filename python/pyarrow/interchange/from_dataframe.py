@@ -32,14 +32,21 @@ import numpy as np
 import pyarrow as pa
 
 
-def from_dataframe(df, allow_copy=True) -> pa.Table:
+# A typing protocol could be added later to let Mypy validate code using
+# `from_dataframe` better.
+DataFrameObject = Any
+ColumnObject = Any
+BufferObject = Any
+
+
+def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
     """
     Build a ``pa.Table`` from any DataFrame supporting the interchange
     protocol.
 
     Parameters
     ----------
-    df : _PyArrowDataFrame
+    df : DataFrameObject
         Object supporting the interchange protocol, i.e. `__dataframe__`
         method.
     allow_copy : bool, default: True
@@ -58,12 +65,12 @@ def from_dataframe(df, allow_copy=True) -> pa.Table:
     return _from_dataframe(df.__dataframe__(allow_copy=allow_copy))
 
 
-def _from_dataframe(df: _PyArrowDataFrame, allow_copy=True):
+def _from_dataframe(df: DataFrameObject, allow_copy=True):
     """
     Build a ``pa.Table`` from the DataFrame interchange object.
     Parameters
     ----------
-    df : _PyArrowDataFrame
+    df : DataFrameObject
         Object supporting the interchange protocol, i.e. `__dataframe__`
         method.
     allow_copy : bool, default: True
@@ -76,12 +83,12 @@ def _from_dataframe(df: _PyArrowDataFrame, allow_copy=True):
     pass
 
 
-def protocol_df_chunk_to_pyarrow(df: _PyArrowDataFrame) -> pa.Table:
+def protocol_df_chunk_to_pyarrow(df: DataFrameObject) -> pa.Table:
     """
     Convert interchange protocol chunk to ``pd.DataFrame``.
     Parameters
     ----------
-    df : _PyArrowDataFrame
+    df : DataFrameObject
     Returns
     -------
     pa.Table
@@ -118,49 +125,49 @@ def protocol_df_chunk_to_pyarrow(df: _PyArrowDataFrame) -> pa.Table:
     pass
 
 
-def primitive_column_to_ndarray(col: _PyArrowColumn) -> tuple[np.ndarray, Any]:
+def primitive_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
     """
-    Convert a column holding one of the primitive dtypes to a NumPy array.
+    Convert a column holding one of the primitive dtypes to a PyArrow array.
     A primitive type is one of: int, uint, float, bool.
     Parameters
     ----------
-    col : Column
+    col : ColumnObject
     Returns
     -------
     tuple
-        Tuple of np.ndarray holding the data and the memory owner object
+        Tuple of pa.Array holding the data and the memory owner object
         that keeps the memory alive.
     """
     pass
 
 
 def categorical_column_to_dictionary(
-    col: _PyArrowColumn
-) -> tuple[pa.ChunkedArray, Any]:
+    col: ColumnObject
+) -> tuple[pa.Array, Any]:
     """
     Convert a column holding categorical data to a pandas Series.
     Parameters
     ----------
-    col : Column
+    col : ColumnObject
     Returns
     -------
     tuple
-        Tuple of pa.ChunkedArray holding the data and the memory owner object
+        Tuple of pa.Array holding the data and the memory owner object
         that keeps the memory alive.
     """
     pass
 
 
-def string_column_to_ndarray(col: _PyArrowColumn) -> tuple[np.ndarray, Any]:
+def string_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
     """
     Convert a column holding string data to a NumPy array.
     Parameters
     ----------
-    col : Column
+    col : ColumnObject
     Returns
     -------
     tuple
-        Tuple of np.ndarray holding the data and the memory owner object
+        Tuple of pa.Array holding the data and the memory owner object
         that keeps the memory alive.
     """
     pass
@@ -171,33 +178,33 @@ def parse_datetime_format_str(format_str, data):
     pass
 
 
-def datetime_column_to_ndarray(col: _PyArrowColumn) -> tuple[np.ndarray, Any]:
+def datetime_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
     """
     Convert a column holding DateTime data to a NumPy array.
     Parameters
     ----------
-    col : Column
+    col : ColumnObject
     Returns
     -------
     tuple
-        Tuple of np.ndarray holding the data and the memory owner object
+        Tuple of pa.Array holding the data and the memory owner object
         that keeps the memory alive.
     """
     pass
 
 
-def buffer_to_ndarray(
-    buffer: _PyArrowBuffer,
+def buffer_to_array(
+    buffer: BufferObject,
     dtype: tuple[DtypeKind, int, str, str],
     offset: int = 0,
     length: int | None = None,
-) -> np.ndarray:
+) -> pa.Array:
     """
     Build a NumPy array from the passed buffer.
     Parameters
     ----------
-    buffer : Buffer
-        Buffer to build a NumPy array from.
+    buffer : BufferObject
+        Buffer to build a PyArrow array from.
     dtype : tuple
         Data type of the buffer conforming protocol dtypes format.
     offset : int, default: 0
@@ -207,7 +214,8 @@ def buffer_to_ndarray(
         from the buffer. Has no effect otherwise.
     Returns
     -------
-    np.ndarray
+    pa.Array
+
     Notes
     -----
     The returned array doesn't own the memory. The caller of this function
@@ -217,9 +225,9 @@ def buffer_to_ndarray(
     pass
 
 
-def bitmask_to_bool_ndarray(
+def bitmask_to_bool_array(
     bitmask: np.ndarray, mask_length: int, first_byte_offset: int = 0
-) -> np.ndarray:
+) -> pa.Array:
     """
     Convert bit-mask to a boolean NumPy array.
     Parameters
@@ -232,35 +240,6 @@ def bitmask_to_bool_ndarray(
         Number of elements to offset from the start of the first byte.
     Returns
     -------
-    np.ndarray[bool]
-    """
-    pass
-
-
-def set_nulls(
-    data: np.ndarray | pa.Array | pa.ChunkedArray,
-    col: _PyArrowColumn,
-    validity: tuple[_PyArrowBuffer, tuple[DtypeKind, int, str, str]] | None,
-    allow_modify_inplace: bool = True,
-):
-    """
-    Set null values for the data according to the column null kind.
-    Parameters
-    ----------
-    data : np.ndarray, pa.Array or pa.ChunkedArray,
-        Data to set nulls in.
-    col : _PyArrowColumn
-        Column object that describes the `data`.
-    validity : tuple(_PyArrowBuffer, dtype) or None
-        The return value of ``col.buffers()``. We do not access the
-        ``col.buffers()`` here to not take the ownership of the memory
-        of buffer objects.
-    allow_modify_inplace : bool, default: True
-        Whether to modify the `data` inplace when zero-copy is possible
-        (True) or always modify a copy of the `data` (False).
-    Returns
-    -------
-    np.ndarray, pa.Array or pa.ChunkedArray,
-        Data with the nulls being set.
+    pa.Array[bool]
     """
     pass
