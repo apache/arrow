@@ -27,11 +27,13 @@ import (
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/kernels"
 	"github.com/apache/arrow/go/v11/arrow/decimal128"
 	"github.com/apache/arrow/go/v11/arrow/decimal256"
+	"github.com/apache/arrow/go/v11/arrow/scalar"
 )
 
 type (
-	RoundOptions = kernels.RoundOptions
-	RoundMode    = kernels.RoundMode
+	RoundOptions           = kernels.RoundOptions
+	RoundMode              = kernels.RoundMode
+	RoundToMultipleOptions = kernels.RoundToMultipleOptions
 )
 
 const (
@@ -55,6 +57,12 @@ const (
 	RoundHalfToEven = kernels.HalfToEven
 	// Round ties to nearest odd integer
 	RoundHalfToOdd = kernels.HalfToOdd
+)
+
+var (
+	DefaultRoundOptions           = RoundOptions{NDigits: 0, Mode: RoundHalfToEven}
+	DefaultRoundToMultipleOptions = RoundToMultipleOptions{
+		Multiple: scalar.NewFloat64Scalar(1), Mode: RoundHalfToEven}
 )
 
 type arithmeticFunction struct {
@@ -629,13 +637,26 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	reg.AddFunction(truncFn, false)
 
 	roundFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("round", Unary(), EmptyFuncDoc), decPromoteNone}}
-	kns = kernels.GetRoundUnaryKernels(kernels.InitRoundState)
+	kns = kernels.GetRoundUnaryKernels(kernels.InitRoundState, kernels.UnaryRoundExec)
 	for _, k := range kns {
 		if err := roundFn.AddKernel(k); err != nil {
 			panic(err)
 		}
 	}
+
+	roundFn.defaultOpts = DefaultRoundOptions
 	reg.AddFunction(roundFn, false)
+
+	roundToMultipleFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("round_to_multiple", Unary(), EmptyFuncDoc), decPromoteNone}}
+	kns = kernels.GetRoundUnaryKernels(kernels.InitRoundToMultipleState, kernels.UnaryRoundToMultipleExec)
+	for _, k := range kns {
+		if err := roundToMultipleFn.AddKernel(k); err != nil {
+			panic(err)
+		}
+	}
+
+	roundToMultipleFn.defaultOpts = DefaultRoundToMultipleOptions
+	reg.AddFunction(roundToMultipleFn, false)
 }
 
 func impl(ctx context.Context, fn string, opts ArithmeticOptions, left, right Datum) (Datum, error) {
@@ -856,4 +877,8 @@ func Logb(ctx context.Context, opts ArithmeticOptions, x, base Datum) (Datum, er
 
 func Round(ctx context.Context, opts RoundOptions, arg Datum) (Datum, error) {
 	return CallFunction(ctx, "round", &opts, arg)
+}
+
+func RoundToMultiple(ctx context.Context, opts RoundToMultipleOptions, arg Datum) (Datum, error) {
+	return CallFunction(ctx, "round_to_multiple", &opts, arg)
 }

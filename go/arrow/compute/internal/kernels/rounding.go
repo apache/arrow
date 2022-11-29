@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v11/arrow/decimal128"
 	"github.com/apache/arrow/go/v11/arrow/decimal256"
+	"github.com/apache/arrow/go/v11/arrow/scalar"
 	"golang.org/x/exp/constraints"
 )
 
@@ -86,6 +87,92 @@ func InitRoundState(_ *exec.KernelCtx, args exec.KernelInitArgs) (exec.KernelSta
 	// using multiply-only.  Refer to NumPy's round implementation:
 	// https://github.com/numpy/numpy/blob/7b2f20b406d27364c812f7a81a9c901afbd3600c/numpy/core/src/multiarray/calculation.c#L589
 	rs.Pow10 = math.Pow10(int(math.Abs(float64(rs.NDigits))))
+	return rs, nil
+}
+
+type RoundToMultipleOptions struct {
+	// Multiple is the multiple to round to.
+	//
+	// Should be a positive numeric scalar of a type compatible
+	// with the argument to be rounded. The cast kernel is used
+	// to convert the rounding multiple to match the result type.
+	Multiple scalar.Scalar
+	// Mode is the rounding and tie-breaking mode
+	Mode RoundMode
+}
+
+func (RoundToMultipleOptions) TypeName() string { return "RoundToMultipleOptions" }
+
+type RoundToMultipleState = RoundToMultipleOptions
+
+func isPositive(s scalar.Scalar) bool {
+	switch s := s.(type) {
+	case *scalar.Decimal128:
+		return s.Value.Greater(decimal128.Num{})
+	case *scalar.Decimal256:
+		return s.Value.Greater(decimal256.Num{})
+	case *scalar.Int8:
+		return s.Value > 0
+	case *scalar.Uint8, *scalar.Uint16, *scalar.Uint32, *scalar.Uint64:
+		return true
+	case *scalar.Int16:
+		return s.Value > 0
+	case *scalar.Int32:
+		return s.Value > 0
+	case *scalar.Int64:
+		return s.Value > 0
+	case *scalar.Float32:
+		return s.Value > 0
+	case *scalar.Float64:
+		return s.Value > 0
+	default:
+		return false
+	}
+}
+
+func InitRoundToMultipleState(_ *exec.KernelCtx, args exec.KernelInitArgs) (exec.KernelState, error) {
+	var rs RoundToMultipleState
+
+	opts, ok := args.Options.(*RoundToMultipleOptions)
+	if ok {
+		rs = *opts
+	} else {
+		if rs, ok = args.Options.(RoundToMultipleOptions); !ok {
+			return nil, fmt.Errorf("%w: attempted to initialize kernel state from invalid function options",
+				arrow.ErrInvalid)
+		}
+	}
+
+	mult := rs.Multiple
+	if mult == nil || !mult.IsValid() {
+		return nil, fmt.Errorf("%w: rounding multiple must be non-null and valid",
+			arrow.ErrInvalid)
+	}
+
+	if !isPositive(mult) {
+		return nil, fmt.Errorf("%w: rounding multiple must be positive", arrow.ErrInvalid)
+	}
+
+	// ensure the rounding multiple option matches the kernel's output type.
+	// the output type is not available here, so we use the following rule:
+	// if "multiple" is neither a floating-point nor decimal type,
+	// then cast to float64, else cast to the kernel's input type.
+	var toType arrow.DataType
+	if !arrow.IsFloating(mult.DataType().ID()) && !arrow.IsDecimal(mult.DataType().ID()) {
+		toType = arrow.PrimitiveTypes.Float64
+	} else {
+		toType = args.Inputs[0]
+	}
+
+	if !arrow.TypeEqual(mult.DataType(), toType) {
+		castedMultiple, err := mult.CastTo(toType)
+		if err != nil {
+			return nil, err
+		}
+
+		rs.Multiple = castedMultiple
+	}
+
 	return rs, nil
 }
 
@@ -293,6 +380,17 @@ func roundKernelFloating[T constraints.Float](ctx *exec.KernelCtx, batch *exec.E
 	return ScalarUnaryNotNull(rnd.call)(ctx, batch, out)
 }
 
+func roundToMultipleFloating[T constraints.Float](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	opts := ctx.State.(RoundToMultipleState)
+	rnd := roundToMultiple[T]{
+		mode:     opts.Mode,
+		multiple: UnboxScalar[T](opts.Multiple.(scalar.PrimitiveScalar)),
+		fn:       getFloatRoundImpl[T](opts.Mode),
+	}
+
+	return ScalarUnaryNotNull(rnd.call)(ctx, batch, out)
+}
+
 type roundDecImpl[T decimal128.Num | decimal256.Num] struct {
 	*decOps[T]
 	scaleMultiplier     func(int) T
@@ -429,22 +527,208 @@ func roundKernelDecimal[T decimal128.Num | decimal256.Num](opsImpl *roundDecImpl
 	return ScalarUnaryNotNull(rnd.call)(ctx, batch, out)
 }
 
-func GetRoundUnaryKernels(init exec.KernelInitFn) []exec.ScalarKernel {
+func getRoundToMultipleKernelDecimal[T decimal128.Num | decimal256.Num]() exec.ArrayKernelExec {
+	var def T
+	switch any(def).(type) {
+	case decimal128.Num:
+		return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+			return roundToMultipleDecimal(&roundDec128, ctx, batch, out)
+		}
+	case decimal256.Num:
+		return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+			return roundToMultipleDecimal(&roundDec256, ctx, batch, out)
+		}
+	}
+	panic("should never get here")
+}
+
+func roundToMultipleDecimal[T decimal128.Num | decimal256.Num](opsImpl *roundDecImpl[T], ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	opts := ctx.State.(RoundToMultipleState)
+	rnd := roundToMultipleDec[T]{
+		ty:      out.Type.(arrow.DecimalType),
+		mode:    opts.Mode,
+		opsImpl: opsImpl,
+		fn:      getDecRounding(opts.Mode, opsImpl),
+		mult:    UnboxScalar[T](opts.Multiple.(scalar.PrimitiveScalar)),
+	}
+
+	rnd.halfMult = opsImpl.Div(rnd.mult, opsImpl.fromI64(2))
+	rnd.negHalfMult = opsImpl.Neg(rnd.halfMult)
+	rnd.hasHalfwayPoint = opsImpl.lowBits(rnd.mult)%2 == 0
+
+	return ScalarUnaryNotNull(rnd.call)(ctx, batch, out)
+}
+
+type roundToMultiple[T constraints.Float] struct {
+	multiple T
+	mode     RoundMode
+
+	fn func(T) T
+}
+
+func (rnd *roundToMultiple[T]) call(_ *exec.KernelCtx, arg T, e *error) T {
+	val := float64(arg)
+	// do not process Inf or NaN because they will trigger the overflow error
+	// at the end of this.
+	if math.IsInf(val, 0) || math.IsNaN(val) {
+		return arg
+	}
+
+	roundVal := arg / rnd.multiple
+	frac := roundVal - T(math.Floor(float64(roundVal)))
+	if frac == 0 {
+		// scaled value is an integer, no rounding needed
+		return arg
+	}
+
+	if rnd.mode >= HalfDown && frac != 0.5 {
+		roundVal = T(math.Round(float64(roundVal)))
+	} else {
+		roundVal = rnd.fn(roundVal)
+	}
+	roundVal *= rnd.multiple
+
+	if math.IsInf(float64(roundVal), 0) || math.IsNaN(float64(roundVal)) {
+		*e = errOverflow
+		return arg
+	}
+
+	return roundVal
+}
+
+type roundToMultipleDec[T decimal128.Num | decimal256.Num] struct {
+	ty   arrow.DecimalType
+	mode RoundMode
+
+	mult, halfMult, negHalfMult T
+	hasHalfwayPoint             bool
+
+	opsImpl *roundDecImpl[T]
+	fn      func(T, T, T, int32) T
+}
+
+func (rnd *roundToMultipleDec[T]) call(_ *exec.KernelCtx, arg T, e *error) T {
+	var def T
+
+	val, remainder := rnd.opsImpl.divide(arg, rnd.mult)
+	if remainder == def {
+		return arg
+	}
+
+	one := rnd.opsImpl.fromI64(1)
+	if rnd.mode >= HalfDown {
+		if rnd.hasHalfwayPoint && (remainder == rnd.halfMult || remainder == rnd.negHalfMult) {
+			// on the halfway point, use tiebreaker
+			// manually implement rounding since we're not actually rounding
+			// a decimal value, but rather manipulating the multiple
+			switch rnd.mode {
+			case HalfDown:
+				if rnd.opsImpl.Sign(remainder) < 0 {
+					val = rnd.opsImpl.Sub(val, one)
+				}
+			case HalfUp:
+				if rnd.opsImpl.Sign(remainder) >= 0 {
+					val = rnd.opsImpl.Add(val, one)
+				}
+			case HalfTowardsZero:
+			case HalfAwayFromZero:
+				if rnd.opsImpl.Sign(remainder) >= 0 {
+					val = rnd.opsImpl.Add(val, one)
+				} else {
+					val = rnd.opsImpl.Sub(val, one)
+				}
+			case HalfToEven:
+				if rnd.opsImpl.lowBits(val)%2 != 0 {
+					if rnd.opsImpl.Sign(remainder) >= 0 {
+						val = rnd.opsImpl.Add(val, one)
+					} else {
+						val = rnd.opsImpl.Sub(val, one)
+					}
+				}
+			case HalfToOdd:
+				if rnd.opsImpl.lowBits(val)%2 == 0 {
+					if rnd.opsImpl.Sign(remainder) >= 0 {
+						val = rnd.opsImpl.Add(val, one)
+					} else {
+						val = rnd.opsImpl.Sub(val, one)
+					}
+				}
+			}
+		} else if rnd.opsImpl.Sign(remainder) >= 0 {
+			// positive, round up/down
+			if rnd.opsImpl.less(rnd.halfMult, remainder) {
+				val = rnd.opsImpl.Add(val, one)
+			}
+		} else {
+			// negative, round up/down
+			if rnd.opsImpl.less(remainder, rnd.negHalfMult) {
+				val = rnd.opsImpl.Sub(val, one)
+			}
+		}
+	} else {
+		// manually implement rounding since we're not actually rounding
+		// a decimal value, but rather manipulating the multiple
+		switch rnd.mode {
+		case RoundDown:
+			if rnd.opsImpl.Sign(remainder) < 0 {
+				val = rnd.opsImpl.Sub(val, one)
+			}
+		case RoundUp:
+			if rnd.opsImpl.Sign(remainder) >= 0 {
+				val = rnd.opsImpl.Add(val, one)
+			}
+		case TowardsZero:
+		case AwayFromZero:
+			if rnd.opsImpl.Sign(remainder) >= 0 {
+				val = rnd.opsImpl.Add(val, one)
+			} else {
+				val = rnd.opsImpl.Sub(val, one)
+			}
+		}
+	}
+
+	roundVal := rnd.opsImpl.Mul(val, rnd.mult)
+	if !rnd.opsImpl.fitsInPrec(roundVal, rnd.ty.GetPrecision()) {
+		*e = fmt.Errorf("%w: rounded value %s does not fit in precision of %s",
+			arrow.ErrInvalid, rnd.opsImpl.str(roundVal, rnd.ty.GetScale()), rnd.ty)
+		return def
+	}
+	return roundVal
+}
+
+func UnaryRoundExec(ty arrow.Type) exec.ArrayKernelExec {
+	switch ty {
+	case arrow.FLOAT32:
+		return roundKernelFloating[float32]
+	case arrow.FLOAT64:
+		return roundKernelFloating[float64]
+	case arrow.DECIMAL128:
+		return getRoundKernelDecimal[decimal128.Num]()
+	case arrow.DECIMAL256:
+		return getRoundKernelDecimal[decimal256.Num]()
+	}
+	panic("should never get here")
+}
+
+func UnaryRoundToMultipleExec(ty arrow.Type) exec.ArrayKernelExec {
+	switch ty {
+	case arrow.FLOAT32:
+		return roundToMultipleFloating[float32]
+	case arrow.FLOAT64:
+		return roundToMultipleFloating[float64]
+	case arrow.DECIMAL128:
+		return getRoundToMultipleKernelDecimal[decimal128.Num]()
+	case arrow.DECIMAL256:
+		return getRoundToMultipleKernelDecimal[decimal256.Num]()
+	}
+	panic("should never get here")
+}
+
+func GetRoundUnaryKernels(init exec.KernelInitFn, knFn func(arrow.Type) exec.ArrayKernelExec) []exec.ScalarKernel {
 	kernels := make([]exec.ScalarKernel, 0)
 	for _, ty := range []arrow.DataType{arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float64,
 		&arrow.Decimal128Type{Precision: 1}, &arrow.Decimal256Type{Precision: 1}} {
 		tyID := ty.ID()
-		var ex exec.ArrayKernelExec
-		switch tyID {
-		case arrow.FLOAT32:
-			ex = roundKernelFloating[float32]
-		case arrow.FLOAT64:
-			ex = roundKernelFloating[float64]
-		case arrow.DECIMAL128:
-			ex = getRoundKernelDecimal[decimal128.Num]()
-		case arrow.DECIMAL256:
-			ex = getRoundKernelDecimal[decimal256.Num]()
-		}
 
 		var out exec.OutputType
 		if arrow.IsDecimal(tyID) {
@@ -454,7 +738,7 @@ func GetRoundUnaryKernels(init exec.KernelInitFn) []exec.ScalarKernel {
 		}
 
 		kernels = append(kernels, exec.NewScalarKernel(
-			[]exec.InputType{exec.NewIDInput(tyID)}, out, ex, init))
+			[]exec.InputType{exec.NewIDInput(tyID)}, out, knFn(tyID), init))
 	}
 
 	return append(kernels, NullExecKernel(1))
