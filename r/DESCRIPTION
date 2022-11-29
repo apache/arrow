@@ -35,7 +35,7 @@ Imports:
     methods,
     purrr,
     R6,
-    rlang,
+    rlang (>= 1.0.0),
     stats,
     tidyselect (>= 1.0.0),
     utils,
