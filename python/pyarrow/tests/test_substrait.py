@@ -224,11 +224,7 @@ def test_named_table():
     assert res_tb == test_table_1
 
 
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_named_table_invalid_table_name():
-    # Warning generated from pyx which is unable to be propagated to caller
-    # ref: https://docs.pytest.org/en/6.2.x/usage.html#warning-about
-    #      -unraisable-exceptions-and-unhandled-thread-exceptions
     test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
 
     def table_provider(names):
