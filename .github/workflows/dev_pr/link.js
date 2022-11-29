@@ -56,16 +56,19 @@ async function haveComment(github, context, pullRequestNumber, message) {
  * @param {String} jiraID
  */
 async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
+  const issueInfo = await helpers.getJiraInfo(jiraID);
   const jiraURL = `https://issues.apache.org/jira/browse/${jiraID}`;
   if (await haveComment(github, context, pullRequestNumber, jiraURL)) {
     return;
   }
-  await github.issues.createComment({
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-    issue_number: pullRequestNumber,
-    body: jiraURL
-  });
+  if (issueInfo){
+    await github.issues.createComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: pullRequestNumber,
+      body: jiraURL
+    });
+  }
 }
 
 /**

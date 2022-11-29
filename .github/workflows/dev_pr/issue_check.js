@@ -138,24 +138,23 @@ async function assignGitHubIssue(github, context, pullRequestNumber, issueInfo) 
  */
 async function verifyGitHubIssue(github, context, pullRequestNumber, issueID) {
     const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
-    if (issueInfo) {
-        if (!issueInfo.assignees.length) {
-            await assignGitHubIssue(github, context, pullRequestNumber, issueInfo);
-        }
-        if(!issueInfo.labels.length) {
-            await github.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pullRequestNumber,
-                body: ":warning: GitHub issue #" + issueID + " **has no labels in GitHub**, please add labels for components."
-            })
-        }
-    } else {
+    if (!issueInfo) {
         await github.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: pullRequestNumber,
             body: ":x: GitHub issue #" + issueID + " could not be retrieved."
+        })
+    }
+    if (!issueInfo.assignees.length) {
+        await assignGitHubIssue(github, context, pullRequestNumber, issueInfo);
+    }
+    if(!issueInfo.labels.filter((label) => label.startsWith("Component:")).length) {
+        await github.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: pullRequestNumber,
+            body: ":warning: GitHub issue #" + issueID + " **has no components**, please add labels for components."
         })
     }
 }

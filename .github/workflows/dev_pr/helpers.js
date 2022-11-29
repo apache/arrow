@@ -40,9 +40,9 @@ function detectIssue(title) {
     if (matched_jira) {
         return {"kind": "jira", "id": matched_jira[2]};
     }
-    const matched_gh = /^(WIP:?\s*)?(GH-)(\d+)/.exec(title);
+    const matched_gh = /^(WIP:?\s*)?GH-(\d+)/.exec(title);
     if (matched_gh) {
-        return {"kind": "github", "id": matched_gh[3]};
+        return {"kind": "github", "id": matched_gh[2]};
     }
     return null;
 }
