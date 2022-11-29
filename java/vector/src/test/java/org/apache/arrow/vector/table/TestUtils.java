@@ -316,7 +316,6 @@ public class TestUtils {
     }
     listVector.setLastSet(outerCount - 1);
     listVector.setValueCount(outerCount);
-
     return listVector;
   }
 
@@ -348,7 +347,7 @@ public class TestUtils {
     return structVector;
   }
 
-  /** Returns a MapVector of ints to doubles. */
+  /** Returns a MapVector of longs to doubles. */
   static MapVector simpleMapVector(BufferAllocator allocator) {
     MapVector mapVector = MapVector.empty(BIGINT_INT_MAP_VECTOR_NAME, allocator, false);
     mapVector.allocateNew();
