@@ -80,7 +80,9 @@ class FakeJIRA:
     @property
     def current_versions(self):
         all_versions = self._project_versions or SOURCE_VERSIONS
-        return [v for v in all_versions if not v.raw.get("released")] + ['0.11.0']
+        return [
+            v for v in all_versions if not v.raw.get("released")
+        ] + ['0.11.0']
 
     def project_versions(self, project):
         return self._project_versions
@@ -285,7 +287,7 @@ def test_no_unset_point_release_fix_version():
     issue = FakeIssue(fields)
 
     jira = FakeJIRA(
-        issue=issue, 
+        issue=issue,
         project_versions=[
             FakeVersion(v, vdata) for v, vdata in versions_json.items()
         ],
@@ -317,9 +319,10 @@ def test_jira_output_no_components():
     # ARROW-5472
     status = 'Interesting work'
     components = []
-    output = merge_arrow_pr.format_issue_output("jira",
-        'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
-        components)
+    output = merge_arrow_pr.format_issue_output(
+        "jira", 'ARROW-1234', 'Resolved', status,
+        FakeAssignee('Foo Bar'), components
+    )
 
     assert output == """=== JIRA ARROW-1234 ===
 Summary\t\tInteresting work
@@ -328,9 +331,10 @@ Components\tNO COMPONENTS!!!
 Status\t\tResolved
 URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
 
-    output = merge_arrow_pr.format_issue_output("jira",
-        'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
-        [FakeComponent('C++'), FakeComponent('Python')])
+    output = merge_arrow_pr.format_issue_output(
+        "jira", 'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
+        [FakeComponent('C++'), FakeComponent('Python')]
+    )
 
     assert output == """=== JIRA ARROW-1234 ===
 Summary\t\tInteresting work
