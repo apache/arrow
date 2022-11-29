@@ -19,7 +19,7 @@
 
 # arrow 10.0.0.9000
 
-Minor fixes and updates:
+Minor improvements and fixes:
 
 * Fixes for failing test after lubridate 1.9 release ([ARROW-18285](https://issues.apache.org/jira/browse/ARROW-18285))
 * Update to ensure compatibility with changes in dev purrr ([ARROW-18305](https://issues.apache.org/jira/browse/ARROW-18305))
