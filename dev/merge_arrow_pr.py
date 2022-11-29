@@ -238,7 +238,7 @@ class GitHubIssue(object):
         else:
             self.github_api.assign_milestone(self.github_id, fix_version)
             self.github_api.close_issue(self.github_id, comment)
-            print("Successfully resolved %s!" % (self.jira_id))
+            print("Successfully resolved %s!" % (self.github_id))
 
         self.issue = self.github_api.get_issue_data(self.github_id)
         self.show()
@@ -358,12 +358,12 @@ class GitHubAPI(object):
         comment_url = f'{self.github_api}/issues/{number}/comments'
 
         r = requests.post(comment_url, json={"body": comment}, headers=self.headers)
-        if r.status_code != 200:
-            raise ValueError(f"Failed request: {comment_url} -> {r.json()}")
+        if not r.ok:
+            raise ValueError(f"Failed request: {comment_url}:{r.status_code} -> {r.json()}")
 
         r = requests.patch(issue_url, json={"state": "closed"}, headers=self.headers)
-        if r.status_code != 200:
-            raise ValueError(f"Failed request: {issue_url} -> {r.json()}")
+        if not r.ok:
+            raise ValueError(f"Failed request: {issue_url}:{r.status_code} -> {r.json()}")
 
     def assign_milestone(self, number, version):
         url = f'{self.github_api}/issues/{number}'
@@ -374,8 +374,8 @@ class GitHubAPI(object):
             'milestone': milestone_number
         }
         r = requests.patch(url, headers=self.headers, json=payload)
-        if r.status_code != 200:
-            raise ValueError(f"Failed request: {url} -> {r.json()}")
+        if not r.ok:
+            raise ValueError(f"Failed request: {url}:{r.status_code} -> {r.json()}")
         return r.json()
 
     def merge_pr(self, number, commit_title, commit_message):
@@ -683,11 +683,10 @@ def cli():
 
     cmd.continue_maybe("Would you like to update the associated issue?")
     issue_comment = (
-        "Issue resolved by pull request %s\n[%s/%s]"
+        "Issue resolved by pull request %s\n%s"
         % (pr_num,
-           f"https://github.com/{PR_REMOTE_NAME}/{PROJECT_NAME}/pull",
-           pr_num))
-
+           f"https://github.com/{PR_REMOTE_NAME}/{PROJECT_NAME}/pull/{pr_num}")
+    )
     fix_version = prompt_for_fix_version(cmd, pr.issue,
                                          pr.maintenance_branches)
     pr.issue.resolve(fix_version, issue_comment)
