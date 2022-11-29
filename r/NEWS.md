@@ -17,9 +17,7 @@
   under the License.
 -->
 
-# arrow 10.0.1.9000
-
-# arrow 10.0.1
+# arrow 10.0.0.9000
 
 Minor fixes and updates:
 
