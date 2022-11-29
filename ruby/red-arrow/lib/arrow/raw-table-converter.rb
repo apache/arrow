@@ -35,14 +35,16 @@ module Arrow
         fields = []
         @values = []
         @raw_table.each do |name, array|
-          if array.respond_to?(:to_arrow_array)
-            array = array.to_arrow_array
+          if array.respond_to?(:to_arrow_chunked_array)
+            chunked_array = array.to_arrow_chunked_array
+          elsif array.respond_to?(:to_arrow_array)
+            chunked_array = ChunkedArray.new([array.to_arrow_array])
           else
             array = array.to_ary if array.respond_to?(:to_ary)
-            array = ArrayBuilder.build(array)
+            chunked_array = ChunkedArray.new([ArrayBuilder.build(array)])
           end
-          fields << Field.new(name.to_s, array.value_data_type)
-          @values << array
+          fields << Field.new(name.to_s, chunked_array.value_data_type)
+          @values << chunked_array
         end
         @schema = Schema.new(fields)
       end
