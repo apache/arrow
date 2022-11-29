@@ -304,6 +304,7 @@ type roundDecImpl[T decimal128.Num | decimal256.Num] struct {
 	increaseScale       func(T, int32) T
 	lowBits             func(T) uint64
 	fromI64             func(int64) T
+	str                 func(T, int32) string
 }
 
 var (
@@ -318,6 +319,7 @@ var (
 		increaseScale:       func(a decimal128.Num, scale int32) decimal128.Num { return a.IncreaseScaleBy(scale) },
 		lowBits:             func(a decimal128.Num) uint64 { return a.LowBits() },
 		fromI64:             func(v int64) decimal128.Num { return decimal128.FromI64(v) },
+		str:                 func(a decimal128.Num, scale int32) string { return a.ToString(scale) },
 	}
 	roundDec256 = roundDecImpl[decimal256.Num]{
 		decOps:              &dec256Ops,
@@ -330,6 +332,7 @@ var (
 		increaseScale:       func(a decimal256.Num, scale int32) decimal256.Num { return a.IncreaseScaleBy(scale) },
 		lowBits:             func(a decimal256.Num) uint64 { return a.LowBits() },
 		fromI64:             func(v int64) decimal256.Num { return decimal256.FromI64(v) },
+		str:                 func(a decimal256.Num, scale int32) string { return a.ToString(scale) },
 	}
 )
 
@@ -384,8 +387,8 @@ func (rnd *roundDec[T]) call(_ *exec.KernelCtx, arg T, e *error) T {
 	}
 
 	if !rnd.opsImpl.fitsInPrec(arg, rnd.ty.GetPrecision()) {
-		*e = fmt.Errorf("%w: rounded value %v does not fit in precision of %s",
-			arrow.ErrInvalid, arg, rnd.ty)
+		*e = fmt.Errorf("%w: rounded value %s does not fit in precision of %s",
+			arrow.ErrInvalid, rnd.opsImpl.str(arg, rnd.ty.GetScale()), rnd.ty)
 		return def
 	}
 	return arg

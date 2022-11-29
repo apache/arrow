@@ -1722,6 +1722,289 @@ func (ds *DecimalUnaryArithmeticSuite) TestRound() {
 	}
 }
 
+func (ds *DecimalUnaryArithmeticSuite) TestRoundTowardsInfinity() {
+	fn := "round"
+	options := compute.RoundOptions{NDigits: 0, Mode: compute.RoundTowardsInfinity}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+			vals := ds.getArr(ty, `["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null]`)
+			defer vals.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, options)
+			input := []compute.Datum{&compute.ArrayDatum{vals.Data()}}
+
+			options.NDigits = 0
+
+			exp0 := ds.getArr(ty, `["1.00", "2.00", "2.00", "-42.00", "-43.00", "-43.00", null]`)
+			defer exp0.Release()
+
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{exp0.Data()}, options)
+
+			exp1 := ds.getArr(ty, `["1.00", "2.00", "1.10", "-42.00", "-43.00", "-42.20", null]`)
+			defer exp1.Release()
+
+			options.NDigits = 1
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{exp1.Data()}, options)
+
+			options.NDigits = 2
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{vals.Data()}, options)
+			options.NDigits = 4
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{vals.Data()}, options)
+			options.NDigits = 100
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{vals.Data()}, options)
+
+			options.NDigits = -1
+			neg := ds.getArr(ty, `["10.00", "10.00", "10.00", "-50.00", "-50.00", "-50.00", null]`)
+			defer neg.Release()
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{neg.Data()}, options)
+
+			options.NDigits = -2
+			ds.checkFail(fn, input, "rounding to -2 digits will not fit in precision", options)
+			options.NDigits = -1
+
+			noprec := ds.getArr(ty, `["99.99"]`)
+			defer noprec.Release()
+			ds.checkFail(fn, []compute.Datum{&compute.ArrayDatum{noprec.Data()}}, "rounded value 100.00 does not fit in precision", options)
+		})
+	}
+
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 2, Scale: -2}, &arrow.Decimal256Type{Precision: 2, Scale: -2}} {
+		ds.Run(ty.String(), func() {
+			values := ds.getArr(ty, `["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null]`)
+			defer values.Release()
+
+			input := &compute.ArrayDatum{values.Data()}
+
+			options.NDigits = 0
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 100
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -1
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -3
+			res := ds.getArr(ty, `["10E2", "20E2", "20E2", "-10E2", "-20E2", "-20E2", null]`)
+			defer res.Release()
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{res.Data()}, options)
+
+			options.NDigits = -4
+			ds.checkFail(fn, []compute.Datum{input}, "rounding to -4 digits will not fit in precision", options)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundHalfToEven() {
+	fn := "round"
+	options := compute.RoundOptions{NDigits: 0, Mode: compute.RoundHalfToEven}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, options)
+
+			values := ds.getArr(ty, `["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null]`)
+			defer values.Release()
+			input := &compute.ArrayDatum{values.Data()}
+
+			exp0 := ds.getArr(ty, `["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.00", "2.00", "2.00", "-6.00", "-3.00", null]`)
+			defer exp0.Release()
+
+			exp1 := ds.getArr(ty, `["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.20", "1.50", "2.50", "-5.50", "-2.60", null]`)
+			defer exp1.Release()
+
+			expNeg1 := ds.getArr(ty, `["0.00", "10.00", "0.00", "-40.00", "-40.00", "-40.00", "0.00", "0.00", "-10.00", "0.00", null]`)
+			defer expNeg1.Release()
+
+			options.NDigits = 0
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp0.Data()}, options)
+			options.NDigits = 1
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp1.Data()}, options)
+			options.NDigits = 2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 4
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 100
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -1
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{expNeg1.Data()}, options)
+			options.NDigits = -2
+			ds.checkFail(fn, []compute.Datum{input}, "rounding to -2 digits will not fit in precision", options)
+			options.NDigits = -1
+			noprec := ds.getArr(ty, `["99.99"]`)
+			defer noprec.Release()
+			ds.checkFail(fn, []compute.Datum{&compute.ArrayDatum{noprec.Data()}}, "rounded value 100.00 does not fit in precision", options)
+		})
+	}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 2, Scale: -2}, &arrow.Decimal256Type{Precision: 2, Scale: -2}} {
+		ds.Run(ty.String(), func() {
+			values := ds.getArr(ty, `["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null]`)
+			defer values.Release()
+
+			input := &compute.ArrayDatum{values.Data()}
+
+			options.NDigits = 0
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 100
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -1
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -3
+			res := ds.getArr(ty, `["0", "10E2", "10E2", "20E2", "20E2", "-10E2", "-10E2", "-20E2", "-20E2", null]`)
+			defer res.Release()
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{res.Data()}, options)
+
+			options.NDigits = -4
+			ds.checkFail(fn, []compute.Datum{input}, "rounding to -4 digits will not fit in precision", options)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundCeil() {
+	fn := "ceil"
+	for _, ty := range ds.positiveScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			in := ds.getArr(ty, `["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null]`)
+			defer in.Release()
+			out := ds.getArr(ty, `["1.00", "2.00", "2.00", "-42.00", "-42.00", "-42.00", null]`)
+			defer out.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}},
+				&compute.ArrayDatum{out.Data()}, nil)
+		})
+	}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			sc, _ := scalar.MakeScalarParam("99.99", ty)
+			ds.checkFail(fn, []compute.Datum{compute.NewDatum(sc)}, "rounded value 100.00 does not fit in precision of decimal", nil)
+			sc, _ = scalar.MakeScalarParam("-99.99", ty)
+			out, _ := scalar.MakeScalarParam("-99.00", ty)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(sc)}, compute.NewDatum(out), nil)
+		})
+	}
+	for _, ty := range ds.negativeScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			ex := ds.getArr(ty, `["12E2", "-42E2", null]`)
+			defer ex.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{ex.Data()}},
+				&compute.ArrayDatum{ex.Data()}, nil)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundFloor() {
+	fn := "floor"
+	for _, ty := range ds.positiveScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			in := ds.getArr(ty, `["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null]`)
+			defer in.Release()
+			out := ds.getArr(ty, `["1.00", "1.00", "1.00", "-42.00", "-43.00", "-43.00", null]`)
+			defer out.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}},
+				&compute.ArrayDatum{out.Data()}, nil)
+		})
+	}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			sc, _ := scalar.MakeScalarParam("-99.99", ty)
+			ds.checkFail(fn, []compute.Datum{compute.NewDatum(sc)}, "rounded value -100.00 does not fit in precision of decimal", nil)
+			sc, _ = scalar.MakeScalarParam("99.99", ty)
+			out, _ := scalar.MakeScalarParam("99.00", ty)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(sc)}, compute.NewDatum(out), nil)
+		})
+	}
+	for _, ty := range ds.negativeScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			ex := ds.getArr(ty, `["12E2", "-42E2", null]`)
+			defer ex.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{ex.Data()}},
+				&compute.ArrayDatum{ex.Data()}, nil)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundTrunc() {
+	fn := "trunc"
+	for _, ty := range ds.positiveScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			in := ds.getArr(ty, `["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null]`)
+			defer in.Release()
+			out := ds.getArr(ty, `["1.00", "1.00", "1.00", "-42.00", "-42.00", "-42.00", null]`)
+			defer out.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}},
+				&compute.ArrayDatum{out.Data()}, nil)
+		})
+	}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			sc, _ := scalar.MakeScalarParam("99.99", ty)
+			out, _ := scalar.MakeScalarParam("99.00", ty)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(sc)}, compute.NewDatum(out), nil)
+			sc, _ = scalar.MakeScalarParam("-99.99", ty)
+			out, _ = scalar.MakeScalarParam("-99.00", ty)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(sc)}, compute.NewDatum(out), nil)
+		})
+	}
+	for _, ty := range ds.negativeScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			ex := ds.getArr(ty, `["12E2", "-42E2", null]`)
+			defer ex.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{ex.Data()}},
+				&compute.ArrayDatum{ex.Data()}, nil)
+		})
+	}
+}
+
 type ScalarBinaryTemporalArithmeticSuite struct {
 	BinaryFuncTestSuite
 }

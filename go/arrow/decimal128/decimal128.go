@@ -430,6 +430,12 @@ func (n Num) FitsInPrecision(prec int32) bool {
 	return n.Abs().Less(scaleMultipliers[prec])
 }
 
+func (n Num) ToString(scale int32) string {
+	f := (&big.Float{}).SetInt(n.BigInt())
+	f.Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	return f.Text('f', int(scale))
+}
+
 func GetScaleMultiplier(pow int) Num { return scaleMultipliers[pow] }
 
 func GetHalfScaleMultiplier(pow int) Num { return scaleMultipliersHalf[pow] }
