@@ -1,5 +1,5 @@
 
-*<https://crossbow.voltrondata.com|Archery crossbow report> for <https://github.com/apache/crossbow/branches/all?query=ursabot-1|ursabot-1>*
+*<http://crossbow.voltrondata.com|Archery crossbow report> for <https://github.com/apache/crossbow/branches/all?query=ursabot-1|ursabot-1>*
 
 :x: *1 failed jobs*
 - <https://github.com/apache/crossbow/runs/2|wheel-osx-cp37m>

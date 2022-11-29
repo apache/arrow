@@ -30,7 +30,7 @@ spark_version=${SPARK_VERSION:-master}
 # Use old behavior that always dropped tiemzones.
 export PYARROW_IGNORE_TIMEZONE=1
 
-if [ "${SPARK_VERSION:0:2}" == "2." ]; then
+if [ "${SPARK_VERSION:1:2}" == "2." ]; then
   # https://github.com/apache/spark/blob/master/docs/sql-pyspark-pandas-with-arrow.md#compatibility-setting-for-pyarrow--0150-and-spark-23x-24x
   export ARROW_PRE_0_15_IPC_FORMAT=1
 fi
@@ -73,14 +73,35 @@ pushd ${spark_dir}
 
   # Run pyarrow related Python tests only
   spark_python_tests=(
-    "pyspark.sql.tests.test_arrow"
-    "pyspark.sql.tests.test_pandas_map"
-    "pyspark.sql.tests.test_pandas_cogrouped_map"
-    "pyspark.sql.tests.test_pandas_grouped_map"
-    "pyspark.sql.tests.test_pandas_udf"
-    "pyspark.sql.tests.test_pandas_udf_scalar"
-    "pyspark.sql.tests.test_pandas_udf_grouped_agg"
-    "pyspark.sql.tests.test_pandas_udf_window")
+    "pyspark.sql.tests.test_arrow")
+
+  case "${SPARK_VERSION}" in
+    v1.*|v2.*|v3.0.*|v3.1.*|v3.2.*|v3.3.*)
+      old_test_modules=true
+      ;;
+    *)
+      old_test_modules=false
+      ;;
+  esac
+  if [ "${old_test_modules}" == "true" ]; then
+    spark_python_tests+=(
+      "pyspark.sql.tests.test_pandas_grouped_map"
+      "pyspark.sql.tests.test_pandas_map"
+      "pyspark.sql.tests.test_pandas_cogrouped_map"
+      "pyspark.sql.tests.test_pandas_udf"
+      "pyspark.sql.tests.test_pandas_udf_scalar"
+      "pyspark.sql.tests.test_pandas_udf_grouped_agg"
+      "pyspark.sql.tests.test_pandas_udf_window")
+  else
+    spark_python_tests+=(
+      "pyspark.sql.tests.pandas.test_pandas_grouped_map"
+      "pyspark.sql.tests.pandas.test_pandas_map"
+      "pyspark.sql.tests.pandas.test_pandas_cogrouped_map"
+      "pyspark.sql.tests.pandas.test_pandas_udf"
+      "pyspark.sql.tests.pandas.test_pandas_udf_scalar"
+      "pyspark.sql.tests.pandas.test_pandas_udf_grouped_agg"
+      "pyspark.sql.tests.pandas.test_pandas_udf_window")
+  fi
 
   (echo "Testing PySpark:"; IFS=$'\n'; echo "${spark_python_tests[*]}")
   python/run-tests --testnames "$(IFS=,; echo "${spark_python_tests[*]}")" --python-executables python

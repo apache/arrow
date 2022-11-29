@@ -40,7 +40,9 @@
 #' "uncompressed". "zstd" is the other available codec and generally has better
 #' compression ratios in exchange for slower read and write performance.
 #' "lz4" is shorthand for the "lz4_frame" codec.
-#' See [codec_is_available()] for details. This option is not supported for V1.
+#' See [codec_is_available()] for details.
+#' `TRUE` and `FALSE` can also be used in place of "default" and "uncompressed".
+#' This option is not supported for V1.
 #' @param compression_level If `compression` is "zstd", you may
 #' specify an integer compression level. If omitted, the compression codec's
 #' default compression level is used.
@@ -73,6 +75,9 @@ write_feather <- function(x,
   # Handle and validate options before touching data
   version <- as.integer(version)
   assert_that(version %in% 1:2)
+
+  if (isTRUE(compression)) compression <- "default"
+  if (isFALSE(compression)) compression <- "uncompressed"
 
   # TODO(ARROW-17221): if (missing(compression)), we could detect_compression(sink) here
   compression <- match.arg(compression)
@@ -178,8 +183,11 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = T
   reader <- FeatherReader$create(file)
 
   col_select <- enquo(col_select)
+
   columns <- if (!quo_is_null(col_select)) {
-    vars_select(names(reader), !!col_select)
+    sim_df <- as.data.frame(reader$schema)
+    indices <- eval_select(col_select, sim_df)
+    names(reader)[indices]
   }
 
   out <- tryCatch(

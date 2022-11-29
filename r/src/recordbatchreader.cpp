@@ -70,7 +70,7 @@ class RFunctionRecordBatchReader : public arrow::RecordBatchReader {
 
   arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) {
     auto batch = SafeCallIntoR<std::shared_ptr<arrow::RecordBatch>>([&]() {
-      cpp11::sexp result_sexp = fun_();
+      cpp11::sexp result_sexp = cpp11::function(fun_)();
       if (result_sexp == R_NilValue) {
         return std::shared_ptr<arrow::RecordBatch>(nullptr);
       } else if (!Rf_inherits(result_sexp, "RecordBatch")) {
@@ -94,7 +94,7 @@ class RFunctionRecordBatchReader : public arrow::RecordBatchReader {
   }
 
  private:
-  cpp11::function fun_;
+  cpp11::sexp fun_;
   std::shared_ptr<arrow::Schema> schema_;
 };
 

@@ -55,9 +55,8 @@ read_parquet <- function(file,
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
     # infer which columns to keep from schema
-    schema <- reader$GetSchema()
-    names <- names(schema)
-    indices <- match(vars_select(names, !!col_select), names) - 1L
+    sim_df <- as.data.frame(reader$GetSchema())
+    indices <- eval_select(col_select, sim_df) - 1L
     tab <- tryCatch(
       reader$ReadTable(indices),
       error = read_compressed_error
@@ -85,7 +84,8 @@ read_parquet <- function(file,
 #' If you want to use the Parquet format but also want the ability to extend
 #' your dataset, you can write to additional Parquet files and then treat
 #' the whole directory of files as a [Dataset] you can query.
-#' See `vignette("dataset", package = "arrow")` for examples of this.
+#' See the \href{https://arrow.apache.org/docs/r/articles/dataset.html}{dataset
+#' article} for examples of this.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file

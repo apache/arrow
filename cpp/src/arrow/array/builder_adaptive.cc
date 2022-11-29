@@ -33,8 +33,11 @@ namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
 
-AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool)
-    : ArrayBuilder(pool), start_int_size_(start_int_size), int_size_(start_int_size) {}
+AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool,
+                                               int64_t alignment)
+    : ArrayBuilder(pool, alignment),
+      start_int_size_(start_int_size),
+      int_size_(start_int_size) {}
 
 void AdaptiveIntBuilderBase::Reset() {
   ArrayBuilder::Reset();
@@ -125,8 +128,9 @@ std::shared_ptr<DataType> AdaptiveIntBuilder::type() const {
   return nullptr;
 }
 
-AdaptiveIntBuilder::AdaptiveIntBuilder(uint8_t start_int_size, MemoryPool* pool)
-    : AdaptiveIntBuilderBase(start_int_size, pool) {}
+AdaptiveIntBuilder::AdaptiveIntBuilder(uint8_t start_int_size, MemoryPool* pool,
+                                       int64_t alignment)
+    : AdaptiveIntBuilderBase(start_int_size, pool, alignment) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());

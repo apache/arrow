@@ -61,7 +61,7 @@ pushd ${source_dir}/arrow
 TAGS="assert,test"
 if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     if [[ "${MSYSTEM}" = "MINGW64" ]]; then
-        export PATH=${MINGW_PREFIX}/bin:$PATH
+        export PATH=${MINGW_PREFIX}\\bin:${MINGW_PREFIX}\\lib:$PATH
     fi
     TAGS="${TAGS},ccalloc"
 fi
@@ -81,7 +81,7 @@ fi
 popd
 
 export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
-
+export ARROW_TEST_DATA=${1}/testing/data
 pushd ${source_dir}/parquet
 
 go test $testargs -tags assert ./...

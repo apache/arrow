@@ -69,29 +69,18 @@ verify_output <- function(...) {
 #' Ensure that dplyr methods on Arrow objects return the same as for data frames
 #'
 #' This function compares the output of running a dplyr expression on a tibble
-#' or data.frame object against the output of the same expression run on
-#' Arrow Table and RecordBatch objects.
-#'
+#' or data.frame object against the output of the same expression run on a Table
 #'
 #' @param expr A dplyr pipeline which must have `.input` as its start
 #' @param tbl A tibble or data.frame which will be substituted for `.input`
-#' @param skip_record_batch The skip message to show (if you should skip the
-#' RecordBatch test)
-#' @param skip_table The skip message to show (if you should skip the Table test)
-#' @param warning The expected warning from the RecordBatch and Table comparison
-#'  paths, passed to `expect_warning()`. Special values:
+#' @param warning The expected warning from Arrow evaluation
+#'  path, passed to `expect_warning()`. Special values:
 #'     * `NA` (the default) for ensuring no warning message
 #'     * `TRUE` is a special case to mean to check for the
 #'      "not supported in Arrow; pulling data into R" message.
 #' @param ... additional arguments, passed to `expect_equal()`
-compare_dplyr_binding <- function(expr,
-                                  tbl,
-                                  skip_record_batch = NULL,
-                                  skip_table = NULL,
-                                  warning = NA,
-                                  ...) {
-
-  # Quote the contents of `expr` so that we can evaluate it a few different ways
+compare_dplyr_binding <- function(expr, tbl, warning = NA, ...) {
+  # Quote the contents of `expr` so that we can evaluate it twice
   expr <- rlang::enquo(expr)
   # Get the expected output by evaluating expr on the .input data.frame using regular dplyr
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(.input = tbl)))
@@ -101,39 +90,15 @@ compare_dplyr_binding <- function(expr,
     warning <- "not supported in Arrow; pulling data into R"
   }
 
-  skip_msg <- NULL
-
-  # Evaluate `expr` on a RecordBatch object and compare with `expected`
-  if (is.null(skip_record_batch)) {
-    expect_warning(
-      via_batch <- rlang::eval_tidy(
-        expr,
-        rlang::new_data_mask(rlang::env(.input = record_batch(tbl)))
-      ),
-      warning
-    )
-    expect_equal(via_batch, expected, ...)
-  } else {
-    skip_msg <- c(skip_msg, skip_record_batch)
-  }
-
   # Evaluate `expr` on a Table object and compare with `expected`
-  if (is.null(skip_table)) {
-    expect_warning(
-      via_table <- rlang::eval_tidy(
-        expr,
-        rlang::new_data_mask(rlang::env(.input = arrow_table(tbl)))
-      ),
-      warning
-    )
-    expect_equal(via_table, expected, ...)
-  } else {
-    skip_msg <- c(skip_msg, skip_table)
-  }
-
-  if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collapse = "\n"))
-  }
+  expect_warning(
+    via_table <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(.input = arrow_table(tbl)))
+    ),
+    warning
+  )
+  expect_equal(via_table, expected, ...)
 }
 
 #' Assert that Arrow dplyr methods error in the same way as methods on data.frame
@@ -145,9 +110,7 @@ compare_dplyr_binding <- function(expr,
 #' @param expr A dplyr pipeline which must have `.input` as its start
 #' @param tbl A tibble or data.frame which will be substituted for `.input`
 #' @param ... additional arguments, passed to `expect_error()`
-compare_dplyr_error <- function(expr,
-                                tbl,
-                                ...) {
+compare_dplyr_error <- function(expr, tbl, ...) {
   # ensure we have supplied tbl
   force(tbl)
 
@@ -322,6 +285,6 @@ split_vector_as_list <- function(vec) {
   list(vec1, vec2)
 }
 
-expect_across_equal <- function(actual, expected, tbl) {
-  expect_identical(expand_across(tbl, actual), as.list(expected))
+expect_across_equal <- function(across_expr, expected, tbl) {
+  expect_identical(expand_across(as_adq(tbl), across_expr), new_quosures(expected))
 }

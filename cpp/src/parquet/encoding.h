@@ -65,7 +65,7 @@ using FLBAEncoder = TypedEncoder<FLBAType>;
 template <typename DType>
 class TypedDecoder;
 
-using BooleanDecoder = TypedDecoder<BooleanType>;
+class BooleanDecoder;
 using Int32Decoder = TypedDecoder<Int32Type>;
 using Int64Decoder = TypedDecoder<Int64Type>;
 using Int96Decoder = TypedDecoder<Int96Type>;
@@ -393,6 +393,20 @@ class DictDecoder : virtual public TypedDecoder<DType> {
 
 // ----------------------------------------------------------------------
 // TypedEncoder specializations, traits, and factory functions
+
+class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
+ public:
+  using TypedDecoder<BooleanType>::Decode;
+
+  /// \brief Decode and bit-pack values into a buffer
+  ///
+  /// \param[in] buffer destination for decoded values
+  /// This buffer will contain bit-packed values.
+  /// \param[in] max_values max values to decode.
+  /// \return The number of values decoded. Should be identical to max_values except
+  /// at the end of the current data page.
+  virtual int Decode(uint8_t* buffer, int max_values) = 0;
+};
 
 class FLBADecoder : virtual public TypedDecoder<FLBAType> {
  public:

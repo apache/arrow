@@ -40,7 +40,7 @@ arrow_eval <- function(expr, mask) {
     }
 
     out <- structure(msg, class = "try-error", condition = e)
-    if (grepl("not supported.*Arrow", msg) || getOption("arrow.debug", FALSE)) {
+    if (grepl("not supported.*Arrow|NotImplemented", msg) || getOption("arrow.debug", FALSE)) {
       # One of ours. Mark it so that consumers can handle it differently
       class(out) <- c("arrow-try-error", class(out))
     }
@@ -95,8 +95,9 @@ arrow_mask <- function(.data, aggregation = FALSE) {
     }
   }
 
+  schema <- .data$.data$schema
   # Assign the schema to the expressions
-  map(.data$selected_columns, ~ (.$schema <- .data$.data$schema))
+  walk(.data$selected_columns, ~ (.$schema <- schema))
 
   # Add the column references and make the mask
   out <- new_data_mask(

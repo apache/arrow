@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "automake"
 brew "aws-sdk-cpp"
 brew "bash"
 brew "boost"
@@ -28,11 +27,9 @@ brew "git"
 brew "glog"
 brew "googletest"
 brew "grpc"
-brew "llvm"
-brew "llvm@12"
+brew "llvm@14"
 brew "lz4"
 brew "ninja"
-brew "numpy"
 brew "openssl@1.1"
 brew "protobuf"
 brew "python"

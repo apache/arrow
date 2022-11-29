@@ -333,7 +333,7 @@ TEST(TestAsyncUtil, MapAsync) {
   std::vector<TestInt> input = {1, 2, 3};
   auto generator = util::AsyncVectorIt(input);
   std::function<Future<TestStr>(const TestInt&)> mapper = [](const TestInt& in) {
-    return SleepAsync(1e-3).Then([in]() { return TestStr(std::to_string(in.value)); });
+    return SleepABitAsync().Then([in]() { return TestStr(std::to_string(in.value)); });
   };
   auto mapped = MakeMappedGenerator(std::move(generator), mapper);
   std::vector<TestStr> expected{"1", "2", "3"};
@@ -705,6 +705,7 @@ TEST_P(MergedGeneratorTestFixture, MergedLimitedSubscriptions) {
   AssertGeneratorExhausted(merged);
 }
 
+#ifndef ARROW_VALGRIND
 TEST_P(MergedGeneratorTestFixture, MergedStress) {
   constexpr int NGENERATORS = 10;
   constexpr int NITEMS = 10;
@@ -739,6 +740,7 @@ TEST_P(MergedGeneratorTestFixture, MergedParallelStress) {
     ASSERT_EQ(NITEMS * NGENERATORS, items.size());
   }
 }
+#endif
 
 TEST_P(MergedGeneratorTestFixture, MergedRecursion) {
   // Regression test for an edge case in MergedGenerator. Ensure if

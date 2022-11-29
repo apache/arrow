@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow/decimal256"
-	"github.com/apache/arrow/go/v10/arrow/endian"
+	"github.com/apache/arrow/go/v11/arrow/decimal256"
+	"github.com/apache/arrow/go/v11/arrow/endian"
 )
 
 // Decimal256 traits

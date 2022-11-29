@@ -19,7 +19,7 @@
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
 
-from pyarrow import Buffer
+from pyarrow import Buffer, py_buffer
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
@@ -54,7 +54,7 @@ def run_query(plan, table_provider=None):
 
     Parameters
     ----------
-    plan : Buffer
+    plan : Union[Buffer, bytes]
         The serialized Substrait plan to execute.
     table_provider : object (optional)
         A function to resolve any NamedTable relation to a table.
@@ -124,7 +124,13 @@ def run_query(plan, table_provider=None):
         function[CNamedTableProvider] c_named_table_provider
         CConversionOptions c_conversion_options
 
-    c_buf_plan = pyarrow_unwrap_buffer(plan)
+    if isinstance(plan, bytes):
+        c_buf_plan = pyarrow_unwrap_buffer(py_buffer(plan))
+    elif isinstance(plan, Buffer):
+        c_buf_plan = pyarrow_unwrap_buffer(plan)
+    else:
+        raise TypeError(
+            f"Expected 'pyarrow.Buffer' or bytes, got '{type(plan)}'")
 
     if table_provider is not None:
         named_table_args = {

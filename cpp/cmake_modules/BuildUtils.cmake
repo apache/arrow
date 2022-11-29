@@ -871,7 +871,7 @@ function(ADD_FUZZ_TARGET REL_FUZZING_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  if(NO_FUZZING)
+  if(NOT ARROW_FUZZING)
     return()
   endif()
 
