@@ -18,7 +18,7 @@
 #include "arrow/flight/sql/example/sqlite_server.h"
 
 #include <sqlite3.h>
-
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 #include <boost/algorithm/string.hpp>
 #include <mutex>
 #include <random>

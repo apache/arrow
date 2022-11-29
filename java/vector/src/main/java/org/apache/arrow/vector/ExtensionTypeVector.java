@@ -195,6 +195,11 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
   }
 
   @Override
+  public void setNull(int index) {
+    underlyingVector.setNull(index);
+  }
+
+  @Override
   public void initializeChildrenFromFields(List<Field> children) {
     underlyingVector.initializeChildrenFromFields(children);
   }

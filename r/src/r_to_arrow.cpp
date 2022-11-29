@@ -296,7 +296,7 @@ class AsArrowArrayConverter : public RConverter {
       arrays_.push_back(std::move(array));
       return Status::OK();
     } catch (cpp11::unwind_exception& e) {
-      return StatusUnwindProtect(e.token);
+      return StatusUnwindProtect(e.token, "calling as_arrow_array()");
     }
   }
 

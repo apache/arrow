@@ -28,7 +28,14 @@ import (
 )
 
 var (
-	filterDoc      FunctionDoc
+	filterDoc = FunctionDoc{
+		Summary: "Filter with a boolean selection filter",
+		Description: `The output is populated with values from the input at positions
+where the selection filter is non-zero. Nulls in the selection filter
+are handled based on FilterOptions.`,
+		ArgNames:    []string{"input", "selection_filter"},
+		OptionsType: "FilterOptions",
+	}
 	filterMetaFunc = NewMetaFunction("filter", Binary(), filterDoc,
 		func(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 			if args[1].(ArrayLikeDatum).Type().ID() != arrow.BOOL {
@@ -69,7 +76,13 @@ var (
 				return CallFunction(ctx, "array_filter", opts, args...)
 			}
 		})
-	takeDoc      FunctionDoc
+	takeDoc = FunctionDoc{
+		Summary: "Select values from an input based on indices from another array",
+		Description: `The output is populated with values from the input at positions
+given by "indices". Nulls in "indices" emit null in the output`,
+		ArgNames:    []string{"input", "indices"},
+		OptionsType: "TakeOptions",
+	}
 	takeMetaFunc = NewMetaFunction("take", Binary(), takeDoc,
 		func(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 			indexKind := args[1].Kind()
@@ -79,10 +92,14 @@ var (
 			}
 
 			switch args[0].Kind() {
-			case KindArray, KindChunked:
-				return CallFunction(ctx, "array_take", opts, args...)
+			case KindArray:
+				return takeArrayImpl(ctx, opts, args...)
+			case KindChunked:
+				return takeChunkedImpl(ctx, opts, args...)
 			case KindRecord:
+				return takeRecordImpl(ctx, opts, args...)
 			case KindTable:
+				return takeTableImpl(ctx, opts, args...)
 			}
 
 			return nil, fmt.Errorf("%w: unsupported types for take operation: values=%s, indices=%s",
@@ -90,8 +107,195 @@ var (
 		})
 )
 
+func takeTableImpl(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	tbl := args[0].(*TableDatum).Value
+	ncols := int(tbl.NumCols())
+	cols := make([]arrow.Column, ncols)
+	defer func() {
+		for _, c := range cols {
+			c.Release()
+		}
+	}()
+
+	eg, cctx := errgroup.WithContext(ctx)
+	eg.SetLimit(GetExecCtx(ctx).NumParallel)
+	for i := 0; i < ncols; i++ {
+		i := i
+		eg.Go(func() error {
+			inCol := tbl.Column(i)
+			result, err := CallFunction(cctx, "take", opts,
+				&ChunkedDatum{Value: inCol.Data()},
+				args[1])
+			if err != nil {
+				return err
+			}
+			defer result.Release()
+			out := result.(ArrayLikeDatum)
+			chunks := out.Chunks()
+			if out.Kind() == KindArray {
+				defer chunks[0].Release()
+			}
+			chk := arrow.NewChunked(out.Type(), chunks)
+			defer chk.Release()
+			cols[i] = *arrow.NewColumn(inCol.Field(), chk)
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	final := array.NewTable(tbl.Schema(), cols, -1)
+	return &TableDatum{Value: final}, nil
+}
+
+func takeRecordImpl(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	indices := args[1]
+	if indices.Kind() == KindChunked {
+		newIndices, err := array.Concatenate(indices.(*ChunkedDatum).Chunks(), exec.GetAllocator(ctx))
+		if err != nil {
+			return nil, err
+		}
+		defer newIndices.Release()
+		indices = &ArrayDatum{Value: newIndices.Data()}
+	}
+
+	rb := args[0].(*RecordDatum).Value
+	ncols := rb.NumCols()
+	nrows := args[1].(ArrayLikeDatum).Len()
+	cols := make([]arrow.Array, ncols)
+	defer func() {
+		for _, c := range cols {
+			if c != nil {
+				c.Release()
+			}
+		}
+	}()
+
+	eg, cctx := errgroup.WithContext(ctx)
+	eg.SetLimit(GetExecCtx(ctx).NumParallel)
+	for i := range rb.Columns() {
+		i := i
+		eg.Go(func() error {
+			out, err := CallFunction(cctx, "array_take", opts, &ArrayDatum{Value: rb.Column(i).Data()}, indices)
+			if err != nil {
+				return err
+			}
+			defer out.Release()
+			cols[i] = out.(*ArrayDatum).MakeArray()
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	outRec := array.NewRecord(rb.Schema(), cols, nrows)
+	return &RecordDatum{Value: outRec}, nil
+}
+
+func takeArrayImpl(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	switch args[1].Kind() {
+	case KindArray:
+		return CallFunction(ctx, "array_take", opts, args...)
+	case KindChunked:
+		chunks := args[1].(*ChunkedDatum).Chunks()
+		out := make([]arrow.Array, len(chunks))
+		defer func() {
+			for _, a := range out {
+				if a != nil {
+					a.Release()
+				}
+			}
+		}()
+
+		eg, cctx := errgroup.WithContext(ctx)
+		eg.SetLimit(GetExecCtx(ctx).NumParallel)
+		for i := range chunks {
+			i := i
+			eg.Go(func() error {
+				result, err := CallFunction(cctx, "array_take", opts, args[0], &ArrayDatum{Value: chunks[i].Data()})
+				if err != nil {
+					return err
+				}
+				defer result.Release()
+				out[i] = result.(*ArrayDatum).MakeArray()
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return nil, err
+		}
+		return &ChunkedDatum{
+			Value: arrow.NewChunked(args[0].(*ArrayDatum).Type(), out)}, nil
+	}
+
+	return nil, fmt.Errorf("%w: unsupported types for take operation: values=%s, indices=%s",
+		arrow.ErrNotImplemented, args[0], args[1])
+}
+
+func takeChunkedImpl(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	chunked := args[0].(*ChunkedDatum).Value
+	var chnkArg *arrow.Chunked
+	if arg, ok := args[1].(*ArrayDatum); ok {
+		switch {
+		case len(chunked.Chunks()) <= 1:
+			var curChunk arrow.Array
+			if len(chunked.Chunks()) == 1 {
+				curChunk = chunked.Chunk(0)
+			} else {
+				// no chunks, create an empty one!
+				curChunk = array.MakeArrayOfNull(exec.GetAllocator(ctx), chunked.DataType(), 0)
+				defer curChunk.Release()
+			}
+			newChunk, err := CallFunction(ctx, "array_take", opts, &ArrayDatum{Value: curChunk.Data()}, arg)
+			if err != nil {
+				return nil, err
+			}
+			defer newChunk.Release()
+			outChunks := newChunk.(*ArrayDatum).Chunks()
+			defer outChunks[0].Release()
+			return &ChunkedDatum{Value: arrow.NewChunked(outChunks[0].DataType(), outChunks)}, nil
+		case kernels.ChunkedTakeSupported(chunked.DataType()):
+			indices := arg.Chunks()
+			defer indices[0].Release()
+			chnkArg = arrow.NewChunked(arg.Type(), indices)
+			defer chnkArg.Release()
+		default:
+			values, err := array.Concatenate(chunked.Chunks(), GetAllocator(ctx))
+			if err != nil {
+				return nil, err
+			}
+			defer values.Release()
+			newChunk, err := CallFunction(ctx, "array_take", opts, &ArrayDatum{Value: values.Data()}, arg)
+			if err != nil {
+				return nil, err
+			}
+			defer newChunk.Release()
+			outChunks := newChunk.(*ArrayDatum).Chunks()
+			defer outChunks[0].Release()
+			return &ChunkedDatum{Value: arrow.NewChunked(outChunks[0].DataType(), outChunks)}, nil
+		}
+	} else {
+		chnkArg = args[1].(*ChunkedDatum).Value
+	}
+
+	if kernels.ChunkedTakeSupported(chunked.DataType()) {
+		return CallFunction(ctx, "array_take", opts, args[0], &ChunkedDatum{Value: chnkArg})
+	}
+
+	values, err := array.Concatenate(chunked.Chunks(), GetAllocator(ctx))
+	if err != nil {
+		return nil, err
+	}
+	defer values.Release()
+	return CallFunction(ctx, "take", opts, &ArrayDatum{Value: values.Data()}, &ChunkedDatum{Value: chnkArg})
+}
+
 func Take(ctx context.Context, opts TakeOptions, values, indices Datum) (Datum, error) {
-	return CallFunction(ctx, "array_take", &opts, values, indices)
+	return CallFunction(ctx, "take", &opts, values, indices)
 }
 
 func TakeArray(ctx context.Context, values, indices arrow.Array) (arrow.Array, error) {
@@ -320,6 +524,7 @@ func RegisterVectorSelection(reg FunctionRegistry) {
 			OutType:    kernels.OutputFirstType,
 		}
 		basekernel.ExecFn = kd.Exec
+		basekernel.ExecChunked = kd.Chunked
 		vfunc.AddKernel(basekernel)
 	}
 	reg.AddFunction(vfunc, false)
@@ -337,6 +542,7 @@ func RegisterVectorSelection(reg FunctionRegistry) {
 		}
 
 		basekernel.ExecFn = kd.Exec
+		basekernel.ExecChunked = kd.Chunked
 		vfunc.AddKernel(basekernel)
 	}
 	reg.AddFunction(vfunc, false)

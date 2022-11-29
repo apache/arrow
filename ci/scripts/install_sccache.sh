@@ -20,15 +20,20 @@
 set -e
 
 if [  "$#" -lt 1 -o "$#" -gt 3 ]; then
-    echo "Usage: $0 <build> <prefix> <arch> <version>"
-    echo "Will default to arch=x86_64 and version=0.3.0 "
+    echo "Usage: $0 <build> <prefix> <version>"
+    echo "Will default to version=0.3.0 "
     exit 1
 fi
 
 BUILD=$1
 PREFIX=$2
-ARCH=${3:-x86_64}
-VERSION=${4:-0.3.0}
+VERSION=${3:-0.3.0}
+ARCH=$(uname -m)
+
+if [ "${ARCH}" != x86_64 ] && [ "${ARCH}" != aarch64 ]; then
+    echo "Skipped sccache installation on unsupported arch: ${ARCH}"
+    exit 0
+fi
 
 SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v$VERSION/sccache-v$VERSION-$ARCH-$BUILD.tar.gz"
 SCCACHE_ARCHIVE=sccache.tar.gz

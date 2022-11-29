@@ -449,8 +449,12 @@ func PrimitiveFilter(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecRe
 		values        = &batch.Values[0].Array
 		filter        = &batch.Values[1].Array
 		nullSelection = ctx.State.(FilterState).NullSelection
-		outputLength  = getFilterOutputSize(filter, nullSelection)
 	)
+
+	values.UpdateNullCount()
+	filter.UpdateNullCount()
+
+	outputLength := getFilterOutputSize(filter, nullSelection)
 
 	// the output precomputed null count is unknown except in the narrow
 	// condition that all the values are non-null and the filter will not
@@ -513,12 +517,151 @@ func PrimitiveFilter(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecRe
 	return nil
 }
 
-func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values, indices *exec.ArraySpan, out *exec.ExecResult) {
-	var (
-		valuesData    = exec.GetSpanValues[ValT](values, 1)
-		valuesIsValid = values.Buffers[0].Buf
-		valuesOffset  = values.Offset
+type primitiveGetter[T exec.IntTypes | bool] interface {
+	IsValid(int64) bool
+	GetValue(int64) T
+	NullCount() int64
+	Len() int64
+}
 
+type boolGetter struct {
+	inner  *exec.ArraySpan
+	values []byte
+}
+
+func (b *boolGetter) IsValid(i int64) bool {
+	return bitutil.BitIsSet(b.inner.Buffers[0].Buf, int(b.inner.Offset+i))
+}
+
+func (b *boolGetter) GetValue(i int64) bool {
+	return bitutil.BitIsSet(b.values, int(b.inner.Offset+i))
+}
+
+func (b *boolGetter) NullCount() int64 { return b.inner.Nulls }
+func (b *boolGetter) Len() int64       { return b.inner.Len }
+
+type primitiveGetterImpl[T exec.IntTypes] struct {
+	inner  *exec.ArraySpan
+	values []T
+}
+
+func (p *primitiveGetterImpl[T]) IsValid(i int64) bool {
+	return bitutil.BitIsSet(p.inner.Buffers[0].Buf, int(p.inner.Offset+i))
+}
+func (p *primitiveGetterImpl[T]) GetValue(i int64) T { return p.values[i] }
+func (p *primitiveGetterImpl[T]) NullCount() int64   { return p.inner.Nulls }
+func (p *primitiveGetterImpl[T]) Len() int64         { return p.inner.Len }
+
+type chunkedBoolGetter struct {
+	inner         *arrow.Chunked
+	resolver      *exec.ChunkResolver
+	nulls         int64
+	len           int64
+	chunkLengths  []int64
+	valuesData    [][]byte
+	valuesIsValid [][]byte
+	valuesOffset  []int64
+}
+
+func newChunkedBoolGetter(arr *arrow.Chunked) *chunkedBoolGetter {
+	nchunks := len(arr.Chunks())
+	lengths := make([]int64, nchunks)
+	valuesData := make([][]byte, nchunks)
+	valuesIsValid := make([][]byte, nchunks)
+	valuesOffset := make([]int64, nchunks)
+
+	for i, c := range arr.Chunks() {
+		lengths[i] = int64(c.Len())
+		valuesOffset[i] = int64(c.Data().Offset())
+		valuesIsValid[i] = c.NullBitmapBytes()
+		valuesData[i] = c.Data().Buffers()[1].Bytes()
+	}
+
+	return &chunkedBoolGetter{
+		inner:         arr,
+		resolver:      exec.NewChunkResolver(arr.Chunks()),
+		nulls:         int64(arr.NullN()),
+		len:           int64(arr.Len()),
+		chunkLengths:  lengths,
+		valuesData:    valuesData,
+		valuesIsValid: valuesIsValid,
+		valuesOffset:  valuesOffset,
+	}
+}
+
+func (c *chunkedBoolGetter) IsValid(i int64) bool {
+	chunk, chunkidx := c.resolver.Resolve(i)
+	bm := c.valuesIsValid[chunk]
+	if bm == nil {
+		return true
+	}
+	return bitutil.BitIsSet(bm, int(c.valuesOffset[chunk]+chunkidx))
+}
+
+func (c *chunkedBoolGetter) GetValue(i int64) bool {
+	chunk, idx := c.resolver.Resolve(i)
+	return bitutil.BitIsSet(c.valuesData[chunk], int(c.valuesOffset[chunk]+idx))
+}
+
+func (c *chunkedBoolGetter) NullCount() int64 { return c.nulls }
+func (c *chunkedBoolGetter) Len() int64       { return c.len }
+
+type chunkedPrimitiveGetter[T exec.IntTypes] struct {
+	inner         *arrow.Chunked
+	resolver      *exec.ChunkResolver
+	nulls         int64
+	len           int64
+	chunkLengths  []int64
+	valuesData    [][]T
+	valuesIsValid [][]byte
+	valuesOffset  []int64
+}
+
+func newChunkedPrimitiveGetter[T exec.IntTypes](arr *arrow.Chunked) *chunkedPrimitiveGetter[T] {
+	nchunks := len(arr.Chunks())
+	lengths := make([]int64, nchunks)
+	valuesData := make([][]T, nchunks)
+	valuesIsValid := make([][]byte, nchunks)
+	valuesOffset := make([]int64, nchunks)
+
+	for i, c := range arr.Chunks() {
+		lengths[i] = int64(c.Len())
+		valuesOffset[i] = int64(c.Data().Offset())
+		valuesIsValid[i] = c.NullBitmapBytes()
+		valuesData[i] = exec.GetValues[T](c.Data(), 1)
+	}
+
+	return &chunkedPrimitiveGetter[T]{
+		inner:         arr,
+		resolver:      exec.NewChunkResolver(arr.Chunks()),
+		nulls:         int64(arr.NullN()),
+		len:           int64(arr.Len()),
+		chunkLengths:  lengths,
+		valuesData:    valuesData,
+		valuesIsValid: valuesIsValid,
+		valuesOffset:  valuesOffset,
+	}
+}
+
+func (c *chunkedPrimitiveGetter[T]) IsValid(i int64) bool {
+	chunk, chunkidx := c.resolver.Resolve(i)
+	bm := c.valuesIsValid[chunk]
+	if bm == nil {
+		return true
+	}
+	return bitutil.BitIsSet(bm, int(c.valuesOffset[chunk]+chunkidx))
+}
+
+func (c *chunkedPrimitiveGetter[T]) GetValue(i int64) T {
+	chunk, idx := c.resolver.Resolve(i)
+	return c.valuesData[chunk][idx]
+}
+
+func (c *chunkedPrimitiveGetter[T]) NullCount() int64 { return c.nulls }
+func (c *chunkedPrimitiveGetter[T]) Len() int64       { return c.len }
+
+func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values primitiveGetter[ValT], indices *exec.ArraySpan, out *exec.ExecResult) {
+	var (
 		indicesData    = exec.GetSpanValues[IdxT](indices, 1)
 		indicesIsValid = indices.Buffers[0].Buf
 		indicesOffset  = indices.Offset
@@ -529,12 +672,12 @@ func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values, indices 
 	)
 
 	pos, validCount := int64(0), int64(0)
-	if values.Nulls == 0 && indices.Nulls == 0 {
+	if values.NullCount() == 0 && indices.Nulls == 0 {
 		// values and indices are both never null
 		// this means we didn't allocate the validity bitmap
 		// and can simplify everything
 		for i, idx := range indicesData {
-			outData[i] = valuesData[idx]
+			outData[i] = values.GetValue(int64(idx))
 		}
 		out.Nulls = 0
 		return
@@ -543,14 +686,14 @@ func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values, indices 
 	indicesBitCounter := bitutils.NewOptionalBitBlockCounter(indicesIsValid, indicesOffset, indices.Len)
 	for pos < indices.Len {
 		block := indicesBitCounter.NextBlock()
-		if values.Nulls == 0 {
+		if values.NullCount() == 0 {
 			// values are never null, so things are easier
 			validCount += int64(block.Popcnt)
 			if block.AllSet() {
 				// fastest path: neither values nor index nulls
 				bitutil.SetBitsTo(outIsValid, outOffset+pos, int64(block.Len), true)
 				for i := 0; i < int(block.Len); i++ {
-					outData[pos] = valuesData[indicesData[pos]]
+					outData[pos] = values.GetValue(int64(indicesData[pos]))
 					pos++
 				}
 			} else if block.Popcnt > 0 {
@@ -559,7 +702,7 @@ func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values, indices 
 					if bitutil.BitIsSet(indicesIsValid, int(indicesOffset+pos)) {
 						// index is not null
 						bitutil.SetBit(outIsValid, int(outOffset+pos))
-						outData[pos] = valuesData[indicesData[pos]]
+						outData[pos] = values.GetValue(int64(indicesData[pos]))
 					}
 					pos++
 				}
@@ -571,9 +714,9 @@ func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values, indices 
 			if block.AllSet() {
 				// faster path: indices are not null but values may be
 				for i := 0; i < int(block.Len); i++ {
-					if bitutil.BitIsSet(valuesIsValid, int(valuesOffset)+int(indicesData[pos])) {
+					if values.IsValid(int64(indicesData[pos])) {
 						// value is not null
-						outData[pos] = valuesData[indicesData[pos]]
+						outData[pos] = values.GetValue(int64(indicesData[pos]))
 						bitutil.SetBit(outIsValid, int(outOffset+pos))
 						validCount++
 					}
@@ -585,9 +728,9 @@ func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values, indices 
 				// value nullness one by one
 				for i := 0; i < int(block.Len); i++ {
 					if bitutil.BitIsSet(indicesIsValid, int(indicesOffset+pos)) &&
-						bitutil.BitIsSet(valuesIsValid, int(valuesOffset)+int(indicesData[pos])) {
+						values.IsValid(int64(indicesData[pos])) {
 						// index is not null && value is not null
-						outData[pos] = valuesData[indicesData[pos]]
+						outData[pos] = values.GetValue(int64(indicesData[pos]))
 						bitutil.SetBit(outIsValid, int(outOffset+pos))
 						validCount++
 					}
@@ -602,12 +745,8 @@ func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values, indices 
 	out.Nulls = out.Len - validCount
 }
 
-func booleanTakeImpl[IdxT exec.UintTypes](values, indices *exec.ArraySpan, out *exec.ExecResult) {
+func booleanTakeImpl[IdxT exec.UintTypes](values primitiveGetter[bool], indices *exec.ArraySpan, out *exec.ExecResult) {
 	var (
-		valuesData    = values.Buffers[1].Buf
-		valuesIsValid = values.Buffers[0].Buf
-		valuesOffset  = values.Offset
-
 		indicesData    = exec.GetSpanValues[IdxT](indices, 1)
 		indicesIsValid = indices.Buffers[0].Buf
 		indicesOffset  = indices.Offset
@@ -618,11 +757,11 @@ func booleanTakeImpl[IdxT exec.UintTypes](values, indices *exec.ArraySpan, out *
 	)
 
 	placeDataBit := func(loc int64, index IdxT) {
-		bitutil.SetBitTo(outData, int(outOffset+loc), bitutil.BitIsSet(valuesData, int(valuesOffset)+int(index)))
+		bitutil.SetBitTo(outData, int(outOffset+loc), values.GetValue(int64(index)))
 	}
 
 	pos, validCount := int64(0), int64(0)
-	if values.Nulls == 0 && indices.Nulls == 0 {
+	if values.NullCount() == 0 && indices.Nulls == 0 {
 		// values and indices are both never null
 		// this means we didn't allocate the validity bitmap
 		// and can simplify everything
@@ -636,7 +775,7 @@ func booleanTakeImpl[IdxT exec.UintTypes](values, indices *exec.ArraySpan, out *
 	indicesBitCounter := bitutils.NewOptionalBitBlockCounter(indicesIsValid, indicesOffset, indices.Len)
 	for pos < indices.Len {
 		block := indicesBitCounter.NextBlock()
-		if values.Nulls == 0 {
+		if values.NullCount() == 0 {
 			// values are never null so things are easier
 			validCount += int64(block.Popcnt)
 			if block.AllSet() {
@@ -664,7 +803,7 @@ func booleanTakeImpl[IdxT exec.UintTypes](values, indices *exec.ArraySpan, out *
 			if block.AllSet() {
 				// faster path: indices are not null but values may be
 				for i := 0; i < int(block.Len); i++ {
-					if bitutil.BitIsSet(valuesIsValid, int(valuesOffset)+int(indicesData[pos])) {
+					if values.IsValid(int64(indicesData[pos])) {
 						// value is not null
 						bitutil.SetBit(outIsValid, int(outOffset+pos))
 						placeDataBit(pos, indicesData[pos])
@@ -677,7 +816,7 @@ func booleanTakeImpl[IdxT exec.UintTypes](values, indices *exec.ArraySpan, out *
 				// we have to check the values one by one
 				for i := 0; i < int(block.Len); i++ {
 					if bitutil.BitIsSet(indicesIsValid, int(indicesOffset+pos)) &&
-						bitutil.BitIsSet(valuesIsValid, int(valuesOffset)+int(indicesData[pos])) {
+						values.IsValid(int64(indicesData[pos])) {
 						placeDataBit(pos, indicesData[pos])
 						bitutil.SetBit(outIsValid, int(outOffset+pos))
 						validCount++
@@ -692,32 +831,86 @@ func booleanTakeImpl[IdxT exec.UintTypes](values, indices *exec.ArraySpan, out *
 	out.Nulls = out.Len - validCount
 }
 
+func booleanTakeDispatchChunked(values, indices *arrow.Chunked, out []*exec.ExecResult) error {
+	getter := newChunkedBoolGetter(values)
+	var fn func(primitiveGetter[bool], *exec.ArraySpan, *exec.ExecResult)
+
+	switch indices.DataType().(arrow.FixedWidthDataType).Bytes() {
+	case 1:
+		fn = booleanTakeImpl[uint8]
+	case 2:
+		fn = booleanTakeImpl[uint16]
+	case 4:
+		fn = booleanTakeImpl[uint32]
+	case 8:
+		fn = booleanTakeImpl[uint64]
+	default:
+		return fmt.Errorf("%w: invalid indices byte width", arrow.ErrIndex)
+	}
+
+	var indexSpan exec.ArraySpan
+	for i, c := range indices.Chunks() {
+		indexSpan.SetMembers(c.Data())
+		fn(getter, &indexSpan, out[i])
+	}
+	return nil
+}
+
 func booleanTakeDispatch(values, indices *exec.ArraySpan, out *exec.ExecResult) error {
+	getter := &boolGetter{inner: values, values: values.Buffers[1].Buf}
+
 	switch indices.Type.(arrow.FixedWidthDataType).Bytes() {
 	case 1:
-		booleanTakeImpl[uint8](values, indices, out)
+		booleanTakeImpl[uint8](getter, indices, out)
 	case 2:
-		booleanTakeImpl[uint16](values, indices, out)
+		booleanTakeImpl[uint16](getter, indices, out)
 	case 4:
-		booleanTakeImpl[uint32](values, indices, out)
+		booleanTakeImpl[uint32](getter, indices, out)
 	case 8:
-		booleanTakeImpl[uint64](values, indices, out)
+		booleanTakeImpl[uint64](getter, indices, out)
 	default:
 		return fmt.Errorf("%w: invalid indices byte width", arrow.ErrIndex)
 	}
 	return nil
 }
 
+func takeIdxChunkedDispatch[ValT exec.IntTypes](values, indices *arrow.Chunked, out []*exec.ExecResult) error {
+	getter := newChunkedPrimitiveGetter[ValT](values)
+	var fn func(primitiveGetter[ValT], *exec.ArraySpan, *exec.ExecResult)
+
+	switch indices.DataType().(arrow.FixedWidthDataType).Bytes() {
+	case 1:
+		fn = primitiveTakeImpl[uint8, ValT]
+	case 2:
+		fn = primitiveTakeImpl[uint16, ValT]
+	case 4:
+		fn = primitiveTakeImpl[uint32, ValT]
+	case 8:
+		fn = primitiveTakeImpl[uint64, ValT]
+	default:
+		return fmt.Errorf("%w: invalid byte width for indices", arrow.ErrIndex)
+	}
+
+	var indexSpan exec.ArraySpan
+	for i, c := range indices.Chunks() {
+		indexSpan.SetMembers(c.Data())
+		fn(getter, &indexSpan, out[i])
+	}
+	return nil
+}
+
 func takeIdxDispatch[ValT exec.IntTypes](values, indices *exec.ArraySpan, out *exec.ExecResult) error {
+	getter := &primitiveGetterImpl[ValT]{inner: values, values: exec.GetSpanValues[ValT](values, 1)}
+
 	switch indices.Type.(arrow.FixedWidthDataType).Bytes() {
 	case 1:
-		primitiveTakeImpl[uint8, ValT](values, indices, out)
+		primitiveTakeImpl[uint8, ValT](getter, indices, out)
 	case 2:
-		primitiveTakeImpl[uint16, ValT](values, indices, out)
+		primitiveTakeImpl[uint16, ValT](getter, indices, out)
 	case 4:
-		primitiveTakeImpl[uint32, ValT](values, indices, out)
+		primitiveTakeImpl[uint32, ValT](getter, indices, out)
 	case 8:
-		primitiveTakeImpl[uint64, ValT](values, indices, out)
+		primitiveTakeImpl[uint64, ValT](getter, indices, out)
 	default:
 		return fmt.Errorf("%w: invalid indices byte width", arrow.ErrIndex)
 	}
@@ -753,6 +946,42 @@ func PrimitiveTake(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResu
 		return takeIdxDispatch[int64](values, indices, out)
 	default:
 		return fmt.Errorf("%w: invalid values byte width for take", arrow.ErrInvalid)
+	}
+}
+
+func ChunkedPrimitiveTake(ctx *exec.KernelCtx, batch []*arrow.Chunked, out *exec.ExecResult) ([]*exec.ExecResult, error) {
+	var (
+		values  = batch[0]
+		indices = batch[1]
+	)
+
+	if ctx.State.(TakeState).BoundsCheck {
+		if err := checkIndexBoundsChunked(indices, uint64(values.Len())); err != nil {
+			return nil, err
+		}
+	}
+
+	bitWidth := values.DataType().(arrow.FixedWidthDataType).BitWidth()
+	allocValidity := values.NullN() != 0 || indices.NullN() != 0
+	outData := make([]*exec.ExecResult, len(indices.Chunks()))
+	for i, chunk := range indices.Chunks() {
+		outData[i] = &exec.ExecResult{Type: out.Type}
+		preallocateData(ctx, int64(chunk.Len()), bitWidth, allocValidity, outData[i])
+	}
+
+	switch bitWidth {
+	case 1:
+		return outData, booleanTakeDispatchChunked(values, indices, outData)
+	case 8:
+		return outData, takeIdxChunkedDispatch[int8](values, indices, outData)
+	case 16:
+		return outData, takeIdxChunkedDispatch[int16](values, indices, outData)
+	case 32:
+		return outData, takeIdxChunkedDispatch[int32](values, indices, outData)
+	case 64:
+		return outData, takeIdxChunkedDispatch[int64](values, indices, outData)
+	default:
+		return nil, fmt.Errorf("%w: invalid values byte width for take", arrow.ErrInvalid)
 	}
 }
 
@@ -1525,8 +1754,13 @@ func StructImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, o
 }
 
 type SelectionKernelData struct {
-	In   exec.InputType
-	Exec exec.ArrayKernelExec
+	In      exec.InputType
+	Exec    exec.ArrayKernelExec
+	Chunked exec.ChunkedExec
+}
+
+func ChunkedTakeSupported(dt arrow.DataType) bool {
+	return arrow.IsPrimitive(dt.ID())
 }
 
 func GetVectorSelectionKernels() (filterkernels, takeKernels []SelectionKernelData) {
@@ -1542,7 +1776,7 @@ func GetVectorSelectionKernels() (filterkernels, takeKernels []SelectionKernelDa
 
 	takeKernels = []SelectionKernelData{
 		{In: exec.NewExactInput(arrow.Null), Exec: NullTake},
-		{In: exec.NewMatchedInput(exec.Primitive()), Exec: PrimitiveTake},
+		{In: exec.NewMatchedInput(exec.Primitive()), Exec: PrimitiveTake, Chunked: ChunkedPrimitiveTake},
 		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: TakeExec(FSBImpl)},
 		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: TakeExec(FSBImpl)},
 		{In: exec.NewIDInput(arrow.FIXED_SIZE_BINARY), Exec: TakeExec(FSBImpl)},

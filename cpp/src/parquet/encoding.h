@@ -65,7 +65,7 @@ using FLBAEncoder = TypedEncoder<FLBAType>;
 template <typename DType>
 class TypedDecoder;
 
-class BooleanDecoder;
+using BooleanDecoder = TypedDecoder<BooleanType>;
 using Int32Decoder = TypedDecoder<Int32Type>;
 using Int64Decoder = TypedDecoder<Int64Type>;
 using Int96Decoder = TypedDecoder<Int96Type>;
@@ -393,12 +393,6 @@ class DictDecoder : virtual public TypedDecoder<DType> {
 
 // ----------------------------------------------------------------------
 // TypedEncoder specializations, traits, and factory functions
-
-class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
- public:
-  using TypedDecoder<BooleanType>::Decode;
-  virtual int Decode(uint8_t* buffer, int max_values) = 0;
-};
 
 class FLBADecoder : virtual public TypedDecoder<FLBAType> {
  public:

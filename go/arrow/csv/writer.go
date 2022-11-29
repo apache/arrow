@@ -19,6 +19,8 @@ package csv
 import (
 	"encoding/csv"
 	"io"
+	"math"
+	"math/big"
 	"strconv"
 	"sync"
 
@@ -215,6 +217,34 @@ func (w *Writer) Write(record arrow.Record) error {
 			for i := 0; i < arr.Len(); i++ {
 				if arr.IsValid(i) {
 					recs[i][j] = arr.Value(i).ToTime(t.Unit).Format("2006-01-02 15:04:05.999999999")
+				} else {
+					recs[i][j] = w.nullValue
+				}
+			}
+		case *arrow.Decimal128Type:
+			fieldType := w.schema.Field(j).Type.(*arrow.Decimal128Type)
+			scale := fieldType.Scale
+			precision := fieldType.Precision
+			arr := col.(*array.Decimal128)
+			for i := 0; i < arr.Len(); i++ {
+				if arr.IsValid(i) {
+					f := (&big.Float{}).SetInt(arr.Value(i).BigInt())
+					f.Quo(f, big.NewFloat(math.Pow10(int(scale))))
+					recs[i][j] = f.Text('g', int(precision))
+				} else {
+					recs[i][j] = w.nullValue
+				}
+			}
+		case *arrow.Decimal256Type:
+			fieldType := w.schema.Field(j).Type.(*arrow.Decimal256Type)
+			scale := fieldType.Scale
+			precision := fieldType.Precision
+			arr := col.(*array.Decimal256)
+			for i := 0; i < arr.Len(); i++ {
+				if arr.IsValid(i) {
+					f := (&big.Float{}).SetInt(arr.Value(i).BigInt())
+					f.Quo(f, big.NewFloat(math.Pow10(int(scale))))
+					recs[i][j] = f.Text('g', int(precision))
 				} else {
 					recs[i][j] = w.nullValue
 				}

@@ -33,6 +33,7 @@ void Initialize() {
     auto registry = compute::default_exec_factory_registry();
     if (registry) {
       InitializeScanner(registry);
+      InitializeScannerV2(registry);
       InitializeDatasetWriter(registry);
     }
   });

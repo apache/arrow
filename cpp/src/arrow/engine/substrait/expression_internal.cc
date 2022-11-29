@@ -37,6 +37,21 @@ using internal::checked_cast;
 
 namespace engine {
 
+namespace {
+
+Id NormalizeFunctionName(Id id) {
+  // Substrait plans encode the types into the function name so it might look like
+  // add:opt_i32_i32.  We don't care about  the :opt_i32_i32 so we just trim it
+  std::string_view func_name = id.name;
+  std::size_t colon_index = func_name.find_first_of(':');
+  if (colon_index != std::string_view::npos) {
+    func_name = func_name.substr(0, colon_index);
+  }
+  return {id.uri, func_name};
+}
+
+}  // namespace
+
 Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
                  SubstraitCall* call, const ExtensionSet& ext_set,
                  const ConversionOptions& conversion_options) {
@@ -112,6 +127,7 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
   ARROW_ASSIGN_OR_RAISE(auto output_type_and_nullable,
                         FromProto(func.output_type(), ext_set, conversion_options));
   ARROW_ASSIGN_OR_RAISE(Id id, ext_set.DecodeFunction(func.function_reference()));
+  id = NormalizeFunctionName(id);
   SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second,
                      is_hash);
   for (int i = 0; i < func.arguments_size(); i++) {
@@ -248,8 +264,19 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
 
       ARROW_ASSIGN_OR_RAISE(Id function_id,
                             ext_set.DecodeFunction(scalar_fn.function_reference()));
-      ARROW_ASSIGN_OR_RAISE(ExtensionIdRegistry::SubstraitCallToArrow function_converter,
-                            ext_set.registry()->GetSubstraitCallToArrow(function_id));
+      function_id = NormalizeFunctionName(function_id);
+      ExtensionIdRegistry::SubstraitCallToArrow function_converter;
+
+      if (function_id.uri.empty() || function_id.uri[0] == '/') {
+        // Currently the Substrait project has not aligned on a standard URI and often
+        // seems to use /.  In that case we fall back to name-only matching.
+        ARROW_ASSIGN_OR_RAISE(
+            function_converter,
+            ext_set.registry()->GetSubstraitCallToArrowFallback(function_id.name));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(function_converter,
+                              ext_set.registry()->GetSubstraitCallToArrow(function_id));
+      }
       ARROW_ASSIGN_OR_RAISE(
           SubstraitCall substrait_call,
           DecodeScalarFunction(function_id, scalar_fn, ext_set, conversion_options));

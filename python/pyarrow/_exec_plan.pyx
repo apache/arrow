@@ -384,7 +384,7 @@ def _filter_table(table, expression, output_type=Table):
 
     c_decl_plan.push_back(
         CDeclaration(tobytes("filter"), CFilterNodeOptions(
-            <CExpression>expr.unwrap(), True
+            <CExpression>expr.unwrap()
         ))
     )
 

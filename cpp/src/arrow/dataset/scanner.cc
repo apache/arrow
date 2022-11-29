@@ -21,6 +21,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <sstream>
 
 #include "arrow/array/array_primitive.h"
@@ -65,6 +66,14 @@ std::vector<FieldRef> ScanOptions::MaterializedFields() const {
   }
 
   return fields;
+}
+
+std::vector<FieldPath> ScanV2Options::AllColumns(const Dataset& dataset) {
+  std::vector<FieldPath> selection(dataset.schema()->num_fields());
+  for (std::size_t i = 0; i < selection.size(); i++) {
+    selection[i] = {static_cast<int>(i)};
+  }
+  return selection;
 }
 
 namespace {

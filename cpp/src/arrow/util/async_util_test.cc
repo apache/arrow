@@ -29,9 +29,12 @@
 #include <gtest/gtest.h>
 
 #include "arrow/result.h"
+#include "arrow/testing/async_test_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
+#include "arrow/util/test_common.h"
 
 namespace arrow {
 namespace util {
@@ -123,6 +126,27 @@ TEST(AsyncTaskScheduler, Abandoned) {
   ASSERT_FALSE(pending_task_submitted);
 }
 
+TEST(AsyncTaskScheduler, TaskStaysAliveUntilFinished) {
+  std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
+  Future<> task = Future<>::Make();
+  bool my_task_destroyed = false;
+  struct MyTask : public AsyncTaskScheduler::Task {
+    MyTask(bool* my_task_destroyed_ptr, Future<> task_fut)
+        : my_task_destroyed_ptr(my_task_destroyed_ptr), task_fut(std::move(task_fut)) {}
+    ~MyTask() { *my_task_destroyed_ptr = true; }
+    Result<Future<>> operator()(AsyncTaskScheduler*) { return task_fut; }
+    bool* my_task_destroyed_ptr;
+    Future<> task_fut;
+  };
+  scheduler->AddTask(std::make_unique<MyTask>(&my_task_destroyed, task));
+  SleepABit();
+  ASSERT_FALSE(my_task_destroyed);
+  task.MarkFinished();
+  ASSERT_TRUE(my_task_destroyed);
+  scheduler->End();
+  ASSERT_FINISHES_OK(scheduler->OnFinished());
+}
+
 TEST(AsyncTaskScheduler, TaskFailsAfterEnd) {
   std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
   Future<> task = Future<>::Make();
@@ -198,6 +222,28 @@ TEST(AsyncTaskScheduler, SubSchedulerNoTasks) {
   ASSERT_FINISHES_OK(parent->OnFinished());
 }
 
+TEST(AsyncTaskScheduler, AsyncGenerator) {
+  for (bool slow : {false, true}) {
+    ARROW_SCOPED_TRACE("Slow: ", slow);
+    std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
+    std::vector<TestInt> values{1, 2, 3};
+    std::vector<TestInt> seen_values{};
+    AsyncGenerator<TestInt> generator = MakeVectorGenerator<TestInt>(values);
+    if (slow) {
+      generator = util::SlowdownABit(generator);
+    }
+    std::function<Status(const TestInt&)> visitor = [&](const TestInt& val) {
+      seen_values.push_back(val);
+      return Status::OK();
+    };
+    scheduler->AddAsyncGenerator(std::move(generator), std::move(visitor),
+                                 EmptyFinishCallback());
+    scheduler->End();
+    ASSERT_FINISHES_OK(scheduler->OnFinished());
+    ASSERT_EQ(seen_values, values);
+  }
+}  // namespace util
+
 class CustomThrottle : public AsyncTaskScheduler::Throttle {
  public:
   virtual std::optional<Future<>> TryAcquire(int amt) {
@@ -209,6 +255,7 @@ class CustomThrottle : public AsyncTaskScheduler::Throttle {
   }
   virtual void Release(int amt) {}
   void Unlock() { gate_.MarkFinished(); }
+  int Capacity() { return std::numeric_limits<int>::max(); }
 
  private:
   Future<> gate_ = Future<>::Make();
@@ -246,6 +293,47 @@ TEST(AsyncTaskScheduler, EndWaitsForAddedButNotSubmittedTasks) {
   custom_throttle->Unlock();
   ASSERT_FINISHES_OK(task_group->OnFinished());
   ASSERT_TRUE(was_run);
+}
+
+TEST(AsyncTaskScheduler, TaskWithCostBiggerThanThrottle) {
+  // It can be difficult to know the maximum cost a task may have.  In
+  // scanning this is the maximum size of a batch stored on disk which we
+  // cannot know ahead of time.  So a task may have a cost greater than the
+  // size of the throttle.  In that case we simply drop the cost to the
+  // capacity of the throttle.
+  constexpr int kThrottleCapacity = 5;
+  std::unique_ptr<AsyncTaskScheduler::Throttle> throttle =
+      AsyncTaskScheduler::MakeThrottle(kThrottleCapacity);
+  std::unique_ptr<AsyncTaskScheduler> task_group =
+      AsyncTaskScheduler::Make(throttle.get());
+  bool task_submitted = false;
+  Future<> task = Future<>::Make();
+
+  struct ExpensiveTask : AsyncTaskScheduler::Task {
+    ExpensiveTask(bool* task_submitted, Future<> task)
+        : task_submitted(task_submitted), task(std::move(task)) {}
+    Result<Future<>> operator()(AsyncTaskScheduler*) override {
+      *task_submitted = true;
+      return task;
+    }
+    int cost() const override { return kThrottleCapacity * 50; }
+    bool* task_submitted;
+    Future<> task;
+  };
+
+  Future<> blocking_task = Future<>::Make();
+  task_group->AddSimpleTask([&] { return blocking_task; });
+  task_group->AddTask(std::make_unique<ExpensiveTask>(&task_submitted, task));
+  task_group->End();
+
+  // Task should not be submitted initially because blocking_task (even though
+  // it has a cost of 1) is preventing it.
+  ASSERT_FALSE(task_submitted);
+  blocking_task.MarkFinished();
+  // One blocking_task is out of the way the task is free to run
+  ASSERT_TRUE(task_submitted);
+  task.MarkFinished();
+  ASSERT_FINISHES_OK(task_group->OnFinished());
 }
 
 TEST(AsyncTaskScheduler, TaskFinishesAfterError) {

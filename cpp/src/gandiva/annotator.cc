@@ -65,7 +65,7 @@ int Annotator::AddHolderPointer(void* holder) {
 
 void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
                                        const arrow::ArrayData& array_data,
-                                       EvalBatch* eval_batch, bool is_output) {
+                                       EvalBatch* eval_batch, bool is_output) const {
   int buffer_idx = 0;
 
   // The validity buffer is optional. Use nullptr if it does not have one.
@@ -94,7 +94,7 @@ void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
 }
 
 EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch& record_batch,
-                                         const ArrayDataVector& out_vector) {
+                                         const ArrayDataVector& out_vector) const {
   EvalBatchPtr eval_batch = std::make_shared<EvalBatch>(
       record_batch.num_rows(), buffer_count_, local_bitmap_count_);
 

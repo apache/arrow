@@ -83,10 +83,41 @@ jobs:
           name: macos-shared-lib
           path: arrow-shared-libs-macos.tar.gz
 
+  build-cpp-windows:
+    name: Build C++ libraries Windows
+    runs-on: windows-2019
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_install_archery()|indent }}
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      - name: Download Timezone Database
+        shell: bash
+        run: arrow/ci/scripts/download_tz_database.sh
+      - name: Build C++ libraries
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          bash -c "arrow/ci/scripts/java_jni_windows_build.sh $(pwd)/arrow $(pwd)/arrow/cpp-build $(pwd)/arrow/java-dist"
+      - name: Compress into single artifact to keep directory structure
+        shell: bash
+        run: tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-shared-lib
+          path: arrow-shared-libs-windows.tar.gz
+
   package-jars:
     name: Build jar files
     runs-on: macos-latest
-    needs: [build-cpp-macos, build-cpp-ubuntu]
+    needs:
+      - build-cpp-ubuntu
+      - build-cpp-macos
+      - build-cpp-windows
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       - name: Download Linux C++ Libraries
@@ -97,22 +128,31 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: macos-shared-lib
+      - name: Download Windows C++ libraries
+        uses: actions/download-artifact@v2
+        with:
+          name: windows-shared-lib
       - name: Descompress artifacts
         run: |
           tar -xvzf arrow-shared-libs-linux.tar.gz
           tar -xvzf arrow-shared-libs-macos.tar.gz
+          tar -xvzf arrow-shared-libs-windows.tar.gz
       - name: Test that shared libraries exist
         run: |
           set -x
           test -f arrow/java-dist/libarrow_cdata_jni.dylib
-          test -f arrow/java-dist/libarrow_dataset_jni.dylib
-          test -f arrow/java-dist/libgandiva_jni.dylib
-          test -f arrow/java-dist/libplasma_java.dylib
-          test -f arrow/java-dist/libarrow_orc_jni.dylib
           test -f arrow/java-dist/libarrow_cdata_jni.so
+          test -f arrow/java-dist/arrow_cdata_jni.dll
+          test -f arrow/java-dist/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/libarrow_dataset_jni.so
+          test -f arrow/java-dist/arrow_dataset_jni.dll
+          test -f arrow/java-dist/libarrow_orc_jni.dylib
           test -f arrow/java-dist/libarrow_orc_jni.so
+          # We can enable this after ARROW-17817 is resolved.
+          # test -f arrow/java-dist/arrow_orc_jni.dll
+          test -f arrow/java-dist/libgandiva_jni.dylib
           test -f arrow/java-dist/libgandiva_jni.so
+          test -f arrow/java-dist/libplasma_java.dylib
           test -f arrow/java-dist/libplasma_java.so
       - name: Build bundled jar
         run: |

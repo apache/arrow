@@ -43,6 +43,7 @@
   <PropertyGroup>
     <Authors>The Apache Software Foundation</Authors>
     <PackageIconUrl>https://www.apache.org/images/feather.png</PackageIconUrl>
+    <!-- We can't use PackageLicenseExpression; the license file also contains 3rd-party notices. -->
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageProjectUrl>https://arrow.apache.org/</PackageProjectUrl>
     <PackageTags>apache arrow</PackageTags>

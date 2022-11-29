@@ -141,7 +141,9 @@ cdef class DataType(_Weakrefable):
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
 
-    cdef Field field(self, int i):
+    cpdef Field field(self, i):
+        if not isinstance(i, int):
+            raise TypeError(f"Expected int index, got type '{type(i)}'")
         cdef int index = <int> _normalize_index(i, self.type.num_fields())
         return pyarrow_wrap_field(self.type.field(index))
 
@@ -505,7 +507,7 @@ cdef class StructType(DataType):
         """
         return self.struct_type.GetFieldIndex(tobytes(name))
 
-    def field(self, i):
+    cpdef Field field(self, i):
         """
         Select a field by its column name or numeric index.
 
@@ -622,7 +624,7 @@ cdef class UnionType(DataType):
         for i in range(len(self)):
             yield self[i]
 
-    def field(self, i):
+    cpdef Field field(self, i):
         """
         Return a child field by its numeric index.
 

@@ -27,6 +27,7 @@
 #include "arrow/json/test_common.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace json {
@@ -200,6 +201,36 @@ TEST_P(ReaderTest, MultipleChunks) {
           ChunkedFromJSON(schema->field(2),
                           {"[\"thing\"]", "[null]", "[\"\xe5\xbf\x8d\", null]", "[]"}),
       });
+  AssertTablesEqual(*expected_table, *table_);
+}
+
+TEST_P(ReaderTest, UnquotedDecimal) {
+  auto schema =
+      ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+  parse_options_.explicit_schema = schema;
+  auto src = unquoted_decimal_src();
+  SetUpReader(src);
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
+
+  auto expected_table = TableFromJSON(schema, {R"([
+    { "price": "30.04", "cost":"30.001" },
+    { "price": "1.23", "cost":"1.229" }
+  ])"});
+  AssertTablesEqual(*expected_table, *table_);
+}
+
+TEST_P(ReaderTest, MixedDecimal) {
+  auto schema =
+      ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+  parse_options_.explicit_schema = schema;
+  auto src = mixed_decimal_src();
+  SetUpReader(src);
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
+
+  auto expected_table = TableFromJSON(schema, {R"([
+    { "price": "30.04", "cost":"30.001" },
+    { "price": "1.23", "cost":"1.229" }
+  ])"});
   AssertTablesEqual(*expected_table, *table_);
 }
 

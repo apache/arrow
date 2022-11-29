@@ -16,7 +16,7 @@
 // under the License.
 
 #include <gflags/gflags.h>
-
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <memory>

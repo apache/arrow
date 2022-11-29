@@ -1403,10 +1403,13 @@ test_that("can add in augmented fields", {
   )
 
   # and on joins to datasets
-  another_dataset <- write_dataset(another_table, "another_dataset")
+  another_dataset_dir <- tempfile()
+  on.exit(unlink(another_dataset_dir, recursive = TRUE))
+  another_dataset <- write_dataset(another_table, another_dataset_dir)
+
   expect_error(
     ds %>%
-      left_join(open_dataset("another_dataset"), by = "int") %>%
+      left_join(open_dataset(another_dataset_dir), by = "int") %>%
       mutate(file = add_filename()) %>%
       collect(),
     regexp = error_regex,
@@ -1416,7 +1419,7 @@ test_that("can add in augmented fields", {
   # this hits the implicit_schema path by joining afterwards
   join_after <- ds %>%
     mutate(file = add_filename()) %>%
-    left_join(open_dataset("another_dataset"), by = "int") %>%
+    left_join(open_dataset(another_dataset_dir), by = "int") %>%
     collect()
 
   expect_named(

@@ -41,12 +41,6 @@ case "$(uname -s)-$(uname -m)" in
     # storage-testbench 0.27.0 pins grpcio to 1.46.1.
     ${PYTHON:-python3} -m pip install --no-binary :all: "grpcio==1.46.1"
     ;;
-  *_NT-*)
-    # Mingw-w64: MSYS_NT-10.0-19043, MINGW32_NT-10.0-19043, MINGW64_NT-10.0-19043
-    # Don't use the "/MT" option because g++ doesn't recognize it.
-    # "/MT" is for Visual Studio.
-    GRPC_PYTHON_CFLAGS=" " ${PYTHON:-python3} -m pip install "grpcio==1.46.1"
-    ;;
 esac
 
 version=$1
