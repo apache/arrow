@@ -138,7 +138,7 @@ struct ListSlice {
           return static_cast<int32_t>(opts.stop.value());
         } else {
           DCHECK_EQ(list_type->id(), arrow::Type::FIXED_SIZE_LIST);
-          return checked_cast<const FixedSizeListType*>(list_type)->list_size();
+          return reinterpret_cast<const FixedSizeListType*>(list_type)->list_size();
         }
       }();
       const auto size = std::max(stop - static_cast<int32_t>(opts.start), 0);
