@@ -681,7 +681,7 @@ def cli():
         print("Minor PR.  No issue to update.\n")
         return
 
-    cmd.continue_maybe("Would you like to update the associated JIRA?")
+    cmd.continue_maybe("Would you like to update the associated issue?")
     issue_comment = (
         "Issue resolved by pull request %s\n[%s/%s]"
         % (pr_num,
