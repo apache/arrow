@@ -75,7 +75,7 @@ namespace BitPacking {
     }
 
     template <typename T>
-    constexpr bool IsSupportedUnpackingType () {
+    constexpr bool IsSupportedUnpackingType() {
     return std::is_same<T, uint8_t>::value
         || std::is_same<T, uint16_t>::value
         || std::is_same<T, uint32_t>::value
@@ -195,7 +195,7 @@ namespace BitPacking {
     /// 0 <= 'bit_width' <= 64 and 'bit_width' <= # of bits in OutType.
     template <typename OutType>
     static const uint8_t* Unpack32Values(int bit_width, const uint8_t* __restrict__ in,
-        int64_t in_bytes, OutType* __restrict__ out){
+        int64_t in_bytes, OutType* __restrict__ out) {
         switch (bit_width) {
             case 0: return Unpack32Values<OutType, 0>(in, in_bytes, out);
             case 1: return Unpack32Values<OutType, 1>(in, in_bytes, out);
@@ -241,7 +241,7 @@ namespace BitPacking {
     /// 0 <= 'bit_width' <= 64 and 'bit_width' <= # of bits in OutType.
     template <typename OutType, int BIT_WIDTH>
     static const uint8_t* UnpackUpTo31Values(const uint8_t* __restrict__ in,
-        int64_t in_bytes, int num_values, OutType* __restrict__ out){
+        int64_t in_bytes, int num_values, OutType* __restrict__ out) {
         static_assert(BIT_WIDTH >= 0, "BIT_WIDTH too low");
         static_assert(BIT_WIDTH <= MAX_BITWIDTH, "BIT_WIDTH too high");
         DCHECK_LE(BIT_WIDTH, sizeof(OutType) * CHAR_BIT) <<
@@ -382,7 +382,7 @@ namespace BitPacking {
 
       // First unpack as many full batches as possible.
       for (int64_t i = 0; i < batches_to_read; ++i) {
-        __m512i tmp = _mm512_maskz_abs_epi8(in64_pos[i],_mm512_set1_epi8(0x01));
+        __m512i tmp = _mm512_maskz_abs_epi8(in64_pos[i], _mm512_set1_epi8(0x01));
 
         __m128i tmp1 = _mm512_extracti32x4_epi32(tmp, 0);
         __m512i result = _mm512_cvtepu8_epi32(tmp1);
@@ -409,8 +409,7 @@ namespace BitPacking {
       }
 
       if (remainder_values > 0) {
-        if(remainder_values >= 32)
-        {
+        if (remainder_values >= 32) {
           in_pos = Unpack32Values<OutType, 1>(in_pos, in_bytes, out_pos);
           remainder_values -= 32;
           out_pos += 32;
@@ -1126,9 +1125,9 @@ namespace BitPacking {
           return UnpackValuesICX_16<OutType>(in, in_bytes, num_values, out);
         default:
           DCHECK(false);
-          return std::make_pair(nullptr, -1);
+          return std::make_pair(NULLPTR, -1);
       }
     }
-}
+} // namespace BitPacking
 } // namespace internal
 } // namespace arrow
