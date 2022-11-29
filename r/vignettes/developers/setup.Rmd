@@ -1,4 +1,10 @@
-# Developer environment setup
+---
+title: "Configuring a developer environment"
+description: >
+  Learn how to configure your environment to allow you to contribute
+  to the arrow package
+output: rmarkdown::html_vignette
+---
 
 ```{r setup-options, include=FALSE}
 knitr::opts_chunk$set(error = TRUE, eval = FALSE)
@@ -47,9 +53,9 @@ recent version of the library without building from source.
 On Linux, you can download a .zip file containing libarrow from the
 [nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/).
 
-The directory names correspond to the OS the binaries where built on: 
-- "centos-7" (gcc 4.8, no AWS/GCS support)
-- "ubuntu-18.04" (gcc 8, openssl 1)
+The directory names correspond to the OS the binaries where built on:
+- "centos-7" (gcc 8 via devtoolset, openssl 1, glib 2.17)
+- "ubuntu-18.04" (gcc 8, openssl 1, glib 2.27)
 - "ubuntu-22.04" (openssl 3)
 
 Version numbers in that repository correspond to dates.
@@ -68,7 +74,7 @@ brew install apache-arrow --HEAD
 
 ### Windows
 
-On Windows, you can download a .zip file containing libarrow from the 
+On Windows, you can download a .zip file containing libarrow from the
 [nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/windows/).
 
 Version numbers in that repository correspond to dates.
@@ -138,7 +144,7 @@ pacman --sync --refresh --noconfirm \
 
 We recommend that you configure libarrow to be built to a user-level directory rather than a system directory for your development work.  This is so that the development version you are using doesn't overwrite a released version of libarrow you may already have installed, and so that you are also able work with more than one version of libarrow (by using different `ARROW_HOME` directories for the different versions).
 
-In the example below, libarrow is installed to a directory called `dist` that has the same parent directory as the `arrow` checkout.  Your installation of the Arrow R package can point to any directory with any name, though we recommend *not* placing it inside of the `arrow` git checkout directory as unwanted changes could stop it working properly.
+In the example below, libarrow is installed to a directory called `dist` that has the same parent directory as the arrow checkout.  Your installation of the Arrow R package can point to any directory with any name, though we recommend *not* placing it inside of the arrow git checkout directory as unwanted changes could stop it working properly.
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
@@ -159,7 +165,7 @@ export PATH=$ARROW_HOME/bin:$PATH
 echo "export PATH=\"$ARROW_HOME/bin:$PATH\"" >> ~/.bash_profile
 ```
 
-Start by navigating in a terminal to the `arrow` repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
+Start by navigating in a terminal to the arrow repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & !sys_install}
 pushd arrow
@@ -355,7 +361,7 @@ withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(
 
 # Summary of environment variables
 
-* See the user-facing [Install vignette](install.html) for a large number of
+* See the user-facing [article on installation](../install.html) for a large number of
   environment variables that determine how the build works and what features
   get built.
 * `TEST_OFFLINE_BUILD`: When set to `true`, the build script will not download
@@ -462,4 +468,5 @@ guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
 ## Other installation issues
 
-There are a number of scripts that are triggered when the arrow R package is installed. For package users who are not interacting with the underlying code, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host). However, knowing about these scripts can help package developers troubleshoot if things go wrong in them or things go wrong in an install.  See [the installation vignette](./install.html#how-dependencies-are-resolved) for more information.
+There are a number of scripts that are triggered when the arrow R package is installed. For package users who are not interacting with the underlying code, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host). However, knowing about these scripts can help package developers troubleshoot if things go wrong in them or things go wrong in an install.  See [the article on R package installation](./install_details.html) for more information.
+

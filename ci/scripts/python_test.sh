@@ -55,14 +55,5 @@ export PYARROW_TEST_ORC
 export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
-# Testing PyArrow C++
-if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
-  pushd ${test_dir}
-  ctest \
-      --output-on-failure \
-      --parallel ${n_jobs} \
-      --timeout 300
-  popd
-fi
 # Testing PyArrow
 pytest -r s ${PYTEST_ARGS} --pyargs pyarrow

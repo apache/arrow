@@ -26,22 +26,9 @@ check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
   locale
 }
 
-.helpers_function_map <- list(
-  "lubridate::dminutes" = list(60, "s"),
-  "lubridate::dhours" = list(3600, "s"),
-  "lubridate::ddays" = list(86400, "s"),
-  "lubridate::dweeks" = list(604800, "s"),
-  "lubridate::dmonths" = list(2629800, "s"),
-  "lubridate::dyears" = list(31557600, "s"),
-  "lubridate::dseconds" = list(1, "s"),
-  "lubridate::dmilliseconds" = list(1, "ms"),
-  "lubridate::dmicroseconds" = list(1, "us"),
-  "lubridate::dnanoseconds" = list(1, "ns")
-)
 make_duration <- function(x, unit) {
   # TODO(ARROW-15862): remove first cast to int64
-  x <- build_expr("cast", x, options = cast_options(to_type = int64()))
-  x$cast(duration(unit))
+  cast(x, int64())$cast(duration(unit))
 }
 
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
@@ -56,10 +43,10 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
     } else if (tz == "") {
       tz <- Sys.timezone()
     }
-    x <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), tz)))
+    x <- cast(x, timestamp(x$type()$unit(), tz))
   }
   opts <- list(format = format, locale = Sys.getlocale("LC_TIME"))
-  build_expr("strftime", x, options = opts)
+  Expression$create("strftime", x, options = opts)
 }
 
 # this is a helper function used for creating a difftime / duration objects from
@@ -115,7 +102,7 @@ binding_as_date <- function(x,
     x <- binding_as_date_numeric(x, origin)
   }
 
-  build_expr("cast", x, options = cast_options(to_type = date32()))
+  cast(x, date32())
 }
 
 binding_as_date_character <- function(x,
@@ -123,7 +110,7 @@ binding_as_date_character <- function(x,
                                       tryFormats = "%Y-%m-%d") {
   format <- format %||% tryFormats[[1]]
   # unit = 0L is the identifier for seconds in valid_time32_units
-  build_expr("strptime", x, options = list(format = format, unit = 0L))
+  Expression$create("strptime", x, options = list(format = format, unit = 0L))
 }
 
 binding_as_date_numeric <- function(x, origin = "1970-01-01") {
@@ -132,15 +119,18 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
   # integer-like values we can go via int32()
   # TODO: revisit after ARROW-15798
   if (!call_binding("is.integer", x)) {
-    x <- build_expr("cast", x, options = cast_options(to_type = int32()))
+    x <- cast(x, int32())
   }
 
   if (origin != "1970-01-01") {
     delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
     # TODO: revisit after ARROW-15862
     # (casting from int32 -> duration or double -> duration)
-    delta_in_days <- (delta_in_sec$cast(int64()) / 86400L)$cast(int32())
-    x <- build_expr("+", x, delta_in_days)
+    delta_in_days <- cast(
+      cast(delta_in_sec, int64()) / 86400L,
+      int32()
+    )
+    x <- call_binding("+", x, delta_in_days)
   }
 
   x
@@ -406,7 +396,7 @@ build_strptime_exprs <- function(x, formats) {
 
   map(
     formats,
-    ~ build_expr(
+    ~ Expression$create(
       "strptime",
       x,
       options = list(format = .x, unit = 0L, error_is_null = TRUE)
@@ -527,7 +517,7 @@ shift_temporal_to_week <- function(fn, x, week_start, options) {
   # are two separate helpers, one to handle date32 input and the other to
   # handle timestamps
   options$week_starts_monday <- TRUE
-  offset <- as.integer(week_start) - 1
+  offset <- as.integer(week_start) - 1L
 
   is_date32 <- inherits(x, "Date") ||
     (inherits(x, "Expression") && x$type_id() == Type$DATE32)
@@ -543,13 +533,17 @@ shift_temporal_to_week <- function(fn, x, week_start, options) {
 
 # timestamp input should remain timestamp
 shift_timestamp_to_week <- function(fn, x, offset, options) {
-  offset_seconds <- build_expr(
-    "cast",
-    Scalar$create(offset * 86400L, int64()),
-    options = cast_options(to_type = duration(unit = "s"))
+  # Convert offset to duration(s) and make Expression once
+  offset_seconds <- Expression$scalar(
+    cast(
+      Scalar$create(offset * 86400L, int64()),
+      duration(unit = "s")
+    )
   )
-  shift_offset <- build_expr(fn, x - offset_seconds, options = options)
 
+  # Subtract offset, apply round/floor/ceil, then add the offset back
+  shifted <- x - offset_seconds
+  shift_offset <- Expression$create(fn, shifted, options = options)
   shift_offset + offset_seconds
 }
 
@@ -558,18 +552,21 @@ shift_timestamp_to_week <- function(fn, x, offset, options) {
 # use integer arithmetic: this feels inelegant, but it ensures that
 # temporal rounding functions remain type stable
 shift_date32_to_week <- function(fn, x, offset, options) {
-  # offset the date
-  offset <- Expression$scalar(Scalar$create(offset, int32()))
-  x_int <- build_expr("cast", x, options = cast_options(to_type = int32()))
-  x_int_offset <- x_int - offset
-  x_offset <- build_expr("cast", x_int_offset, options = cast_options(to_type = date32()))
+  # offset is R integer, make it an Expression once
+  offset <- Expression$scalar(offset)
+
+  # Subtract offset as int32, then cast back to date32
+  x_offset <- cast(
+    cast(x, int32()) - offset,
+    date32()
+  )
 
   # apply round/floor/ceil
-  shift_offset <- build_expr(fn, x_offset, options = options)
+  shift_offset <- Expression$create(fn, x_offset, options = options)
 
-  # undo offset and return
-  shift_int_offset <- build_expr("cast", shift_offset, options = cast_options(to_type = int32()))
-  shift_int <- shift_int_offset + offset
-
-  build_expr("cast", shift_int, options = cast_options(to_type = date32()))
+  # undo offset (as integer) and return
+  cast(
+    cast(shift_offset, int32()) + offset,
+    date32()
+  )
 }

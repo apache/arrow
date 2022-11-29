@@ -14,12 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package kernels
 
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v11/arrow"
 )
 
 var castNumericUnsafe func(itype, otype arrow.Type, in, out []byte, len int) = castNumericGo

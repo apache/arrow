@@ -182,9 +182,9 @@ Schema$create <- function(...) {
   }
 
   if (all(map_lgl(.list, ~ inherits(., "Field")))) {
-    schema_(.list)
+    Schema__from_fields(.list)
   } else {
-    schema_(.fields(.list))
+    Schema__from_list(imap(.list, as_type))
   }
 }
 #' @include arrowExports.R
@@ -298,7 +298,7 @@ length.Schema <- function(x) x$num_fields
       call. = FALSE
     )
   }
-  schema_(fields)
+  Schema__from_fields(fields)
 }
 
 #' @export
@@ -382,4 +382,9 @@ as_schema.Schema <- function(x, ...) {
 #' @export
 as_schema.StructType <- function(x, ...) {
   schema(!!!x$fields())
+}
+
+#' @export
+as.data.frame.Schema <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.data.frame(Table__from_schema(x))
 }

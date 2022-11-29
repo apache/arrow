@@ -16,6 +16,7 @@
 # under the License.
 
 from collections import OrderedDict
+from decimal import Decimal
 import io
 import itertools
 import json
@@ -242,6 +243,21 @@ class BaseTestJSONRead:
             assert table.to_pydict() == expected
             # Check that the issue was exercised
             assert table.column("a").num_chunks > 1
+
+    def test_explicit_schema_decimal(self):
+        rows = (b'{"a": 1}\n'
+                b'{"a": 1.45}\n'
+                b'{"a": -23.456}\n'
+                b'{}\n')
+        expected = {
+            'a': [Decimal("1"), Decimal("1.45"), Decimal("-23.456"), None],
+        }
+        for type_factory in (pa.decimal128, pa.decimal256):
+            schema = pa.schema([('a', type_factory(9, 4))])
+            opts = ParseOptions(explicit_schema=schema)
+            table = self.read_bytes(rows, parse_options=opts)
+            assert table.schema == schema
+            assert table.to_pydict() == expected
 
     def test_explicit_schema_with_unexpected_behaviour(self):
         # infer by default

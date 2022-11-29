@@ -20,8 +20,10 @@
 url: https://arrow.apache.org/docs/r/
 title: Arrow R Package
 template:
-  params:
-    bootswatch: cosmo
+  bootstrap: 5
+  bootswatch: cosmo
+  bslib:
+    font_scale: 1.1
   includes:
     in_header: |
       <!-- Matomo -->
@@ -49,7 +51,43 @@ template:
       creator: "@apachearrow"
       site: "@apachearrow"
       card: summary_large_image
+
+home:
+  title: Arrow R Package
+  sidebar:
+    structure:
+      - project
+      - implementations
+      - links
+      - license
+      - community
+      - citation
+      - authors
+      - dev
+    components:
+      project:
+        title: Arrow Project
+        text: >
+          [Homepage](https://arrow.apache.org/) <br>
+          [Specifications](https://arrow.apache.org/docs/format/Columnar.html)
+      implementations:
+        title: Implementations
+        text: >
+          [C GLib](https://arrow.apache.org/docs/c_glib) <br>
+          [C++](https://arrow.apache.org/docs/cpp) <br>
+          [C#](https://github.com/apache/arrow/blob/master/csharp/README.md) <br>
+          [Go](https://pkg.go.dev/github.com/apache/arrow/go) <br>
+          [Java](https://arrow.apache.org/docs/java) <br>
+          [JavaScript](https://arrow.apache.org/docs/js) <br>
+          [Julia](https://github.com/apache/arrow-julia/blob/main/README.md) <br>
+          [MATLAB](https://github.com/apache/arrow/blob/master/matlab/README.md) <br>
+          [Python](https://arrow.apache.org/docs/python) <br>
+          [R](index.html) <br>
+          [Ruby](https://github.com/apache/arrow/blob/master/ruby/README.md) <br>
+          [Rust](https://docs.rs/crate/arrow/latest)
+
 navbar:
+  bg: black
   structure:
     left:
       - home
@@ -60,58 +98,45 @@ navbar:
       - project
     right: github
   components:
-    home:
-      text: ❯❯❯
-      href: https://arrow.apache.org/
     reference:
       text: Reference
       href: reference/index.html
-    project:
-      text: Project docs
-      menu:
-        - text: Specification
-          href: https://arrow.apache.org/docs/format/Columnar.html
-        - text: C GLib
-          href: https://arrow.apache.org/docs/c_glib
-        - text: C++
-          href: https://arrow.apache.org/docs/cpp
-        - text: Java
-          href: https://arrow.apache.org/docs/java
-        - text: JavaScript
-          href: https://arrow.apache.org/docs/js
-        - text: Python
-          href: https://arrow.apache.org/docs/python
-        - text: R
-          href: index.html
-    articles:
-      text: Articles
-      menu:
-        - text: Installing the Arrow Package on Linux
-          href: articles/install.html
-        - text: Working with Arrow Datasets and dplyr
-          href: articles/dataset.html
-        - text: Working with Cloud Storage (S3, GCS)
-          href: articles/fs.html
-        - text: Apache Arrow in Python and R with reticulate
-          href: articles/python.html
-        - text: Connecting to Flight RPC Servers
-          href: articles/flight.html
-        - text: Arrow R Developer Guide
-          href: articles/developing.html
-        - text: Developers
-          menu:
-          - text: Developer Environment Setup
-            href: articles/developers/setup.html
-          - text: Common Workflow Tasks
-            href: articles/developers/workflow.html
-          - text: Debugging
-            href: articles/developers/debugging.html
-          - text: Package Installation Details
-            href: articles/developers/install_details.html
-          - text: Docker
-            href: articles/developers/docker.html
-          - text: Writing Bindings
-            href: articles/developers/bindings.html
+
+articles:
+  - title: Using the package
+    navbar: Using the package
+    contents:
+      - read_write
+      - data_wrangling
+      - dataset
+      - python
+      - fs
+      - flight
+
+  - title: Arrow concepts
+    navbar: Arrow concepts
+    contents:
+      - data_objects
+      - data_types
+      - metadata
+
+  - title: Installation
+    navbar: Installation
+    contents:
+      - install
+      - install_nightly
+
+  - title: Developer guides
+    contents:
+      - developing
+      - developers/setup
+      - developers/workflow
+      - developers/debugging
+      - developers/docker
+      - developers/writing_bindings
+      - developers/install_details
+      - developers/data_object_layout
+
 reference:
   - title: Multi-file datasets
     contents:
@@ -127,6 +152,7 @@ reference:
       - FileWriteOptions
       - FragmentScanOptions
       - map_batches
+
   - title: Reading and writing files
     contents:
       - read_feather
@@ -139,6 +165,7 @@ reference:
       - write_to_raw
       - write_parquet
       - write_csv_arrow
+
   - title: C++ reader/writer interface
     contents:
       - ParquetFileReader
@@ -152,6 +179,7 @@ reference:
       - CsvReadOptions
       - CsvWriteOptions
       - as_record_batch_reader
+
   - title: Arrow data containers
     contents:
       - array
@@ -170,6 +198,7 @@ reference:
       - as_chunked_array
       - as_record_batch
       - as_arrow_table
+
   - title: Arrow data types and schema
     contents:
       - Schema
@@ -187,6 +216,7 @@ reference:
       - ExtensionType
       - as_data_type
       - as_schema
+
   - title: Flight
     contents:
       - load_flight_server
@@ -195,6 +225,7 @@ reference:
       - flight_get
       - flight_put
       - list_flights
+
   - title: File systems
     contents:
       - s3_bucket
@@ -203,6 +234,7 @@ reference:
       - FileInfo
       - FileSelector
       - copy_files
+
   - title: Input/Output
     contents:
       - InputStream
@@ -214,6 +246,7 @@ reference:
       - compression
       - Codec
       - codec_is_available
+
   - title: Computation
     contents:
       - acero
@@ -223,10 +256,12 @@ reference:
       - list_compute_functions
       - register_scalar_function
       - show_exec_plan
+
   - title: Connections to other systems
     contents:
       - to_arrow
       - to_duckdb
+
   - title: Configuration
     contents:
       - arrow_info

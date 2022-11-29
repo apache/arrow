@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -398,7 +397,8 @@ class PullRequest(object):
             email = author['email']
             return f'{name} <{email}>'
         commit_authors = [format_commit_author(commit) for commit in commits]
-        co_authored_by_re = re.compile(r'^Co-authored-by:\s*(.*)')
+        co_authored_by_re = re.compile(
+            r'^Co-authored-by:\s*(.*)', re.MULTILINE)
 
         def extract_co_authors(commit):
             message = commit['commit']['message']
@@ -426,7 +426,9 @@ class PullRequest(object):
         commit_title = f'{self.title} (#{self.number})'
         commit_message_chunks = []
         if self.body is not None:
-            commit_message_chunks.append(self.body)
+            # avoid github user name references by inserting a space after @
+            body = re.sub(r"@(\w+)", "@ \\1", self.body)
+            commit_message_chunks.append(body)
 
         committer_name = run_cmd("git config --get user.name").strip()
         committer_email = run_cmd("git config --get user.email").strip()

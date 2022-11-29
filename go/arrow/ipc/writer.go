@@ -27,14 +27,14 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/internal"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
-	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/internal"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 type swriter struct {
@@ -99,11 +99,12 @@ type Writer struct {
 func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 	cfg := newConfig(opts...)
 	return &Writer{
-		mem:        cfg.alloc,
-		pw:         pw,
-		schema:     cfg.schema,
-		codec:      cfg.codec,
-		compressNP: cfg.compressNP,
+		mem:            cfg.alloc,
+		pw:             pw,
+		schema:         cfg.schema,
+		codec:          cfg.codec,
+		compressNP:     cfg.compressNP,
+		emitDictDeltas: cfg.emitDictDeltas,
 	}
 }
 
@@ -111,11 +112,12 @@ func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 func NewWriter(w io.Writer, opts ...Option) *Writer {
 	cfg := newConfig(opts...)
 	return &Writer{
-		w:      w,
-		mem:    cfg.alloc,
-		pw:     &swriter{w: w},
-		schema: cfg.schema,
-		codec:  cfg.codec,
+		w:              w,
+		mem:            cfg.alloc,
+		pw:             &swriter{w: w},
+		schema:         cfg.schema,
+		codec:          cfg.codec,
+		emitDictDeltas: cfg.emitDictDeltas,
 	}
 }
 

@@ -37,10 +37,11 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Configure autobrew script
         run: |
-          # minio is pre-installed on the self-hosted 10.13 runer
+          # minio and sccache are pre-installed on the self-hosted 10.13 runner
           if [ {{ '${{ matrix.platform }}' }} != macos-10.13  ]; then
             # install minio for tests
             brew install minio
+            brew install sccache
           fi
           cd arrow/r
           {{ macros.pin_brew_formulae(is_fork)|indent }}
@@ -70,6 +71,7 @@ jobs:
           NOT_CRAN: true
           ARROW_USE_PKG_CONFIG: false
           ARROW_R_DEV: true
+        {{ macros.github_set_sccache_envvars()|indent(8)}}  
         run: arrow/ci/scripts/r_test.sh arrow
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out

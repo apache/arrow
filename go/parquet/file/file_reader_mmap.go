@@ -22,7 +22,7 @@ package file
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v11/parquet"
 	"golang.org/x/exp/mmap"
 	"golang.org/x/xerrors"
 )

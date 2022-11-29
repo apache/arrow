@@ -1893,6 +1893,9 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
 
 ARROW_EXPORT void PrintTo(const FieldRef& ref, std::ostream* os);
 
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, const FieldRef&);
+
 // ----------------------------------------------------------------------
 // Schema
 
@@ -2192,6 +2195,9 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
 /// \brief Interval types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
+/// \brief Duration types for each unit
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& DurationTypes();
 /// \brief Numeric, base binary, date, boolean and null types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();

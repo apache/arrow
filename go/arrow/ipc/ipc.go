@@ -19,10 +19,10 @@ package ipc
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/arrio"
-	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/arrio"
+	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 const (
@@ -70,6 +70,7 @@ type config struct {
 	compressNP         int
 	ensureNativeEndian bool
 	noAutoSchema       bool
+	emitDictDeltas     bool
 }
 
 func newConfig(opts ...Option) *config {
@@ -157,6 +158,13 @@ func WithEnsureNativeEndian(v bool) Option {
 func WithDelayReadSchema(v bool) Option {
 	return func(cfg *config) {
 		cfg.noAutoSchema = v
+	}
+}
+
+// WithDictionaryDeltas specifies whether or not to emit dictionary deltas.
+func WithDictionaryDeltas(v bool) Option {
+	return func(cfg *config) {
+		cfg.emitDictDeltas = v
 	}
 }
 

@@ -21,14 +21,14 @@
 # SOFTWARE.
 
 cmake_minimum_required(VERSION 3.8)
-project(test_package)
+project(test_package LANGUAGES CXX)
 
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup()
-
-find_package(Arrow REQUIRED)
+find_package(Arrow REQUIRED CONFIG)
 
 add_executable(${PROJECT_NAME} test_package.cpp)
-target_link_libraries(${PROJECT_NAME} arrow::arrow)
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
-target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_JEMALLOC)
+target_link_libraries(${PROJECT_NAME} PRIVATE arrow::arrow)
+if (${Arrow_VERSION} VERSION_LESS "10.0.0")
+    target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_11)
+else()
+    target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+endif()

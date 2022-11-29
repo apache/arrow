@@ -14,10 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package kernels
 
 import (
-	"github.com/apache/arrow/go/v10/arrow"
+	"fmt"
+
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/scalar"
 )
 
 var (
@@ -35,7 +42,6 @@ var (
 	}
 	intTypes      = append(unsignedIntTypes, signedIntTypes...)
 	floatingTypes = []arrow.DataType{
-		arrow.FixedWidthTypes.Float16,
 		arrow.PrimitiveTypes.Float32,
 		arrow.PrimitiveTypes.Float64,
 	}
@@ -46,20 +52,55 @@ var (
 		arrow.BinaryTypes.LargeBinary,
 		arrow.BinaryTypes.String,
 		arrow.BinaryTypes.LargeString}
-	// non-parametric, non-nested types
-	primitiveTypes = append(append([]arrow.DataType{
-		arrow.Null, arrow.FixedWidthTypes.Boolean,
-		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64},
-		numericTypes...), baseBinaryTypes...)
 )
+
+//go:generate stringer -type=CompareOperator -linecomment
 
 type CompareOperator int8
 
 const (
-	CmpEQ CompareOperator = iota
-	CmpNE
-	CmpGT
-	CmpGE
-	CmpLT
-	CmpLE
+	CmpEQ CompareOperator = iota // equal
+	CmpNE                        // not_equal
+	CmpGT                        // greater
+	CmpGE                        // greater_equal
+	CmpLT                        // less
+	CmpLE                        // less_equal
 )
+
+type simpleBinaryKernel interface {
+	Call(*exec.KernelCtx, *exec.ArraySpan, *exec.ArraySpan, *exec.ExecResult) error
+	CallScalarLeft(*exec.KernelCtx, scalar.Scalar, *exec.ArraySpan, *exec.ExecResult) error
+}
+
+type commutativeBinaryKernel[T simpleBinaryKernel] struct{}
+
+func (commutativeBinaryKernel[T]) CallScalarRight(ctx *exec.KernelCtx, left *exec.ArraySpan, right scalar.Scalar, out *exec.ExecResult) error {
+	var t T
+	return t.CallScalarLeft(ctx, right, left, out)
+}
+
+type SimpleBinaryKernel interface {
+	simpleBinaryKernel
+	CallScalarRight(*exec.KernelCtx, *exec.ArraySpan, scalar.Scalar, *exec.ExecResult) error
+}
+
+func SimpleBinary[K SimpleBinaryKernel](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	if batch.Len == 0 {
+		return nil
+	}
+
+	var k K
+	if batch.Values[0].IsArray() {
+		if batch.Values[1].IsArray() {
+			return k.Call(ctx, &batch.Values[0].Array, &batch.Values[1].Array, out)
+		}
+		return k.CallScalarRight(ctx, &batch.Values[0].Array, batch.Values[1].Scalar, out)
+	}
+
+	if batch.Values[1].IsArray() {
+		return k.CallScalarLeft(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
+	}
+
+	debug.Assert(false, "should be unreachable")
+	return fmt.Errorf("%w: should be unreachable", arrow.ErrInvalid)
+}

@@ -30,26 +30,40 @@ ENV DEBIAN_FRONTEND=noninteractive
 # while debugging package list with docker build.
 ARG clang_tools
 ARG llvm
-RUN apt-get update -y -q && \
+# We can't use LLVM 14 from apt.llvm.org because LLVM 14 requires libgcc-s1
+# but libgcc-s1 is available since Ubuntu 20.04.
+RUN latest_available_llvm=13 && \
+    if [ "${llvm}" -gt "${latest_available_llvm}" ]; then \
+      available_llvm="${latest_available_llvm}"; \
+    else \
+      available_llvm="${llvm}"; \
+    fi && \
+    if [ "${clang_tools}" -gt "${latest_available_llvm}" ]; then \
+      available_clang_tools="${latest_available_llvm}"; \
+    else \
+      available_clang_tools="${clang_tools}"; \
+    fi && \
+    apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
        apt-transport-https \
        ca-certificates \
        gnupg \
        wget && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${llvm} main" > \
+    echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${available_llvm} main" > \
        /etc/apt/sources.list.d/llvm.list && \
-    if [ "${clang_tools}" != "${llvm}" -a "${clang_tools}" -ge 10 ]; then \
-      echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${clang_tools} main" > \
+    if [ "${available_clang_tools}" -ne "${available_llvm}" -a \
+         "${available_clang_tools}" -ge 10 ]; then \
+      echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${available_clang_tools} main" > \
          /etc/apt/sources.list.d/clang-tools.list; \
     fi && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-        clang-${clang_tools} \
-        clang-${llvm} \
-        clang-format-${clang_tools} \
-        clang-tidy-${clang_tools} \
-        llvm-${llvm}-dev && \
+        clang-${available_clang_tools} \
+        clang-${available_llvm} \
+        clang-format-${available_clang_tools} \
+        clang-tidy-${available_clang_tools} \
+        llvm-${available_llvm}-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 

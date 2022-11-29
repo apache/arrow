@@ -43,6 +43,10 @@ jobs:
       - name: Install System Dependencies
         shell: bash
         run: |
+          rm -f /usr/local/bin/2to3*
+          rm -f /usr/local/bin/idle*
+          rm -f /usr/local/bin/pydoc3*
+          rm -f /usr/local/bin/python3*
           brew update
           brew install --overwrite git
           brew bundle --file=arrow/cpp/Brewfile
@@ -71,8 +75,4 @@ jobs:
           USE_CONDA: 1
         {% endif %}
         run: |
-        {% if not use_conda %}
-          export CC=$(brew --prefix llvm)/bin/clang
-          export CXX=$(brew --prefix llvm)/bin/clang++
-        {% endif %}
           arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}

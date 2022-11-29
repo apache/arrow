@@ -626,7 +626,6 @@ def test_wrong_usage_orc_writer(tempdir):
 
 def test_orc_writer_with_null_arrays(tempdir):
     from pyarrow import orc
-    import pyarrow as pa
 
     path = str(tempdir / 'test.orc')
     a = pa.array([1, None, 3, None])
