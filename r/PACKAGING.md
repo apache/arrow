@@ -31,7 +31,7 @@ Before the release candidate is cut:
 - [ ] Evaluate the status of any failing
   [nightly tests and nightly packaging builds](https://lists.apache.org/list.html?builds@arrow.apache.org). These checks
   replicate most of the checks that CRAN runs, so we need them all to be passing
-  or to understand that the failures will not result in a rejection from CRAN.
+  or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html)
 - [ ] Ensure the contents of the README is accurate
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate
