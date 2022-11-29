@@ -775,8 +775,10 @@ same value, called runs. Each run is represented as a value, and an integer
 describing how often this value is repeated.
 
 Any array can be run-length encoded. A run-length encoded array has no buffers
-by itself, but has two child arrays. The first one holds a signed 32-bit integer called a "run end"
-for each run. The actual values of each run are held the second child array.
+by itself, but has two child arrays. The first one holds a signed integer
+called a "run end" for each run. The run ends array can hold either 16, 32, or
+64-bit integers. The actual values of each run are held
+the second child array.
 
 The values in the first child array represent the length of each run. They do
 not hold the length of the respective run directly, but the accumulated length
