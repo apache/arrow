@@ -188,24 +188,20 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 // values and rows.
 class PARQUET_EXPORT DataPageStats {
  public:
-  explicit DataPageStats(EncodedStatistics encoded_statistics, int32_t num_values,
-                             std::optional<int32_t> num_rows)
-      : encoded_statistics_(std::move(encoded_statistics)),
+  explicit DataPageStats(const EncodedStatistics& encoded_statistics, int32_t num_values,
+                         std::optional<int32_t> num_rows)
+      : encoded_statistics_(encoded_statistics),
         num_values_(num_values),
         num_rows_(num_rows) {}
 
-  const EncodedStatistics& statistics() { return encoded_statistics_;}
+  const EncodedStatistics& statistics() { return encoded_statistics_; }
 
-  int32_t num_values() const {
-    return num_values_;
-  }
+  int32_t num_values() const { return num_values_; }
 
-  std::optional<int32_t> num_rows() const {
-    return num_rows_;
-  }
+  std::optional<int32_t> num_rows() const { return num_rows_; }
 
  private:
-  const EncodedStatistics encoded_statistics_;
+  const EncodedStatistics& encoded_statistics_;
   const int32_t num_values_;
   const std::optional<int32_t> num_rows_;
 };

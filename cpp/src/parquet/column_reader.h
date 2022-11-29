@@ -24,11 +24,11 @@
 
 #include "parquet/exception.h"
 #include "parquet/level_conversion.h"
+#include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/metadata.h"
 
 namespace arrow {
 
@@ -116,15 +116,19 @@ class PARQUET_EXPORT PageReader {
                                           bool always_compressed = false,
                                           const CryptoContext* ctx = NULLPTR);
 
-  // If skip_page_callback_ is set, NextPage() must use this callback to determine if it
-  // should return or skip and move to the next page. If the callback function returns
-  // true the page must be skipped. The callback will be called only if the page
-  // type is DATA_PAGE or DATA_PAGE_V2. Dictionary pages must be read
-  // regardless.
+  // If skip_page_callback_ is present (not null), NextPage() will call the
+  // callback function exactly once per page in the order the pages appear in
+  // the column. If the callback function returns true the page will be
+  // skipped. The callback will be called only if the page type is DATA_PAGE or
+  // DATA_PAGE_V2. Dictionary pages will not be skipped.
+  // This setter must be called at most once to set the callback.
   // \note API EXPERIMENTAL
   void set_skip_page_callback(
       std::function<bool(const DataPageStats&)> skip_page_callback) {
-    skip_page_callback_ = skip_page_callback;
+    if (skip_page_callback_) {
+      throw ParquetException("set_skip_page_callback was called more than once");
+    }
+    skip_page_callback_ = std::move(skip_page_callback);
   }
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>

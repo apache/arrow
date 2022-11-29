@@ -21,6 +21,10 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/io/memory.h"
+#include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/compression.h"
 #include "metadata.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -30,10 +34,6 @@
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
-#include "arrow/io/memory.h"
-#include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/util/compression.h"
 
 namespace parquet {
 

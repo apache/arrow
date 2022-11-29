@@ -17,10 +17,10 @@
 
 #include "parquet/metadata.h"
 
-#include <iostream>
 #include <algorithm>
 #include <cinttypes>
 #include <csignal>
+#include <iostream>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -42,8 +42,6 @@
 #include "parquet/thrift_internal.h"
 
 namespace parquet {
-
-typedef std::variant<format::DataPageHeader, format::DataPageHeaderV2> DataPageHeader;
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
   static ApplicationVersion version("parquet-mr", 1, 8, 0);
