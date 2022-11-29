@@ -96,10 +96,9 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected is None:
         expected = df
 
-    # pandas.testing generates a
-    # DeprecationWarning: elementwise comparison failed
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
+        warnings.filterwarnings(
+            "ignore", "elementwise comparison failed", DeprecationWarning)
         tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
                               check_index_type=('equiv' if preserve_index
                                                 else False))
@@ -2118,7 +2117,8 @@ class TestConvertListTypes:
         # pandas.testing generates a
         # DeprecationWarning: elementwise comparison failed
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
+            warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                    DeprecationWarning)
             tm.assert_series_equal(series, expected)
 
     @pytest.mark.parametrize('t,data,expected', [
@@ -2173,13 +2173,12 @@ class TestConvertListTypes:
                       type=pa.large_list(pa.large_list(pa.int64())))
              .to_pandas())
 
-        # pandas.testing generates a
-        # DeprecationWarning: elementwise comparison failed
-        # numpy.VisibleDeprecationWarning: Creating an ndarray
-        #     from ragged nested sequences ...
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", np.VisibleDeprecationWarning)
-            warnings.simplefilter("ignore", DeprecationWarning)
+            warnings.filterwarnings("ignore",
+                                    "Creating an ndarray from ragged nested",
+                                    np.VisibleDeprecationWarning)
+            warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                    DeprecationWarning)
             tm.assert_series_equal(
                 s, pd.Series([[[1, 2, 3], [4]], None], dtype=object),
                 check_names=False)
