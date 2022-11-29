@@ -143,7 +143,6 @@ class BaseTableTest {
   void getRowCount() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      // TODO: handle setting rowcount on Table construction
       assertEquals(2, t.getRowCount());
     }
   }

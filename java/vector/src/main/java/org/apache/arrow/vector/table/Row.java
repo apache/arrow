@@ -102,9 +102,7 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
 
 /**
- * TODO: Modify the getters for Duration and others so that they return something better than ArrowBuf when possible
- *
- * Row is a positionable, immutable cursor backed by a {@link Table}. 
+ * Row is a positionable, immutable cursor backed by a {@link Table}.
  *
  * <p>Getters are provided for most vector types. The exceptions being {@link org.apache.arrow.vector.NullVector},
  * which only contains null values and has no getter, and {@link org.apache.arrow.vector.ZeroVector},
