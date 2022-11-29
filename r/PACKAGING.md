@@ -23,21 +23,25 @@
 For a high-level overview of the release process see the
 [Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
 
-- [ ] When a release candidate is created
-  [Create a GitHub issue](https://github.com/apache/arrow/issues/new/)
-  entitled `[R] CRAN release version X.X.X` and copy this checklist to the issue
-  
+Before the release candidate is cut:
+
+- [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/)
+  entitled `[R] CRAN packaging checklist for version X.X.X`
+  and copy this checklist to the issue.
 - [ ] Evaluate the status of any failing
-  [nightly tests and nightly packaging builds](https://lists.apache.org/list.html?builds@arrow.apache.org): these are run
-  against the master branch and not the release branch, so the results may be
-  slightly out of date. After the CRAN-specific release branch has been created,
-  we can run any or all tests again using a GitHub PR and crossbow.
+  [nightly tests and nightly packaging builds](https://lists.apache.org/list.html?builds@arrow.apache.org). These checks
+  replicate most of the checks that CRAN runs, so we need them all to be passing
+  or to understand that the failures will not result in a rejection from CRAN.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html)
 - [ ] Ensure the contents of the README is accurate
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release)
 - [ ] Prepare tweet thread highlighting new features
+
+Wait for the release candidate to be cut:
+
+- [ ] Release candidate!
 
 Make pull requests into the [autobrew](https://github.com/autobrew) and
 [rtools-packages](https://github.com/r-windows/rtools-packages) repositories
@@ -75,10 +79,14 @@ Wait for the official release...
 - [ ] Release vote passed!
 - [ ] Create a CRAN-release branch from the official release commit
 - [ ] Pick any commits that were made to master since the release commit that
-  were needed to fix CRAN-related submission issues (e.g., fixed URLs)
+  were needed to fix CRAN-related submission issues (e.g., fixed URLs, fixes
+  to )
 - [ ] Remove badges from README.md
 - [ ] Run `urlchecker::url_check()` on the R directory
 - [ ] Bump the Version in DESCRIPTION to X.X.X
+- [ ] Create a PR entitled `WIP: [R] Verify CRAN release-10.0.1-rc0`. Add
+  a comment `@github-actions crossbow submit --group r` to run all R crossbow
+  jobs against the CRAN-specific release branch.
 - [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
 Update autobrew and r-windows PRs to use the *release* instead of the
