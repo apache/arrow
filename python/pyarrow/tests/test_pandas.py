@@ -96,9 +96,13 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected is None:
         expected = df
 
-    tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
-                          check_index_type=('equiv' if preserve_index
-                                            else False))
+    # pandas.testing generates a
+    # DeprecationWarning: elementwise comparison failed
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
+                              check_index_type=('equiv' if preserve_index
+                                                else False))
 
 
 def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
@@ -2112,7 +2116,12 @@ class TestConvertListTypes:
         ])
 
         series = pd.Series(data.to_pandas())
-        tm.assert_series_equal(series, expected)
+
+        # pandas.testing generates a
+        # DeprecationWarning: elementwise comparison failed
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            tm.assert_series_equal(series, expected)
 
     @pytest.mark.parametrize('t,data,expected', [
         (
@@ -2167,10 +2176,12 @@ class TestConvertListTypes:
              .to_pandas())
 
         # pandas.testing generates a
+        # DeprecationWarning: elementwise comparison failed
         # numpy.VisibleDeprecationWarning: Creating an ndarray
         #     from ragged nested sequences ...
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", np.VisibleDeprecationWarning)
+            warnings.simplefilter("ignore", DeprecationWarning)
             tm.assert_series_equal(
                 s, pd.Series([[[1, 2, 3], [4]], None], dtype=object),
                 check_names=False)
