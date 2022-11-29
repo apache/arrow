@@ -35,7 +35,7 @@ For a high-level overview of the release process see the
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html)
 - [ ] Ensure the contents of the README is accurate
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate
-  commit.
+  commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release)
 - [ ] Prepare tweet thread highlighting new features
 
