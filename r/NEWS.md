@@ -26,7 +26,6 @@ Minor fixes and updates:
 * Fixes for failing test after lubridate 1.9 release ([ARROW-18285](https://issues.apache.org/jira/browse/ARROW-18285))
 * Update to ensure compatibility with changes in dev purrr ([ARROW-18305](https://issues.apache.org/jira/browse/ARROW-18305))
 * Fix to correctly handle `.data` pronoun in `dplyr::group_by()` ([ARROW-18131](https://issues.apache.org/jira/browse/ARROW-18131))
-* Add deprecation cycle for `pull()` change ([ARROW-18132](https://issues.apache.org/jira/browse/ARROW-18132))
 
 # arrow 10.0.0
 
