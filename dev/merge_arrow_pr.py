@@ -165,7 +165,8 @@ class JiraIssue(object):
 
         # ARROW-6915: do not overwrite existing fix versions corresponding to
         # point releases
-        fix_versions = [v.raw for v in self.jira_con.project_versions(self.project) if v.name == fix_version]
+        fix_versions = [v.raw for v in self.jira_con.project_versions(
+            self.project) if v.name == fix_version]
         fix_version_names = set(x['name'] for x in fix_versions)
         for version in self.current_fix_versions:
             major, minor, patch = version.name.split('.')
@@ -173,11 +174,12 @@ class JiraIssue(object):
                 fix_versions.append(version.raw)
 
         if DEBUG:
-            print("JIRA issue %s untouched -> %s" % (self.jira_id, [v["name"] for v in fix_versions]))
+            print("JIRA issue %s untouched -> %s" %
+                  (self.jira_id, [v["name"] for v in fix_versions]))
         else:
             self.jira_con.transition_issue(self.jira_id, resolve["id"],
-                                        comment=comment,
-                                        fixVersions=fix_versions)
+                                           comment=comment,
+                                           fixVersions=fix_versions)
             print("Successfully resolved %s!" % (self.jira_id))
 
         self.issue = self.jira_con.issue(self.jira_id)
@@ -188,6 +190,7 @@ class JiraIssue(object):
         print(format_issue_output("jira", self.jira_id, fields.status.name,
                                   fields.summary, fields.assignee,
                                   fields.components))
+
 
 class GitHubIssue(object):
 
@@ -234,7 +237,8 @@ class GitHubIssue(object):
                           % (self.github_id, cur_status))
 
         if DEBUG:
-            print("GitHub issue %s untouched -> %s" % (self.github_id, fix_version))
+            print("GitHub issue %s untouched -> %s" %
+                  (self.github_id, fix_version))
         else:
             self.github_api.assign_milestone(self.github_id, fix_version)
             self.github_api.close_issue(self.github_id, comment)
@@ -274,7 +278,7 @@ def get_candidate_fix_version(mainline_versions,
         mainline_versions = mainline_non_patch_versions
 
     mainline_versions = [v for v in mainline_versions
-            if f"maint-{v}" not in maintenance_branches]
+                         if f"maint-{v}" not in maintenance_branches]
     default_fix_versions = [
         fix_version_from_branch(x, mainline_versions)
         for x in merge_branches]
@@ -303,7 +307,7 @@ Summary\t\t{}
 Assignee\t{}
 Components\t{}
 Status\t\t{}
-URL\t\t{}""".format(issue_type.upper(), issue_id, summary, assignee, 
+URL\t\t{}""".format(issue_type.upper(), issue_id, summary, assignee,
                     components, status, url)
 
 
@@ -357,13 +361,17 @@ class GitHubAPI(object):
         issue_url = f'{self.github_api}/issues/{number}'
         comment_url = f'{self.github_api}/issues/{number}/comments'
 
-        r = requests.post(comment_url, json={"body": comment}, headers=self.headers)
+        r = requests.post(comment_url, json={
+                          "body": comment}, headers=self.headers)
         if not r.ok:
-            raise ValueError(f"Failed request: {comment_url}:{r.status_code} -> {r.json()}")
+            raise ValueError(
+                f"Failed request: {comment_url}:{r.status_code} -> {r.json()}")
 
-        r = requests.patch(issue_url, json={"state": "closed"}, headers=self.headers)
+        r = requests.patch(
+            issue_url, json={"state": "closed"}, headers=self.headers)
         if not r.ok:
-            raise ValueError(f"Failed request: {issue_url}:{r.status_code} -> {r.json()}")
+            raise ValueError(
+                f"Failed request: {issue_url}:{r.status_code} -> {r.json()}")
 
     def assign_milestone(self, number, version):
         url = f'{self.github_api}/issues/{number}'
@@ -375,7 +383,8 @@ class GitHubAPI(object):
         }
         r = requests.patch(url, headers=self.headers, json=payload)
         if not r.ok:
-            raise ValueError(f"Failed request: {url}:{r.status_code} -> {r.json()}")
+            raise ValueError(
+                f"Failed request: {url}:{r.status_code} -> {r.json()}")
         return r.json()
 
     def merge_pr(self, number, commit_title, commit_message):
@@ -484,9 +493,9 @@ class PullRequest(object):
                 return JiraIssue(self.con, jira_id, project, self.cmd)
 
         options = ' or '.join('{0}-XXX'.format(project)
-                                for project in self.JIRA_SUPPORTED_PROJECTS)
+                              for project in self.JIRA_SUPPORTED_PROJECTS)
         self.cmd.fail("PR title should be prefixed by a jira id "
-                        "{0}, but found {1}".format(options, self.title))
+                      "{0}, but found {1}".format(options, self.title))
 
     def merge(self):
         """
@@ -597,12 +606,13 @@ def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
     )
 
     issue_fix_version = cmd.prompt("Enter comma-separated "
-                                    "fix version(s) [%s]: "
-                                    % default_fix_version)
+                                   "fix version(s) [%s]: "
+                                   % default_fix_version)
     if issue_fix_version == "":
         issue_fix_version = default_fix_version
     issue_fix_version = issue_fix_version.strip()
     return issue_fix_version
+
 
 CONFIG_FILE = "~/.config/arrow/merge.conf"
 
