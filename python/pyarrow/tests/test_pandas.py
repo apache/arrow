@@ -2165,9 +2165,15 @@ class TestConvertListTypes:
         s = (pa.array([[[1, 2, 3], [4]], None],
                       type=pa.large_list(pa.large_list(pa.int64())))
              .to_pandas())
-        tm.assert_series_equal(
-            s, pd.Series([[[1, 2, 3], [4]], None], dtype=object),
-            check_names=False)
+
+        # pandas.testing generates a
+        # numpy.VisibleDeprecationWarning: Creating an ndarray
+        #     from ragged nested sequences ...
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", np.VisibleDeprecationWarning)
+            tm.assert_series_equal(
+                s, pd.Series([[[1, 2, 3], [4]], None], dtype=object),
+                check_names=False)
 
     def test_large_binary_list(self):
         for list_type_factory in (pa.list_, pa.large_list):
