@@ -145,7 +145,7 @@ static std::shared_ptr<Array> MaskArrayWithNullsAt(std::shared_ptr<Array> input,
 
   using arrow::internal::Bitmap;
   Bitmap is_valid(masked->buffers[0], 0, input->length());
-  if (auto original = input->null_bitmap()) {
+  if (const auto& original = input->null_bitmap()) {
     is_valid.CopyFrom(Bitmap(original, input->offset(), input->length()));
   } else {
     is_valid.SetBitsTo(true);
@@ -154,7 +154,7 @@ static std::shared_ptr<Array> MaskArrayWithNullsAt(std::shared_ptr<Array> input,
   for (int i : indices_to_mask) {
     is_valid.SetBitTo(i, false);
   }
-  return MakeArray(masked);
+  return MakeArray(std::move(masked));
 }
 
 TEST(Cast, CanCast) {
@@ -166,6 +166,9 @@ TEST(Cast, CanCast) {
                                                << "    to: " << to->ToString();
     }
   };
+
+  ExpectCanCast(boolean(), {utf8()});
+  return;
 
   auto ExpectCannotCast = [ExpectCanCast](std::shared_ptr<DataType> from,
                                           std::vector<std::shared_ptr<DataType>> to_set) {
@@ -198,17 +201,21 @@ TEST(Cast, CanCast) {
     ExpectCannotCast(from_numeric, {null()});
   }
 
-  for (auto from_base_binary : kBaseBinaryTypes) {
-    ExpectCanCast(from_base_binary, {boolean()});
-    ExpectCanCast(from_base_binary, kNumericTypes);
-    ExpectCanCast(from_base_binary, kBaseBinaryTypes);
-    ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
+  auto base_binary_and_view_types = kBaseBinaryTypes;
+  base_binary_and_view_types.push_back(binary_view());
+  base_binary_and_view_types.push_back(utf8_view());
+
+  for (auto from : base_binary_and_view_types) {
+    ExpectCanCast(from, {boolean()});
+    ExpectCanCast(from, kNumericTypes);
+    ExpectCanCast(from, base_binary_and_view_types);
+    ExpectCanCast(dictionary(int64(), from), {from});
 
     // any cast which is valid for the dictionary is valid for the DictionaryArray
-    ExpectCanCast(dictionary(uint32(), from_base_binary), kBaseBinaryTypes);
-    ExpectCanCast(dictionary(int16(), from_base_binary), kNumericTypes);
+    ExpectCanCast(dictionary(uint32(), from), kBaseBinaryTypes);
+    ExpectCanCast(dictionary(int16(), from), kNumericTypes);
 
-    ExpectCannotCast(from_base_binary, {null()});
+    ExpectCannotCast(from, {null()});
   }
 
   ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI)});
@@ -1029,7 +1036,7 @@ TEST(Cast, DecimalToFloating) {
 }
 
 TEST(Cast, DecimalToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     for (auto decimal_type : {decimal128(5, 2), decimal256(5, 2)}) {
       CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
                 ArrayFromJSON(string_type, R"(["0.00", null, "123.45", "999.99"])"));
@@ -1548,7 +1555,7 @@ TEST(Cast, TimeZeroCopy) {
 }
 
 TEST(Cast, DateToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     CheckCast(ArrayFromJSON(date32(), "[0, null]"),
               ArrayFromJSON(string_type, R"(["1970-01-01", null])"));
     CheckCast(ArrayFromJSON(date64(), "[86400000, null]"),
@@ -1557,7 +1564,7 @@ TEST(Cast, DateToString) {
 }
 
 TEST(Cast, TimeToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     CheckCast(ArrayFromJSON(time32(TimeUnit::SECOND), "[1, 62]"),
               ArrayFromJSON(string_type, R"(["00:00:01", "00:01:02"])"));
     CheckCast(
@@ -1567,7 +1574,7 @@ TEST(Cast, TimeToString) {
 }
 
 TEST(Cast, TimestampToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     CheckCast(
         ArrayFromJSON(timestamp(TimeUnit::SECOND), "[-30610224000, -5364662400]"),
         ArrayFromJSON(string_type, R"(["1000-01-01 00:00:00", "1800-01-01 00:00:00"])"));
@@ -1593,7 +1600,7 @@ TEST(Cast, TimestampToString) {
 }
 
 TEST_F(CastTimezone, TimestampWithZoneToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     CheckCast(
         ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[-30610224000, -5364662400]"),
         ArrayFromJSON(string_type,
@@ -1779,7 +1786,7 @@ TEST(Cast, DurationToDurationMultiplyOverflow) {
 }
 
 TEST(Cast, DurationToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     for (auto unit : TimeUnit::values()) {
       CheckCast(ArrayFromJSON(duration(unit), "[0, null, 1234567, 2000]"),
                 ArrayFromJSON(string_type, R"(["0", null, "1234567", "2000"])"));
@@ -2016,6 +2023,10 @@ TEST(Cast, StringToTimestamp) {
 }
 
 static void AssertBinaryZeroCopy(std::shared_ptr<Array> lhs, std::shared_ptr<Array> rhs) {
+  for (auto id : {lhs->type_id(), rhs->type_id()}) {
+    // views cannot be zero copied
+    if (id == Type::BINARY_VIEW || id == Type::STRING_VIEW) return;
+  }
   // null bitmap and data buffers are always zero-copied
   AssertBufferSame(*lhs, *rhs, 0);
   AssertBufferSame(*lhs, *rhs, 2);
@@ -2039,8 +2050,9 @@ static void AssertBinaryZeroCopy(std::shared_ptr<Array> lhs, std::shared_ptr<Arr
 }
 
 TEST(Cast, BinaryToString) {
-  for (auto bin_type : {binary(), large_binary()}) {
-    for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto bin_type : {binary(), large_binary(), binary_view()}) {
+    for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
+      ARROW_SCOPED_TRACE(*bin_type, " to ", *string_type);
       // empty -> empty always works
       CheckCast(ArrayFromJSON(bin_type, "[]"), ArrayFromJSON(string_type, "[]"));
 
@@ -2058,13 +2070,14 @@ TEST(Cast, BinaryToString) {
       options.allow_invalid_utf8 = true;
       ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, string_type, options));
       ASSERT_RAISES(Invalid, strings->ValidateFull());
+
       AssertBinaryZeroCopy(invalid_utf8, strings);
     }
   }
 
   auto from_type = fixed_size_binary(3);
   auto invalid_utf8 = FixedSizeInvalidUtf8(from_type);
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(string_type, "[]"));
 
     // invalid utf-8 masked by a null bit is not an error
@@ -2083,9 +2096,12 @@ TEST(Cast, BinaryToString) {
     // N.B. null buffer is not always the same if input sliced
     AssertBufferSame(*invalid_utf8, *strings, 0);
 
-    // ARROW-16757: we no longer zero copy, but the contents are equal
-    ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
-    ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
+    if (string_type->id() != Type::STRING_VIEW) {
+      // ARROW-16757: we no longer zero copy, but the contents are equal
+      ASSERT_NE(invalid_utf8->data()->buffers[1].get(),
+                strings->data()->buffers[2].get());
+      ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
+    }
   }
 }
 
@@ -2154,7 +2170,7 @@ TEST(Cast, StringToString) {
 }
 
 TEST(Cast, IntToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     CheckCast(ArrayFromJSON(int8(), "[0, 1, 127, -128, null]"),
               ArrayFromJSON(string_type, R"(["0", "1", "127", "-128", null])"));
 
@@ -2186,7 +2202,7 @@ TEST(Cast, IntToString) {
 }
 
 TEST(Cast, FloatingToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     CheckCast(
         ArrayFromJSON(float32(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
         ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
@@ -2198,7 +2214,7 @@ TEST(Cast, FloatingToString) {
 }
 
 TEST(Cast, BooleanToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     CheckCast(ArrayFromJSON(boolean(), "[true, true, false, null]"),
               ArrayFromJSON(string_type, R"(["true", "true", "false", null])"));
   }

@@ -71,9 +71,6 @@ void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_ty
                      CastFunction* func);
 
 // OutputType::Resolver that returns a type the type from CastOptions
-Result<TypeHolder> ResolveOutputFromOptions(KernelContext* ctx,
-                                            const std::vector<TypeHolder>& args);
-
 ARROW_EXPORT extern OutputType kOutputTargetType;
 
 // Add generic casts to out_ty from:

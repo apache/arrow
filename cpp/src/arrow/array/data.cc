@@ -186,7 +186,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   }
   this->offset = data.offset;
 
-  for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {
+  for (int i = 0; i < std::min(static_cast<int>(data.buffers.size()), 3); ++i) {
     const std::shared_ptr<Buffer>& buffer = data.buffers[i];
     // It is the invoker-of-kernels's responsibility to ensure that
     // const buffers are not written to accidentally.
@@ -346,6 +346,17 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
+  } else if (type_id == Type::BINARY_VIEW || type_id == Type::STRING_VIEW) {
+    const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
+    this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
+    if (scalar.is_valid) {
+      *reinterpret_cast<StringHeader*>(this->buffers[1].data) = {scalar.value->data(),
+                                                                 scalar.value->size()};
+      this->buffers[2].data = const_cast<uint8_t*>(scalar.value->data());
+      this->buffers[2].size = scalar.value->size();
+    } else {
+      *reinterpret_cast<StringHeader*>(this->buffers[1].data) = {};
+    }
   } else if (type_id == Type::FIXED_SIZE_BINARY) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
     this->buffers[1].data = const_cast<uint8_t*>(scalar.value->data());

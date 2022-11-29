@@ -170,12 +170,6 @@ Status CastFromNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   return Status::OK();
 }
 
-Result<TypeHolder> ResolveOutputFromOptions(KernelContext* ctx,
-                                            const std::vector<TypeHolder>&) {
-  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
-  return options.to_type;
-}
-
 /// You will see some of kernels with
 ///
 /// kOutputTargetType
@@ -184,8 +178,10 @@ Result<TypeHolder> ResolveOutputFromOptions(KernelContext* ctx,
 /// easiest initial way to get the requested cast type including the TimeUnit
 /// to the kernel (which is needed to compute the output) was through
 /// CastOptions
-
-OutputType kOutputTargetType(ResolveOutputFromOptions);
+OutputType kOutputTargetType([](KernelContext* ctx,
+                                const std::vector<TypeHolder>&) -> Result<TypeHolder> {
+  return CastState::Get(ctx).to_type;
+});
 
 Status ZeroCopyCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   // TODO(wesm): alternative strategy for zero copy casts after ARROW-16576

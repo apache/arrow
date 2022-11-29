@@ -468,10 +468,10 @@ struct ARROW_EXPORT ArraySpan {
   void SetSlice(int64_t offset, int64_t length) {
     this->offset = offset;
     this->length = length;
-    if (this->type->id() != Type::NA) {
-      this->null_count = kUnknownNullCount;
-    } else {
+    if (this->type->id() == Type::NA) {
       this->null_count = this->length;
+    } else if (this->MayHaveNulls()) {
+      this->null_count = kUnknownNullCount;
     }
   }
 
@@ -546,6 +546,21 @@ struct ARROW_EXPORT ArraySpan {
 };
 
 namespace internal {
+
+template <typename F>
+Status VisitSlices(ArraySpan input, int64_t slice_size, const F& f) {
+  int64_t num_slices = input.length / slice_size;
+  int64_t trailing_slice_size = input.length % slice_size;
+  int64_t offset = input.offset;
+
+  for (int64_t i = 0; i < num_slices; ++i) {
+    input.SetSlice(offset, slice_size);
+    ARROW_RETURN_NOT_OK(f(input));
+    offset += slice_size;
+  }
+  input.SetSlice(offset, trailing_slice_size);
+  return f(input);
+}
 
 void FillZeroLengthArray(const DataType* type, ArraySpan* span);
 

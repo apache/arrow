@@ -302,6 +302,9 @@ void ComputeDataPreallocate(const DataType& type,
     case Type::LARGE_LIST:
       widths->emplace_back(64, /*added_length=*/1);
       return;
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      widths->emplace_back(8 * sizeof(StringHeader));
     default:
       break;
   }

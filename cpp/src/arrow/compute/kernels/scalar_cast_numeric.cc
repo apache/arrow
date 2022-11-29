@@ -726,7 +726,7 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
 }
 
 std::shared_ptr<CastFunction> GetCastToDecimal128() {
-  OutputType sig_out_ty(ResolveOutputFromOptions);
+  OutputType sig_out_ty = kOutputTargetType;
 
   auto func = std::make_shared<CastFunction>("cast_decimal", Type::DECIMAL128);
   AddCommonCasts(Type::DECIMAL128, sig_out_ty, func.get());
@@ -761,7 +761,7 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
 }
 
 std::shared_ptr<CastFunction> GetCastToDecimal256() {
-  OutputType sig_out_ty(ResolveOutputFromOptions);
+  OutputType sig_out_ty = kOutputTargetType;
 
   auto func = std::make_shared<CastFunction>("cast_decimal256", Type::DECIMAL256);
   AddCommonCasts(Type::DECIMAL256, sig_out_ty, func.get());

@@ -172,39 +172,29 @@ namespace {
 struct UTF8DataValidator {
   const ArrayData& data;
 
-  Status Visit(const DataType&) { Unreachable("utf-8 validation of non string type"); }
+  template <typename T>
+  Status Visit(const T&) {
+    if constexpr (std::is_same_v<T, StringType> || std::is_same_v<T, LargeStringType> ||
+                  std::is_same_v<T, StringViewType>) {
+      util::InitializeUTF8();
 
-  Status Visit(const StringViewType&) {
-    util::InitializeUTF8();
-
-    const auto* values = data.GetValues<StringHeader>(1);
-    for (int64_t i = 0; i < data.length; ++i) {
-      if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(
-              reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()))) {
-        return Status::Invalid("Invalid UTF8 sequence at string index ", i);
-      }
+      int64_t i = 0;
+      return VisitArraySpanInline<T>(
+          data,
+          [&](std::string_view v) {
+            if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(v))) {
+              return Status::Invalid("Invalid UTF8 sequence at string index ", i);
+            }
+            ++i;
+            return Status::OK();
+          },
+          [&]() {
+            ++i;
+            return Status::OK();
+          });
+    } else {
+      Unreachable("utf-8 validation of non string type");
     }
-    return Status::OK();
-  }
-
-  template <typename StringType>
-  enable_if_string<StringType, Status> Visit(const StringType&) {
-    util::InitializeUTF8();
-
-    int64_t i = 0;
-    return VisitArraySpanInline<StringType>(
-        data,
-        [&](std::string_view v) {
-          if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(v))) {
-            return Status::Invalid("Invalid UTF8 sequence at string index ", i);
-          }
-          ++i;
-          return Status::OK();
-        },
-        [&]() {
-          ++i;
-          return Status::OK();
-        });
   }
 };
 
@@ -299,6 +289,14 @@ struct ValidateArrayImpl {
 
   Status Visit(const LargeStringType& type) {
     RETURN_NOT_OK(ValidateBinaryLike(type));
+    if (full_validation) {
+      RETURN_NOT_OK(ValidateUTF8(data));
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const StringViewType& type) {
+    RETURN_NOT_OK(ValidateBinaryView(type));
     if (full_validation) {
       RETURN_NOT_OK(ValidateUTF8(data));
     }
