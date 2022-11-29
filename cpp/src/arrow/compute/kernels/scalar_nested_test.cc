@@ -187,6 +187,14 @@ TEST(TestScalarNested, ListSliceFixedOutput) {
                                  "non-FixedSizeListArray without `stop` being set."),
             CallFunction("list_slice", {input}, &args));
       }
+      
+      args.start = 3;
+      args.stop = std::nullopt;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 0),
+                               "[[], [], [], null]");
+      if (input->type()->id() == Type::FIXED_SIZE_LIST) {
+        CheckScalarUnary("list_slice", input, expected, &args);
+      }
     }
   }
 }
