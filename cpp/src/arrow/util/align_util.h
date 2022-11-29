@@ -19,6 +19,8 @@
 
 #include <algorithm>
 
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/util/bit_util.h"
 
 namespace arrow {
@@ -62,6 +64,23 @@ inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_of
 
   p.aligned_start = data + (bit_offset + p.leading_bits) / 8;
   return p;
+}
+
+template <typename T>
+ARROW_EXPORT Status EnsureAlignment(std::shared_ptr<T> object, int64_t minimum_alignment,
+                                    MemoryPool* memory_pool) {
+  std::vector<std::shared_ptr<Buffer>> buffers_ = object->data()->buffers;
+  for (auto& it : buffers_) {
+    if (it) {
+      auto buffer_address = it->address();
+      if ((buffer_address & minimum_alignment) != 0) {
+        ARROW_ASSIGN_OR_RAISE(auto new_buffer,
+                              AllocateBuffer(it->size(), minimum_alignment, memory_pool));
+        std::memcpy(it->mutable_data(), new_buffer->data(), new_buffer->size());
+      }
+    }
+  }
+  return Status::OK();
 }
 
 }  // namespace internal

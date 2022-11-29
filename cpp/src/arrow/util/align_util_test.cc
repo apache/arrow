@@ -22,6 +22,9 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/util/align_util.h"
 
 namespace arrow {
@@ -144,6 +147,20 @@ TEST(BitmapWordAlign, UnalignedDataStart) {
   CheckBitmapWordAlign<8>(P, 1017, 63, {63, 0, 0, A, 0, 0});
   CheckBitmapWordAlign<8>(P, 1017, 64, {63, 1, 1080, A, 0, 0});
   CheckBitmapWordAlign<8>(P, 1017, 128, {63, 1, 1144, A + 128, 64, 1});
+}
+
+TEST(DefaultMemoryPool, EnsureAlignment) {
+  MemoryPool* pool = default_memory_pool();
+  auto rand = ::arrow::random::RandomArrayGenerator(1923);
+  auto random_array = rand.UInt8(/*size*/ 50, /*min*/ 0, /*max*/ 100,
+                                 /*null_probability*/ 0, /*alignment*/ 4, pool);
+  std::vector<std::shared_ptr<Buffer>> buffers_ = random_array->data()->buffers;
+  auto alignment = EnsureAlignment<arrow::Array>(random_array, 16, pool);
+  for (auto& it : buffers_) {
+    if (it) {
+      ASSERT_EQ(it->address() % 16, 0);
+    }
+  }
 }
 
 }  // namespace internal
