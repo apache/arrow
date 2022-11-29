@@ -20,18 +20,22 @@
 
 # Packaging checklist for CRAN release
 
-For full documentation of the steps in this checklist, see the
+For a high-level overview of the release process see the
 [Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
 
 - [ ] When a release candidate is created
   [Create a GitHub issue](https://github.com/apache/arrow/issues/new/)
   entitled `[R] CRAN release version X.X.X` and copy this checklist to the issue
   
-- [ ] Confirm that all
-  [nightly tests and nightly packaging builds](https://lists.apache.org/list.html?builds@arrow.apache.org) are passing.
+- [ ] Evaluate the status of any failing
+  [nightly tests and nightly packaging builds](https://lists.apache.org/list.html?builds@arrow.apache.org): these are run
+  against the master branch and not the release branch, so the results may be
+  slightly out of date. After the CRAN-specific release branch has been created,
+  we can run any or all tests again using a GitHub PR and crossbow.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html)
 - [ ] Ensure the contents of the README is accurate
-- [ ] `urlchecker::url_check()`
+- [ ] Run `urlchecker::url_check()` on the R directory at the release candidate
+  commit.
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release)
 - [ ] Prepare tweet thread highlighting new features
 
@@ -63,18 +67,17 @@ Prepare and check the .tar.gz that will be released to CRAN.
 - [ ] `git fetch upstream && git checkout release-X.X.X-rcXX`
 - [ ] `make build` (copies Arrow C++ into tools/cpp, prunes some unnecessary
   components, and runs `R CMD build`)
-- [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on Linux
-- [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on Windows
-- [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on MacOS
-- [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally on MacOS M1
+- [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally
 - [ ] Run reverse dependency checks
 
 Wait for the official release...
   
 - [ ] Release vote passed!
 - [ ] Create a CRAN-release branch from the official release commit
+- [ ] Pick any commits that were made to master since the release commit that
+  were needed to fix CRAN-related submission issues (e.g., fixed URLs)
 - [ ] Remove badges from README.md
-- [ ] `urlchecker::url_check()`
+- [ ] Run `urlchecker::url_check()` on the R directory
 - [ ] Bump the Version in DESCRIPTION to X.X.X
 - [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
@@ -96,6 +99,7 @@ Check binary Arrow C++ distributions specific to the R package:
   and confirm that the check is clean
 - [ ] Check `install.packages("arrow_X.X.X.tar.gz")` on Ubuntu and ensure that the
   hosted binaries are used
+- [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally one more time (for luck)
 
 Submit!
 
