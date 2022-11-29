@@ -92,12 +92,11 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
   if(CXX_SUPPORTS_SSE4_2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
-		          "^(SSE4_2|AVX2|AVX512|MAX)$")
+                             "^(SSE4_2|AVX2|AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_SSE4_2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
-  if(CXX_SUPPORTS_AVX2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
-		          "^(AVX2|AVX512|MAX)$")
+  if(CXX_SUPPORTS_AVX2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX2|AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_AVX2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX2 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
@@ -466,8 +465,11 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
       message(FATAL_ERROR "AVX512_ICX required but compiler doesn't support it.")
     endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_AVX512_ICX_FLAG}")
-    add_definitions(-DARROW_HAVE_AVX512_ICX -DARROW_HAVE_AVX512 -DARROW_HAVE_AVX2
-                    -DARROW_HAVE_BMI2 -DARROW_HAVE_SSE4_2)
+    add_definitions(-DARROW_HAVE_AVX512_ICX
+                    -DARROW_HAVE_AVX512
+                    -DARROW_HAVE_AVX2
+                    -DARROW_HAVE_BMI2
+                    -DARROW_HAVE_SSE4_2)
   elseif(ARROW_SIMD_LEVEL STREQUAL "AVX512")
     if(NOT CXX_SUPPORTS_AVX512)
       message(FATAL_ERROR "AVX512 required but compiler doesn't support it.")

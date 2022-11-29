@@ -347,21 +347,21 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     if (num_bits <= 16) {
 #if defined(ARROW_HAVE_AVX512_ICX)
       int num_unpacked = (batch_size - i) / 32 * 32;
-      internal::BitPacking::UnpackValuesICX(num_bits,
-		          reinterpret_cast<const uint8_t*>(buffer + byte_offset),
-                          (batch_size - i) * num_bits / 8, batch_size - i,
-			  reinterpret_cast<uint32_t*>(v + i));
+      internal::BitPacking::UnpackValuesICX(
+          num_bits, reinterpret_cast<const uint8_t*>(buffer + byte_offset),
+          (batch_size - i) * num_bits / 8, batch_size - i,
+          reinterpret_cast<uint32_t*>(v + i));
 #else
-      int num_unpacked =
-          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
-                           reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
+      int num_unpacked = internal::unpack32(
+          reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+          reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
 #endif
       i += num_unpacked;
       byte_offset += num_unpacked * num_bits / 8;
     } else {
-      int num_unpacked =
-          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
-                           reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
+      int num_unpacked = internal::unpack32(
+          reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+          reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
       i += num_unpacked;
       byte_offset += num_unpacked * num_bits / 8;
     }
@@ -385,18 +385,18 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
       if (num_bits <= 16) {
 #if defined(ARROW_HAVE_AVX512_ICX)
         num_unpacked = unpack_size / 32 * 32;
-        internal::BitPacking::UnpackValuesICX(num_bits,
-		            reinterpret_cast<const uint8_t*>(buffer + byte_offset),
-                            unpack_size * num_bits / 8, unpack_size, unpack_buffer);
+        internal::BitPacking::UnpackValuesICX(
+            num_bits, reinterpret_cast<const uint8_t*>(buffer + byte_offset),
+            unpack_size * num_bits / 8, unpack_size, unpack_buffer);
 #else
         num_unpacked =
-          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
-                             unpack_buffer, unpack_size, num_bits);
+            internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+                               unpack_buffer, unpack_size, num_bits);
 #endif
       } else {
         num_unpacked =
-          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
-                             unpack_buffer, unpack_size, num_bits);
+            internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+                               unpack_buffer, unpack_size, num_bits);
       }
       if (num_unpacked == 0) {
         break;
