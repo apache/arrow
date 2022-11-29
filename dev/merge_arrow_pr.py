@@ -58,7 +58,8 @@ except ImportError:
     sys.exit(1)
 
 # Remote name which points to the GitHub site
-PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache")
+PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME") or "apache"
+PROJECT_NAME = os.environ.get('ARROW_PROJECT_NAME') or "arrow"
 
 # For testing to avoid accidentally pushing to apache
 DEBUG = bool(int(os.environ.get("DEBUG", 0)))
@@ -295,7 +296,7 @@ def format_issue_output(issue_type, issue_id, status, summary, assignee, compone
     if issue_type == "jira":
         url = '/'.join((JIRA_API_BASE, 'browse', issue_id))
     else:
-        url = f'https://github.com/{PR_REMOTE_NAME}/arrow/issues/{issue_id}'
+        url = f'https://github.com/{PR_REMOTE_NAME}/{PROJECT_NAME}/issues/{issue_id}'
 
     return """=== {} {} ===
 Summary\t\t{}
@@ -309,8 +310,7 @@ URL\t\t{}""".format(issue_type.upper(), issue_id, summary, assignee,
 class GitHubAPI(object):
 
     def __init__(self, project_name, cmd):
-        self.github_api = ("https://api.github.com/repos/{PR_REMOTE_NAME}/{0}"
-                           .format(project_name))
+        self.github_api = f"https://api.github.com/repos/{PR_REMOTE_NAME}/{project_name}"
 
         token = None
         config = load_configuration()
@@ -648,9 +648,9 @@ def get_pr_num():
 def cli():
     # Location of your Arrow git clone
     ARROW_HOME = os.path.abspath(os.path.dirname(__file__))
-    PROJECT_NAME = os.environ.get('ARROW_PROJECT_NAME') or 'arrow'
-    print("ARROW_HOME = " + ARROW_HOME)
-    print("PROJECT_NAME = " + PROJECT_NAME)
+    print(f"ARROW_HOME = {ARROW_HOME}")
+    print(f"PR_REMOTE_NAME = {PR_REMOTE_NAME}")
+    print(f"PROJECT_NAME = {PROJECT_NAME}")
 
     cmd = CommandInput()
 
