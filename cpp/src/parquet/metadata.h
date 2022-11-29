@@ -184,24 +184,24 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
 };
 
-// \brief DataPageStats stores statistics about a data page including number of
-// values and rows.
+// \brief DataPageStats is a proxy around format::DataPageHeader and
+// format::DataPageHeaderV2.
 class PARQUET_EXPORT DataPageStats {
  public:
-  explicit DataPageStats(const EncodedStatistics& encoded_statistics, int32_t num_values,
+  explicit DataPageStats(EncodedStatistics* encoded_statistics, int32_t num_values,
                          std::optional<int32_t> num_rows)
       : encoded_statistics_(encoded_statistics),
         num_values_(num_values),
         num_rows_(num_rows) {}
 
-  const EncodedStatistics& statistics() { return encoded_statistics_; }
+  EncodedStatistics* statistics() { return encoded_statistics_; }
 
   int32_t num_values() const { return num_values_; }
 
   std::optional<int32_t> num_rows() const { return num_rows_; }
 
  private:
-  const EncodedStatistics& encoded_statistics_;
+  EncodedStatistics* encoded_statistics_;
   const int32_t num_values_;
   const std::optional<int32_t> num_rows_;
 };

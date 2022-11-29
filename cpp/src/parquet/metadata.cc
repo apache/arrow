@@ -31,8 +31,6 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "column_reader.h"
-#include "metadata.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
