@@ -127,8 +127,7 @@ public class Table extends BaseTable implements Iterable<Row> {
     }
     return new Table(vectorCopies, (int) getRowCount(), providerCopy);
   }
-
-
+  
   /**
    * Returns a new Table created by adding the given vector to the vectors in this Table.
    *
@@ -189,30 +188,6 @@ public class Table extends BaseTable implements Iterable<Row> {
             .collect(Collectors.toList());
 
     return new Table(sliceVectors);
-  }
-
-  @Override
-  public Table toImmutableTable() {
-    return this;
-  }
-
-  /**
-   * Returns a MutableTable from the data in this table. Memory is transferred to the new table so this table
-   * can no longer be used
-   *
-   * @return a new MutableTable
-   */
-  @Override
-  public MutableTable toMutableTable() {
-    MutableTable t = new MutableTable(
-        fieldVectors.stream().map(v -> {
-          TransferPair transferPair = v.getTransferPair(v.getAllocator());
-          transferPair.transfer();
-          return (FieldVector) transferPair.getTo();
-        }).collect(Collectors.toList())
-    );
-    clear();
-    return t;
   }
 
   /** Returns a Row iterator for this Table. */
