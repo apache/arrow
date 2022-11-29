@@ -56,6 +56,7 @@ else
   release_type=major
 fi
 
+export TZ=UTC
 release_date=$(LANG=C date "+%-d %B %Y")
 previous_tag_date=$(git log -n 1 --pretty=%aI apache-arrow-${previous_version})
 rough_previous_release_date=$(date --date "${previous_tag_date}" +%s)
