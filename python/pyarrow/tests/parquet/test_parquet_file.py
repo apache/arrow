@@ -17,6 +17,7 @@
 
 import io
 import os
+import sys
 from unittest import mock
 
 import pytest
@@ -180,7 +181,7 @@ def test_parquet_file_pass_directory_instead_of_file(tempdir):
     msg = f"Cannot open for reading: path '{str(path)}' is a directory"
     with pytest.raises(IOError) as exc:
         pq.ParquetFile(path)
-    if exc.errisinstance(PermissionError):
+    if exc.errisinstance(PermissionError) and sys.platform == 'win32':
         return  # Windows CI can get a PermissionError here.
     exc.match(msg)
 
