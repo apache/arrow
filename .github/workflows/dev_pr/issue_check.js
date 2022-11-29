@@ -149,7 +149,7 @@ async function verifyGitHubIssue(github, context, pullRequestNumber, issueID) {
     if (!issueInfo.assignees.length) {
         await assignGitHubIssue(github, context, pullRequestNumber, issueInfo);
     }
-    if(!issueInfo.labels.filter((label) => label.startsWith("Component:")).length) {
+    if(!issueInfo.labels.filter((label) => label.name.startsWith("Component:")).length) {
         await github.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
