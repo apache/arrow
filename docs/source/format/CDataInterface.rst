@@ -91,6 +91,7 @@ Pros of the IPC format vs. the data interface:
   (such as integrity checks, compression...).
 * Does not require explicit C data access.
 
+
 Data type description -- format strings
 =======================================
 
@@ -528,6 +529,10 @@ parameterized extension types).
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.
 
+
+Semantics
+=========
+
 Memory management
 -----------------
 
@@ -666,6 +671,15 @@ Record batches
 A record batch can be trivially considered as an equivalent struct array. In
 this case the metadata of the top-level ``ArrowSchema`` can be used for the
 schema-level metadata of the record batch.
+
+Mutability
+----------
+
+Both the producer and the consumer SHOULD consider the exported data
+(that is, the data reachable through the ``buffers`` member of ``ArrowArray``)
+to be immutable, as either party could otherwise see inconsistent data while
+the other is mutating it.
+
 
 Example use case
 ================

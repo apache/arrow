@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,18 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+from pyarrow._pyarrow_cpp_tests import get_cpp_tests
 
-# check that optional pyarrow modules are available
-# because pytest would just skip the pyarrow tests
-python -c "import pyarrow.parquet"
 
-# check that kartothek is correctly installed
-python -c "import kartothek"
+def inject_cpp_tests(ns):
+    """
+    Inject C++ tests as Python functions into namespace `ns` (a dict).
+    """
+    for case in get_cpp_tests():
+        def wrapper(case=case):
+            case()
+        wrapper.__name__ = wrapper.__qualname__ = case.name
+        wrapper.__module__ = ns['__name__']
+        ns[case.name] = wrapper
 
-pushd /kartothek
-# See ARROW-12314, test_load_dataframes_columns_raises_missing skipped because of changed error message
-# See ARROW-16262 and https://github.com/JDASoftwareGroup/kartothek/issues/515
-pytest -n0 --ignore tests/cli/test_query.py -k "not test_load_dataframes_columns_raises_missing \
-              and not dates_as_object and not test_date_as_object \
-              and not test_predicate_pushdown and not test_predicate_evaluation_date"
+
+inject_cpp_tests(globals())

@@ -410,7 +410,8 @@ set(CYTHON_EXTENSIONS
     _feather
     _fs
     _hdfsio
-    _json)
+    _json
+    _pyarrow_cpp_tests)
 
 set(LINK_LIBS ArrowPython::arrow_python_shared)
 
@@ -588,6 +589,9 @@ endif()
 if(PYARROW_GENERATE_COVERAGE)
   set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xlinetrace=True")
 endif()
+
+# Error on any warnings not already explicitly ignored.
+set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
 
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})

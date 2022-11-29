@@ -171,7 +171,7 @@ class GcsIntegrationTest : public ::testing::Test {
  protected:
   void SetUp() override {
     ASSERT_THAT(Testbench(), NotNull());
-    ASSERT_TRUE(Testbench()->error().empty());
+    ASSERT_EQ(Testbench()->error(), "");
     ASSERT_TRUE(Testbench()->running());
 
     // Initialize a PRNG with a small amount of entropy.

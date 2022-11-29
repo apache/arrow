@@ -703,3 +703,14 @@ func checkIndexBounds(values *exec.ArraySpan, upperLimit uint64) error {
 		return fmt.Errorf("%w: invalid index type for bounds checking", arrow.ErrInvalid)
 	}
 }
+
+func checkIndexBoundsChunked(values *arrow.Chunked, upperLimit uint64) error {
+	var span exec.ArraySpan
+	for _, v := range values.Chunks() {
+		span.SetMembers(v.Data())
+		if err := checkIndexBounds(&span, upperLimit); err != nil {
+			return err
+		}
+	}
+	return nil
+}

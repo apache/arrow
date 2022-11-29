@@ -100,14 +100,6 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   } else {
     args <- c('--no-manual', '--ignore-vignettes')
     build_args <- '--no-build-vignettes'
-
-    if (nzchar(Sys.which('minio'))) {
-      message('Running minio for S3 tests (if build supports them)')
-      minio_dir <- tempfile()
-      dir.create(minio_dir)
-      pid_minio <- sys::exec_background('minio', c('server', minio_dir))
-      on.exit(tools::pskill(pid_minio), add = TRUE)
-    }
   }
 
   if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {

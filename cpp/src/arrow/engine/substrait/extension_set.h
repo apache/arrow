@@ -32,6 +32,7 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
@@ -253,6 +254,20 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   /// \return A converter function or an invalid status if no converter is registered
   virtual Result<SubstraitCallToArrow> GetSubstraitCallToArrow(
       Id substrait_function_id) const = 0;
+
+  /// \brief Similar to \see GetSubstraitCallToArrow but only uses the name
+  ///
+  /// There may be multiple functions with the same name and this will return
+  /// the first.  This is slower than GetSubstraitCallToArrow and should only
+  /// be used when the plan does not include a URI (or the URI is "/")
+  virtual Result<SubstraitCallToArrow> GetSubstraitCallToArrowFallback(
+      std::string_view function_name) const = 0;
+
+  /// \brief Similar to \see GetSubstraitAggregateToArrow but only uses the name
+  ///
+  /// \see GetSubstraitCallToArrowFallback for details on the fallback behavior
+  virtual Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrowFallback(
+      std::string_view function_name) const = 0;
 };
 
 constexpr std::string_view kArrowExtTypesUri =
@@ -339,6 +354,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
       std::unordered_map<uint32_t, std::string_view> uris,
       std::unordered_map<uint32_t, Id> type_ids,
       std::unordered_map<uint32_t, Id> function_ids,
+      const ConversionOptions& conversion_options,
       const ExtensionIdRegistry* = default_extension_id_registry());
 
   const std::unordered_map<uint32_t, std::string_view>& uris() const { return uris_; }

@@ -19,6 +19,8 @@
 
 # Java Plasma Client
 
+This is deprecated since 10.0.0. This will be removed from 12.0.0 or so.
+
 ## Setup Build Environment
 
 Install:

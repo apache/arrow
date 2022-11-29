@@ -1081,6 +1081,13 @@ func (v *vectorExecutor) execChunked(batch *ExecBatch, out chan<- Datum) error {
 		return err
 	}
 
+	if len(result) == 0 {
+		empty := output.MakeArray()
+		defer empty.Release()
+		out <- &ChunkedDatum{Value: arrow.NewChunked(output.Type, []arrow.Array{empty})}
+		return nil
+	}
+
 	for _, r := range result {
 		if err := v.emitResult(r, out); err != nil {
 			return err

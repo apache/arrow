@@ -259,5 +259,19 @@ inline static std::string null_src() {
   )";
 }
 
+inline static std::string unquoted_decimal_src() {
+  return R"(
+    { "price": 30.04, "cost":30.001 }
+    { "price": 1.23, "cost":1.229 }
+  )";
+}
+
+inline static std::string mixed_decimal_src() {
+  return R"(
+    { "price": 30.04, "cost": 30.001 }
+    { "price": "1.23", "cost": "1.229" }
+  )";
+}
+
 }  // namespace json
 }  // namespace arrow

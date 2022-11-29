@@ -32,11 +32,13 @@
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/tracing_internal.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -553,6 +555,61 @@ Declaration Declaration::Sequence(std::vector<Declaration> decls) {
 
 bool Declaration::IsValid(ExecFactoryRegistry* registry) const {
   return !this->factory_name.empty() && this->options != nullptr;
+}
+
+Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
+                                                       ExecContext* exec_context) {
+  std::shared_ptr<std::shared_ptr<Table>> output_table =
+      std::make_shared<std::shared_ptr<Table>>();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(exec_context));
+  Declaration with_sink = Declaration::Sequence(
+      {declaration, {"table_sink", TableSinkNodeOptions(output_table.get())}});
+  ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
+  return exec_plan->finished().Then([exec_plan, output_table] { return *output_table; });
+}
+
+Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
+                                                  ExecContext* exec_context) {
+  return DeclarationToTableAsync(std::move(declaration), exec_context).result();
+}
+
+Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
+    Declaration declaration, ExecContext* exec_context) {
+  return DeclarationToTableAsync(std::move(declaration), exec_context)
+      .Then([](const std::shared_ptr<Table>& table) {
+        return TableBatchReader(table).ToRecordBatches();
+      });
+}
+
+Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
+    Declaration declaration, ExecContext* exec_context) {
+  return DeclarationToBatchesAsync(std::move(declaration), exec_context).result();
+}
+
+Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(Declaration declaration,
+                                                             ExecContext* exec_context) {
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(exec_context));
+  Declaration with_sink =
+      Declaration::Sequence({declaration, {"sink", SinkNodeOptions(&sink_gen)}});
+  ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
+  auto collected_fut = CollectAsyncGenerator(sink_gen);
+  return AllComplete({exec_plan->finished(), Future<>(collected_fut)})
+      .Then([collected_fut, exec_plan]() -> Result<std::vector<ExecBatch>> {
+        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+        return ::arrow::internal::MapVector(
+            [](std::optional<ExecBatch> batch) { return std::move(*batch); },
+            std::move(collected));
+      });
+}
+
+Result<std::vector<ExecBatch>> DeclarationToExecBatches(Declaration declaration,
+                                                        ExecContext* exec_context) {
+  return DeclarationToExecBatchesAsync(std::move(declaration), exec_context).result();
 }
 
 namespace internal {

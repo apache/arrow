@@ -45,7 +45,7 @@ namespace compute {
 class ARROW_EXPORT MapNode : public ExecNode {
  public:
   MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-          std::shared_ptr<Schema> output_schema, bool async_mode);
+          std::shared_ptr<Schema> output_schema);
 
   void ErrorReceived(ExecNode* input, Status error) override;
 
@@ -69,11 +69,6 @@ class ARROW_EXPORT MapNode : public ExecNode {
  protected:
   // Counter for the number of batches received
   AtomicCounter input_counter_;
-
-  ::arrow::internal::Executor* executor_;
-
-  // Variable used to cancel remaining tasks in the executor
-  StopSource stop_source_;
 };
 
 }  // namespace compute

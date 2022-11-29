@@ -23,7 +23,6 @@
 #include <utility>
 
 #include "arrow/result.h"
-#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/visibility.h"
@@ -138,10 +137,10 @@ struct SignalStopState {
     // Before creating a new StopSource, delete any lingering reference to
     // the previous one in the trash can.  See DoHandleSignal() for details.
     EmptyTrashCan();
-    internal::atomic_store(&stop_source_, std::make_shared<StopSource>());
+    std::atomic_store(&stop_source_, std::make_shared<StopSource>());
   }
 
-  void Disable() { internal::atomic_store(&stop_source_, NullSource()); }
+  void Disable() { std::atomic_store(&stop_source_, NullSource()); }
 
   static SignalStopState* instance() { return &instance_; }
 
@@ -149,13 +148,13 @@ struct SignalStopState {
   // For readability
   std::shared_ptr<StopSource> NullSource() { return nullptr; }
 
-  void EmptyTrashCan() { internal::atomic_store(&trash_can_, NullSource()); }
+  void EmptyTrashCan() { std::atomic_store(&trash_can_, NullSource()); }
 
   static void HandleSignal(int signum) { instance_.DoHandleSignal(signum); }
 
   void DoHandleSignal(int signum) {
     // async-signal-safe code only
-    auto source = internal::atomic_load(&stop_source_);
+    auto source = std::atomic_load(&stop_source_);
     if (source) {
       source->RequestStopFromSignal(signum);
       // Disable() may have been called in the meantime, but we can't
@@ -177,7 +176,7 @@ struct SignalStopState {
       // This case should be sufficiently unlikely, but we cannot entirely
       // rule it out.  The problem might be solved properly with a lock-free
       // linked list of StopSources.
-      internal::atomic_store(&trash_can_, std::move(source));
+      std::atomic_store(&trash_can_, std::move(source));
     }
     ReinstateSignalHandler(signum, &HandleSignal);
   }

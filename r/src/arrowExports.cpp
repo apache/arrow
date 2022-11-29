@@ -4658,6 +4658,22 @@ BEGIN_CPP11
 END_CPP11
 }
 // safe-call-into-r-impl.cpp
+void DeinitializeMainRThread();
+extern "C" SEXP _arrow_DeinitializeMainRThread(){
+BEGIN_CPP11
+	DeinitializeMainRThread();
+	return R_NilValue;
+END_CPP11
+}
+// safe-call-into-r-impl.cpp
+bool SetEnableSignalStopSource(bool enabled);
+extern "C" SEXP _arrow_SetEnableSignalStopSource(SEXP enabled_sexp){
+BEGIN_CPP11
+	arrow::r::Input<bool>::type enabled(enabled_sexp);
+	return cpp11::as_sexp(SetEnableSignalStopSource(enabled));
+END_CPP11
+}
+// safe-call-into-r-impl.cpp
 bool CanRunWithCapturedR();
 extern "C" SEXP _arrow_CanRunWithCapturedR(){
 BEGIN_CPP11
@@ -5657,6 +5673,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
 		{ "_arrow_InitializeMainRThread", (DL_FUNC) &_arrow_InitializeMainRThread, 0}, 
+		{ "_arrow_DeinitializeMainRThread", (DL_FUNC) &_arrow_DeinitializeMainRThread, 0}, 
+		{ "_arrow_SetEnableSignalStopSource", (DL_FUNC) &_arrow_SetEnableSignalStopSource, 1}, 
 		{ "_arrow_CanRunWithCapturedR", (DL_FUNC) &_arrow_CanRunWithCapturedR, 0}, 
 		{ "_arrow_TestSafeCallIntoR", (DL_FUNC) &_arrow_TestSafeCallIntoR, 2}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 

@@ -61,6 +61,7 @@ Suggests:
     rmarkdown,
     stringi,
     stringr,
+    sys,
     testthat (>= 3.1.0),
     tibble,
     tzdb,

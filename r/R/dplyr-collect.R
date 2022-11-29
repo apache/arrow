@@ -22,11 +22,9 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   tryCatch(
     out <- as_arrow_table(x),
     # n = 4 because we want the error to show up as being from collect()
-    # and not handle_csv_read_error()
+    # and not augment_io_error_msg()
     error = function(e, call = caller_env(n = 4)) {
-      handle_csv_read_error(e, x$.data$schema, call)
-      handle_augmented_field_misuse(e, call)
-      abort(conditionMessage(e), call = call)
+      augment_io_error_msg(e, call, schema = x$.data$schema)
     }
   )
 

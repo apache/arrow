@@ -497,7 +497,9 @@ gs_bucket <- function(bucket, ...) {
 GcsFileSystem <- R6Class("GcsFileSystem",
   inherit = FileSystem
 )
-GcsFileSystem$create <- function(anonymous = FALSE, ...) {
+GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ...) {
+  # The default retry limit in C++ is 15 minutes, but that is experienced as
+  # hanging in an interactive context, so default is set here to 15 seconds.
   options <- list(...)
 
   # Validate options
@@ -525,8 +527,7 @@ GcsFileSystem$create <- function(anonymous = FALSE, ...) {
 
   valid_opts <- c(
     "access_token", "expiration", "json_credentials", "endpoint_override",
-    "scheme", "default_bucket_location", "retry_limit_seconds",
-    "default_metadata"
+    "scheme", "default_bucket_location", "default_metadata"
   )
 
   invalid_opts <- setdiff(names(options), valid_opts)
@@ -537,6 +538,8 @@ GcsFileSystem$create <- function(anonymous = FALSE, ...) {
       call. = FALSE
     )
   }
+
+  options$retry_limit_seconds <- retry_limit_seconds
 
   fs___GcsFileSystem__Make(anonymous, options)
 }

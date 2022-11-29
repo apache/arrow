@@ -1092,6 +1092,17 @@ Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
   return FieldPathGetImpl::Get(this, fields);
 }
 
+Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
+                                                  const std::vector<FieldPath>& paths) {
+  std::vector<std::shared_ptr<Field>> fields;
+  fields.reserve(paths.size());
+  for (const auto& path : paths) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Field> field, path.Get(schm));
+    fields.push_back(std::move(field));
+  }
+  return schema(std::move(fields));
+}
+
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
   return MakeArray(std::move(data));
