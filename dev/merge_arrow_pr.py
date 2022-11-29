@@ -32,8 +32,8 @@
 # Configuration environment variables:
 #   - APACHE_JIRA_TOKEN: your Apache JIRA Personal Access Token
 #   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests
-#   - PR_REMOTE_NAME: the name of the remote to the Apache git repo (set to
-#                     'apache' by default)
+#   - ORG_NAME: the name of the remote to the Apache git repo
+#               (set to 'apache' by default)
 #   - DEBUG: use for testing to avoid pushing to apache (0 by default)
 
 import configparser
@@ -58,7 +58,11 @@ except ImportError:
     sys.exit(1)
 
 # Remote name which points to the GitHub site
-PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME") or "apache"
+ORG_NAME = (
+    os.environ.get("ORG_NAME") or
+    os.environ.get("PR_REMOTE_NAME") or  # backward compatibility
+    "apache"
+)
 PROJECT_NAME = os.environ.get('ARROW_PROJECT_NAME') or "arrow"
 
 # For testing to avoid accidentally pushing to apache
@@ -206,7 +210,10 @@ class GitHubIssue(object):
 
     def get_label(self, prefix):
         prefix = f"{prefix}:"
-        return [l["name"][len(prefix):].strip() for l in self.issue["labels"] if l["name"].startswith(prefix)]
+        return [
+            lbl["name"][len(prefix):].strip()
+            for lbl in self.issue["labels"] if lbl["name"].startswith(prefix)
+        ]
 
     @property
     def components(self):
@@ -286,7 +293,8 @@ def get_candidate_fix_version(mainline_versions,
     return default_fix_versions[0]
 
 
-def format_issue_output(issue_type, issue_id, status, summary, assignee, components):
+def format_issue_output(issue_type, issue_id, status,
+                        summary, assignee, components):
     if not assignee:
         assignee = "NOT ASSIGNED!!!"
     else:
@@ -300,7 +308,9 @@ def format_issue_output(issue_type, issue_id, status, summary, assignee, compone
     if issue_type == "jira":
         url = '/'.join((JIRA_API_BASE, 'browse', issue_id))
     else:
-        url = f'https://github.com/{PR_REMOTE_NAME}/{PROJECT_NAME}/issues/{issue_id}'
+        url = (
+            f'https://github.com/{ORG_NAME}/{PROJECT_NAME}/issues/{issue_id}'
+        )
 
     return """=== {} {} ===
 Summary\t\t{}
@@ -314,7 +324,9 @@ URL\t\t{}""".format(issue_type.upper(), issue_id, summary, assignee,
 class GitHubAPI(object):
 
     def __init__(self, project_name, cmd):
-        self.github_api = f"https://api.github.com/repos/{PR_REMOTE_NAME}/{project_name}"
+        self.github_api = (
+            f"https://api.github.com/repos/{ORG_NAME}/{project_name}"
+        )
 
         token = None
         config = load_configuration()
@@ -431,8 +443,10 @@ class PullRequest(object):
     # We can merge both ARROW and PARQUET patches
     GITHUB_PR_TITLE_REGEXEN = re.compile(r'^GH-([0-9]+)\b.*$')
     JIRA_SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
-    JIRA_PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
-                             for project in JIRA_SUPPORTED_PROJECTS]
+    JIRA_PR_TITLE_REGEXEN = [
+        (project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
+        for project in JIRA_SUPPORTED_PROJECTS
+    ]
 
     def __init__(self, cmd, github_api, git_remote, jira_con, number):
         self.cmd = cmd
@@ -659,7 +673,7 @@ def cli():
     # Location of your Arrow git clone
     ARROW_HOME = os.path.abspath(os.path.dirname(__file__))
     print(f"ARROW_HOME = {ARROW_HOME}")
-    print(f"PR_REMOTE_NAME = {PR_REMOTE_NAME}")
+    print(f"ORG_NAME = {ORG_NAME}")
     print(f"PROJECT_NAME = {PROJECT_NAME}")
 
     cmd = CommandInput()
@@ -671,7 +685,7 @@ def cli():
     github_api = GitHubAPI(PROJECT_NAME, cmd)
 
     jira_con = connect_jira(cmd)
-    pr = PullRequest(cmd, github_api, PR_REMOTE_NAME, jira_con, pr_num)
+    pr = PullRequest(cmd, github_api, ORG_NAME, jira_con, pr_num)
 
     if pr.is_merged:
         print("Pull request %s has already been merged" % pr_num)
@@ -695,7 +709,7 @@ def cli():
     issue_comment = (
         "Issue resolved by pull request %s\n%s"
         % (pr_num,
-           f"https://github.com/{PR_REMOTE_NAME}/{PROJECT_NAME}/pull/{pr_num}")
+           f"https://github.com/{ORG_NAME}/{PROJECT_NAME}/pull/{pr_num}")
     )
     fix_version = prompt_for_fix_version(cmd, pr.issue,
                                          pr.maintenance_branches)
