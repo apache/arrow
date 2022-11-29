@@ -187,8 +187,6 @@ class TestConvertMetadata:
         df.columns.names = ['a']
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    @pytest.mark.filterwarnings(
-        "ignore:parsing timezone aware datetimes:DeprecationWarning")
     def test_column_index_names_with_tz(self):
         # ARROW-13756
         # Bug if index is timezone aware DataTimeIndex

@@ -297,8 +297,6 @@ def test_coerce_int96_timestamp_unit(unit):
 
 @pytest.mark.pandas
 @pytest.mark.parametrize('pq_reader_method', ['ParquetFile', 'read_table'])
-@pytest.mark.filterwarnings(
-    "ignore:Discarding nonzero nanoseconds in conversion:UserWarning")
 def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
 
     def get_table(pq_reader_method, filename, **kwargs):
