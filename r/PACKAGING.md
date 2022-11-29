@@ -36,7 +36,7 @@ Before the release candidate is cut:
 - [ ] Ensure the contents of the README is accurate
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
-- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release)
+- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later).
 - [ ] For major releases, prepare tweet thread highlighting new features
 
 Wait for the release candidate to be cut:
