@@ -261,7 +261,7 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
           "Unable to produce FixedSizeListArray without `stop` being set.");
     }
     const auto length = MaxSliceLength(opts.start, opts.stop.value(), opts.step);
-    return fixed_size_list(value_type, length);
+    return fixed_size_list(value_type, static_cast<int32_t>(length));
   } else {
     // Returning large list if that's what we got in and didn't ask for fixed size
     if (list_type->id() == Type::LARGE_LIST) {
