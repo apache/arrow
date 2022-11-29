@@ -295,7 +295,7 @@ def format_issue_output(issue_type, issue_id, status, summary, assignee, compone
     if issue_type == "jira":
         url = '/'.join((JIRA_API_BASE, 'browse', issue_id))
     else:
-        url = f'https://github.com/apache/arrow/issues/{issue_id}'
+        url = f'https://github.com/{PR_REMOTE_NAME}/arrow/issues/{issue_id}'
 
     return """=== {} {} ===
 Summary\t\t{}
@@ -309,7 +309,7 @@ URL\t\t{}""".format(issue_type.upper(), issue_id, summary, assignee,
 class GitHubAPI(object):
 
     def __init__(self, project_name, cmd):
-        self.github_api = ("https://api.github.com/repos/apache/{0}"
+        self.github_api = ("https://api.github.com/repos/{PR_REMOTE_NAME}/{0}"
                            .format(project_name))
 
         token = None
@@ -685,7 +685,7 @@ def cli():
     issue_comment = (
         "Issue resolved by pull request %s\n[%s/%s]"
         % (pr_num,
-           "https://github.com/apache/" + PROJECT_NAME + "/pull",
+           f"https://github.com/{PR_REMOTE_NAME}/{PROJECT_NAME}/pull",
            pr_num))
 
     fix_version = prompt_for_fix_version(cmd, pr.issue,
