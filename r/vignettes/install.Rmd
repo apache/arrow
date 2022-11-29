@@ -95,7 +95,7 @@ install.packages("arrow", repos = "https://packagemanager.rstudio.com/all/__linu
 ```
 
 Note that the User Agent header must be specified as in the example above.
-Please check [the RStudio Package Manager: Admin Guide](https://docs.rstudio.com/rspm/admin/serving-binaries/#using-linux-binary-packages) for more details.
+Please check [the RStudio Package Manager: Admin Guide](https://docs.posit.co/rspm/admin/serving-binaries/#using-linux-binary-packages) for more details.
 
 For other Linux distributions, to get the relevant URL, you can visit
 [the RSPM site](https://packagemanager.rstudio.com/client/#/repos/1/overview),
