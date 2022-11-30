@@ -400,6 +400,7 @@ def test_multi_dataset_metadata(tempdir):
     assert md['serialized_size'] > 0
 
 
+@pytest.mark.filterwarnings("ignore:Parquet format:FutureWarning")
 def test_write_metadata(tempdir):
     path = str(tempdir / "metadata")
     schema = pa.schema([("a", "int64"), ("b", "float64")])

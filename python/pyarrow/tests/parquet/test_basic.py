@@ -17,6 +17,7 @@
 
 from collections import OrderedDict
 import io
+import warnings
 
 import numpy as np
 import pytest
@@ -617,15 +618,16 @@ def test_read_non_existent_file(tempdir, use_legacy_dataset):
 
 @parametrize_legacy_dataset
 def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
-    with pytest.warns(None) as record:
-        pq.read_table(datadir / 'v0.7.1.parquet',
-                      use_legacy_dataset=use_legacy_dataset)
-
     if use_legacy_dataset:
-        # FutureWarning: 'use_legacy_dataset=True'
-        assert len(record) == 1
+        msg = "Passing 'use_legacy_dataset=True'"
+        with pytest.warns(FutureWarning, match=msg):
+            pq.read_table(datadir / 'v0.7.1.parquet',
+                          use_legacy_dataset=use_legacy_dataset)
     else:
-        assert len(record) == 0
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="error")
+            pq.read_table(datadir / 'v0.7.1.parquet',
+                          use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas

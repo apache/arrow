@@ -1175,6 +1175,10 @@ class ParquetDatasetPiece:
         reader = self.open_file_func(self.path)
         if not isinstance(reader, ParquetFile):
             reader = ParquetFile(reader, **self.file_options)
+
+        # ensure reader knows it's responsible for closing source
+        # since we opened the source here internally.
+        reader._close_source = True
         return reader
 
     def read(self, columns=None, use_threads=True, partitions=None,
