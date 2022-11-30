@@ -87,16 +87,11 @@ async function commentGitHubURL(github, context, pullRequestNumber, issueID) {
     return;
   }
   if (issueInfo){
-    const pullInfo = await github.pulls.get({
-        pull_number: pullRequestNumber,
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-    }).data;
     await github.pulls.update({
       owner: context.repo.owner,
       repo: context.repo.repo,
       pull_number: pullRequestNumber,
-      body: context.payload.pull_request.body + "\n" + message
+      body: (context.payload.pull_request.body || "") + "\n" + message
     });
     await github.issues.createComment({
       owner: context.repo.owner,
