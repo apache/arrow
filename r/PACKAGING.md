@@ -92,8 +92,8 @@ Wait for the official release...
 Update autobrew and r-windows PRs to use the *release* instead of the
 *release candidate*; ensure linux binary packages are available:
 
-- [ ] PR into autobrew/homebrew-core
-- [ ] PR into autobrew/homebrew-core
+- [ ] PR into autobrew/homebrew-core (apache-arrow autobrew formula)
+- [ ] PR into autobrew/homebrew-core (apache-arrow-static autobrew formula)
 - [ ] PR into autobrew/scripts
 - [ ] PR into r-windows/rtools-packages
 - [ ] Ensure linux binaries are available in the artifactory:
