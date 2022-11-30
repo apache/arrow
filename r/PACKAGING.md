@@ -117,7 +117,6 @@ Wait for CRAN...
 
 - [ ] Accepted!
 - [ ] Tag the tip of the CRAN-specific release branch
-- [ ] `usethis::use_dev_version()`
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/master/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
 - [ ] Update the packaging checklist template to reflect any new realities of the
   packaging process.
