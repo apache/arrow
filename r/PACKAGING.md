@@ -68,7 +68,7 @@ use the release candidate as the source.
 
 Prepare and check the .tar.gz that will be released to CRAN.
 
-- [ ] `git fetch upstream && git checkout release-X.X.X-rcXX`
+- [ ] `git fetch upstream && git checkout release-X.X.X-rcXX && git clean -f -d`
 - [ ] `make build` (copies Arrow C++ into tools/cpp, prunes some unnecessary
   components, and runs `R CMD build`)
 - [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally
