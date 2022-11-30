@@ -199,6 +199,20 @@ TEST(TestScalarNested, ListSliceFixedOutput) {
       args.step = 3;
       expected = ArrayFromJSON(fixed_size_list(value_type, 1), "[[1], [4], [6], null]");
       CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 0;
+      args.stop = 5;
+      args.step = 2;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 3),
+                               "[[1, 3, null], [4, null, null], [6, null, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 0;
+      args.stop = 6;
+      args.step = 3;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                               "[[1, null], [4, null], [6, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
     }
   }
 }
