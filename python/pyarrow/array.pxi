@@ -1402,10 +1402,12 @@ cdef class Array(_PandasConvertible):
     def sort(self, order="ascending"):
         """
         Sort the Array
+
         Parameters
         ----------
         order : "ascending" or "descending"
             The order of the sorting.
+
         Returns
         -------
         result : Array
@@ -2760,6 +2762,7 @@ cdef class StructArray(Array):
     def sort(self, order="ascending", fieldname=None):
         """
         Sort the StructArray
+
         Parameters
         ----------
         order : "ascending" or "descending"
@@ -2767,6 +2770,7 @@ cdef class StructArray(Array):
         fieldname : str or None, default None
             If to sort the array by one of its fields
             or by the whole array.
+
         Returns
         -------
         result : StructArray

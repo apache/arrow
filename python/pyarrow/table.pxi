@@ -1042,10 +1042,12 @@ cdef class ChunkedArray(_PandasConvertible):
     def sort(self, order="ascending"):
         """
         Sort the ChunkedArray
+
         Parameters
         ----------
         order : "ascending" or "descending"
             The order of the sorting.
+
         Returns
         -------
         result : ChunkedArray
@@ -2248,6 +2250,7 @@ cdef class RecordBatch(_PandasConvertible):
     def sort_by(self, sorting):
         """
         Sort the RecordBatch by one or multiple columns.
+
         Parameters
         ----------
         sorting : str or list[tuple(name, order)]
@@ -2255,6 +2258,7 @@ cdef class RecordBatch(_PandasConvertible):
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
+
         Returns
         -------
         RecordBatch
