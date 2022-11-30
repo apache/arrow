@@ -314,16 +314,14 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline std::optional<IndexLocation> GetColumIndexLocation() const {
     if (column_->__isset.column_index_offset && column_->__isset.column_index_length) {
-      return IndexLocation{.index_file_offset_bytes = column_->column_index_offset,
-                           .offset_index_length = column_->column_index_length};
+      return IndexLocation{column_->column_index_offset, column_->column_index_length};
     }
     return std::nullopt;
   }
 
   inline std::optional<IndexLocation> GetOffsetIndexLocation() const {
     if (column_->__isset.offset_index_offset && column_->__isset.offset_index_length) {
-      return IndexLocation{.index_file_offset_bytes = column_->offset_index_offset,
-                           .offset_index_length = column_->offset_index_length};
+      return IndexLocation{column_->offset_index_offset, column_->offset_index_length};
     }
     return std::nullopt;
   }
