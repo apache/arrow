@@ -218,6 +218,18 @@ cdef class Dataset(_Weakrefable):
         -------
         fragments : iterator of Fragment
         """
+        if self._scan_options.get("filter") is not None:
+            # Accessing fragments of a filtered dataset is not supported.
+            # It would be unclear if you wanted to filter the fragments 
+            # or the rows in those fragments.
+            raise ValueError(
+                "Retrieving fragments of a filtered or projected "
+                "dataset is not allowed. Remove the filtering."
+            )
+
+        return self._get_fragments(filter)
+
+    def _get_fragments(self, Expression filter):
         cdef:
             CExpression c_filter
             CFragmentIterator c_iterator
@@ -420,10 +432,11 @@ cdef class Dataset(_Weakrefable):
         cdef:
             Dataset filtered_dataset
 
-        try:
-            new_filter = self._scan_options["filter"] & expression
-        except KeyError:
-            new_filter = expression
+        new_filter = expression
+        current_filter = self._scan_options.get("filter")
+        if current_filter is not None and new_filter is not None:
+            new_filter = current_filter & new_filter
+
         filtered_dataset = self.__class__.__new__(self.__class__)
         filtered_dataset.init(self.wrapped)
         filtered_dataset._scan_options = dict(filter=new_filter)

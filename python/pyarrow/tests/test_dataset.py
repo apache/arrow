@@ -4904,6 +4904,12 @@ def test_dataset_filter(tempdir, dstype):
         "col2": ["a", "b"]
     })
 
+    # Can't get fragments of a filtered dataset
+    with pytest.raises(ValueError):
+        result.get_fragments()
+    fragments = list(result.filter(None).get_fragments())
+    assert len(fragments) == 1
+
 
 def test_write_dataset_with_scanner_use_projected_schema(tempdir):
     """
