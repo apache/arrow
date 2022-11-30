@@ -102,11 +102,17 @@ int64_t MaxSliceLength(const int64_t start, const int64_t stop, const int64_t st
   const auto stopf = static_cast<float>(stop);
   const auto stepf = static_cast<float>(step);
 
+  // length not considering step, is less than step then
+  // the length will be 1; the index of start.
   if (stopf - startf <= stepf) {
     return 1;
   }
 
+  // Get the raw length with any remainder after dividing by step
   auto length = std::floor((stopf - startf) / stepf);
+
+  // Any remainder from the step into length then it is not evenly split by step
+  // and will need one extra in length.
   if (fmod(length, stepf) > 0.0) {
     ++length;
   }
