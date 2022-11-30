@@ -49,7 +49,7 @@ Make pull requests into the [autobrew](https://github.com/autobrew) and
 used by the configure script on MacOS and Windows. These pull requests will
 use the release candidate as the source.
 
-- [ ] Pull request to modify 
+- [ ] Pull request to modify
   [the apache-arrow autobrew formula]( https://github.com/autobrew/homebrew-core/blob/high-sierra/Formula/apache-arrow.rb) 
   to update the release version, SHA256 checksum of the release source file, and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb)
