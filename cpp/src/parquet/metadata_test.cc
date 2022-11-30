@@ -20,10 +20,14 @@
 #include <gtest/gtest.h>
 
 #include "arrow/util/key_value_metadata.h"
+#include "parquet/file_reader.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
+#include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
+
+#include <array>
 
 namespace parquet {
 
@@ -290,6 +294,46 @@ TEST(Metadata, TestKeyValueMetadata) {
   // Key value metadata
   ASSERT_TRUE(f_accessor->key_value_metadata());
   EXPECT_TRUE(f_accessor->key_value_metadata()->Equals(*kvmeta));
+}
+
+TEST(Metadata, TestReadPageIndex) {
+  std::string dir_string(parquet::test::get_data_dir());
+  std::string path = dir_string + "/alltypes_tiny_pages.parquet";
+  auto reader = ParquetFileReader::OpenFile(path, false);
+  auto file_metadata = reader->metadata();
+  ASSERT_EQ(1, file_metadata->num_row_groups());
+  auto row_group_metadata = file_metadata->RowGroup(0);
+  ASSERT_EQ(13, row_group_metadata->num_columns());
+  std::array<int64_t, 13> ci_offsets = {323583, 327502, 328009, 331928, 335847,
+                                        339766, 350345, 354264, 364843, 384342,
+                                        -1,     386473, 390392};
+  std::array<int32_t, 13> ci_lengths = {3919,  507,   3919, 3919, 3919, 10579, 3919,
+                                        10579, 19499, 2131, -1,   3919, 3919};
+  std::array<int64_t, 13> oi_offsets = {394311, 397814, 398637, 401888, 405139,
+                                        408390, 413670, 416921, 422201, 431936,
+                                        435457, 446002, 449253};
+  std::array<int32_t, 13> oi_lengths = {3503, 823,  3251, 3251,  3251, 5280, 3251,
+                                        5280, 9735, 3521, 10545, 3251, 3251};
+  for (int i = 0; i < row_group_metadata->num_columns(); ++i) {
+    auto col_chunk_metadata = row_group_metadata->ColumnChunk(i);
+    auto ci_locaiton = col_chunk_metadata->GetColumIndexLocation();
+    if (i == 10) {
+      // column_id 10 does not have column index
+      ASSERT_FALSE(ci_locaiton.has_value());
+    } else {
+      ASSERT_TRUE(ci_locaiton.has_value());
+    }
+    if (ci_locaiton.has_value()) {
+      ASSERT_EQ(ci_offsets.at(i), ci_locaiton->offset);
+      ASSERT_EQ(ci_lengths.at(i), ci_locaiton->length);
+    }
+    auto oi_location = col_chunk_metadata->GetOffsetIndexLocation();
+    ASSERT_TRUE(oi_location.has_value());
+    if (oi_location.has_value()) {
+      ASSERT_EQ(oi_offsets.at(i), oi_location->offset);
+      ASSERT_EQ(oi_lengths.at(i), oi_location->length);
+    }
+  }
 }
 
 TEST(ApplicationVersion, Basics) {

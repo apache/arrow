@@ -121,8 +121,10 @@ struct PageEncodingStats {
 
 /// \brief Public struct for location to page index in ColumnChunkMetaData.
 struct IndexLocation {
-  int64_t index_file_offset_bytes;
-  int32_t offset_index_length;
+  /// File offset of the given index, in bytes
+  int64_t offset;
+  /// Length of the given index, in bytes
+  int32_t length;
 };
 
 /// \brief ColumnChunkMetaData is a proxy around format::ColumnChunkMetaData.
