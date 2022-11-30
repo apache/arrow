@@ -3287,3 +3287,28 @@ def test_to_pandas_timezone():
     arr = pa.chunked_array([arr])
     s = arr.to_pandas()
     assert s.dt.tz is not None
+
+
+def test_array_sort():
+    arr = pa.array([5, 7, 35], type=pa.int64())
+    sorted_arr = arr.sort("descending")
+    assert sorted_arr.to_pylist() == [35, 7, 5]
+
+    arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
+    sorted_arr = arr.sort("descending")
+    assert sorted_arr.to_pylist() == [6, 5, 4, 3, 2, 1]
+
+
+def test_struct_array_sort():
+    arr = pa.StructArray.from_arrays([
+        pa.array([5, 7, 7, 35], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=["a", "b"])
+
+    sorted_arr = arr.sort("descending", fieldname="a")
+    assert sorted_arr.to_pylist() == [
+        {"a": 35, "b": "foobar"},
+        {"a": 7, "b": "car"},
+        {"a": 7, "b": "bar"},
+        {"a": 5, "b": "foo"},
+    ]

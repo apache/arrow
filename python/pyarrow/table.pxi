@@ -1039,6 +1039,20 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
+    def sort(self, order="ascending"):
+        """
+        Sort the ChunkedArray
+        Parameters
+        ----------
+        order : "ascending" or "descending"
+            The order of the sorting.
+        Returns
+        -------
+        result : ChunkedArray
+        """
+        indices = _pc().sort_indices(self, sort_keys=[("", order)])
+        return self.take(indices)
+
     def unify_dictionaries(self, MemoryPool memory_pool=None):
         """
         Unify dictionaries across all chunks.
@@ -2230,6 +2244,27 @@ cdef class RecordBatch(_PandasConvertible):
         4     100  Centipede
         """
         return _pc().drop_null(self)
+
+    def sort_by(self, sorting):
+        """
+        Sort the RecordBatch by one or multiple columns.
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+        Returns
+        -------
+        RecordBatch
+            A new record batch sorted according to the sort keys.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(self, sort_keys=sorting)
+        return self.take(indices)
 
     def to_pydict(self):
         """
