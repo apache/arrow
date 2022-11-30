@@ -33,7 +33,7 @@ Before the release candidate is cut:
   replicate most of the checks that CRAN runs, so we need them all to be passing
   or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html)
-- [ ] Ensure the contents of the README is accurate
+- [ ] Ensure the contents of the README are accurate and up to date
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later).
