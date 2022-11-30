@@ -32,7 +32,7 @@ from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
                         FileSystemHandler, PyFileSystem, FSSpecHandler,
-                        copy_files)
+                        copy_files, _resolve_filesystem_and_path)
 
 
 class DummyHandler(FileSystemHandler):
@@ -1813,3 +1813,18 @@ def test_copy_files_directory(tempdir):
     destination_dir5.mkdir()
     copy_files(source_dir, destination_dir5, chunk_size=1, use_threads=False)
     check_copied_files(destination_dir5)
+
+
+@pytest.mark.parametrize("inputs,expected", (
+    (("例.parq", None), (LocalFileSystem, "例.parq")),
+    (("foo.parq", None), (LocalFileSystem, "foo.parq")),
+    ((pathlib.Path('foo.parq'), None), (LocalFileSystem, "foo.parq")),
+    ((pathlib.Path('foo.parq').absolute().as_uri(), None),
+     (LocalFileSystem, str(pathlib.Path('foo.parq').absolute()))),
+))
+def test__resolve_filesystem_and_path(inputs, expected):
+    expected_fs_class, expected_path = expected
+    filesystem, path = _resolve_filesystem_and_path(*inputs)
+
+    assert isinstance(filesystem, expected_fs_class)
+    assert expected_path == path
