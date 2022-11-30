@@ -82,7 +82,6 @@ Wait for the official release...
   to )
 - [ ] Remove badges from README.md
 - [ ] Run `urlchecker::url_check()` on the R directory
-- [ ] Bump the Version in DESCRIPTION to X.X.X
 - [ ] Create a PR entitled `WIP: [R] Verify CRAN release-10.0.1-rc0`. Add
   a comment `@github-actions crossbow submit --group r` to run all R crossbow
   jobs against the CRAN-specific release branch.
