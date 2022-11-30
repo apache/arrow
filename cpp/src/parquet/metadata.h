@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -118,6 +119,12 @@ struct PageEncodingStats {
   int32_t count;
 };
 
+/// \brief Public struct for location to page index in ColumnChunkMetaData.
+struct IndexLocation {
+  int64_t index_file_offset_bytes;
+  int32_t offset_index_length;
+};
+
 /// \brief ColumnChunkMetaData is a proxy around format::ColumnChunkMetaData.
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
@@ -170,13 +177,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t total_compressed_size() const;
   int64_t total_uncompressed_size() const;
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
-
-  bool has_column_index() const;
-  int64_t column_index_offset() const;
-  int32_t column_index_length() const;
-  bool has_offset_index() const;
-  int64_t offset_index_offset() const;
-  int32_t offset_index_length() const;
+  std::optional<IndexLocation> GetColumIndexLocation() const;
+  std::optional<IndexLocation> GetOffsetIndexLocation() const;
 
  private:
   explicit ColumnChunkMetaData(

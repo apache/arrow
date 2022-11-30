@@ -312,21 +312,21 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     }
   }
 
-  inline bool has_column_index() const {
-    return column_->__isset.column_index_offset && column_->__isset.column_index_length;
+  inline std::optional<IndexLocation> GetColumIndexLocation() const {
+    if (column_->__isset.column_index_offset && column_->__isset.column_index_length) {
+      return IndexLocation{.index_file_offset_bytes = column_->column_index_offset,
+                           .offset_index_length = column_->column_index_length};
+    }
+    return std::nullopt;
   }
 
-  inline int64_t column_index_offset() const { return column_->column_index_offset; }
-
-  inline int32_t column_index_length() const { return column_->column_index_length; }
-
-  inline bool has_offset_index() const {
-    return column_->__isset.offset_index_offset && column_->__isset.offset_index_length;
+  inline std::optional<IndexLocation> GetOffsetIndexLocation() const {
+    if (column_->__isset.offset_index_offset && column_->__isset.offset_index_length) {
+      return IndexLocation{.index_file_offset_bytes = column_->offset_index_offset,
+                           .offset_index_length = column_->offset_index_length};
+    }
+    return std::nullopt;
   }
-
-  inline int64_t offset_index_offset() const { return column_->offset_index_offset; }
-
-  inline int32_t offset_index_length() const { return column_->offset_index_length; }
 
  private:
   mutable std::shared_ptr<Statistics> possible_stats_;
@@ -436,24 +436,12 @@ std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() con
   return impl_->crypto_metadata();
 }
 
-bool ColumnChunkMetaData::has_column_index() const { return impl_->has_column_index(); }
-
-int64_t ColumnChunkMetaData::column_index_offset() const {
-  return impl_->column_index_offset();
+std::optional<IndexLocation> ColumnChunkMetaData::GetColumIndexLocation() const {
+  return impl_->GetColumIndexLocation();
 }
 
-int32_t ColumnChunkMetaData::column_index_length() const {
-  return impl_->column_index_length();
-}
-
-bool ColumnChunkMetaData::has_offset_index() const { return impl_->has_offset_index(); }
-
-int64_t ColumnChunkMetaData::offset_index_offset() const {
-  return impl_->offset_index_offset();
-}
-
-int32_t ColumnChunkMetaData::offset_index_length() const {
-  return impl_->offset_index_length();
+std::optional<IndexLocation> ColumnChunkMetaData::GetOffsetIndexLocation() const {
+  return impl_->GetOffsetIndexLocation();
 }
 
 bool ColumnChunkMetaData::Equals(const ColumnChunkMetaData& other) const {
