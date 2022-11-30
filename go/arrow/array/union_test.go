@@ -625,6 +625,8 @@ func (s *UnionBuilderSuite) appendBasics() {
 	s.appendInt(-10)
 	s.appendDbl(0.5)
 
+	s.Equal(9, s.unionBldr.Len())
+
 	s.actual = s.unionBldr.NewArray().(array.Union)
 	s.NoError(s.actual.ValidateFull())
 	s.createExpectedTypesArr()
@@ -639,6 +641,8 @@ func (s *UnionBuilderSuite) appendNullsAndEmptyValues() {
 	s.unionBldr.AppendNulls(2)
 	s.unionBldr.AppendEmptyValues(2)
 	s.expectedTypes = append(s.expectedTypes, s.I8, s.I8, s.I8)
+
+	s.Equal(8, s.unionBldr.Len())
 
 	s.actual = s.unionBldr.NewArray().(array.Union)
 	s.NoError(s.actual.ValidateFull())
@@ -663,6 +667,8 @@ func (s *UnionBuilderSuite) appendInferred() {
 	s.appendDbl(1.0)
 	s.appendDbl(-1.0)
 	s.appendDbl(0.5)
+
+	s.Equal(9, s.unionBldr.Len())
 
 	s.actual = s.unionBldr.NewArray().(array.Union)
 	s.NoError(s.actual.ValidateFull())
@@ -694,6 +700,8 @@ func (s *UnionBuilderSuite) appendListOfInferred(utyp arrow.UnionType) *array.Li
 	s.DBL = s.unionBldr.AppendChild(s.dblBldr, "dbl")
 	s.EqualValues(2, s.DBL)
 	s.appendDbl(0.5)
+
+	s.Equal(4, s.unionBldr.Len())
 
 	s.createExpectedTypesArr()
 	return listBldr.NewListArray()
