@@ -154,7 +154,7 @@ func (a *List) Release() {
 
 func (a *List) ValueOffsets(i int) (start, end int64) {
 	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
-	start, end = int64(a.offsets[i]), int64(a.offsets[i+1])
+	start, end = int64(a.offsets[i+a.data.offset]), int64(a.offsets[i+a.data.offset+1])
 	return
 }
 
