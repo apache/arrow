@@ -82,11 +82,21 @@ async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
 async function commentGitHubURL(github, context, pullRequestNumber, issueID) {
   // Make the call to ensure issue exists before adding comment
   const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
-  const message = "* Github Issue: #" + issueInfo.number
+  const message = "* Closes: #" + issueInfo.number
   if (await haveComment(github, context, pullRequestNumber, message)) {
     return;
   }
   if (issueInfo){
+    const pullInfo = await github.issues.get({
+        issue_number: issueID,
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+    }).data;
+    await github.pulls.update({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      body: pullInfo.body + "\n" + message;
+    });
     await github.issues.createComment({
       owner: context.repo.owner,
       repo: context.repo.repo,
