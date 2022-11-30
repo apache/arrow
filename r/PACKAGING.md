@@ -29,7 +29,7 @@ Before the release candidate is cut:
   entitled `[R] CRAN packaging checklist for version X.X.X`
   and copy this checklist to the issue.
 - [ ] Evaluate the status of any failing
-  [nightly tests and nightly packaging builds](https://lists.apache.org/list.html?builds@arrow.apache.org). These checks
+  [nightly tests and nightly packaging builds](http://crossbow.voltrondata.com). These checks
   replicate most of the checks that CRAN runs, so we need them all to be passing
   or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html)
@@ -42,6 +42,7 @@ Before the release candidate is cut:
 Wait for the release candidate to be cut:
 
 - [ ] Release candidate!
+- [ ] Create a CRAN-release branch from the release candidate commit
 
 Make pull requests into the [autobrew](https://github.com/autobrew) and
 [rtools-packages](https://github.com/r-windows/rtools-packages) repositories
@@ -69,17 +70,20 @@ use the release candidate as the source.
 Prepare and check the .tar.gz that will be released to CRAN.
 
 - [ ] `git fetch upstream && git checkout release-X.X.X-rcXX && git clean -f -d`
-- [ ] Unset the `ARROW_HOME` environment variable and then run `make build` (copies Arrow C++ into tools/cpp, prunes some unnecessary components, and runs `R CMD build`)
+- [ ] Run `make build` (copies Arrow C++ into tools/cpp, prunes some unnecessary components, and runs `R CMD build` to generate the source tarball that includes vignettes)
 - [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally
-- [ ] Run reverse dependency checks
+- [ ] Run reverse dependency checks. Currently this is a 
+  [manual process](https://gist.github.com/paleolimbot/630fdab1e204d70fea97633d8fa15ccb);
+  however, in the future it may be a crossbow nightly job.
 
 Wait for the official release...
   
 - [ ] Release vote passed!
-- [ ] Create a CRAN-release branch from the official release commit
+- [ ] If the release candidate commit updated, rebase the CRAN release branch
+  on that commit.
 - [ ] Pick any commits that were made to master since the release commit that
-  were needed to fix CRAN-related submission issues (e.g., fixed URLs, fixes
-  to )
+  were needed to fix CRAN-related submission issues identified in the above
+  steps.
 - [ ] Remove badges from README.md
 - [ ] Run `urlchecker::url_check()` on the R directory
 - [ ] Create a PR entitled `WIP: [R] Verify CRAN release-10.0.1-rc0`. Add
@@ -87,8 +91,8 @@ Wait for the official release...
   jobs against the CRAN-specific release branch.
 - [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
-Update autobrew and r-windows PRs to use the *release* instead of the
-*release candidate*; ensure linux binary packages are available:
+Create new autobrew and r-windows PRs such that they use the *release*
+instead of the *release candidate*; ensure linux binary packages are available:
 
 - [ ] PR into autobrew/homebrew-core (apache-arrow autobrew formula)
 - [ ] PR into autobrew/homebrew-core (apache-arrow-static autobrew formula)
