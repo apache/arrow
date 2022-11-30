@@ -174,3 +174,18 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           args: "--force"
+
+  issue_assign:
+    name: "Assign issue"
+    permissions:
+      issues: write
+    if: github.event.comment.body == 'take'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/github-script@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_pr/assign_issue.js`);
+            script({github, context});
