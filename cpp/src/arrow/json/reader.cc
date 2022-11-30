@@ -185,7 +185,7 @@ class ChunkingTransformer {
   Result<TransformFlow<ChunkedBlock>> operator()(std::shared_ptr<Buffer> next_buffer) {
     if (!buffer_) {
       if (ARROW_PREDICT_TRUE(!next_buffer)) {
-        partial_ = nullptr;
+        DCHECK_EQ(partial_, nullptr) << "Logic error: non-null partial with null buffer";
         return TransformFinish();
       }
       partial_ = std::make_shared<Buffer>("");
@@ -341,6 +341,8 @@ AsyncGenerator<DecodedBlock> MakeDecodingGenerator(
   return [state = std::make_shared<State>(std::move(state))] {
     auto options = CallbackOptions::Defaults();
     options.executor = state->executor;
+    // Since the decode step is heavy we want to schedule it as
+    // a separate task so as to maximize task distribution accross CPU cores
     options.should_schedule = ShouldSchedule::Always;
 
     return state->source().Then(

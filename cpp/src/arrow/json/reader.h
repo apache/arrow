@@ -19,12 +19,13 @@
 
 #include <memory>
 
-#include "arrow/io/interfaces.h"
+#include "arrow/io/type_fwd.h"
 #include "arrow/json/options.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
