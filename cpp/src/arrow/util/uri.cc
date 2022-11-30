@@ -18,12 +18,8 @@
 #include "arrow/util/uri.h"
 
 #include <algorithm>
-#include <codecvt>
 #include <cstring>
-#include <iostream>
-#include <locale>
 #include <sstream>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -35,24 +31,23 @@ namespace internal {
 
 namespace {
 
-std::wstring_view TextRangeToView(const UriTextRangeStructW& range) {
+std::string_view TextRangeToView(const UriTextRangeStructA& range) {
   if (range.first == nullptr) {
-    return L"";
+    return "";
   } else {
     return {range.first, static_cast<size_t>(range.afterLast - range.first)};
   }
 }
 
-std::string TextRangeToString(const UriTextRangeStructW& range) {
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-  return converter.to_bytes(std::wstring(TextRangeToView(range)));
+std::string TextRangeToString(const UriTextRangeStructA& range) {
+  return std::string(TextRangeToView(range));
 }
 
 // There can be a difference between an absent field and an empty field.
 // For example, in "unix:/tmp/foo", the host is absent, while in
 // "unix:///tmp/foo", the host is empty but present.
 // This function helps distinguish.
-bool IsTextRangeSet(const UriTextRangeStructW& range) { return range.first != nullptr; }
+bool IsTextRangeSet(const UriTextRangeStructA& range) { return range.first != nullptr; }
 
 #ifdef _WIN32
 bool IsDriveSpec(const std::string_view s) {
@@ -117,10 +112,10 @@ bool IsValidUriScheme(const std::string_view s) {
 struct Uri::Impl {
   Impl() : string_rep_(""), port_(-1) { memset(&uri_, 0, sizeof(uri_)); }
 
-  ~Impl() { uriFreeUriMembersW(&uri_); }
+  ~Impl() { uriFreeUriMembersA(&uri_); }
 
   void Reset() {
-    uriFreeUriMembersW(&uri_);
+    uriFreeUriMembersA(&uri_);
     memset(&uri_, 0, sizeof(uri_));
     data_.clear();
     string_rep_.clear();
@@ -128,17 +123,17 @@ struct Uri::Impl {
     port_ = -1;
   }
 
-  const std::wstring& KeepString(const std::wstring& s) {
+  const std::string& KeepString(const std::string& s) {
     data_.push_back(s);
     return data_.back();
   }
 
-  UriUriW uri_;
+  UriUriA uri_;
   // Keep alive strings that uriparser stores pointers to
-  std::vector<std::wstring> data_;
+  std::vector<std::string> data_;
   std::string string_rep_;
   int32_t port_;
-  std::vector<std::wstring_view> path_segments_;
+  std::vector<std::string_view> path_segments_;
   bool is_file_uri_;
   bool is_absolute_path_;
 };
@@ -167,8 +162,7 @@ std::string Uri::port_text() const { return TextRangeToString(impl_->uri_.portTe
 int32_t Uri::port() const { return impl_->port_; }
 
 std::string Uri::username() const {
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-  auto userpass = converter.to_bytes(std::wstring(TextRangeToView(impl_->uri_.userInfo)));
+  auto userpass = TextRangeToView(impl_->uri_.userInfo);
   auto sep_pos = userpass.find_first_of(':');
   if (sep_pos == std::string_view::npos) {
     return UriUnescape(userpass);
@@ -178,10 +172,8 @@ std::string Uri::username() const {
 }
 
 std::string Uri::password() const {
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-  auto userpass = converter.to_bytes(std::wstring(TextRangeToView(impl_->uri_.userInfo)));
+  auto userpass = TextRangeToView(impl_->uri_.userInfo);
   auto sep_pos = userpass.find_first_of(':');
-
   if (sep_pos == std::string_view::npos) {
     return std::string();
   } else {
@@ -191,7 +183,6 @@ std::string Uri::password() const {
 
 std::string Uri::path() const {
   const auto& segments = impl_->path_segments_;
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 
   bool must_prepend_slash = impl_->is_absolute_path_;
 #ifdef _WIN32
@@ -204,47 +195,45 @@ std::string Uri::path() const {
   }
 #endif
 
-  std::wstringstream ss;
+  std::stringstream ss;
   if (must_prepend_slash) {
     ss << "/";
   }
   bool first = true;
   for (const auto& seg : segments) {
     if (!first) {
-      ss << L"/";
+      ss << "/";
     }
     first = false;
     ss << seg;
   }
-  return converter.to_bytes(std::move(ss).str());
+  return std::move(ss).str();
 }
 
 std::string Uri::query_string() const { return TextRangeToString(impl_->uri_.query); }
 
 Result<std::vector<std::pair<std::string, std::string>>> Uri::query_items() const {
   const auto& query = impl_->uri_.query;
-  UriQueryListW* query_list;
+  UriQueryListA* query_list;
   int item_count;
   std::vector<std::pair<std::string, std::string>> items;
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 
   if (query.first == nullptr) {
     return items;
   }
-  if (uriDissectQueryMallocW(&query_list, &item_count, query.first, query.afterLast) !=
+  if (uriDissectQueryMallocA(&query_list, &item_count, query.first, query.afterLast) !=
       URI_SUCCESS) {
     return Status::Invalid("Cannot parse query string: '", query_string(), "'");
   }
-  std::unique_ptr<UriQueryListW, decltype(&uriFreeQueryListW)> query_guard(
-      query_list, uriFreeQueryListW);
+  std::unique_ptr<UriQueryListA, decltype(&uriFreeQueryListA)> query_guard(
+      query_list, uriFreeQueryListA);
 
   items.reserve(item_count);
   while (query_list != nullptr) {
     if (query_list->value != nullptr) {
-      items.emplace_back(converter.to_bytes(query_list->key),
-                         converter.to_bytes(query_list->value));
+      items.emplace_back(query_list->key, query_list->value);
     } else {
-      items.emplace_back(converter.to_bytes(query_list->key), "");
+      items.emplace_back(query_list->key, "");
     }
     query_list = query_list->next;
   }
@@ -256,25 +245,19 @@ const std::string& Uri::ToString() const { return impl_->string_rep_; }
 Status Uri::Parse(const std::string& uri_string) {
   impl_->Reset();
 
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-  std::wstring wide_uri = converter.from_bytes(uri_string);
-  std::wcout << "Wide URI: " << wide_uri << std::endl;
-
-  const auto& s = impl_->KeepString(wide_uri);
-  impl_->string_rep_ = converter.to_bytes(s);
-
-  const wchar_t* error_pos;
-  if (uriParseSingleUriExW(&impl_->uri_, s.data(), s.data() + s.size(), &error_pos) !=
+  const auto& s = impl_->KeepString(uri_string);
+  impl_->string_rep_ = s;
+  const char* error_pos;
+  if (uriParseSingleUriExA(&impl_->uri_, s.data(), s.data() + s.size(), &error_pos) !=
       URI_SUCCESS) {
-    return Status::Invalid("Cannot parse URI: '", uri_string, "' at: '",
-                           converter.to_bytes(error_pos), "'");
+    return Status::Invalid("Cannot parse URI: '", uri_string, "'");
   }
 
   const auto scheme = TextRangeToView(impl_->uri_.scheme);
   if (scheme.empty()) {
     return Status::Invalid("URI has empty scheme: '", uri_string, "'");
   }
-  impl_->is_file_uri_ = (scheme == L"file");
+  impl_->is_file_uri_ = (scheme == "file");
 
   // Gather path segments
   auto path_seg = impl_->uri_.pathHead;
@@ -310,8 +293,7 @@ Status Uri::Parse(const std::string& uri_string) {
   }
 
   // Parse port number
-  auto port_text =
-      converter.to_bytes(std::wstring(TextRangeToView(impl_->uri_.portText)));
+  auto port_text = TextRangeToView(impl_->uri_.portText);
   if (port_text.size()) {
     uint16_t port_num;
     if (!ParseValue<UInt16Type>(port_text.data(), port_text.size(), &port_num)) {
