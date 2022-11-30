@@ -158,8 +158,9 @@ struct StringHeader {
       return memcmp(prefix_.data(), other.prefix_.data(), kPrefixSize);
     }
     int32_t size = std::min(size_, other.size_) - kPrefixSize;
-    if (size <= 0) {
-      // One ends within the prefix.
+    assert(size >= 0);
+    if (size == 0) {
+      // One string is just the prefix.
       return size_ - other.size_;
     }
     if (static_cast<uint32_t>(size) <= kInlineSize && IsInline() && other.IsInline()) {

@@ -536,11 +536,13 @@ class FieldToFlatbufferVisitor {
 
   Status Visit(const BinaryViewType& type) {
     // BinaryView will be written to IPC as a normal binary array
+    extra_type_metadata_[std::string{kSerializedStringViewKeyName}] = "";
     return Visit(BinaryType());
   }
 
   Status Visit(const StringViewType& type) {
     // StringView will be written to IPC as a normal UTF8 string array
+    extra_type_metadata_[std::string{kSerializedStringViewKeyName}] = "";
     return Visit(StringType());
   }
 
@@ -830,7 +832,7 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
     dictionary_id = encoding->id();
   }
 
-  // 4. Is it an extension type?
+  // 4. Is it an extension or view type?
   if (metadata != nullptr) {
     // Look for extension metadata in custom_metadata field
     int name_index = metadata->FindKey(kExtensionTypeKeyName);
@@ -851,6 +853,12 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
       }
       // NOTE: if extension type is unknown, we do not raise here and
       // simply return the storage type.
+    } else if (name_index = metadata->FindKey(std::string{kSerializedStringViewKeyName});
+               name_index != -1) {
+      DCHECK(type->id() == Type::STRING || type->id() == Type::BINARY);
+      RETURN_NOT_OK(metadata->Delete(name_index));
+      bool is_utf8 = type->id() == Type::STRING;
+      type = is_utf8 ? utf8_view() : binary_view();
     }
   }
 

@@ -52,10 +52,12 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parallel.h"
 #include "arrow/visit_array_inline.h"
+#include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -398,6 +400,53 @@ class RecordBatchSerializer {
     return Status::OK();
   }
 
+  Status Visit(const BinaryViewArray& array) {
+    // a separate helper doesn't make sense here since we've already done the work
+    // to copy the bitmap
+    out_->body_buffers.emplace_back();
+    ARROW_ASSIGN_OR_RAISE(
+        out_->body_buffers.back(),
+        AllocateBuffer(sizeof(int32_t) * (array.length() + 1), options_.memory_pool));
+
+    auto* offsets = out_->body_buffers.back()->mutable_data_as<int32_t>();
+    offsets[0] = 0;
+    auto AppendOffset = [&](size_t size) mutable {
+      // ignore overflow for now
+      offsets[1] = arrow::internal::SafeSignedAdd(offsets[0], static_cast<int32_t>(size));
+      ++offsets;
+    };
+
+    int64_t size = 0;
+    VisitArraySpanInline<BinaryViewType>(
+        *array.data(),
+        [&](std::string_view v) {
+          size += static_cast<int64_t>(v.size());
+          AppendOffset(v.size());
+        },
+        [&] { AppendOffset(0); });
+
+    if (size > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid(
+          "Input view array viewed more characters than are representable with 32 bit "
+          "offsets, unable to serialize");
+    }
+
+    out_->body_buffers.emplace_back();
+    ARROW_ASSIGN_OR_RAISE(out_->body_buffers.back(),
+                          AllocateBuffer(size, options_.memory_pool));
+
+    VisitArraySpanInline<BinaryViewType>(
+        *array.data(),
+        [chars = out_->body_buffers.back()->mutable_data_as<char>()](
+            std::string_view v) mutable {
+          v.copy(chars, v.size());
+          chars += v.size();
+        },
+        [] {});
+
+    return Status::OK();
+  }
+
   template <typename T>
   enable_if_base_list<typename T::TypeClass, Status> Visit(const T& array) {
     using offset_type = typename T::offset_type;
@@ -423,10 +472,6 @@ class RecordBatchSerializer {
     RETURN_NOT_OK(VisitArray(*values));
     ++max_recursion_depth_;
     return Status::OK();
-  }
-
-  Status Visit(const BinaryViewArray& array) {
-    return Status::NotImplemented("Binary / string view type");
   }
 
   Status Visit(const FixedSizeListArray& array) {

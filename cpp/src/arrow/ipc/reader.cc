@@ -58,6 +58,7 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/vector.h"
+#include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
 #include "generated/File_generated.h"  // IWYU pragma: export
@@ -289,7 +290,6 @@ class ArrayLoader {
     return Status::OK();
   }
 
-  template <typename TYPE>
   Status LoadBinary(Type::type type_id) {
     out_->buffers.resize(3);
 
@@ -345,12 +345,13 @@ class ArrayLoader {
 
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T& type) {
-    return LoadBinary<T>(type.id());
+    return LoadBinary(type.id());
   }
 
   Status Visit(const BinaryViewType& type) {
-    DCHECK(false);
-    return Status::NotImplemented("Reading IPC format to binary view is not supported");
+    // View arrays are serialized as the corresponding dense array.
+    // We can't produce the view array yet; the buffers may still be compressed.
+    return LoadBinary(type.id() == Type::STRING_VIEW ? Type::STRING : Type::BINARY);
   }
 
   Status Visit(const FixedSizeBinaryType& type) {
@@ -524,6 +525,49 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
       });
 }
 
+Status ConvertViewArrays(const IpcReadOptions& options, ArrayDataVector* fields) {
+  struct StringViewAccumulator {
+    using DataPtrVector = std::vector<ArrayData*>;
+
+    void AppendFrom(const ArrayDataVector& fields) {
+      for (const auto& field : fields) {
+        if (field->type->id() == Type::STRING_VIEW ||
+            field->type->id() == Type::BINARY_VIEW) {
+          view_arrays_.push_back(field.get());
+        }
+        AppendFrom(field->child_data);
+      }
+    }
+
+    DataPtrVector Get(const ArrayDataVector& fields) && {
+      AppendFrom(fields);
+      return std::move(view_arrays_);
+    }
+
+    DataPtrVector view_arrays_;
+  };
+
+  auto view_arrays = StringViewAccumulator{}.Get(*fields);
+
+  return ::arrow::internal::OptionalParallelFor(
+      options.use_threads, static_cast<int>(view_arrays.size()), [&](int i) {
+        ArrayData* data = view_arrays[i];
+
+        // the only thing we need to fix here is replacing offsets with headers
+        ARROW_ASSIGN_OR_RAISE(
+            auto header_buffer,
+            AllocateBuffer(data->length * sizeof(StringHeader), options.memory_pool));
+
+        auto* headers = header_buffer->mutable_data_as<StringHeader>();
+        VisitArraySpanInline<BinaryType>(
+            *data, [&](std::string_view v) { *headers++ = StringHeader{v}; },
+            [&] { *headers++ = StringHeader{}; });
+
+        data->buffers[1] = std::move(header_buffer);
+        return Status::OK();
+      });
+}
+
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>* inclusion_mask, const IpcReadContext& context,
@@ -572,6 +616,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     RETURN_NOT_OK(
         DecompressBuffers(context.compression, context.options, &filtered_columns));
   }
+  RETURN_NOT_OK(ConvertViewArrays(context.options, &filtered_columns));
 
   // swap endian in a set of ArrayData if necessary (swap_endian == true)
   if (context.swap_endian) {
@@ -821,10 +866,11 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
   const Field dummy_field("", value_type);
   RETURN_NOT_OK(loader.Load(&dummy_field, dict_data.get()));
 
+  ArrayDataVector dict_fields{dict_data};
   if (compression != Compression::UNCOMPRESSED) {
-    ArrayDataVector dict_fields{dict_data};
     RETURN_NOT_OK(DecompressBuffers(compression, context.options, &dict_fields));
   }
+  RETURN_NOT_OK(ConvertViewArrays(context.options, &dict_fields));
 
   // swap endian in dict_data if necessary (swap_endian == true)
   if (context.swap_endian) {

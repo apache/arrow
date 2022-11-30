@@ -353,37 +353,27 @@ static Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls
 
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out, bool with_nulls) {
   const int64_t length = 500;
-  auto f0 = field("strings", utf8());
-  auto f1 = field("binaries", binary());
-  auto f2 = field("large_strings", large_utf8());
-  auto f3 = field("large_binaries", large_binary());
-  auto schema = ::arrow::schema({f0, f1, f2, f3});
 
-  std::shared_ptr<Array> a0, a1, a2, a3;
-  MemoryPool* pool = default_memory_pool();
+  ArrayVector arrays;
+  FieldVector fields;
 
-  // Quirk with RETURN_NOT_OK macro and templated functions
-  {
-    auto s =
-        MakeBinaryArrayWithUniqueValues<StringBuilder>(length, with_nulls, pool, &a0);
-    RETURN_NOT_OK(s);
+  using namespace std::string_literals;
+  for (auto MakeArray : {
+           &MakeBinaryArrayWithUniqueValues<StringBuilder>,
+           &MakeBinaryArrayWithUniqueValues<BinaryBuilder>,
+           &MakeBinaryArrayWithUniqueValues<LargeStringBuilder>,
+           &MakeBinaryArrayWithUniqueValues<LargeBinaryBuilder>,
+           &MakeBinaryArrayWithUniqueValues<StringViewBuilder>,
+           &MakeBinaryArrayWithUniqueValues<BinaryViewBuilder>,
+       }) {
+    arrays.emplace_back();
+    RETURN_NOT_OK(MakeArray(length, with_nulls, default_memory_pool(), &arrays.back()));
+
+    const auto& type = arrays.back()->type();
+    fields.push_back(field(type->ToString(), type));
   }
-  {
-    auto s =
-        MakeBinaryArrayWithUniqueValues<BinaryBuilder>(length, with_nulls, pool, &a1);
-    RETURN_NOT_OK(s);
-  }
-  {
-    auto s = MakeBinaryArrayWithUniqueValues<LargeStringBuilder>(length, with_nulls, pool,
-                                                                 &a2);
-    RETURN_NOT_OK(s);
-  }
-  {
-    auto s = MakeBinaryArrayWithUniqueValues<LargeBinaryBuilder>(length, with_nulls, pool,
-                                                                 &a3);
-    RETURN_NOT_OK(s);
-  }
-  *out = RecordBatch::Make(schema, length, {a0, a1, a2, a3});
+
+  *out = RecordBatch::Make(schema(std::move(fields)), length, std::move(arrays));
   return Status::OK();
 }
 

@@ -245,6 +245,8 @@ flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit);
 ARROW_EXPORT
 TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit);
 
+constexpr std::string_view kSerializedStringViewKeyName = "ARROW:string_view";
+
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

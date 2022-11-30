@@ -117,6 +117,9 @@ class ARROW_EXPORT BufferBuilder {
     UnsafeAppend(data, length);
     return Status::OK();
   }
+  Status Append(std::string_view v) {
+    return Append(v.data(), static_cast<int64_t>(v.size()));
+  }
 
   /// \brief Append copies of a value to the buffer
   ///
@@ -137,6 +140,9 @@ class ARROW_EXPORT BufferBuilder {
   void UnsafeAppend(const void* data, const int64_t length) {
     memcpy(data_ + size_, data, static_cast<size_t>(length));
     size_ += length;
+  }
+  void UnsafeAppend(std::string_view v) {
+    UnsafeAppend(v.data(), static_cast<int64_t>(v.size()));
   }
 
   void UnsafeAppend(const int64_t num_copies, uint8_t value) {

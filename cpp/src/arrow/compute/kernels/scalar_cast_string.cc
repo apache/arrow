@@ -323,11 +323,11 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
   constexpr bool kOutputFixed = std::is_same_v<FixedSizeBinaryType, O>;
 
   if constexpr (kInputOffsets && kOutputOffsets) {
-    // FIXME(bkietz) this discards preallocated storage. It seems preferable to me to
-    // allocate a new null bitmap if necessary than to always allocate new offsets.
     // Start with a zero-copy cast, but change indices to expected size
     RETURN_NOT_OK(SimpleUtf8Validation());
     RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
+    // FIXME(bkietz) this discards preallocated storage. It seems preferable to me to
+    // allocate a new null bitmap if necessary than to always allocate new offsets.
     return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
         ctx, input, out->array_data().get());
   }
@@ -337,54 +337,86 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
   }
 
   if constexpr (kInputViews && kOutputOffsets) {
-    // FIXME(bkietz) this discards preallocated offset storage
-    typename TypeTraits<O>::BuilderType builder{ctx->memory_pool()};
+    // copy the input's null bitmap if necessary
+    if (input.MayHaveNulls()) {
+      ARROW_ASSIGN_OR_RAISE(
+          output->buffers[0],
+          arrow::internal::CopyBitmap(ctx->memory_pool(), input.buffers[0].data,
+                                      input.offset, input.length));
+    } else {
+      output->buffers[0] = nullptr;
+    }
 
-    RETURN_NOT_OK(builder.Reserve(input.length));
+    using offset_type = typename O::offset_type;
+
+    auto* offsets = output->buffers[1]->mutable_data_as<offset_type>();
+    offsets[0] = 0;
+    auto AppendOffset = [&](size_t size) mutable {
+      offsets[1] = offsets[0] + static_cast<offset_type>(size);
+      ++offsets;
+    };
+
     // TODO(bkietz) if ArraySpan::buffers were a SmallVector, we could have access to all
     // the character data buffers here and reserve character data accordingly.
+    BufferBuilder char_builder{ctx->memory_pool()};
 
-    // sweep through L1-sized chunks to reduce the frequency of allocation
+    // sweep through L1-sized chunks to reduce the frequency of allocation and overflow
+    // checking
     int64_t chunk_size = ctx->exec_context()->cpu_info()->CacheSize(
                              ::arrow::internal::CpuInfo::CacheLevel::L1) /
                          sizeof(StringHeader) / 4;
 
     RETURN_NOT_OK(::arrow::internal::VisitSlices(
         input, chunk_size, [&](const ArraySpan& input_slice) {
-          int64_t num_chars = builder.value_data_length(), num_appended_chars = 0;
+          size_t num_appended_chars = 0;
+          int64_t num_chars = char_builder.length();
+          VisitArraySpanInline<I>(
+              input_slice, [&](std::string_view v) { num_appended_chars += v.size(); },
+              [] {});
+
+          if constexpr (std::is_same_v<offset_type, int32_t>) {
+            if (ARROW_PREDICT_FALSE(char_builder.length() + num_appended_chars >
+                                    std::numeric_limits<int32_t>::max())) {
+              return Status::Invalid("Failed casting from ", input.type->ToString(),
+                                     " to ", out->type()->ToString(),
+                                     ": input array viewed too many characters");
+            }
+          }
+          RETURN_NOT_OK(char_builder.Reserve(static_cast<int64_t>(num_appended_chars)));
+
           VisitArraySpanInline<I>(
               input_slice,
               [&](std::string_view v) {
-                num_appended_chars += static_cast<int64_t>(v.size());
+                char_builder.UnsafeAppend(v);
+                AppendOffset(v.size());
               },
-              [] {});
-
-          RETURN_NOT_OK(builder.ReserveData(num_appended_chars));
-
-          VisitArraySpanInline<I>(
-              input_slice, [&](std::string_view v) { builder.UnsafeAppend(v); },
-              [&] { builder.UnsafeAppendNull(); });
+              [&] { AppendOffset(0); });
 
           if (check_utf8) {
-            if (ARROW_PREDICT_FALSE(!ValidateUTF8Inline(builder.value_data() + num_chars,
-                                                        num_appended_chars))) {
+            if (ARROW_PREDICT_FALSE(
+                    !ValidateUTF8Inline(char_builder.data() + num_chars,
+                                        static_cast<int64_t>(num_appended_chars)))) {
               return Status::Invalid("Invalid UTF8 sequence");
             }
           }
           return Status::OK();
         }));
 
-    return builder.FinishInternal(std::get_if<std::shared_ptr<ArrayData>>(&out->value));
+    return char_builder.Finish(&output->buffers[2]);
   }
 
   if constexpr ((kInputOffsets || kInputFixed) && kOutputViews) {
-    // we can reuse the data buffer here and just add views which reference it
+    // FIXME(bkietz) when outputting views, we *could* output into slices,
+    // provided we have a threadsafe place to stash accumulated buffers
+    // of character data.
+
     if (input.MayHaveNulls()) {
       ARROW_ASSIGN_OR_RAISE(
           output->buffers[0],
           arrow::internal::CopyBitmap(ctx->memory_pool(), input.buffers[0].data,
                                       input.offset, input.length));
     }
+
     // FIXME(bkietz) segfault due to null buffer owner
     // output->buffers[2] = input.GetBuffer(kInputFixed ? 1 : 2);
 
