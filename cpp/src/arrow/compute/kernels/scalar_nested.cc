@@ -106,11 +106,11 @@ int64_t MaxSliceLength(const int64_t start, const int64_t stop, const int64_t st
     return 1;
   }
 
-  auto length = static_cast<int64_t>(std::floor((stopf - startf) / stepf));
-  if (fmod(static_cast<float>(length), stepf) > 0.0) {
+  auto length = std::floor((stopf - startf) / stepf);
+  if (fmod(length, stepf) > 0.0) {
     ++length;
   }
-  return length;
+  return static_cast<int64_t>(length);
 }
 
 template <typename Type>
