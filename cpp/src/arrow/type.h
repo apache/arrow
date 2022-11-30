@@ -1624,7 +1624,8 @@ class ARROW_EXPORT FieldPath {
   Result<std::shared_ptr<Field>> Get(const Schema& schema) const;
   Result<std::shared_ptr<Field>> Get(const Field& field) const;
   Result<std::shared_ptr<Field>> Get(const DataType& type) const;
-  Result<std::shared_ptr<Field>> Get(const FieldVector& fields) const;
+  Result<std::shared_ptr<Field>> Get(const FieldVector& fields,
+                                     const DataType* parent = NULLPTR) const;
 
   static Result<std::shared_ptr<Schema>> GetAll(const Schema& schema,
                                                 const std::vector<FieldPath>& paths);
@@ -1762,7 +1763,8 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   std::vector<FieldPath> FindAll(const Schema& schema) const;
   std::vector<FieldPath> FindAll(const Field& field) const;
   std::vector<FieldPath> FindAll(const DataType& type) const;
-  std::vector<FieldPath> FindAll(const FieldVector& fields) const;
+  std::vector<FieldPath> FindAll(const FieldVector& fields,
+                                 const DataType* parent = NULLPTR) const;
 
   /// \brief Convenience function which applies FindAll to arg's type or schema.
   std::vector<FieldPath> FindAll(const ArrayData& array) const;

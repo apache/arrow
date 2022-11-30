@@ -1060,8 +1060,9 @@ struct FieldPathGetImpl {
   }
 
   template <typename T, typename GetChildren>
-  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
-                       GetChildren&& get_children, int* out_of_range_depth) {
+  static Result<T> Get(const FieldPath* path, const DataType* parent,
+                       const std::vector<T>* children, GetChildren&& get_children,
+                       int* out_of_range_depth) {
     if (path->indices().empty()) {
       return Status::Invalid("empty indices cannot be traversed");
     }
@@ -1081,14 +1082,10 @@ struct FieldPathGetImpl {
         if (out != nullptr && (*out)->type()->id() == Type::LIST) {
           children = get_children(*out);
           index = 0;
-        } else if (out == nullptr && children->size() == 1 && index >= 0) {
-          // WIP: Perhaps a dangerous assumption?
-          // For list types when previous was not a FieldPath, but
-          // a string name referencing a list type. Then the first iteration
-          // with index (referencing the list item), might look like it's
-          // out of bounds when actually we don't care about this index for
-          // type checking, only the kernel does; we need the list value type
-          // which is now the only child in the children vector.
+        } else if (out == nullptr && parent != nullptr && parent->id() == Type::LIST) {
+          // For the first iteration (out == nullptr), if the parent is a list type
+          // then we certainly want to get the type of the list item. The specific
+          // kernel implemention will use the actual index to grab a specific list item.
           index = 0;
         }
       }
@@ -1106,29 +1103,30 @@ struct FieldPathGetImpl {
   }
 
   template <typename T, typename GetChildren>
-  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
-                       GetChildren&& get_children) {
+  static Result<T> Get(const FieldPath* path, const DataType* parent,
+                       const std::vector<T>* children, GetChildren&& get_children) {
     int out_of_range_depth = -1;
-    ARROW_ASSIGN_OR_RAISE(auto child,
-                          Get(path, children, std::forward<GetChildren>(get_children),
-                              &out_of_range_depth));
+    ARROW_ASSIGN_OR_RAISE(
+        auto child, Get(path, parent, children, std::forward<GetChildren>(get_children),
+                        &out_of_range_depth));
     if (child != nullptr) {
       return std::move(child);
     }
     return IndexError(path, out_of_range_depth, *children);
   }
 
-  static Result<std::shared_ptr<Field>> Get(const FieldPath* path,
+  static Result<std::shared_ptr<Field>> Get(const FieldPath* path, const DataType* parent,
                                             const FieldVector& fields) {
-    return FieldPathGetImpl::Get(path, &fields, [](const std::shared_ptr<Field>& field) {
-      return &field->type()->fields();
-    });
+    return FieldPathGetImpl::Get(
+        path, parent, &fields,
+        [](const std::shared_ptr<Field>& field) { return &field->type()->fields(); });
   }
 
   static Result<std::shared_ptr<ArrayData>> Get(const FieldPath* path,
+                                                const DataType* parent,
                                                 const ArrayDataVector& child_data) {
     return FieldPathGetImpl::Get(
-        path, &child_data,
+        path, parent, &child_data,
         [](const std::shared_ptr<ArrayData>& data) -> const ArrayDataVector* {
           if (data->type->id() != Type::STRUCT) {
             return nullptr;
@@ -1139,19 +1137,20 @@ struct FieldPathGetImpl {
 };
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const Schema& schema) const {
-  return FieldPathGetImpl::Get(this, schema.fields());
+  return FieldPathGetImpl::Get(this, nullptr, schema.fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const Field& field) const {
-  return FieldPathGetImpl::Get(this, field.type()->fields());
+  return FieldPathGetImpl::Get(this, &*field.type(), field.type()->fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const DataType& type) const {
-  return FieldPathGetImpl::Get(this, type.fields());
+  return FieldPathGetImpl::Get(this, &type, type.fields());
 }
 
-Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
-  return FieldPathGetImpl::Get(this, fields);
+Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields,
+                                              const DataType* parent) const {
+  return FieldPathGetImpl::Get(this, parent, fields);
 }
 
 Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
@@ -1166,7 +1165,8 @@ Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
 }
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
+  ARROW_ASSIGN_OR_RAISE(auto data,
+                        FieldPathGetImpl::Get(this, nullptr, batch.column_data()));
   return MakeArray(std::move(data));
 }
 
@@ -1179,7 +1179,7 @@ Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
   if (data.type->id() != Type::STRUCT) {
     return Status::NotImplemented("Get child data of non-struct array");
   }
-  return FieldPathGetImpl::Get(this, data.child_data);
+  return FieldPathGetImpl::Get(this, &*data.type, data.child_data);
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {}
@@ -1395,29 +1395,29 @@ std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
     return internal::MapVector([](int i) { return FieldPath{i}; },
                                schema.GetAllFieldIndices(*name));
   }
-  return FindAll(schema.fields());
+  return FindAll(schema.fields(), nullptr);
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const Field& field) const {
-  return FindAll(field.type()->fields());
+  return FindAll(field.type()->fields(), &*field.type());
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const DataType& type) const {
-  return FindAll(type.fields());
+  return FindAll(type.fields(), &type);
 }
 
-std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
+std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields,
+                                         const DataType* parent) const {
   struct Visitor {
     std::vector<FieldPath> operator()(const FieldPath& path) {
       // skip long IndexError construction if path is out of range
       int out_of_range_depth;
       auto maybe_field = FieldPathGetImpl::Get(
-          &path, &fields_,
+          &path, parent_, &fields_,
           [](const std::shared_ptr<Field>& field) { return &field->type()->fields(); },
           &out_of_range_depth);
 
       DCHECK_OK(maybe_field.status());
-
       if (maybe_field.ValueOrDie() != nullptr) {
         return {path};
       }
@@ -1436,6 +1436,26 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       return out;
     }
 
+    std::vector<FieldPath> operator()(const std::vector<FieldRef>& refs) {
+      DCHECK_GE(refs.size(), 1);
+      Matches matches(refs.front().FindAll(fields_, parent_), fields_);
+
+      for (auto ref_it = refs.begin() + 1; ref_it != refs.end(); ++ref_it) {
+        Matches next_matches;
+        for (size_t i = 0; i < matches.size(); ++i) {
+          const auto& referent = *matches.referents[i];
+
+          for (const FieldPath& match : ref_it->FindAll(referent)) {
+            next_matches.Add(matches.prefixes[i], match, referent.type()->fields(),
+                             &*referent.type());
+          }
+        }
+        matches = std::move(next_matches);
+      }
+
+      return matches.prefixes;
+    }
+
     struct Matches {
       // referents[i] is referenced by prefixes[i]
       std::vector<FieldPath> prefixes;
@@ -1452,10 +1472,11 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       size_t size() const { return referents.size(); }
 
       void Add(const FieldPath& prefix, const FieldPath& suffix,
-               const FieldVector& fields) {
-        auto maybe_field = suffix.Get(fields);
+               const FieldVector& fields, const DataType* parent = NULLPTR) {
+        auto maybe_field = suffix.Get(fields, parent);
         DCHECK_OK(maybe_field.status());
-        referents.push_back(std::move(maybe_field).ValueOrDie());
+
+        referents.push_back(std::move(maybe_field.ValueOrDie()));
 
         std::vector<int> concatenated_indices(prefix.indices().size() +
                                               suffix.indices().size());
@@ -1467,29 +1488,11 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       }
     };
 
-    std::vector<FieldPath> operator()(const std::vector<FieldRef>& refs) {
-      DCHECK_GE(refs.size(), 1);
-      Matches matches(refs.front().FindAll(fields_), fields_);
-
-      for (auto ref_it = refs.begin() + 1; ref_it != refs.end(); ++ref_it) {
-        Matches next_matches;
-        for (size_t i = 0; i < matches.size(); ++i) {
-          const auto& referent = *matches.referents[i];
-
-          for (const FieldPath& match : ref_it->FindAll(referent)) {
-            next_matches.Add(matches.prefixes[i], match, referent.type()->fields());
-          }
-        }
-        matches = std::move(next_matches);
-      }
-
-      return matches.prefixes;
-    }
-
+    const DataType* parent_;
     const FieldVector& fields_;
   };
 
-  return std::visit(Visitor{fields}, impl_);
+  return std::visit(Visitor{parent, fields}, impl_);
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const ArrayData& array) const {
