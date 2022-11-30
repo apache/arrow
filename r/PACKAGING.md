@@ -70,7 +70,7 @@ Prepare and check the .tar.gz that will be released to CRAN.
 
 - [ ] `git fetch upstream && git checkout release-X.X.X-rcXX && git clean -f -d`
 - [ ] Unset the `ARROW_HOME` environment variable and then run `make build` (copies Arrow C++ into tools/cpp, prunes some unnecessary components, and runs `R CMD build`)
-- [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally
+- [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally
 - [ ] Run reverse dependency checks
 
 Wait for the official release...
