@@ -67,7 +67,7 @@ inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_of
 }
 
 template <typename T>
-ARROW_EXPORT Status EnsureAlignment(std::shared_ptr<T> object, int64_t minimum_alignment,
+Status EnsureAlignment(std::shared_ptr<T> object, int64_t minimum_alignment,
                                     MemoryPool* memory_pool) {
   std::vector<std::shared_ptr<Buffer>> buffers_ = object->data()->buffers;
   for (auto& it : buffers_) {
