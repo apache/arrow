@@ -108,7 +108,8 @@ instead of the *release candidate*; ensure linux binary packages are available:
 Check binary Arrow C++ distributions specific to the R package:
 
 - [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only)
-  and confirm (with Neal, who will automatically receive an email about the results) that the check is clean
+  and confirm (with Neal, who will automatically receive an email about the results) that the check is clean.
+  This step cannot be completed before Jeroen has put the binaries in the MinGW repository.
 - [ ] Upload the .tar.gz to [MacBuilder](https://mac.r-project.org/macbuilder/submit.html)
   and confirm that the check is clean
 - [ ] Check `install.packages("arrow_X.X.X.tar.gz")` on Ubuntu and ensure that the
