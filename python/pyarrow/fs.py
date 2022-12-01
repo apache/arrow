@@ -19,7 +19,6 @@
 FileSystem abstraction to interact with various local and remote filesystems.
 """
 
-import pyarrow as pa
 from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._fs import (  # noqa
@@ -184,7 +183,7 @@ def _resolve_filesystem_and_path(
     if not exists_locally:
         try:
             filesystem, path = FileSystem.from_uri(path)
-        except pa.ArrowInvalid as e:
+        except ValueError as e:
             # neither an URI nor a locally existing path, so assume that
             # local path was given and propagate a nicer file not found error
             # instead of a more confusing scheme parsing error
