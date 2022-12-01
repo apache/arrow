@@ -49,7 +49,7 @@ class TestRunLengthEncodedArray
   std::shared_ptr<Array> size_values;
   std::shared_ptr<Array> size_only_null;
 
-  virtual void SetUp() override {
+  void SetUp() override {
     std::shared_ptr<DataType> run_ends_type = GetParam();
 
     string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
