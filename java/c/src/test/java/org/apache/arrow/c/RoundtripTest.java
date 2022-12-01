@@ -90,6 +90,7 @@ import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
 import org.apache.arrow.vector.holders.NullableLargeVarBinaryHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
+import org.apache.arrow.vector.table.Table;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -98,6 +99,7 @@ import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -105,14 +107,17 @@ import org.junit.jupiter.api.Test;
 public class RoundtripTest {
   private static final String EMPTY_SCHEMA_PATH = "";
   private RootAllocator allocator = null;
+  private BufferAllocator childAllocator = null;
 
   @BeforeEach
   public void setUp() {
     allocator = new RootAllocator(Long.MAX_VALUE);
+    childAllocator = allocator.newChildAllocator("child", 0, Long.MAX_VALUE);
   }
 
   @AfterEach
   public void tearDown() {
+    childAllocator.close();
     allocator.close();
   }
 
@@ -129,7 +134,15 @@ public class RoundtripTest {
       }
 
       // Consumer imports vector
-      return Data.importVector(allocator, consumerArrowArray, consumerArrowSchema, null);
+      FieldVector imported = Data.importVector(childAllocator, consumerArrowArray, consumerArrowSchema, null);
+      if (!(imported instanceof NullVector)) {
+        assertEquals(childAllocator, imported.getAllocator());
+      }
+
+      // Check that transfers work
+      TransferPair pair = imported.getTransferPair(allocator);
+      pair.transfer();
+      return (FieldVector) pair.getTo();
     }
   }
 
@@ -643,6 +656,38 @@ public class RoundtripTest {
             ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
           // Producer exports vector into the C Data Interface structures
           Data.exportVectorSchemaRoot(allocator, vsr, null, arrowArray, arrowSchema);
+        }
+      }
+      // Consumer imports vector
+      imported = Data.importVectorSchemaRoot(allocator, consumerArrowArray, consumerArrowSchema, null);
+    }
+
+    // Ensure that imported VectorSchemaRoot is valid even after C Data Interface
+    // structures are closed
+    try (VectorSchemaRoot original = createTestVSR()) {
+      assertTrue(imported.equals(original));
+    }
+    imported.close();
+  }
+
+  /**
+   * Tests exporting Table and importing back to VSR. Importing back to Table is not supported at present.
+   */
+  @Test
+  public void testTable() {
+    VectorSchemaRoot imported;
+
+    // Consumer allocates empty structures
+    try (ArrowSchema consumerArrowSchema = ArrowSchema.allocateNew(allocator);
+        ArrowArray consumerArrowArray = ArrowArray.allocateNew(allocator)) {
+      try (
+          VectorSchemaRoot vsr = createTestVSR();
+          Table table = new Table(vsr)) {
+        // Producer creates structures from existing memory pointers
+        try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
+            ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
+          // Producer exports vector into the C Data Interface structures
+          Data.exportTable(allocator, table, null, arrowArray, arrowSchema);
         }
       }
       // Consumer imports vector

@@ -33,7 +33,7 @@ env:
 
 jobs:
   build:
-    name: Build wheel for macOS
+    name: Build wheel for Python {{ python_version }} on macOS
     runs-on: macos-latest
     env:
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
@@ -103,15 +103,22 @@ jobs:
           pip install --upgrade pip wheel
           PYTHON=python arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
 
-      - name: Test Wheel
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheel
+          path: arrow/python/repaired_wheels/*.whl
+
+      - name: Test Wheel on AMD64
         shell: bash
+        env:
+          PYTEST_ADDOPTS: "-k 'not test_cancellation'"
         run: |
-          $PYTHON -m venv test-env
-          source test-env/bin/activate
+          $PYTHON -m venv test-amd64-env
+          source test-amd64-env/bin/activate
           pip install --upgrade pip wheel
-          pip install -r arrow/python/requirements-wheel-test.txt
-          PYTHON=python arrow/ci/scripts/install_gcs_testbench.sh default
-          arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
+          arch -x86_64 pip install -r arrow/python/requirements-wheel-test.txt
+          PYTHON=python arch -x86_64 arrow/ci/scripts/install_gcs_testbench.sh default
+          arch -x86_64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}

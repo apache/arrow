@@ -117,14 +117,16 @@ mutate.Dataset <- mutate.ArrowTabular <- mutate.RecordBatchReader <- mutate.arro
 
 transmute.arrow_dplyr_query <- function(.data, ...) {
   dots <- check_transmute_args(...)
-  has_null <- map_lgl(dots, quo_is_null)
-  .data <- dplyr::mutate(.data, !!!dots, .keep = "none")
-  if (is_empty(dots) || any(has_null)) {
+  expression_list <- expand_across(.data, dots)
+
+  has_null <- map_lgl(expression_list, quo_is_null)
+  .data <- dplyr::mutate(.data, !!!expression_list, .keep = "none")
+  if (is_empty(expression_list) || any(has_null)) {
     return(.data)
   }
 
   ## keeping with: https://github.com/tidyverse/dplyr/issues/6086
-  cur_exprs <- map_chr(dots, as_label)
+  cur_exprs <- map_chr(expression_list, as_label)
   transmute_order <- names(cur_exprs)
   transmute_order[!nzchar(transmute_order)] <- cur_exprs[!nzchar(transmute_order)]
   dplyr::select(.data, all_of(transmute_order))

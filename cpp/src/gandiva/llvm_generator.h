@@ -68,13 +68,13 @@ class GANDIVA_EXPORT LLVMGenerator {
   /// \brief Execute the built expression against the provided arguments for
   /// default mode.
   Status Execute(const arrow::RecordBatch& record_batch,
-                 const ArrayDataVector& output_vector);
+                 const ArrayDataVector& output_vector) const;
 
   /// \brief Execute the built expression against the provided arguments for
   /// all modes. Only works on the records specified in the selection_vector.
   Status Execute(const arrow::RecordBatch& record_batch,
                  const SelectionVector* selection_vector,
-                 const ArrayDataVector& output_vector);
+                 const ArrayDataVector& output_vector) const;
 
   SelectionVector::Mode selection_vector_mode() { return selection_vector_mode_; }
   LLVMTypes* types() { return engine_->types(); }
@@ -233,11 +233,11 @@ class GANDIVA_EXPORT LLVMGenerator {
   ///
   /// \param[in] compiled_expr the compiled expression (includes the bitmap indices to be
   ///            used for computing the validity bitmap of the result).
-  /// \param[in] eval_batch (includes input/output buffer addresses)
   /// \param[in] selection_vector the list of selected positions
+  /// \param[in,out] eval_batch (includes input/output buffer addresses)
   void ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
-                             const EvalBatch& eval_batch,
-                             const SelectionVector* selection_vector);
+                             const SelectionVector* selection_vector,
+                             EvalBatch* eval_batch) const;
 
   /// Replace the %T in the trace msg with the correct type corresponding to 'type'
   /// eg. %d for int32, %ld for int64, ..

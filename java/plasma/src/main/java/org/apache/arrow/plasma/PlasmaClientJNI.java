@@ -24,7 +24,10 @@ import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
 
 /**
  * JNI static methods for PlasmaClient.
+ *
+ * @deprecated Plasma is deprecated since 10.0.0. Plasma will not be released from Apache Arrow 12.0.0 or so.
  */
+@Deprecated
 public class PlasmaClientJNI {
 
   public static native long connect(String storeSocketName, String managerSocketName, int releaseDelay);

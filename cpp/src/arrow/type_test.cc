@@ -414,10 +414,24 @@ TEST(TestFieldRef, FromDotPath) {
 
   ASSERT_OK_AND_EQ(FieldRef(R"([y]\tho.\)"), FieldRef::FromDotPath(R"(.\[y\]\\tho\.\)"));
 
-  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"()"));
+  ASSERT_OK_AND_EQ(FieldRef(), FieldRef::FromDotPath(R"()"));
+
   ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"(alpha)"));
   ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([134234)"));
   ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([1stuf])"));
+}
+
+TEST(TestFieldRef, DotPathRoundTrip) {
+  auto check_roundtrip = [](const FieldRef& ref) {
+    auto dot_path = ref.ToDotPath();
+    ASSERT_OK_AND_EQ(ref, FieldRef::FromDotPath(dot_path));
+  };
+
+  check_roundtrip(FieldRef());
+  check_roundtrip(FieldRef("foo"));
+  check_roundtrip(FieldRef("foo", 1, "bar", 2, 3));
+  check_roundtrip(FieldRef(1, 2, 3));
+  check_roundtrip(FieldRef("foo", 1, FieldRef("bar", 2, 3), FieldRef()));
 }
 
 TEST(TestFieldPath, Nested) {
@@ -454,6 +468,42 @@ TEST(TestFieldRef, Nested) {
               ElementsAre(FieldPath{1, 0}, FieldPath{2, 0}));
   EXPECT_THAT(FieldRef("beta", "gamma", "alpha").FindAll(s),
               ElementsAre(FieldPath{2, 1, 0}, FieldPath{2, 1, 1}));
+}
+
+TEST(TestFieldRef, Flatten) {
+  FieldRef ref;
+
+  auto assert_name = [](const FieldRef& ref, const std::string& expected) {
+    ASSERT_TRUE(ref.IsName());
+    ASSERT_EQ(*ref.name(), expected);
+  };
+
+  auto assert_path = [](const FieldRef& ref, const std::vector<int>& expected) {
+    ASSERT_TRUE(ref.IsFieldPath());
+    ASSERT_EQ(ref.field_path()->indices(), expected);
+  };
+
+  auto assert_nested = [](const FieldRef& ref, const std::vector<FieldRef>& expected) {
+    ASSERT_TRUE(ref.IsNested());
+    ASSERT_EQ(*ref.nested_refs(), expected);
+  };
+
+  assert_path(FieldRef(), {});
+  assert_path(FieldRef(1, 2, 3), {1, 2, 3});
+  // If all leaves are field paths, they are fully flattened
+  assert_path(FieldRef(1, FieldRef(2, 3)), {1, 2, 3});
+  assert_path(FieldRef(1, FieldRef(2, 3), FieldRef(), FieldRef(FieldRef(4), FieldRef(5))),
+              {1, 2, 3, 4, 5});
+  assert_path(FieldRef(FieldRef(), FieldRef(FieldRef(), FieldRef())), {});
+
+  assert_name(FieldRef("foo"), "foo");
+
+  // Nested empty field refs are optimized away
+  assert_nested(FieldRef("foo", 1, FieldRef(), FieldRef(FieldRef(), "bar")),
+                {FieldRef("foo"), FieldRef(1), FieldRef("bar")});
+  // For now, subsequences of indices are not concatenated
+  assert_nested(FieldRef("foo", FieldRef("bar"), FieldRef(1, 2), FieldRef(3)),
+                {FieldRef("foo"), FieldRef("bar"), FieldRef(1, 2), FieldRef(3)});
 }
 
 using TestSchema = ::testing::Test;

@@ -42,7 +42,7 @@ import org.apache.calcite.avatica.remote.TypedValue;
  * Metadata handler for Arrow Flight.
  */
 public class ArrowFlightMetaImpl extends MetaImpl {
-  private final Map<StatementHandle, PreparedStatement> statementHandlePreparedStatementMap;
+  private final Map<StatementHandleKey, PreparedStatement> statementHandlePreparedStatementMap;
 
   /**
    * Constructs a {@link MetaImpl} object specific for Arrow Flight.
@@ -67,7 +67,8 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public void closeStatement(final StatementHandle statementHandle) {
-    PreparedStatement preparedStatement = statementHandlePreparedStatementMap.remove(statementHandle);
+    PreparedStatement preparedStatement =
+        statementHandlePreparedStatementMap.remove(new StatementHandleKey(statementHandle));
     // Testing if the prepared statement was created because the statement can be not created until this moment
     if (preparedStatement != null) {
       preparedStatement.close();
@@ -82,12 +83,25 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   @Override
   public ExecuteResult execute(final StatementHandle statementHandle,
                                final List<TypedValue> typedValues, final long maxRowCount) {
-    // TODO Why is maxRowCount ignored?
-    Preconditions.checkNotNull(statementHandle.signature, "Signature not found.");
-    return new ExecuteResult(
-        Collections.singletonList(MetaResultSet.create(
-            statementHandle.connectionId, statementHandle.id,
-            true, statementHandle.signature, null)));
+    Preconditions.checkArgument(connection.id.equals(statementHandle.connectionId),
+        "Connection IDs are not consistent");
+    if (statementHandle.signature == null) {
+      // Update query
+      final StatementHandleKey key = new StatementHandleKey(statementHandle);
+      PreparedStatement preparedStatement = statementHandlePreparedStatementMap.get(key);
+      if (preparedStatement == null) {
+        throw new IllegalStateException("Prepared statement not found: " + statementHandle);
+      }
+      long updatedCount = preparedStatement.executeUpdate();
+      return new ExecuteResult(Collections.singletonList(MetaResultSet.count(statementHandle.connectionId,
+          statementHandle.id, updatedCount)));
+    } else {
+      // TODO Why is maxRowCount ignored?
+      return new ExecuteResult(
+          Collections.singletonList(MetaResultSet.create(
+              statementHandle.connectionId, statementHandle.id,
+              true, statementHandle.signature, null)));
+    }
   }
 
   @Override
@@ -121,6 +135,9 @@ public class ArrowFlightMetaImpl extends MetaImpl {
                                  final String query, final long maxRowCount) {
     final StatementHandle handle = super.createStatement(connectionHandle);
     handle.signature = newSignature(query);
+    final PreparedStatement preparedStatement =
+        ((ArrowFlightConnection) connection).getClientHandler().prepare(query);
+    statementHandlePreparedStatementMap.put(new StatementHandleKey(handle), preparedStatement);
     return handle;
   }
 
@@ -143,7 +160,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
       final PreparedStatement preparedStatement =
           ((ArrowFlightConnection) connection).getClientHandler().prepare(query);
       final StatementType statementType = preparedStatement.getType();
-      statementHandlePreparedStatementMap.put(handle, preparedStatement);
+      statementHandlePreparedStatementMap.put(new StatementHandleKey(handle), preparedStatement);
       final Signature signature = newSignature(query);
       final long updateCount =
           statementType.equals(StatementType.UPDATE) ? preparedStatement.executeUpdate() : -1;
@@ -195,6 +212,47 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   }
 
   PreparedStatement getPreparedStatement(StatementHandle statementHandle) {
-    return statementHandlePreparedStatementMap.get(statementHandle);
+    return statementHandlePreparedStatementMap.get(new StatementHandleKey(statementHandle));
+  }
+
+  // Helper used to look up prepared statement instances later. Avatica doesn't give us the signature in
+  // an UPDATE code path so we can't directly use StatementHandle as a map key.
+  private static final class StatementHandleKey {
+    public final String connectionId;
+    public final int id;
+
+    StatementHandleKey(String connectionId, int id) {
+      this.connectionId = connectionId;
+      this.id = id;
+    }
+
+    StatementHandleKey(StatementHandle statementHandle) {
+      this.connectionId = statementHandle.connectionId;
+      this.id = statementHandle.id;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+
+      StatementHandleKey that = (StatementHandleKey) o;
+
+      if (id != that.id) {
+        return false;
+      }
+      return connectionId.equals(that.connectionId);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = connectionId.hashCode();
+      result = 31 * result + id;
+      return result;
+    }
   }
 }

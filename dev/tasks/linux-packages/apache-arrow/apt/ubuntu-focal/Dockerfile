@@ -51,6 +51,8 @@ RUN \
     libgoogle-glog-dev \
     libgtest-dev \
     liblz4-dev \
+    libprotobuf-dev \
+    libprotoc-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
@@ -62,6 +64,7 @@ RUN \
     ninja-build \
     nlohmann-json3-dev \
     pkg-config \
+    protobuf-compiler \
     python3-dev \
     python3-pip \
     python3-setuptools \

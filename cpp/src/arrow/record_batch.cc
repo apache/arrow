@@ -30,7 +30,6 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
-#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/vector.h"
@@ -78,10 +77,10 @@ class SimpleRecordBatch : public RecordBatch {
   }
 
   std::shared_ptr<Array> column(int i) const override {
-    std::shared_ptr<Array> result = internal::atomic_load(&boxed_columns_[i]);
+    std::shared_ptr<Array> result = std::atomic_load(&boxed_columns_[i]);
     if (!result) {
       result = MakeArray(columns_[i]);
-      internal::atomic_store(&boxed_columns_[i], result);
+      std::atomic_store(&boxed_columns_[i], result);
     }
     return result;
   }
@@ -232,10 +231,8 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
     return false;
   }
 
-  if (check_metadata) {
-    if (!schema_->Equals(*other.schema(), /*check_metadata=*/true)) {
-      return false;
-    }
+  if (!schema_->Equals(*other.schema(), check_metadata)) {
+    return false;
   }
 
   for (int i = 0; i < num_columns(); ++i) {

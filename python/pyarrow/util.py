@@ -39,11 +39,11 @@ def implements(f):
     return decorator
 
 
-def _deprecate_api(old_name, new_name, api, next_version):
+def _deprecate_api(old_name, new_name, api, next_version, type=FutureWarning):
     msg = _DEPR_MSG.format(old_name, next_version, new_name)
 
     def wrapper(*args, **kwargs):
-        warnings.warn(msg, FutureWarning)
+        warnings.warn(msg, type)
         return api(*args, **kwargs)
     return wrapper
 

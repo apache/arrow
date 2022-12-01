@@ -167,24 +167,21 @@ update_versions() {
   sed -i.bak -E -e \
     "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
     arrow/doc.go  
-  # handle the pseudo version in the compute sub-module for now
-  # subsequent changes will allow this to remove the pseudo version but
-  # for now we have to overcome the slight conflict between the existing
-  # "compute" package and the new go.mod file.
-  sed -i.bak -E -e \
-    "s|v[0-9]+\\.0\\.0-00010101000000-000000000000|v${major_version}.0.0-00010101000000-000000000000|" \
-    arrow/compute/go.mod
-  
+
   find . -name "*.bak" -exec rm {} \;
   git add .
-  popd
+  popd  
 
-  pushd "${ARROW_DIR}"
-  ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
-                     . \
-                     "${base_version}" \
-                     "${next_version}"
-  git add docs/source/_static/versions.json
-  git add r/pkgdown/assets/versions.json
-  popd
+  case "${base_version}" in
+    *.0.0)
+      pushd "${ARROW_DIR}"
+      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
+                         . \
+                         "${base_version}" \
+                         "${next_version}"
+      git add docs/source/_static/versions.json
+      git add r/pkgdown/assets/versions.json
+      popd
+      ;;
+  esac
 }

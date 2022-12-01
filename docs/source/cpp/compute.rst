@@ -19,6 +19,8 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
+.. _compute-cpp:
+
 =================
 Compute Functions
 =================
@@ -435,43 +437,45 @@ floating-point arguments will cast all arguments to floating-point, while mixed
 decimal and integer arguments will cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
 
-+------------------+--------+------------------+----------------------+-------+
-| Function name    | Arity  | Input types      | Output type          | Notes |
-+==================+========+==================+======================+=======+
-| abs              | Unary  | Numeric          | Numeric              |       |
-+------------------+--------+------------------+----------------------+-------+
-| abs_checked      | Unary  | Numeric          | Numeric              |       |
-+------------------+--------+------------------+----------------------+-------+
-| add              | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
-+------------------+--------+------------------+----------------------+-------+
-| add_checked      | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
-+------------------+--------+------------------+----------------------+-------+
-| divide           | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
-+------------------+--------+------------------+----------------------+-------+
-| divide_checked   | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
-+------------------+--------+------------------+----------------------+-------+
-| multiply         | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
-+------------------+--------+------------------+----------------------+-------+
-| multiply_checked | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
-+------------------+--------+------------------+----------------------+-------+
-| negate           | Unary  | Numeric          | Numeric              |       |
-+------------------+--------+------------------+----------------------+-------+
-| negate_checked   | Unary  | Signed Numeric   | Signed Numeric       |       |
-+------------------+--------+------------------+----------------------+-------+
-| power            | Binary | Numeric          | Numeric              |       |
-+------------------+--------+------------------+----------------------+-------+
-| power_checked    | Binary | Numeric          | Numeric              |       |
-+------------------+--------+------------------+----------------------+-------+
-| sign             | Unary  | Numeric          | Int8/Float32/Float64 | \(2)  |
-+------------------+--------+------------------+----------------------+-------+
-| sqrt             | Unary  | Numeric          | Numeric              |       |
-+------------------+--------+------------------+----------------------+-------+
-| sqrt_checked     | Unary  | Numeric          | Numeric              |       |
-+------------------+--------+------------------+----------------------+-------+
-| subtract         | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
-+------------------+--------+------------------+----------------------+-------+
-| subtract_checked | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
-+------------------+--------+------------------+----------------------+-------+
++------------------+--------+-------------------------+----------------------+-------+
+| Function name    | Arity  | Input types             | Output type          | Notes |
++==================+========+=========================+======================+=======+
+| abs              | Unary  | Numeric                 | Numeric              |       |
++------------------+--------+-------------------------+----------------------+-------+
+| abs_checked      | Unary  | Numeric                 | Numeric              |       |
++------------------+--------+-------------------------+----------------------+-------+
+| add              | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
++------------------+--------+-------------------------+----------------------+-------+
+| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
++------------------+--------+-------------------------+----------------------+-------+
+| divide           | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
++------------------+--------+-------------------------+----------------------+-------+
+| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
++------------------+--------+-------------------------+----------------------+-------+
+| exp              | Unary  | Numeric                 | Float32/Float64      |       |
++------------------+--------+-------------------------+----------------------+-------+
+| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
++------------------+--------+-------------------------+----------------------+-------+
+| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
++------------------+--------+-------------------------+----------------------+-------+
+| negate           | Unary  | Numeric                 | Numeric              |       |
++------------------+--------+-------------------------+----------------------+-------+
+| negate_checked   | Unary  | Signed Numeric          | Signed Numeric       |       |
++------------------+--------+-------------------------+----------------------+-------+
+| power            | Binary | Numeric                 | Numeric              |       |
++------------------+--------+-------------------------+----------------------+-------+
+| power_checked    | Binary | Numeric                 | Numeric              |       |
++------------------+--------+-------------------------+----------------------+-------+
+| sign             | Unary  | Numeric                 | Int8/Float32/Float64 | \(2)  |
++------------------+--------+-------------------------+----------------------+-------+
+| sqrt             | Unary  | Numeric                 | Numeric              |       |
++------------------+--------+-------------------------+----------------------+-------+
+| sqrt_checked     | Unary  | Numeric                 | Numeric              |       |
++------------------+--------+-------------------------+----------------------+-------+
+| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
++------------------+--------+-------------------------+----------------------+-------+
+| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
++------------------+--------+-------------------------+----------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
@@ -1087,13 +1091,18 @@ semantics follow Python slicing semantics: the start index is inclusive,
 the stop index exclusive; if the step is negative, the sequence is followed
 in reverse order.
 
-+--------------------------+------------+----------------+-----------------+--------------------------+---------+
-| Function name            | Arity      | Input types    | Output type     | Options class            | Notes   |
-+==========================+============+================+=================+==========================+=========+
-| utf8_slice_codeunits     | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(1)    |
-+--------------------------+------------+----------------+-----------------+--------------------------+---------+
++--------------------------+------------+-------------------------+-------------------------+--------------------------+---------+
+| Function name            | Arity      | Input types             | Output type             | Options class            | Notes   |
++==========================+============+=========================+=========================+==========================+=========+
+| binary_slice             | Unary      | Binary-like             | Binary-like             | :struct:`SliceOptions`   | \(1)    |
++--------------------------+------------+-------------------------+-------------------------+--------------------------+---------+
+| utf8_slice_codeunits     | Unary      | String-like             | String-like             | :struct:`SliceOptions`   | \(2)    |
++--------------------------+------------+-------------------------+-------------------------+--------------------------+---------+
 
 * \(1) Slice string into a substring defined by (``start``, ``stop``, ``step``)
+  as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
+  in bytes. Null inputs emit null.
+* \(2) Slice string into a substring defined by (``start``, ``stop``, ``step``)
   as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
   in codeunits. Null inputs emit null.
 
@@ -1373,18 +1382,37 @@ null input value is converted into a null output value.
 +-----------------------------+------------------------------------+---------+
 | Extension                   | Extension storage type             |         |
 +-----------------------------+------------------------------------+---------+
-| List-like                   | List-like                          | \(2)    |
+| Struct                      | Struct                             | \(2)    |
++-----------------------------+------------------------------------+---------+
+| List-like                   | List-like                          | \(3)    |
++-----------------------------+------------------------------------+---------+
+| Map                         | Map or List of two-field struct    | \(4)    |
 +-----------------------------+------------------------------------+---------+
 | Null                        | Any                                |         |
++-----------------------------+------------------------------------+---------+
+| Any                         | Extension                          | \(5)    |
 +-----------------------------+------------------------------------+---------+
 
 * \(1) The dictionary indices are unchanged, the dictionary values are
   cast from the input value type to the output value type (if a conversion
   is available).
 
-* \(2) The list offsets are unchanged, the list values are cast from the
+* \(2) The field names of the output type must be the same or a subset of the
+  field names of the input type; they also must have the same order. Casting to
+  a subset of field names "selects" those fields such that each output field
+  matches the data of the input field with the same name.
+
+* \(3) The list offsets are unchanged, the list values are cast from the
   input value type to the output value type (if a conversion is
   available).
+
+* \(4) Offsets are unchanged, the keys and values are cast from respective input
+  to output types (if a conversion is available). If output type is a list of
+  struct, the key field is output as the first field and the value field the 
+  second field, regardless of field names chosen.
+
+* \(5) Any input type that can be cast to the resulting extension's storage type.
+  This excludes extension types, unless being cast to the same extension type.
 
 Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1709,9 +1737,11 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_parent_indices | Unary      | List-like                           | Int64            |                              | \(3)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(4)   |
+| list_slice          | Unary      | List-like                           | List-like        | :struct:`ListSliceOptions`   | \(4)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(5)   |
+| map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(5)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(6)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
@@ -1725,12 +1755,16 @@ Structural transforms
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
 
-* \(4) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
+* \(4) For each list element, compute the slice of that list element, then
+  return another list-like array of those slices. Can return either a
+  fixed or variable size list-like array, as determined by options provided.
+
+* \(5) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
   map whose key match the given query key passed via options.
   The output type is an Array of items for the ``FIRST``/``LAST`` options
   and an Array of List of items for the ``ALL`` option.
 
-* \(5) Extract a child value based on a sequence of indices passed in
+* \(6) Extract a child value based on a sequence of indices passed in
   the options. The validity bitmap of the result will be the
   intersection of all intermediate validity bitmaps. For example, for
   an array with type ``struct<a: int32, b: struct<c: int64, d:

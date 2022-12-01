@@ -30,7 +30,10 @@ import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
  *
  * <p>The PlasmaClient can ask the PlasmaStore to allocate a new buffer, seal a buffer, and get a
  * buffer. Buffers are referred to by object IDs.
+ *
+ * @deprecated Plasma is deprecated since 10.0.0. Plasma will not be released from Apache Arrow 12.0.0 or so.
  */
+@Deprecated
 public class PlasmaClient implements ObjectStoreLink {
 
   private final long conn;

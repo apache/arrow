@@ -81,6 +81,14 @@ TEST(TestArithmeticOps, TestMod) {
   EXPECT_NEAR(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 9.2, 3.7), 1.8,
               acceptable_abs_error);
   EXPECT_FALSE(context.has_error());
+
+  context.Reset();
+  EXPECT_EQ(mod_uint32_uint32(10, 3), 1);
+  EXPECT_FALSE(context.has_error());
+
+  context.Reset();
+  EXPECT_EQ(mod_uint64_uint64(10, 3), 1);
+  EXPECT_FALSE(context.has_error());
 }
 
 TEST(TestArithmeticOps, TestNegativeDecimal) {
@@ -275,6 +283,14 @@ TEST(TestArithmeticOps, TestDiv) {
 
   EXPECT_EQ(div_float32_float32(reinterpret_cast<gdv_int64>(&context), 1010.1010f, 2.1f),
             481.0f);
+  EXPECT_EQ(context.has_error(), false);
+  context.Reset();
+
+  EXPECT_EQ(div_uint32_uint32(reinterpret_cast<gdv_int64>(&context), 101, 111), 0);
+  EXPECT_EQ(context.has_error(), false);
+  context.Reset();
+
+  EXPECT_EQ(div_uint64_uint64(reinterpret_cast<gdv_int64>(&context), 101, 111), 0);
   EXPECT_EQ(context.has_error(), false);
   context.Reset();
 }

@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <functional>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -29,6 +30,8 @@
 #include <signal.h>
 #ifndef _WIN32
 #include <sys/time.h>  // for setitimer()
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 
 #include "arrow/testing/gtest_util.h"
@@ -201,6 +204,23 @@ class SignalCancelTest : public CancelTest {
     ASSERT_EQ(internal::SignalFromStatus(st), expected_signal_);
   }
 
+#ifndef _WIN32
+  void RunInChild(std::function<void()> func) {
+    auto child_pid = fork();
+    if (child_pid == -1) {
+      ASSERT_OK(internal::IOErrorFromErrno(errno, "Error calling fork(): "));
+    }
+    if (child_pid == 0) {
+      // Child
+      ASSERT_NO_FATAL_FAILURE(func()) << "Failure in child process";
+      std::exit(0);
+    } else {
+      // Parent
+      AssertChildExit(child_pid);
+    }
+  }
+#endif
+
  protected:
 #ifdef _WIN32
   const int expected_signal_ = SIGINT;
@@ -237,6 +257,54 @@ TEST_F(SignalCancelTest, RegisterUnregister) {
   TriggerSignal();
   AssertStopRequested();
 }
+
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
+      defined(THREAD_SANITIZER))
+TEST_F(SignalCancelTest, ForkSafetyUnregisteredHandlers) {
+  RunInChild([&]() {
+    // Child
+    TriggerSignal();
+    AssertStopNotRequested();
+
+    RegisterHandler();
+    TriggerSignal();
+    AssertStopRequested();
+  });
+
+  // Parent: shouldn't notice signals raised in child
+  AssertStopNotRequested();
+
+  // Stop source still usable in parent
+  TriggerSignal();
+  AssertStopNotRequested();
+
+  RegisterHandler();
+  TriggerSignal();
+  AssertStopRequested();
+}
+
+TEST_F(SignalCancelTest, ForkSafetyRegisteredHandlers) {
+  RegisterHandler();
+
+  RunInChild([&]() {
+    // Child: signal handlers are unregistered and need to be re-registered
+    TriggerSignal();
+    AssertStopNotRequested();
+
+    // Can re-register and receive signals
+    RegisterHandler();
+    TriggerSignal();
+    AssertStopRequested();
+  });
+
+  // Parent: shouldn't notice signals raised in child
+  AssertStopNotRequested();
+
+  // Stop source still usable in parent
+  TriggerSignal();
+  AssertStopRequested();
+}
+#endif
 
 TEST_F(CancelTest, ThreadedPollSuccess) {
   constexpr int kNumThreads = 10;

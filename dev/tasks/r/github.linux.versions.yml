@@ -46,6 +46,8 @@ jobs:
 
       - name: Docker Run
         shell: bash
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8)}}  
         run: archery docker run r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out

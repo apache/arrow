@@ -49,6 +49,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::StringFormatter;
+using internal::ToChars;
 
 namespace {
 
@@ -570,7 +571,7 @@ class SchemaPrinter : public PrettyPrinter {
       }
 
       Write(metadata.key(i) + ": '" + metadata.value(i).substr(0, truncated_size) +
-            "' + " + std::to_string(size - truncated_size));
+            "' + " + ToChars(size - truncated_size));
     }
   }
 

@@ -27,6 +27,7 @@
 
 #include <arrow/builder.h>
 #include <arrow/record_batch.h>
+#include <arrow/status.h>
 #include <arrow/type.h>
 #include <gandiva/configuration.h>
 #include <gandiva/decimal_scalar.h>
@@ -712,9 +713,7 @@ class JavaResizableBuffer : public arrow::ResizableBuffer {
 
   Status Resize(const int64_t new_size, bool shrink_to_fit) override;
 
-  Status Reserve(const int64_t new_capacity) override {
-    return Status::NotImplemented("reserve not implemented");
-  }
+  Status Reserve(const int64_t new_capacity) override;
 
  private:
   JNIEnv* env_;
@@ -722,20 +721,10 @@ class JavaResizableBuffer : public arrow::ResizableBuffer {
   int32_t vector_idx_;
 };
 
-Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
-  if (shrink_to_fit == true) {
-    return Status::NotImplemented("shrink not implemented");
-  }
-
-  if (ARROW_PREDICT_TRUE(new_size < capacity())) {
-    // no need to expand.
-    size_ = new_size;
-    return Status::OK();
-  }
-
+Status JavaResizableBuffer::Reserve(const int64_t new_capacity) {
   // callback into java to expand the buffer
-  jobject ret =
-      env_->CallObjectMethod(jexpander_, vector_expander_method_, vector_idx_, new_size);
+  jobject ret = env_->CallObjectMethod(jexpander_, vector_expander_method_, vector_idx_,
+                                       new_capacity);
   if (env_->ExceptionCheck()) {
     env_->ExceptionDescribe();
     env_->ExceptionClear();
@@ -744,11 +733,26 @@ Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
 
   jlong ret_address = env_->GetLongField(ret, vector_expander_ret_address_);
   jlong ret_capacity = env_->GetLongField(ret, vector_expander_ret_capacity_);
-  DCHECK_GE(ret_capacity, new_size);
 
   data_ = reinterpret_cast<uint8_t*>(ret_address);
-  size_ = new_size;
   capacity_ = ret_capacity;
+  return Status::OK();
+}
+
+Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
+  if (shrink_to_fit == true) {
+    return Status::NotImplemented("shrink not implemented");
+  }
+
+  if (ARROW_PREDICT_TRUE(new_size <= capacity())) {
+    // no need to expand.
+    size_ = new_size;
+    return Status::OK();
+  }
+
+  RETURN_NOT_OK(Reserve(new_size));
+  DCHECK_GE(capacity_, new_size);
+  size_ = new_size;
   return Status::OK();
 }
 

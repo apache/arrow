@@ -38,6 +38,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_type_inline.h"
 
@@ -51,6 +52,7 @@ namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
 using internal::checked_cast;
+using internal::ToChars;
 
 namespace ipc {
 namespace internal {
@@ -385,8 +387,7 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return UnionFromFlatbuffer(static_cast<const flatbuf::Union*>(type_data), children,
                                  out);
     default:
-      return Status::Invalid("Unrecognized type:" +
-                             std::to_string(static_cast<int>(type)));
+      return Status::Invalid("Unrecognized type:" + ToChars(static_cast<int>(type)));
   }
 }
 

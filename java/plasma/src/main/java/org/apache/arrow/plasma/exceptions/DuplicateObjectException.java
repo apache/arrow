@@ -19,7 +19,10 @@ package org.apache.arrow.plasma.exceptions;
 
 /**
  * Thrown when attempting to place an object into the store for an ID that already exists.
+ *
+ * @deprecated Plasma is deprecated since 10.0.0. Plasma will not be released from Apache Arrow 12.0.0 or so.
  */
+@Deprecated
 public class DuplicateObjectException extends RuntimeException {
 
   public DuplicateObjectException(String objectId) {

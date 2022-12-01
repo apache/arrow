@@ -63,7 +63,6 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_FLIGHT=OFF ^
       -DARROW_MIMALLOC=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_PYTHON=OFF ^
       -DARROW_WITH_BROTLI=ON ^
       -DARROW_WITH_BZ2=ON ^
       -DARROW_WITH_LZ4=ON ^

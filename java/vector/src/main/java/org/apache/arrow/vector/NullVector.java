@@ -262,6 +262,15 @@ public class NullVector implements FieldVector {
     return this.valueCount;
   }
 
+
+  /**
+   * Set the element at the given index to null. In a NullVector, this is a no-op.
+   *
+   * @param index position of element
+   */
+  @Override
+  public void setNull(int index) {}
+
   @Override
   public boolean isNull(int index) {
     return true;

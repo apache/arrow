@@ -20,12 +20,14 @@
 #include <atomic>
 #include <mutex>
 #include <sstream>
+#include <thread>
 #include <utility>
 
 #include "arrow/result.h"
-#include "arrow/util/atomic_shared_ptr.h"
+#include "arrow/util/atfork_internal.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -34,7 +36,9 @@ namespace arrow {
 #error Lock-free atomic int required for signal safety
 #endif
 
+using internal::AtForkHandler;
 using internal::ReinstateSignalHandler;
+using internal::SelfPipe;
 using internal::SetSignalHandler;
 using internal::SignalHandler;
 
@@ -100,16 +104,58 @@ Status StopToken::Poll() const {
 
 namespace {
 
-struct SignalStopState {
+struct SignalStopState : public std::enable_shared_from_this<SignalStopState> {
   struct SavedSignalHandler {
     int signum;
     SignalHandler handler;
   };
 
+  // NOTE: shared_from_this() doesn't work from constructor
+  void Init() {
+    // XXX this pattern appears in several places, factor it out?
+    atfork_handler_ = std::make_shared<AtForkHandler>(
+        /*before=*/
+        [weak_self = std::weak_ptr<SignalStopState>(shared_from_this())] {
+          auto self = weak_self.lock();
+          if (self) {
+            self->BeforeFork();
+          }
+          return self;
+        },
+        /*parent_after=*/
+        [](std::any token) {
+          auto self = std::any_cast<std::shared_ptr<SignalStopState>>(std::move(token));
+          self->ParentAfterFork();
+        },
+        /*child_after=*/
+        [](std::any token) {
+          auto self = std::any_cast<std::shared_ptr<SignalStopState>>(std::move(token));
+          self->ChildAfterFork();
+        });
+    RegisterAtFork(atfork_handler_);
+  }
+
   Status RegisterHandlers(const std::vector<int>& signals) {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!saved_handlers_.empty()) {
       return Status::Invalid("Signal handlers already registered");
     }
+    if (!self_pipe_) {
+      // Make sure the self-pipe is initialized
+      // (NOTE: avoid std::atomic_is_lock_free() which may require libatomic)
+#if ATOMIC_POINTER_LOCK_FREE != 2
+      return Status::NotImplemented(
+          "Cannot setup signal StopSource because atomic pointers are not "
+          "lock-free on this platform");
+#else
+      ARROW_ASSIGN_OR_RAISE(self_pipe_, SelfPipe::Make(/*signal_safe=*/true));
+#endif
+    }
+    if (!signal_receiving_thread_) {
+      // Spawn thread for receiving signals
+      SpawnSignalReceivingThread();
+    }
+    self_pipe_ptr_.store(self_pipe_.get());
     for (int signum : signals) {
       ARROW_ASSIGN_OR_RAISE(auto handler,
                             SetSignalHandler(signum, SignalHandler{&HandleSignal}));
@@ -119,6 +165,8 @@ struct SignalStopState {
   }
 
   void UnregisterHandlers() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    self_pipe_ptr_.store(nullptr);
     auto handlers = std::move(saved_handlers_);
     for (const auto& h : handlers) {
       ARROW_CHECK_OK(SetSignalHandler(h.signum, h.handler).status());
@@ -126,71 +174,126 @@ struct SignalStopState {
   }
 
   ~SignalStopState() {
+    atfork_handler_.reset();
     UnregisterHandlers();
     Disable();
+    if (signal_receiving_thread_) {
+      // Tell the receiving thread to stop
+      auto st = self_pipe_->Shutdown();
+      ARROW_WARN_NOT_OK(st, "Failed to shutdown self-pipe");
+      if (st.ok()) {
+        signal_receiving_thread_->join();
+      } else {
+        signal_receiving_thread_->detach();
+      }
+    }
   }
 
-  StopSource* stop_source() { return stop_source_.get(); }
+  StopSource* stop_source() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return stop_source_.get();
+  }
 
-  bool enabled() { return stop_source_ != nullptr; }
+  bool enabled() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return stop_source_ != nullptr;
+  }
 
   void Enable() {
-    // Before creating a new StopSource, delete any lingering reference to
-    // the previous one in the trash can.  See DoHandleSignal() for details.
-    EmptyTrashCan();
-    internal::atomic_store(&stop_source_, std::make_shared<StopSource>());
+    std::lock_guard<std::mutex> lock(mutex_);
+    stop_source_ = std::make_shared<StopSource>();
   }
 
-  void Disable() { internal::atomic_store(&stop_source_, NullSource()); }
+  void Disable() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    stop_source_.reset();
+  }
 
-  static SignalStopState* instance() { return &instance_; }
+  static SignalStopState* instance() {
+    static std::shared_ptr<SignalStopState> instance = []() {
+      auto ptr = std::make_shared<SignalStopState>();
+      ptr->Init();
+      return ptr;
+    }();
+    return instance.get();
+  }
 
  private:
-  // For readability
-  std::shared_ptr<StopSource> NullSource() { return nullptr; }
+  void SpawnSignalReceivingThread() {
+    signal_receiving_thread_ = std::make_unique<std::thread>(ReceiveSignals, self_pipe_);
+  }
 
-  void EmptyTrashCan() { internal::atomic_store(&trash_can_, NullSource()); }
-
-  static void HandleSignal(int signum) { instance_.DoHandleSignal(signum); }
+  static void HandleSignal(int signum) {
+    auto self = instance();
+    if (self) {
+      self->DoHandleSignal(signum);
+    }
+  }
 
   void DoHandleSignal(int signum) {
     // async-signal-safe code only
-    auto source = internal::atomic_load(&stop_source_);
-    if (source) {
-      source->RequestStopFromSignal(signum);
-      // Disable() may have been called in the meantime, but we can't
-      // deallocate a shared_ptr here, so instead move it to a "trash can".
-      // This minimizes the possibility of running a deallocator here,
-      // however it doesn't entirely preclude it.
-      //
-      // Possible case:
-      // - a signal handler (A) starts running, fetches the current source
-      // - Disable() then Enable() are called, emptying the trash can and
-      //   replacing the current source
-      // - a signal handler (B) starts running, fetches the current source
-      // - signal handler A resumes, moves its source (the old source) into
-      //   the trash can (the only remaining reference)
-      // - signal handler B resumes, moves its source (the current source)
-      //   into the trash can.  This triggers deallocation of the old source,
-      //   since the trash can had the only remaining reference to it.
-      //
-      // This case should be sufficiently unlikely, but we cannot entirely
-      // rule it out.  The problem might be solved properly with a lock-free
-      // linked list of StopSources.
-      internal::atomic_store(&trash_can_, std::move(source));
+    SelfPipe* self_pipe = self_pipe_ptr_.load();
+    if (self_pipe) {
+      self_pipe->Send(/*payload=*/signum);
     }
     ReinstateSignalHandler(signum, &HandleSignal);
   }
 
-  std::shared_ptr<StopSource> stop_source_;
-  std::shared_ptr<StopSource> trash_can_;
+  static void ReceiveSignals(std::shared_ptr<SelfPipe> self_pipe) {
+    // Wait for signals on the self-pipe and propagate them to the current StopSource
+    DCHECK(self_pipe);
+    while (true) {
+      auto maybe_payload = self_pipe->Wait();
+      if (maybe_payload.status().IsInvalid()) {
+        // Pipe shut down
+        return;
+      }
+      if (!maybe_payload.ok()) {
+        maybe_payload.status().Warn();
+        return;
+      }
+      const int signum = static_cast<int>(maybe_payload.ValueUnsafe());
+      instance()->ReceiveSignal(signum);
+    }
+  }
 
+  void ReceiveSignal(int signum) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (stop_source_) {
+      stop_source_->RequestStopFromSignal(signum);
+    }
+  }
+
+  // At-fork handlers
+
+  void BeforeFork() { mutex_.lock(); }
+
+  void ParentAfterFork() { mutex_.unlock(); }
+
+  void ChildAfterFork() {
+    new (&mutex_) std::mutex;
+    // Leak previous thread, as it has become invalid.
+    // We can't spawn a new one here as it would have unfortunate side effects;
+    // especially in the frequent context of a fork+exec.
+    // (for example the Python subprocess module closes all fds before calling exec)
+    ARROW_UNUSED(signal_receiving_thread_.release());
+    // Make internal state consistent: with no listening thread, we shouldn't
+    // feed the self-pipe from the signal handler.
+    UnregisterHandlers();
+  }
+
+  std::mutex mutex_;
   std::vector<SavedSignalHandler> saved_handlers_;
+  std::shared_ptr<StopSource> stop_source_;
+  std::unique_ptr<std::thread> signal_receiving_thread_;
+  std::shared_ptr<AtForkHandler> atfork_handler_;
 
-  static SignalStopState instance_;
+  // For signal handler interaction
+  std::shared_ptr<SelfPipe> self_pipe_;
+  // Raw atomic pointer, as atomic load/store of a shared_ptr may not be lock-free
+  // (it is not on libstdc++).
+  std::atomic<SelfPipe*> self_pipe_ptr_;
 };
-
-SignalStopState SignalStopState::instance_{};
 
 }  // namespace
 

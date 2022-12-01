@@ -85,13 +85,13 @@ where the leaf image is ``conda-python-pandas``.
 
 .. code:: bash
 
-    PANDAS=master archery docker run --no-leaf-cache conda-python-pandas
+    PANDAS=upstream_devel archery docker run --no-leaf-cache conda-python-pandas
 
 Which translates to:
 
 .. code:: bash
 
-    export PANDAS=master
+    export PANDAS=upstream_devel
     docker-compose pull --ignore-pull-failures conda-cpp
     docker-compose pull --ignore-pull-failures conda-python
     docker-compose build conda-cpp
@@ -102,8 +102,8 @@ Which translates to:
 Note that it doesn't pull the conda-python-pandas image and disable the cache
 when building it.
 
-``PANDAS`` is a `build parameter <Docker Build Parameters>`_, see the
-defaults in the .env file.
+``PANDAS`` is a :ref:`build parameter <docker-build-parameters>`, see the
+defaults in the ``.env`` file.
 
 **To entirely skip building the image:**
 
@@ -177,6 +177,8 @@ C++ environment multiple Dockerfiles, we can reuse the exact same base C++
 image when building Glib, Ruby, R and Python bindings.
 This reduces duplication and streamlines maintenance, but makes the
 docker-compose configuration more complicated.
+
+.. _docker-build-parameters:
 
 Docker Build Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~

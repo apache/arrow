@@ -16,23 +16,7 @@
 
 #include <arch.h>
 #include <stdint.h>
-
-// corresponds to datatype.go's arrow.Type
-enum class arrtype : int {
-    NULL,
-    BOOL,
-    UINT8,
-    INT8,
-    UINT16,
-    INT16,
-    UINT32,
-    INT32,
-    UINT64,
-    INT64,
-    FLOAT16,
-    FLOAT32,
-    FLOAT64
-};
+#include "types.h"
 
 template <typename I, typename O>
 static inline void FULL_NAME(cast_tmpl_numeric)(const I* in, O* out, const int len) {

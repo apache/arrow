@@ -46,6 +46,7 @@ using arrow::KeyValueMetadata;
 using arrow::Status;
 using arrow::internal::checked_cast;
 using arrow::internal::EndsWith;
+using arrow::internal::ToChars;
 
 using ArrowType = arrow::DataType;
 using ArrowTypeId = arrow::Type;
@@ -244,7 +245,7 @@ static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
 
 std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
   if (field_id >= 0) {
-    return ::arrow::key_value_metadata({FIELD_ID_KEY}, {std::to_string(field_id)});
+    return ::arrow::key_value_metadata({FIELD_ID_KEY}, {ToChars(field_id)});
   } else {
     return nullptr;
   }

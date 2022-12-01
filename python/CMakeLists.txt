@@ -43,6 +43,12 @@ include(CMakeParseArguments)
 # https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
 cmake_policy(SET CMP0054 NEW)
 
+# find_package() uses <PackageName>_ROOT variables.
+# https://cmake.org/cmake/help/latest/policy/CMP0074.html
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
+
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first
@@ -119,11 +125,6 @@ if(NOT DEFINED ARROW_RUNTIME_SIMD_LEVEL)
   set(ARROW_RUNTIME_SIMD_LEVEL
       "MAX"
       CACHE STRING "Max runtime SIMD optimization level")
-endif()
-if(NOT DEFINED ARROW_ARMV8_ARCH)
-  set(ARROW_ARMV8_ARCH
-      "armv8-a"
-      CACHE STRING "Arm64 arch and extensions: armv8-a, armv8-a or armv8-a+crc+crypto")
 endif()
 include(SetupCxxFlags)
 
@@ -410,7 +411,8 @@ set(CYTHON_EXTENSIONS
     _feather
     _fs
     _hdfsio
-    _json)
+    _json
+    _pyarrow_cpp_tests)
 
 set(LINK_LIBS ArrowPython::arrow_python_shared)
 
@@ -588,6 +590,9 @@ endif()
 if(PYARROW_GENERATE_COVERAGE)
   set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xlinetrace=True")
 endif()
+
+# Error on any warnings not already explicitly ignored.
+set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
 
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})

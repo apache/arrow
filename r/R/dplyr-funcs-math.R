@@ -53,46 +53,39 @@ register_bindings_math <- function() {
   register_binding("base::logb", log_binding)
 
   register_binding("base::pmin", function(..., na.rm = FALSE) {
-    build_expr(
+    Expression$create(
       "min_element_wise",
-      ...,
+      args = cast_scalars_to_common_type(list(...)),
       options = list(skip_nulls = na.rm)
     )
   })
 
   register_binding("base::pmax", function(..., na.rm = FALSE) {
-    build_expr(
+    Expression$create(
       "max_element_wise",
-      ...,
+      args = cast_scalars_to_common_type(list(...)),
       options = list(skip_nulls = na.rm)
     )
   })
 
   register_binding("base::trunc", function(x, ...) {
     # accepts and ignores ... for consistency with base::trunc()
-    build_expr("trunc", x)
+    Expression$create("trunc", x)
   })
 
   register_binding("base::round", function(x, digits = 0) {
-    build_expr(
-      "round",
-      x,
-      options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+    opts <- list(
+      ndigits = digits,
+      round_mode = RoundMode$HALF_TO_EVEN
     )
+    Expression$create("round", x, options = opts)
   })
 
   register_binding("base::sqrt", function(x) {
-    build_expr(
-      "sqrt_checked",
-      x
-    )
+    Expression$create("sqrt_checked", x)
   })
 
   register_binding("base::exp", function(x) {
-    build_expr(
-      "power_checked",
-      exp(1),
-      x
-    )
+    Expression$create("power_checked", exp(1), x)
   })
 }

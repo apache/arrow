@@ -703,7 +703,7 @@ Status FlightClient::DoExchange(const FlightCallOptions& options,
 Status FlightClient::Close() {
   if (!closed_) {
     closed_ = true;
-    RETURN_NOT_OK(transport_->Close());
+    if (transport_) RETURN_NOT_OK(transport_->Close());
     transport_.reset(nullptr);
   }
   return Status::OK();

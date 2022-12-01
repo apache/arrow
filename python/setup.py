@@ -220,6 +220,7 @@ class build_ext(_build_ext):
         '_feather',
         '_parquet',
         '_parquet_encryption',
+        '_pyarrow_cpp_tests',
         '_orc',
         '_plasma',
         '_gcsfs',
@@ -231,9 +232,10 @@ class build_ext(_build_ext):
 
     def _run_cmake_pyarrow_cpp(self, pyarrow_cpp_home):
         # check if build_type is correctly passed / set
-        if self.build_type.lower() not in ('release', 'debug'):
+        if self.build_type.lower() not in ('release', 'debug',
+                                           'relwithdebinfo'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
-                             "be 'release' or 'debug'")
+                             "be 'release', 'debug' or 'relwithdebinfo'")
 
         # The directory containing this setup.py
         source = os.path.dirname(os.path.abspath(__file__))
@@ -243,9 +245,6 @@ class build_ext(_build_ext):
         # The directory for the module being built
         build_dir = pjoin(os.getcwd(), 'build', 'cpp')
 
-        # The directory containing Arrow C++ build
-        arrow_build_dir = os.environ.get('ARROW_BUILD_DIR', 'build')
-
         if not os.path.isdir(build_dir):
             self.mkpath(build_dir)
 
@@ -253,7 +252,6 @@ class build_ext(_build_ext):
         with changed_dir(build_dir):
             # cmake args
             cmake_options = [
-                '-DARROW_BUILD_DIR=' + str(arrow_build_dir),
                 '-DCMAKE_BUILD_TYPE=' + str(self.build_type.lower()),
                 '-DCMAKE_INSTALL_LIBDIR=lib',
                 '-DCMAKE_INSTALL_PREFIX=' + str(pyarrow_cpp_home),
@@ -272,6 +270,8 @@ class build_ext(_build_ext):
                               'PYARROW_WITH_PARQUET_ENCRYPTION')
             append_cmake_bool(self.with_hdfs,
                               'PYARROW_WITH_HDFS')
+            append_cmake_bool(self.with_flight,
+                              'PYARROW_WITH_FLIGHT')
 
             # Windows
             if self.cmake_generator:
@@ -299,9 +299,10 @@ class build_ext(_build_ext):
 
     def _run_cmake(self, pyarrow_cpp_home):
         # check if build_type is correctly passed / set
-        if self.build_type.lower() not in ('release', 'debug'):
+        if self.build_type.lower() not in ('release', 'debug',
+                                           'relwithdebinfo'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
-                             "be 'release' or 'debug'")
+                             "be 'release', 'debug' or 'relwithdebinfo'")
 
         # The directory containing this setup.py
         source = os.path.dirname(os.path.abspath(__file__))
@@ -437,19 +438,23 @@ class build_ext(_build_ext):
             else:
                 build_prefix = self.build_type
 
+            pyarrow_include = pjoin(build_lib, 'pyarrow', 'include')
+            # Move Arrow C++ headers to pyarrow/include
             if self.bundle_arrow_cpp or self.bundle_arrow_cpp_headers:
                 arrow_cpp_include = pjoin(build_prefix, 'include')
                 print('Bundling includes: ' + arrow_cpp_include)
-                pyarrow_include = pjoin(build_lib, 'pyarrow', 'include')
                 if os.path.exists(pyarrow_include):
                     shutil.rmtree(pyarrow_include)
                 shutil.move(arrow_cpp_include, pyarrow_include)
 
-                # pyarrow/include file is first deleted in the previous step
-                # so we need to add the PyArrow C++ include folder again
-                pyarrow_cpp_include = pjoin(pyarrow_cpp_home, 'include')
-                shutil.move(pjoin(pyarrow_cpp_include, 'arrow', 'python'),
-                            pjoin(pyarrow_include, 'arrow', 'python'))
+            # Move PyArrow headers to pyarrow/include
+            pyarrow_cpp_include = pjoin(pyarrow_cpp_home, 'include')
+            pyarrow_include_sub = pjoin(pyarrow_include, 'arrow', 'python')
+            print('Moving PyArrow C++ includes: ' + pyarrow_include_sub)
+            if os.path.exists(pyarrow_include_sub):
+                shutil.rmtree(pyarrow_include_sub)
+            shutil.move(pjoin(pyarrow_cpp_include, 'arrow', 'python'),
+                        pyarrow_include_sub)
 
             # Move the built C-extension to the place expected by the Python
             # build
@@ -662,7 +667,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '10.0.0-SNAPSHOT'
+default_version = '11.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
@@ -765,6 +770,7 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
     ],
     license='Apache License, Version 2.0',
     maintainer='Apache Arrow Developers',

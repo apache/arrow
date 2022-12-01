@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -eu
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <rc-num>"
@@ -25,10 +25,11 @@ if [ "$#" -ne 2 ]; then
 fi
 
 version=$1
-rc_number=$2
-version_with_rc="${version}-rc${rc_number}"
+rc=$2
+version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
 release_tag="apache-arrow-${version}"
+rc_branch="release-${version_with_rc}"
 
 : ${ARROW_REPOSITORY:="apache/arrow"}
 : ${ARROW_BRANCH:=$release_tag}
@@ -46,9 +47,9 @@ archery crossbow submit \
 
 # archery will add a comment to the automatically generated PR to track
 # the submitted jobs
-job_name=$(archery crossbow latest-prefix ${crossbow_job_prefix})
+job_name=$(archery crossbow latest-prefix --no-fetch ${crossbow_job_prefix})
 archery crossbow report-pr \
     --no-fetch \
     --arrow-remote "https://github.com/${ARROW_REPOSITORY}" \
     --job-name ${job_name} \
-    --pr-title "WIP: [Release] Verify ${release_candidate_branch}"
+    --pr-title "WIP: [Release] Verify ${rc_branch}"

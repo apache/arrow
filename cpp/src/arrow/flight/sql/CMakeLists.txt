@@ -63,6 +63,10 @@ add_arrow_lib(arrow_flight_sql
               PRIVATE_INCLUDES
               "${Protobuf_INCLUDE_DIRS}")
 
+if(ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_flight_sql_static PUBLIC ARROW_FLIGHT_SQL_STATIC)
+endif()
+
 if(MSVC)
   # Suppress warnings caused by Protobuf (casts)
   set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_FLAGS "/wd4267")
@@ -93,14 +97,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc)
   set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
-
-  if(NOT MSVC AND NOT MINGW)
-    # ARROW-16902: getting Protobuf generated code to have all the
-    # proper dllexport/dllimport declarations is difficult, since
-    # protoc does not insert them everywhere needed to satisfy both
-    # MinGW and MSVC, and the Protobuf team recommends against it
-    list(APPEND ARROW_FLIGHT_SQL_TEST_SRCS client_test.cc)
-  endif()
 
   if(ARROW_COMPUTE
      AND ARROW_PARQUET

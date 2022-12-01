@@ -18,6 +18,7 @@
 import datetime
 import decimal
 from collections import OrderedDict
+import io
 
 import numpy as np
 import pytest
@@ -433,7 +434,9 @@ def test_write_metadata(tempdir):
     assert parquet_meta_mult.num_row_groups == 2
 
     # append metadata with different schema raises an error
-    with pytest.raises(RuntimeError, match="requires equal schemas"):
+    msg = ("AppendRowGroups requires equal schemas.\n"
+           "The two columns with index 0 differ.")
+    with pytest.raises(RuntimeError, match=msg):
         pq.write_metadata(
             pa.schema([("a", "int32"), ("b", "null")]),
             path, metadata_collector=[parquet_meta, parquet_meta]
@@ -580,3 +583,66 @@ def test_metadata_equals():
     match = "Argument 'other' has incorrect type"
     with pytest.raises(TypeError, match=match):
         original_metadata.equals(None)
+
+
+@pytest.mark.parametrize("t1,t2,expected_error", (
+    ({'col1': range(10)}, {'col1': range(10)}, None),
+    ({'col1': range(10)}, {'col2': range(10)},
+     "The two columns with index 0 differ."),
+    ({'col1': range(10), 'col2': range(10)}, {'col3': range(10)},
+     "This schema has 2 columns, other has 1")
+))
+def test_metadata_append_row_groups_diff(t1, t2, expected_error):
+    table1 = pa.table(t1)
+    table2 = pa.table(t2)
+
+    buf1 = io.BytesIO()
+    buf2 = io.BytesIO()
+    pq.write_table(table1, buf1)
+    pq.write_table(table2, buf2)
+    buf1.seek(0)
+    buf2.seek(0)
+
+    meta1 = pq.ParquetFile(buf1).metadata
+    meta2 = pq.ParquetFile(buf2).metadata
+
+    if expected_error:
+        # Error clearly defines it's happening at append row groups call
+        prefix = "AppendRowGroups requires equal schemas.\n"
+        with pytest.raises(RuntimeError, match=prefix + expected_error):
+            meta1.append_row_groups(meta2)
+    else:
+        meta1.append_row_groups(meta2)
+
+
+@pytest.mark.s3
+def test_write_metadata_fs_file_combinations(tempdir, s3_example_s3fs):
+    s3_fs, s3_path = s3_example_s3fs
+
+    meta1 = tempdir / "meta1"
+    meta2 = tempdir / "meta2"
+    meta3 = tempdir / "meta3"
+    meta4 = tempdir / "meta4"
+    meta5 = f"{s3_path}/meta5"
+
+    table = pa.table({"col": range(5)})
+
+    # plain local path
+    pq.write_metadata(table.schema, meta1, [])
+
+    # Used the localfilesystem to resolve opening an output stream
+    pq.write_metadata(table.schema, meta2, [], filesystem=LocalFileSystem())
+
+    # Can resolve local file URI
+    pq.write_metadata(table.schema, meta3.as_uri(), [])
+
+    # Take a file-like obj all the way thru?
+    with meta4.open('wb+') as meta4_stream:
+        pq.write_metadata(table.schema, meta4_stream, [])
+
+    # S3FileSystem
+    pq.write_metadata(table.schema, meta5, [], filesystem=s3_fs)
+
+    assert meta1.read_bytes() == meta2.read_bytes() \
+        == meta3.read_bytes() == meta4.read_bytes() \
+        == s3_fs.open(meta5).read()

@@ -90,4 +90,11 @@ public interface FieldVector extends ValueVector {
    * @return buffer address
    */
   long getOffsetBufferAddress();
+
+  /**
+   * Set the element at the given index to null.
+   *
+   * @param index the value to change
+   */
+  void setNull(int index);
 }

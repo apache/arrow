@@ -36,7 +36,9 @@ if(NOT ARROW_GRPC_USE_SHARED)
 endif()
 
 set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
-if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
+if(ARROW_BUILD_BENCHMARKS
+   OR ARROW_BUILD_INTEGRATION
+   OR ARROW_BUILD_TESTS)
   if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
     if(NOT ARROW_BUILD_STATIC)
       message(STATUS "If static Protobuf or gRPC are used, Arrow must be built statically"
@@ -126,10 +128,17 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
     else()
       message(STATUS "TlsCredentialsOptions (for gRPC ${DETECT_VERSION}) not found in grpc::experimental."
       )
-      message(DEBUG "Build output:")
-      list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
-      message(DEBUG ${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
-      list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
+      if(ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS)
+        message(WARNING "Build output:")
+        list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
+        message(WARNING ${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
+        list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
+      else()
+        message(DEBUG "Build output:")
+        list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
+        message(DEBUG ${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
+        list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
+      endif()
     endif()
   endif()
 endfunction()
@@ -238,6 +247,10 @@ add_arrow_lib(arrow_flight
               ${ARROW_FLIGHT_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
               Arrow::arrow_static)
+
+if(ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_flight_static PUBLIC ARROW_FLIGHT_STATIC)
+endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
