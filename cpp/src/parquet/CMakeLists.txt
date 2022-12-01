@@ -166,6 +166,7 @@ set(PARQUET_SRCS
     level_conversion.cc
     metadata.cc
     murmur3.cc
+    page_index.cc
     "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
     "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp"
     platform.cc
