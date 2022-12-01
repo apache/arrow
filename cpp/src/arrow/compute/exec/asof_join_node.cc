@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/compute/exec/asof_join_node.h"
+
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -88,6 +90,10 @@ class ConcurrentQueue {
   T Pop() {
     std::unique_lock<std::mutex> lock(mutex_);
     cond_.wait(lock, [&] { return !queue_.empty(); });
+    return PopUnlocked();
+  }
+
+  T PopUnlocked() {
     auto item = queue_.front();
     queue_.pop();
     return item;
@@ -95,18 +101,28 @@ class ConcurrentQueue {
 
   void Push(const T& item) {
     std::unique_lock<std::mutex> lock(mutex_);
+    return PushUnlocked(item);
+  }
+
+  void PushUnlocked(const T& item) {
     queue_.push(item);
     cond_.notify_one();
   }
 
   void Clear() {
     std::unique_lock<std::mutex> lock(mutex_);
-    queue_ = std::queue<T>();
+    ClearUnlocked();
   }
 
+  void ClearUnlocked() { queue_ = std::queue<T>(); }
+
   std::optional<T> TryPop() {
-    // Try to pop the oldest value from the queue (or return nullopt if none)
     std::unique_lock<std::mutex> lock(mutex_);
+    return TryPopUnlocked();
+  }
+
+  std::optional<T> TryPopUnlocked() {
+    // Try to pop the oldest value from the queue (or return nullopt if none)
     if (queue_.empty()) {
       return std::nullopt;
     } else {
@@ -126,6 +142,11 @@ class ConcurrentQueue {
   // 1) the caller logically guarantees that queue is not empty
   // 2) pop/try_pop cannot be called concurrently with this
   const T& UnsyncFront() const { return queue_.front(); }
+
+  size_t UnsyncSize() const { return queue_.size(); }
+
+ protected:
+  std::mutex& GetMutex() { return mutex_; }
 
  private:
   std::queue<T> queue_;
@@ -236,6 +257,107 @@ class KeyHasher {
   util::TempVectorStack stack_;
 };
 
+class BackpressureController : public BackpressureControl {
+ public:
+  BackpressureController(ExecNode* node, ExecNode* output,
+                         std::atomic<int32_t>& backpressure_counter)
+      : node_(node), output_(output), backpressure_counter_(backpressure_counter) {}
+
+  void Pause() override { node_->PauseProducing(output_, ++backpressure_counter_); }
+  void Resume() override { node_->ResumeProducing(output_, ++backpressure_counter_); }
+
+ private:
+  ExecNode* node_;
+  ExecNode* output_;
+  std::atomic<int32_t>& backpressure_counter_;
+};
+
+class BackpressureHandler {
+ private:
+  BackpressureHandler(size_t low_threshold, size_t high_threshold,
+                      std::unique_ptr<BackpressureControl> backpressure_control)
+      : low_threshold_(low_threshold),
+        high_threshold_(high_threshold),
+        backpressure_control_(std::move(backpressure_control)) {}
+
+ public:
+  static Result<BackpressureHandler> Make(
+      size_t low_threshold, size_t high_threshold,
+      std::unique_ptr<BackpressureControl> backpressure_control) {
+    if (low_threshold >= high_threshold) {
+      return Status::Invalid("low threshold (", low_threshold,
+                             ") must be less than high threshold (", high_threshold, ")");
+    }
+    if (backpressure_control == NULLPTR) {
+      return Status::Invalid("null backpressure control parameter");
+    }
+    BackpressureHandler backpressure_handler(low_threshold, high_threshold,
+                                             std::move(backpressure_control));
+    return std::move(backpressure_handler);
+  }
+
+  void Handle(size_t start_level, size_t end_level) {
+    if (start_level < high_threshold_ && end_level >= high_threshold_) {
+      backpressure_control_->Pause();
+    } else if (start_level > low_threshold_ && end_level <= low_threshold_) {
+      backpressure_control_->Resume();
+    }
+  }
+
+ private:
+  size_t low_threshold_;
+  size_t high_threshold_;
+  std::unique_ptr<BackpressureControl> backpressure_control_;
+};
+
+template <typename T>
+class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
+ private:
+  struct DoHandle {
+    explicit DoHandle(BackpressureConcurrentQueue& queue)
+        : queue_(queue), start_size_(queue_.UnsyncSize()) {}
+
+    ~DoHandle() {
+      size_t end_size = queue_.UnsyncSize();
+      queue_.handler_.Handle(start_size_, end_size);
+    }
+
+    BackpressureConcurrentQueue& queue_;
+    size_t start_size_;
+  };
+
+ public:
+  explicit BackpressureConcurrentQueue(BackpressureHandler handler)
+      : handler_(std::move(handler)) {}
+
+  T Pop() {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
+    DoHandle do_handle(*this);
+    return ConcurrentQueue<T>::PopUnlocked();
+  }
+
+  void Push(const T& item) {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
+    DoHandle do_handle(*this);
+    ConcurrentQueue<T>::PushUnlocked(item);
+  }
+
+  void Clear() {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
+    DoHandle do_handle(*this);
+    ConcurrentQueue<T>::ClearUnlocked();
+  }
+
+  std::optional<T> TryPop() {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
+    DoHandle do_handle(*this);
+    return ConcurrentQueue<T>::TryPopUnlocked();
+  }
+
+ private:
+  BackpressureHandler handler_;
+};
+
 class InputState {
   // InputState correponds to an input
   // Input record batches are queued up in InputState until processed and
@@ -243,10 +365,10 @@ class InputState {
 
  public:
   InputState(bool must_hash, bool may_rehash, KeyHasher* key_hasher,
-             const std::shared_ptr<arrow::Schema>& schema,
+             BackpressureHandler handler, const std::shared_ptr<arrow::Schema>& schema,
              const col_index_t time_col_index,
              const std::vector<col_index_t>& key_col_index)
-      : queue_(),
+      : queue_(std::move(handler)),
         schema_(schema),
         time_col_index_(time_col_index),
         key_col_index_(key_col_index),
@@ -258,6 +380,22 @@ class InputState {
     for (size_t k = 0; k < key_col_index_.size(); k++) {
       key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
     }
+  }
+
+  static Result<std::unique_ptr<InputState>> Make(
+      bool must_hash, bool may_rehash, KeyHasher* key_hasher, ExecNode* node,
+      ExecNode* output, std::atomic<int32_t>& backpressure_counter,
+      const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
+      const std::vector<col_index_t>& key_col_index) {
+    constexpr size_t low_threshold = 4, high_threshold = 8;
+    std::unique_ptr<BackpressureControl> backpressure_control =
+        std::make_unique<BackpressureController>(node, output, backpressure_counter);
+    ARROW_ASSIGN_OR_RAISE(auto handler,
+                          BackpressureHandler::Make(low_threshold, high_threshold,
+                                                    std::move(backpressure_control)));
+    return std::make_unique<InputState>(must_hash, may_rehash, key_hasher,
+                                        std::move(handler), schema, time_col_index,
+                                        key_col_index);
   }
 
   col_index_t InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
@@ -468,7 +606,7 @@ class InputState {
 
  private:
   // Pending record batches. The latest is the front. Batches cannot be empty.
-  ConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
+  BackpressureConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
   // Schema associated with the input
   std::shared_ptr<Schema> schema_;
   // Total number of batches (only int because InputFinished uses int)
@@ -668,20 +806,29 @@ class CompositeReferenceTable {
   void AddRecordBatchRef(const std::shared_ptr<RecordBatch>& ref) {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
+
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_fixed_width_type<Type, Status> static BuilderAppend(
+  enable_if_boolean<Type, Status> static BuilderAppend(
       Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
     if (source->IsNull(row)) {
       builder.UnsafeAppendNull();
       return Status::OK();
     }
+    builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
+    return Status::OK();
+  }
 
-    if constexpr (is_boolean_type<Type>::value) {
-      builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
-    } else {
-      using CType = typename TypeTraits<Type>::CType;
-      builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+  enable_if_t<is_fixed_width_type<Type>::value && !is_boolean_type<Type>::value,
+              Status> static BuilderAppend(Builder& builder,
+                                           const std::shared_ptr<ArrayData>& source,
+                                           row_index_t row) {
+    if (source->IsNull(row)) {
+      builder.UnsafeAppendNull();
+      return Status::OK();
     }
+    using CType = typename TypeTraits<Type>::CType;
+    builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
     return Status::OK();
   }
 
@@ -806,10 +953,29 @@ class AsofJoinNode : public ExecNode {
     }
   }
 
-  void Process() {
+  template <typename Callable>
+  struct Defer {
+    Callable callable;
+    explicit Defer(Callable callable) : callable(std::move(callable)) {}
+    ~Defer() noexcept { callable(); }
+  };
+
+  bool CheckEnded() {
+    if (state_.at(0)->Finished()) {
+      ErrorIfNotOk(plan_->ScheduleTask([this] {
+        Defer cleanup([this]() { finished_.MarkFinished(); });
+        outputs_[0]->InputFinished(this, batches_produced_);
+        return Status::OK();
+      }));
+      return false;
+    }
+    return true;
+  }
+
+  bool Process() {
     std::lock_guard<std::mutex> guard(gate_);
-    if (finished_.is_finished()) {
-      return;
+    if (!CheckEnded()) {
+      return false;
     }
 
     // Process batches while we have data
@@ -821,10 +987,13 @@ class AsofJoinNode : public ExecNode {
         if (!out_rb) break;
         ++batches_produced_;
         ExecBatch out_b(*out_rb);
-        outputs_[0]->InputReceived(this, std::move(out_b));
+        ErrorIfNotOk(plan_->ScheduleTask([this, out_b = std::move(out_b)]() mutable {
+          outputs_[0]->InputReceived(this, std::move(out_b));
+          return Status::OK();
+        }));
       } else {
         ErrorIfNotOk(result.status());
-        return;
+        return false;
       }
     }
 
@@ -833,10 +1002,13 @@ class AsofJoinNode : public ExecNode {
     //
     // It may happen here in cases where InputFinished was called before we were finished
     // producing results (so we didn't know the output size at that time)
-    if (state_.at(0)->Finished()) {
-      outputs_[0]->InputFinished(this, batches_produced_);
-      finished_.MarkFinished();
+    if (!CheckEnded()) {
+      return false;
     }
+
+    // There is no more we can do now but there is still work remaining for later when
+    // more data arrives.
+    return true;
   }
 
   void ProcessThread() {
@@ -844,7 +1016,9 @@ class AsofJoinNode : public ExecNode {
       if (!process_.Pop()) {
         return;
       }
-      Process();
+      if (!Process()) {
+        return;
+      }
     }
   }
 
@@ -862,9 +1036,12 @@ class AsofJoinNode : public ExecNode {
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
-      state_.push_back(std::make_unique<InputState>(
-          must_hash_, may_rehash_, key_hashers_[i].get(), inputs[i]->output_schema(),
-          indices_of_on_key_[i], indices_of_by_key_[i]));
+      ARROW_ASSIGN_OR_RAISE(
+          auto input_state,
+          InputState::Make(must_hash_, may_rehash_, key_hashers_[i].get(), inputs[i],
+                           this, backpressure_counter_, inputs[i]->output_schema(),
+                           indices_of_on_key_[i], indices_of_by_key_[i]));
+      state_.push_back(std::move(input_state));
     }
 
     col_index_t dst_offset = 0;
@@ -875,8 +1052,12 @@ class AsofJoinNode : public ExecNode {
   }
 
   virtual ~AsofJoinNode() {
-    process_.Push(false);  // poison pill
-    process_thread_.join();
+    process_.Push(false);                                          // poison pill
+    if (process_thread_.get_id() != std::this_thread::get_id()) {  // avoid deadlock
+      process_thread_.join();
+    } else {
+      process_thread_.detach();
+    }
   }
 
   const std::vector<col_index_t>& indices_of_on_key() { return indices_of_on_key_; }
@@ -962,17 +1143,18 @@ class AsofJoinNode : public ExecNode {
   }
 
   static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
-      const std::vector<ExecNode*>& inputs,
+      const std::vector<std::shared_ptr<Schema>> input_schema,
       const std::vector<col_index_t>& indices_of_on_key,
-      const std::vector<std::vector<col_index_t>>& indices_of_by_key) {
+      const std::vector<std::vector<col_index_t>>& indices_of_by_key,
+      std::vector<int>* field_output_indices = nullptr) {
     std::vector<std::shared_ptr<arrow::Field>> fields;
 
-    size_t n_by = indices_of_by_key[0].size();
+    size_t n_by = indices_of_by_key.size() == 0 ? 0 : indices_of_by_key[0].size();
     const DataType* on_key_type = NULLPTR;
     std::vector<const DataType*> by_key_type(n_by, NULLPTR);
     // Take all non-key, non-time RHS fields
-    for (size_t j = 0; j < inputs.size(); ++j) {
-      const auto& input_schema = inputs[j]->output_schema();
+    int output_field_idx = 0;
+    for (size_t j = 0; j < input_schema.size(); ++j) {
       const auto& on_field_ix = indices_of_on_key[j];
       const auto& by_field_ix = indices_of_by_key[j];
 
@@ -980,10 +1162,10 @@ class AsofJoinNode : public ExecNode {
         return Status::Invalid("Missing join key on table ", j);
       }
 
-      const auto& on_field = input_schema->fields()[on_field_ix];
+      const auto& on_field = input_schema[j]->fields()[on_field_ix];
       std::vector<const Field*> by_field(n_by);
       for (size_t k = 0; k < n_by; k++) {
-        by_field[k] = input_schema->fields()[by_field_ix[k]].get();
+        by_field[k] = input_schema[j]->fields()[by_field_ix[k]].get();
       }
 
       if (on_key_type == NULLPTR) {
@@ -1003,23 +1185,26 @@ class AsofJoinNode : public ExecNode {
         }
       }
 
-      for (int i = 0; i < input_schema->num_fields(); ++i) {
-        const auto field = input_schema->field(i);
+      for (int i = 0; i < input_schema[j]->num_fields(); ++i) {
+        const auto field = input_schema[j]->field(i);
+        bool as_output;
         if (i == on_field_ix) {
           ARROW_RETURN_NOT_OK(is_valid_on_field(field));
           // Only add on field from the left table
-          if (j == 0) {
-            fields.push_back(field);
-          }
+          as_output = (j == 0);
         } else if (std_has(by_field_ix, i)) {
           ARROW_RETURN_NOT_OK(is_valid_by_field(field));
           // Only add by field from the left table
-          if (j == 0) {
-            fields.push_back(field);
-          }
+          as_output = (j == 0);
         } else {
           ARROW_RETURN_NOT_OK(is_valid_data_field(field));
+          as_output = true;
+        }
+        if (as_output) {
           fields.push_back(field);
+        }
+        if (field_output_indices) {
+          field_output_indices->push_back(as_output ? output_field_idx++ : i);
         }
       }
     }
@@ -1041,6 +1226,56 @@ class AsofJoinNode : public ExecNode {
     return match.indices()[0];
   }
 
+  static Result<size_t> GetByKeySize(
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys) {
+    size_t n_by = 0;
+    for (size_t i = 0; i < input_keys.size(); ++i) {
+      const auto& by_key = input_keys[i].by_key;
+      if (i == 0) {
+        n_by = by_key.size();
+      } else if (n_by != by_key.size()) {
+        return Status::Invalid("inconsistent size of by-key across inputs");
+      }
+    }
+    return n_by;
+  }
+
+  static Result<std::vector<col_index_t>> GetIndicesOfOnKey(
+      const std::vector<std::shared_ptr<Schema>>& input_schema,
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys) {
+    if (input_schema.size() != input_keys.size()) {
+      return Status::Invalid("mismatching number of input schema and keys");
+    }
+    size_t n_input = input_schema.size();
+    std::vector<col_index_t> indices_of_on_key(n_input);
+    for (size_t i = 0; i < n_input; ++i) {
+      const auto& on_key = input_keys[i].on_key;
+      ARROW_ASSIGN_OR_RAISE(indices_of_on_key[i],
+                            FindColIndex(*input_schema[i], on_key, "on"));
+    }
+    return indices_of_on_key;
+  }
+
+  static Result<std::vector<std::vector<col_index_t>>> GetIndicesOfByKey(
+      const std::vector<std::shared_ptr<Schema>>& input_schema,
+      const std::vector<asofjoin::AsofJoinKeys>& input_keys) {
+    if (input_schema.size() != input_keys.size()) {
+      return Status::Invalid("mismatching number of input schema and keys");
+    }
+    ARROW_ASSIGN_OR_RAISE(size_t n_by, GetByKeySize(input_keys));
+    size_t n_input = input_schema.size();
+    std::vector<std::vector<col_index_t>> indices_of_by_key(
+        n_input, std::vector<col_index_t>(n_by));
+    for (size_t i = 0; i < n_input; ++i) {
+      for (size_t k = 0; k < n_by; k++) {
+        const auto& by_key = input_keys[i].by_key;
+        ARROW_ASSIGN_OR_RAISE(indices_of_by_key[i][k],
+                              FindColIndex(*input_schema[i], by_key[k], "by"));
+      }
+    }
+    return indices_of_by_key;
+  }
+
   static arrow::Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                        const ExecNodeOptions& options) {
     DCHECK_GE(inputs.size(), 2) << "Must have at least two inputs";
@@ -1051,24 +1286,21 @@ class AsofJoinNode : public ExecNode {
                              join_options.tolerance);
     }
 
-    size_t n_input = inputs.size(), n_by = join_options.by_key.size();
+    ARROW_ASSIGN_OR_RAISE(size_t n_by, GetByKeySize(join_options.input_keys));
+    size_t n_input = inputs.size();
     std::vector<std::string> input_labels(n_input);
-    std::vector<col_index_t> indices_of_on_key(n_input);
-    std::vector<std::vector<col_index_t>> indices_of_by_key(
-        n_input, std::vector<col_index_t>(n_by));
+    std::vector<std::shared_ptr<Schema>> input_schema(n_input);
     for (size_t i = 0; i < n_input; ++i) {
       input_labels[i] = i == 0 ? "left" : "right_" + ToChars(i);
-      const Schema& input_schema = *inputs[i]->output_schema();
-      ARROW_ASSIGN_OR_RAISE(indices_of_on_key[i],
-                            FindColIndex(input_schema, join_options.on_key, "on"));
-      for (size_t k = 0; k < n_by; k++) {
-        ARROW_ASSIGN_OR_RAISE(indices_of_by_key[i][k],
-                              FindColIndex(input_schema, join_options.by_key[k], "by"));
-      }
+      input_schema[i] = inputs[i]->output_schema();
     }
-
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> output_schema,
-                          MakeOutputSchema(inputs, indices_of_on_key, indices_of_by_key));
+    ARROW_ASSIGN_OR_RAISE(std::vector<col_index_t> indices_of_on_key,
+                          GetIndicesOfOnKey(input_schema, join_options.input_keys));
+    ARROW_ASSIGN_OR_RAISE(std::vector<std::vector<col_index_t>> indices_of_by_key,
+                          GetIndicesOfByKey(input_schema, join_options.input_keys));
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<Schema> output_schema,
+        MakeOutputSchema(input_schema, indices_of_on_key, indices_of_by_key));
 
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
     for (size_t i = 0; i < n_input; i++) {
@@ -1147,6 +1379,8 @@ class AsofJoinNode : public ExecNode {
   std::mutex gate_;
   OnType tolerance_;
 
+  // Backpressure counter common to all inputs
+  std::atomic<int32_t> backpressure_counter_;
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
   ConcurrentQueue<bool> process_;
@@ -1173,6 +1407,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       must_hash_(must_hash),
       may_rehash_(may_rehash),
       tolerance_(tolerance),
+      backpressure_counter_(0),
       process_(),
       process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
   finished_ = arrow::Future<>::MakeFinished();
@@ -1183,6 +1418,21 @@ void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("asofjoin", AsofJoinNode::Make));
 }
 }  // namespace internal
+
+namespace asofjoin {
+
+Result<std::shared_ptr<Schema>> MakeOutputSchema(
+    const std::vector<std::shared_ptr<Schema>>& input_schema,
+    const std::vector<AsofJoinKeys>& input_keys, std::vector<int>* field_output_indices) {
+  ARROW_ASSIGN_OR_RAISE(std::vector<col_index_t> indices_of_on_key,
+                        AsofJoinNode::GetIndicesOfOnKey(input_schema, input_keys));
+  ARROW_ASSIGN_OR_RAISE(std::vector<std::vector<col_index_t>> indices_of_by_key,
+                        AsofJoinNode::GetIndicesOfByKey(input_schema, input_keys));
+  return AsofJoinNode::MakeOutputSchema(input_schema, indices_of_on_key,
+                                        indices_of_by_key, field_output_indices);
+}
+
+}  // namespace asofjoin
 
 }  // namespace compute
 }  // namespace arrow

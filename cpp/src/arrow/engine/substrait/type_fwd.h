@@ -26,6 +26,8 @@ class ExtensionIdRegistry;
 class ExtensionSet;
 
 struct ConversionOptions;
+struct DeclarationInfo;
+struct RelationInfo;
 
 }  // namespace engine
 }  // namespace arrow
