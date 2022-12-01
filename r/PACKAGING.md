@@ -107,7 +107,7 @@ instead of the *release candidate*; ensure linux binary packages are available:
 
 Check binary Arrow C++ distributions specific to the R package:
 
-- [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx)
+- [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only)
   and confirm (with Neal, who will automatically receive an email about the results) that the check is clean
 - [ ] Upload the .tar.gz to [MacBuilder](https://mac.r-project.org/macbuilder/submit.html)
   and confirm that the check is clean
