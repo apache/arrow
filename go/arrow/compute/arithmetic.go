@@ -281,14 +281,16 @@ Use function "multiply" if you want overflow to return an error`,
 	mulDoc = FunctionDoc{
 		Summary: "Multiply the arguments element-wise",
 		Description: `This function returns an error on overflow.
-For a variant that won't fail on overflow, use the function "multiply_unchecked"`,
+For a variant that won't fail on overflow, use the function
+"multiply_unchecked"`,
 		ArgNames: []string{"x", "y"},
 	}
 	divUncheckedDoc = FunctionDoc{
 		Summary: "Divide the arguments element-wise",
 		Description: `Integer division by zero returns an error. However integer
 overflow wraps around, and floating-point division by zero returns Inf.
-Use the function "divide" if you want to get an error in all the aforementioned cases.`,
+Use the function "divide" if you want to get an error in all the 
+aforementioned cases.`,
 		ArgNames: []string{"dividend", "divisor"},
 	}
 	divDoc = FunctionDoc{
@@ -368,7 +370,8 @@ of the number. In other words, this is equivalent to multiplying "x" by 2
 to the power of "y", even if overflow occurs.
 "x" is returned if "y" (the amount to shift by) is (1) negative or (2)
 greater than or equal to the precision of "x".
-Use function "shift_left" if you want an invalid shift amount to return an error.`,
+Use function "shift_left" if you want an invalid shift amount to
+return an error.`,
 		ArgNames: []string{"x", "y"},
 	}
 	shiftLeftDoc = FunctionDoc{
@@ -480,7 +483,8 @@ Use function "ln" if you want non-positive values to raise an error.`,
 	lnDoc = FunctionDoc{
 		Summary: "Compute natural logarithm",
 		Description: `Non-positive values raise an error. Null values return null.
-Use function "ln_unchecked" if you want non-positive values to return -Inf or NaN`,
+Use function "ln_unchecked" if you want non-positive values to return 
+-Inf or NaN`,
 		ArgNames: []string{"x"},
 	}
 	log10UncheckedDoc = FunctionDoc{
@@ -492,7 +496,8 @@ Use function "log10" if you want non-positive values to raise an error.`,
 	log10Doc = FunctionDoc{
 		Summary: "Compute base 10 logarithm",
 		Description: `Non-positive values raise an error. Null values return null.
-Use function "log10_unchecked" if you want non-positive values to return -Inf or NaN.`,
+Use function "log10_unchecked" if you want non-positive values to return
+-Inf or NaN.`,
 		ArgNames: []string{"x"},
 	}
 	log2UncheckedDoc = FunctionDoc{
@@ -532,7 +537,8 @@ Use function "logb" if you want non-positive values to raise an error.`,
 	logbDoc = FunctionDoc{
 		Summary: "Compute base `b` logarithm",
 		Description: `Values <= 0 returns an error. Null values return null.
-Use function "logb_unchecked" if you want non-positive values to return -Inf or NaN.`,
+Use function "logb_unchecked" if you want non-positive values to return
+-Inf or NaN.`,
 		ArgNames: []string{"x", "b"},
 	}
 	floorDoc = FunctionDoc{
