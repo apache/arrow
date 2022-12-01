@@ -39,6 +39,29 @@ func alignedBitAndGo(left, right, out []byte) {
 	}
 }
 
+func alignedBitAndNotGo(left, right, out []byte) {
+	var (
+		nbytes = len(out)
+		i      = 0
+	)
+	if nbytes > uint64SizeBytes {
+		// case where we have enough bytes to operate on words
+		leftWords := bytesToUint64(left[i:])
+		rightWords := bytesToUint64(right[i:])
+		outWords := bytesToUint64(out[i:])
+
+		for w := range outWords {
+			outWords[w] = leftWords[w] &^ rightWords[w]
+		}
+
+		i += len(outWords) * uint64SizeBytes
+	}
+	// grab any remaining bytes that were fewer than a word
+	for ; i < nbytes; i++ {
+		out[i] = left[i] &^ right[i]
+	}
+}
+
 func alignedBitOrGo(left, right, out []byte) {
 	var (
 		nbytes = len(out)
@@ -59,5 +82,28 @@ func alignedBitOrGo(left, right, out []byte) {
 	// grab any remaining bytes that were fewer than a word
 	for ; i < nbytes; i++ {
 		out[i] = left[i] | right[i]
+	}
+}
+
+func alignedBitXorGo(left, right, out []byte) {
+	var (
+		nbytes = len(out)
+		i      = 0
+	)
+	if nbytes > uint64SizeBytes {
+		// case where we have enough bytes to operate on words
+		leftWords := bytesToUint64(left[i:])
+		rightWords := bytesToUint64(right[i:])
+		outWords := bytesToUint64(out[i:])
+
+		for w := range outWords {
+			outWords[w] = leftWords[w] ^ rightWords[w]
+		}
+
+		i += len(outWords) * uint64SizeBytes
+	}
+	// grab any remaining bytes that were fewer than a word
+	for ; i < nbytes; i++ {
+		out[i] = left[i] ^ right[i]
 	}
 }

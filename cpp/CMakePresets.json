@@ -118,11 +118,47 @@
       }
     },
     {
-      "name": "features-python",
-      "inherits": "features-main",
+      "name": "features-python-minimal",
+      "inherits": [
+	  "features-minimal"
+      ],
       "hidden": true,
       "cacheVariables": {
-        "ARROW_PYTHON": "ON"
+        "ARROW_COMPUTE": "ON",
+        "ARROW_CSV": "ON",
+        "ARROW_FILESYSTEM": "ON",
+        "ARROW_JSON": "ON"
+      }
+    },
+    {
+      "name": "features-python",
+      "inherits": [
+	  "features-main"
+      ],
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_COMPUTE": "ON",
+        "ARROW_CSV": "ON",
+        "ARROW_DATASET": "ON",
+        "ARROW_FILESYSTEM": "ON",
+        "ARROW_JSON": "ON",
+        "ARROW_ORC": "ON"
+      }
+    },
+    {
+      "name": "features-python-maximal",
+      "inherits": [
+	  "features-cuda",
+	  "features-filesystems",
+	  "features-flight",
+	  "features-gandiva",
+	  "features-main",
+	  "features-python-minimal"
+      ],
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_ORC": "ON",
+        "PARQUET_REQUIRE_ENCRYPTION": "ON"
       }
     },
     {
@@ -133,10 +169,9 @@
         "features-filesystems",
         "features-flight",
         "features-gandiva",
-        "features-python"
+        "features-python-maximal"
       ],
       "hidden": true,
-      "displayName": "Debug build with everything enabled (except benchmarks and CUDA)",
       "cacheVariables": {
         "ARROW_BUILD_EXAMPLES": "ON",
         "ARROW_BUILD_UTILITIES": "ON",
@@ -195,9 +230,21 @@
       "cacheVariables": {}
     },
     {
+      "name": "ninja-debug-python-minimal",
+      "inherits": ["base-debug", "features-python-minimal"],
+      "displayName": "Debug build for PyArrow with minimal features",
+      "cacheVariables": {}
+    },
+    {
       "name": "ninja-debug-python",
       "inherits": ["base-debug", "features-python"],
-      "displayName": "Debug build with tests and Python support",
+      "displayName": "Debug build for PyArrow with common features (for backward compatibility)",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-python-maximal",
+      "inherits": ["base-debug", "features-python-maximal"],
+      "displayName": "Debug build for PyArrow with everything enabled (except CUDA)",
       "cacheVariables": {}
     },
     {
@@ -244,9 +291,21 @@
       "cacheVariables": {}
     },
     {
+      "name": "ninja-release-python-minimal",
+      "inherits": ["base-release", "features-python-minimal"],
+      "displayName": "Release build for PyArrow with minimal features",
+      "cacheVariables": {}
+    },
+    {
       "name": "ninja-release-python",
       "inherits": ["base-release", "features-python"],
-      "displayName": "Release build with Python support",
+      "displayName": "Release build for PyArrow with common features (for backward compatibility)",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-python-maximal",
+      "inherits": ["base-release", "features-python-maximal"],
+      "displayName": "Release build for PyArrow with everything enabled (except CUDA)",
       "cacheVariables": {}
     },
     {

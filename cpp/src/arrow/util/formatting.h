@@ -34,6 +34,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
@@ -82,6 +83,38 @@ class StringFormatter<BooleanType> {
       return append(std::string_view(string));
     }
   }
+};
+
+/////////////////////////////////////////////////////////////////////////
+// Decimals formatting
+
+template <typename ARROW_TYPE>
+class DecimalToStringFormatterMixin {
+ public:
+  explicit DecimalToStringFormatterMixin(const DataType* type)
+      : scale_(static_cast<const ARROW_TYPE*>(type)->scale()) {}
+
+  using value_type = typename TypeTraits<ARROW_TYPE>::CType;
+
+  template <typename Appender>
+  Return<Appender> operator()(const value_type& value, Appender&& append) {
+    return append(value.ToString(scale_));
+  }
+
+ private:
+  int32_t scale_;
+};
+
+template <>
+class StringFormatter<Decimal128Type>
+    : public DecimalToStringFormatterMixin<Decimal128Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
+};
+
+template <>
+class StringFormatter<Decimal256Type>
+    : public DecimalToStringFormatterMixin<Decimal256Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -359,7 +392,7 @@ bool IsTimeInRange(Unit duration) {
 template <typename RawValue, typename Appender>
 Return<Appender> FormatOutOfRange(RawValue&& raw_value, Appender&& append) {
   // XXX locale-sensitive but good enough for now
-  std::string formatted = "<value out of range: " + std::to_string(raw_value) + ">";
+  std::string formatted = "<value out of range: " + ToChars(raw_value) + ">";
   return append(std::move(formatted));
 }
 

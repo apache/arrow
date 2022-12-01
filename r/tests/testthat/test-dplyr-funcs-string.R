@@ -140,12 +140,10 @@ test_that("paste, paste0, and str_c", {
     call_binding("paste", x, y, sep = NA_character_),
     "Invalid separator"
   )
-  # emits null in str_c() (consistent with stringr::str_c())
-  compare_dplyr_binding(
-    .input %>%
-      transmute(str_c(x, y, sep = NA_character_)) %>%
-      collect(),
-    df
+  # In next release of stringr (late 2022), str_c also errors
+  expect_error(
+    call_binding("str_c", x, y, sep = NA_character_),
+    "`sep` must be a single string, not `NA`."
   )
 
   # sep passed in dots to paste0 (which doesn't take a sep argument)
@@ -956,7 +954,7 @@ test_that("str_pad", {
   )
 })
 
-test_that("substr", {
+test_that("substr with string()", {
   df <- tibble(x = "Apache Arrow")
 
   compare_dplyr_binding(
@@ -1033,6 +1031,31 @@ test_that("substr", {
   expect_error(
     call_binding("substr", "Apache Arrow", 1, c(2, 3)),
     "`stop` must be length 1 - other lengths are not supported in Arrow"
+  )
+})
+
+test_that("substr with binary()", {
+  batch <- record_batch(x = list(charToRaw("Apache Arrow")))
+
+  # Check a field reference input
+  expect_identical(
+    batch %>%
+      transmute(y = substr(x, 1, 3)) %>%
+      collect() %>%
+      # because of the arrow_binary class
+      mutate(y = unclass(y)),
+    tibble::tibble(y = list(charToRaw("Apa")))
+  )
+
+  # Check a Scalar input
+  scalar <- Scalar$create(batch$x)
+  expect_identical(
+    batch %>%
+      transmute(y = substr(scalar, 1, 3)) %>%
+      collect() %>%
+      # because of the arrow_binary class
+      mutate(y = unclass(y)),
+    tibble::tibble(y = list(charToRaw("Apa")))
   )
 })
 

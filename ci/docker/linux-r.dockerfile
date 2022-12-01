@@ -49,6 +49,10 @@ COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/r_docker_configure.sh
 
+# this has to come after r_docker_configure to ensure curl is installed
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 # Set up Python 3 and its dependencies
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip

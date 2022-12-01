@@ -57,7 +57,7 @@ if which ccache > /dev/null 2>&1; then
   export CCACHE_COMPRESSLEVEL=6
   export CCACHE_DIR="${PWD}/ccache"
   export CCACHE_MAXSIZE=500M
-  ccache --show-stats
+  ccache --show-stats --verbose || :
   debuild_options+=(-eCCACHE_COMPILERCHECK)
   debuild_options+=(-eCCACHE_COMPRESS)
   debuild_options+=(-eCCACHE_COMPRESSLEVEL)
@@ -98,7 +98,7 @@ else
   run debuild "${debuild_options[@]}" "${dpkg_buildpackage_options[@]}" > /dev/null
 fi
 if which ccache > /dev/null 2>&1; then
-  ccache --show-stats
+  ccache --show-stats --verbose || :
 fi
 run cd -
 

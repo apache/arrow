@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/float16"
 	"github.com/goccy/go-json"
 )
 

@@ -264,8 +264,11 @@ TEST_F(TestTable, CombineChunksZeroRow) {
   ASSERT_EQ(0, table->num_rows());
 
   ASSERT_OK_AND_ASSIGN(auto compacted, table->CombineChunks());
+  ASSERT_TRUE(compacted->Equals(*table));
 
-  EXPECT_TRUE(compacted->Equals(*table));
+  ASSERT_OK_AND_ASSIGN(auto batch, table->CombineChunksToBatch());
+  ASSERT_OK_AND_ASSIGN(auto expected, RecordBatch::MakeEmpty(schema_));
+  ASSERT_NO_FATAL_FAILURE(AssertBatchesEqual(*expected, *batch, /*verbose=*/true));
 }
 
 TEST_F(TestTable, CombineChunks) {

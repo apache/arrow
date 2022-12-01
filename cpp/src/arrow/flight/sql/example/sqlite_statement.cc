@@ -17,17 +17,27 @@
 
 #include "arrow/flight/sql/example/sqlite_statement.h"
 
+#include <algorithm>
+
 #include <sqlite3.h>
 
-#include <boost/algorithm/string.hpp>
-
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
+#include "arrow/scalar.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace flight {
 namespace sql {
 namespace example {
+
+using arrow::internal::checked_cast;
 
 std::shared_ptr<DataType> GetDataTypeFromSqliteType(const int column_type) {
   switch (column_type) {
@@ -118,7 +128,7 @@ arrow::Result<std::shared_ptr<Schema>> SqliteStatement::GetSchema() const {
       // Try to retrieve column type from sqlite3_column_decltype
       const char* column_decltype = sqlite3_column_decltype(stmt_, i);
       if (column_decltype != NULLPTR) {
-        data_type = GetArrowType(column_decltype);
+        ARROW_ASSIGN_OR_RAISE(data_type, GetArrowType(column_decltype));
       } else {
         // If it can not determine the actual column type, return a dense_union type
         // covering any type SQLite supports.
@@ -159,8 +169,98 @@ arrow::Result<int> SqliteStatement::Reset() {
 sqlite3_stmt* SqliteStatement::GetSqlite3Stmt() const { return stmt_; }
 
 arrow::Result<int64_t> SqliteStatement::ExecuteUpdate() {
-  ARROW_RETURN_NOT_OK(Step());
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(int rc, Step());
+    if (rc == SQLITE_DONE) break;
+  }
   return sqlite3_changes(db_);
+}
+
+Status SqliteStatement::SetParameters(
+    std::vector<std::shared_ptr<arrow::RecordBatch>> parameters) {
+  const int num_params = sqlite3_bind_parameter_count(stmt_);
+  for (const auto& batch : parameters) {
+    if (batch->num_columns() != num_params) {
+      return Status::Invalid("Expected ", num_params, " parameters, but got ",
+                             batch->num_columns());
+    }
+  }
+  parameters_ = std::move(parameters);
+  auto end = std::remove_if(
+      parameters_.begin(), parameters_.end(),
+      [](const std::shared_ptr<RecordBatch>& batch) { return batch->num_rows() == 0; });
+  parameters_.erase(end, parameters_.end());
+  return Status::OK();
+}
+
+Status SqliteStatement::Bind(size_t batch_index, int64_t row_index) {
+  if (batch_index >= parameters_.size()) {
+    return Status::IndexError("Cannot bind to batch ", batch_index);
+  }
+  const RecordBatch& batch = *parameters_[batch_index];
+  if (row_index < 0 || row_index >= batch.num_rows()) {
+    return Status::IndexError("Cannot bind to row ", row_index, " in batch ",
+                              batch_index);
+  }
+
+  if (sqlite3_clear_bindings(stmt_) != SQLITE_OK) {
+    return Status::Invalid("Failed to reset bindings: ", sqlite3_errmsg(db_));
+  }
+  for (int c = 0; c < batch.num_columns(); ++c) {
+    Array* column = batch.column(c).get();
+    int64_t column_index = row_index;
+    if (column->type_id() == Type::DENSE_UNION) {
+      // Allow polymorphic bindings via union
+      const auto& u = checked_cast<const DenseUnionArray&>(*column);
+      column_index = u.value_offset(column_index);
+      column = u.field(u.child_id(row_index)).get();
+    }
+
+    int rc = 0;
+    if (column->IsNull(column_index)) {
+      rc = sqlite3_bind_null(stmt_, c + 1);
+      continue;
+    }
+    switch (column->type_id()) {
+      case Type::INT32: {
+        const int32_t value =
+            checked_cast<const Int32Array&>(*column).Value(column_index);
+        rc = sqlite3_bind_int64(stmt_, c + 1, value);
+        break;
+      }
+      case Type::INT64: {
+        const int64_t value =
+            checked_cast<const Int64Array&>(*column).Value(column_index);
+        rc = sqlite3_bind_int64(stmt_, c + 1, value);
+        break;
+      }
+      case Type::FLOAT: {
+        const float value = checked_cast<const FloatArray&>(*column).Value(column_index);
+        rc = sqlite3_bind_double(stmt_, c + 1, value);
+        break;
+      }
+      case Type::DOUBLE: {
+        const double value =
+            checked_cast<const DoubleArray&>(*column).Value(column_index);
+        rc = sqlite3_bind_double(stmt_, c + 1, value);
+        break;
+      }
+      case Type::STRING: {
+        const std::string_view value =
+            checked_cast<const StringArray&>(*column).Value(column_index);
+        rc = sqlite3_bind_text(stmt_, c + 1, value.data(), static_cast<int>(value.size()),
+                               SQLITE_TRANSIENT);
+        break;
+      }
+      default:
+        return Status::TypeError("Received unsupported data type: ", *column->type());
+    }
+    if (rc != SQLITE_OK) {
+      return Status::UnknownError("Failed to bind parameter: ", sqlite3_errmsg(db_));
+    }
+  }
+
+  return Status::OK();
 }
 
 }  // namespace example

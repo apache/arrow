@@ -19,6 +19,8 @@
 
 # Red Plasma - Plasma Ruby
 
+This is deprecated since 10.0.0. This will be removed from 12.0.0 or so.
+
 Red Plasma is the Ruby bindings of Plasma. Red Plasma is based on GObject Introspection.
 
 Plasma is an in-memory object store and cache for big data.

@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #}
-*<https://crossbow.voltrondata.com|Archery crossbow report> for <{{ report.url(report.job.branch) }}|{{ report.job.branch }}>*
+*<http://crossbow.voltrondata.com|Archery crossbow report> for <{{ report.url(report.job.branch) }}|{{ report.job.branch }}>*
 {% if report.tasks_by_state["failure"] %}
 :x: *{{ report.tasks_by_state["failure"] | length }} failed jobs*
 {% for task_name, task in report.tasks_by_state["failure"] | dictsort -%}

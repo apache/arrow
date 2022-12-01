@@ -73,16 +73,17 @@ WriteOptions DefaultTestOptions(bool include_header = false,
 }
 
 std::string UtilGetExpectedWithEOL(const std::string& eol) {
-  return std::string("1,,-1,,,") + eol +        // line 1
-         R"(1,"abc""efg",2324,,,)" + eol +      // line 2
-         R"(,"abcd",5467,,,)" + eol +           // line 3
-         R"(,,,,,)" + eol +                     // line 4
-         R"(546,"",517,,,)" + eol +             // line 5
-         R"(124,"a""""b""",,,,)" + eol +        // line 6
-         R"(,,,1970-01-01,,)" + eol +           // line 7
-         R"(,,,,1970-01-02,)" + eol +           // line 8
-         R"(,,,,,2004-02-29 01:02:03)" + eol +  // line 9
-         R"(,"NA",,,,)" + eol;                  // line 10
+  return std::string("1,,-1,,,,") + eol +        // line 1
+         R"(1,"abc""efg",2324,,,,)" + eol +      // line 2
+         R"(,"abcd",5467,,,,)" + eol +           // line 3
+         R"(,,,,,,)" + eol +                     // line 4
+         R"(546,"",517,,,,)" + eol +             // line 5
+         R"(124,"a""""b""",,,,,)" + eol +        // line 6
+         R"(,,,1970-01-01,,,)" + eol +           // line 7
+         R"(,,,,1970-01-02,,)" + eol +           // line 8
+         R"(,,,,,2004-02-29 01:02:03,)" + eol +  // line 9
+         R"(,,,,,,3600)" + eol +                 // line 10
+         R"(,"NA",,,,,)" + eol;                  // line 11
 }
 
 std::vector<WriterTestParams> GenerateTestCases() {
@@ -98,6 +99,7 @@ std::vector<WriterTestParams> GenerateTestCases() {
       field("d", date32()),
       field("e", date64()),
       field("f", timestamp(TimeUnit::SECOND)),
+      field("g", duration(TimeUnit::SECOND)),
   });
   auto populated_batch = R"([{"a": 1, "c ": -1},
                              { "a": 1, "b\"": "abc\"efg", "c ": 2324},
@@ -108,9 +110,10 @@ std::vector<WriterTestParams> GenerateTestCases() {
                              { "d": 0 },
                              { "e": 86400000 },
                              { "f": 1078016523 },
+                             { "g": 3600 },
                              { "b\"": "NA" }])";
 
-  std::string expected_header = std::string(R"("a","b""","c ","d","e","f")") + "\n";
+  std::string expected_header = std::string(R"("a","b""","c ","d","e","f","g")") + "\n";
 
   // Expected output without header when using default QuotingStyle::Needed.
   std::string expected_without_header = UtilGetExpectedWithEOL("\n");
@@ -119,16 +122,17 @@ std::vector<WriterTestParams> GenerateTestCases() {
 
   // Expected output without header when using QuotingStyle::AllValid.
   std::string expected_quoting_style_all_valid =
-      std::string(R"("1",,"-1",,,)") + "\n" +   // line 1
-      R"("1","abc""efg","2324",,,)" + "\n" +    // line 2
-      R"(,"abcd","5467",,,)" + "\n" +           // line 3
-      R"(,,,,,)" + "\n" +                       // line 4
-      R"("546","","517",,,)" + "\n" +           // line 5
-      R"("124","a""""b""",,,,)" + "\n" +        // line 6
-      R"(,,,"1970-01-01",,)" + "\n" +           // line 7
-      R"(,,,,"1970-01-02",)" + "\n" +           // line 8
-      R"(,,,,,"2004-02-29 01:02:03")" + "\n" +  // line 9
-      R"(,"NA",,,,)" + "\n";                    // line 10
+      std::string(R"("1",,"-1",,,,)") + "\n" +   // line 1
+      R"("1","abc""efg","2324",,,,)" + "\n" +    // line 2
+      R"(,"abcd","5467",,,,)" + "\n" +           // line 3
+      R"(,,,,,,)" + "\n" +                       // line 4
+      R"("546","","517",,,,)" + "\n" +           // line 5
+      R"("124","a""""b""",,,,,)" + "\n" +        // line 6
+      R"(,,,"1970-01-01",,,)" + "\n" +           // line 7
+      R"(,,,,"1970-01-02",,)" + "\n" +           // line 8
+      R"(,,,,,"2004-02-29 01:02:03",)" + "\n" +  // line 9
+      R"(,,,,,,"3600")" + "\n" +                 // line 10
+      R"(,"NA",,,,,)" + "\n";                    // line 11
 
   // Batch when testing QuotingStyle::None. The values may not contain any quotes for this
   // style according to RFC4180.
@@ -140,18 +144,20 @@ std::vector<WriterTestParams> GenerateTestCases() {
                              { "a": 124, "b\"": "ab" },
                              { "d": 0 },
                              { "e": 86400000 },
-                             { "f": 1078016523 }])";
+                             { "f": 1078016523 },
+                             { "g": 3600 }])";
   // Expected output for QuotingStyle::None.
-  std::string expected_quoting_style_none = std::string("1,,-1,,,") + "\n" +  // line 1
-                                            R"(1,abcefg,2324,,,)" + "\n" +    // line 2
-                                            R"(,abcd,5467,,,)" + "\n" +       // line 3
-                                            R"(,,,,,)" + "\n" +               // line 4
-                                            R"(546,,517,,,)" + "\n" +         // line 5
-                                            R"(124,ab,,,,)" + "\n" +          // line 6
-                                            R"(,,,1970-01-01,,)" + "\n" +     // line 7
-                                            R"(,,,,1970-01-02,)" + "\n" +     // line 8
-                                            R"(,,,,,2004-02-29 01:02:03)" +
-                                            "\n";  // line 9
+  std::string expected_quoting_style_none = std::string("1,,-1,,,,") + "\n" +  // line 1
+                                            R"(1,abcefg,2324,,,,)" + "\n" +    // line 2
+                                            R"(,abcd,5467,,,,)" + "\n" +       // line 3
+                                            R"(,,,,,,)" + "\n" +               // line 4
+                                            R"(546,,517,,,,)" + "\n" +         // line 5
+                                            R"(124,ab,,,,,)" + "\n" +          // line 6
+                                            R"(,,,1970-01-01,,,)" + "\n" +     // line 7
+                                            R"(,,,,1970-01-02,,)" + "\n" +     // line 8
+                                            R"(,,,,,2004-02-29 01:02:03,)" +
+                                            "\n" +                   // line 9
+                                            R"(,,,,,,3600)" + "\n";  // line 10
 
   // Schema and data to test custom null value string.
   auto schema_custom_na = schema({field("g", uint64()), field("h", utf8())});

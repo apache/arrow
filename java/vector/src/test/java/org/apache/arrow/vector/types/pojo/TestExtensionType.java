@@ -380,7 +380,7 @@ public class TestExtensionType {
     }
   }
 
-  static class LocationVector extends ExtensionTypeVector<StructVector> {
+  public static class LocationVector extends ExtensionTypeVector<StructVector> {
 
     private static StructVector buildUnderlyingVector(String name, BufferAllocator allocator) {
       final StructVector underlyingVector =

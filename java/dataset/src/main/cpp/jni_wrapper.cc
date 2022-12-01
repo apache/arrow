@@ -19,6 +19,8 @@
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/c/bridge.h"
+#include "arrow/c/helpers.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
@@ -91,8 +93,14 @@ arrow::Result<std::shared_ptr<arrow::dataset::FileFormat>> GetFileFormat(
       return std::make_shared<arrow::dataset::ParquetFileFormat>();
     case 1:
       return std::make_shared<arrow::dataset::IpcFileFormat>();
+#ifdef ARROW_ORC
     case 2:
       return std::make_shared<arrow::dataset::OrcFileFormat>();
+#endif
+#ifdef ARROW_CSV
+    case 3:
+      return std::make_shared<arrow::dataset::CsvFileFormat>();
+#endif
     default:
       std::string error_message =
           "illegal file format id: " + std::to_string(file_format_id);
@@ -170,6 +178,21 @@ class DisposableScannerAdaptor {
   }
 };
 
+arrow::Result<std::shared_ptr<arrow::Schema>> SchemaFromColumnNames(
+    const std::shared_ptr<arrow::Schema>& input,
+    const std::vector<std::string>& column_names) {
+  std::vector<std::shared_ptr<arrow::Field>> columns;
+  for (arrow::FieldRef ref : column_names) {
+    auto maybe_field = ref.GetOne(*input);
+    if (maybe_field.ok()) {
+      columns.push_back(std::move(maybe_field).ValueOrDie());
+    } else {
+      return arrow::Status::Invalid("Partition column '", ref.ToString(), "' is not in dataset schema");
+    }
+  }
+
+  return schema(std::move(columns))->WithMetadata(input->metadata());
+}
 }  // namespace
 
 using arrow::dataset::jni::CreateGlobalClassReference;
@@ -223,7 +246,6 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
       GetMethodID(env, java_reservation_listener_class, "unreserve", "(J)V"));
 
   default_memory_pool_id = reinterpret_cast<jlong>(arrow::default_memory_pool());
-
   return JNI_VERSION;
   JNI_METHOD_END(JNI_ERR)
 }
@@ -509,4 +531,50 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
           JStringToCString(env, uri), file_format, options));
   return CreateNativeRef(d);
   JNI_METHOD_END(-1L)
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_file_JniWrapper
+ * Method:    writeFromScannerToFile
+ * Signature:
+ * (JJJLjava/lang/String;[Ljava/lang/String;ILjava/lang/String;)V
+ */
+JNIEXPORT void JNICALL
+Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
+    JNIEnv* env, jobject, jlong c_arrow_array_stream_address,
+    jlong file_format_id, jstring uri, jobjectArray partition_columns,
+    jint max_partitions, jstring base_name_template) {
+  JNI_METHOD_START
+  JavaVM* vm;
+  if (env->GetJavaVM(&vm) != JNI_OK) {
+    JniThrow("Unable to get JavaVM instance");
+  }
+
+  auto* arrow_stream = reinterpret_cast<ArrowArrayStream*>(c_arrow_array_stream_address);
+  std::shared_ptr<arrow::RecordBatchReader> reader =
+      JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream));
+  std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
+      arrow::dataset::ScannerBuilder::FromRecordBatchReader(reader);
+  JniAssertOkOrThrow(scanner_builder->Pool(arrow::default_memory_pool()));
+  auto scanner = JniGetOrThrow(scanner_builder->Finish());
+
+  std::shared_ptr<arrow::Schema> schema = reader->schema();
+
+  std::shared_ptr<arrow::dataset::FileFormat> file_format =
+      JniGetOrThrow(GetFileFormat(file_format_id));
+  arrow::dataset::FileSystemDatasetWriteOptions options;
+  std::string output_path;
+  auto filesystem = JniGetOrThrow(
+      arrow::fs::FileSystemFromUri(JStringToCString(env, uri), &output_path));
+  std::vector<std::string> partition_column_vector =
+      ToStringVector(env, partition_columns);
+  options.file_write_options = file_format->DefaultWriteOptions();
+  options.filesystem = filesystem;
+  options.base_dir = output_path;
+  options.basename_template = JStringToCString(env, base_name_template);
+  options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
+      SchemaFromColumnNames(schema, partition_column_vector).ValueOrDie());
+  options.max_partitions = max_partitions;
+  JniAssertOkOrThrow(arrow::dataset::FileSystemDataset::Write(options, scanner));
+  JNI_METHOD_END()
 }

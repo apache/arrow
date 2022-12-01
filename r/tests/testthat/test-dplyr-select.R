@@ -87,15 +87,14 @@ test_that("select/rename/rename_with using selection helpers", {
       collect(),
     tbl
   )
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        select(where(is.numeric)) %>%
-        collect(),
-      tbl
-    ),
-    "Unsupported selection helper"
+
+  compare_dplyr_binding(
+    .input %>%
+      select(where(is.numeric)) %>%
+      collect(),
+    tbl
   )
+
   compare_dplyr_binding(
     .input %>%
       rename_with(toupper) %>%
@@ -185,5 +184,34 @@ test_that("relocate with selection helpers", {
       relocate(d, e, f, .after = where(is.numeric)) %>%
       collect(),
     df
+  )
+})
+
+test_that("multiple select/rename and group_by", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr) %>%
+      rename(string = chr, dub = dbl2) %>%
+      rename(chr_actually = string) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr) %>%
+      select(string = chr, dub = dbl2) %>%
+      rename(chr_actually = string) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr) %>%
+      rename(string = chr, dub = dbl2) %>%
+      select(chr_actually = string) %>%
+      collect(),
+    tbl
   )
 })

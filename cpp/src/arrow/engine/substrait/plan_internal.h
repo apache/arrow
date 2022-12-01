@@ -50,7 +50,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 /// correspond to Substrait's URI/name pairs
 ARROW_ENGINE_EXPORT
 Result<ExtensionSet> GetExtensionSetFromPlan(
-    const substrait::Plan& plan,
+    const substrait::Plan& plan, const ConversionOptions& conversion_options,
     const ExtensionIdRegistry* registry = default_extension_id_registry());
 
 /// \brief Serialize a declaration into a substrait::Plan.

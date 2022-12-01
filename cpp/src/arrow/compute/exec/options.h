@@ -27,12 +27,20 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+namespace internal {
+
+class Executor;
+
+}  // namespace internal
+
 namespace compute {
 
 using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
@@ -77,6 +85,49 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   int64_t max_batch_size;
 };
 
+/// \brief An extended Source node which accepts a schema
+///
+/// ItMaker is a maker of an iterator of tabular data.
+template <typename ItMaker>
+class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
+ public:
+  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
+                          arrow::internal::Executor* io_executor = NULLPTR)
+      : schema(schema), it_maker(std::move(it_maker)), io_executor(io_executor) {}
+
+  /// \brief The schema of the record batches from the iterator
+  std::shared_ptr<Schema> schema;
+
+  /// \brief A maker of an iterator which acts as the data source
+  ItMaker it_maker;
+
+  /// \brief The executor to use for scanning the iterator
+  ///
+  /// Defaults to the default I/O executor.
+  arrow::internal::Executor* io_executor;
+};
+
+using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
+/// \brief An extended Source node which accepts a schema and array-vectors
+class ARROW_EXPORT ArrayVectorSourceNodeOptions
+    : public SchemaSourceNodeOptions<ArrayVectorIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
+
+using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>>()>;
+/// \brief An extended Source node which accepts a schema and exec-batches
+class ARROW_EXPORT ExecBatchSourceNodeOptions
+    : public SchemaSourceNodeOptions<ExecBatchIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
+
+using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;
+/// \brief An extended Source node which accepts a schema and record-batches
+class ARROW_EXPORT RecordBatchSourceNodeOptions
+    : public SchemaSourceNodeOptions<RecordBatchIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
+
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
 /// filter_expression will be evaluated against each batch which is pushed to
@@ -84,11 +135,10 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
 /// excluded in the batch emitted by this node.
 class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
  public:
-  explicit FilterNodeOptions(Expression filter_expression, bool async_mode = true)
-      : filter_expression(std::move(filter_expression)), async_mode(async_mode) {}
+  explicit FilterNodeOptions(Expression filter_expression)
+      : filter_expression(std::move(filter_expression)) {}
 
   Expression filter_expression;
-  bool async_mode;
 };
 
 /// \brief Make a node which executes expressions on input batches, producing new batches.
@@ -100,14 +150,11 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
  public:
   explicit ProjectNodeOptions(std::vector<Expression> expressions,
-                              std::vector<std::string> names = {}, bool async_mode = true)
-      : expressions(std::move(expressions)),
-        names(std::move(names)),
-        async_mode(async_mode) {}
+                              std::vector<std::string> names = {})
+      : expressions(std::move(expressions)), names(std::move(names)) {}
 
   std::vector<Expression> expressions;
   std::vector<std::string> names;
-  bool async_mode;
 };
 
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.
@@ -147,7 +194,7 @@ struct ARROW_EXPORT BackpressureOptions {
   ///                        queue has fewer than resume_if_below items.
   /// \param pause_if_above The producer should pause producing if the backpressure
   ///                       queue has more than pause_if_above items
-  BackpressureOptions(uint32_t resume_if_below, uint32_t pause_if_above)
+  BackpressureOptions(uint64_t resume_if_below, uint64_t pause_if_above)
       : resume_if_below(resume_if_below), pause_if_above(pause_if_above) {}
 
   static BackpressureOptions DefaultBackpressure() {
@@ -217,8 +264,9 @@ class ARROW_EXPORT SinkNodeConsumer {
   /// This will be run once the schema is finalized as the plan is starting and
   /// before any calls to Consume.  A common use is to save off the schema so that
   /// batches can be interpreted.
+  /// TODO(ARROW-17837) Move ExecPlan* plan to query context
   virtual Status Init(const std::shared_ptr<Schema>& schema,
-                      BackpressureControl* backpressure_control) = 0;
+                      BackpressureControl* backpressure_control, ExecPlan* plan) = 0;
   /// \brief Consume a batch of data
   virtual Status Consume(ExecBatch batch) = 0;
   /// \brief Signal to the consumer that the last batch has been delivered

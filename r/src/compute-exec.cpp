@@ -22,7 +22,6 @@
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
-#include <arrow/compute/exec/options.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
@@ -73,10 +72,14 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   ExecPlanReader(const std::shared_ptr<arrow::compute::ExecPlan>& plan,
                  const std::shared_ptr<arrow::Schema>& schema,
                  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen)
-      : schema_(schema), plan_(plan), sink_gen_(sink_gen), status_(PLAN_NOT_STARTED) {}
+      : schema_(schema),
+        plan_(plan),
+        sink_gen_(sink_gen),
+        plan_status_(PLAN_NOT_STARTED),
+        stop_token_(MainRThread::GetInstance().GetStopToken()) {}
 
   std::string PlanStatus() const {
-    switch (status_) {
+    switch (plan_status_) {
       case PLAN_NOT_STARTED:
         return "PLAN_NOT_STARTED";
       case PLAN_RUNNING:
@@ -91,19 +94,25 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   std::shared_ptr<arrow::Schema> schema() const override { return schema_; }
 
   arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) override {
-    // TODO(ARROW-11841) check a StopToken to potentially cancel this plan
-
     // If this is the first batch getting pulled, tell the exec plan to
     // start producing
-    if (status_ == PLAN_NOT_STARTED) {
+    if (plan_status_ == PLAN_NOT_STARTED) {
       ARROW_RETURN_NOT_OK(StartProducing());
     }
 
     // If we've closed the reader, keep sending nullptr
     // (consistent with what most RecordBatchReader subclasses do)
-    if (status_ == PLAN_FINISHED) {
+    if (plan_status_ == PLAN_FINISHED) {
       batch_out->reset();
       return arrow::Status::OK();
+    }
+
+    // Check for cancellation and stop the plan if we have a request. When
+    // the ExecPlan supports passing a StopToken and handling this itself,
+    // this will be redundant.
+    if (stop_token_.IsStopRequested()) {
+      StopProducing();
+      return stop_token_.Poll();
     }
 
     auto out = sink_gen_().result();
@@ -141,16 +150,17 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   std::shared_ptr<arrow::Schema> schema_;
   std::shared_ptr<arrow::compute::ExecPlan> plan_;
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen_;
-  int status_;
+  ExecPlanReaderStatus plan_status_;
+  arrow::StopToken stop_token_;
 
   arrow::Status StartProducing() {
     ARROW_RETURN_NOT_OK(plan_->StartProducing());
-    status_ = PLAN_RUNNING;
+    plan_status_ = PLAN_RUNNING;
     return arrow::Status::OK();
   }
 
   void StopProducing() {
-    if (status_ == PLAN_RUNNING) {
+    if (plan_status_ == PLAN_RUNNING) {
       // We're done with the plan, but it may still need some time
       // to finish and clean up after itself. To do this, we give a
       // callable with its own copy of the shared_ptr<ExecPlan> so
@@ -164,9 +174,10 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       }
     }
 
-    status_ = PLAN_FINISHED;
-    plan_.reset();
-    sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
+    plan_status_ = PLAN_FINISHED;
+    // A previous version of this called plan_.reset() and reset
+    // sink_gen_ to an empty generator; however, this caused
+    // crashes on some platforms.
   }
 };
 
@@ -389,7 +400,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
 
 // [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Join(
-    const std::shared_ptr<compute::ExecNode>& input, int type,
+    const std::shared_ptr<compute::ExecNode>& input, compute::JoinType join_type,
     const std::shared_ptr<compute::ExecNode>& right_data,
     std::vector<std::string> left_keys, std::vector<std::string> right_keys,
     std::vector<std::string> left_output, std::vector<std::string> right_output,
@@ -404,35 +415,14 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
   for (auto&& name : left_output) {
     left_out_refs.emplace_back(std::move(name));
   }
-  if (type != 0 && type != 2) {
+  // dplyr::semi_join => LEFT_SEMI; dplyr::anti_join => LEFT_ANTI
+  // So ignoring RIGHT_SEMI and RIGHT_ANTI here because dplyr doesn't implement them.
+  if (join_type != compute::JoinType::LEFT_SEMI &&
+      join_type != compute::JoinType::LEFT_ANTI) {
     // Don't include out_refs in semi/anti join
     for (auto&& name : right_output) {
       right_out_refs.emplace_back(std::move(name));
     }
-  }
-
-  // TODO: we should be able to use this enum directly
-  compute::JoinType join_type;
-  if (type == 0) {
-    join_type = compute::JoinType::LEFT_SEMI;
-  } else if (type == 1) {
-    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
-    join_type = compute::JoinType::RIGHT_SEMI;
-  } else if (type == 2) {
-    join_type = compute::JoinType::LEFT_ANTI;
-  } else if (type == 3) {
-    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
-    join_type = compute::JoinType::RIGHT_ANTI;
-  } else if (type == 4) {
-    join_type = compute::JoinType::INNER;
-  } else if (type == 5) {
-    join_type = compute::JoinType::LEFT_OUTER;
-  } else if (type == 6) {
-    join_type = compute::JoinType::RIGHT_OUTER;
-  } else if (type == 7) {
-    join_type = compute::JoinType::FULL_OUTER;
-  } else {
-    cpp11::stop("todo");
   }
 
   return MakeExecNodeOrStop(
@@ -484,7 +474,8 @@ class AccumulatingConsumer : public compute::SinkNodeConsumer {
   const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches() { return batches_; }
 
   arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
-                     compute::BackpressureControl* backpressure_control) override {
+                     compute::BackpressureControl* backpressure_control,
+                     compute::ExecPlan* exec_plan) override {
     schema_ = schema;
     return arrow::Status::OK();
   }

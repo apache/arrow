@@ -79,6 +79,25 @@ test_that("ungroup", {
   )
 })
 
+test_that("Groups before conversion to a Table must not be restored after collect() (ARROW-17737)", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = FALSE) %>%
+      ungroup() %>%
+      collect(),
+    tbl %>%
+      group_by(int)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = TRUE) %>%
+      ungroup() %>%
+      collect(),
+    tbl %>%
+      group_by(int)
+  )
+})
+
 test_that("group_by then rename", {
   compare_dplyr_binding(
     .input %>%
@@ -198,6 +217,20 @@ test_that("group_by() with .add", {
   )
   compare_dplyr_binding(
     .input %>%
+      group_by(.add = FALSE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(.add = TRUE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  compare_dplyr_binding(
+    .input %>%
       group_by(chr, .add = FALSE) %>%
       collect(),
     tbl %>%
@@ -265,14 +298,19 @@ test_that("Can use across() within group_by()", {
     tbl
   )
 
-  # ARROW-12778 - `where()` is not yet supported
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        group_by(across(where(is.numeric))) %>%
-        collect(),
-      tbl
-    ),
-    "Unsupported selection helper"
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across(where(is.numeric))) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("ARROW-18131 - correctly handles .data pronoun in group_by()", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(.data$lgl) %>%
+      collect(),
+    tbl
   )
 })

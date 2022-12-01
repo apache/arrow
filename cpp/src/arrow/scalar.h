@@ -22,6 +22,7 @@
 
 #include <iosfwd>
 #include <memory>
+#include <ratio>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -323,7 +324,7 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
 template <typename T>
 struct TemporalScalar : internal::PrimitiveScalar<T> {
   using internal::PrimitiveScalar<T>::PrimitiveScalar;
-  using ValueType = typename TemporalScalar<T>::ValueType;
+  using ValueType = typename internal::PrimitiveScalar<T>::ValueType;
 
   TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
       : internal::PrimitiveScalar<T>(std::move(value), type) {}
@@ -369,6 +370,9 @@ struct ARROW_EXPORT TimestampScalar : public TemporalScalar<TimestampType> {
   TimestampScalar(typename TemporalScalar<TimestampType>::ValueType value,
                   TimeUnit::type unit, std::string tz = "")
       : TimestampScalar(std::move(value), timestamp(unit, std::move(tz))) {}
+
+  static Result<TimestampScalar> FromISO8601(std::string_view iso8601,
+                                             TimeUnit::type unit);
 };
 
 template <typename T>
@@ -400,6 +404,27 @@ struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
   DurationScalar(typename TemporalScalar<DurationType>::ValueType value,
                  TimeUnit::type unit)
       : DurationScalar(std::move(value), duration(unit)) {}
+
+  // Convenience constructors for a DurationScalar from std::chrono::nanoseconds
+  template <template <typename, typename> class StdDuration, typename Rep>
+  explicit DurationScalar(StdDuration<Rep, std::nano> d)
+      : DurationScalar{DurationScalar(d.count(), duration(TimeUnit::NANO))} {}
+
+  // Convenience constructors for a DurationScalar from std::chrono::microseconds
+  template <template <typename, typename> class StdDuration, typename Rep>
+  explicit DurationScalar(StdDuration<Rep, std::micro> d)
+      : DurationScalar{DurationScalar(d.count(), duration(TimeUnit::MICRO))} {}
+
+  // Convenience constructors for a DurationScalar from std::chrono::milliseconds
+  template <template <typename, typename> class StdDuration, typename Rep>
+  explicit DurationScalar(StdDuration<Rep, std::milli> d)
+      : DurationScalar{DurationScalar(d.count(), duration(TimeUnit::MILLI))} {}
+
+  // Convenience constructors for a DurationScalar from std::chrono::seconds
+  // or from units which are whole numbers of seconds
+  template <template <typename, typename> class StdDuration, typename Rep, intmax_t Num>
+  explicit DurationScalar(StdDuration<Rep, std::ratio<Num, 1>> d)
+      : DurationScalar{DurationScalar(d.count() * Num, duration(TimeUnit::SECOND))} {}
 };
 
 template <typename TYPE_CLASS, typename VALUE_TYPE>

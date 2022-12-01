@@ -51,14 +51,16 @@ class BaseListBuilder : public ArrayBuilder {
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
   BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
-                  const std::shared_ptr<DataType>& type)
-      : ArrayBuilder(pool),
-        offsets_builder_(pool),
+                  const std::shared_ptr<DataType>& type,
+                  int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment),
+        offsets_builder_(pool, alignment),
         value_builder_(value_builder),
         value_field_(type->field(0)->WithType(NULLPTR)) {}
 
-  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder)
-      : BaseListBuilder(pool, value_builder, list(value_builder->type())) {}
+  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
+                  int64_t alignment = kDefaultBufferAlignment)
+      : BaseListBuilder(pool, value_builder, list(value_builder->type()), alignment) {}
 
   Status Resize(int64_t capacity) override {
     if (capacity > maximum_elements()) {

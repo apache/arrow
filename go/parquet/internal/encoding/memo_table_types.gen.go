@@ -19,8 +19,8 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/parquet"
 )
 
 // standard map based implementation of memo tables which can be more efficient

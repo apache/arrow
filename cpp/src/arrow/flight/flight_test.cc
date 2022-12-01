@@ -172,6 +172,13 @@ TEST(TestFlight, ConnectUri) {
   ASSERT_OK(client->Close());
 }
 
+TEST(TestFlight, InvalidUriScheme) {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("invalid://localhost:1234"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      KeyError, ::testing::HasSubstr("No client transport implementation for invalid"),
+      FlightClient::Connect(location));
+}
+
 #ifndef _WIN32
 TEST(TestFlight, ConnectUriUnix) {
   TestServer server("flight-test-server", "/tmp/flight-test.sock");

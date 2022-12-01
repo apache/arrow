@@ -32,10 +32,10 @@
             <scope>compile</scope>
             <classifier>${arrow.vector.classifier}</classifier>
         </dependency>
-	<dependency>
+        <dependency>
             <groupId>org.apache.orc</groupId>
             <artifactId>orc-core</artifactId>
-            <version>1.7.6</version>
+            <version>1.8.0</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -104,7 +104,7 @@
     <parent>
         <groupId>org.apache.arrow</groupId>
         <artifactId>arrow-java-root</artifactId>
-        <version>10.0.0-SNAPSHOT</version>
+        <version>11.0.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -122,7 +122,7 @@
             <resource>
                 <directory>${arrow.cpp.build.dir}</directory>
                 <includes>
-                    <include>**/libarrow_orc_jni.*</include>
+                    <include>**/*arrow_orc_jni.*</include>
                 </includes>
             </resource>
         </resources>

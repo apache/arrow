@@ -189,22 +189,22 @@ cdef class ReadOptions(_Weakrefable):
         self.options.reset(new CCSVReadOptions(CCSVReadOptions.Defaults()))
 
     def __init__(self, *, use_threads=None, block_size=None, skip_rows=None,
-                 column_names=None, autogenerate_column_names=None,
-                 encoding='utf8', skip_rows_after_names=None):
+                 skip_rows_after_names=None, column_names=None,
+                 autogenerate_column_names=None, encoding='utf8'):
         if use_threads is not None:
             self.use_threads = use_threads
         if block_size is not None:
             self.block_size = block_size
         if skip_rows is not None:
             self.skip_rows = skip_rows
+        if skip_rows_after_names is not None:
+            self.skip_rows_after_names = skip_rows_after_names
         if column_names is not None:
             self.column_names = column_names
         if autogenerate_column_names is not None:
             self.autogenerate_column_names= autogenerate_column_names
         # Python-specific option
         self.encoding = encoding
-        if skip_rows_after_names is not None:
-            self.skip_rows_after_names = skip_rows_after_names
 
     @property
     def use_threads(self):
@@ -244,6 +244,23 @@ cdef class ReadOptions(_Weakrefable):
         deref(self.options).skip_rows = value
 
     @property
+    def skip_rows_after_names(self):
+        """
+        The number of rows to skip after the column names.
+        This number can be larger than the number of rows in one
+        block, and empty rows are counted.
+        The order of application is as follows:
+        - `skip_rows` is applied (if non-zero);
+        - column names aread (unless `column_names` is set);
+        - `skip_rows_after_names` is applied (if non-zero).
+        """
+        return deref(self.options).skip_rows_after_names
+
+    @skip_rows_after_names.setter
+    def skip_rows_after_names(self, value):
+        deref(self.options).skip_rows_after_names = value
+
+    @property
     def column_names(self):
         """
         The column names of the target table.  If empty, fall back on
@@ -271,23 +288,6 @@ cdef class ReadOptions(_Weakrefable):
     def autogenerate_column_names(self, value):
         deref(self.options).autogenerate_column_names = value
 
-    @property
-    def skip_rows_after_names(self):
-        """
-        The number of rows to skip after the column names.
-        This number can be larger than the number of rows in one
-        block, and empty rows are counted.
-        The order of application is as follows:
-        - `skip_rows` is applied (if non-zero);
-        - column names aread (unless `column_names` is set);
-        - `skip_rows_after_names` is applied (if non-zero).
-        """
-        return deref(self.options).skip_rows_after_names
-
-    @skip_rows_after_names.setter
-    def skip_rows_after_names(self, value):
-        deref(self.options).skip_rows_after_names = value
-
     def validate(self):
         check_status(deref(self.options).Validate())
 
@@ -296,11 +296,11 @@ cdef class ReadOptions(_Weakrefable):
             self.use_threads == other.use_threads and
             self.block_size == other.block_size and
             self.skip_rows == other.skip_rows and
+            self.skip_rows_after_names == other.skip_rows_after_names and
             self.column_names == other.column_names and
             self.autogenerate_column_names ==
             other.autogenerate_column_names and
-            self.encoding == other.encoding and
-            self.skip_rows_after_names == other.skip_rows_after_names
+            self.encoding == other.encoding
         )
 
     @staticmethod
@@ -605,11 +605,6 @@ cdef class ConvertOptions(_Weakrefable):
     decimal_point : 1-character string, optional (default '.')
         The character used as decimal point in floating-point and decimal
         data.
-    timestamp_parsers : list, optional
-        A sequence of strptime()-compatible format strings, tried in order
-        when attempting to infer or convert timestamp values (the special
-        value ISO8601() can also be given).  By default, a fast built-in
-        ISO-8601 parser is used.
     strings_can_be_null : bool, optional (default False)
         Whether string / binary columns can have null values.
         If true, then strings in null_values are considered null for
@@ -620,16 +615,6 @@ cdef class ConvertOptions(_Weakrefable):
         If true, then strings in "null_values" are also considered null
         when they appear quoted in the CSV file. Otherwise, quoted values
         are never considered null.
-    auto_dict_encode : bool, optional (default False)
-        Whether to try to automatically dict-encode string / binary data.
-        If true, then when type inference detects a string or binary column,
-        it it dict-encoded up to `auto_dict_max_cardinality` distinct values
-        (per chunk), after which it switches to regular encoding.
-        This setting is ignored for non-inferred columns (those in
-        `column_types`).
-    auto_dict_max_cardinality : int, optional
-        The maximum dictionary cardinality for `auto_dict_encode`.
-        This value is per chunk.
     include_columns : list, optional
         The names of columns to include in the Table.
         If empty, the Table will include all columns from the CSV file.
@@ -641,6 +626,21 @@ cdef class ConvertOptions(_Weakrefable):
         produce a column of nulls (whose type is selected using
         `column_types`, or null by default).
         This option is ignored if `include_columns` is empty.
+    auto_dict_encode : bool, optional (default False)
+        Whether to try to automatically dict-encode string / binary data.
+        If true, then when type inference detects a string or binary column,
+        it it dict-encoded up to `auto_dict_max_cardinality` distinct values
+        (per chunk), after which it switches to regular encoding.
+        This setting is ignored for non-inferred columns (those in
+        `column_types`).
+    auto_dict_max_cardinality : int, optional
+        The maximum dictionary cardinality for `auto_dict_encode`.
+        This value is per chunk.
+    timestamp_parsers : list, optional
+        A sequence of strptime()-compatible format strings, tried in order
+        when attempting to infer or convert timestamp values (the special
+        value ISO8601() can also be given).  By default, a fast built-in
+        ISO-8601 parser is used.
 
     Examples
     --------

@@ -17,6 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+warning('Apache Arrow Plasma C GLib is deprecated since 10.0.0. ' +
+        'This will be removed from 12.0.0 or so.')
+
 project_name = 'plasma-glib'
 
 sources = files(
@@ -46,6 +49,7 @@ dependencies = [
 ]
 cpp_args = [
   '-DG_LOG_DOMAIN="Plasma"',
+  '-D_PLASMA_NO_DEPRECATE',
 ]
 pkg_config_requires = [
   'plasma',

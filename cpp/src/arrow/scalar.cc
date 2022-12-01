@@ -646,6 +646,15 @@ std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar>
                                             std::move(type), is_valid);
 }
 
+Result<TimestampScalar> TimestampScalar::FromISO8601(std::string_view iso8601,
+                                                     TimeUnit::type unit) {
+  ValueType value;
+  if (internal::ParseTimestampISO8601(iso8601.data(), iso8601.size(), unit, &value)) {
+    return TimestampScalar{value, timestamp(unit)};
+  }
+  return Status::Invalid("Couldn't parse ", iso8601, " as a timestamp");
+}
+
 SparseUnionScalar::SparseUnionScalar(ValueType value, int8_t type_code,
                                      std::shared_ptr<DataType> type)
     : UnionScalar(std::move(type), type_code, /*is_valid=*/true),
