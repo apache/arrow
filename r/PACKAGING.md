@@ -113,7 +113,7 @@ Check binary Arrow C++ distributions specific to the R package:
   and confirm that the check is clean
 - [ ] Check `install.packages("arrow_X.X.X.tar.gz")` on Ubuntu and ensure that the
   hosted binaries are used
-- [ ] `devtools::check("arrow_X.X.X.tar.gz")` locally one more time (for luck)
+- [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally one more time (for luck)
 
 Submit!
 
