@@ -512,7 +512,7 @@ class PullRequest(object):
         )
         self.cmd.fail("PR title should be prefixed by a GitHub ID or a "
                       "Jira ID, like: {0}, but found {1}".format(
-                        options, self.title))
+                          options, self.title))
 
     def merge(self):
         """
@@ -622,8 +622,7 @@ def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
         maintenance_branches=maintenance_branches
     )
 
-    issue_fix_version = cmd.prompt("Enter comma-separated "
-                                   "fix version(s) [%s]: "
+    issue_fix_version = cmd.prompt("Enter fix version(s) [%s]: "
                                    % default_fix_version)
     if issue_fix_version == "":
         issue_fix_version = default_fix_version
