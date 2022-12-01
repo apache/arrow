@@ -622,7 +622,7 @@ def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
         maintenance_branches=maintenance_branches
     )
 
-    issue_fix_version = cmd.prompt("Enter fix version(s) [%s]: "
+    issue_fix_version = cmd.prompt("Enter fix version [%s]: "
                                    % default_fix_version)
     if issue_fix_version == "":
         issue_fix_version = default_fix_version
