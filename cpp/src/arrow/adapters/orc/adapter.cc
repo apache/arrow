@@ -217,6 +217,8 @@ class ORCFileReader::Impl {
 
   int64_t NumberOfRows() { return static_cast<int64_t>(reader_->getNumberOfRows()); }
 
+  int64_t NumberOfRows(int64_t stripe) { return  stripes_[stripe].num_rows; }
+
   FileVersion GetFileVersion() {
     liborc::FileVersion orc_file_version = reader_->getFormatVersion();
     return FileVersion(orc_file_version.getMajor(), orc_file_version.getMinor());
@@ -599,6 +601,8 @@ Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
 int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
 
 int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
+
+int64_t ORCFileReader::NumberOfRows(int64_t stripe) { return impl_->NumberOfRows(stripe); }
 
 FileVersion ORCFileReader::GetFileVersion() { return impl_->GetFileVersion(); }
 
