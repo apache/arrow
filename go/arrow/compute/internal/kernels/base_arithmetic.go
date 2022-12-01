@@ -41,18 +41,44 @@ const (
 	OpDiv
 	OpAbsoluteValue
 	OpNegate
+	// NO SIMD for the following yet
 	OpSqrt
 	OpPower
+	OpSin
+	OpCos
+	OpTan
+	OpAsin
+	OpAcos
+	OpAtan
+	OpAtan2
+	OpLn
+	OpLog10
+	OpLog2
+	OpLog1p
+	OpLogb
+	// End NO SIMD
 	OpSign
 
+	// Checked versions will not use SIMD except for float32/float64 impls
 	OpAddChecked
 	OpSubChecked
 	OpMulChecked
 	OpDivChecked
 	OpAbsoluteValueChecked
 	OpNegateChecked
+	// No SIMD impls for the rest of these yet
 	OpSqrtChecked
 	OpPowerChecked
+	OpSinChecked
+	OpCosChecked
+	OpTanChecked
+	OpAsinChecked
+	OpAcosChecked
+	OpLnChecked
+	OpLog10Checked
+	OpLog2Checked
+	OpLog1pChecked
+	OpLogbChecked
 )
 
 func mulWithOverflow[T exec.IntTypes | exec.UintTypes](a, b T) (T, error) {
@@ -112,6 +138,9 @@ var (
 	errDivByZero     = fmt.Errorf("%w: divide by zero", arrow.ErrInvalid)
 	errNegativeSqrt  = fmt.Errorf("%w: square root of negative number", arrow.ErrInvalid)
 	errNegativePower = fmt.Errorf("%w: integers to negative integer powers are not allowed", arrow.ErrInvalid)
+	errDomainErr     = fmt.Errorf("%w: domain error", arrow.ErrInvalid)
+	errLogZero       = fmt.Errorf("%w: logarithm of zero", arrow.ErrInvalid)
+	errLogNeg        = fmt.Errorf("%w: logarithm of negative number", arrow.ErrInvalid)
 )
 
 func getGoArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
@@ -347,7 +376,18 @@ func getGoArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op Arit
 }
 
 func getGoArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
-	if op == OpDivChecked {
+	switch op {
+	case OpAdd, OpAddChecked:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a + b) }))
+	case OpSub, OpSubChecked:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a - b) }))
+	case OpMul, OpMulChecked:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a * b) }))
+	case OpDiv:
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b InT, e *error) (out OutT) {
+			return OutT(a / b)
+		})
+	case OpDivChecked:
 		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b InT, e *error) (out OutT) {
 			if b == 0 {
 				*e = errDivByZero
@@ -355,30 +395,14 @@ func getGoArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exe
 			}
 			return OutT(a / b)
 		})
-	}
-
-	if op >= OpAddChecked && op != OpSqrtChecked {
-		op -= OpAddChecked // floating checked is the same as floating unchecked
-	}
-	switch op {
-	case OpAdd:
-		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a + b) }))
-	case OpSub:
-		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a - b) }))
-	case OpMul:
-		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a * b) }))
-	case OpDiv:
-		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b InT, e *error) (out OutT) {
-			return OutT(a / b)
-		})
-	case OpAbsoluteValue:
+	case OpAbsoluteValue, OpAbsoluteValueChecked:
 		return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
 			for i, v := range arg {
 				out[i] = OutT(math.Abs(float64(v)))
 			}
 			return nil
 		})
-	case OpNegate:
+	case OpNegate, OpNegateChecked:
 		return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
 			for i, v := range arg {
 				out[i] = OutT(-v)
@@ -416,9 +440,199 @@ func getGoArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exe
 			}
 			return nil
 		})
-	case OpPower:
+	case OpPower, OpPowerChecked:
 		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT {
 			return OutT(math.Pow(float64(a), float64(b)))
+		}))
+	case OpSin:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Sin(float64(v)))
+			}
+			return nil
+		})
+	case OpSinChecked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			if math.IsInf(float64(arg), 0) {
+				*e = errDomainErr
+				return OutT(arg)
+			}
+			return OutT(math.Sin(float64(arg)))
+		})
+	case OpCos:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Cos(float64(v)))
+			}
+			return nil
+		})
+	case OpCosChecked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			if math.IsInf(float64(arg), 0) {
+				*e = errDomainErr
+				return OutT(arg)
+			}
+			return OutT(math.Cos(float64(arg)))
+		})
+	case OpTan:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Tan(float64(v)))
+			}
+			return nil
+		})
+	case OpTanChecked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			if math.IsInf(float64(arg), 0) {
+				*e = errDomainErr
+				return OutT(arg)
+			}
+			return OutT(math.Tan(float64(arg)))
+		})
+	case OpAsin:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Asin(float64(v)))
+			}
+			return nil
+		})
+	case OpAsinChecked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			if arg < -1 || arg > 1 {
+				*e = errDomainErr
+				return OutT(arg)
+			}
+			return OutT(math.Asin(float64(arg)))
+		})
+	case OpAcos:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Acos(float64(v)))
+			}
+			return nil
+		})
+	case OpAcosChecked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			if arg < -1 || arg > 1 {
+				*e = errDomainErr
+				return OutT(arg)
+			}
+			return OutT(math.Acos(float64(arg)))
+		})
+	case OpAtan:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Atan(float64(v)))
+			}
+			return nil
+		})
+	case OpAtan2:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT {
+			return OutT(math.Atan2(float64(a), float64(b)))
+		}))
+	case OpLn:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Log(float64(v)))
+			}
+			return nil
+		})
+	case OpLnChecked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			switch {
+			case arg == 0:
+				*e = errLogZero
+				return OutT(arg)
+			case arg < 0:
+				*e = errLogNeg
+				return OutT(arg)
+			}
+
+			return OutT(math.Log(float64(arg)))
+		})
+	case OpLog10:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Log10(float64(v)))
+			}
+			return nil
+		})
+	case OpLog10Checked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			switch {
+			case arg == 0:
+				*e = errLogZero
+				return OutT(arg)
+			case arg < 0:
+				*e = errLogNeg
+				return OutT(arg)
+			}
+
+			return OutT(math.Log10(float64(arg)))
+		})
+	case OpLog2:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Log2(float64(v)))
+			}
+			return nil
+		})
+	case OpLog2Checked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			switch {
+			case arg == 0:
+				*e = errLogZero
+				return OutT(arg)
+			case arg < 0:
+				*e = errLogNeg
+				return OutT(arg)
+			}
+
+			return OutT(math.Log2(float64(arg)))
+		})
+	case OpLog1p:
+		return ScalarUnary(func(_ *exec.KernelCtx, vals []InT, out []OutT) error {
+			for i, v := range vals {
+				out[i] = OutT(math.Log1p(float64(v)))
+			}
+			return nil
+		})
+	case OpLog1pChecked:
+		return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg InT, e *error) OutT {
+			switch {
+			case arg == -1:
+				*e = errLogZero
+				return OutT(arg)
+			case arg < -1:
+				*e = errLogNeg
+				return OutT(arg)
+			}
+
+			return OutT(math.Log1p(float64(arg)))
+		})
+	case OpLogb:
+		return ScalarBinary(getGoArithmeticBinary(func(x, base InT, _ *error) OutT {
+			if x == 0 {
+				if base == 0 || base < 0 {
+					return OutT(math.NaN())
+				} else {
+					return OutT(math.Inf(-1))
+				}
+			} else if x < 0 {
+				return OutT(math.NaN())
+			}
+			return OutT(math.Log(float64(x)) / math.Log(float64(base)))
+		}))
+	case OpLogbChecked:
+		return ScalarBinaryNotNull((func(_ *exec.KernelCtx, x, base InT, e *error) OutT {
+			if x == 0 || base == 0 {
+				*e = errLogZero
+				return OutT(x)
+			} else if x < 0 || base < 0 {
+				*e = errLogNeg
+				return OutT(x)
+			}
+			return OutT(math.Log(float64(x)) / math.Log(float64(base)))
 		}))
 	}
 	debug.Assert(false, "invalid arithmetic op")

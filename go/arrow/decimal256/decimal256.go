@@ -141,15 +141,15 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 	//
 	// Finally, we still have a sign bit, so we -1 to account for the sign bit.
 	// Aren't floating point numbers fun?
-	var precInBits = uint(math.Round(float64(prec+scale+1)/math.Log10(2))) - 1
+	var precInBits = uint(math.Round(float64(prec+scale+1)/math.Log10(2))) + 1
 
 	var out *big.Float
-	out, _, err = big.ParseFloat(v, 10, precInBits, big.ToNearestEven)
+	out, _, err = big.ParseFloat(v, 10, 255, big.ToNearestEven)
 	if err != nil {
 		return
 	}
 
-	out.Mul(out, big.NewFloat(math.Pow10(int(scale))))
+	out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).SetPrec(precInBits)
 	// Since we're going to truncate this to get an integer, we need to round
 	// the value instead because of edge cases so that we match how other implementations
 	// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
@@ -449,6 +449,16 @@ func (n Num) FitsInPrecision(prec int32) bool {
 	debug.Assert(prec <= 76, "precision must be <= 76")
 	return n.Abs().Less(scaleMultipliers[prec])
 }
+
+func (n Num) ToString(scale int32) string {
+	f := (&big.Float{}).SetInt(n.BigInt())
+	f.Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	return f.Text('f', int(scale))
+}
+
+func GetScaleMultiplier(pow int) Num { return scaleMultipliers[pow] }
+
+func GetHalfScaleMultiplier(pow int) Num { return scaleMultipliersHalf[pow] }
 
 var (
 	scaleMultipliers = [...]Num{
