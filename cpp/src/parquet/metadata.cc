@@ -312,6 +312,20 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     }
   }
 
+  std::optional<IndexLocation> GetColumIndexLocation() const {
+    if (column_->__isset.column_index_offset && column_->__isset.column_index_length) {
+      return IndexLocation{column_->column_index_offset, column_->column_index_length};
+    }
+    return std::nullopt;
+  }
+
+  std::optional<IndexLocation> GetOffsetIndexLocation() const {
+    if (column_->__isset.offset_index_offset && column_->__isset.offset_index_length) {
+      return IndexLocation{column_->offset_index_offset, column_->offset_index_length};
+    }
+    return std::nullopt;
+  }
+
  private:
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
@@ -418,6 +432,14 @@ int64_t ColumnChunkMetaData::total_compressed_size() const {
 
 std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() const {
   return impl_->crypto_metadata();
+}
+
+std::optional<IndexLocation> ColumnChunkMetaData::GetColumIndexLocation() const {
+  return impl_->GetColumIndexLocation();
+}
+
+std::optional<IndexLocation> ColumnChunkMetaData::GetOffsetIndexLocation() const {
+  return impl_->GetOffsetIndexLocation();
 }
 
 bool ColumnChunkMetaData::Equals(const ColumnChunkMetaData& other) const {
