@@ -327,6 +327,28 @@ jobs:
       - name: Install R package system dependencies
         run: |
           sudo apt update
+          # We need to install all dependencies explicitly to use
+          # "pkg-config --static --libs libcurl" result. Because
+          # libcurl-dev doesn't depend on packages that are only
+          # needed for "pkg-config --static".
+          #
+          # "pkg-config --static --libs libcurl" has
+          #   * -lnghttp2
+          #   * -lidn2
+          #   * -lrtmp
+          #   * -lssh or -lssh2
+          #   * -lpsl
+          #   * -lssl
+          #   * -lcrypto
+          #   * -lgssapi_krb5
+          #   * -lkrb5
+          #   * -lk5crypto
+          #   * -lcom_err
+          #   * -lldap
+          #   * -llber
+          #   * -lzstd
+          #   * -lbrotlidec
+          #   * -lz
           sudo apt install -y \
             libbrotli-dev \
             libcurl4-openssl-dev \
