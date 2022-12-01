@@ -62,7 +62,7 @@ use the release candidate as the source.
   to include any additions made to
   [r/tools/autobrew](https://github.com/apache/arrow/blob/master/r/tools/autobrew).
 - [ ] Pull request to modify the
-  [PKGBUILD script](https://github.com/r-windows/rtools-packages/blob/master/mingw-w64-arrow/PKGBUILD)
+  [RTools PKGBUILD script](https://github.com/r-windows/rtools-packages/blob/master/mingw-w64-arrow/PKGBUILD)
   to reflect changes in
   [ci/PKGBUILD](https://github.com/apache/arrow/blob/master/ci/scripts/PKGBUILD),
   uncommenting the line that says "uncomment to test the rc".
