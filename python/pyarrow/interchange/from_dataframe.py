@@ -204,17 +204,17 @@ def bool_8_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
     if validity_buff:
         if null_kind in (ColumnNullType.USE_BYTEMASK,
                          ColumnNullType.USE_BITMASK):
-            
+
             validity_bit_width = validity_dtype[1]
-            bytemask =  get_ndarray_from_buffer(validity_buff,
-                                                validity_bit_width,
-                                                offset)
+            bytemask = get_ndarray_from_buffer(validity_buff,
+                                               validity_bit_width,
+                                               offset)
             if sentinel_val == 0:
                 bytemask = np.invert(bytemask)
         else:
             raise NotImplementedError(f"{null_kind} null representation "
-                                        "is not yet supported for boolean "
-                                        "dtype.")
+                                      "is not yet supported for boolean "
+                                      "dtype.")
     # Output
     return pa.array(data, mask=bytemask), buffers
 
@@ -292,7 +292,7 @@ def datetime_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
                                                      validity_dtype,
                                                      col.describe_null,
                                                      col.offset)
-    
+
     # Constructing a pa.Array from data and validity buffer
     array = pa.Array.from_buffers(
         data_dtype,
@@ -309,7 +309,8 @@ def datetime_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
                                 dtype="datetime64[ns]"))
         else:
             raise NotImplementedError(
-                f"Sentinel value {sentinel_val} for datetime is not yet supported.")
+                f"Sentinel value {sentinel_val} for datetime is not yet "
+                "supported.")
 
     # In case a bytemask was constructed with validity_buffer() call
     # or with sentinel_value then we have to add the mask to the array
@@ -401,7 +402,7 @@ def buffers_to_array(
     if data_dtype is None:
         raise NotImplementedError(
             f"Conversion for {data_type} is not yet supported.")
-    
+
     # Construct a pyarrow Buffer
     data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize)
 
@@ -475,12 +476,12 @@ def validity_buffer(
 
     bytemask = None
     if null_kind == ColumnNullType.USE_BYTEMASK:
-        
+
         bytemask = get_ndarray_from_buffer(validity_buff,
                                            validity_bit_width,
                                            offset)
         if sentinel_val == 0:
-                bytemask = np.invert(bytemask)
+            bytemask = np.invert(bytemask)
         validity_pa_buff = None
 
     elif null_kind == ColumnNullType.USE_BITMASK and sentinel_val == 0:
