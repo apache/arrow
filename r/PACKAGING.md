@@ -51,7 +51,7 @@ use the release candidate as the source.
 
 - [ ] Pull request to modify
   [the apache-arrow autobrew formula]( https://github.com/autobrew/homebrew-core/blob/high-sierra/Formula/apache-arrow.rb) 
-  to update the release version, SHA256 checksum of the release source file, and any changes to dependencies and build steps that have changed in the
+  to update the release version, SHA256 checksum of the release source file (which can be found in the same directory as the release source file), and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb)
 - [ ] Pull request to modify
   [the apache-arrow-static autobrew formula]( https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow-static.rb)
