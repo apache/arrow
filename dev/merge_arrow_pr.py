@@ -32,8 +32,7 @@
 # Configuration environment variables:
 #   - APACHE_JIRA_TOKEN: your Apache JIRA Personal Access Token
 #   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests
-#   - ORG_NAME: the name of the remote to the Apache git repo
-#               (set to 'apache' by default)
+#   - ARROW_GITHUB_ORG: the GitHub organisation ('apache' by default)
 #   - DEBUG: use for testing to avoid pushing to apache (0 by default)
 
 import configparser
@@ -59,7 +58,7 @@ except ImportError:
 
 # Remote name which points to the GitHub site
 ORG_NAME = (
-    os.environ.get("ORG_NAME") or
+    os.environ.get("ARROW_GITHUB_ORG") or
     os.environ.get("PR_REMOTE_NAME") or  # backward compatibility
     "apache"
 )
@@ -156,7 +155,7 @@ class JiraIssue(object):
 
         return [x for x in versions if mainline_regex.match(x.name)]
 
-    def resolve(self, fix_version, comment):
+    def resolve(self, fix_version, comment, *args):
         fields = self.issue.fields
         cur_status = fields.status.name
 
@@ -206,7 +205,7 @@ class GitHubIssue(object):
         try:
             self.issue = self.github_api.get_issue_data(github_id)
         except Exception as e:
-            self.cmd.fail("Github could not find %s\n%s" % (github_id, e))
+            self.cmd.fail("GitHub could not find %s\n%s" % (github_id, e))
 
     def get_label(self, prefix):
         prefix = f"{prefix}:"
@@ -236,7 +235,7 @@ class GitHubIssue(object):
 
         return unreleased_versions
 
-    def resolve(self, fix_version, comment):
+    def resolve(self, fix_version, comment, pr_body):
         cur_status = self.issue["state"]
 
         if cur_status == "closed":
@@ -248,7 +247,8 @@ class GitHubIssue(object):
                   (self.github_id, fix_version))
         else:
             self.github_api.assign_milestone(self.github_id, fix_version)
-            self.github_api.close_issue(self.github_id, comment)
+            if f"Closes: #{self.github_id}" not in pr_body:
+                self.github_api.close_issue(self.github_id, comment)
             print("Successfully resolved %s!" % (self.github_id))
 
         self.issue = self.github_api.get_issue_data(self.github_id)
@@ -440,8 +440,8 @@ class CommandInput(object):
 
 
 class PullRequest(object):
+    GITHUB_PR_TITLE_PATTERN = re.compile(r'^GH-([0-9]+)\b.*$')
     # We can merge both ARROW and PARQUET patches
-    GITHUB_PR_TITLE_REGEXEN = re.compile(r'^GH-([0-9]+)\b.*$')
     JIRA_SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
     JIRA_PR_TITLE_REGEXEN = [
         (project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
@@ -495,7 +495,7 @@ class PullRequest(object):
         if self.title.startswith("MINOR:"):
             return None
 
-        m = self.GITHUB_PR_TITLE_REGEXEN.search(self.title)
+        m = self.GITHUB_PR_TITLE_PATTERN.search(self.title)
         if m:
             github_id = m.group(1)
             return GitHubIssue(self._github_api, github_id, self.cmd)
@@ -506,10 +506,13 @@ class PullRequest(object):
                 jira_id = m.group(1)
                 return JiraIssue(self.con, jira_id, project, self.cmd)
 
-        options = ' or '.join('{0}-XXX'.format(project)
-                              for project in self.JIRA_SUPPORTED_PROJECTS)
-        self.cmd.fail("PR title should be prefixed by a jira id "
-                      "{0}, but found {1}".format(options, self.title))
+        options = ' or '.join(
+            '{0}-XXX'.format(project)
+            for project in self.JIRA_SUPPORTED_PROJECTS + ["GH"]
+        )
+        self.cmd.fail("PR title should be prefixed by a GitHub ID or a "
+                      "Jira ID, like: {0}, but found {1}".format(
+                        options, self.title))
 
     def merge(self):
         """
@@ -713,7 +716,7 @@ def cli():
     )
     fix_version = prompt_for_fix_version(cmd, pr.issue,
                                          pr.maintenance_branches)
-    pr.issue.resolve(fix_version, issue_comment)
+    pr.issue.resolve(fix_version, issue_comment, pr.body)
 
 
 if __name__ == '__main__':
