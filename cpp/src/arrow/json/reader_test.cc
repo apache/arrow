@@ -531,8 +531,7 @@ TEST_P(StreamingReaderTest, PropagateParsingErrors) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK_AND_ASSIGN(auto reader, MakeReader(bad_middle_block));
   EXPECT_EQ(reader->bytes_read(), 0);
-  ASSERT_NE(reader->schema(), nullptr);
-  EXPECT_EQ(*reader->schema(), *test_schema);
+  AssertSchemaEqual(reader->schema(), test_schema);
 
   AssertReadNext(reader, &batch);
   EXPECT_EQ(reader->bytes_read(), 13);
@@ -557,8 +556,7 @@ TEST_P(StreamingReaderTest, IgnoreLeadingEmptyBlocks) {
   auto expected_schema = parse_options_.explicit_schema;
   auto expected_batch = RecordBatchFromJSON(expected_schema, R"([{"b":true,"s":"foo"}])");
 
-  ASSERT_NE(reader->schema(), nullptr);
-  ASSERT_EQ(*reader->schema(), *expected_schema);
+  AssertSchemaEqual(reader->schema(), expected_schema);
 
   std::shared_ptr<RecordBatch> actual_batch;
   AssertReadNext(reader, &actual_batch);
@@ -592,8 +590,7 @@ TEST_P(StreamingReaderTest, ExplicitSchemaErrorOnUnexpectedFields) {
 
   parse_options_.explicit_schema = expected_schema;
   ASSERT_OK_AND_ASSIGN(reader, MakeReader(test_json));
-  ASSERT_NE(reader->schema(), nullptr);
-  ASSERT_EQ(*reader->schema(), *expected_schema);
+  AssertSchemaEqual(reader->schema(), expected_schema);
 
   AssertReadNext(reader, &actual_batch);
   ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
@@ -625,8 +622,7 @@ TEST_P(StreamingReaderTest, ExplicitSchemaIgnoreUnexpectedFields) {
   read_options_.block_size = 48;
 
   ASSERT_OK_AND_ASSIGN(reader, MakeReader(test_json));
-  ASSERT_NE(reader->schema(), nullptr);
-  ASSERT_EQ(*reader->schema(), *expected_schema);
+  AssertSchemaEqual(reader->schema(), expected_schema);
 
   expected_batch = RecordBatchFromJSON(expected_schema, R"([{"s":"foo","t":null}])");
   AssertReadNext(reader, &actual_batch);
@@ -668,23 +664,14 @@ TEST_P(StreamingReaderTest, InferredSchema) {
 
   read_options_.block_size = 32;
   ASSERT_OK_AND_ASSIGN(reader, MakeReader(test_json));
-  ASSERT_NE(reader->schema(), nullptr);
-  ASSERT_EQ(*reader->schema(), *expected_schema);
+  AssertSchemaEqual(reader->schema(), expected_schema);
 
   expected_batch = RecordBatchFromJSON(expected_schema, R"([{"a": 0, "b": "foo"}])");
   AssertReadNext(reader, &actual_batch);
   EXPECT_EQ(reader->bytes_read(), 28);
   ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
 
-  expected_batch = RecordBatchFromJSON(expected_schema, R"([{"a": 1, "b": null}])");
-  AssertReadNext(reader, &actual_batch);
-  EXPECT_EQ(reader->bytes_read(), 56);
-  ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
-
-  expected_batch = RecordBatchFromJSON(expected_schema, R"([{"a": 2, "b": null}])");
-  AssertReadNext(reader, &actual_batch);
-  EXPECT_EQ(reader->bytes_read(), 84);
-  ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
+  ASSERT_RAISES(Invalid, reader->ReadNext(&actual_batch));
 
   // Schema derived from the first 2 lines
   fields.push_back(field("c", boolean()));
@@ -692,8 +679,7 @@ TEST_P(StreamingReaderTest, InferredSchema) {
 
   read_options_.block_size = 64;
   ASSERT_OK_AND_ASSIGN(reader, MakeReader(test_json));
-  ASSERT_NE(reader->schema(), nullptr);
-  ASSERT_EQ(*reader->schema(), *expected_schema);
+  AssertSchemaEqual(reader->schema(), expected_schema);
 
   expected_batch = RecordBatchFromJSON(expected_schema, R"([
     {"a": 0, "b": "foo", "c": null},
@@ -703,12 +689,7 @@ TEST_P(StreamingReaderTest, InferredSchema) {
   EXPECT_EQ(reader->bytes_read(), 56);
   ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
 
-  expected_batch = RecordBatchFromJSON(expected_schema, R"([
-    {"a": 2, "b": null, "c": null}
-  ])");
-  AssertReadNext(reader, &actual_batch);
-  EXPECT_EQ(reader->bytes_read(), 84);
-  ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
+  ASSERT_RAISES(Invalid, reader->ReadNext(&actual_batch));
 
   // Schema derived from all 3 lines
   fields.push_back(field("d", timestamp(TimeUnit::SECOND)));
@@ -716,8 +697,7 @@ TEST_P(StreamingReaderTest, InferredSchema) {
 
   read_options_.block_size = 96;
   ASSERT_OK_AND_ASSIGN(reader, MakeReader(test_json));
-  ASSERT_NE(reader->schema(), nullptr);
-  ASSERT_EQ(*reader->schema(), *expected_schema);
+  AssertSchemaEqual(reader->schema(), expected_schema);
 
   expected_batch = RecordBatchFromJSON(expected_schema, R"([
     {"a": 0, "b": "foo", "c": null, "d":  null},
@@ -740,7 +720,7 @@ TEST_P(StreamingReaderTest, AsyncReentrancy) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
   read_options_.block_size = expected.block_size;
 
-  std::vector<Future<std::shared_ptr<RecordBatch>>> futures(expected.num_batches + 1);
+  std::vector<Future<std::shared_ptr<RecordBatch>>> futures(expected.num_batches + 2);
   ASSERT_OK_AND_ASSIGN(auto reader, MakeReader(expected.json, kIoLatency));
   EXPECT_EQ(reader->bytes_read(), 0);
   for (auto& future : futures) {
@@ -750,8 +730,9 @@ TEST_P(StreamingReaderTest, AsyncReentrancy) {
   ASSERT_FINISHES_OK_AND_ASSIGN(auto results, All(std::move(futures)));
   EXPECT_EQ(reader->bytes_read(), expected.json_size);
   ASSERT_OK_AND_ASSIGN(auto batches, internal::UnwrapOrRaise(std::move(results)));
-  EXPECT_EQ(batches.back(), nullptr);
-  batches.pop_back();
+  batches.erase(std::remove(batches.begin(), batches.end(), nullptr), batches.end());
+  EXPECT_EQ(batches.size(), static_cast<size_t>(expected.num_batches));
+
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }
@@ -766,43 +747,20 @@ TEST_P(StreamingReaderTest, FuturesOutliveReader) {
   read_options_.block_size = expected.block_size;
 
   auto stream = MakeTestStream(expected.json, kIoLatency);
-  std::vector<Future<std::shared_ptr<RecordBatch>>> futures(expected.num_batches);
-  std::weak_ptr<StreamingReader> weak_reader;
+  std::vector<Future<std::shared_ptr<RecordBatch>>> futures(expected.num_batches + 2);
   {
     ASSERT_OK_AND_ASSIGN(auto reader, MakeReader(stream));
-    weak_reader = reader;
     EXPECT_EQ(reader->bytes_read(), 0);
     for (auto& future : futures) {
       future = reader->ReadNextAsync();
     }
   }
 
-  auto all_future = All(std::move(futures));
-  AssertNotFinished(all_future);
-  EXPECT_EQ(weak_reader.use_count(), 0);
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto results, all_future);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto results, All(std::move(futures)));
   ASSERT_OK_AND_ASSIGN(auto batches, internal::UnwrapOrRaise(std::move(results)));
-  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
-  ASSERT_TABLES_EQUAL(*expected.table, *table);
-}
+  batches.erase(std::remove(batches.begin(), batches.end(), nullptr), batches.end());
+  EXPECT_EQ(batches.size(), static_cast<size_t>(expected.num_batches));
 
-TEST_P(StreamingReaderTest, NestedParallelism) {
-  constexpr int kNumRows = 16;
-
-  auto expected = GenerateTestCase(kNumRows);
-  parse_options_.explicit_schema = expected.schema;
-  parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
-  read_options_.block_size = expected.block_size;
-
-  AsyncGenerator<std::shared_ptr<RecordBatch>> generator;
-  auto task = [&generator] { return CollectAsyncGenerator(generator).result(); };
-
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
-  ASSERT_OK_AND_ASSIGN(generator, MakeGenerator(expected.json));
-  ASSERT_OK_AND_ASSIGN(auto batches_future, thread_pool->Submit(task));
-
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, batches_future);
-  ASSERT_EQ(batches.size(), expected.batches.size());
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }
@@ -815,7 +773,7 @@ TEST_P(StreamingReaderTest, StressBufferedReads) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
   read_options_.block_size = expected.block_size;
 
-  std::vector<Future<std::shared_ptr<RecordBatch>>> futures(expected.num_batches);
+  std::vector<Future<std::shared_ptr<RecordBatch>>> futures(expected.num_batches + 2);
   ASSERT_OK_AND_ASSIGN(auto reader, MakeReader(expected.json));
   EXPECT_EQ(reader->bytes_read(), 0);
   for (auto& future : futures) {
@@ -824,6 +782,9 @@ TEST_P(StreamingReaderTest, StressBufferedReads) {
 
   ASSERT_FINISHES_OK_AND_ASSIGN(auto results, All(std::move(futures)));
   ASSERT_OK_AND_ASSIGN(auto batches, internal::UnwrapOrRaise(results));
+  batches.erase(std::remove(batches.begin(), batches.end(), nullptr), batches.end());
+  EXPECT_EQ(batches.size(), static_cast<size_t>(expected.num_batches));
+
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }

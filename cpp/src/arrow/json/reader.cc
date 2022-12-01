@@ -118,7 +118,7 @@ class DecodeContext {
   void SetStrictSchema(std::shared_ptr<Schema> explicit_schema) {
     auto unexpected_field_behavior = parse_options_.unexpected_field_behavior;
     if (unexpected_field_behavior == UnexpectedFieldBehavior::InferType) {
-      unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
+      unexpected_field_behavior = UnexpectedFieldBehavior::Error;
     }
     SetSchema(std::move(explicit_schema), unexpected_field_behavior);
   }
@@ -226,6 +226,8 @@ Iterator<ChunkedBlock> MakeChunkingIterator(Iterator<std::shared_ptr<Buffer>> so
                                  ChunkingTransformer::Make(std::forward<Args>(args)...));
 }
 
+// NOTE: Not reentrant. Incoming buffers are processed sequentially and the transformer's
+// internal state gets updated on each call.
 template <typename... Args>
 AsyncGenerator<ChunkedBlock> MakeChunkingGenerator(
     AsyncGenerator<std::shared_ptr<Buffer>> source, Args&&... args) {
@@ -357,6 +359,23 @@ AsyncGenerator<DecodedBlock> MakeDecodingGenerator(
   };
 }
 
+// Adds async-reentrancy to `source` by submitting tasks to a single-threaded executor
+// (FIFO order) - ensuring, at most, one future is pending at a time
+template <typename T>
+Result<AsyncGenerator<T>> MakeReentrantGenerator(AsyncGenerator<T> source) {
+  struct State {
+    AsyncGenerator<T> source;
+    std::shared_ptr<ThreadPool> thread_pool;
+  } state{std::move(source), nullptr};
+  ARROW_ASSIGN_OR_RAISE(state.thread_pool, ThreadPool::Make(1));
+
+  return [state = std::make_shared<State>(std::move(state))]() -> Future<T> {
+    auto maybe_future =
+        state->thread_pool->Submit([state] { return state->source().result(); });
+    return DeferNotOk(std::move(maybe_future));
+  };
+}
+
 class StreamingReaderImpl : public StreamingReader {
  public:
   StreamingReaderImpl(DecodedBlock first_block, AsyncGenerator<DecodedBlock> source,
@@ -377,17 +396,29 @@ class StreamingReaderImpl : public StreamingReader {
   }
 
   static Future<std::shared_ptr<StreamingReaderImpl>> MakeAsync(
-      AsyncGenerator<ChunkedBlock> chunking_gen, std::shared_ptr<DecodeContext> context,
-      Executor* cpu_executor, bool use_threads) {
-    auto source = MakeDecodingGenerator(std::move(chunking_gen),
-                                        DecodingOperator(context), cpu_executor);
-    const int max_readahead = use_threads ? cpu_executor->GetCapacity() : 0;
-    return FirstBlock(source).Then([source = std::move(source),
-                                    context = std::move(context),
-                                    max_readahead](const DecodedBlock& block) {
-      return std::make_shared<StreamingReaderImpl>(block, std::move(source), context,
-                                                   max_readahead);
-    });
+      std::shared_ptr<DecodeContext> context, std::shared_ptr<io::InputStream> stream,
+      io::IOContext io_context, Executor* cpu_executor, const ReadOptions& read_options) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto buffer_it,
+        io::MakeInputStreamIterator(std::move(stream), read_options.block_size));
+    ARROW_ASSIGN_OR_RAISE(
+        auto buffer_gen,
+        MakeBackgroundGenerator(std::move(buffer_it), io_context.executor()));
+    buffer_gen = MakeTransferredGenerator(std::move(buffer_gen), cpu_executor);
+
+    auto chunking_gen = MakeChunkingGenerator(std::move(buffer_gen),
+                                              MakeChunker(context->parse_options()));
+    ARROW_ASSIGN_OR_RAISE(chunking_gen, MakeReentrantGenerator(std::move(chunking_gen)));
+
+    auto decoding_gen = MakeDecodingGenerator(std::move(chunking_gen),
+                                              DecodingOperator(context), cpu_executor);
+    const int max_readahead = read_options.use_threads ? cpu_executor->GetCapacity() : 0;
+    return FirstBlock(decoding_gen)
+        .Then([source = std::move(decoding_gen), context = std::move(context),
+               max_readahead](const DecodedBlock& block) {
+          return std::make_shared<StreamingReaderImpl>(block, std::move(source), context,
+                                                       max_readahead);
+        });
   }
 
   [[nodiscard]] std::shared_ptr<Schema> schema() const override { return schema_; }
@@ -414,10 +445,9 @@ class StreamingReaderImpl : public StreamingReader {
     // Read from the stream until we get a non-empty record batch that we can use to
     // declare the schema. Along the way, accumulate the bytes read so they can be
     // recorded on the first `ReadNextAsync`
-    auto out = std::make_shared<DecodedBlock>();
-    DCHECK_EQ(out->num_bytes, 0);
-    auto loop_body = [gen = std::move(gen),
-                      out = std::move(out)]() -> Future<ControlFlow<DecodedBlock>> {
+    auto loop_body =
+        [gen = std::move(gen),
+         out = std::make_shared<DecodedBlock>()]() -> Future<ControlFlow<DecodedBlock>> {
       return gen().Then(
           [out](const DecodedBlock& block) -> Result<ControlFlow<DecodedBlock>> {
             if (IsIterationEnd(block)) {
@@ -440,37 +470,6 @@ class StreamingReaderImpl : public StreamingReader {
   AsyncGenerator<std::shared_ptr<RecordBatch>> generator_;
 };
 
-template <typename T>
-Result<AsyncGenerator<T>> MakeReentrantGenerator(AsyncGenerator<T> source) {
-  struct State {
-    AsyncGenerator<T> source;
-    std::shared_ptr<ThreadPool> thread_pool;
-  } state{std::move(source), nullptr};
-  ARROW_ASSIGN_OR_RAISE(state.thread_pool, ThreadPool::Make(1));
-
-  return [state = std::make_shared<State>(std::move(state))]() -> Future<T> {
-    auto maybe_future =
-        state->thread_pool->Submit([state] { return state->source().result(); });
-    return DeferNotOk(std::move(maybe_future));
-  };
-}
-
-// Compose an async-reentrant `ChunkedBlock` generator using a sequentially-accessed
-// `InputStream`
-Result<AsyncGenerator<ChunkedBlock>> MakeChunkingGenerator(
-    std::shared_ptr<io::InputStream> stream, int32_t block_size,
-    std::unique_ptr<Chunker> chunker, Executor* io_executor, Executor* cpu_executor) {
-  ARROW_ASSIGN_OR_RAISE(auto source_it,
-                        io::MakeInputStreamIterator(std::move(stream), block_size));
-  ARROW_ASSIGN_OR_RAISE(auto source_gen,
-                        MakeBackgroundGenerator(std::move(source_it), io_executor));
-  source_gen = MakeTransferredGenerator(std::move(source_gen), cpu_executor);
-
-  auto gen = MakeChunkingGenerator(std::move(source_gen), std::move(chunker));
-  ARROW_ASSIGN_OR_RAISE(gen, MakeReentrantGenerator(std::move(gen)));
-  return gen;
-}
-
 }  // namespace
 
 Result<std::shared_ptr<TableReader>> TableReader::Make(
@@ -492,14 +491,9 @@ Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
     std::shared_ptr<io::InputStream> stream, io::IOContext io_context,
     Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options) {
-  ARROW_ASSIGN_OR_RAISE(auto chunking_gen,
-                        MakeChunkingGenerator(std::move(stream), read_options.block_size,
-                                              MakeChunker(parse_options),
-                                              io_context.executor(), cpu_executor));
-  auto decode_context = std::make_shared<DecodeContext>(parse_options, io_context.pool());
-  auto future =
-      StreamingReaderImpl::MakeAsync(std::move(chunking_gen), std::move(decode_context),
-                                     cpu_executor, read_options.use_threads);
+  auto future = StreamingReaderImpl::MakeAsync(
+      std::make_shared<DecodeContext>(parse_options, io_context.pool()),
+      std::move(stream), io_context, cpu_executor, read_options);
   return future.Then([](const std::shared_ptr<StreamingReaderImpl>& reader) {
     return std::static_pointer_cast<StreamingReader>(reader);
   });
