@@ -104,7 +104,7 @@ int64_t MaxSliceLength(const int64_t start, const int64_t stop, const int64_t st
 
   // Get the raw length with any remainder after dividing by step
   auto length = std::ceil((stopf - startf) / stepf);
-  return static_cast<int64_t>(std::floor(length));
+  return static_cast<int64_t>(length);
 }
 
 template <typename Type>
