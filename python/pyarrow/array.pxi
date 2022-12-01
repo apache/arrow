@@ -1399,7 +1399,7 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
-    def sort(self, order="ascending", options=None):
+    def sort(self, order="ascending", **options):
         """
         Sort the Array
 
@@ -1408,16 +1408,17 @@ cdef class Array(_PandasConvertible):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
-        options : SortOptions, default None
-            Additional sorting options.
-
+        **options : Additional sorting options
+            As allowed by :class:`SortOptions`
 
         Returns
         -------
         result : Array
         """
-        indices = _pc().sort_indices(self, sort_keys=[("", order)],
-                                     options=options)
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=[("", order)], **options)
+        )
         return self.take(indices)
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
@@ -2764,7 +2765,7 @@ cdef class StructArray(Array):
         result.validate()
         return result
 
-    def sort(self, order="ascending", fieldname=None, options=None):
+    def sort(self, order="ascending", fieldname=None, **options):
         """
         Sort the StructArray
 
@@ -2776,8 +2777,8 @@ cdef class StructArray(Array):
         fieldname : str or None, default None
             If to sort the array by one of its fields
             or by the whole array.
-        options : SortOptions, default None
-            Additional sorting options.
+        **options : Additional sorting options
+            As allowed by :class:`SortOptions`
 
         Returns
         -------
@@ -2787,8 +2788,10 @@ cdef class StructArray(Array):
             tosort = self.field(fieldname)
         else:
             tosort = self
-        indices = _pc().sort_indices(tosort, sort_keys=[("", order)],
-                                     options=options)
+        indices = _pc().sort_indices(
+            tosort,
+            options=_pc().SortOptions(sort_keys=[("", order)], **options)
+        )
         return self.take(indices)
 
 

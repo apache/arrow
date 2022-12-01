@@ -3298,6 +3298,12 @@ def test_array_sort():
     sorted_arr = arr.sort("descending")
     assert sorted_arr.to_pylist() == [6, 5, 4, 3, 2, 1]
 
+    arr = pa.array([5, 7, 35, None], type=pa.int64())
+    sorted_arr = arr.sort("descending", null_placement="at_end")
+    assert sorted_arr.to_pylist() == [35, 7, 5, None]
+    sorted_arr = arr.sort("descending", null_placement="at_start")
+    assert sorted_arr.to_pylist() == [None, 35, 7, 5]
+
 
 def test_struct_array_sort():
     arr = pa.StructArray.from_arrays([
