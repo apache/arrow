@@ -1399,20 +1399,25 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
-    def sort(self, order="ascending"):
+    def sort(self, order="ascending", options=None):
         """
         Sort the Array
 
         Parameters
         ----------
-        order : "ascending" or "descending"
-            The order of the sorting.
+        order : str, default "ascending"
+            Which order to sort values in.
+            Accepted values are "ascending", "descending".
+        options : SortOptions, default None
+            Additional sorting options.
+
 
         Returns
         -------
         result : Array
         """
-        indices = _pc().sort_indices(self, sort_keys=[("", order)])
+        indices = _pc().sort_indices(self, sort_keys=[("", order)],
+                                     options=options)
         return self.take(indices)
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
@@ -2759,17 +2764,20 @@ cdef class StructArray(Array):
         result.validate()
         return result
 
-    def sort(self, order="ascending", fieldname=None):
+    def sort(self, order="ascending", fieldname=None, options=None):
         """
         Sort the StructArray
 
         Parameters
         ----------
-        order : "ascending" or "descending"
-            The order of the sorting.
+        order : str, default "ascending"
+            Which order to sort values in.
+            Accepted values are "ascending", "descending".
         fieldname : str or None, default None
             If to sort the array by one of its fields
             or by the whole array.
+        options : SortOptions, default None
+            Additional sorting options.
 
         Returns
         -------
@@ -2779,7 +2787,8 @@ cdef class StructArray(Array):
             tosort = self.field(fieldname)
         else:
             tosort = self
-        indices = _pc().sort_indices(tosort, sort_keys=[("", order)])
+        indices = _pc().sort_indices(tosort, sort_keys=[("", order)],
+                                     options=options)
         return self.take(indices)
 
 

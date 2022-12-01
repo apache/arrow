@@ -1039,20 +1039,24 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
-    def sort(self, order="ascending"):
+    def sort(self, order="ascending", options=None):
         """
         Sort the ChunkedArray
 
         Parameters
         ----------
-        order : "ascending" or "descending"
-            The order of the sorting.
+        order : str, default "ascending"
+            Which order to sort values in.
+            Accepted values are "ascending", "descending".
+        options : SortOptions, default None
+            Additional sorting options.
 
         Returns
         -------
         result : ChunkedArray
         """
-        indices = _pc().sort_indices(self, sort_keys=[("", order)])
+        indices = _pc().sort_indices(self, sort_keys=[("", order)],
+                                     options=options)
         return self.take(indices)
 
     def unify_dictionaries(self, MemoryPool memory_pool=None):
@@ -4703,7 +4707,7 @@ cdef class Table(_PandasConvertible):
         """
         return TableGroupBy(self, keys)
 
-    def sort_by(self, sorting):
+    def sort_by(self, sorting, options=None):
         """
         Sort the table by one or multiple columns.
 
@@ -4714,6 +4718,8 @@ cdef class Table(_PandasConvertible):
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
+        options : SortOptions, default None
+            Additional sorting options.
 
         Returns
         -------
@@ -4744,7 +4750,8 @@ cdef class Table(_PandasConvertible):
 
         indices = _pc().sort_indices(
             self,
-            sort_keys=sorting
+            sort_keys=sorting,
+            options=options
         )
         return self.take(indices)
 
