@@ -27,17 +27,16 @@ namespace parquet {
 namespace {
 
 template <typename DType>
-void PlainDecode(const ColumnDescriptor* descr, const std::string& src,
-                 typename DType::c_type* dst) {
-  auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr);
-  decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
+void Decode(std::unique_ptr<typename EncodingTraits<DType>::Decoder>& decoder,
+            const std::string& src, typename DType::c_type* dst) {
+  decoder->SetData(/*num_values=*/1, reinterpret_cast<const uint8_t*>(src.c_str()),
                    static_cast<int>(src.size()));
-  decoder->Decode(dst, 1);
+  decoder->Decode(dst, /*max_values=*/1);
 }
 
 template <>
-void PlainDecode<ByteArrayType>(const ColumnDescriptor* descr, const std::string& src,
-                                ByteArray* dst) {
+void Decode<ByteArrayType>(std::unique_ptr<ByteArrayDecoder>&, const std::string& src,
+                           ByteArray* dst) {
   dst->len = static_cast<uint32_t>(src.size());
   dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
 }
@@ -47,25 +46,35 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
  public:
   using T = typename DType::c_type;
 
-  explicit TypedColumnIndexImpl(const ColumnDescriptor* descr,
+  explicit TypedColumnIndexImpl(const ColumnDescriptor& descr,
                                 const std::vector<bool>& null_pages,
                                 const std::vector<std::string>& min_values,
                                 const std::vector<std::string>& max_values,
                                 const BoundaryOrder& boundary_order,
                                 const bool has_null_count = false,
                                 const std::vector<int64_t>& null_counts = {})
-      : descr_(descr),
-        null_pages_(null_pages),
+      : null_pages_(null_pages),
         encoded_min_values_(min_values),
         encoded_max_values_(max_values),
         boundary_order_(boundary_order),
         has_null_count_(has_null_count),
         null_counts_(null_counts) {
-    /// Decode min and max values into a compact form (i.e. w/o null page)
-    DecodeValues(encoded_min_values_, encoded_max_values_);
+    // Decode min and max values into a compact form (i.e. w/o null page)
+    auto plain_decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, &descr);
+    T value;
+    for (size_t i = 0; i < null_pages_.size(); ++i) {
+      if (!null_pages_[i]) {
+        // page index -> min/max slot index
+        page_indexes_.emplace(i, min_values_.size());
+        Decode<DType>(plain_decoder, encoded_min_values_[i], &value);
+        min_values_.push_back(value);
+        Decode<DType>(plain_decoder, encoded_max_values_[i], &value);
+        max_values_.push_back(value);
+      }
+    }
   }
 
-  explicit TypedColumnIndexImpl(const ColumnDescriptor* descr,
+  explicit TypedColumnIndexImpl(const ColumnDescriptor& descr,
                                 const format::ColumnIndex& column_index)
       : TypedColumnIndexImpl(
             descr, column_index.null_pages, column_index.min_values,
@@ -75,7 +84,7 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
   int64_t num_pages() const override { return static_cast<int64_t>(null_pages_.size()); }
 
-  bool null_page(int64_t page_id) const override {
+  bool is_null_page(int64_t page_id) const override {
     if (page_id >= num_pages()) {
       throw ParquetException("Page index is out of bound");
     }
@@ -84,7 +93,7 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
   BoundaryOrder boundary_order() const override { return boundary_order_; }
 
-  bool HasNullCount() const override { return has_null_count_; }
+  bool has_null_counts() const override { return has_null_count_; }
 
   int64_t null_count(int64_t page_id) const override {
     if (page_id >= num_pages()) {
@@ -101,21 +110,27 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
     return max_values_[GetMinMaxSlot(page_id)];
   }
 
-  std::string GetEncodedMin(int64_t page_id) const override {
+  const std::string& encoded_min(int64_t page_id) const override {
+    if (page_id >= num_pages()) {
+      throw ParquetException("Page index is out of bound");
+    }
     return encoded_min_values_[page_id];
   }
 
-  std::string GetEncodedMax(int64_t page_id) const override {
+  const std::string& encoded_max(int64_t page_id) const override {
+    if (page_id >= num_pages()) {
+      throw ParquetException("Page index is out of bound");
+    }
     return encoded_max_values_[page_id];
   }
 
-  const std::vector<bool>& GetNullPages() const override { return null_pages_; }
+  const std::vector<bool>& null_pages() const override { return null_pages_; }
 
-  const std::vector<int64_t>& GetNullCounts() const override { return null_counts_; }
+  const std::vector<int64_t>& null_counts() const override { return null_counts_; }
 
-  const std::vector<T>& GetMinValues() const override { return min_values_; }
+  const std::vector<T>& min_values() const override { return min_values_; }
 
-  const std::vector<T>& GetMaxValues() const override { return max_values_; }
+  const std::vector<T>& max_values() const override { return max_values_; }
 
   std::vector<int64_t> GetValidPageIndices() const override {
     std::vector<int64_t> valid_page_indices;
@@ -129,10 +144,10 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
  private:
   size_t GetMinMaxSlot(int64_t page_id) const {
     if (page_id >= static_cast<int64_t>(null_pages_.size())) {
-      throw ParquetException("page index is out of bound");
+      throw ParquetException("Page index is out of bound");
     }
     if (null_pages_[page_id]) {
-      throw ParquetException("cannot get min/max value of null page");
+      throw ParquetException("Cannot get min/max value of null page");
     }
     auto iter = page_indexes_.find(page_id);
     if (iter == page_indexes_.cend()) {
@@ -141,33 +156,20 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
     return iter->second;
   }
 
-  void DecodeValues(const std::vector<std::string>& min_values,
-                    const std::vector<std::string>& max_values) {
-    T value;
-    for (size_t i = 0; i < null_pages_.size(); ++i) {
-      if (!null_pages_[i]) {
-        // page index -> min/max slot index
-        page_indexes_.emplace(i, min_values_.size());
-
-        PlainDecode<DType>(descr_, min_values[i], &value);
-        min_values_.push_back(value);
-        PlainDecode<DType>(descr_, max_values[i], &value);
-        max_values_.push_back(value);
-      }
-    }
-  }
-
-  const ColumnDescriptor* descr_;
+  /// Values that are copied directly from the thrift message.
   std::vector<bool> null_pages_;
   std::vector<std::string> encoded_min_values_;
   std::vector<std::string> encoded_max_values_;
-  /// page_id -> slot_id in the buffer of min_values_ & max_values_
-  std::map<size_t, size_t> page_indexes_;
-  std::vector<T> min_values_;
-  std::vector<T> max_values_;
   BoundaryOrder boundary_order_;
   bool has_null_count_;
   std::vector<int64_t> null_counts_;
+
+  /// page_id -> slot_id in the buffer of min_values_ & max_values_
+  std::map<size_t, size_t> page_indexes_;
+
+  /// Decoded typed min/max values.
+  std::vector<T> min_values_;
+  std::vector<T> max_values_;
 };
 
 class OffsetIndexImpl : public OffsetIndex {
@@ -179,33 +181,19 @@ class OffsetIndexImpl : public OffsetIndex {
     for (const auto& page_location : offset_index.page_locations) {
       page_locations_.emplace_back();
       auto& location = page_locations_.back();
-      location.offset_ = page_location.offset;
-      location.compressed_page_size_ = page_location.compressed_page_size;
-      location.first_row_index_ = page_location.first_row_index;
+      location.offset = page_location.offset;
+      location.compressed_page_size = page_location.compressed_page_size;
+      location.first_row_index = page_location.first_row_index;
     }
   }
 
   int64_t num_pages() const override { return page_locations_.size(); }
 
-  int64_t offset(int64_t page_id) const override {
+  const PageLocation& GetPageLocation(int64_t page_id) const override {
     if (page_id >= num_pages()) {
       throw ParquetException("Page index is out of bound");
     }
-    return page_locations_[page_id].offset_;
-  }
-
-  int32_t compressed_page_size(int64_t page_id) const override {
-    if (page_id >= num_pages()) {
-      throw ParquetException("Page index is out of bound");
-    }
-    return page_locations_[page_id].compressed_page_size_;
-  }
-
-  int64_t first_row_index(int64_t page_id) const override {
-    if (page_id >= num_pages()) {
-      throw ParquetException("Page index is out of bound");
-    }
-    return page_locations_[page_id].first_row_index_;
+    return page_locations_[page_id];
   }
 
   const std::vector<PageLocation>& GetPageLocations() const override {
@@ -221,15 +209,15 @@ class OffsetIndexImpl : public OffsetIndex {
 // ----------------------------------------------------------------------
 // Public factory functions
 
-std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor* descr,
+std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
                                                const void* serialized_index,
-                                               uint32_t* inout_index_len,
+                                               uint32_t index_len,
                                                const ReaderProperties& properties) {
   format::ColumnIndex column_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
-                                  inout_index_len, &column_index);
-  switch (descr->physical_type()) {
+                                  &index_len, &column_index);
+  switch (descr.physical_type()) {
     case Type::BOOLEAN:
       return std::make_unique<TypedColumnIndexImpl<BooleanType>>(descr, column_index);
     case Type::INT32:
@@ -254,12 +242,12 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor* descr,
 }
 
 std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
-                                               uint32_t* inout_index_len,
+                                               uint32_t index_len,
                                                const ReaderProperties& properties) {
   format::OffsetIndex offset_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
-                                  inout_index_len, &offset_index);
+                                  &index_len, &offset_index);
   return std::make_unique<OffsetIndexImpl>(offset_index);
 }
 
