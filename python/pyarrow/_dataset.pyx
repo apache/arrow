@@ -490,6 +490,7 @@ cdef class Dataset(_Weakrefable):
                                               use_threads=use_threads, coalesce_keys=coalesce_keys,
                                               output_type=InMemoryDataset)
 
+
 cdef class InMemoryDataset(Dataset):
     """
     A Dataset wrapping in-memory data.
