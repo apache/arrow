@@ -3041,7 +3041,8 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
       case Type::INT64:
         return std::unique_ptr<Encoder>(new DeltaBitPackEncoder<Int64Type>(descr, pool));
       default:
-        throw ParquetException("DELTA_BINARY_PACKED only supports INT32 and INT64");
+        throw ParquetException(
+            "DELTA_BINARY_PACKED encoder only supports INT32 and INT64");
         break;
     }
   } else {
@@ -3091,7 +3092,8 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       case Type::INT64:
         return std::make_unique<DeltaBitPackDecoder<Int64Type>>(descr);
       default:
-        throw ParquetException("DELTA_BINARY_PACKED only supports INT32 and INT64");
+        throw ParquetException(
+            "DELTA_BINARY_PACKED decoder only supports INT32 and INT64");
         break;
     }
   } else if (encoding == Encoding::DELTA_BYTE_ARRAY) {
