@@ -236,7 +236,342 @@ func (fn *arithmeticIntegerToFloatingPointFunc) DispatchBest(vals ...arrow.DataT
 }
 
 var (
-	addDoc FunctionDoc
+	absoluteValueUncheckedDoc = FunctionDoc{
+		Summary: "Calculate the absolute value of the argument, element-wise",
+		Description: `Results will wrap around on integer overflow
+Use function "abs" if you want overflows to return an error`,
+		ArgNames: []string{"x"},
+	}
+	absoluteValueDoc = FunctionDoc{
+		Summary: "Calculate the absolute value of the argument element-wise",
+		Description: `This function returns an error on overflow. For a variant that
+won't fail on overflow, use function "abs_unchecked"`,
+		ArgNames: []string{"x"},
+	}
+	addUncheckedDoc = FunctionDoc{
+		Summary: "Add the arguments element-wise",
+		Description: `Results will wrap around on integer overflow
+Use the function "add" if you want overflow to return an error`,
+		ArgNames: []string{"x", "y"},
+	}
+	addDoc = FunctionDoc{
+		Summary: "Add the arguments element-wise",
+		Description: `This function returns an error on overflow.
+For a variant that won't fail on overflow, use function "add_unchecked"`,
+		ArgNames: []string{"x", "y"},
+	}
+	subUncheckedDoc = FunctionDoc{
+		Summary: "Subtract the arguments element-wise",
+		Description: `This Results will wrap around on integer overflow.
+Use the function "sub" if you want overflow to return an error`,
+		ArgNames: []string{"x", "y"},
+	}
+	subDoc = FunctionDoc{
+		Summary: "Subtract the arguments element-wise",
+		Description: `This function returns an error on overflow.
+For a variant that won't fail on overflow, use the function "sub_unchecked"`,
+		ArgNames: []string{"x", "y"},
+	}
+	mulUncheckedDoc = FunctionDoc{
+		Summary: "Multiply the arguments element-wise",
+		Description: `Results will wrap around on integer overflow.
+Use function "multiply" if you want overflow to return an error`,
+		ArgNames: []string{"x", "y"},
+	}
+	mulDoc = FunctionDoc{
+		Summary: "Multiply the arguments element-wise",
+		Description: `This function returns an error on overflow.
+For a variant that won't fail on overflow, use the function
+"multiply_unchecked"`,
+		ArgNames: []string{"x", "y"},
+	}
+	divUncheckedDoc = FunctionDoc{
+		Summary: "Divide the arguments element-wise",
+		Description: `Integer division by zero returns an error. However integer
+overflow wraps around, and floating-point division by zero returns Inf.
+Use the function "divide" if you want to get an error in all the 
+aforementioned cases.`,
+		ArgNames: []string{"dividend", "divisor"},
+	}
+	divDoc = FunctionDoc{
+		Summary: "Divide the arguments element-wise",
+		Description: `An error is returned when trying to divide by zero,
+or when integer overflow is encountered.`,
+		ArgNames: []string{"dividend", "divisor"},
+	}
+	negateUncheckedDoc = FunctionDoc{
+		Summary: "Negate the argument element-wise",
+		Description: `Results will wrap around on integer overflow
+Use function "negate" if you want overflow to return an error`,
+		ArgNames: []string{"x"},
+	}
+	negateDoc = FunctionDoc{
+		Summary: "Negate the argument element-wise",
+		Description: `This function returns an error on overflow. For a variant
+that doesn't fail on overflow, use the function "negate_unchecked".`,
+		ArgNames: []string{"x"},
+	}
+	powUncheckedDoc = FunctionDoc{
+		Summary: "Raise argument to a power element-wise",
+		Description: `Integers to negative integer powers return an error.
+However, integer overflow wraps around. If either base or exponent is null
+the result will be null.`,
+		ArgNames: []string{"base", "exponent"},
+	}
+	powDoc = FunctionDoc{
+		Summary: "Raise argument to a power element-wise",
+		Description: `An error is returned when an integer is raised to a negative
+power or an integer overflow occurs.`,
+		ArgNames: []string{"base", "exponent"},
+	}
+	sqrtUncheckedDoc = FunctionDoc{
+		Summary: "Takes the square root of arguments element-wise",
+		Description: `A negative argument returns an NaN. For a variant that returns
+an error, use function "sqrt"`,
+		ArgNames: []string{"x"},
+	}
+	sqrtDoc = FunctionDoc{
+		Summary: "Takes the square root of arguments element-wise",
+		Description: `A negative argument returns an error. For a variant that
+instead returns NaN, use function "sqrt_unchecked"`,
+		ArgNames: []string{"x"},
+	}
+	signDoc = FunctionDoc{
+		Summary: "Get the signedness of the arguments element-wise",
+		Description: `Output is -1 if <0, 1 if >0 and 0 for 0.
+NaN values return NaN. Integral values return signedness as Int8,
+and floating-point values return it with the same type as the input values.`,
+		ArgNames: []string{"x"},
+	}
+	bitWiseNotDoc = FunctionDoc{
+		Summary:     "Bit-wise negate the arguments element-wise",
+		Description: "Null values return null",
+		ArgNames:    []string{"x"},
+	}
+	bitWiseAndDoc = FunctionDoc{
+		Summary:     "Bit-wise AND the arguments element-wise",
+		Description: "Null values return null",
+		ArgNames:    []string{"x", "y"},
+	}
+	bitWiseOrDoc = FunctionDoc{
+		Summary:     "Bit-wise OR the arguments element-wise",
+		Description: "Null values return null",
+		ArgNames:    []string{"x", "y"},
+	}
+	bitWiseXorDoc = FunctionDoc{
+		Summary:     "Bit-wise XOR the arguments element-wise",
+		Description: "Null values return null",
+		ArgNames:    []string{"x", "y"},
+	}
+	shiftLeftUncheckedDoc = FunctionDoc{
+		Summary: "Left shift `x` by `y`",
+		Description: `The shift operates as if on the two's complement representation
+of the number. In other words, this is equivalent to multiplying "x" by 2
+to the power of "y", even if overflow occurs.
+"x" is returned if "y" (the amount to shift by) is (1) negative or (2)
+greater than or equal to the precision of "x".
+Use function "shift_left" if you want an invalid shift amount to
+return an error.`,
+		ArgNames: []string{"x", "y"},
+	}
+	shiftLeftDoc = FunctionDoc{
+		Summary: "Left shift `x` by `y`",
+		Description: `The shift operates as if on the two's complement representation
+of the number. In other words, this is equivalent to multiplying "x" by 2 
+to the power of "y", even if overflow occurs.
+An error is raised if "y" (the amount to shift by) is (1) negative or (2)
+greater than or equal to the precision of "x".
+See "shift_left_unchecked" for a variant that doesn't fail for an invalid
+shift amount.`,
+		ArgNames: []string{"x", "y"},
+	}
+	shiftRightUncheckedDoc = FunctionDoc{
+		Summary: "Right shift `x` by `y`",
+		Description: `This is equivalent to dividing "x" by 2 to the power "y".
+"x" is returned if "y" (the amount to shift by) is: (1) negative or
+(2) greater than or equal to the precision of "x".
+Use function "shift_right" if you want an invalid 
+shift amount to return an error.`,
+		ArgNames: []string{"x", "y"},
+	}
+	shiftRightDoc = FunctionDoc{
+		Summary: "Right shift `x` by `y`",
+		Description: `This is equivalent to dividing "x" by 2 to the power "y".
+An error is raised if "y" (the amount to shift by) is (1) negative or
+(2) greater than or equal to the precision of "x".
+See "shift_right_unchecked" for a variant that doesn't fail for
+an invalid shift amount.`,
+		ArgNames: []string{"x", "y"},
+	}
+	sinUncheckedDoc = FunctionDoc{
+		Summary: "Compute the sine",
+		Description: `NaN is returned for invalid input values; to raise an error
+instead, see "sin"`,
+		ArgNames: []string{"x"},
+	}
+	sinDoc = FunctionDoc{
+		Summary: "Compute the sine",
+		Description: `Invalid input values raise an error;
+to return NaN instead, see "sin_unchecked".`,
+		ArgNames: []string{"x"},
+	}
+	cosUncheckedDoc = FunctionDoc{
+		Summary: "Compute the cosine",
+		Description: `NaN is returned for invalid input values;
+to raise an error instead, see "cos".`,
+		ArgNames: []string{"x"},
+	}
+	cosDoc = FunctionDoc{
+		Summary: "Compute the cosine",
+		Description: `Infinite values raise an error;
+to return NaN instead, see "cos_unchecked".`,
+		ArgNames: []string{"x"},
+	}
+	tanUncheckedDoc = FunctionDoc{
+		Summary: "Compute the tangent",
+		Description: `NaN is returned for invalid input values;
+to raise an error instead see "tan".`,
+		ArgNames: []string{"x"},
+	}
+	tanDoc = FunctionDoc{
+		Summary: "Compute the tangent",
+		Description: `Infinite values raise an error;
+to return NaN instead, see "tan_unchecked".`,
+		ArgNames: []string{"x"},
+	}
+	asinUncheckedDoc = FunctionDoc{
+		Summary: "Compute the inverse sine",
+		Description: `NaN is returned for invalid input values;
+to raise an error instead, see "asin"`,
+		ArgNames: []string{"x"},
+	}
+	asinDoc = FunctionDoc{
+		Summary: "Compute the inverse sine",
+		Description: `Invalid input values raise an error;
+to return NaN instead see asin_unchecked.`,
+		ArgNames: []string{"x"},
+	}
+	acosUncheckedDoc = FunctionDoc{
+		Summary: "Compute the inverse cosine",
+		Description: `NaN is returned for invalid input values;
+to raise an error instead, see "acos".`,
+		ArgNames: []string{"x"},
+	}
+	acosDoc = FunctionDoc{
+		Summary: "Compute the inverse cosine",
+		Description: `Invalid input values raise an error;
+to return NaN instead, see "acos_unchecked".`,
+		ArgNames: []string{"x"},
+	}
+	atanDoc = FunctionDoc{
+		Summary: "Compute the inverse tangent of x",
+		Description: `The return value is in the range [-pi/2, pi/2];
+for a full return range [-pi, pi], see "atan2"`,
+		ArgNames: []string{"x"},
+	}
+	atan2Doc = FunctionDoc{
+		Summary:     "Compute the inverse tangent of y/x",
+		Description: "The return value is in the range [-pi, pi].",
+		ArgNames:    []string{"y", "x"},
+	}
+	lnUncheckedDoc = FunctionDoc{
+		Summary: "Compute natural logarithm",
+		Description: `Non-positive values return -Inf or NaN. Null values return null.
+Use function "ln" if you want non-positive values to raise an error.`,
+		ArgNames: []string{"x"},
+	}
+	lnDoc = FunctionDoc{
+		Summary: "Compute natural logarithm",
+		Description: `Non-positive values raise an error. Null values return null.
+Use function "ln_unchecked" if you want non-positive values to return 
+-Inf or NaN`,
+		ArgNames: []string{"x"},
+	}
+	log10UncheckedDoc = FunctionDoc{
+		Summary: "Compute base 10 logarithm",
+		Description: `Non-positive values return -Inf or NaN. Null values return null.
+Use function "log10" if you want non-positive values to raise an error.`,
+		ArgNames: []string{"x"},
+	}
+	log10Doc = FunctionDoc{
+		Summary: "Compute base 10 logarithm",
+		Description: `Non-positive values raise an error. Null values return null.
+Use function "log10_unchecked" if you want non-positive values to return
+-Inf or NaN.`,
+		ArgNames: []string{"x"},
+	}
+	log2UncheckedDoc = FunctionDoc{
+		Summary: "Compute base 2 logarithm",
+		Description: `Non-positive values return -Inf or NaN. Null values return null.
+Use function "log2" if you want non-positive values to raise an error.`,
+		ArgNames: []string{"x"},
+	}
+	log2Doc = FunctionDoc{
+		Summary: "Compute base 2 logarithm",
+		Description: `Non-positive values raise an error. Null values return null.
+Use function "log2_unchecked" if you want non-positive values to 
+return -Inf or NaN`,
+		ArgNames: []string{"x"},
+	}
+	log1pUncheckedDoc = FunctionDoc{
+		Summary: "Compute natural log of (1+x)",
+		Description: `Values <= -1 return -Inf or NaN. Null values return null.
+This function may be more precise than log(1 + x) for x close to zero.
+Use function "log1p" if you want invalid values to raise an error.`,
+		ArgNames: []string{"x"},
+	}
+	log1pDoc = FunctionDoc{
+		Summary: "Compute natural log of (1+x)",
+		Description: `Values <= -1 return -Inf or NaN. Null values return null.
+This function may be more precise than (1 + x) for x close to zero.
+Use function "log1p_unchecked" if you want invalid values to return
+-Inf or NaN.`,
+		ArgNames: []string{"x"},
+	}
+	logbUncheckedDoc = FunctionDoc{
+		Summary: "Compute base `b` logarithm",
+		Description: `Values <= 0 return -Inf or NaN. Null values return null.
+Use function "logb" if you want non-positive values to raise an error.`,
+		ArgNames: []string{"x", "b"},
+	}
+	logbDoc = FunctionDoc{
+		Summary: "Compute base `b` logarithm",
+		Description: `Values <= 0 returns an error. Null values return null.
+Use function "logb_unchecked" if you want non-positive values to return
+-Inf or NaN.`,
+		ArgNames: []string{"x", "b"},
+	}
+	floorDoc = FunctionDoc{
+		Summary:     "Round down to the nearest integer",
+		Description: "Compute the largest integer value not greater than `x`",
+		ArgNames:    []string{"x"},
+	}
+	ceilDoc = FunctionDoc{
+		Summary:     "Round up to the nearest integer",
+		Description: "Compute the smallest integer value not less than `x`",
+		ArgNames:    []string{"x"},
+	}
+	truncDoc = FunctionDoc{
+		Summary:     "Compute the integral part",
+		Description: "Compute the nearest integer not greater than `x`",
+		ArgNames:    []string{"x"},
+	}
+	roundDoc = FunctionDoc{
+		Summary: "Round to a given precision",
+		Description: `Options are used to control the number of digits and rounding mode.
+Default behavior is to round to the nearest integer and
+use half-to-even rule to break ties.`,
+		ArgNames:    []string{"x"},
+		OptionsType: "RoundOptions",
+	}
+	roundToMultipleDoc = FunctionDoc{
+		Summary: "Round to a given multiple",
+		Description: `Options are used to control the rounding multiple and rounding mode.
+Default behavior is to round to the nearest integer and
+use half-to-even rule to break ties.`,
+		ArgNames:    []string{"x"},
+		OptionsType: "RoundToMultipleOptions",
+	}
 )
 
 func RegisterScalarArithmetic(reg FunctionRegistry) {
@@ -244,13 +579,14 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		funcName   string
 		op         kernels.ArithmeticOp
 		decPromote decimalPromotion
+		doc        FunctionDoc
 	}{
-		{"add_unchecked", kernels.OpAdd, decPromoteAdd},
-		{"add", kernels.OpAddChecked, decPromoteAdd},
+		{"add_unchecked", kernels.OpAdd, decPromoteAdd, addUncheckedDoc},
+		{"add", kernels.OpAddChecked, decPromoteAdd, addDoc},
 	}
 
 	for _, o := range ops {
-		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), o.doc), o.decPromote}
 		kns := append(kernels.GetArithmeticBinaryKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
 		kns = append(kns, kernels.GetArithmeticFunctionTimeDuration(o.op)...)
 		for _, k := range kns {
@@ -287,13 +623,14 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		funcName   string
 		op         kernels.ArithmeticOp
 		decPromote decimalPromotion
+		doc        FunctionDoc
 	}{
-		{"sub_unchecked", kernels.OpSub, decPromoteAdd},
-		{"sub", kernels.OpSubChecked, decPromoteAdd},
+		{"sub_unchecked", kernels.OpSub, decPromoteAdd, subUncheckedDoc},
+		{"sub", kernels.OpSubChecked, decPromoteAdd, subDoc},
 	}
 
 	for _, o := range ops {
-		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), o.doc), o.decPromote}
 		kns := append(kernels.GetArithmeticBinaryKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...)
 		kns = append(kns, kernels.GetArithmeticFunctionTimeDuration(o.op)...)
 		for _, k := range kns {
@@ -386,16 +723,17 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		funcName    string
 		op          kernels.ArithmeticOp
 		decPromote  decimalPromotion
+		doc         FunctionDoc
 		commutative bool
 	}{
-		{"multiply_unchecked", kernels.OpMul, decPromoteMultiply, true},
-		{"multiply", kernels.OpMulChecked, decPromoteMultiply, true},
-		{"divide_unchecked", kernels.OpDiv, decPromoteDivide, false},
-		{"divide", kernels.OpDivChecked, decPromoteDivide, false},
+		{"multiply_unchecked", kernels.OpMul, decPromoteMultiply, mulUncheckedDoc, true},
+		{"multiply", kernels.OpMulChecked, decPromoteMultiply, mulDoc, true},
+		{"divide_unchecked", kernels.OpDiv, decPromoteDivide, divUncheckedDoc, false},
+		{"divide", kernels.OpDivChecked, decPromoteDivide, divDoc, false},
 	}
 
 	for _, o := range oplist {
-		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), addDoc), o.decPromote}
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), o.doc), o.decPromote}
 		for _, k := range append(kernels.GetArithmeticBinaryKernels(o.op), kernels.GetDecimalBinaryKernels(o.op)...) {
 			if err := fn.AddKernel(k); err != nil {
 				panic(err)
@@ -426,14 +764,15 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		funcName   string
 		op         kernels.ArithmeticOp
 		decPromote decimalPromotion
+		doc        FunctionDoc
 	}{
-		{"abs_unchecked", kernels.OpAbsoluteValue, decPromoteNone},
-		{"abs", kernels.OpAbsoluteValueChecked, decPromoteNone},
-		{"negate_unchecked", kernels.OpNegate, decPromoteNone},
+		{"abs_unchecked", kernels.OpAbsoluteValue, decPromoteNone, absoluteValueUncheckedDoc},
+		{"abs", kernels.OpAbsoluteValueChecked, decPromoteNone, absoluteValueDoc},
+		{"negate_unchecked", kernels.OpNegate, decPromoteNone, negateUncheckedDoc},
 	}
 
 	for _, o := range ops {
-		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Unary(), addDoc), decPromoteNone}
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Unary(), o.doc), decPromoteNone}
 		kns := append(kernels.GetArithmeticUnaryKernels(o.op), kernels.GetDecimalUnaryKernels(o.op)...)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
@@ -444,7 +783,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		reg.AddFunction(fn, false)
 	}
 
-	fn := &arithmeticFunction{*NewScalarFunction("negate", Unary(), addDoc), decPromoteNone}
+	fn := &arithmeticFunction{*NewScalarFunction("negate", Unary(), negateDoc), decPromoteNone}
 	kns := append(kernels.GetArithmeticUnarySignedKernels(kernels.OpNegateChecked), kernels.GetDecimalUnaryKernels(kernels.OpNegateChecked)...)
 	for _, k := range kns {
 		if err := fn.AddKernel(k); err != nil {
@@ -458,32 +797,33 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		funcName   string
 		op         kernels.ArithmeticOp
 		decPromote decimalPromotion
+		doc        FunctionDoc
 	}{
-		{"sqrt_unchecked", kernels.OpSqrt, decPromoteNone},
-		{"sqrt", kernels.OpSqrtChecked, decPromoteNone},
-		{"sin_unchecked", kernels.OpSin, decPromoteNone},
-		{"sin", kernels.OpSinChecked, decPromoteNone},
-		{"cos_unchecked", kernels.OpCos, decPromoteNone},
-		{"cos", kernels.OpCosChecked, decPromoteNone},
-		{"tan_unchecked", kernels.OpTan, decPromoteNone},
-		{"tan", kernels.OpTanChecked, decPromoteNone},
-		{"asin_unchecked", kernels.OpAsin, decPromoteNone},
-		{"asin", kernels.OpAsinChecked, decPromoteNone},
-		{"acos_unchecked", kernels.OpAcos, decPromoteNone},
-		{"acos", kernels.OpAcosChecked, decPromoteNone},
-		{"atan", kernels.OpAtan, decPromoteNone},
-		{"ln_unchecked", kernels.OpLn, decPromoteNone},
-		{"ln", kernels.OpLnChecked, decPromoteNone},
-		{"log10_unchecked", kernels.OpLog10, decPromoteNone},
-		{"log10", kernels.OpLog10Checked, decPromoteNone},
-		{"log2_unchecked", kernels.OpLog2, decPromoteNone},
-		{"log2", kernels.OpLog2Checked, decPromoteNone},
-		{"log1p_unchecked", kernels.OpLog1p, decPromoteNone},
-		{"log1p", kernels.OpLog1pChecked, decPromoteNone},
+		{"sqrt_unchecked", kernels.OpSqrt, decPromoteNone, sqrtUncheckedDoc},
+		{"sqrt", kernels.OpSqrtChecked, decPromoteNone, sqrtDoc},
+		{"sin_unchecked", kernels.OpSin, decPromoteNone, sinUncheckedDoc},
+		{"sin", kernels.OpSinChecked, decPromoteNone, sinDoc},
+		{"cos_unchecked", kernels.OpCos, decPromoteNone, cosUncheckedDoc},
+		{"cos", kernels.OpCosChecked, decPromoteNone, cosDoc},
+		{"tan_unchecked", kernels.OpTan, decPromoteNone, tanUncheckedDoc},
+		{"tan", kernels.OpTanChecked, decPromoteNone, tanDoc},
+		{"asin_unchecked", kernels.OpAsin, decPromoteNone, asinUncheckedDoc},
+		{"asin", kernels.OpAsinChecked, decPromoteNone, asinDoc},
+		{"acos_unchecked", kernels.OpAcos, decPromoteNone, acosUncheckedDoc},
+		{"acos", kernels.OpAcosChecked, decPromoteNone, acosDoc},
+		{"atan", kernels.OpAtan, decPromoteNone, atanDoc},
+		{"ln_unchecked", kernels.OpLn, decPromoteNone, lnUncheckedDoc},
+		{"ln", kernels.OpLnChecked, decPromoteNone, lnDoc},
+		{"log10_unchecked", kernels.OpLog10, decPromoteNone, log10UncheckedDoc},
+		{"log10", kernels.OpLog10Checked, decPromoteNone, log10Doc},
+		{"log2_unchecked", kernels.OpLog2, decPromoteNone, log2UncheckedDoc},
+		{"log2", kernels.OpLog2Checked, decPromoteNone, log2Doc},
+		{"log1p_unchecked", kernels.OpLog1p, decPromoteNone, log1pUncheckedDoc},
+		{"log1p", kernels.OpLog1pChecked, decPromoteNone, log1pDoc},
 	}
 
 	for _, o := range ops {
-		fn := &arithmeticFloatingPointFunc{arithmeticFunction{*NewScalarFunction(o.funcName, Unary(), addDoc), decPromoteNone}}
+		fn := &arithmeticFloatingPointFunc{arithmeticFunction{*NewScalarFunction(o.funcName, Unary(), o.doc), decPromoteNone}}
 		kns := kernels.GetArithmeticUnaryFloatingPointKernels(o.op)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
@@ -498,10 +838,11 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		funcName   string
 		op         kernels.ArithmeticOp
 		decPromote decimalPromotion
+		doc        FunctionDoc
 	}{
-		{"atan2", kernels.OpAtan2, decPromoteNone},
-		{"logb_unchecked", kernels.OpLogb, decPromoteNone},
-		{"logb", kernels.OpLogbChecked, decPromoteNone},
+		{"atan2", kernels.OpAtan2, decPromoteNone, atan2Doc},
+		{"logb_unchecked", kernels.OpLogb, decPromoteNone, logbUncheckedDoc},
+		{"logb", kernels.OpLogbChecked, decPromoteNone, logbDoc},
 	}
 
 	for _, o := range ops {
@@ -516,7 +857,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		reg.AddFunction(fn, false)
 	}
 
-	fn = &arithmeticFunction{*NewScalarFunction("sign", Unary(), addDoc), decPromoteNone}
+	fn = &arithmeticFunction{*NewScalarFunction("sign", Unary(), signDoc), decPromoteNone}
 	kns = kernels.GetArithmeticUnaryFixedIntOutKernels(arrow.PrimitiveTypes.Int8, kernels.OpSign)
 	for _, k := range kns {
 		if err := fn.AddKernel(k); err != nil {
@@ -530,13 +871,14 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		funcName   string
 		op         kernels.ArithmeticOp
 		decPromote decimalPromotion
+		doc        FunctionDoc
 	}{
-		{"power_unchecked", kernels.OpPower, decPromoteNone},
-		{"power", kernels.OpPowerChecked, decPromoteNone},
+		{"power_unchecked", kernels.OpPower, decPromoteNone, powUncheckedDoc},
+		{"power", kernels.OpPowerChecked, decPromoteNone, powDoc},
 	}
 
 	for _, o := range ops {
-		fn := &arithmeticDecimalToFloatingPointFunc{arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), EmptyFuncDoc), o.decPromote}}
+		fn := &arithmeticDecimalToFloatingPointFunc{arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), o.doc), o.decPromote}}
 		kns := kernels.GetArithmeticBinaryKernels(o.op)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
@@ -549,14 +891,15 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	bitWiseOps := []struct {
 		funcName string
 		op       kernels.BitwiseOp
+		doc      FunctionDoc
 	}{
-		{"bit_wise_and", kernels.OpBitAnd},
-		{"bit_wise_or", kernels.OpBitOr},
-		{"bit_wise_xor", kernels.OpBitXor},
+		{"bit_wise_and", kernels.OpBitAnd, bitWiseAndDoc},
+		{"bit_wise_or", kernels.OpBitOr, bitWiseOrDoc},
+		{"bit_wise_xor", kernels.OpBitXor, bitWiseXorDoc},
 	}
 
 	for _, o := range bitWiseOps {
-		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), EmptyFuncDoc), decPromoteNone}
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), o.doc), decPromoteNone}
 		kns := kernels.GetBitwiseBinaryKernels(o.op)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
@@ -579,15 +922,16 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		funcName string
 		dir      kernels.ShiftDir
 		checked  bool
+		doc      FunctionDoc
 	}{
-		{"shift_left", kernels.ShiftLeft, true},
-		{"shift_left_unchecked", kernels.ShiftLeft, false},
-		{"shift_right", kernels.ShiftRight, true},
-		{"shift_right_unchecked", kernels.ShiftRight, false},
+		{"shift_left", kernels.ShiftLeft, true, shiftLeftDoc},
+		{"shift_left_unchecked", kernels.ShiftLeft, false, shiftLeftUncheckedDoc},
+		{"shift_right", kernels.ShiftRight, true, shiftRightDoc},
+		{"shift_right_unchecked", kernels.ShiftRight, false, shiftRightUncheckedDoc},
 	}
 
 	for _, o := range shiftOps {
-		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), EmptyFuncDoc), decPromoteNone}
+		fn := &arithmeticFunction{*NewScalarFunction(o.funcName, Binary(), o.doc), decPromoteNone}
 		kns := kernels.GetShiftKernels(o.dir, o.checked)
 		for _, k := range kns {
 			if err := fn.AddKernel(k); err != nil {
@@ -597,7 +941,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		reg.AddFunction(fn, false)
 	}
 
-	floorFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("floor", Unary(), EmptyFuncDoc), decPromoteNone}}
+	floorFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("floor", Unary(), floorDoc), decPromoteNone}}
 	kns = kernels.GetSimpleRoundKernels(kernels.RoundDown)
 	for _, k := range kns {
 		if err := floorFn.AddKernel(k); err != nil {
@@ -610,7 +954,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		kernels.OutputFirstType, kernels.FixedRoundDecimalExec[decimal256.Num](kernels.RoundDown), nil)
 	reg.AddFunction(floorFn, false)
 
-	ceilFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("ceil", Unary(), EmptyFuncDoc), decPromoteNone}}
+	ceilFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("ceil", Unary(), ceilDoc), decPromoteNone}}
 	kns = kernels.GetSimpleRoundKernels(kernels.RoundUp)
 	for _, k := range kns {
 		if err := ceilFn.AddKernel(k); err != nil {
@@ -623,7 +967,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		kernels.OutputFirstType, kernels.FixedRoundDecimalExec[decimal256.Num](kernels.RoundUp), nil)
 	reg.AddFunction(ceilFn, false)
 
-	truncFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("trunc", Unary(), EmptyFuncDoc), decPromoteNone}}
+	truncFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("trunc", Unary(), truncDoc), decPromoteNone}}
 	kns = kernels.GetSimpleRoundKernels(kernels.TowardsZero)
 	for _, k := range kns {
 		if err := truncFn.AddKernel(k); err != nil {
@@ -636,7 +980,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		kernels.OutputFirstType, kernels.FixedRoundDecimalExec[decimal256.Num](kernels.TowardsZero), nil)
 	reg.AddFunction(truncFn, false)
 
-	roundFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("round", Unary(), EmptyFuncDoc), decPromoteNone}}
+	roundFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("round", Unary(), roundDoc), decPromoteNone}}
 	kns = kernels.GetRoundUnaryKernels(kernels.InitRoundState, kernels.UnaryRoundExec)
 	for _, k := range kns {
 		if err := roundFn.AddKernel(k); err != nil {
@@ -647,7 +991,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	roundFn.defaultOpts = DefaultRoundOptions
 	reg.AddFunction(roundFn, false)
 
-	roundToMultipleFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("round_to_multiple", Unary(), EmptyFuncDoc), decPromoteNone}}
+	roundToMultipleFn := &arithmeticIntegerToFloatingPointFunc{arithmeticFunction{*NewScalarFunction("round_to_multiple", Unary(), roundToMultipleDoc), decPromoteNone}}
 	kns = kernels.GetRoundUnaryKernels(kernels.InitRoundToMultipleState, kernels.UnaryRoundToMultipleExec)
 	for _, k := range kns {
 		if err := roundToMultipleFn.AddKernel(k); err != nil {
