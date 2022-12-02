@@ -91,24 +91,12 @@ PropertyTuple<Properties...> MakeProperties(Properties... props) {
   return {std::make_tuple(props...)};
 }
 
-template <typename Enum>
-struct EnumTraits {};
-
-template <typename Enum, Enum... Values>
-struct BasicEnumTraits {
-  using CType = typename std::underlying_type<Enum>::type;
-  using Type = typename CTypeTraits<CType>::ArrowType;
-  static std::array<Enum, sizeof...(Values)> values() { return {Values...}; }
-};
-
-template <typename T, typename Enable = void>
-struct has_enum_traits : std::false_type {};
-
-template <typename T>
-struct has_enum_traits<T, void_t<typename EnumTraits<T>::Type>> : std::true_type {};
-
 /// Returns a string_view containing the name of a value.
-template <auto Value, bool IncludeLeadingK = false>
+template <auto, bool IncludeLeadingK = false>
+constexpr std::string_view nameof();
+
+/// Returns a string_view containing the (unqualified) name of a type.
+template <typename>
 constexpr std::string_view nameof();
 
 /// Returns a string_view containing the name of an enumeration member.
@@ -135,11 +123,25 @@ constexpr std::string_view pretty_function() {
 #endif
 }
 
-constexpr int kCrib = 27892354;
-constexpr size_t kValueNamePrefix = pretty_function<kCrib>().find("27892354");
+template <typename T>
+constexpr std::string_view pretty_function() {
+#ifdef _MSC_VER
+  return __FUNCSIG__;
+#else
+  return __PRETTY_FUNCTION__;
+#endif
+}
+
+constexpr size_t kValueNamePrefix = pretty_function<27892354>().find("27892354");
 constexpr size_t kValueNameSuffix =
-    pretty_function<kCrib>()
+    pretty_function<27892354>()
         .substr(kValueNamePrefix + std::string_view{"27892354"}.size())
+        .size();
+
+constexpr size_t kTypeNamePrefix = pretty_function<double>().find("double");
+constexpr size_t kTypeNameSuffix =
+    pretty_function<double>()
+        .substr(kTypeNamePrefix + std::string_view{"double"}.size())
         .size();
 
 template <size_t... I, typename F>
@@ -194,19 +196,26 @@ constexpr bool operator!=(const array<T, N>& l, const R& r) {
   return !(l == r);
 }
 
+constexpr std::string_view TrimNamespace(std::string_view name) {
+  for (size_t i = name.size(); i != 0; --i) {
+    char c = name[i - 1];
+    if ('A' <= c && c <= 'Z') continue;
+    if ('a' <= c && c <= 'z') continue;
+    if ('0' <= c && c <= '9') continue;
+    if (c == '_') continue;
+    name = name.substr(i);
+    break;
+  }
+  return name;
+}
+
 template <auto Value, bool IncludeLeadingK>
-constexpr auto kNameStorage = [] {
+constexpr auto kValueNameStorage = [] {
   constexpr std::string_view name = [] {
     std::string_view name = impl::pretty_function<Value>();
     name.remove_prefix(impl::kValueNamePrefix);
     name.remove_suffix(impl::kValueNameSuffix);
-
-    for (size_t i = name.size(); i != 0; --i) {
-      if (name[i - 1] == ':') {
-        name = name.substr(i);
-        break;
-      }
-    }
+    name = TrimNamespace(name);
 
     if (!IncludeLeadingK) {
       if (name.size() > 1 && name[0] == 'k') {
@@ -223,11 +232,28 @@ constexpr auto kNameStorage = [] {
   return impl::array<char, name.size()>{name.data()};
 }();
 
+template <typename T>
+constexpr auto kTypeNameStorage = [] {
+  constexpr std::string_view name = [] {
+    std::string_view name = impl::pretty_function<T>();
+    name.remove_prefix(impl::kTypeNamePrefix);
+    name.remove_suffix(impl::kTypeNameSuffix);
+    return TrimNamespace(name);
+  }();
+  return impl::array<char, name.size()>{name.data()};
+}();
+
 }  // namespace impl
 
 template <auto Value, bool IncludeLeadingK>
 constexpr std::string_view nameof() {
-  constexpr auto& storage = impl::kNameStorage<Value, IncludeLeadingK>;
+  constexpr auto& storage = impl::kValueNameStorage<Value, IncludeLeadingK>;
+  return {storage.data(), storage.size()};
+}
+
+template <typename T>
+constexpr std::string_view nameof() {
+  constexpr auto& storage = impl::kTypeNameStorage<T>;
   return {storage.data(), storage.size()};
 }
 

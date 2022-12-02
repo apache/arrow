@@ -23,53 +23,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-
-namespace internal {
-template <>
-struct EnumTraits<compute::CountOptions::CountMode>
-    : BasicEnumTraits<compute::CountOptions::CountMode, compute::CountOptions::ONLY_VALID,
-                      compute::CountOptions::ONLY_NULL, compute::CountOptions::ALL> {
-  static std::string name() { return "CountOptions::CountMode"; }
-  static std::string value_name(compute::CountOptions::CountMode value) {
-    switch (value) {
-      case compute::CountOptions::ONLY_VALID:
-        return "NON_NULL";
-      case compute::CountOptions::ONLY_NULL:
-        return "NULLS";
-      case compute::CountOptions::ALL:
-        return "ALL";
-    }
-    return "<INVALID>";
-  }
-};
-
-template <>
-struct EnumTraits<compute::QuantileOptions::Interpolation>
-    : BasicEnumTraits<compute::QuantileOptions::Interpolation,
-                      compute::QuantileOptions::LINEAR, compute::QuantileOptions::LOWER,
-                      compute::QuantileOptions::HIGHER, compute::QuantileOptions::NEAREST,
-                      compute::QuantileOptions::MIDPOINT> {
-  static std::string name() { return "QuantileOptions::Interpolation"; }
-  static std::string value_name(compute::QuantileOptions::Interpolation value) {
-    switch (value) {
-      case compute::QuantileOptions::LINEAR:
-        return "LINEAR";
-      case compute::QuantileOptions::LOWER:
-        return "LOWER";
-      case compute::QuantileOptions::HIGHER:
-        return "HIGHER";
-      case compute::QuantileOptions::NEAREST:
-        return "NEAREST";
-      case compute::QuantileOptions::MIDPOINT:
-        return "MIDPOINT";
-    }
-    return "<INVALID>";
-  }
-};
-}  // namespace internal
-
-namespace compute {
+namespace arrow::compute {
 
 // ----------------------------------------------------------------------
 // Function options
@@ -246,5 +200,4 @@ Result<Datum> Index(const Datum& value, const IndexOptions& options, ExecContext
   return CallFunction("index", {value}, &options, ctx);
 }
 
-}  // namespace compute
 }  // namespace arrow

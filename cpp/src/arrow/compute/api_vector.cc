@@ -35,70 +35,10 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
+namespace arrow::compute {
 
-using internal::checked_cast;
-using internal::checked_pointer_cast;
-
-namespace internal {
-
-using compute::DictionaryEncodeOptions;
-using compute::FilterOptions;
-using compute::NullPlacement;
-using compute::RankOptions;
-
-template <>
-struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
-    : BasicEnumTraits<DictionaryEncodeOptions::NullEncodingBehavior,
-                      DictionaryEncodeOptions::ENCODE, DictionaryEncodeOptions::MASK> {
-  static std::string name() { return "DictionaryEncodeOptions::NullEncodingBehavior"; }
-  static std::string value_name(DictionaryEncodeOptions::NullEncodingBehavior value) {
-    switch (value) {
-      case DictionaryEncodeOptions::ENCODE:
-        return "ENCODE";
-      case DictionaryEncodeOptions::MASK:
-        return "MASK";
-    }
-    return "<INVALID>";
-  }
-};
-template <>
-struct EnumTraits<NullPlacement>
-    : BasicEnumTraits<NullPlacement, NullPlacement::AtStart, NullPlacement::AtEnd> {
-  static std::string name() { return "NullPlacement"; }
-  static std::string value_name(NullPlacement value) {
-    switch (value) {
-      case NullPlacement::AtStart:
-        return "AtStart";
-      case NullPlacement::AtEnd:
-        return "AtEnd";
-    }
-    return "<INVALID>";
-  }
-};
-template <>
-struct EnumTraits<RankOptions::Tiebreaker>
-    : BasicEnumTraits<RankOptions::Tiebreaker, RankOptions::Min, RankOptions::Max,
-                      RankOptions::First, RankOptions::Dense> {
-  static std::string name() { return "Tiebreaker"; }
-  static std::string value_name(RankOptions::Tiebreaker value) {
-    switch (value) {
-      case RankOptions::Min:
-        return "Min";
-      case RankOptions::Max:
-        return "Max";
-      case RankOptions::First:
-        return "First";
-      case RankOptions::Dense:
-        return "Dense";
-    }
-    return "<INVALID>";
-  }
-};
-
-}  // namespace internal
-
-namespace compute {
+using arrow::internal::checked_cast;
+using arrow::internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // Function options
@@ -375,5 +315,4 @@ Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* c
   return SortIndices(values, SortOrder::Ascending, ctx);
 }
 
-}  // namespace compute
 }  // namespace arrow

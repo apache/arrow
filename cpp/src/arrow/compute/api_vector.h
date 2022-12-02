@@ -65,7 +65,7 @@ class ARROW_EXPORT TakeOptions : public FunctionOptions {
 class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
  public:
   /// Configure how null values will be encoded
-  enum NullEncodingBehavior {
+  enum NullEncodingBehavior : uint8_t {
     /// The null value will be added to the dictionary with a proper index.
     ENCODE,
     /// The null value will be masked in the indices array.
@@ -79,14 +79,14 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   NullEncodingBehavior null_encoding_behavior = MASK;
 };
 
-enum class SortOrder {
+enum class SortOrder : uint8_t {
   /// Arrange values in increasing order
   Ascending,
   /// Arrange values in decreasing order
   Descending,
 };
 
-enum class NullPlacement {
+enum class NullPlacement : uint8_t {
   /// Place nulls and NaNs before any non-null values.
   /// NaNs will come after nulls.
   AtStart,
@@ -178,7 +178,7 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
 class ARROW_EXPORT RankOptions : public FunctionOptions {
  public:
   /// Configure how ties between equal values are handled
-  enum Tiebreaker {
+  enum Tiebreaker : uint8_t {
     /// Ties get the smallest possible rank in sorted order.
     Min,
     /// Ties get the largest possible rank in sorted order.

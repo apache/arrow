@@ -61,7 +61,7 @@ class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
 /// By default, only non-null values are counted.
 class ARROW_EXPORT CountOptions : public FunctionOptions {
  public:
-  enum CountMode {
+  enum CountMode : uint8_t {
     /// Count only non-null values.
     ONLY_VALID = 0,
     /// Count only null values.
@@ -118,7 +118,7 @@ class ARROW_EXPORT VarianceOptions : public FunctionOptions {
 class ARROW_EXPORT QuantileOptions : public FunctionOptions {
  public:
   /// Interpolation method to use when quantile lies between two data points
-  enum Interpolation {
+  enum Interpolation : uint8_t {
     LINEAR = 0,
     LOWER,
     HIGHER,
@@ -126,11 +126,10 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
     MIDPOINT,
   };
 
-  explicit QuantileOptions(double q = 0.5, enum Interpolation interpolation = LINEAR,
+  explicit QuantileOptions(double q = 0.5, Interpolation interpolation = LINEAR,
                            bool skip_nulls = true, uint32_t min_count = 0);
 
-  explicit QuantileOptions(std::vector<double> q,
-                           enum Interpolation interpolation = LINEAR,
+  explicit QuantileOptions(std::vector<double> q, Interpolation interpolation = LINEAR,
                            bool skip_nulls = true, uint32_t min_count = 0);
 
   static constexpr char const kTypeName[] = "QuantileOptions";
@@ -138,7 +137,7 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
 
   /// quantile must be between 0 and 1 inclusive
   std::vector<double> q;
-  enum Interpolation interpolation;
+  Interpolation interpolation;
   /// If true (the default), null values are ignored. Otherwise, if any value is null,
   /// emit null.
   bool skip_nulls;

@@ -40,40 +40,11 @@ struct Scalar;
 struct StructScalar;
 using ::arrow::internal::checked_cast;
 
-namespace internal {
-template <>
-struct EnumTraits<compute::SortOrder>
-    : BasicEnumTraits<compute::SortOrder, compute::SortOrder::Ascending,
-                      compute::SortOrder::Descending> {
-  static std::string name() { return "SortOrder"; }
-  static std::string value_name(compute::SortOrder value) {
-    switch (value) {
-      case compute::SortOrder::Ascending:
-        return "Ascending";
-      case compute::SortOrder::Descending:
-        return "Descending";
-    }
-    return "<INVALID>";
-  }
-};
-}  // namespace internal
-
 namespace compute::internal {
 
 using arrow::internal::enum_cast;
 using arrow::internal::enum_name;
-using arrow::internal::EnumTraits;
-using arrow::internal::has_enum_traits;
-
-template <typename Enum, typename CType = typename std::underlying_type<Enum>::type>
-Result<Enum> ValidateEnumValue(CType raw) {
-  for (auto valid : EnumTraits<Enum>::values()) {
-    if (raw == static_cast<CType>(valid)) {
-      return static_cast<Enum>(raw);
-    }
-  }
-  return Status::Invalid("Invalid value for ", EnumTraits<Enum>::name(), ": ", raw);
-}
+using arrow::internal::nameof;
 
 class ARROW_EXPORT GenericOptionsType : public FunctionOptionsType {
  public:
@@ -105,7 +76,7 @@ static inline enable_if_t<!std::is_enum_v<T>, std::string> GenericToString(
 }
 
 template <typename T>
-static inline enable_if_t<!has_enum_traits<T>::value, std::string> GenericToString(
+static inline enable_if_t<!std::is_enum_v<T>, std::string> GenericToString(
     const std::optional<T>& value) {
   return value.has_value() ? GenericToString(value.value()) : "nullopt";
 }
@@ -118,16 +89,9 @@ static inline std::string GenericToString(const std::string& value) {
   return ss.str();
 }
 
-template <typename T>
-static inline enable_if_t<has_enum_traits<T>::value, std::string> GenericToString(
-    const T value) {
-  return EnumTraits<T>::value_name(value);
-}
-
 template <typename Enum>
-static inline enable_if_t<!has_enum_traits<Enum>::value && std::is_enum_v<Enum>,
-                          std::string>
-GenericToString(const Enum& value) {
+static inline enable_if_t<std::is_enum_v<Enum>, std::string> GenericToString(
+    const Enum& value) {
   return std::string{enum_name(value)};
 }
 
@@ -269,15 +233,8 @@ GenericTypeSingleton() {
   return map(binary(), binary());
 }
 
-template <typename T>
-static inline enable_if_t<has_enum_traits<T>::value, std::shared_ptr<DataType>>
-GenericTypeSingleton() {
-  return TypeTraits<typename EnumTraits<T>::Type>::type_singleton();
-}
-
 template <typename Enum>
-static inline enable_if_t<!has_enum_traits<Enum>::value && std::is_enum_v<Enum>,
-                          std::shared_ptr<DataType>>
+static inline enable_if_t<std::is_enum_v<Enum>, std::shared_ptr<DataType>>
 GenericTypeSingleton() {
   return CTypeTraits<std::underlying_type_t<Enum>>::type_singleton();
 }
@@ -314,15 +271,8 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const FieldRef& re
   return MakeScalar(ref.ToDotPath());
 }
 
-template <typename T, typename Enable = enable_if_t<has_enum_traits<T>::value>>
-static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const T value) {
-  using CType = typename EnumTraits<T>::CType;
-  return GenericToScalar(static_cast<CType>(value));
-}
-
 template <typename Enum>
-static inline enable_if_t<!has_enum_traits<Enum>::value && std::is_enum_v<Enum>,
-                          Result<std::shared_ptr<Scalar>>>
+static inline enable_if_t<std::is_enum_v<Enum>, Result<std::shared_ptr<Scalar>>>
 GenericToScalar(Enum value) {
   return GenericToScalar(static_cast<std::underlying_type_t<Enum>>(value));
 }
@@ -418,24 +368,15 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   return holder.value;
 }
 
-template <typename T>
-static inline enable_if_primitive_ctype<typename EnumTraits<T>::Type, Result<T>>
-GenericFromScalar(const std::shared_ptr<Scalar>& value) {
-  ARROW_ASSIGN_OR_RAISE(auto raw_val,
-                        GenericFromScalar<typename EnumTraits<T>::CType>(value));
-  return ValidateEnumValue<T>(raw_val);
-}
-
 template <typename Enum>
-static inline enable_if_t<!has_enum_traits<Enum>::value && std::is_enum_v<Enum>,
-                          Result<Enum>>
-GenericFromScalar(const std::shared_ptr<Scalar>& value) {
+static inline enable_if_t<std::is_enum_v<Enum>, Result<Enum>> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
   ARROW_ASSIGN_OR_RAISE(auto raw_val,
                         GenericFromScalar<std::underlying_type_t<Enum>>(value));
   if (auto e = enum_cast<Enum>(raw_val)) {
     return *e;
   }
-  return Status::Invalid("Invalid value for ", "FIXME(bkietz)", ": ", raw_val);
+  return Status::Invalid("Invalid value for ", nameof<Enum>(), ": ", raw_val);
 }
 
 template <typename>

@@ -200,32 +200,11 @@ enum class PersonType : int8_t {
   CONTRACTOR,
 };
 
-template <>
-struct EnumTraits<PersonType>
-    : BasicEnumTraits<PersonType, PersonType::EMPLOYEE, PersonType::CONTRACTOR> {
-  static std::string name() { return "PersonType"; }
-  static std::string value_name(PersonType value) {
-    switch (value) {
-      case PersonType::EMPLOYEE:
-        return "EMPLOYEE";
-      case PersonType::CONTRACTOR:
-        return "CONTRACTOR";
-    }
-    return "<INVALID>";
-  }
-};
-
-TEST(Reflection, EnumTraits) {
-  static_assert(!has_enum_traits<Person>::value, "");
-  static_assert(has_enum_traits<PersonType>::value, "");
-  static_assert(std::is_same<EnumTraits<PersonType>::CType, int8_t>::value, "");
-  static_assert(std::is_same<EnumTraits<PersonType>::Type, Int8Type>::value, "");
-}
-
 struct MagicNumbers {
   static constexpr int kThree = 3;
   static constexpr int kSeven = 7;
 };
+
 enum { kYo };
 
 TEST(Reflection, NameOf) {
@@ -250,6 +229,8 @@ TEST(Reflection, NameOf) {
   static_assert(nameof<MagicNumbers::kSeven>() == "7");
   static_assert(nameof<&MagicNumbers::kThree>() == "Three");
 
+  static_assert(nameof<Person>() == "Person");
+  static_assert(nameof<PersonType>() == "PersonType");
 #ifndef _MSC_VER
   // struct/class members are also identifiable by name
   static_assert(nameof<&Person::age>() == "age");

@@ -163,7 +163,7 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
 class ARROW_EXPORT JoinOptions : public FunctionOptions {
  public:
   /// How to handle null values. (A null separator always results in a null output.)
-  enum NullHandlingBehavior {
+  enum NullHandlingBehavior : uint8_t {
     /// A null in any input results in a null in the output.
     EMIT_NULL,
     /// Nulls in inputs are skipped.
@@ -431,7 +431,11 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
   ///
   /// AMBIGUOUS_EARLIEST emits the earliest instant amongst possible interpretations.
   /// AMBIGUOUS_LATEST emits the latest instant amongst possible interpretations.
-  enum Ambiguous { AMBIGUOUS_RAISE, AMBIGUOUS_EARLIEST, AMBIGUOUS_LATEST };
+  enum Ambiguous : uint8_t {
+    AMBIGUOUS_RAISE,
+    AMBIGUOUS_EARLIEST,
+    AMBIGUOUS_LATEST,
+  };
 
   /// \brief How to handle local times that do not exist due to DST shifts.
   ///
@@ -439,7 +443,11 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
   /// in the given timestamp precision (for example, for a nanoseconds precision
   /// timestamp, this is one nanosecond before the DST shift instant).
   /// NONEXISTENT_LATEST emits the DST shift instant.
-  enum Nonexistent { NONEXISTENT_RAISE, NONEXISTENT_EARLIEST, NONEXISTENT_LATEST };
+  enum Nonexistent : uint8_t {
+    NONEXISTENT_RAISE,
+    NONEXISTENT_EARLIEST,
+    NONEXISTENT_LATEST,
+  };
 
   explicit AssumeTimezoneOptions(std::string timezone,
                                  Ambiguous ambiguous = AMBIGUOUS_RAISE,
@@ -485,7 +493,7 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
 
 struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
  public:
-  enum Form { NFC, NFKC, NFD, NFKD };
+  enum Form : uint8_t { NFC, NFKC, NFD, NFKD };
 
   explicit Utf8NormalizeOptions(Form form = NFC);
   static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
@@ -497,7 +505,7 @@ struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
 
 class ARROW_EXPORT RandomOptions : public FunctionOptions {
  public:
-  enum Initializer { SystemRandom, Seed };
+  enum Initializer : uint8_t { SystemRandom, Seed };
 
   static RandomOptions FromSystemRandom() { return RandomOptions{SystemRandom, 0}; }
   static RandomOptions FromSeed(uint64_t seed) { return RandomOptions{Seed, seed}; }
@@ -516,7 +524,7 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
 /// Options for map_lookup function
 class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
  public:
-  enum Occurrence {
+  enum Occurrence : uint8_t {
     /// Return the first matching value
     FIRST,
     /// Return the last matching value
