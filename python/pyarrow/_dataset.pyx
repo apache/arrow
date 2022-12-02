@@ -220,7 +220,7 @@ cdef class Dataset(_Weakrefable):
         """
         if self._scan_options.get("filter") is not None:
             # Accessing fragments of a filtered dataset is not supported.
-            # It would be unclear if you wanted to filter the fragments 
+            # It would be unclear if you wanted to filter the fragments
             # or the rows in those fragments.
             raise ValueError(
                 "Retrieving fragments of a filtered or projected "
@@ -416,7 +416,7 @@ cdef class Dataset(_Weakrefable):
         """The common schema of the full Dataset"""
         return pyarrow_wrap_schema(self.dataset.schema())
 
-    def filter(self, expression):
+    def filter(self, expression not None):
         """
         Apply a row filter to the dataset.
 
