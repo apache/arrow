@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/encoding.h"
 #include "parquet/page_index.h"
+#include "parquet/encoding.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
