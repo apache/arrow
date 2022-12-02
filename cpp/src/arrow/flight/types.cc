@@ -389,6 +389,27 @@ std::string Location::scheme() const {
   return scheme;
 }
 
+std::string Location::path() const { return uri_->path(); }
+Result<std::vector<std::pair<std::string, std::string>>> Location::query_items() const {
+  return uri->query_items();
+}
+
+Result<std::vector<std::pair<std::string, std::string>>> Location::as_headers() const {
+  std::string path = path();
+  if (path.empty()) {
+    return query_items();
+  }
+
+  std::vector<std::pair<std::string, std::string>>> headers;
+  std::vector<std::pair<std::string, std::string>>> query_items(query_items());
+  headers.reserve(query_items.size() + 1);
+
+  headers.emplace_back(std::pair<std::string, std::string>("catalog", path));
+  headers.insert(headers.end(), query_items.begin(), query_items.end());
+
+  return headers;
+}
+
 bool Location::Equals(const Location& other) const {
   return ToString() == other.ToString();
 }
