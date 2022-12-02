@@ -45,6 +45,7 @@ ENV PATH "${RPREFIX}/bin:${PATH}"
 # Patch up some of the docker images
 COPY ci/scripts/r_docker_configure.sh /arrow/ci/scripts/
 COPY ci/etc/rprofile /arrow/ci/etc/
+COPY ci/scripts/r_install_system_dependencies.sh /arrow/ci/scripts/
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/r_docker_configure.sh
