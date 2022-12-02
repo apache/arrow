@@ -17,16 +17,13 @@
 
 #pragma once
 
-#include <cstdint>
-#include <map>
-#include <memory>
+#include <optional>
 #include <set>
-#include <string>
 #include <vector>
 
+#include "parquet/exception.h"
 #include "parquet/platform.h"
-#include "parquet/statistics.h"
-#include "parquet/types.h"
+#include "parquet/schema.h"
 
 namespace parquet {
 
@@ -44,32 +41,28 @@ class PARQUET_EXPORT ColumnIndex {
 
   virtual ~ColumnIndex() = default;
 
-  /// \brief Returns number of pages in this column index.
-  virtual int64_t num_pages() const = 0;
+  /// \brief Returns a list of boolean values to determine the validity of the
+  /// corresponding min and max values.
+  virtual const std::vector<bool>& null_pages() const = 0;
 
-  /// \brief Returns if all values are null in a single page.
-  virtual bool is_null_page(int64_t page_id) const = 0;
+  /// \brief Returns a list of encoded lower bound for the values of each page. For null
+  /// pages the default value is an empty string. Readers must make sure that list entries
+  /// are populated before using them by inspecting null_pages.
+  virtual const std::vector<std::string>& encoded_min_values() const = 0;
 
-  /// \brief Returns whether both min_values and max_values are
-  /// orderd and if so, in which direction.
+  /// \brief Returns a list of encoded upper bound for the values of each page. For null
+  /// pages the default value is an empty string. Readers must make sure that list entries
+  /// are populated before using them by inspecting null_pages.
+  virtual const std::vector<std::string>& encoded_max_values() const = 0;
+
+  /// \brief Returns whether both min_values and max_values are orderd and if so, in which
+  /// direction.
   virtual BoundaryOrder boundary_order() const = 0;
 
   /// \brief Returns if null count is available.
   virtual bool has_null_counts() const = 0;
 
-  /// \brief Returns null count for a single page.
-  virtual int64_t null_count(int64_t page_id) const = 0;
-
-  /// \brief The minimum value of a single page. Throws if it is null page.
-  virtual const std::string& encoded_min(int64_t page_id) const = 0;
-
-  /// \brief The maximum value of a single page. Throws if it is null page.
-  virtual const std::string& encoded_max(int64_t page_id) const = 0;
-
-  /// \brief Returns all null indicator for each page in batch.
-  virtual const std::vector<bool>& null_pages() const = 0;
-
-  /// \brief Returns null count for each page in batch.
+  /// \brief Returns A list containing the number of null values for each page.
   virtual const std::vector<int64_t>& null_counts() const = 0;
 };
 
@@ -79,21 +72,11 @@ class PARQUET_EXPORT TypedColumnIndex : public ColumnIndex {
  public:
   using T = typename DType::c_type;
 
-  /// \brief The minimum value of a single page. Throws if it is null page.
-  virtual T min_value(int64_t page_id) const = 0;
+  /// \brief Returns a list of lower bound for the values of every page.
+  virtual const std::vector<std::optional<T>>& min_values() const = 0;
 
-  /// \brief The maximum value of a single page. Throws if it is null page.
-  virtual T max_value(int64_t page_id) const = 0;
-
-  /// \brief The minimum value of every valid page.
-  virtual const std::vector<T>& min_values() const = 0;
-
-  /// \brief The maximum value of every valid page.
-  virtual const std::vector<T>& max_values() const = 0;
-
-  /// \brief Returns list of page index of all valid pages.
-  /// It can be used to understand values returned from min_values/max_values.
-  virtual std::vector<int64_t> GetValidPageIndices() const = 0;
+  /// \brief Returns a list of upper bound for the values of every page.
+  virtual const std::vector<std::optional<T>>& max_values() const = 0;
 };
 
 using BoolColumnIndex = TypedColumnIndex<BooleanType>;
@@ -123,12 +106,6 @@ class PARQUET_EXPORT OffsetIndex {
                                            const ReaderProperties& properties);
 
   virtual ~OffsetIndex() = default;
-
-  /// \brief Returns number of pages in this column index.
-  virtual int64_t num_pages() const = 0;
-
-  /// \brief Returns PageLocation of a single page.
-  virtual const PageLocation& GetPageLocation(int64_t page_id) const = 0;
 
   /// \brief Returns all page locations in the offset index.
   virtual const std::vector<PageLocation>& GetPageLocations() const = 0;
