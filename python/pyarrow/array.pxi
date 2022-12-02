@@ -1408,7 +1408,7 @@ cdef class Array(_PandasConvertible):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
-        **options : dict, optional
+        **kwargs : dict, optional
             Additional sorting options
             As allowed by :class:`SortOptions`
 
@@ -2778,7 +2778,7 @@ cdef class StructArray(Array):
         fieldname : str or None, default None
             If to sort the array by one of its fields
             or by the whole array.
-        **options : dict, optional
+        **kwargs : dict, optional
             Additional sorting options
             As allowed by :class:`SortOptions`
 

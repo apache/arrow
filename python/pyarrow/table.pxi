@@ -1048,7 +1048,7 @@ cdef class ChunkedArray(_PandasConvertible):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
-        **options : dict, optional
+        **kwargs : dict, optional
             Additional sorting options
             As allowed by :class:`SortOptions`
 
@@ -2265,7 +2265,7 @@ cdef class RecordBatch(_PandasConvertible):
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
-        **options : dict, optional
+        **kwargs : dict, optional
             Additional sorting options
             As allowed by :class:`SortOptions`
 
@@ -4727,7 +4727,7 @@ cdef class Table(_PandasConvertible):
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
-        **options : dict, optional
+        **kwargs : dict, optional
             Additional sorting options
             As allowed by :class:`SortOptions`
 
