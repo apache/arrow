@@ -4908,6 +4908,20 @@ def test_dataset_filter(tempdir, dstype):
     with pytest.raises(ValueError):
         result.get_fragments()
 
+    # Ensure replacing schema preserves the filter.
+    schema_without_colB = ds1.schema.remove(1)
+    newschema = ds1.filter(
+        pc.field("colA") < 3
+    ).replace_schema(schema_without_colB)
+    assert newschema.to_table() == pa.table({
+        "colA": [1, 2],
+    })
+    with pytest.raises(pa.ArrowInvalid):
+        # The schema might end up being replaced with
+        # something that makes the filter invalid.
+        # Let's make sure we error nicely.
+        result.replace_schema(schema_without_colB).to_table()
+
 
 def test_write_dataset_with_scanner_use_projected_schema(tempdir):
     """

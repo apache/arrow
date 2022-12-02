@@ -201,8 +201,14 @@ cdef class Dataset(_Weakrefable):
             The new dataset schema.
         """
         cdef shared_ptr[CDataset] copy = GetResultValue(
-            self.dataset.ReplaceSchema(pyarrow_unwrap_schema(schema)))
-        return Dataset.wrap(move(copy))
+            self.dataset.ReplaceSchema(pyarrow_unwrap_schema(schema))
+        )
+
+        d = Dataset.wrap(move(copy))
+        if self._scan_options:
+            # Preserve scan options if set.
+            d._scan_options = self._scan_options.copy()
+        return d
 
     def get_fragments(self, Expression filter=None):
         """Returns an iterator over the fragments in this dataset.
