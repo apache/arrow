@@ -1315,6 +1315,7 @@ cdef class WriteOptions(_Weakrefable):
     quoting_style : str, optional (default "needed")
         Whether to quote values, and if so, which quoting style to use.
         The following values are accepted:
+
         - "needed" (default): only enclose values in quotes when needed.
         - "all_valid": enclose all valid values in quotes; nulls are not quoted.
         - "none": do not enclose any values in quotes; values containing
@@ -1376,6 +1377,7 @@ cdef class WriteOptions(_Weakrefable):
         """
         Whether to quote values, and if so, which quoting style to use.
         The following values are accepted:
+
         - "needed" (default): only enclose values in quotes when needed.
         - "all_valid": enclose all valid values in quotes; nulls are not quoted.
         - "none": do not enclose any values in quotes; values containing
