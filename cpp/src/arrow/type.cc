@@ -1067,6 +1067,10 @@ struct FieldPathGetImpl {
       return Status::Invalid("empty indices cannot be traversed");
     }
 
+    auto IsBaseListType = [](const DataType& type) {
+      return dynamic_cast<const BaseListType*>(&type) != nullptr;
+    };
+
     int depth = 0;
     const T* out = nullptr;
     for (int index : path->indices()) {
@@ -1079,10 +1083,10 @@ struct FieldPathGetImpl {
         // The index here is used in the kernel to grab the specific list element.
         // Children then are fields from list type, and out will be the children from
         // that field, thus index 0.
-        if (out != nullptr && (*out)->type()->id() == Type::LIST) {
+        if (out != nullptr && IsBaseListType(*(*out)->type())) {
           children = get_children(*out);
           index = 0;
-        } else if (out == nullptr && parent != nullptr && parent->id() == Type::LIST) {
+        } else if (out == nullptr && parent != nullptr && IsBaseListType(*parent)) {
           // For the first iteration (out == nullptr), if the parent is a list type
           // then we certainly want to get the type of the list item. The specific
           // kernel implemention will use the actual index to grab a specific list item.

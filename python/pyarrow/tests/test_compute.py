@@ -2731,8 +2731,16 @@ def test_struct_fields_options():
     ([0, 1, 1], ["hi"]),
     ('.a[1].c', ["hi"])
 ))
-def test_struct_field_list_path(path, expected):
-    arr = pa.array([{'a': [{'b': 1}, {'c': 'hi'}]}])
+@pytest.mark.parametrize("list_type", (
+    lambda v: pa.list_(v),
+    lambda v: pa.list_(v, 2),
+    lambda v: pa.large_list(v)
+))
+def test_struct_field_list_path(path, expected, list_type):
+    type = pa.struct([pa.field('a', list_type(
+        pa.struct([pa.field('b', pa.int8()),
+                   pa.field('c', pa.string())])))])
+    arr = pa.array([{'a': [{'b': 1}, {'c': 'hi'}]}], type)
     out = pc.struct_field(arr, path)
     assert out == pa.array(expected).cast(out.type)
 

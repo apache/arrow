@@ -447,11 +447,12 @@ struct StructFieldFunctor {
                                 union_array.GetFlattenedField(index, ctx->memory_pool()));
           break;
         }
-        case Type::LIST: {
-          const auto& list_array = checked_cast<const ListArray&>(*current);
+        case Type::LIST:
+        case Type::LARGE_LIST:
+        case Type::FIXED_SIZE_LIST: {
           Datum idx(index);
           ARROW_ASSIGN_OR_RAISE(Datum result,
-                                CallFunction("list_element", {list_array, idx}));
+                                CallFunction("list_element", {*current, idx}));
           current = result.make_array();
           break;
         }
@@ -468,7 +469,7 @@ struct StructFieldFunctor {
   static Status CheckIndex(int index, const DataType& type) {
     if (!ValidParentType(type)) {
       return Status::TypeError("struct_field: cannot subscript field of type ", type);
-    } else if (type.id() != Type::LIST && (index < 0 || index >= type.num_fields())) {
+    } else if (!IsBaseListType(type) && (index < 0 || index >= type.num_fields())) {
       return Status::Invalid("struct_field: out-of-bounds field reference to field ",
                              index, " in type ", type, " with ", type.num_fields(),
                              " fields");
@@ -476,9 +477,13 @@ struct StructFieldFunctor {
     return Status::OK();
   }
 
+  static bool IsBaseListType(const DataType& type) {
+    return dynamic_cast<const BaseListType*>(&type) != nullptr;
+  }
+
   static bool ValidParentType(const DataType& type) {
     return type.id() == Type::STRUCT || type.id() == Type::DENSE_UNION ||
-           type.id() == Type::SPARSE_UNION || type.id() == Type::LIST;
+           type.id() == Type::SPARSE_UNION || IsBaseListType(type);
   }
 };
 
@@ -495,8 +500,8 @@ Result<TypeHolder> ResolveStructFieldType(KernelContext* ctx,
   }
 
   for (const auto& index : field_path.indices()) {
-    if (type->id() == Type::LIST) {
-      auto list_type = checked_cast<const ListType*>(type);
+    if (StructFieldFunctor::IsBaseListType(*type->GetSharedPtr())) {
+      auto list_type = checked_cast<const BaseListType*>(type);
       type = list_type->value_type().get();
     } else {
       RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
