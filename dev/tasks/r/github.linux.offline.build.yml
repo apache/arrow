@@ -66,21 +66,12 @@ jobs:
           path: arrow/r/
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt install -y \
-            libbrotli-dev \
-            libcurl4-openssl-dev \
-            libidn2-dev \
-            libkrb5-dev \
-            libldap-dev \
-            libnghttp2-dev \
-            libpsl-dev \
-            librtmp-dev \
-            libssh-dev \
-            libssh2-1-dev \
-            libssl-dev \
-            libzstd-dev
+          sudo arrow/ci/scripts/r_install_system_dependencies.sh
           arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+        env:
+          ARROW_GCS: "ON"
+          ARROW_S3: "ON"
+          ARROW_SOURCE_HOME: arrow
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "glue", "sys"))
@@ -90,7 +81,7 @@ jobs:
         env:
           TEST_OFFLINE_BUILD: true
           LIBARROW_MINIMAL: false
-        {{ macros.github_set_sccache_envvars()|indent(8)}}  
+        {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
           cd arrow/r
           R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile arrow_with_deps.tar.gz

@@ -318,50 +318,21 @@ jobs:
         with:
           install-r: false
       {{ macros.github_setup_local_r_repo(false, false)|indent }}
+      {{ macros.github_checkout_arrow()|indent }}
       - name: Install sccache
         shell: bash
         run: |
-          curl -s \
-            https://raw.githubusercontent.com/{{ arrow.github_repo }}/{{ arrow.head }}/ci/scripts/install_sccache.sh | \
-            bash -s unknown-linux-musl /usr/local/bin
+          arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
       - name: Install R package system dependencies
         run: |
-          sudo apt update
-          # We need to install all dependencies explicitly to use
-          # "pkg-config --static --libs libcurl" result. Because
-          # libcurl-dev doesn't depend on packages that are only
-          # needed for "pkg-config --static".
-          #
-          # "pkg-config --static --libs libcurl" has
-          #   * -lnghttp2
-          #   * -lidn2
-          #   * -lrtmp
-          #   * -lssh or -lssh2
-          #   * -lpsl
-          #   * -lssl
-          #   * -lcrypto
-          #   * -lgssapi_krb5
-          #   * -lkrb5
-          #   * -lk5crypto
-          #   * -lcom_err
-          #   * -lldap
-          #   * -llber
-          #   * -lzstd
-          #   * -lbrotlidec
-          #   * -lz
-          sudo apt install -y \
-            libbrotli-dev \
-            libcurl4-openssl-dev \
-            libidn2-dev \
-            libkrb5-dev \
-            libldap-dev \
-            libnghttp2-dev \
-            libpsl-dev \
-            librtmp-dev \
-            libssh-dev \
-            libssh2-1-dev \
-            libssl-dev \
-            libzstd-dev
+          sudo arrow/ci/scripts/r_install_system_dependencies.sh
+        env:
+          ARROW_GCS: "ON"
+          ARROW_S3: "ON"
+          ARROW_SOURCE_HOME: arrow
+      - name: Remove arrow/
+        run: |
+          rm -rf arrow/
       - name: Enable parallel build
         run: |
           echo "MAKEFLAGS=-j$(nproc)" >> $GITHUB_ENV
