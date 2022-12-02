@@ -1060,28 +1060,16 @@ TEST_F(TestPartitioning, PartitioningWithDataWithFilePaths) {
   // Create an Arrow Table
   auto schema = arrow::schema(
       {arrow::field("a", arrow::int64()), arrow::field("part", arrow::utf8())});
-  // std::vector<std::shared_ptr<arrow::Array>> arrays(2);
-  // arrow::NumericBuilder<arrow::Int64Type> builder;
-  // ASSERT_OK(builder.AppendValues({0, 1, 2, 3, 4}));
-  // ASSERT_OK(builder.Finish(&arrays[0]));
-  // arrow::StringBuilder string_builder;
-  // std::vector<std::string> partitions = {"experiment/A/f.csv", "experiment/B/f.csv",
-  //                                        "experiment/A/f.csv", "experiment/C/k.csv",
-  //                                        "experiment/M/i.csv"};
-  // ASSERT_OK(string_builder.AppendValues(partitions));
-  // ASSERT_OK(string_builder.Finish(&arrays[1]));
-  // auto int_array = ArrayFromJSON(int64(), R"([0, 1, 2, 3, 4])");
-  // auto str_array = ArrayFromJSON(utf8(), R"(["experiment/A/f.csv", "experiment/B/f.csv",
-  //                                        "experiment/A/f.csv", "experiment/C/k.csv",
-  //                                        "experiment/M/i.csv"])");
 
- auto table = TableFromJSON(schema, {R"([
+  auto table = TableFromJSON(schema, {
+                                         R"([
     [0, "experiment/A/f.csv"],
     [1, "experiment/B/f.csv"],
     [2, "experiment/A/f.csv"],
     [3, "experiment/C/k.csv"],
     [4, "experiment/M/i.csv"]
-  ])",}); 
+  ])",
+                                     });
 
   // Write it using Datasets
   auto dataset = std::make_shared<dataset::InMemoryDataset>(table);
