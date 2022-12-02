@@ -312,7 +312,8 @@ class ParquetFile:
 
         self._close_source = getattr(source, 'closed', True)
 
-        filesystem, source = _resolve_filesystem_and_path(source, filesystem)
+        filesystem, source = _resolve_filesystem_and_path(
+            source, filesystem, memory_map)
         if filesystem is not None:
             source = filesystem.open_input_file(source)
             self._close_source = True  # We opened it here, ensure we close it.
