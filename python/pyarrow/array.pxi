@@ -2786,8 +2786,8 @@ cdef class StructArray(Array):
         -------
         result : StructArray
         """
-        if fieldname is not None:
-            tosort = self.field(fieldname)
+        if by is not None:
+            tosort = self.field(by)
         else:
             tosort = self
         indices = _pc().sort_indices(
