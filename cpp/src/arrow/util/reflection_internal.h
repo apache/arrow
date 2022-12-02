@@ -273,35 +273,44 @@ constexpr auto kEnumMembers = [] {
       "namespace arrow::internal {    template<> constexpr auto kEnumMembers<Color> "
       "= impl::array{{kRed, kGreen, kBlue}};    }");
 
-  constexpr int kUnderlyingMin = std::numeric_limits<std::underlying_type_t<Enum>>::min();
-  constexpr int kUnderlyingMax = std::numeric_limits<std::underlying_type_t<Enum>>::max();
-  constexpr int kRange = kUnderlyingMax + 1 - kUnderlyingMin;
+  constexpr int kCount = 256;
 
-  constexpr auto IsValid = [&](auto i) {
-    constexpr int int_value = kUnderlyingMin + static_cast<int>(i);
-    return nameof<static_cast<Enum>(int_value)>() != nameof<int_value>();
-  };
-
-  constexpr size_t N =
-      impl::Spread<kRange>([&](auto... i) { return (... + IsValid(i)); });
-
-  impl::array<Enum, N> out;
-
-  impl::Spread<kRange>([&](auto... i) {
-    Enum* e = out.data();
-    for (auto [is_valid, int_value] : {std::pair{IsValid(i), static_cast<int>(i)}...}) {
-      if (is_valid) {
-        *e++ = static_cast<Enum>(kUnderlyingMin + int_value);
-      }
+  constexpr auto kInts = [&] {
+    impl::array<int, kCount> int_values;
+    for (int i = 0; i < 256; ++i) {
+      int_values.data()[i] = i + std::numeric_limits<std::underlying_type_t<Enum>>::min();
     }
+    return int_values;
+  }();
+
+  constexpr auto kIsValid = impl::Spread<kCount>([&](auto... i) {
+    return impl::array<bool, kCount>{
+        {nameof<static_cast<Enum>(kInts[i])>() != nameof<kInts[i]>()...}};
   });
-  return out;
+
+  constexpr size_t kValidCount = [&] {
+    size_t count = 0;
+    for (bool is_valid : kIsValid) {
+      count += is_valid;
+    }
+    return count;
+  }();
+
+  impl::array<Enum, kValidCount> members;
+
+  Enum* e = members.data();
+  for (int i = 0; i < kCount; ++i) {
+    if (kIsValid[i]) {
+      *e++ = static_cast<Enum>(kInts[i]);
+    }
+  }
+  return members;
 }();
 
 namespace impl {
 template <typename Enum, const auto& values = kEnumMembers<Enum>>
 constexpr auto kEnumNamesStorage = Spread<values.size()>([](auto... i) {
-  constexpr size_t N = (... + nameof<values[i]>().size());
+  constexpr size_t N = (... + nameof<Enum{values[i]}>().size());
   struct {
     array<uint16_t, values.size() + 1> offsets;
     array<char, N> data;
@@ -312,7 +321,7 @@ constexpr auto kEnumNamesStorage = Spread<values.size()>([](auto... i) {
 
   char* data = out.data.data();
 
-  for (auto name : {nameof<values[i]>()...}) {
+  for (auto name : {nameof<Enum{values[i]}>()...}) {
     for (char c : name) {
       *data++ = c;
     }
