@@ -1399,7 +1399,7 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
-    def sort(self, order="ascending", **options):
+    def sort(self, order="ascending", **kwargs):
         """
         Sort the Array
 
@@ -1418,7 +1418,7 @@ cdef class Array(_PandasConvertible):
         """
         indices = _pc().sort_indices(
             self,
-            options=_pc().SortOptions(sort_keys=[("", order)], **options)
+            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
         )
         return self.take(indices)
 
@@ -2766,7 +2766,7 @@ cdef class StructArray(Array):
         result.validate()
         return result
 
-    def sort(self, order="ascending", by=None, **options):
+    def sort(self, order="ascending", by=None, **kwargs):
         """
         Sort the StructArray
 
@@ -2792,7 +2792,7 @@ cdef class StructArray(Array):
             tosort = self
         indices = _pc().sort_indices(
             tosort,
-            options=_pc().SortOptions(sort_keys=[("", order)], **options)
+            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
         )
         return self.take(indices)
 

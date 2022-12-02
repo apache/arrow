@@ -1039,7 +1039,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
-    def sort(self, order="ascending", **options):
+    def sort(self, order="ascending", **kwargs):
         """
         Sort the ChunkedArray
 
@@ -1058,7 +1058,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         indices = _pc().sort_indices(
             self,
-            options=_pc().SortOptions(sort_keys=[("", order)], **options)
+            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
         )
         return self.take(indices)
 
@@ -2254,7 +2254,7 @@ cdef class RecordBatch(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
-    def sort_by(self, sorting, **options):
+    def sort_by(self, sorting, **kwargs):
         """
         Sort the RecordBatch by one or multiple columns.
 
@@ -2279,7 +2279,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         indices = _pc().sort_indices(
             self,
-            options=_pc().SortOptions(sort_keys=sorting, **options)
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
         )
         return self.take(indices)
 
@@ -4716,7 +4716,7 @@ cdef class Table(_PandasConvertible):
         """
         return TableGroupBy(self, keys)
 
-    def sort_by(self, sorting, **options):
+    def sort_by(self, sorting, **kwargs):
         """
         Sort the table by one or multiple columns.
 
@@ -4760,7 +4760,7 @@ cdef class Table(_PandasConvertible):
 
         indices = _pc().sort_indices(
             self,
-            options=_pc().SortOptions(sort_keys=sorting, **options)
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
         )
         return self.take(indices)
 
