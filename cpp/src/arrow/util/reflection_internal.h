@@ -156,17 +156,16 @@ constexpr auto Spread(const F& f) {
 
 /// std::array is not constexpr in all STL impls
 template <typename T, size_t N>
-struct array {
-  constexpr array() {
-    for (T& value : values_) {
-      value = T{};
-    }
-  }
+class array {
+ public:
+  constexpr array() = default;
+
   constexpr explicit array(const T* ptr) {
     for (T& value : values_) {
       value = *ptr++;
     }
   }
+
   constexpr explicit array(const T (&arr)[N])  // NOLINT
       : array{static_cast<const T*>(arr)} {}
 
@@ -176,7 +175,9 @@ struct array {
   [[nodiscard]] constexpr const T* begin() const { return values_; }
   [[nodiscard]] constexpr const T* end() const { return begin() + N; }
   [[nodiscard]] constexpr const T& operator[](size_t i) const { return begin()[i]; }
-  T values_[N];  // NOLINT
+
+ private:
+  T values_[N] = {};  // NOLINT
 };
 
 template <typename T, size_t N, size_t M>
