@@ -200,11 +200,6 @@ enum class PersonType : int8_t {
   CONTRACTOR,
 };
 
-struct MagicNumbers {
-  static constexpr int kThree = 3;
-  static constexpr int kSeven = 7;
-};
-
 enum { kYo };
 
 TEST(Reflection, NameOf) {
@@ -224,13 +219,9 @@ TEST(Reflection, NameOf) {
   // ... unless explicitly preserved
   static_assert(nameof<kYo, true>() == "kYo");
 
-  // global values can be identified by name
-  // (just take their address or it'll stringify the integral value)
-  static_assert(nameof<MagicNumbers::kSeven>() == "7");
-  static_assert(nameof<&MagicNumbers::kThree>() == "Three");
-
   static_assert(nameof<Person>() == "Person");
   static_assert(nameof<PersonType>() == "PersonType");
+
 #ifndef _MSC_VER
   // struct/class members are also identifiable by name
   static_assert(nameof<&Person::age>() == "age");

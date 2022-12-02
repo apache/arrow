@@ -455,7 +455,7 @@ TEST(ExecPlan, ToString) {
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
   std::shared_ptr<CountOptions> options =
-      std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
+      std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
   ASSERT_OK(
       Declaration::Sequence(
           {
@@ -489,7 +489,7 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
   :FilterNode{filter=(sum(multiply(i32, 2)) > 10)}
     :GroupByNode{keys=["bool"], aggregates=[
     	hash_sum(multiply(i32, 2)),
-    	hash_count(multiply(i32, 2), {mode=NON_NULL}),
+    	hash_count(multiply(i32, 2), {mode=ONLY_NULL}),
     ]}
       :ProjectNode{projection=[bool, multiply(i32, 2)]}
         :FilterNode{filter=(i32 >= 0)}
@@ -522,7 +522,7 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
 :SinkNode{}
   :ScalarAggregateNode{aggregates=[
-	count(i32, {mode=NON_NULL}),
+	count(i32, {mode=ONLY_NULL}),
 ]}
     :UnionNode{}
       rhs:SourceNode{}
