@@ -349,6 +349,25 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
       "may need to use CancelQuery() and/or CancelFlightInfo()")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
+   
+  /// \brief Sets session options.
+  ///
+  /// \param[in] options            RPC-layer hints for this call.
+  /// \param[in] session_options    The session options to set.
+  ::arrow::Result<std::vector<SetSessionOptionResult>> SetSessionOptions(
+      const FlightCallOptions& options,
+      const std::vector<SessionOption>& session_options);
+
+  /// \brief Gets current session options.
+  ///
+  /// \param[in] options            RPC-layer hints for this call.
+  ::arrow::Result<std::vector<SessionOption>> GetSessionOptions(
+      const FlightCallOptions& options);
+
+  /// \brief Explicitly closes the session if applicable.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options);
 
   /// \brief Extends the expiration of a FlightEndpoint.
   ///

@@ -44,6 +44,19 @@ using SqlInfoResult =
 /// \brief Map SQL info identifier to its value.
 using SqlInfoResultMap = std::unordered_map<int32_t, SqlInfoResult>;
 
+/// \brief Variant supporting all possible types for SetSessionOption
+using SessionOptionValue =
+    std::variant<std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
+
+enum struct SessionOptionValueType : size_t {
+  kString, kBool, kInt32, kInt64, kFloat, kDouble, kStringList
+};
+
+struct ARROW_FLIGHT_SQL_EXPORT SessionOption {
+  std::string option_name;
+  SessionOptionValue option_value;
+};
+
 /// \brief Options to be set in the SqlInfo.
 struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
   /// \brief Predefined info values for GetSqlInfo.
@@ -918,6 +931,22 @@ enum class CancelResult : int8_t {
   kCancelled,
   kCancelling,
   kNotCancellable,
+};
+
+/// \brief The result of setting a session option.
+enum class SetSessionOptionResult : int8_t {
+  kUnspecified,
+  kOk,
+  kInvalidResult,
+  kError
+};
+
+/// \brief The result of closing a session.
+enum class CloseSessionResult : int8_t {
+  kUnspecified,
+  kClosed,
+  kClosing,
+  kNotClosable
 };
 
 ARROW_FLIGHT_SQL_EXPORT

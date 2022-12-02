@@ -797,6 +797,157 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   return Status::IOError("Server returned unknown result ", result.result());
 }
 
+::arrow::Result<std::vector<SetSessionOptionResult>> FlightSqlClient::SetSessionOptions(
+    const FlightCallOptions& options,
+    const std::vector<SessionOption>& session_options) {
+  flight_sql_pb::ActionSetSessionOptionsRequest request;
+  for (const SessionOption& in_opt : session_options) {
+    flight_sql_pb::SessionOption& opt = *request.add_session_options();
+    const std::string& name = in_opt.option_name;
+    opt.set_option_name(name);
+
+    const SessionOptionValue& value = in_opt.option_value;
+    if (value.index() == std::variant_npos)
+      return Status::Invalid("Undefined SessionOptionValue type ");
+    switch ((SessionOptionValueType)(value.index())) {
+      case SessionOptionValueType::kString:
+        opt.set_string_value(std::get<std::string>(value));
+        break;
+      case SessionOptionValueType::kBool:
+        opt.set_bool_value(std::get<bool>(value));
+        break;
+      case SessionOptionValueType::kInt32:
+        opt.set_int32_value(std::get<int32_t>(value));
+        break;
+      case SessionOptionValueType::kInt64:
+        opt.set_int64_value(std::get<int64_t>(value));
+        break;
+      case SessionOptionValueType::kFloat:
+        opt.set_float_value(std::get<float>(value));
+        break;
+      case SessionOptionValueType::kDouble:
+        opt.set_double_value(std::get<double>(value));
+        break;
+      case SessionOptionValueType::kStringList:
+        flight_sql_pb::SessionOption::StringListValue& string_list_value =
+            *opt.mutable_string_list_value();
+        for (const std::string& s : std::get<std::vector<std::string>>(value))
+          string_list_value.add_values(s);
+        break;
+    }
+  }
+
+  std::unique_ptr<ResultStream> results;
+  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("SetSessionOptions", request));
+  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
+
+  flight_sql_pb::ActionSetSessionOptionsResult pb_result;
+  ARROW_RETURN_NOT_OK(ReadResult(results.get(), &pb_result));
+  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  std::vector<SetSessionOptionResult> result;
+  for (const int result_value : pb_result.results()) {
+    switch (result_value) {
+      case flight_sql_pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED:
+        result.push_back(SetSessionOptionResult::kUnspecified);
+        break;
+      case flight_sql_pb::ActionSetSessionOptionsResult
+          ::SET_SESSION_OPTION_RESULT_OK:
+        result.push_back(SetSessionOptionResult::kOk);
+        break;
+      case flight_sql_pb::ActionSetSessionOptionsResult
+          ::SET_SESSION_OPTION_RESULT_INVALID_VALUE:
+        result.push_back(SetSessionOptionResult::kInvalidResult);
+        break;
+      case flight_sql_pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR:
+        result.push_back(SetSessionOptionResult::kError);
+        break;
+    }
+  }
+
+  return result;
+}
+
+::arrow::Result<std::vector<SessionOption>> FlightSqlClient::GetSessionOptions (
+    const FlightCallOptions& options) {
+  flight_sql_pb::ActionGetSessionOptionsRequest request;
+
+  std::unique_ptr<ResultStream> results;
+  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("GetSessionOptions", request));
+  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
+
+  flight_sql_pb::ActionGetSessionOptionsResult pb_result;
+  ARROW_RETURN_NOT_OK(ReadResult(results.get(), &pb_result));
+  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+
+  std::vector<SessionOption> result;
+  if (pb_result.session_options_size() > 0) {
+    result.reserve(pb_result.session_options_size());
+    for (const flight_sql_pb::SessionOption& in_opt : pb_result.session_options()) {
+      const std::string& name = in_opt.option_name();
+      SessionOption opt;
+      switch (in_opt.option_value_case()) {
+        case flight_sql_pb::SessionOption::OPTION_VALUE_NOT_SET:
+          return Status::Invalid("Unset option_value for name '" + name + "'");
+        case flight_sql_pb::SessionOption::kStringValue:
+          opt = {name, in_opt.string_value()};
+          break;
+        case flight_sql_pb::SessionOption::kBoolValue:
+          opt = {name, in_opt.bool_value()};
+          break;
+        case flight_sql_pb::SessionOption::kInt32Value:
+          opt = {name, in_opt.int32_value()};
+          break;
+        case flight_sql_pb::SessionOption::kInt64Value:
+          opt = {name, in_opt.int64_value()};
+          break;
+        case flight_sql_pb::SessionOption::kFloatValue:
+          opt = {name, in_opt.float_value()};
+          break;
+        case flight_sql_pb::SessionOption::kDoubleValue:
+          opt = {name, in_opt.double_value()};
+          break;
+        case flight_sql_pb::SessionOption::kStringListValue:
+          std::vector<std::string> vlist;
+          vlist.reserve(in_opt.string_list_value().values_size());
+          for (const std::string& s : in_opt.string_list_value().values())
+            vlist.push_back(s);
+          opt = {name, vlist};
+          break;
+      }
+      result.push_back(opt);
+    }
+  }
+
+  return result;
+}
+
+::arrow::Result<CloseSessionResult> FlightSqlClient::CloseSession(
+    const FlightCallOptions& options) {
+  flight_sql_pb::ActionCloseSessionRequest request;
+
+  std::unique_ptr<ResultStream> results;
+  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("CloseSession", request));
+  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
+
+  flight_sql_pb::ActionCloseSessionResult result;
+  ARROW_RETURN_NOT_OK(ReadResult(results.get(), &result));
+  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  switch (result.result()) {
+    case flight_sql_pb::ActionCloseSessionResult::CLOSE_RESULT_UNSPECIFIED:
+      return CloseSessionResult::kUnspecified;
+    case flight_sql_pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSED:
+      return CloseSessionResult::kClosed;
+    case flight_sql_pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSING:
+      return CloseSessionResult::kClosing;
+    case flight_sql_pb::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE:
+      return CloseSessionResult::kNotClosable;
+    default:
+      break;
+  }
+
+  return Status::IOError("Server returned unknown result ", result.result());
+}
+  
 Status FlightSqlClient::Close() { return impl_->Close(); }
 
 std::ostream& operator<<(std::ostream& os, CancelResult result) {

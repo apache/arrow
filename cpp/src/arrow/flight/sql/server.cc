@@ -270,6 +270,17 @@ arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
   return result;
 }
 
+arrow::Result<ActionCloseSessionRequest> ParseActionCloseSessionRequest(
+    const google::protobuf::Any& any) {
+  pb::sql::ActionCloseSessionRequest command;
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack ActionCloseSessionRequest");
+  }
+
+  ActionCloseSessionRequest result;
+  return result;
+}
+
 arrow::Result<ActionCreatePreparedStatementRequest>
 ParseActionCreatePreparedStatementRequest(const google::protobuf::Any& any) {
   pb::sql::ActionCreatePreparedStatementRequest command;
@@ -360,6 +371,66 @@ arrow::Result<ActionEndTransactionRequest> ParseActionEndTransactionRequest(
   return result;
 }
 
+arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsRequest(
+    const google::protobuf::Any& any) {
+  pb::sql::ActionSetSessionOptionsRequest command;
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack ActionSetSessionOptionsRequest");
+  }
+
+  ActionSetSessionOptionsRequest result;
+  if (command.session_options_size() > 0) {
+    result.session_options.reserve(command.session_options_size());
+    for (const pb::sql::SessionOption& in_opt : command.session_options()) {
+      const std::string& name = in_opt.option_name();
+      SessionOption opt;
+      switch (in_opt.option_value_case()) {
+        case pb::sql::SessionOption::OPTION_VALUE_NOT_SET:
+          return Status::Invalid("Unset SessionOptionValue for name '" + name + "'");
+        case pb::sql::SessionOption::kStringValue:
+          opt = {name, in_opt.string_value()};
+          break;
+        case pb::sql::SessionOption::kBoolValue:
+          opt = {name, in_opt.bool_value()};
+          break;
+        case pb::sql::SessionOption::kInt32Value:
+          opt = {name, in_opt.int32_value()};
+          break;
+        case pb::sql::SessionOption::kInt64Value:
+          opt = {name, in_opt.int64_value()};
+          break;
+        case pb::sql::SessionOption::kFloatValue:
+          opt = {name, in_opt.float_value()};
+          break;
+        case pb::sql::SessionOption::kDoubleValue:
+          opt = {name, in_opt.double_value()};
+          break;
+        case pb::sql::SessionOption::kStringListValue:
+          std::vector<std::string> vlist;
+          vlist.reserve(in_opt.string_list_value().values_size());
+          for (const std::string& s : in_opt.string_list_value().values())
+            vlist.push_back(s);
+          opt = {name, vlist};
+          break;
+      }
+      result.session_options.push_back(opt);
+    }
+  }
+
+  return result;
+}
+
+arrow::Result<ActionGetSessionOptionsRequest> ParseActionGetSessionOptionsRequest(
+    const google::protobuf::Any& any) {
+  pb::sql::ActionGetSessionOptionsRequest command;
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack ActionGetSessionOptionsRequest");
+  }
+
+  ActionGetSessionOptionsRequest result;
+  return result;
+}
+
 arrow::Result<Result> PackActionResult(const google::protobuf::Message& message) {
   google::protobuf::Any any;
 #if PROTOBUF_VERSION >= 3015000
@@ -439,6 +510,91 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
                                    serialized->size());
   }
 
+  return PackActionResult(pb_result);
+}
+
+arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
+  pb::sql::ActionSetSessionOptionsResult pb_result;
+  for (SetSessionOptionResult& res : result.results) {
+    switch (res) {
+      case SetSessionOptionResult::kUnspecified:
+        pb_result.add_results(
+            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED);
+        break;
+      case SetSessionOptionResult::kOk:
+        pb_result.add_results(
+            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_OK);
+        break;
+      case SetSessionOptionResult::kInvalidResult:
+        pb_result.add_results(
+            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_INVALID_VALUE);
+        break;
+      case SetSessionOptionResult::kError:
+        pb_result.add_results(
+            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR);
+        break;
+    }
+  }
+  return PackActionResult(pb_result);
+}
+
+arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
+  pb::sql::ActionGetSessionOptionsResult pb_result;
+  for (const SessionOption& in_opt : result.session_options) {
+    pb::sql::SessionOption& opt = *pb_result.add_session_options();
+    const std::string& name = in_opt.option_name;
+    opt.set_option_name(name);
+
+    const SessionOptionValue& value = in_opt.option_value;
+    if (value.index() == std::variant_npos)
+      return Status::Invalid("Undefined SessionOptionValue type ");
+    switch ((SessionOptionValueType)(value.index())) {
+      case SessionOptionValueType::kString:
+        opt.set_string_value(std::get<std::string>(value));
+        break;
+      case SessionOptionValueType::kBool:
+        opt.set_bool_value(std::get<bool>(value));
+        break;
+      case SessionOptionValueType::kInt32:
+        opt.set_int32_value(std::get<int32_t>(value));
+        break;
+      case SessionOptionValueType::kInt64:
+        opt.set_int64_value(std::get<int64_t>(value));
+        break;
+      case SessionOptionValueType::kFloat:
+        opt.set_float_value(std::get<float>(value));
+        break;
+      case SessionOptionValueType::kDouble:
+        opt.set_double_value(std::get<double>(value));
+        break;
+      case SessionOptionValueType::kStringList:
+        pb::sql::SessionOption::StringListValue& string_list_value =
+            *opt.mutable_string_list_value();
+        for (const std::string& s : std::get<std::vector<std::string>>(value))
+          string_list_value.add_values(s);
+        break;
+    }
+  }
+
+  return PackActionResult(pb_result);
+}
+
+arrow::Result<Result> PackActionResult(CloseSessionResult result) {
+  pb::sql::ActionCloseSessionResult pb_result;
+  switch (result) {
+    case CloseSessionResult::kUnspecified:
+      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_UNSPECIFIED);
+      break;
+    case CloseSessionResult::kClosed:
+      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_CLOSED);
+      break;
+    case CloseSessionResult::kClosing:
+      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_CLOSING);
+      break;
+    case CloseSessionResult::kNotClosable:
+      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE);
+      break;
+  }
   return PackActionResult(pb_result);
 }
 
@@ -768,8 +924,11 @@ Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
       FlightSqlServerBase::kCreatePreparedStatementActionType,
       FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType,
       FlightSqlServerBase::kClosePreparedStatementActionType,
+      FlightSqlServerBase::kCloseSessionActionType,
       FlightSqlServerBase::kEndSavepointActionType,
       FlightSqlServerBase::kEndTransactionActionType,
+      FlightSqlServerBase::kSetSessionOptionsActionType,
+      FlightSqlServerBase::kGetSessionOptionsActionType
   };
   return Status::OK();
 }
@@ -790,6 +949,29 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(auto request, RenewFlightEndpointRequest::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint, RenewFlightEndpoint(context, request));
     ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(renewed_endpoint));
+
+    results.push_back(std::move(packed_result));
+  } else if (action.type == FlightSqlServerBase::kCloseSessionActionType.type) {
+    ARROW_ASSIGN_OR_RAISE(ActionCloseSessionRequest internal_command,
+                          ParseActionCloseSessionRequest(any));
+    ARROW_ASSIGN_OR_RAISE(CloseSessionResult result, CloseSession(context, internal_command));
+    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+
+    results.push_back(std::move(packed_result));
+  } else if (action.type == FlightSqlServerBase::kSetSessionOptionsActionType.type) {
+    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsRequest internal_command,
+                          ParseActionSetSessionOptionsRequest(any));
+    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsResult result,
+                          SetSessionOptions(context, internal_command));
+    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+
+    results.push_back(std::move(packed_result));
+  } else if (action.type == FlightSqlServerBase::kGetSessionOptionsActionType.type) {
+    ARROW_ASSIGN_OR_RAISE(ActionGetSessionOptionsRequest internal_command,
+                          ParseActionGetSessionOptionsRequest(any));
+    ARROW_ASSIGN_OR_RAISE(ActionGetSessionOptionsResult result,
+                          GetSessionOptions(context, internal_command));
+    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
   } else {
@@ -1098,6 +1280,12 @@ arrow::Result<FlightEndpoint> FlightSqlServerBase::RenewFlightEndpoint(
   return Status::NotImplemented("RenewFlightEndpoint not implemented");
 }
 
+arrow::Result<CloseSessionResult> FlightSqlServerBase::CloseSession(
+    const ServerCallContext& context,
+    const ActionCloseSessionRequest& request) {
+  return Status::NotImplemented("CloseSession not implemented");
+}
+
 arrow::Result<ActionCreatePreparedStatementResult>
 FlightSqlServerBase::CreatePreparedStatement(
     const ServerCallContext& context,
@@ -1126,6 +1314,18 @@ Status FlightSqlServerBase::EndSavepoint(const ServerCallContext& context,
 Status FlightSqlServerBase::EndTransaction(const ServerCallContext& context,
                                            const ActionEndTransactionRequest& request) {
   return Status::NotImplemented("EndTransaction not implemented");
+}
+
+arrow::Result<ActionSetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions (
+    const ServerCallContext& context,
+    const ActionSetSessionOptionsRequest& request) {
+  return Status::NotImplemented("SetSessionOptions not implemented");
+}
+
+arrow::Result<ActionGetSessionOptionsResult> FlightSqlServerBase::GetSessionOptions (
+    const ServerCallContext& context,
+    const ActionGetSessionOptionsRequest& request) {
+  return Status::NotImplemented("GetSessionOptions not implemented");
 }
 
 Status FlightSqlServerBase::DoPutPreparedStatementQuery(
