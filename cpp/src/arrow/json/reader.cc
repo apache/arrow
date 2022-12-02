@@ -398,6 +398,10 @@ class StreamingReaderImpl : public StreamingReader {
   static Future<std::shared_ptr<StreamingReaderImpl>> MakeAsync(
       std::shared_ptr<DecodeContext> context, std::shared_ptr<io::InputStream> stream,
       io::IOContext io_context, Executor* cpu_executor, const ReadOptions& read_options) {
+    if (!cpu_executor) {
+      cpu_executor = GetCpuThreadPool();
+    }
+
     ARROW_ASSIGN_OR_RAISE(
         auto buffer_it,
         io::MakeInputStreamIterator(std::move(stream), read_options.block_size));
@@ -438,7 +442,9 @@ class StreamingReaderImpl : public StreamingReader {
     return generator_();
   }
 
-  [[nodiscard]] int64_t bytes_read() const override { return bytes_processed_->load(); }
+  [[nodiscard]] int64_t bytes_processed() const override {
+    return bytes_processed_->load();
+  }
 
  private:
   static Future<DecodedBlock> FirstBlock(AsyncGenerator<DecodedBlock> gen) {
@@ -488,9 +494,9 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
 }
 
 Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
-    std::shared_ptr<io::InputStream> stream, io::IOContext io_context,
-    Executor* cpu_executor, const ReadOptions& read_options,
-    const ParseOptions& parse_options) {
+    std::shared_ptr<io::InputStream> stream, const ReadOptions& read_options,
+    const ParseOptions& parse_options, const io::IOContext& io_context,
+    Executor* cpu_executor) {
   auto future = StreamingReaderImpl::MakeAsync(
       std::make_shared<DecodeContext>(parse_options, io_context.pool()),
       std::move(stream), io_context, cpu_executor, read_options);
@@ -500,11 +506,11 @@ Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
 }
 
 Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
-    std::shared_ptr<io::InputStream> stream, io::IOContext io_context,
-    Executor* cpu_executor, const ReadOptions& read_options,
-    const ParseOptions& parse_options) {
-  auto future = StreamingReader::MakeAsync(std::move(stream), io_context, cpu_executor,
-                                           read_options, parse_options);
+    std::shared_ptr<io::InputStream> stream, const ReadOptions& read_options,
+    const ParseOptions& parse_options, const io::IOContext& io_context,
+    Executor* cpu_executor) {
+  auto future =
+      MakeAsync(std::move(stream), read_options, parse_options, io_context, cpu_executor);
   return future.result();
 }
 
