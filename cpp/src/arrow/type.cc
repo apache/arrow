@@ -1067,10 +1067,6 @@ struct FieldPathGetImpl {
       return Status::Invalid("empty indices cannot be traversed");
     }
 
-    auto IsBaseListType = [](const DataType& type) {
-      return dynamic_cast<const BaseListType*>(&type) != nullptr;
-    };
-
     int depth = 0;
     const T* out = nullptr;
     for (int index : path->indices()) {
@@ -1079,6 +1075,10 @@ struct FieldPathGetImpl {
       }
 
       if constexpr (std::is_same_v<T, std::shared_ptr<arrow::Field>>) {
+        auto IsBaseListType = [](const DataType& type) {
+          return dynamic_cast<const BaseListType*>(&type) != nullptr;
+        };
+
         // For lists, we don't care about the index, jump right into the list value type.
         // The index here is used in the kernel to grab the specific list element.
         // Children then are fields from list type, and out will be the children from
@@ -1442,7 +1442,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields,
 
     std::vector<FieldPath> operator()(const std::vector<FieldRef>& refs) {
       DCHECK_GE(refs.size(), 1);
-      Matches matches(refs.front().FindAll(fields_, parent_), fields_);
+      Matches matches(refs.front().FindAll(fields_, parent_), fields_, parent_);
 
       for (auto ref_it = refs.begin() + 1; ref_it != refs.end(); ++ref_it) {
         Matches next_matches;
@@ -1465,9 +1465,11 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields,
       std::vector<FieldPath> prefixes;
       FieldVector referents;
 
-      Matches(std::vector<FieldPath> matches, const FieldVector& fields) {
+      Matches(std::vector<FieldPath> matches, const FieldVector& fields,
+              const DataType* parent) {
+        auto current_parent = parent;
         for (auto& match : matches) {
-          Add({}, std::move(match), fields);
+          current_parent = Add({}, std::move(match), fields, current_parent);
         }
       }
 
@@ -1475,12 +1477,14 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields,
 
       size_t size() const { return referents.size(); }
 
-      void Add(const FieldPath& prefix, const FieldPath& suffix,
-               const FieldVector& fields, const DataType* parent = NULLPTR) {
+      const DataType* Add(const FieldPath& prefix, const FieldPath& suffix,
+                          const FieldVector& fields, const DataType* parent = NULLPTR) {
         auto maybe_field = suffix.Get(fields, parent);
-        DCHECK_OK(maybe_field.status());
 
-        referents.push_back(std::move(maybe_field.ValueOrDie()));
+        DCHECK_OK(maybe_field.status());
+        auto field = maybe_field.ValueOrDie();
+        auto field_type = field->type();
+        referents.push_back(std::move(field));
 
         std::vector<int> concatenated_indices(prefix.indices().size() +
                                               suffix.indices().size());
@@ -1489,6 +1493,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields,
           it = std::copy(path->indices().begin(), path->indices().end(), it);
         }
         prefixes.emplace_back(std::move(concatenated_indices));
+        return &*field_type;
       }
     };
 

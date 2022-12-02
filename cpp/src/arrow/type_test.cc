@@ -453,6 +453,7 @@ TEST(TestFieldRef, NestedWithList) {
     EXPECT_THAT(FieldRef("c", 0, "e").FindAll(*type), ElementsAre(FieldPath{0, 0, 1}));
     EXPECT_THAT(FieldRef("c", 1, "d").FindAll(*type), ElementsAre(FieldPath{0, 1, 0}));
     EXPECT_THAT(FieldRef("c", 1, "e").FindAll(*type), ElementsAre(FieldPath{0, 1, 1}));
+    ASSERT_TRUE(FieldRef("c", "non-integer", "e").FindAll(*type).empty());
 
     // Double list, variable and fixed
     type = struct_({field("a", list_type(type)), field("b", fixed_size_list(type, 2))});
@@ -475,6 +476,18 @@ TEST(TestFieldRef, NestedWithList) {
     ASSERT_OK_AND_ASSIGN(field, FieldPath({1, 0, 0, 0, 1}).Get(*type));
     ASSERT_EQ(field->type(), int8());
     ASSERT_OK_AND_ASSIGN(field, FieldPath({1, 1, 0, 1, 1}).Get(*type));
+    ASSERT_EQ(field->type(), int8());
+
+    // leading list type
+    type = list_type(type);
+    EXPECT_THAT(FieldRef(1, "a", 0, "c", 0, "d").FindAll(*type),
+                ElementsAre(FieldPath{1, 0, 0, 0, 0, 0}));
+    EXPECT_THAT(FieldRef(0, "b", 1, "c", 1, "e").FindAll(*type),
+                ElementsAre(FieldPath{0, 1, 1, 0, 1, 1}));
+
+    ASSERT_OK_AND_ASSIGN(field, FieldPath({0, 1, 0, 0, 0, 1}).Get(*type));
+    ASSERT_EQ(field->type(), int8());
+    ASSERT_OK_AND_ASSIGN(field, FieldPath({1, 1, 1, 0, 1, 1}).Get(*type));
     ASSERT_EQ(field->type(), int8());
   }
 }
