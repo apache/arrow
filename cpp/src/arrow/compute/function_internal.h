@@ -58,9 +58,10 @@ struct EnumTraits<compute::SortOrder>
 };
 }  // namespace internal
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
+using arrow::internal::enum_cast;
+using arrow::internal::enum_name;
 using arrow::internal::EnumTraits;
 using arrow::internal::has_enum_traits;
 
@@ -96,7 +97,7 @@ ARROW_EXPORT
 Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(const Buffer& buffer);
 
 template <typename T>
-static inline enable_if_t<!has_enum_traits<T>::value, std::string> GenericToString(
+static inline enable_if_t<!std::is_enum_v<T>, std::string> GenericToString(
     const T& value) {
   std::stringstream ss;
   ss << value;
@@ -121,6 +122,13 @@ template <typename T>
 static inline enable_if_t<has_enum_traits<T>::value, std::string> GenericToString(
     const T value) {
   return EnumTraits<T>::value_name(value);
+}
+
+template <typename Enum>
+static inline enable_if_t<!has_enum_traits<Enum>::value && std::is_enum_v<Enum>,
+                          std::string>
+GenericToString(const Enum& value) {
+  return std::string{enum_name(value)};
 }
 
 template <typename T>
@@ -267,6 +275,13 @@ GenericTypeSingleton() {
   return TypeTraits<typename EnumTraits<T>::Type>::type_singleton();
 }
 
+template <typename Enum>
+static inline enable_if_t<!has_enum_traits<Enum>::value && std::is_enum_v<Enum>,
+                          std::shared_ptr<DataType>>
+GenericTypeSingleton() {
+  return CTypeTraits<std::underlying_type_t<Enum>>::type_singleton();
+}
+
 template <typename T>
 static inline enable_if_same<T, SortKey, std::shared_ptr<DataType>>
 GenericTypeSingleton() {
@@ -303,6 +318,13 @@ template <typename T, typename Enable = enable_if_t<has_enum_traits<T>::value>>
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const T value) {
   using CType = typename EnumTraits<T>::CType;
   return GenericToScalar(static_cast<CType>(value));
+}
+
+template <typename Enum>
+static inline enable_if_t<!has_enum_traits<Enum>::value && std::is_enum_v<Enum>,
+                          Result<std::shared_ptr<Scalar>>>
+GenericToScalar(Enum value) {
+  return GenericToScalar(static_cast<std::underlying_type_t<Enum>>(value));
 }
 
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const SortKey& key) {
@@ -402,6 +424,18 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   ARROW_ASSIGN_OR_RAISE(auto raw_val,
                         GenericFromScalar<typename EnumTraits<T>::CType>(value));
   return ValidateEnumValue<T>(raw_val);
+}
+
+template <typename Enum>
+static inline enable_if_t<!has_enum_traits<Enum>::value && std::is_enum_v<Enum>,
+                          Result<Enum>>
+GenericFromScalar(const std::shared_ptr<Scalar>& value) {
+  ARROW_ASSIGN_OR_RAISE(auto raw_val,
+                        GenericFromScalar<std::underlying_type_t<Enum>>(value));
+  if (auto e = enum_cast<Enum>(raw_val)) {
+    return *e;
+  }
+  return Status::Invalid("Invalid value for ", "FIXME(bkietz)", ": ", raw_val);
 }
 
 template <typename>
@@ -701,6 +735,5 @@ Status CheckAllArrayOrScalar(const std::vector<Datum>& values);
 ARROW_EXPORT
 Result<std::vector<TypeHolder>> GetFunctionArgumentTypes(const std::vector<Datum>& args);
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

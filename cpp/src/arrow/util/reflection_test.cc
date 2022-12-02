@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <sstream>
 #include <string>
 
@@ -219,6 +220,65 @@ TEST(Reflection, EnumTraits) {
   static_assert(has_enum_traits<PersonType>::value, "");
   static_assert(std::is_same<EnumTraits<PersonType>::CType, int8_t>::value, "");
   static_assert(std::is_same<EnumTraits<PersonType>::Type, Int8Type>::value, "");
+}
+
+struct MagicNumbers {
+  static constexpr int kThree = 3;
+  static constexpr int kSeven = 7;
+};
+enum { kYo };
+
+TEST(Reflection, NameOf) {
+  // integer values are just stringified
+  static_assert(nameof<999>() == "999");
+  static_assert(nameof<0x10>() == "16");
+
+  // enum members are identifiable by name
+  static_assert(nameof<PersonType::CONTRACTOR>() == "CONTRACTOR");
+
+  // integers which don't correspond to a member can still be cast to the enum type,
+  // in which case their integer values will be stringified
+  static_assert(nameof<static_cast<PersonType>(23)>() == "23");
+
+  // leading `k` is trimmed
+  static_assert(nameof<kYo>() == "Yo");
+  // ... unless explicitly preserved
+  static_assert(nameof<kYo, true>() == "kYo");
+
+  // global values can be identified by name
+  // (just take their address or it'll stringify the integral value)
+  static_assert(nameof<MagicNumbers::kSeven>() == "7");
+  static_assert(nameof<&MagicNumbers::kThree>() == "Three");
+
+#ifndef _MSC_VER
+  // struct/class members are also identifiable by name
+  static_assert(nameof<&Person::age>() == "age");
+#endif
+}
+
+// explicit specialization of EnumMembers for enumerations
+// which are not one-byte wide
+template <>
+constexpr auto kEnumMembers<decltype(kYo)> = impl::array{{kYo}};
+
+TEST(Reflection, EnumWithoutTraits) {
+  static_assert(kEnumMembers<PersonType> == impl::array{{
+                                                PersonType::EMPLOYEE,
+                                                PersonType::CONTRACTOR,
+                                            }});
+
+  static_assert(enum_name(PersonType::EMPLOYEE) == "EMPLOYEE");
+  static_assert(enum_name(PersonType::CONTRACTOR) == "CONTRACTOR");
+
+  static_assert(enum_cast<PersonType>("EMPLOYEE") == PersonType::EMPLOYEE);
+  static_assert(enum_cast<PersonType>("CONTRACTOR") == PersonType::CONTRACTOR);
+  static_assert(enum_cast<PersonType>("          ") == std::nullopt);
+
+  static_assert(enum_cast<PersonType>(0) == PersonType::EMPLOYEE);
+  static_assert(enum_cast<PersonType>(1) == PersonType::CONTRACTOR);
+  static_assert(enum_cast<PersonType>(33) == std::nullopt);
+
+  static_assert(enum_name(kYo) == "Yo");
 }
 
 }  // namespace internal

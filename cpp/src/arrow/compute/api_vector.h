@@ -36,7 +36,7 @@ class ExecContext;
 class ARROW_EXPORT FilterOptions : public FunctionOptions {
  public:
   /// Configure the action taken when a slot of the selection mask is null
-  enum NullSelectionBehavior {
+  enum NullSelectionBehavior : uint8_t {
     /// The corresponding filtered value will be removed in the output.
     DROP,
     /// The corresponding filtered value will be null in the output.

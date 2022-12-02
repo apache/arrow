@@ -48,21 +48,6 @@ using compute::NullPlacement;
 using compute::RankOptions;
 
 template <>
-struct EnumTraits<FilterOptions::NullSelectionBehavior>
-    : BasicEnumTraits<FilterOptions::NullSelectionBehavior, FilterOptions::DROP,
-                      FilterOptions::EMIT_NULL> {
-  static std::string name() { return "FilterOptions::NullSelectionBehavior"; }
-  static std::string value_name(FilterOptions::NullSelectionBehavior value) {
-    switch (value) {
-      case FilterOptions::DROP:
-        return "DROP";
-      case FilterOptions::EMIT_NULL:
-        return "EMIT_NULL";
-    }
-    return "<INVALID>";
-  }
-};
-template <>
 struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
     : BasicEnumTraits<DictionaryEncodeOptions::NullEncodingBehavior,
                       DictionaryEncodeOptions::ENCODE, DictionaryEncodeOptions::MASK> {
