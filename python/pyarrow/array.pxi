@@ -2766,7 +2766,7 @@ cdef class StructArray(Array):
         result.validate()
         return result
 
-    def sort(self, order="ascending", fieldname=None, **options):
+    def sort(self, order="ascending", by=None, **options):
         """
         Sort the StructArray
 
@@ -2775,7 +2775,7 @@ cdef class StructArray(Array):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
-        fieldname : str or None, default None
+        by : str or None, default None
             If to sort the array by one of its fields
             or by the whole array.
         **kwargs : dict, optional

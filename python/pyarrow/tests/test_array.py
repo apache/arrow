@@ -3311,7 +3311,7 @@ def test_struct_array_sort():
         pa.array(["foo", "car", "bar", "foobar"])
     ], names=["a", "b"])
 
-    sorted_arr = arr.sort("descending", fieldname="a")
+    sorted_arr = arr.sort("descending", by="a")
     assert sorted_arr.to_pylist() == [
         {"a": 35, "b": "foobar"},
         {"a": 7, "b": "car"},
