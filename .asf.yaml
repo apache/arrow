@@ -22,6 +22,7 @@ github:
     - assignUser
     - raulcd
     - toddfarmer
+    - milesgranger
 
 notifications:
   commits:      commits@arrow.apache.org
