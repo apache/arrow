@@ -200,4 +200,4 @@ Result<Datum> Index(const Datum& value, const IndexOptions& options, ExecContext
   return CallFunction("index", {value}, &options, ctx);
 }
 
-}  // namespace arrow
+}  // namespace arrow::compute

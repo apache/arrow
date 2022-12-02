@@ -315,4 +315,4 @@ Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* c
   return SortIndices(values, SortOrder::Ascending, ctx);
 }
 
-}  // namespace arrow
+}  // namespace arrow::compute

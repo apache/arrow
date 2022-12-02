@@ -638,4 +638,4 @@ Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext*
 
 // ----------------------------------------------------------------------
 
-}  // namespace arrow
+}  // namespace arrow::compute
