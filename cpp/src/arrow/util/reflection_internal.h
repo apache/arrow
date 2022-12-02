@@ -277,7 +277,7 @@ constexpr auto kEnumMembers = [] {
   constexpr int kUnderlyingMax = std::numeric_limits<std::underlying_type_t<Enum>>::max();
   constexpr int kRange = kUnderlyingMax + 1 - kUnderlyingMin;
 
-  constexpr auto IsValid = [](auto i) {
+  constexpr auto IsValid = [&](auto i) {
     constexpr int int_value = kUnderlyingMin + static_cast<int>(i);
     return nameof<static_cast<Enum>(int_value)>() != nameof<int_value>();
   };
