@@ -19,9 +19,11 @@ package ipc_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -481,4 +483,109 @@ func encodeDecodeIpcStream(t *testing.T,
 		return nil, ipcReader, err
 	}
 	return json, ipcReader, nil
+}
+
+func Example_mapSlice() {
+	mem := memory.DefaultAllocator
+	dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	schema := arrow.NewSchema([]arrow.Field{{
+		Name: "map",
+		Type: dt,
+	}}, nil)
+
+	arr, _, err := array.FromJSON(mem, dt, strings.NewReader(`[
+		[{"key": "index1", "value": "main2"}],
+		[{"key": "index3", "value": "main4"}, {"key": "tag_int", "value": ""}],
+		[{"key":"index5","value":"main6"},{"key":"tag_int","value":""}],
+		[{"key":"index6","value":"main7"},{"key":"tag_int","value":""}],
+		[{"key":"index7","value":"main8"},{"key":"tag_int","value":""}],
+		[{"key":"index8","value":"main9"}]
+	]`))
+	if err != nil {
+		panic(err)
+	}
+	defer arr.Release()
+
+	rec := array.NewRecord(schema, []arrow.Array{arr}, int64(arr.Len()))
+	defer rec.Release()
+	rec2 := rec.NewSlice(1, 2)
+	defer rec2.Release()
+
+	var buf bytes.Buffer
+	w := ipc.NewWriter(&buf, ipc.WithSchema(rec.Schema()))
+	if err := w.Write(rec2); err != nil {
+		panic(err)
+	}
+	if err := w.Close(); err != nil {
+		panic(err)
+	}
+
+	r, err := ipc.NewReader(&buf)
+	if err != nil {
+		panic(err)
+	}
+	defer r.Release()
+
+	r.Next()
+	fmt.Println(r.Record())
+
+	// Output:
+	// record:
+	//   schema:
+	//   fields: 1
+	//     - map: type=map<utf8, utf8>
+	//   rows: 1
+	//   col[0][map]: [{["index3" "tag_int"] ["main4" ""]}]
+}
+
+func Example_listSlice() {
+	mem := memory.DefaultAllocator
+	dt := arrow.ListOf(arrow.BinaryTypes.String)
+	schema := arrow.NewSchema([]arrow.Field{{
+		Name: "list",
+		Type: dt,
+	}}, nil)
+
+	arr, _, err := array.FromJSON(mem, dt, strings.NewReader(`[
+		["index1"], 
+		["index3", "tag_int"], ["index5", "tag_int"],
+		["index6", "tag_int"], ["index7", "tag_int"], 
+		["index7", "tag_int"],
+		["index8"]
+	]`))
+	if err != nil {
+		panic(err)
+	}
+	defer arr.Release()
+
+	rec := array.NewRecord(schema, []arrow.Array{arr}, int64(arr.Len()))
+	defer rec.Release()
+	rec2 := rec.NewSlice(1, 2)
+	defer rec2.Release()
+
+	var buf bytes.Buffer
+	w := ipc.NewWriter(&buf, ipc.WithSchema(rec.Schema()))
+	if err := w.Write(rec2); err != nil {
+		panic(err)
+	}
+	if err := w.Close(); err != nil {
+		panic(err)
+	}
+
+	r, err := ipc.NewReader(&buf)
+	if err != nil {
+		panic(err)
+	}
+	defer r.Release()
+
+	r.Next()
+	fmt.Println(r.Record())
+
+	// Output:
+	// record:
+	//   schema:
+	//   fields: 1
+	//     - list: type=list<item: utf8, nullable>
+	//   rows: 1
+	//   col[0][list]: [["index3" "tag_int"]]
 }

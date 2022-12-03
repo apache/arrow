@@ -175,6 +175,20 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
   return ReadAsync(io_context(), position, nbytes);
 }
 
+std::vector<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadManyAsync(
+    const IOContext& ctx, const std::vector<ReadRange>& ranges) {
+  std::vector<Future<std::shared_ptr<Buffer>>> ret;
+  for (auto r : ranges) {
+    ret.push_back(this->ReadAsync(ctx, r.offset, r.length));
+  }
+  return ret;
+}
+
+std::vector<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadManyAsync(
+    const std::vector<ReadRange>& ranges) {
+  return ReadManyAsync(io_context(), ranges);
+}
+
 // Default WillNeed() implementation: no-op
 Status RandomAccessFile::WillNeed(const std::vector<ReadRange>& ranges) {
   return Status::OK();

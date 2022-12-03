@@ -745,6 +745,9 @@ func (b *unionBuilder) Child(idx int) Builder {
 	return b.children[idx]
 }
 
+// Len returns the current number of elements in the builder.
+func (b *unionBuilder) Len() int { return b.typesBuilder.Len() }
+
 func (b *unionBuilder) Mode() arrow.UnionMode { return b.mode }
 
 func (b *unionBuilder) reserve(elements int, resize func(int)) {

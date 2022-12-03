@@ -1,5 +1,22 @@
-name: Feature Request
-description: Request a new feature
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Enhancement Request
+description: Request an enhancement to the project
 labels: ["Type: enhancement"]
 assignees: []
 body:
@@ -10,14 +27,14 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: Describe the feature requested.
+      label: Describe the enhancement requested
     validations:
       required: true
   - type: dropdown
     id: component
     attributes:
-      label: Component
-      description: Which component does the feature most apply to?
+      label: Component(s)
+      multiple: true
       options:
         - Archery
         - Benchmarking
@@ -26,9 +43,7 @@ body:
         - C++
         - C++ - Gandiva
         - C++ - Plasma
-        - Compute IR
         - Continuous Integration
-        - Dart
         - Developer Tools
         - Documentation
         - FlightRPC
@@ -39,20 +54,14 @@ body:
         - Integration
         - Java
         - JavaScript
-        - Julia
         - MATLAB
         - Packaging
         - Parquet
         - Python
         - R
         - Ruby
-        - Rust
-        - Rust - Ballista
-        - Rust - DataFusion
-        - SQL
         - Swift
         - Website
-        - Wiki
         - Other
     validations:
       required: true

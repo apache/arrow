@@ -218,16 +218,16 @@ BatchesWithSchema MakeNestedBatches() {
 }
 
 BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                    int num_batches, int batch_size) {
+                                    int num_batches, int batch_size, int64_t alignment,
+                                    MemoryPool* memory_pool) {
   BatchesWithSchema out;
 
   random::RandomArrayGenerator rng(42);
   out.batches.resize(num_batches);
 
   for (int i = 0; i < num_batches; ++i) {
-    out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
-    // add a tag scalar to ensure the batches are unique
-    out.batches[i].values.emplace_back(i);
+    out.batches[i] =
+        ExecBatch(*rng.BatchOf(schema->fields(), batch_size, alignment, memory_pool));
   }
 
   out.schema = schema;

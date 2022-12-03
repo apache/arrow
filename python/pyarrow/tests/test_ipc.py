@@ -846,6 +846,7 @@ class StreamReaderServer(threading.Thread):
                     self._batches.append(batch)
         finally:
             connection.close()
+            self._sock.close()
 
     def get_result(self):
         return (self._schema, self._table if self._do_read_all

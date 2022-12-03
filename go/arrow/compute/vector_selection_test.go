@@ -312,7 +312,7 @@ func (tk *TakeKernelTest) TestDefaultOptions() {
 	tk.Require().NoError(err)
 	defer explicitDefaults.Release()
 
-	assertDatumsEqual(tk.T(), explicitDefaults, noOptions)
+	assertDatumsEqual(tk.T(), explicitDefaults, noOptions, nil, nil)
 }
 
 func (tk *TakeKernelTest) TestTakeBoolean() {
@@ -370,7 +370,7 @@ func (f *FilterKernelWithBoolean) TestDefaultOptions() {
 	f.Require().NoError(err)
 	defer defOpts.Release()
 
-	assertDatumsEqual(f.T(), defOpts, noOpts)
+	assertDatumsEqual(f.T(), defOpts, noOpts, nil, nil)
 }
 
 type FilterKernelExtension struct {

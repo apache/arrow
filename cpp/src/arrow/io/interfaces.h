@@ -305,6 +305,27 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// EXPERIMENTAL: Read data asynchronously, using the file's IOContext.
   Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
 
+  /// EXPERIMENTAL: Explicit multi-read.
+  /// \brief Request multiple reads at once
+  ///
+  /// The underlying filesystem may optimize these reads by coalescing small reads into
+  /// large reads or by breaking up large reads into multiple parallel smaller reads.  The
+  /// reads should be issued in parallel if it makes sense for the filesystem.
+  ///
+  /// One future will be returned for each input read range.  Multiple returned futures
+  /// may correspond to a single read.  Or, a single returned future may be a combined
+  /// result of several individual reads.
+  ///
+  /// \param[in] ranges The ranges to read
+  /// \return A future that will complete with the data from the requested range is
+  /// available
+  virtual std::vector<Future<std::shared_ptr<Buffer>>> ReadManyAsync(
+      const IOContext&, const std::vector<ReadRange>& ranges);
+
+  /// EXPERIMENTAL: Explicit multi-read, using the file's IOContext.
+  std::vector<Future<std::shared_ptr<Buffer>>> ReadManyAsync(
+      const std::vector<ReadRange>& ranges);
+
   /// EXPERIMENTAL: Inform that the given ranges may be read soon.
   ///
   /// Some implementations might arrange to prefetch some of the data.

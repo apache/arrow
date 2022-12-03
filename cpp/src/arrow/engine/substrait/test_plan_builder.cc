@@ -67,6 +67,7 @@ void CreateDirectReference(int32_t index, substrait::Expression* expr) {
 
 Result<std::unique_ptr<substrait::ProjectRel>> CreateProject(
     Id function_id, const std::vector<std::string>& arguments,
+    const std::unordered_map<std::string, std::vector<std::string>> options,
     const std::vector<std::shared_ptr<DataType>>& arg_types, const DataType& output_type,
     ExtensionSet* ext_set) {
   auto project = std::make_unique<substrait::ProjectRel>();
@@ -87,16 +88,16 @@ Result<std::unique_ptr<substrait::ProjectRel>> CreateProject(
     } else {
       // If it doesn't have a type then it's an enum
       const std::string& enum_value = arguments[arg_index];
-      auto enum_ = std::make_unique<substrait::FunctionArgument::Enum>();
-      if (enum_value.size() > 0) {
-        enum_->set_specified(enum_value);
-      } else {
-        auto unspecified = std::make_unique<google::protobuf::Empty>();
-        enum_->set_allocated_unspecified(unspecified.release());
-      }
-      argument->set_allocated_enum_(enum_.release());
+      argument->set_enum_(enum_value);
     }
     arg_index++;
+  }
+  for (const auto& opt : options) {
+    substrait::FunctionOption* option = call->add_options();
+    option->set_name(opt.first);
+    for (const std::string& pref : opt.second) {
+      option->add_preference(pref);
+    }
   }
 
   ARROW_ASSIGN_OR_RAISE(
@@ -150,9 +151,19 @@ Result<std::unique_ptr<substrait::AggregateRel>> CreateAgg(Id function_id,
   return agg;
 }
 
+std::unique_ptr<substrait::Version> CreateTestVersion() {
+  auto version = std::make_unique<substrait::Version>();
+  version->set_major_number(std::numeric_limits<uint32_t>::max());
+  version->set_minor_number(std::numeric_limits<uint32_t>::max());
+  version->set_patch_number(std::numeric_limits<uint32_t>::max());
+  version->set_producer("Arrow unit test");
+  return version;
+}
+
 Result<std::unique_ptr<substrait::Plan>> CreatePlan(std::unique_ptr<substrait::Rel> root,
                                                     ExtensionSet* ext_set) {
   auto plan = std::make_unique<substrait::Plan>();
+  plan->set_allocated_version(CreateTestVersion().release());
 
   substrait::PlanRel* plan_rel = plan->add_relations();
   auto rel_root = std::make_unique<substrait::RelRoot>();
@@ -166,6 +177,7 @@ Result<std::unique_ptr<substrait::Plan>> CreatePlan(std::unique_ptr<substrait::R
 Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,
     const std::vector<std::string>& arguments,
+    const std::unordered_map<std::string, std::vector<std::string>>& options,
     const std::vector<std::shared_ptr<DataType>>& data_types,
     const DataType& output_type) {
   ExtensionSet ext_set;
@@ -173,7 +185,7 @@ Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
                         CreateRead(*input_table, &ext_set));
   ARROW_ASSIGN_OR_RAISE(
       std::unique_ptr<substrait::ProjectRel> project,
-      CreateProject(function_id, arguments, data_types, output_type, &ext_set));
+      CreateProject(function_id, arguments, options, data_types, output_type, &ext_set));
 
   auto read_rel = std::make_unique<substrait::Rel>();
   read_rel->set_allocated_read(read.release());

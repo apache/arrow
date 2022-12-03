@@ -130,13 +130,15 @@ struct GenerateOptions {
 }  // namespace
 
 std::shared_ptr<Buffer> RandomArrayGenerator::NullBitmap(int64_t size,
-                                                         double null_probability) {
+                                                         double null_probability,
+                                                         int64_t alignment,
+                                                         MemoryPool* memory_pool) {
   // The bitmap generator does not care about the value distribution since it
   // only calls the GenerateBitmap method.
   using GenOpt = GenerateOptions<int, std::uniform_int_distribution<int>>;
 
   GenOpt null_gen(seed(), 0, 1, null_probability);
-  std::shared_ptr<Buffer> bitmap = *AllocateEmptyBitmap(size);
+  std::shared_ptr<Buffer> bitmap = *AllocateEmptyBitmap(size, alignment, memory_pool);
   null_gen.GenerateBitmap(bitmap->mutable_data(), size, nullptr);
 
   return bitmap;
@@ -144,7 +146,9 @@ std::shared_ptr<Buffer> RandomArrayGenerator::NullBitmap(int64_t size,
 
 std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size,
                                                      double true_probability,
-                                                     double null_probability) {
+                                                     double null_probability,
+                                                     int64_t alignment,
+                                                     MemoryPool* memory_pool) {
   // The boolean generator does not care about the value distribution since it
   // only calls the GenerateBitmap method.
   using GenOpt = GenerateOptions<int, std::uniform_int_distribution<int>>;
@@ -161,10 +165,10 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size,
   GenOpt null_gen(seed(), 0, 1, null_probability);
 
   int64_t null_count = 0;
-  buffers[0] = *AllocateEmptyBitmap(size);
+  buffers[0] = *AllocateEmptyBitmap(size, alignment, memory_pool);
   null_gen.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
 
-  buffers[1] = *AllocateEmptyBitmap(size);
+  buffers[1] = *AllocateEmptyBitmap(size, alignment, memory_pool);
   value_gen.GenerateBitmap(buffers[1]->mutable_data(), size, nullptr);
 
   auto array_data = ArrayData::Make(arrow::boolean(), size, buffers, null_count);
@@ -178,17 +182,17 @@ void GenerateFullDayMillisNoNan(uint8_t* buffer, size_t n) {
 }
 
 template <typename ArrowType, typename OptionType>
-static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t size,
-                                                                     OptionType options) {
+static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(
+    int64_t size, OptionType options, int64_t alignment, MemoryPool* memory_pool) {
   using CType = typename ArrowType::c_type;
   auto type = TypeTraits<ArrowType>::type_singleton();
   BufferVector buffers{2};
 
   int64_t null_count = 0;
-  buffers[0] = *AllocateEmptyBitmap(size);
+  buffers[0] = *AllocateEmptyBitmap(size, alignment, memory_pool);
   options.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
 
-  buffers[1] = *AllocateBuffer(sizeof(CType) * size);
+  buffers[1] = *AllocateBuffer(sizeof(CType) * size, alignment, memory_pool);
   options.GenerateData(buffers[1]->mutable_data(), size);
   if (std::is_same<ArrowType, Date64Type>::value) {
     GenerateFullDayMillisNoNan(buffers[1]->mutable_data(), size);
@@ -198,12 +202,14 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
   return std::make_shared<NumericArray<ArrowType>>(array_data);
 }
 
-#define PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, Distribution)                       \
-  std::shared_ptr<Array> RandomArrayGenerator::Name(int64_t size, CType min, CType max, \
-                                                    double probability) {               \
-    using OptionType = GenerateOptions<CType, Distribution>;                            \
-    OptionType options(seed(), min, max, probability);                                  \
-    return GenerateNumericArray<ArrowType, OptionType>(size, options);                  \
+#define PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, Distribution)                \
+  std::shared_ptr<Array> RandomArrayGenerator::Name(                             \
+      int64_t size, CType min, CType max, double probability, int64_t alignment, \
+      MemoryPool* memory_pool) {                                                 \
+    using OptionType = GenerateOptions<CType, Distribution>;                     \
+    OptionType options(seed(), min, max, probability);                           \
+    return GenerateNumericArray<ArrowType, OptionType>(size, options, alignment, \
+                                                       memory_pool);             \
   }
 
 #define PRIMITIVE_RAND_INTEGER_IMPL(Name, CType, ArrowType) \
@@ -223,29 +229,37 @@ PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Float16, int16_t, HalfFloatType)
 
 std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
-                                                    int64_t max,
-                                                    double null_probability) {
+                                                    int64_t max, double null_probability,
+                                                    int64_t alignment,
+                                                    MemoryPool* memory_pool) {
   using OptionType = GenerateOptions<int64_t, std::uniform_int_distribution<int64_t>>;
   OptionType options(seed(), min, max, null_probability);
-  return GenerateNumericArray<Date64Type, OptionType>(size, options);
+  return GenerateNumericArray<Date64Type, OptionType>(size, options, alignment,
+                                                      memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::Float32(int64_t size, float min, float max,
                                                      double null_probability,
-                                                     double nan_probability) {
+                                                     double nan_probability,
+                                                     int64_t alignment,
+                                                     MemoryPool* memory_pool) {
   using OptionType =
       GenerateOptions<float, ::arrow::random::uniform_real_distribution<float>>;
   OptionType options(seed(), min, max, null_probability, nan_probability);
-  return GenerateNumericArray<FloatType, OptionType>(size, options);
+  return GenerateNumericArray<FloatType, OptionType>(size, options, alignment,
+                                                     memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::Float64(int64_t size, double min, double max,
                                                      double null_probability,
-                                                     double nan_probability) {
+                                                     double nan_probability,
+                                                     int64_t alignment,
+                                                     MemoryPool* memory_pool) {
   using OptionType =
       GenerateOptions<double, ::arrow::random::uniform_real_distribution<double>>;
   OptionType options(seed(), min, max, null_probability, nan_probability);
-  return GenerateNumericArray<DoubleType, OptionType>(size, options);
+  return GenerateNumericArray<DoubleType, OptionType>(size, options, alignment,
+                                                      memory_pool);
 }
 
 #undef PRIMITIVE_RAND_INTEGER_IMPL
@@ -269,7 +283,8 @@ struct DecimalGenerator {
     return static_cast<uint64_t>(std::ceil(std::pow(10.0, digits))) - 1;
   }
 
-  std::shared_ptr<Array> MakeRandomArray(int64_t size, double null_probability) {
+  std::shared_ptr<Array> MakeRandomArray(int64_t size, double null_probability,
+                                         int64_t alignment, MemoryPool* memory_pool) {
     // 10**19 fits in a 64-bit unsigned integer
     static constexpr int32_t kMaxDigitsInInteger = 19;
     static constexpr int kNumIntegers = DecimalType::kByteWidth / 8;
@@ -283,22 +298,23 @@ struct DecimalGenerator {
     // boolean sign (including null-ness), and uint64 "digits" in big endian order.
     const auto& decimal_type = checked_cast<const DecimalType&>(*type_);
 
-    const auto sign_array = checked_pointer_cast<BooleanArray>(
-        rng_->Boolean(size, /*true_probability=*/0.5, null_probability));
+    const auto sign_array = checked_pointer_cast<BooleanArray>(rng_->Boolean(
+        size, /*true_probability=*/0.5, null_probability, alignment, memory_pool));
     std::array<std::shared_ptr<UInt64Array>, kNumIntegers> digit_arrays;
 
     auto remaining_digits = decimal_type.precision();
     for (int i = kNumIntegers - 1; i >= 0; --i) {
       const auto digits = std::min(kMaxDigitsInInteger, remaining_digits);
       digit_arrays[i] = checked_pointer_cast<UInt64Array>(
-          rng_->UInt64(size, 0, MaxDecimalInteger(digits)));
+          rng_->UInt64(size, 0, MaxDecimalInteger(digits), /*null_probability=*/0,
+                       alignment, memory_pool));
       DCHECK_EQ(digit_arrays[i]->null_count(), 0);
       remaining_digits -= digits;
     }
 
     // Second compute decimal values from the individual components,
     // building up a decimal array.
-    DecimalBuilderType builder(type_);
+    DecimalBuilderType builder(type_, memory_pool, alignment);
     ABORT_NOT_OK(builder.Reserve(size));
 
     const DecimalValue kDigitsMultiplier =
@@ -330,22 +346,28 @@ struct DecimalGenerator {
 
 std::shared_ptr<Array> RandomArrayGenerator::Decimal128(std::shared_ptr<DataType> type,
                                                         int64_t size,
-                                                        double null_probability) {
+                                                        double null_probability,
+                                                        int64_t alignment,
+                                                        MemoryPool* memory_pool) {
   DecimalGenerator<Decimal128Type> gen{type, this};
-  return gen.MakeRandomArray(size, null_probability);
+  return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::Decimal256(std::shared_ptr<DataType> type,
                                                         int64_t size,
-                                                        double null_probability) {
+                                                        double null_probability,
+                                                        int64_t alignment,
+                                                        MemoryPool* memory_pool) {
   DecimalGenerator<Decimal256Type> gen{type, this};
-  return gen.MakeRandomArray(size, null_probability);
+  return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
 template <typename TypeClass>
 static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int64_t size,
                                                   int32_t min_length, int32_t max_length,
-                                                  double null_probability) {
+                                                  double null_probability,
+                                                  int64_t alignment,
+                                                  MemoryPool* memory_pool) {
   using offset_type = typename TypeClass::offset_type;
   using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
@@ -355,8 +377,8 @@ static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int
     ABORT_NOT_OK(Status::Invalid("null_probability must be between 0 and 1"));
   }
 
-  auto lengths = std::dynamic_pointer_cast<OffsetArrayType>(
-      gen->Numeric<OffsetArrowType>(size, min_length, max_length, null_probability));
+  auto lengths = std::dynamic_pointer_cast<OffsetArrayType>(gen->Numeric<OffsetArrowType>(
+      size, min_length, max_length, null_probability, alignment, memory_pool));
 
   // Visual Studio does not implement uniform_int_distribution for char types.
   using GenOpt = GenerateOptions<uint8_t, std::uniform_int_distribution<uint16_t>>;
@@ -364,7 +386,7 @@ static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int
                  /*null_probability=*/0);
 
   std::vector<uint8_t> str_buffer(max_length);
-  BuilderType builder;
+  BuilderType builder(memory_pool, alignment);
 
   for (int64_t i = 0; i < size; ++i) {
     if (lengths->IsValid(i)) {
@@ -382,34 +404,34 @@ static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int
 
 std::shared_ptr<Array> RandomArrayGenerator::String(int64_t size, int32_t min_length,
                                                     int32_t max_length,
-                                                    double null_probability) {
+                                                    double null_probability,
+                                                    int64_t alignment,
+                                                    MemoryPool* memory_pool) {
   return GenerateBinaryArray<StringType>(this, size, min_length, max_length,
-                                         null_probability);
+                                         null_probability, alignment, memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::LargeString(int64_t size, int32_t min_length,
                                                          int32_t max_length,
-                                                         double null_probability) {
+                                                         double null_probability,
+                                                         int64_t alignment,
+                                                         MemoryPool* memory_pool) {
   return GenerateBinaryArray<LargeStringType>(this, size, min_length, max_length,
-                                              null_probability);
+                                              null_probability, alignment, memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::BinaryWithRepeats(int64_t size,
-                                                               int64_t unique,
-                                                               int32_t min_length,
-                                                               int32_t max_length,
-                                                               double null_probability) {
-  auto strings =
-      StringWithRepeats(size, unique, min_length, max_length, null_probability);
+std::shared_ptr<Array> RandomArrayGenerator::BinaryWithRepeats(
+    int64_t size, int64_t unique, int32_t min_length, int32_t max_length,
+    double null_probability, int64_t alignment, MemoryPool* memory_pool) {
+  auto strings = StringWithRepeats(size, unique, min_length, max_length, null_probability,
+                                   alignment, memory_pool);
   std::shared_ptr<Array> out;
   return *strings->View(binary());
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(int64_t size,
-                                                               int64_t unique,
-                                                               int32_t min_length,
-                                                               int32_t max_length,
-                                                               double null_probability) {
+std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(
+    int64_t size, int64_t unique, int32_t min_length, int32_t max_length,
+    double null_probability, int64_t alignment, MemoryPool* memory_pool) {
   ARROW_CHECK_LE(unique, size);
 
   // Generate a random string dictionary without any nulls
@@ -438,7 +460,9 @@ std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(int64_t size,
 
 std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
                                                              int32_t byte_width,
-                                                             double null_probability) {
+                                                             double null_probability,
+                                                             int64_t alignment,
+                                                             MemoryPool* memory_pool) {
   if (null_probability < 0 || null_probability > 1) {
     ABORT_NOT_OK(Status::Invalid("null_probability must be between 0 and 1"));
   }
@@ -449,8 +473,8 @@ std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
                  null_probability);
 
   int64_t null_count = 0;
-  auto null_bitmap = *AllocateEmptyBitmap(size);
-  auto data_buffer = *AllocateBuffer(size * byte_width);
+  auto null_bitmap = *AllocateEmptyBitmap(size, alignment, memory_pool);
+  auto data_buffer = *AllocateBuffer(size * byte_width, alignment, memory_pool);
   options.GenerateBitmap(null_bitmap->mutable_data(), size, &null_count);
   options.GenerateData(data_buffer->mutable_data(), size * byte_width);
 
@@ -464,7 +488,8 @@ template <typename OffsetArrayType>
 std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
                                        typename OffsetArrayType::value_type first_offset,
                                        typename OffsetArrayType::value_type last_offset,
-                                       double null_probability, bool force_empty_nulls) {
+                                       double null_probability, bool force_empty_nulls,
+                                       int64_t alignment, MemoryPool* memory_pool) {
   using GenOpt = GenerateOptions<
       typename OffsetArrayType::value_type,
       std::uniform_int_distribution<typename OffsetArrayType::value_type>>;
@@ -474,7 +499,7 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
 
   int64_t null_count = 0;
 
-  buffers[0] = *AllocateEmptyBitmap(size);
+  buffers[0] = *AllocateEmptyBitmap(size, alignment, memory_pool);
   uint8_t* null_bitmap = buffers[0]->mutable_data();
   options.GenerateBitmap(null_bitmap, size, &null_count);
   // Make sure the first and last entry are non-null
@@ -485,7 +510,8 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
     }
   }
 
-  buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
+  buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size,
+                               alignment, memory_pool);
   auto data =
       reinterpret_cast<typename OffsetArrayType::value_type*>(buffers[1]->mutable_data());
   options.GenerateTypedData(data, size);
@@ -516,22 +542,22 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
 
 template <typename OffsetArrayType>
 std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
-                                               bool force_empty_nulls) {
-  DCHECK(lengths->length() == 0 || !lengths->IsNull(0));
-  DCHECK(lengths->length() == 0 || !lengths->IsNull(lengths->length() - 1));
+                                               bool force_empty_nulls, int64_t alignment,
+                                               MemoryPool* memory_pool) {
   // Need N + 1 offsets for N items
   int64_t size = lengths->length() + 1;
   BufferVector buffers{2};
 
   int64_t null_count = 0;
 
-  buffers[0] = *AllocateEmptyBitmap(size);
+  buffers[0] = *AllocateEmptyBitmap(size, alignment, memory_pool);
   uint8_t* null_bitmap = buffers[0]->mutable_data();
   // Make sure the first and last entry are non-null
   arrow::bit_util::SetBit(null_bitmap, 0);
   arrow::bit_util::SetBit(null_bitmap, size - 1);
 
-  buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
+  buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size,
+                               alignment, memory_pool);
   auto data =
       reinterpret_cast<typename OffsetArrayType::value_type*>(buffers[1]->mutable_data());
   data[0] = 0;
@@ -541,6 +567,9 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
       arrow::bit_util::SetBit(null_bitmap, index);
       data[index] = data[index - 1] + *length;
       DCHECK_GE(*length, 0);
+    } else if (index == size - 1) {
+      // Last list offset is non-null (see above)
+      data[index] = data[index - 1];
     } else {
       data[index] = data[index - 1];
       null_count++;
@@ -549,8 +578,8 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
   }
 
   if (force_empty_nulls) {
-    arrow::internal::BitmapReader reader(null_bitmap, 0, size);
-    for (int64_t i = 0; i < size; ++i) {
+    arrow::internal::BitmapReader reader(null_bitmap, 0, size - 1);
+    for (int64_t i = 0; i < size - 1; ++i) {
       if (reader.IsNotSet()) {
         // Ensure a null entry corresponds to a 0-sized list extent
         // (note this can be neither the first nor the last list entry, see above)
@@ -566,68 +595,75 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
 }
 }  // namespace
 
-std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first_offset,
-                                                     int32_t last_offset,
-                                                     double null_probability,
-                                                     bool force_empty_nulls) {
+std::shared_ptr<Array> RandomArrayGenerator::Offsets(
+    int64_t size, int32_t first_offset, int32_t last_offset, double null_probability,
+    bool force_empty_nulls, int64_t alignment, MemoryPool* memory_pool) {
   return GenerateOffsets<NumericArray<Int32Type>>(seed(), size, first_offset, last_offset,
-                                                  null_probability, force_empty_nulls);
+                                                  null_probability, force_empty_nulls,
+                                                  alignment, memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::LargeOffsets(int64_t size,
-                                                          int64_t first_offset,
-                                                          int64_t last_offset,
-                                                          double null_probability,
-                                                          bool force_empty_nulls) {
+std::shared_ptr<Array> RandomArrayGenerator::LargeOffsets(
+    int64_t size, int64_t first_offset, int64_t last_offset, double null_probability,
+    bool force_empty_nulls, int64_t alignment, MemoryPool* memory_pool) {
   return GenerateOffsets<NumericArray<Int64Type>>(seed(), size, first_offset, last_offset,
-                                                  null_probability, force_empty_nulls);
+                                                  null_probability, force_empty_nulls,
+                                                  alignment, memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::List(const Array& values, int64_t size,
                                                   double null_probability,
-                                                  bool force_empty_nulls) {
+                                                  bool force_empty_nulls,
+                                                  int64_t alignment,
+                                                  MemoryPool* memory_pool) {
   auto offsets = Offsets(size + 1, static_cast<int32_t>(values.offset()),
                          static_cast<int32_t>(values.offset() + values.length()),
-                         null_probability, force_empty_nulls);
+                         null_probability, force_empty_nulls, alignment, memory_pool);
   return *::arrow::ListArray::FromArrays(*offsets, values);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& keys,
                                                  const std::shared_ptr<Array>& items,
                                                  int64_t size, double null_probability,
-                                                 bool force_empty_nulls) {
+                                                 bool force_empty_nulls,
+                                                 int64_t alignment,
+                                                 MemoryPool* memory_pool) {
   DCHECK_EQ(keys->length(), items->length());
   auto offsets = Offsets(size + 1, static_cast<int32_t>(keys->offset()),
                          static_cast<int32_t>(keys->offset() + keys->length()),
-                         null_probability, force_empty_nulls);
+                         null_probability, force_empty_nulls, alignment, memory_pool);
   return *::arrow::MapArray::FromArrays(offsets, keys, items);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::SparseUnion(const ArrayVector& fields,
-                                                         int64_t size) {
+                                                         int64_t size, int64_t alignment,
+                                                         MemoryPool* memory_pool) {
   DCHECK_GT(fields.size(), 0);
   // Trivial type codes map
   std::vector<UnionArray::type_code_t> type_codes(fields.size());
   std::iota(type_codes.begin(), type_codes.end(), 0);
 
   // Generate array of type ids
-  auto type_ids = Int8(size, 0, static_cast<int8_t>(fields.size() - 1));
+  auto type_ids = Int8(size, 0, static_cast<int8_t>(fields.size() - 1),
+                       /*null_probability=*/0, alignment, memory_pool);
   return *SparseUnionArray::Make(*type_ids, fields, type_codes);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::DenseUnion(const ArrayVector& fields,
-                                                        int64_t size) {
+                                                        int64_t size, int64_t alignment,
+                                                        MemoryPool* memory_pool) {
   DCHECK_GT(fields.size(), 0);
   // Trivial type codes map
   std::vector<UnionArray::type_code_t> type_codes(fields.size());
   std::iota(type_codes.begin(), type_codes.end(), 0);
 
   // Generate array of type ids
-  auto type_ids = Int8(size, 0, static_cast<int8_t>(fields.size() - 1));
+  auto type_ids = Int8(size, 0, static_cast<int8_t>(fields.size() - 1),
+                       /*null_probability=*/0, alignment, memory_pool);
 
   // Generate array of offsets
   const auto& concrete_ids = checked_cast<const Int8Array&>(*type_ids);
-  Int32Builder offsets_builder;
+  Int32Builder offsets_builder(memory_pool, alignment);
   ABORT_NOT_OK(offsets_builder.Reserve(size));
   std::vector<int32_t> last_offsets(fields.size(), 0);
   for (int64_t i = 0; i < size; ++i) {
@@ -663,13 +699,17 @@ enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metad
 
 std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> type,
                                                      int64_t size,
-                                                     double null_probability) {
+                                                     double null_probability,
+                                                     int64_t alignment,
+                                                     MemoryPool* memory_pool) {
   auto metadata = key_value_metadata({"null_probability"}, {ToChars(null_probability)});
   auto field = ::arrow::field("", std::move(type), std::move(metadata));
-  return ArrayOf(*field, size);
+  return ArrayOf(*field, size, alignment, memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t length) {
+std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t length,
+                                                     int64_t alignment,
+                                                     MemoryPool* memory_pool) {
 #define VALIDATE_RANGE(PARAM, MIN, MAX)                                          \
   if (PARAM < MIN || PARAM > MAX) {                                              \
     ABORT_NOT_OK(Status::Invalid(field.ToString(), ": ", ARROW_STRINGIFY(PARAM), \
@@ -688,7 +728,8 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     const BASE_TYPE::c_type max_value = GetMetadata<BASE_TYPE::c_type>(                \
         field.metadata().get(), "max", std::numeric_limits<BASE_TYPE::c_type>::max()); \
     VALIDATE_MIN_MAX(min_value, max_value);                                            \
-    return *Numeric<BASE_TYPE>(length, min_value, max_value, null_probability)         \
+    return *Numeric<BASE_TYPE>(length, min_value, max_value, null_probability,         \
+                               alignment, memory_pool)                                 \
                 ->View(field.type());                                                  \
   }
 #define GENERATE_INTEGRAL_CASE(ARROW_TYPE) \
@@ -704,7 +745,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     VALIDATE_MIN_MAX(min_value, max_value);                                             \
     VALIDATE_RANGE(nan_probability, 0.0, 1.0);                                          \
     return GENERATOR_FUNC(length, min_value, max_value, null_probability,               \
-                          nan_probability);                                             \
+                          nan_probability, alignment, memory_pool);                     \
   }
 
   // Don't use compute::Sum since that may not get built
@@ -727,8 +768,9 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     const auto values =                                                              \
         ArrayOf(*internal::checked_pointer_cast<ARRAY_TYPE::TypeClass>(field.type()) \
                      ->value_field(),                                                \
-                values_length);                                                      \
-    const auto offsets = OffsetsFromLengthsArray(lengths.get(), force_empty_nulls);  \
+                values_length, alignment, memory_pool);                              \
+    const auto offsets = OffsetsFromLengthsArray(lengths.get(), force_empty_nulls,   \
+                                                 alignment, memory_pool);            \
     return *ARRAY_TYPE::FromArrays(*offsets, *values);                               \
   }
 
@@ -745,7 +787,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     case Type::type::BOOL: {
       const double true_probability =
           GetMetadata<double>(field.metadata().get(), "true_probability", 0.5);
-      return Boolean(length, true_probability, null_probability);
+      return Boolean(length, true_probability, null_probability, alignment, memory_pool);
     }
 
       GENERATE_INTEGRAL_CASE(UInt8Type);
@@ -770,23 +812,26 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
           GetMetadata<int32_t>(field.metadata().get(), "unique", -1);
       if (unique_values > 0) {
         return *StringWithRepeats(length, unique_values, min_length, max_length,
-                                  null_probability)
+                                  null_probability, alignment, memory_pool)
                     ->View(field.type());
       }
-      return *String(length, min_length, max_length, null_probability)
+      return *String(length, min_length, max_length, null_probability, alignment,
+                     memory_pool)
                   ->View(field.type());
     }
 
     case Type::type::DECIMAL128:
-      return Decimal128(field.type(), length, null_probability);
+      return Decimal128(field.type(), length, null_probability, alignment, memory_pool);
 
     case Type::type::DECIMAL256:
-      return Decimal256(field.type(), length, null_probability);
+      return Decimal256(field.type(), length, null_probability, alignment, memory_pool);
 
     case Type::type::FIXED_SIZE_BINARY: {
       auto byte_width =
           internal::checked_pointer_cast<FixedSizeBinaryType>(field.type())->byte_width();
-      return *FixedSizeBinary(length, byte_width, null_probability)->View(field.type());
+      return *FixedSizeBinary(length, byte_width, null_probability, alignment,
+                              memory_pool)
+                  ->View(field.type());
     }
 
       GENERATE_INTEGRAL_CASE_VIEW(Int32Type, Date32Type);
@@ -804,7 +849,8 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       const c_type max_value =
           GetMetadata<c_type>(field.metadata().get(), "max", kDefaultMax);
 
-      return *Numeric<Date64Type>(length, min_value, max_value, null_probability)
+      return *Numeric<Date64Type>(length, min_value, max_value, null_probability,
+                                  alignment, memory_pool)
                   ->View(field.type());
     }
 
@@ -816,7 +862,8 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       const c_type max_value =
           (unit == TimeUnit::SECOND) ? (60 * 60 * 24 - 1) : (1000 * 60 * 60 * 24 - 1);
 
-      return *Numeric<Int32Type>(length, min_value, max_value, null_probability)
+      return *Numeric<Int32Type>(length, min_value, max_value, null_probability,
+                                 alignment, memory_pool)
                   ->View(field.type());
     }
 
@@ -829,7 +876,8 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
                                    ? (1000000LL * 60 * 60 * 24 - 1)
                                    : (1000000000LL * 60 * 60 * 24 - 1);
 
-      return *Numeric<Int64Type>(length, min_value, max_value, null_probability)
+      return *Numeric<Int64Type>(length, min_value, max_value, null_probability,
+                                 alignment, memory_pool)
                   ->View(field.type());
     }
 
@@ -837,7 +885,8 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       // type means it's not a (useful) composition of other generators
       GENERATE_INTEGRAL_CASE_VIEW(Int64Type, DayTimeIntervalType);
     case Type::type::INTERVAL_MONTH_DAY_NANO: {
-      return *FixedSizeBinary(length, /*byte_width=*/16, null_probability)
+      return *FixedSizeBinary(length, /*byte_width=*/16, null_probability, alignment,
+                              memory_pool)
                   ->View(month_day_nano_interval());
     }
 
@@ -848,11 +897,12 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       std::vector<std::string> field_names;
       for (int i = 0; i < field.type()->num_fields(); i++) {
         const auto& child_field = field.type()->field(i);
-        child_arrays[i] = ArrayOf(*child_field, length);
+        child_arrays[i] = ArrayOf(*child_field, length, alignment, memory_pool);
         field_names.push_back(child_field->name());
       }
-      return *StructArray::Make(child_arrays, field_names,
-                                NullBitmap(length, null_probability));
+      return *StructArray::Make(
+          child_arrays, field_names,
+          NullBitmap(length, null_probability, alignment, memory_pool));
     }
 
     case Type::type::SPARSE_UNION:
@@ -860,11 +910,11 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       ArrayVector child_arrays(field.type()->num_fields());
       for (int i = 0; i < field.type()->num_fields(); i++) {
         const auto& child_field = field.type()->field(i);
-        child_arrays[i] = ArrayOf(*child_field, length);
+        child_arrays[i] = ArrayOf(*child_field, length, alignment, memory_pool);
       }
       auto array = field.type()->id() == Type::type::SPARSE_UNION
-                       ? SparseUnion(child_arrays, length)
-                       : DenseUnion(child_arrays, length);
+                       ? SparseUnion(child_arrays, length, alignment, memory_pool)
+                       : DenseUnion(child_arrays, length, alignment, memory_pool);
       return *array->View(field.type());
     }
 
@@ -875,7 +925,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       // TODO: no way to control generation of dictionary
       auto values =
           ArrayOf(*arrow::field("temporary", dict_type->value_type(), /*nullable=*/false),
-                  values_length);
+                  values_length, alignment, memory_pool);
       auto merged = field.metadata() ? field.metadata() : key_value_metadata({}, {});
       if (merged->Contains("min"))
         ABORT_NOT_OK(Status::Invalid(field.ToString(), ": cannot specify min"));
@@ -885,7 +935,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
           *key_value_metadata({{"min", "0"}, {"max", ToChars(values_length - 1)}}));
       auto indices = ArrayOf(
           *arrow::field("temporary", dict_type->index_type(), field.nullable(), merged),
-          length);
+          length, alignment, memory_pool);
       return *DictionaryArray::FromArrays(field.type(), indices, values);
     }
 
@@ -895,11 +945,12 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       const auto force_empty_nulls =
           GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);
       auto map_type = internal::checked_pointer_cast<MapType>(field.type());
-      auto keys = ArrayOf(*map_type->key_field(), values_length);
-      auto items = ArrayOf(*map_type->item_field(), values_length);
+      auto keys = ArrayOf(*map_type->key_field(), values_length, alignment, memory_pool);
+      auto items =
+          ArrayOf(*map_type->item_field(), values_length, alignment, memory_pool);
       // need N + 1 offsets to have N values
-      auto offsets =
-          Offsets(length + 1, 0, values_length, null_probability, force_empty_nulls);
+      auto offsets = Offsets(length + 1, 0, values_length, null_probability,
+                             force_empty_nulls, alignment, memory_pool);
       return *MapArray::FromArrays(map_type, offsets, keys, items);
     }
 
@@ -911,8 +962,9 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     case Type::type::FIXED_SIZE_LIST: {
       auto list_type = internal::checked_pointer_cast<FixedSizeListType>(field.type());
       const int64_t values_length = list_type->list_size() * length;
-      auto values = ArrayOf(*list_type->value_field(), values_length);
-      auto null_bitmap = NullBitmap(length, null_probability);
+      auto values =
+          ArrayOf(*list_type->value_field(), values_length, alignment, memory_pool);
+      auto null_bitmap = NullBitmap(length, null_probability, alignment, memory_pool);
       return std::make_shared<FixedSizeListArray>(list_type, length, values, null_bitmap);
     }
 
@@ -931,7 +983,8 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
             Status::NotImplemented("Generating random array with repeated values for "
                                    "large string/large binary types"));
       }
-      return *LargeString(length, min_length, max_length, null_probability)
+      return *LargeString(length, min_length, max_length, null_probability, alignment,
+                          memory_pool)
                   ->View(field.type());
     }
 
@@ -953,23 +1006,27 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
 }
 
 std::shared_ptr<arrow::RecordBatch> RandomArrayGenerator::BatchOf(
-    const FieldVector& fields, int64_t length) {
+    const FieldVector& fields, int64_t length, int64_t alignment,
+    MemoryPool* memory_pool) {
   std::vector<std::shared_ptr<Array>> arrays(fields.size());
   for (size_t i = 0; i < fields.size(); i++) {
     const auto& field = fields[i];
-    arrays[i] = ArrayOf(*field, length);
+    arrays[i] = ArrayOf(*field, length, alignment, memory_pool);
   }
   return RecordBatch::Make(schema(fields), length, std::move(arrays));
 }
 
 std::shared_ptr<arrow::Array> GenerateArray(const Field& field, int64_t length,
-                                            SeedType seed) {
-  return RandomArrayGenerator(seed).ArrayOf(field, length);
+                                            SeedType seed, int64_t alignment,
+                                            MemoryPool* memory_pool) {
+  return RandomArrayGenerator(seed).ArrayOf(field, length, alignment, memory_pool);
 }
 
 std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields,
-                                                  int64_t length, SeedType seed) {
-  return RandomArrayGenerator(seed).BatchOf(fields, length);
+                                                  int64_t length, SeedType seed,
+                                                  int64_t alignment,
+                                                  MemoryPool* memory_pool) {
+  return RandomArrayGenerator(seed).BatchOf(fields, length, alignment, memory_pool);
 }
 }  // namespace random
 
