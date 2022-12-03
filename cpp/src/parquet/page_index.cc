@@ -55,14 +55,12 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
     auto plain_decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, &descr);
     T value;
     for (size_t i = 0; i < column_index_.null_pages.size(); ++i) {
-      if (column_index_.null_pages[i]) {
-        min_values_.push_back(std::nullopt);
-        max_values_.push_back(std::nullopt);
-      } else {
+      if (!column_index_.null_pages[i]) {
+        non_null_page_indices_.emplace_back(static_cast<int32_t>(i));
         Decode<DType>(plain_decoder, column_index_.min_values[i], &value);
-        min_values_.push_back(value);
+        min_values_.emplace_back(value);
         Decode<DType>(plain_decoder, column_index_.max_values[i], &value);
-        max_values_.push_back(value);
+        max_values_.emplace_back(value);
       }
     }
   }
@@ -89,16 +87,22 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
     return column_index_.null_counts;
   }
 
-  const std::vector<std::optional<T>>& min_values() const override { return min_values_; }
+  const std::vector<T>& min_values() const override { return min_values_; }
 
-  const std::vector<std::optional<T>>& max_values() const override { return max_values_; }
+  const std::vector<T>& max_values() const override { return max_values_; }
+
+  const std::vector<int32_t> GetNonNullPageIndices() const override {
+    return non_null_page_indices_;
+  }
 
  private:
   /// Wrapped thrift column index.
   const format::ColumnIndex column_index_;
   /// Decoded typed min/max values. Null pages are set to std::nullopt.
-  std::vector<std::optional<T>> min_values_;
-  std::vector<std::optional<T>> max_values_;
+  std::vector<T> min_values_;
+  std::vector<T> max_values_;
+  /// A list of page indices for not-null pages.
+  std::vector<int32_t> non_null_page_indices_;
 };
 
 class OffsetIndexImpl : public OffsetIndex {

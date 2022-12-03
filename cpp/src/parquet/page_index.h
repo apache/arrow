@@ -17,13 +17,11 @@
 
 #pragma once
 
-#include <optional>
-#include <set>
-#include <vector>
-
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+
+#include <vector>
 
 namespace parquet {
 
@@ -72,11 +70,18 @@ class PARQUET_EXPORT TypedColumnIndex : public ColumnIndex {
  public:
   using T = typename DType::c_type;
 
-  /// \brief Returns a list of lower bound for the values of every page.
-  virtual const std::vector<std::optional<T>>& min_values() const = 0;
+  /// \brief Returns a list of lower bound for the values of every non-null page.
+  /// Excluding non-null pages helps binary search if the values are ordered.
+  virtual const std::vector<T>& min_values() const = 0;
 
-  /// \brief Returns a list of upper bound for the values of every page.
-  virtual const std::vector<std::optional<T>>& max_values() const = 0;
+  /// \brief Returns a list of upper bound for the values of every non-null page.
+  /// Excluding non-null pages helps binary search if the values are ordered.
+  virtual const std::vector<T>& max_values() const = 0;
+
+  /// \brief Returns a list of page indices for not-null pages. It is helpful to
+  /// understand the original page id in the values returned from min_values()
+  /// and max_values() above.
+  virtual const std::vector<int32_t> GetNonNullPageIndices() const = 0;
 };
 
 using BoolColumnIndex = TypedColumnIndex<BooleanType>;
