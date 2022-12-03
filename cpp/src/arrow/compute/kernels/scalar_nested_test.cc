@@ -289,6 +289,13 @@ TEST(TestScalarNested, ListSliceBadParameters) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       NotImplemented, ::testing::HasSubstr("Slicing to end not yet implemented"),
       CallFunction("list_slice", {input}, &args));
+  // Catch step must be >= 1
+  args.start = 0;
+  args.stop = 2;
+  args.step = 0;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("`step` must be >= 1, got: 0"),
+                                  CallFunction("list_slice", {input}, &args));
 }
 
 TEST(TestScalarNested, StructField) {

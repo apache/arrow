@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/string.h"
 
@@ -97,15 +98,6 @@ std::string ToString(const std::optional<T>& o) {
   return o.has_value() ? ToChars(*o) : "(nullopt)";
 }
 
-int64_t MaxSliceLength(const int64_t start, const int64_t stop, const int64_t step) {
-  const auto startf = static_cast<float>(start);
-  const auto stopf = static_cast<float>(stop);
-  const auto stepf = static_cast<float>(step);
-
-  auto length = std::ceil((stopf - startf) / stepf);
-  return static_cast<int64_t>(length);
-}
-
 template <typename Type>
 struct ListSlice {
   using offset_type = typename Type::offset_type;
@@ -140,7 +132,7 @@ struct ListSlice {
 
     // construct array values
     if (return_fixed_size_list) {
-      const auto length = MaxSliceLength(opts.start, opts.stop.value(), opts.step);
+      const auto length = bit_util::CeilDiv(opts.stop.value() - opts.start, opts.step);
       RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(),
                                 fixed_size_list(value_type, static_cast<int32_t>(length)),
                                 &builder));
@@ -253,7 +245,10 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
       return Status::NotImplemented(
           "Unable to produce FixedSizeListArray without `stop` being set.");
     }
-    const auto length = MaxSliceLength(opts.start, opts.stop.value(), opts.step);
+    if (opts.step < 1) {
+      return Status::Invalid("`step` must be >= 1, got: ", opts.step);
+    }
+    const auto length = bit_util::CeilDiv(opts.stop.value() - opts.start, opts.step);
     return fixed_size_list(value_type, static_cast<int32_t>(length));
   } else {
     // Returning large list if that's what we got in and didn't ask for fixed size
