@@ -29,9 +29,13 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace flight {
 namespace transport {
 namespace ucx {
@@ -228,10 +232,10 @@ arrow::Result<HeadersFrame> HeadersFrame::Make(
 
   TransportStatus transport_status = TransportStatus::FromStatus(status);
   all_headers.emplace_back(kHeaderStatus,
-                           std::to_string(static_cast<int32_t>(transport_status.code)));
+                           ToChars(static_cast<int32_t>(transport_status.code)));
   all_headers.emplace_back(kHeaderMessage, std::move(transport_status.message));
   all_headers.emplace_back(kHeaderStatusCode,
-                           std::to_string(static_cast<int32_t>(status.code())));
+                           ToChars(static_cast<int32_t>(status.code())));
   all_headers.emplace_back(kHeaderStatusMessage, status.message());
   if (status.detail()) {
     all_headers.emplace_back(kHeaderStatusDetail, status.detail()->ToString());
@@ -257,7 +261,7 @@ Status HeadersFrame::GetStatus(Status* out) {
   if (!status.ok()) {
     return Status::KeyError("Server did not send status code header ", kHeaderStatusCode);
   }
-  if (code_str == "0") {  // == std::to_string(TransportStatusCode::kOk)
+  if (code_str == "0") {  // == ToChars(TransportStatusCode::kOk)
     *out = Status::OK();
     return Status::OK();
   }

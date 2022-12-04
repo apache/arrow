@@ -25,9 +25,9 @@
 #' value whether or not the C++ library was built with support for them.
 #' @export
 #' @importFrom utils packageVersion
-#' @seealso If any capabilities are `FALSE`, see
-#' `vignette("install", package = "arrow")` for guidance on reinstalling the
-#' package.
+#' @seealso If any capabilities are `FALSE`, see the
+#' \href{https://arrow.apache.org/docs/r/articles/install.html}{install guide}
+#' for guidance on reinstalling the package.
 arrow_info <- function() {
   opts <- options()
   pool <- default_memory_pool()

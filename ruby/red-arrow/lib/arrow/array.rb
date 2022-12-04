@@ -115,6 +115,10 @@ module Arrow
       self
     end
 
+    def to_arrow_chunked_array
+      ChunkedArray.new([self])
+    end
+
     alias_method :value_data_type_raw, :value_data_type
     def value_data_type
       @value_data_type ||= value_data_type_raw

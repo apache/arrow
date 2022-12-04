@@ -17,10 +17,12 @@
 
 #pragma once
 
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include <aws/core/Aws.h>
@@ -34,6 +36,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/print.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 namespace fs {
@@ -74,6 +77,20 @@ inline bool IsConnectError(const Aws::Client::AWSError<Error>& error) {
     return true;
   }
   return false;
+}
+
+template <typename ErrorType>
+inline std::optional<std::string> BucketRegionFromError(
+    const Aws::Client::AWSError<ErrorType>& error) {
+  if constexpr (std::is_same_v<ErrorType, Aws::S3::S3Errors>) {
+    const auto& headers = error.GetResponseHeaders();
+    const auto it = headers.find("x-amz-bucket-region");
+    if (it != headers.end()) {
+      const std::string region(it->second.begin(), it->second.end());
+      return region;
+    }
+  }
+  return std::nullopt;
 }
 
 inline bool IsNotFound(const Aws::Client::AWSError<Aws::S3::S3Errors>& error) {
@@ -140,7 +157,7 @@ inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
 
 #undef S3_ERROR_CASE
     default:
-      return "[code " + std::to_string(static_cast<int>(error_type)) + "]";
+      return "[code " + ::arrow::internal::ToChars(static_cast<int>(error_type)) + "]";
   }
 }
 
@@ -148,7 +165,8 @@ inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
 // (e.g. "When completing multipart upload to bucket 'xxx', key 'xxx': ...")
 template <typename ErrorType>
 Status ErrorToStatus(const std::string& prefix, const std::string& operation,
-                     const Aws::Client::AWSError<ErrorType>& error) {
+                     const Aws::Client::AWSError<ErrorType>& error,
+                     const std::optional<std::string>& region = std::nullopt) {
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
@@ -158,8 +176,20 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   if (error_type == Aws::S3::S3Errors::UNKNOWN) {
     ss << " (HTTP status " << static_cast<int>(error.GetResponseCode()) << ")";
   }
+
+  // Possibly an error due to wrong region configuration from client and bucket.
+  std::optional<std::string> wrong_region_msg = std::nullopt;
+  if (region.has_value()) {
+    const auto maybe_region = BucketRegionFromError(error);
+    if (maybe_region.has_value() && maybe_region.value() != region.value()) {
+      wrong_region_msg = " Looks like the configured region is '" + region.value() +
+                         "' while the bucket is located in '" + maybe_region.value() +
+                         "'.";
+    }
+  }
   return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
-                         " operation: ", error.GetMessage());
+                         " operation: ", error.GetMessage(),
+                         wrong_region_msg.value_or(""));
 }
 
 template <typename ErrorType, typename... Args>

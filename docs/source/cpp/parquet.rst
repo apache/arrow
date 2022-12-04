@@ -102,7 +102,8 @@ Encodings
 | DELTA_LENGTH_BYTE_ARRAY  | ✓        |          |         |
 +--------------------------+----------+----------+---------+
 
-* \(1) Only supported for encoding definition and repetition levels, not values.
+* \(1) Only supported for encoding definition and repetition levels,
+  and boolean values.
 
 * \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
   2.4 or greater is selected in :func:`WriterProperties::version`.

@@ -22,8 +22,8 @@ import (
 	"math"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
 )
 
 // NewColumnSlice returns a new zero-copy slice of the column with the indicated

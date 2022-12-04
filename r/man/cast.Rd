@@ -34,7 +34,7 @@ mtcars \%>\%
 \seealso{
 \code{\link{data-type}} for a list of \link{DataType} to be used with \code{to}.
 
-\href{https://arrow.apache.org/docs/cpp/api/compute.html?highlight=castoptions#arrow\%3A\%3Acompute\%3A\%3ACastOptions}{Arrow C++ CastOptions documentation}
+\href{https://arrow.apache.org/docs/cpp/api/compute.html?highlight=castoptions#arrow\%3A\%3Acompute\%3A\%3ACastOptions}{Arrow C++ CastOptions documentation} # nolint
 for the list of supported CastOptions.
 }
 \keyword{internal}

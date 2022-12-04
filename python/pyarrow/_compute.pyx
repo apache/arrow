@@ -1168,6 +1168,45 @@ class SliceOptions(_SliceOptions):
         self._set_options(start, stop, step)
 
 
+cdef class _ListSliceOptions(FunctionOptions):
+    cpdef _set_options(self, start, stop=None, step=1, return_fixed_size_list=None):
+        cdef:
+            CListSliceOptions* opts
+        opts = new CListSliceOptions(
+            start,
+            <optional[int64_t]>nullopt if stop is None
+            else <optional[int64_t]>(<int64_t>stop),
+            step,
+            <optional[c_bool]>nullopt if return_fixed_size_list is None
+            else <optional[c_bool]>(<c_bool>return_fixed_size_list)
+        )
+        self.wrapped.reset(opts)
+
+
+class ListSliceOptions(_ListSliceOptions):
+    """
+    Options for list array slicing.
+
+    Parameters
+    ----------
+    start : int
+        Index to start slicing inner list elements (inclusive).
+    stop : Optional[int], default None
+        If given, index to stop slicing at (exclusive).
+        If not given, slicing will stop at the end. (NotImplemented)
+    step : int, default 1
+        Slice step.
+    return_fixed_size_list : Optional[bool], default None
+        Whether to return a FixedSizeListArray. If true _and_ stop is after
+        a list element's length, nulls will be appended to create the
+        requested slice size. The default of `None` will return the same
+        type which was passed in.
+    """
+
+    def __init__(self, start, stop=None, step=1, return_fixed_size_list=None):
+        self._set_options(start, stop, step, return_fixed_size_list)
+
+
 cdef class _ReplaceSliceOptions(FunctionOptions):
     def _set_options(self, start, stop, replacement):
         self.wrapped.reset(
@@ -1322,7 +1361,37 @@ class MakeStructOptions(_MakeStructOptions):
 
 cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
-        self.wrapped.reset(new CStructFieldOptions(indices))
+        cdef:
+            CFieldRef field_ref
+            const CFieldRef* field_ref_ptr
+
+        if isinstance(indices, (list, tuple)):
+            if len(indices):
+                indices = Expression._nested_field(tuple(indices))
+            else:
+                # Allow empty indices; effecitively return same array
+                self.wrapped.reset(
+                    new CStructFieldOptions(<vector[int]>indices))
+                return
+
+        if isinstance(indices, Expression):
+            field_ref_ptr = (<Expression>indices).unwrap().field_ref()
+            if field_ref_ptr is NULL:
+                raise ValueError("Unable to get CFieldRef from Expression")
+            field_ref = <CFieldRef>deref(field_ref_ptr)
+        elif isinstance(indices, (bytes, str)):
+            if indices.startswith(b'.' if isinstance(indices, bytes) else '.'):
+                field_ref = GetResultValue(
+                    CFieldRef.FromDotPath(<c_string>tobytes(indices)))
+            else:
+                field_ref = CFieldRef(<c_string>tobytes(indices))
+        elif isinstance(indices, int):
+            field_ref = CFieldRef(<int> indices)
+        else:
+            raise TypeError("Expected List[str], List[int], List[bytes], "
+                            "Expression, bytes, str, or int. "
+                            f"Got: {type(indices)}")
+        self.wrapped.reset(new CStructFieldOptions(field_ref))
 
 
 class StructFieldOptions(_StructFieldOptions):
@@ -1331,7 +1400,7 @@ class StructFieldOptions(_StructFieldOptions):
 
     Parameters
     ----------
-    indices : sequence of int
+    indices : List[str], List[bytes], List[int], Expression, bytes, str, or int
         List of indices for chained field lookup, for example `[4, 1]`
         will look up the second nested field in the fifth outer field.
     """
@@ -2403,7 +2472,10 @@ cdef class Expression(_Weakrefable):
             raise ValueError("nested field reference should be non-empty")
         nested.reserve(len(names))
         for name in names:
-            nested.push_back(CFieldRef(<c_string> tobytes(name)))
+            if isinstance(name, int):
+                nested.push_back(CFieldRef(<int>name))
+            else:
+                nested.push_back(CFieldRef(<c_string> tobytes(name)))
         return Expression.wrap(CMakeFieldExpression(CFieldRef(move(nested))))
 
     @staticmethod

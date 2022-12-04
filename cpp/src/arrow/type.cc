@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <climits>
 #include <cstddef>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -42,6 +43,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
+#include "arrow/util/string.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
 
@@ -1003,7 +1005,7 @@ std::string FieldPath::ToString() const {
 
   std::string repr = "FieldPath(";
   for (auto index : this->indices()) {
-    repr += std::to_string(index) + " ";
+    repr += internal::ToChars(index) + " ";
   }
   repr.back() = ')';
   return repr;
@@ -1161,36 +1163,72 @@ Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
   return FieldPathGetImpl::Get(this, data.child_data);
 }
 
-FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
-  DCHECK_GT(std::get<FieldPath>(impl_).indices().size(), 0);
-}
+FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {}
 
 void FieldRef::Flatten(std::vector<FieldRef> children) {
+  ARROW_CHECK(!children.empty());
+
   // flatten children
   struct Visitor {
-    void operator()(std::string&& name) { out->push_back(FieldRef(std::move(name))); }
-
-    void operator()(FieldPath&& indices) { out->push_back(FieldRef(std::move(indices))); }
-
-    void operator()(std::vector<FieldRef>&& children) {
-      out->reserve(out->size() + children.size());
-      for (auto&& child : children) {
-        std::visit(*this, std::move(child.impl_));
-      }
+    void operator()(std::string&& name, std::vector<FieldRef>* out) {
+      out->push_back(FieldRef(std::move(name)));
     }
 
-    std::vector<FieldRef>* out;
+    void operator()(FieldPath&& path, std::vector<FieldRef>* out) {
+      if (path.indices().empty()) {
+        return;
+      }
+      out->push_back(FieldRef(std::move(path)));
+    }
+
+    void operator()(std::vector<FieldRef>&& children, std::vector<FieldRef>* out) {
+      if (children.empty()) {
+        return;
+      }
+      // First flatten children into temporary result
+      std::vector<FieldRef> flattened_children;
+      flattened_children.reserve(children.size());
+      for (auto&& child : children) {
+        std::visit(std::bind(*this, std::placeholders::_1, &flattened_children),
+                   std::move(child.impl_));
+      }
+      // If all children are FieldPaths, concatenate them into a single FieldPath
+      int64_t n_indices = 0;
+      for (const auto& child : flattened_children) {
+        const FieldPath* path = child.field_path();
+        if (!path) {
+          n_indices = -1;
+          break;
+        }
+        n_indices += static_cast<int64_t>(path->indices().size());
+      }
+      if (n_indices == 0) {
+        return;
+      } else if (n_indices > 0) {
+        std::vector<int> indices(n_indices);
+        auto out_indices = indices.begin();
+        for (const auto& child : flattened_children) {
+          for (int index : *child.field_path()) {
+            *out_indices++ = index;
+          }
+        }
+        DCHECK_EQ(out_indices, indices.end());
+        out->push_back(FieldRef(std::move(indices)));
+      } else {
+        // ... otherwise, just transfer them to the final result
+        out->insert(out->end(), std::move_iterator(flattened_children.begin()),
+                    std::move_iterator(flattened_children.end()));
+      }
+    }
   };
 
   std::vector<FieldRef> out;
-  Visitor visitor{&out};
-  visitor(std::move(children));
+  Visitor visitor;
+  visitor(std::move(children), &out);
 
-  DCHECK(!out.empty());
-  DCHECK(std::none_of(out.begin(), out.end(),
-                      [](const FieldRef& ref) { return ref.IsNested(); }));
-
-  if (out.size() == 1) {
+  if (out.empty()) {
+    impl_ = std::vector<int>();
+  } else if (out.size() == 1) {
     impl_ = std::move(out[0].impl_);
   } else {
     impl_ = std::move(out);
@@ -1199,7 +1237,7 @@ void FieldRef::Flatten(std::vector<FieldRef> children) {
 
 Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
   if (dot_path_arg.empty()) {
-    return Status::Invalid("Dot path was empty");
+    return FieldRef();
   }
 
   std::vector<FieldRef> children;
@@ -1274,7 +1312,7 @@ std::string FieldRef::ToDotPath() const {
     std::string operator()(const FieldPath& path) {
       std::string out;
       for (int i : path.indices()) {
-        out += "[" + std::to_string(i) + "]";
+        out += "[" + internal::ToChars(i) + "]";
       }
       return out;
     }
@@ -1448,6 +1486,11 @@ std::vector<FieldPath> FieldRef::FindAll(const RecordBatch& batch) const {
 }
 
 void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
+
+std::ostream& operator<<(std::ostream& os, const FieldRef& ref) {
+  os << ref.ToString();
+  return os;
+}
 
 // ----------------------------------------------------------------------
 // Schema implementation
@@ -2346,7 +2389,7 @@ FieldVector FieldsFromArraysAndNames(std::vector<std::string> names,
   int i = 0;
   if (names.empty()) {
     for (const auto& array : arrays) {
-      fields[i] = field(std::to_string(i), array->type());
+      fields[i] = field(internal::ToChars(i), array->type());
       ++i;
     }
   } else {
@@ -2433,6 +2476,7 @@ std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
 std::vector<std::shared_ptr<DataType>> g_interval_types;
+std::vector<std::shared_ptr<DataType>> g_duration_types;
 std::vector<std::shared_ptr<DataType>> g_primitive_types;
 std::once_flag static_data_initialized;
 
@@ -2473,6 +2517,10 @@ void InitStaticData() {
 
   // Interval types
   g_interval_types = {day_time_interval(), month_interval(), month_day_nano_interval()};
+
+  // Duration types
+  g_duration_types = {duration(TimeUnit::SECOND), duration(TimeUnit::MILLI),
+                      duration(TimeUnit::MICRO), duration(TimeUnit::NANO)};
 
   // Base binary types (without FixedSizeBinary)
   g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
@@ -2539,6 +2587,11 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {
 const std::vector<std::shared_ptr<DataType>>& IntervalTypes() {
   std::call_once(static_data_initialized, InitStaticData);
   return g_interval_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& DurationTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_duration_types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {

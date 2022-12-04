@@ -287,6 +287,7 @@ about our build toolchain:
 
    $ export ARROW_HOME=$(pwd)/dist
    $ export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+   $ export CMAKE_PREFIX_PATH=$ARROW_HOME:$CMAKE_PREFIX_PATH
 
 Build and test
 --------------
@@ -403,13 +404,6 @@ variable to 1.
 
 To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``PYARROW_PARALLEL`` environment variable.
-
-.. note::
-
-   If you used a different directory name for building Arrow C++ (by default it is
-   named "build"), then you should also set the environment variable
-   ``ARROW_BUILD_DIR='name_of_build_dir'``. This way
-   PyArrow can find the Arrow C++ built files.
 
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
@@ -569,19 +563,23 @@ Then run the unit tests with:
    the Python extension. This is recommended for development as it allows the
    C++ libraries to be re-built separately.
 
-   If you want to bundle the Arrow C++ libraries with ``pyarrow``, add
-   the ``--bundle-arrow-cpp`` option when building:
+   If you are using the conda package manager then conda will ensure the Arrow C++
+   libraries are found. In case you are *not* using conda then you have to:
+
+   * add the path of installed DLL libraries to ``PATH`` every time before
+     importing ``pyarrow``, or
+   * bundle the Arrow C++ libraries with ``pyarrow``.
+
+   If you want to bundle the Arrow C++ libraries with ``pyarrow``, set the
+   ``PYARROW_BUNDLE_ARROW_CPP`` environment variable before building ``pyarrow``:
 
    .. code-block::
 
-      $ python setup.py build_ext --bundle-arrow-cpp
+      $ set PYARROW_BUNDLE_ARROW_CPP=1
+      $ python setup.py build_ext --inplace
 
-   Important: If you combine ``--bundle-arrow-cpp`` with ``--inplace`` the
-   Arrow C++ libraries get copied to the source tree and are not cleared
-   by ``python setup.py clean``. They remain in place and will take precedence
-   over any later Arrow C++ libraries contained in ``CONDA_PREFIX``. This can lead to
-   incompatibilities when ``pyarrow`` is later built without
-   ``--bundle-arrow-cpp``.
+   Note that bundled Arrow C++ libraries will not be automatically
+   updated when rebuilding Arrow C++.
 
 Caveats
 -------

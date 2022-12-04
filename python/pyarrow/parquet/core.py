@@ -21,6 +21,7 @@ from concurrent import futures
 from contextlib import nullcontext
 from functools import partial, reduce
 
+import inspect
 import json
 from collections.abc import Collection
 import numpy as np
@@ -1174,6 +1175,10 @@ class ParquetDatasetPiece:
         reader = self.open_file_func(self.path)
         if not isinstance(reader, ParquetFile):
             reader = ParquetFile(reader, **self.file_options)
+
+        # ensure reader knows it's responsible for closing source
+        # since we opened the source here internally.
+        reader._close_source = True
         return reader
 
     def read(self, columns=None, use_threads=True, partitions=None,
@@ -3163,9 +3168,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
         This option is only supported for use_legacy_dataset=False.
     **kwargs : dict,
         When use_legacy_dataset=False, used as additional kwargs for
-        `dataset.write_dataset` function (passed to
-        `ParquetFileFormat.make_write_options`). See the docstring
-        of `write_table` for the available options.
+        `dataset.write_dataset` function for matching kwargs, and remainder to
+        `ParquetFileFormat.make_write_options`. See the docstring
+        of `write_table` and `dataset.write_dataset` for the available options.
         When use_legacy_dataset=True, used as additional kwargs for
         `parquet.write_table` function (See docstring for `write_table`
         or `ParquetWriter` for more information).
@@ -3237,22 +3242,20 @@ def write_to_dataset(table, root_path, partition_cols=None,
     if not use_legacy_dataset:
         import pyarrow.dataset as ds
 
-        # extract non-file format options
-        schema = kwargs.pop("schema", None)
-        use_threads = kwargs.pop("use_threads", True)
-        chunk_size = kwargs.pop("chunk_size", None)
-        row_group_size = kwargs.pop("row_group_size", None)
-
-        row_group_size = (
-            row_group_size if row_group_size is not None else chunk_size
+        # extract write_dataset specific options
+        # reset assumed to go to make_write_options
+        write_dataset_kwargs = dict()
+        for key in inspect.signature(ds.write_dataset).parameters:
+            if key in kwargs:
+                write_dataset_kwargs[key] = kwargs.pop(key)
+        write_dataset_kwargs['max_rows_per_group'] = kwargs.pop(
+            'row_group_size', kwargs.pop("chunk_size", None)
         )
-
         # raise for unsupported keywords
         msg = (
             "The '{}' argument is not supported with the new dataset "
             "implementation."
         )
-
         if metadata_collector is not None:
             def file_visitor(written_file):
                 metadata_collector.append(written_file.metadata)
@@ -3284,7 +3287,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             file_visitor=file_visitor,
             basename_template=basename_template,
             existing_data_behavior=existing_data_behavior,
-            max_rows_per_group=row_group_size)
+            **write_dataset_kwargs)
         return
 
     # warnings and errors when using legacy implementation
@@ -3380,7 +3383,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
             metadata_collector[-1].set_file_path(outfile)
 
 
-def write_metadata(schema, where, metadata_collector=None, **kwargs):
+def write_metadata(schema, where, metadata_collector=None, filesystem=None,
+                   **kwargs):
     """
     Write metadata-only Parquet file from schema. This can be used with
     `write_to_dataset` to generate `_common_metadata` and `_metadata` sidecar
@@ -3392,6 +3396,9 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     where : string or pyarrow.NativeFile
     metadata_collector : list
         where to collect metadata information.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred from `where` if path-like, else
+        `where` is already a file-like object so no filesystem is needed.
     **kwargs : dict,
         Additional kwargs for ParquetWriter class. See docstring for
         `ParquetWriter` for more information.
@@ -3424,16 +3431,28 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     ...     table.schema, 'dataset_metadata/_metadata',
     ...     metadata_collector=metadata_collector)
     """
-    writer = ParquetWriter(where, schema, **kwargs)
+    filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+
+    if hasattr(where, "seek"):  # file-like
+        cursor_position = where.tell()
+
+    writer = ParquetWriter(where, schema, filesystem, **kwargs)
     writer.close()
 
     if metadata_collector is not None:
         # ParquetWriter doesn't expose the metadata until it's written. Write
         # it and read it again.
-        metadata = read_metadata(where)
+        metadata = read_metadata(where, filesystem=filesystem)
+        if hasattr(where, "seek"):
+            where.seek(cursor_position)  # file-like, set cursor back.
+
         for m in metadata_collector:
             metadata.append_row_groups(m)
-        metadata.write_metadata_file(where)
+        if filesystem is not None:
+            with filesystem.open_output_stream(where) as f:
+                metadata.write_metadata_file(f)
+        else:
+            metadata.write_metadata_file(where)
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,

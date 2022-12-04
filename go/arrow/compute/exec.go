@@ -14,15 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
 )
 
 func haveChunkedArray(values []Datum) bool {
@@ -99,15 +101,23 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 		return
 	}
 
+	var newArgs []Datum
 	// cast arguments if necessary
 	for i, arg := range args {
 		if !arrow.TypeEqual(inTypes[i], arg.(ArrayLikeDatum).Type()) {
-			args[i], err = CastDatum(ctx, arg, SafeCastOptions(inTypes[i]))
+			if newArgs == nil {
+				newArgs = make([]Datum, len(args))
+				copy(newArgs, args)
+			}
+			newArgs[i], err = CastDatum(ctx, arg, SafeCastOptions(inTypes[i]))
 			if err != nil {
 				return nil, err
 			}
-			defer args[i].Release()
+			defer newArgs[i].Release()
 		}
+	}
+	if newArgs != nil {
+		args = newArgs
 	}
 
 	kctx := &exec.KernelCtx{Ctx: ctx, Kernel: k}

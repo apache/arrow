@@ -18,13 +18,47 @@
 # cython: language_level = 3
 
 from cpython cimport PyObject
-from libcpp cimport nullptr
+from libcpp cimport nullptr, bool as c_bool
 from libcpp.cast cimport dynamic_cast
 from libcpp.memory cimport dynamic_pointer_cast
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
 
+# Will be available in Cython 3, not backported
+# ref: https://github.com/cython/cython/issues/3293#issuecomment-1223058101
+cdef extern from "<optional>" namespace "std" nogil:
+    cdef cppclass nullopt_t:
+        nullopt_t()
+
+    cdef nullopt_t nullopt
+
+    cdef cppclass optional[T]:
+        ctypedef T value_type
+        optional()
+        optional(nullopt_t)
+        optional(optional&) except +
+        optional(T&) except +
+        c_bool has_value()
+        T& value()
+        T& value_or[U](U& default_value)
+        void swap(optional&)
+        void reset()
+        T& emplace(...)
+        T& operator*()
+        # T* operator->() # Not Supported
+        optional& operator=(optional&)
+        optional& operator=[U](U&)
+        c_bool operator bool()
+        c_bool operator!()
+        c_bool operator==[U](optional&, U&)
+        c_bool operator!=[U](optional&, U&)
+        c_bool operator<[U](optional&, U&)
+        c_bool operator>[U](optional&, U&)
+        c_bool operator<=[U](optional&, U&)
+        c_bool operator>=[U](optional&, U&)
+
+    optional[T] make_optional[T](...) except +
 
 cdef extern from "Python.h":
     int PySlice_Check(object)

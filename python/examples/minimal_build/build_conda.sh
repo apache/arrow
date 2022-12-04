@@ -34,7 +34,7 @@ git config --global --add safe.directory $ARROW_ROOT
 # Run these only once
 
 function setup_miniconda() {
-  MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+  MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
   wget -O miniconda.sh $MINICONDA_URL
   bash miniconda.sh -b -p $MINICONDA
   rm -f miniconda.sh
@@ -46,7 +46,7 @@ function setup_miniconda() {
   conda info -a
 
   conda config --set show_channel_urls True
-  conda config --add channels https://repo.continuum.io/pkgs/free
+  conda config --add channels https://repo.anaconda.com/pkgs/free
   conda config --add channels conda-forge
 
   conda create -y -n pyarrow-$PYTHON -c conda-forge \

@@ -19,10 +19,16 @@
 
 #include <utility>
 
+#include "arrow/util/string.h"
+
 namespace arrow {
+
+using internal::ToChars;
+
 namespace flight {
 namespace sql {
 namespace {
+
 /// \brief Constant variable used to convert boolean true value
 ///        to a string.
 const char* BOOLEAN_TRUE_STR = "1";
@@ -143,13 +149,13 @@ ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::Ty
 
 ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::Precision(
     int32_t precision) {
-  metadata_map_->Append(ColumnMetadata::kPrecision, std::to_string(precision));
+  metadata_map_->Append(ColumnMetadata::kPrecision, ToChars(precision));
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::Scale(
     int32_t scale) {
-  metadata_map_->Append(ColumnMetadata::kScale, std::to_string(scale));
+  metadata_map_->Append(ColumnMetadata::kScale, ToChars(scale));
   return *this;
 }
 

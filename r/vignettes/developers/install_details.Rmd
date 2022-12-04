@@ -1,5 +1,8 @@
 ---
-title: "How the R package is installed - advanced"
+title: "Installation details"
+description: >
+  A low-level description of arrow installation intended for developers
+output: rmarkdown::html_vignette
 ---
 
 This document is intended specifically for arrow _developers_ who wish to know 
@@ -45,7 +48,7 @@ installation, and if it can't find one downloads an appropriate libarrow binary.
 
 * `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when libarrow  
 needs to be built.  It builds libarrow for a bundled, static build, and
-mirrors the steps described in the ["Arrow R Developer Guide" vignette](./setup.html)
+mirrors the steps described in the [Arrow R developer guide](./setup.html)
 This build script is also what is used to generate our prebuilt binaries.
 
 The actions taken by these scripts to resolve dependencies and install the 

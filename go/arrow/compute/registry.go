@@ -14,12 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute
 
 import (
 	"sync"
 
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
@@ -48,6 +50,7 @@ func GetFunctionRegistry() FunctionRegistry {
 		RegisterVectorSelection(registry)
 		RegisterScalarBoolean(registry)
 		RegisterScalarArithmetic(registry)
+		RegisterScalarComparisons(registry)
 	})
 	return registry
 }

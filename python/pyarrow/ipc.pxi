@@ -757,7 +757,7 @@ cdef class RecordBatchReader(_Weakrefable):
         return self
 
     @staticmethod
-    def from_batches(schema, batches):
+    def from_batches(Schema schema not None, batches):
         """
         Create RecordBatchReader from an iterable of batches.
 

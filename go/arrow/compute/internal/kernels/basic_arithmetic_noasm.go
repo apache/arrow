@@ -14,19 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build noasm
+//go:build go1.18 && noasm
 
 package kernels
 
 import (
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 	"golang.org/x/exp/constraints"
 )
 
-func getArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
-	return getGoArithmeticBinaryOpFloating[T](op)
+func getArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+	return getGoArithmeticOpFloatingSameType[InT, OutT](op)
 }
 
-func getArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
-	return getGoArithmeticBinaryOpIntegral[T](op)
+func getArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+	return getGoArithmeticOpIntegral[InT, OutT](op)
+}
+
+func getArithmeticUnaryFixedIntOut[InT exec.NumericTypes, OutT exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+	return getGoArithmeticFixedIntOut[InT, OutT](op)
 }

@@ -317,6 +317,8 @@ const (
 	Nanosecond
 )
 
+var TimeUnitValues = []TimeUnit{Second, Millisecond, Microsecond, Nanosecond}
+
 func (u TimeUnit) Multiplier() time.Duration {
 	return [...]time.Duration{time.Second, time.Millisecond, time.Microsecond, time.Nanosecond}[uint(u)&3]
 }
@@ -519,6 +521,23 @@ func (Float16Type) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Float16SizeBytes)}}
 }
 
+type DecimalType interface {
+	DataType
+	GetPrecision() int32
+	GetScale() int32
+}
+
+func NewDecimalType(id Type, prec, scale int32) (DecimalType, error) {
+	switch id {
+	case DECIMAL128:
+		return &Decimal128Type{Precision: prec, Scale: scale}, nil
+	case DECIMAL256:
+		return &Decimal256Type{Precision: prec, Scale: scale}, nil
+	default:
+		return nil, fmt.Errorf("%w: must use DECIMAL128 or DECIMAL256 to create a DecimalType", ErrInvalid)
+	}
+}
+
 // Decimal128Type represents a fixed-size 128-bit decimal type.
 type Decimal128Type struct {
 	Precision int32
@@ -535,6 +554,8 @@ func (t *Decimal128Type) String() string {
 func (t *Decimal128Type) Fingerprint() string {
 	return fmt.Sprintf("%s[%d,%d,%d]", typeFingerprint(t), t.BitWidth(), t.Precision, t.Scale)
 }
+func (t *Decimal128Type) GetPrecision() int32 { return t.Precision }
+func (t *Decimal128Type) GetScale() int32     { return t.Scale }
 
 func (Decimal128Type) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal128SizeBytes)}}
@@ -556,6 +577,8 @@ func (t *Decimal256Type) String() string {
 func (t *Decimal256Type) Fingerprint() string {
 	return fmt.Sprintf("%s[%d,%d,%d]", typeFingerprint(t), t.BitWidth(), t.Precision, t.Scale)
 }
+func (t *Decimal256Type) GetPrecision() int32 { return t.Precision }
+func (t *Decimal256Type) GetScale() int32     { return t.Scale }
 
 func (Decimal256Type) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal256SizeBytes)}}

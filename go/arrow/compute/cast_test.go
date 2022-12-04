@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute_test
 
 import (
@@ -24,16 +26,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/compute"
-	"github.com/apache/arrow/go/v10/arrow/decimal128"
-	"github.com/apache/arrow/go/v10/arrow/decimal256"
-	"github.com/apache/arrow/go/v10/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/arrow/scalar"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/compute"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/decimal256"
+	"github.com/apache/arrow/go/v11/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v11/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -61,22 +63,22 @@ func getDatums[T any](inputs []T) []compute.Datum {
 	return out
 }
 
-func assertArraysEqual(t *testing.T, expected, actual arrow.Array) bool {
-	return assert.Truef(t, array.Equal(expected, actual), "expected: %s\ngot: %s", expected, actual)
+func assertArraysEqual(t *testing.T, expected, actual arrow.Array, opts ...array.EqualOption) bool {
+	return assert.Truef(t, array.ApproxEqual(expected, actual, opts...), "expected: %s\ngot: %s", expected, actual)
 }
 
-func assertDatumsEqual(t *testing.T, expected, actual compute.Datum) {
+func assertDatumsEqual(t *testing.T, expected, actual compute.Datum, opts []array.EqualOption, scalarOpts []scalar.EqualOption) {
 	require.Equal(t, expected.Kind(), actual.Kind())
 
 	switch expected.Kind() {
 	case compute.KindScalar:
 		want := expected.(*compute.ScalarDatum).Value
 		got := actual.(*compute.ScalarDatum).Value
-		assert.Truef(t, scalar.Equals(want, got), "expected: %s\ngot: %s", want, got)
+		assert.Truef(t, scalar.ApproxEquals(want, got, scalarOpts...), "expected: %s\ngot: %s", want, got)
 	case compute.KindArray:
 		want := expected.(*compute.ArrayDatum).MakeArray()
 		got := actual.(*compute.ArrayDatum).MakeArray()
-		assertArraysEqual(t, want, got)
+		assertArraysEqual(t, want, got, opts...)
 		want.Release()
 		got.Release()
 	case compute.KindChunked:
@@ -92,7 +94,7 @@ func checkScalarNonRecursive(t *testing.T, funcName string, inputs []compute.Dat
 	out, err := compute.CallFunction(context.Background(), funcName, opts, inputs...)
 	assert.NoError(t, err)
 	defer out.Release()
-	assertDatumsEqual(t, expected, out)
+	assertDatumsEqual(t, expected, out, nil, nil)
 }
 
 func checkScalarWithScalars(t *testing.T, funcName string, inputs []scalar.Scalar, expected scalar.Scalar, opts compute.FunctionOptions) {
@@ -228,16 +230,19 @@ var (
 		arrow.PrimitiveTypes.Uint32,
 		arrow.PrimitiveTypes.Uint64,
 	}
-	integerTypes = append(signedIntTypes, unsignedIntTypes...)
-	numericTypes = append(integerTypes,
+	integerTypes  = append(signedIntTypes, unsignedIntTypes...)
+	floatingTypes = []arrow.DataType{
 		arrow.PrimitiveTypes.Float32,
-		arrow.PrimitiveTypes.Float64)
+		arrow.PrimitiveTypes.Float64,
+	}
+	numericTypes    = append(integerTypes, floatingTypes...)
 	baseBinaryTypes = []arrow.DataType{
 		arrow.BinaryTypes.Binary,
 		arrow.BinaryTypes.LargeBinary,
 		arrow.BinaryTypes.String,
 		arrow.BinaryTypes.LargeString,
 	}
+	dictIndexTypes = integerTypes
 )
 
 type CastSuite struct {
@@ -362,7 +367,7 @@ func (c *CastSuite) TestCanCast() {
 		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		canCast(from, numericTypes)
 		canCast(from, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-		cannotCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: from}, []arrow.DataType{from})
+		canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: from}, []arrow.DataType{from})
 
 		cannotCast(from, []arrow.DataType{arrow.Null})
 	}
@@ -371,11 +376,11 @@ func (c *CastSuite) TestCanCast() {
 		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		canCast(from, numericTypes)
 		canCast(from, baseBinaryTypes)
-		cannotCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: from}, []arrow.DataType{from})
+		canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: from}, []arrow.DataType{from})
 
 		// any cast which is valid for the dictionary is valid for the dictionary array
-		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint32, ValueType: from}, baseBinaryTypes)
-		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int16, ValueType: from}, baseBinaryTypes)
+		canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint32, ValueType: from}, baseBinaryTypes)
+		canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int16, ValueType: from}, baseBinaryTypes)
 
 		cannotCast(from, []arrow.DataType{arrow.Null})
 	}
@@ -2255,6 +2260,9 @@ func (c *CastSuite) TestIdentityCasts() {
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Date32, `[1, 2, 3, 4]`)
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Date64, `[86400000, 0]`)
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Timestamp_s, `[1, 2, 3, 4]`)
+
+	c.checkCastSelfZeroCopy(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.PrimitiveTypes.Int8},
+		`[1, 2, 3, 1, null, 3]`)
 }
 
 func (c *CastSuite) TestListToPrimitive() {
@@ -2723,6 +2731,43 @@ func (c *CastSuite) TestNoOutBitmapIfIsAllValid() {
 	c.NoError(err)
 	c.NotNil(a.Data().Buffers()[0])
 	c.Nil(result.Data().Buffers()[0])
+}
+
+func (c *CastSuite) TestFromDictionary() {
+	ctx := compute.WithAllocator(context.Background(), c.mem)
+
+	dictionaries := []arrow.Array{}
+
+	for _, ty := range numericTypes {
+		a, _, _ := array.FromJSON(c.mem, ty, strings.NewReader(`[23, 12, 45, 12, null]`))
+		defer a.Release()
+		dictionaries = append(dictionaries, a)
+	}
+
+	for _, ty := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		a, _, _ := array.FromJSON(c.mem, ty, strings.NewReader(`["foo", "bar", "baz", "foo", null]`))
+		defer a.Release()
+		dictionaries = append(dictionaries, a)
+	}
+
+	for _, d := range dictionaries {
+		for _, ty := range dictIndexTypes {
+			indices, _, _ := array.FromJSON(c.mem, ty, strings.NewReader(`[4, 0, 1, 2, 0, 4, null, 2]`))
+
+			expected, err := compute.Take(ctx, compute.TakeOptions{}, &compute.ArrayDatum{d.Data()}, &compute.ArrayDatum{indices.Data()})
+			c.Require().NoError(err)
+			exp := expected.(*compute.ArrayDatum).MakeArray()
+
+			dictArr := array.NewDictionaryArray(&arrow.DictionaryType{IndexType: ty, ValueType: d.DataType()}, indices, d)
+			checkCast(c.T(), dictArr, exp, *compute.SafeCastOptions(d.DataType()))
+
+			indices.Release()
+			expected.Release()
+			exp.Release()
+			dictArr.Release()
+			return
+		}
+	}
 }
 
 func TestCasts(t *testing.T) {

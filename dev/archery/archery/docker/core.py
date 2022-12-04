@@ -342,7 +342,8 @@ class DockerCompose(Command):
 
             # append env variables from the compose conf
             for k, v in service.get('environment', {}).items():
-                args.extend(['-e', '{}={}'.format(k, v)])
+                if v is not None:
+                    args.extend(['-e', '{}={}'.format(k, v)])
 
             # append volumes from the compose conf
             for v in service.get('volumes', []):

@@ -1074,11 +1074,23 @@ struct ObjectWriterVisitor {
     auto ConvertTimezoneAware = [&](typename Type::c_type value, PyObject** out) {
       PyObject* naive_datetime;
       RETURN_NOT_OK(ConvertTimezoneNaive(value, &naive_datetime));
+
       // convert the timezone naive datetime object to timezone aware
-      *out = PyObject_CallMethod(tzinfo.obj(), "fromutc", "O", naive_datetime);
+      // two step conversion of the datetime mimics Python's code:
+      // dt.replace(tzinfo=datetime.timezone.utc).astimezone(tzinfo)
+      // first step: replacing timezone with timezone.utc (replace method)
+      OwnedRef args(PyTuple_New(0));
+      OwnedRef keywords(PyDict_New());
+      PyDict_SetItemString(keywords.obj(), "tzinfo", PyDateTime_TimeZone_UTC);
+      OwnedRef naive_datetime_replace(PyObject_GetAttrString(naive_datetime, "replace"));
+      OwnedRef datetime_utc(PyObject_Call(naive_datetime_replace.obj(), args.obj(), keywords.obj()));
+      // second step: adjust the datetime to tzinfo timezone (astimezone method)
+      *out = PyObject_CallMethod(datetime_utc.obj(), "astimezone", "O", tzinfo.obj());
+
       // the timezone naive object is no longer required
       Py_DECREF(naive_datetime);
       RETURN_IF_PYERROR();
+
       return Status::OK();
     };
 

@@ -259,12 +259,12 @@ def test_arrow_example_validation_passes(arrow_compose_path):
 def test_compose_default_params_and_env(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(
         UBUNTU='18.04',
-        DASK='master'
+        DASK='upstream_devel'
     ))
     assert compose.config.dotenv == arrow_compose_env
     assert compose.config.params == {
         'UBUNTU': '18.04',
-        'DASK': 'master',
+        'DASK': 'upstream_devel',
     }
 
 
@@ -492,7 +492,7 @@ def test_compose_push(arrow_compose_path):
 def test_compose_error(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(
         PYTHON='3.8',
-        PANDAS='master'
+        PANDAS='upstream_devel'
     ))
 
     error = subprocess.CalledProcessError(99, [])
@@ -503,7 +503,7 @@ def test_compose_error(arrow_compose_path):
     exception_message = str(exc.value)
     assert "exited with a non-zero exit code 99" in exception_message
     assert "PANDAS: latest" in exception_message
-    assert "export PANDAS=master" in exception_message
+    assert "export PANDAS=upstream_devel" in exception_message
 
 
 def test_image_with_gpu(arrow_compose_path):

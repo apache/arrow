@@ -99,6 +99,7 @@ import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,14 +107,17 @@ import org.junit.jupiter.api.Test;
 public class RoundtripTest {
   private static final String EMPTY_SCHEMA_PATH = "";
   private RootAllocator allocator = null;
+  private BufferAllocator childAllocator = null;
 
   @BeforeEach
   public void setUp() {
     allocator = new RootAllocator(Long.MAX_VALUE);
+    childAllocator = allocator.newChildAllocator("child", 0, Long.MAX_VALUE);
   }
 
   @AfterEach
   public void tearDown() {
+    childAllocator.close();
     allocator.close();
   }
 
@@ -130,7 +134,15 @@ public class RoundtripTest {
       }
 
       // Consumer imports vector
-      return Data.importVector(allocator, consumerArrowArray, consumerArrowSchema, null);
+      FieldVector imported = Data.importVector(childAllocator, consumerArrowArray, consumerArrowSchema, null);
+      if (!(imported instanceof NullVector)) {
+        assertEquals(childAllocator, imported.getAllocator());
+      }
+
+      // Check that transfers work
+      TransferPair pair = imported.getTransferPair(allocator);
+      pair.transfer();
+      return (FieldVector) pair.getTo();
     }
   }
 

@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute
 
 import (
@@ -23,14 +25,14 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v10/arrow/internal"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/arrow/scalar"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/internal"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow/scalar"
 )
 
 // ExecCtx holds simple contextual information for execution
@@ -613,6 +615,7 @@ func (s *scalarExecutor) executeSpans(data chan<- Datum) (err error) {
 
 		output = *s.prepareOutput(int(input.Len))
 		if err = s.executeSingleSpan(&input, &output); err != nil {
+			output.Release()
 			return
 		}
 		err = s.emitResult(&output, data)
@@ -683,6 +686,9 @@ func (s *scalarExecutor) setupPrealloc(totalLen int64, args []Datum) error {
 
 func (s *scalarExecutor) emitResult(resultData *exec.ArraySpan, data chan<- Datum) error {
 	var output Datum
+	if len(resultData.Buffers[0].Buf) != 0 {
+		resultData.UpdateNullCount()
+	}
 	if s.allScalars {
 		// we boxed scalar inputs as ArraySpan so now we have to unbox the output
 		arr := resultData.MakeArray()

@@ -350,7 +350,7 @@ struct ARROW_EXPORT TableSinkNodeConsumer : public SinkNodeConsumer {
   TableSinkNodeConsumer(std::shared_ptr<Table>* out, MemoryPool* pool)
       : out_(out), pool_(pool) {}
   Status Init(const std::shared_ptr<Schema>& schema,
-              BackpressureControl* backpressure_control) override;
+              BackpressureControl* backpressure_control, ExecPlan* plan) override;
   Status Consume(ExecBatch batch) override;
   Future<> Finish() override;
 

@@ -14,14 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !noasm
+//go:build go1.18 && !noasm
 
 package kernels
 
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/sys/cpu"
 )
@@ -30,15 +31,15 @@ func getAvx2ArithmeticBinaryNumeric[T exec.NumericTypes](op ArithmeticOp) binary
 	typ := exec.GetType[T]()
 	return binaryOps[T, T, T]{
 		arrArr: func(_ *exec.KernelCtx, Arg0, Arg1, Out []T) error {
-			arithmeticAvx2(typ, op, exec.GetBytes(Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticAvx2(typ, op, exec.GetBytes(Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Arg0))
 			return nil
 		},
 		arrScalar: func(_ *exec.KernelCtx, Arg0 []T, Arg1 T, Out []T) error {
-			arithmeticArrScalarAvx2(typ, op, exec.GetBytes(Arg0), unsafe.Pointer(&Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticArrScalarAvx2(typ, op, exec.GetBytes(Arg0), unsafe.Pointer(&Arg1), exec.GetBytes(Out), len(Arg0))
 			return nil
 		},
 		scalarArr: func(_ *exec.KernelCtx, Arg0 T, Arg1, Out []T) error {
-			arithmeticScalarArrAvx2(typ, op, unsafe.Pointer(&Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticScalarArrAvx2(typ, op, unsafe.Pointer(&Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Arg1))
 			return nil
 		},
 	}
@@ -48,41 +49,103 @@ func getSSE4ArithmeticBinaryNumeric[T exec.NumericTypes](op ArithmeticOp) binary
 	typ := exec.GetType[T]()
 	return binaryOps[T, T, T]{
 		arrArr: func(_ *exec.KernelCtx, Arg0, Arg1, Out []T) error {
-			arithmeticSSE4(typ, op, exec.GetBytes(Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticSSE4(typ, op, exec.GetBytes(Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Arg0))
 			return nil
 		},
 		arrScalar: func(_ *exec.KernelCtx, Arg0 []T, Arg1 T, Out []T) error {
-			arithmeticArrScalarSSE4(typ, op, exec.GetBytes(Arg0), unsafe.Pointer(&Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticArrScalarSSE4(typ, op, exec.GetBytes(Arg0), unsafe.Pointer(&Arg1), exec.GetBytes(Out), len(Arg0))
 			return nil
 		},
 		scalarArr: func(_ *exec.KernelCtx, Arg0 T, Arg1, Out []T) error {
-			arithmeticScalarArrSSE4(typ, op, unsafe.Pointer(&Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Out))
+			arithmeticScalarArrSSE4(typ, op, unsafe.Pointer(&Arg0), exec.GetBytes(Arg1), exec.GetBytes(Out), len(Arg1))
 			return nil
 		},
 	}
 }
 
-func getArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
-	if op >= OpAddChecked {
-		// integral checked funcs need to use ScalarBinaryNotNull
-		return getGoArithmeticBinaryOpIntegral[T](op)
-	}
-
+func getArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
 	if cpu.X86.HasAVX2 {
-		return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
+		switch op {
+		case OpAdd, OpSub, OpMul:
+			return ScalarBinary(getAvx2ArithmeticBinaryNumeric[InT](op))
+		case OpAbsoluteValue, OpNegate:
+			typ := exec.GetType[InT]()
+			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []InT) error {
+				arithmeticUnaryAvx2(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		case OpSign:
+			inType, outType := exec.GetType[InT](), exec.GetType[OutT]()
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				arithmeticUnaryDiffTypesAvx2(inType, outType, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		}
 	} else if cpu.X86.HasSSE42 {
-		return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
+		switch op {
+		case OpAdd, OpSub, OpMul:
+			return ScalarBinary(getSSE4ArithmeticBinaryNumeric[InT](op))
+		case OpAbsoluteValue, OpNegate:
+			typ := exec.GetType[InT]()
+			return ScalarUnary(func(ctx *exec.KernelCtx, arg, out []InT) error {
+				arithmeticUnarySSE4(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		case OpSign:
+			inType, outType := exec.GetType[InT](), exec.GetType[OutT]()
+			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
+				arithmeticUnaryDiffTypesSSE4(inType, outType, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		}
 	}
 
-	return getGoArithmeticBinaryOpIntegral[T](op)
+	// no SIMD for POWER or SQRT functions
+	// integral checked funcs need to use NotNull versions
+	return getGoArithmeticOpIntegral[InT, OutT](op)
 }
 
-func getArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+func getArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
 	if cpu.X86.HasAVX2 {
-		return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
+		switch op {
+		case OpAdd, OpSub, OpAddChecked, OpSubChecked, OpMul, OpMulChecked:
+			if exec.GetType[InT]() != exec.GetType[OutT]() {
+				debug.Assert(false, "not implemented")
+				return nil
+			}
+			return ScalarBinary(getAvx2ArithmeticBinaryNumeric[InT](op))
+		case OpAbsoluteValue, OpAbsoluteValueChecked, OpNegate, OpNegateChecked, OpSign:
+			if exec.GetType[InT]() != exec.GetType[OutT]() {
+				debug.Assert(false, "not implemented")
+				return nil
+			}
+			typ := exec.GetType[InT]()
+			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []InT) error {
+				arithmeticUnaryAvx2(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		}
 	} else if cpu.X86.HasSSE42 {
-		return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
+		switch op {
+		case OpAdd, OpSub, OpAddChecked, OpSubChecked, OpMul, OpMulChecked:
+			if exec.GetType[InT]() != exec.GetType[OutT]() {
+				debug.Assert(false, "not implemented")
+				return nil
+			}
+			return ScalarBinary(getSSE4ArithmeticBinaryNumeric[InT](op))
+		case OpAbsoluteValue, OpAbsoluteValueChecked, OpNegate, OpNegateChecked, OpSign:
+			if exec.GetType[InT]() != exec.GetType[OutT]() {
+				debug.Assert(false, "not implemented")
+				return nil
+			}
+			typ := exec.GetType[InT]()
+			return ScalarUnary(func(_ *exec.KernelCtx, arg, out []InT) error {
+				arithmeticUnarySSE4(typ, op, exec.GetBytes(arg), exec.GetBytes(out), len(arg))
+				return nil
+			})
+		}
 	}
 
-	return getGoArithmeticBinaryOpFloating[T](op)
+	// no SIMD for POWER or SQRT functions
+	return getGoArithmeticOpFloating[InT, OutT](op)
 }

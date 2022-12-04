@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute_test
 
 import (
@@ -21,9 +23,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/compute"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/compute"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
 )
