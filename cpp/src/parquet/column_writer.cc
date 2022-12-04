@@ -25,6 +25,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "arrow/array.h"
 #include "arrow/buffer_builder.h"
@@ -386,6 +387,7 @@ class SerializedPageWriter : public PageWriter {
       uint32_t crc32 =
           ::arrow::internal::crc32(/* prev */ 0, output_data_buffer, output_data_len);
       page_header.__set_crc(static_cast<int32_t>(crc32));
+      std::cout << "Write Data Page with crc: " << crc32 << std::endl;
     }
 
     if (page.type() == PageType::DATA_PAGE) {
@@ -432,7 +434,7 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_data_page_header(data_page_header);
   }
 
-  void SetDataPageV2Header(format::PageHeader& page_header, const DataPageV2 page) {
+  void SetDataPageV2Header(format::PageHeader& page_header, const DataPageV2& page) {
     format::DataPageHeaderV2 data_page_header;
     data_page_header.__set_num_values(page.num_values());
     data_page_header.__set_num_nulls(page.num_nulls());
