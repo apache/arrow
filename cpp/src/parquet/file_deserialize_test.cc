@@ -87,7 +87,8 @@ class TestPageSerde : public ::testing::Test {
   }
 
   void InitSerializedPageReader(int64_t num_rows,
-                                Compression::type codec = Compression::UNCOMPRESSED, const ReaderProperties& properties = ReaderProperties()) {
+                                Compression::type codec = Compression::UNCOMPRESSED,
+                                const ReaderProperties& properties = ReaderProperties()) {
     EndStream();
 
     auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
@@ -355,15 +356,16 @@ TEST_F(TestPageSerde, CrcEnabled) {
         buffer.resize(max_compressed_size);
 
         ASSERT_OK_AND_ASSIGN(
-            actual_size, codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
+            actual_size,
+            codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
       }
 
-      uint32_t checksum = ::arrow::internal::crc32(/* prev */ 0, buffer.data(), buffer.size());
-      ASSERT_NO_FATAL_FAILURE(
-          WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size), checksum));
+      uint32_t checksum =
+          ::arrow::internal::crc32(/* prev */ 0, buffer.data(), buffer.size());
+      ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(
+          1024, data_size, static_cast<int32_t>(actual_size), checksum));
       ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
     }
-    std::cout << "InitSerializedPageReader called" << std::endl;
     ReaderProperties readerProperties;
     readerProperties.set_use_page_checksum_verification(true);
     InitSerializedPageReader(num_rows * num_pages, codec_type, readerProperties);
@@ -371,7 +373,6 @@ TEST_F(TestPageSerde, CrcEnabled) {
     std::shared_ptr<Page> page;
     const DataPageV1* data_page;
     for (int i = 0; i < num_pages; ++i) {
-      std::cout << "call NextPage" << std::endl;
       int data_size = static_cast<int>(faux_data[i].size());
       page = page_reader_->NextPage();
       data_page = static_cast<const DataPageV1*>(page.get());
@@ -395,6 +396,54 @@ TEST_F(TestPageSerde, CrcNotExists) {
   InitSerializedPageReader(num_rows, Compression::UNCOMPRESSED, readerProperties);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
   ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
+}
+
+TEST_F(TestPageSerde, CrcCorrupt) {
+  auto codec_types = GetSupportedCodecTypes();
+  codec_types.push_back(Compression::UNCOMPRESSED);
+  const int32_t num_rows = 32;  // dummy value
+  data_page_header_.num_values = num_rows;
+
+  std::vector<uint8_t> faux_data;
+
+  // The pages keep getting larger
+  int page_size = 6400;
+  test::random_bytes(page_size, 0, &faux_data);
+
+  for (auto codec_type : codec_types) {
+    auto codec = GetCodec(codec_type);
+
+    std::vector<uint8_t> buffer;
+
+    const uint8_t* data = faux_data.data();
+    int data_size = static_cast<int>(faux_data.size());
+    int64_t actual_size;
+    if (codec == nullptr) {
+      buffer = faux_data;
+      actual_size = data_size;
+    } else {
+      int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
+      buffer.resize(max_compressed_size);
+
+      ASSERT_OK_AND_ASSIGN(
+          actual_size, codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
+    }
+
+    uint32_t wrong_checksum =
+        ::arrow::internal::crc32(/* prev */ 0, buffer.data(), buffer.size()) + 1;
+    ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(
+        1024, data_size, static_cast<int32_t>(actual_size), wrong_checksum));
+    ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
+
+    ReaderProperties readerProperties;
+    readerProperties.set_use_page_checksum_verification(true);
+    InitSerializedPageReader(1, codec_type, readerProperties);
+
+    std::shared_ptr<Page> page;
+    ASSERT_THROW(page_reader_->NextPage(), ParquetException);
+
+    ResetStream();
+  }
 }
 
 // ----------------------------------------------------------------------
