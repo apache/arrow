@@ -238,7 +238,7 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
   ASSERT_THROW(page_reader_->NextPage(), ParquetException);
 }
 
-TEST_F(TestPageSerde, Compression) {
+std::vector<Compression::type> GetSupportedCodecTypes() {
   std::vector<Compression::type> codec_types;
 
 #ifdef ARROW_WITH_SNAPPY
@@ -261,6 +261,11 @@ TEST_F(TestPageSerde, Compression) {
 #ifdef ARROW_WITH_ZSTD
   codec_types.push_back(Compression::ZSTD);
 #endif
+  return codec_types;
+}
+
+TEST_F(TestPageSerde, Compression) {
+  auto codec_types = GetSupportedCodecTypes();
 
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
@@ -319,7 +324,9 @@ TEST_F(TestPageSerde, LZONotSupported) {
   ASSERT_THROW(InitSerializedPageReader(data_size, Compression::LZO), ParquetException);
 }
 
-TEST_F(TestPageSerde, CrcEnabledWithoutCompression) {
+TEST_F(TestPageSerde, CrcEnabled) {
+  auto codec_types = GetSupportedCodecTypes();
+  codec_types.push_back(Compression::UNCOMPRESSED);
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
 
@@ -332,22 +339,39 @@ TEST_F(TestPageSerde, CrcEnabledWithoutCompression) {
     int page_size = (i + 1) * 64;
     test::random_bytes(page_size, 0, &faux_data[i]);
   }
-  while (true) {
+  for (auto codec_type : codec_types) {
+    auto codec = GetCodec(codec_type);
+
+    std::vector<uint8_t> buffer;
     for (int i = 0; i < num_pages; ++i) {
       const uint8_t* data = faux_data[i].data();
-      uint32_t checksum = ::arrow::internal::crc32(/* prev */ 0, data, faux_data[i].size());
-      auto page_size = static_cast<int32_t>(faux_data[i].size());
+      int data_size = static_cast<int>(faux_data[i].size());
+      int64_t actual_size;
+      if (codec == nullptr) {
+        buffer = faux_data[i];
+        actual_size = data_size;
+      } else {
+        int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
+        buffer.resize(max_compressed_size);
+
+        ASSERT_OK_AND_ASSIGN(
+            actual_size, codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
+      }
+
+      uint32_t checksum = ::arrow::internal::crc32(/* prev */ 0, buffer.data(), buffer.size());
       ASSERT_NO_FATAL_FAILURE(
-          WriteDataPageHeader(1024, page_size, page_size, checksum));
-      ASSERT_OK(out_stream_->Write(data, page_size));
+          WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size), checksum));
+      ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
     }
+    std::cout << "InitSerializedPageReader called" << std::endl;
     ReaderProperties readerProperties;
     readerProperties.set_use_page_checksum_verification(true);
-    InitSerializedPageReader(num_rows * num_pages, Compression::UNCOMPRESSED, readerProperties);
+    InitSerializedPageReader(num_rows * num_pages, codec_type, readerProperties);
 
     std::shared_ptr<Page> page;
     const DataPageV1* data_page;
     for (int i = 0; i < num_pages; ++i) {
+      std::cout << "call NextPage" << std::endl;
       int data_size = static_cast<int>(faux_data[i].size());
       page = page_reader_->NextPage();
       data_page = static_cast<const DataPageV1*>(page.get());
@@ -356,10 +380,21 @@ TEST_F(TestPageSerde, CrcEnabledWithoutCompression) {
     }
 
     ResetStream();
-
-    break;
   }
+}
 
+TEST_F(TestPageSerde, CrcNotExists) {
+  int stats_size = 512;
+  const int32_t num_rows = 4444;
+  AddDummyStats(stats_size, data_page_header_, /* fill_all_stats = */ true);
+  data_page_header_.num_values = num_rows;
+
+  ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader());
+  ReaderProperties readerProperties;
+  readerProperties.set_use_page_checksum_verification(true);
+  InitSerializedPageReader(num_rows, Compression::UNCOMPRESSED, readerProperties);
+  std::shared_ptr<Page> current_page = page_reader_->NextPage();
+  ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
 }
 
 // ----------------------------------------------------------------------
