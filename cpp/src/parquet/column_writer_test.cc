@@ -645,6 +645,32 @@ TEST(TestWriter, NullValuesBuffer) {
                                  valid_bits_offset, values);
 }
 
+TEST(TestWriter, EnableChecksum) {
+  // Create schema
+  NodePtr item = schema::Int32("item", Repetition::REQUIRED);
+  std::vector<NodePtr> fields = {item};
+  NodePtr root = GroupNode::Make("schema", Repetition::REQUIRED, fields);
+
+  SchemaDescriptor schema;
+  schema.Init(root);
+
+  auto sink = CreateOutputStream();
+  auto props = WriterProperties::Builder().page_write_checksum_enabled(true)->build();
+
+  auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
+  std::unique_ptr<PageWriter> pager = PageWriter::Open(
+      sink, Compression::UNCOMPRESSED, Codec::UseDefaultCompressionLevel(),
+      metadata.get(), -1, -1, ::arrow::default_memory_pool(), false, /* crc */ true);
+  std::shared_ptr<ColumnWriter> writer =
+      ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
+  auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);
+
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  typed_writer->WriteBatch(static_cast<int64_t>(values.size()), nullptr, nullptr,
+                           values.data());
+  writer->Close();
+}
+
 // PARQUET-719
 // Test case for NULL values
 TEST_F(TestNullValuesWriter, OptionalNullValueChunk) {
