@@ -361,7 +361,7 @@ TEST_F(TestPageSerde, CrcEnabled) {
       }
 
       uint32_t checksum =
-          ::arrow::internal::crc32(/* prev */ 0, buffer.data(), buffer.size());
+          ::arrow::internal::crc32(/* prev */ 0, buffer.data(), actual_size);
       ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(
           1024, data_size, static_cast<int32_t>(actual_size), checksum));
       ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
@@ -430,7 +430,7 @@ TEST_F(TestPageSerde, CrcCorrupt) {
     }
 
     uint32_t wrong_checksum =
-        ::arrow::internal::crc32(/* prev */ 0, buffer.data(), buffer.size()) + 1;
+        ::arrow::internal::crc32(/* prev */ 0, buffer.data(), actual_size) + 1;
     ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(
         1024, data_size, static_cast<int32_t>(actual_size), wrong_checksum));
     ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
