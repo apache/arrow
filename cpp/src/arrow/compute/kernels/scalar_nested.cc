@@ -105,30 +105,12 @@ struct ListSlice {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
 
-    // Invariants
-    if (opts.start < 0 || (opts.stop.has_value() && opts.start >= opts.stop.value())) {
-      // TODO(ARROW-18281): support start == stop which should give empty lists
-      return Status::Invalid("`start`(", opts.start,
-                             ") should be greater than 0 and smaller than `stop`(",
-                             ToString(opts.stop), ")");
-    }
-    if (opts.step < 1) {
-      return Status::Invalid("`step` must be >= 1, got: ", opts.step);
-    }
-
     const ArraySpan& list_array = batch[0].array;
     const Type* list_type = checked_cast<const Type*>(list_array.type);
     const auto value_type = list_type->field(0);
     const auto return_fixed_size_list = opts.return_fixed_size_list.value_or(
         list_type->id() == arrow::Type::FIXED_SIZE_LIST);
     std::unique_ptr<ArrayBuilder> builder;
-
-    // should have been checked in resolver
-    // if stop not set, then cannot return fixed size list without input being fixed size
-    // list b/c we cannot determine the max list element in type resolving.
-    DCHECK(opts.stop.has_value() ||
-           (!opts.stop.has_value() && (!return_fixed_size_list ||
-                                       list_type->id() == arrow::Type::FIXED_SIZE_LIST)));
 
     // construct array values
     if (return_fixed_size_list) {
@@ -139,11 +121,17 @@ struct ListSlice {
         DCHECK_EQ(list_type->id(), arrow::Type::FIXED_SIZE_LIST);
         stop = reinterpret_cast<const FixedSizeListType*>(list_type)->list_size();
       }
-      const auto size = std::max(stop - static_cast<int32_t>(opts.start), 0);
-      const auto length = bit_util::CeilDiv(size, opts.step);
-      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(),
-                                fixed_size_list(value_type, static_cast<int32_t>(length)),
-                                &builder));
+
+      int32_t length;
+      if (opts.step < 0 || opts.start < 0 ||
+          (opts.stop.has_value() && opts.stop <= opts.start)) {
+        length = 0;  // empty lists
+      } else {
+        const auto size = std::max(stop - static_cast<int32_t>(opts.start), 0);
+        length = static_cast<int32_t>(bit_util::CeilDiv(size, opts.step));
+      }
+      RETURN_NOT_OK(
+          MakeBuilder(ctx->memory_pool(), fixed_size_list(value_type, length), &builder));
       RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
     } else {
       if constexpr (std::is_same_v<Type, LargeListType>) {
@@ -228,7 +216,10 @@ struct ListSlice {
     const auto size = opts->stop.has_value() ? (opts->stop.value() - opts->start)
                                              : ((next_offset - opts->start) - offset);
     while (cursor < offset + size) {
-      if (cursor + opts->start >= next_offset) {
+      if (opts->step < 1 || opts->start < 0 ||
+          (opts->stop.has_value() && opts->stop.value() <= opts->start)) {
+        break;
+      } else if (cursor + opts->start >= next_offset) {
         if constexpr (!std::is_same_v<BuilderType, FixedSizeListBuilder>) {
           break;  // don't pad nulls for variable sized list output
         }
@@ -250,6 +241,12 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
   const auto value_type = list_type->field(0);
   const auto return_fixed_size_list =
       opts.return_fixed_size_list.value_or(list_type->id() == Type::FIXED_SIZE_LIST);
+
+  // Step != 0
+  if (opts.step == 0) {
+    return Status::Invalid("slice step cannot be zero");
+  }
+
   if (return_fixed_size_list) {
     int32_t stop;
     if (!opts.stop.has_value()) {
@@ -263,10 +260,13 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
     } else {
       stop = static_cast<int32_t>(opts.stop.value());
     }
-    const auto size = std::max(static_cast<int32_t>(stop - opts.start), 0);
-    if (opts.step < 1) {
-      return Status::Invalid("`step` must be >= 1, got: ", opts.step);
+
+    // empty lists check
+    if (opts.step < 0 || opts.start < 0 ||
+        (opts.stop.has_value() && opts.stop <= opts.start)) {
+      return fixed_size_list(value_type, 0);
     }
+    const auto size = std::max(static_cast<int32_t>(stop - opts.start), 0);
     const auto length = bit_util::CeilDiv(size, opts.step);
     return fixed_size_list(value_type, static_cast<int32_t>(length));
   } else {
