@@ -532,14 +532,16 @@ TEST(TestDataPageV1Checksum, CorruptPage) {
     std::array<int32_t, 1024> values{};
     while (column0->HasNext()) {
       int64_t values_read;
-      int64_t real_read = column0->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
+      int64_t real_read =
+          column0->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
       EXPECT_EQ(real_read, values_read);
       column_a_size += values_read;
     }
 
     while (column1->HasNext()) {
       int64_t values_read;
-      int64_t real_read = column1->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
+      int64_t real_read =
+          column1->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
       EXPECT_EQ(real_read, values_read);
       column_b_size += values_read;
     }
@@ -551,7 +553,8 @@ TEST(TestDataPageV1Checksum, CorruptPage) {
   {
     ReaderProperties readerProperties;
     readerProperties.set_use_page_checksum_verification(true);
-    auto reader = ParquetFileReader::OpenFile(data_page_v1_corrupt_checksum(), false, readerProperties);
+    auto reader = ParquetFileReader::OpenFile(data_page_v1_corrupt_checksum(), false,
+                                              readerProperties);
     auto metadata_ptr = reader->metadata();
     EXPECT_EQ(1U, metadata_ptr->num_row_groups());
     auto rg = reader->RowGroup(0);
@@ -590,14 +593,16 @@ void testCheckCrc(const std::string& local_file_name) {
     std::array<int32_t, 1024> values{};
     while (column0->HasNext()) {
       int64_t values_read;
-      int64_t real_read = column0->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
+      int64_t real_read =
+          column0->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
       EXPECT_EQ(real_read, values_read);
       column_a_size += values_read;
     }
 
     while (column1->HasNext()) {
       int64_t values_read;
-      int64_t real_read = column1->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
+      int64_t real_read =
+          column1->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
       EXPECT_EQ(real_read, values_read);
       column_b_size += values_read;
     }
