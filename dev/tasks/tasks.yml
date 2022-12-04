@@ -253,8 +253,8 @@ tasks:
       config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.18python3.7.____cpython
       r_config: linux_64_r_base4.0
     artifacts:
-      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
 
   conda-linux-gcc-py37-cpu-r41:
     ci: azure
@@ -263,70 +263,104 @@ tasks:
       config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.18python3.7.____cpython
       r_config: linux_64_r_base4.1
     artifacts:
-      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-py38-cpu:
+  conda-linux-gcc-openssl1.1.1-cpu:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.18python3.8.____cpython
+      config: linux_64_cuda_compiler_versionNoneopenssl1.1.1
     artifacts:
-      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-py39-cpu:
+  conda-linux-gcc-openssl3-cpu:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.19python3.9.____cpython
+      config: linux_64_cuda_compiler_versionNoneopenssl3
     artifacts:
-      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-py310-cpu:
+  conda-linux-gcc-openssl1.1.1-cuda:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.21python3.10.____cpython
+      config: linux_64_cuda_compiler_version10.2openssl1.1.1
     artifacts:
-      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
-{% for python_version, numpy_version in [("3.7", "1.18"),
-                                         ("3.8", "1.18"),
-                                         ("3.9", "1.19"),
-                                         ("3.10", "1.21")] %}
-  {% set pyver = python_version | replace(".", "") %}
-
-  conda-linux-gcc-py{{ pyver }}-cuda:
+  conda-linux-gcc-openssl3-cuda:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_c_compiler_version7cuda_compiler_version10.2cxx_compiler_version7numpy{{ numpy_version }}python{{ python_version }}.____cpython
+      config: linux_64_cuda_compiler_version10.2openssl3
     artifacts:
-      - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cuda.tar.bz2
-      - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cuda.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
-  conda-linux-gcc-py{{ pyver }}-arm64:
+  conda-linux-gcc-openssl1.1.1-aarch64:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_aarch64_numpy{{ numpy_version }}python{{ python_version }}.____cpython
+      config: linux_aarch64_cuda_compiler_versionNoneopenssl1.1.1
     artifacts:
-      - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-py{{ pyver }}-ppc64le:
+  conda-linux-gcc-openssl3-aarch64:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_ppc64le_numpy{{ numpy_version }}python{{ python_version }}.____cpython
+      config: linux_aarch64_cuda_compiler_versionNoneopenssl3
     artifacts:
-      - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-{% endfor %}
+  conda-linux-gcc-openssl1.1.1-ppc64le:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_ppc64le_cuda_compiler_versionNoneopenssl1.1.1
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
+
+  conda-linux-gcc-openssl3-ppc64le:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_ppc64le_cuda_compiler_versionNoneopenssl3
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
   ############################## Conda OSX ####################################
 
@@ -337,8 +371,8 @@ tasks:
       config:  osx_64_numpy1.18python3.7.____cpython
       r_config: osx_64_r_base4.0
     artifacts:
-      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
 
   conda-osx-clang-py37-r41:
     ci: azure
@@ -347,62 +381,56 @@ tasks:
       config: osx_64_numpy1.18python3.7.____cpython
       r_config: osx_64_r_base4.1
     artifacts:
-      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
 
-  conda-osx-clang-py38:
+  conda-osx-clang-openssl1.1.1:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.18python3.8.____cpython
+      config: osx_64_openssl1.1.1
     artifacts:
-      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-osx-clang-py39:
+  conda-osx-clang-openssl3:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.19python3.9.____cpython
+      config: osx_64_openssl3
     artifacts:
-      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-osx-clang-py310:
+  conda-osx-arm64-clang-openssl1.1.1:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.21python3.10.____cpython
+      config: osx_arm64_openssl1.1.1
     artifacts:
-      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-osx-arm64-clang-py38:
+  conda-osx-arm64-clang-openssl3:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_arm64_numpy1.19python3.8.____cpython
+      config: osx_arm64_openssl3
     artifacts:
-      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
-
-  conda-osx-arm64-clang-py39:
-    ci: azure
-    template: conda-recipes/azure.osx.yml
-    params:
-      config: osx_arm64_numpy1.19python3.9.____cpython
-    artifacts:
-      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
-
-  conda-osx-arm64-clang-py310:
-    ci: azure
-    template: conda-recipes/azure.osx.yml
-    params:
-      config: osx_arm64_numpy1.21python3.10.____cpython
-    artifacts:
-      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
   ############################## Conda Windows ################################
 
@@ -413,8 +441,8 @@ tasks:
       config: win_64_cuda_compiler_versionNonenumpy1.18python3.7.____cpython
       r_config: win_64_r_base4.0
     artifacts:
-      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
 
   conda-win-vs2019-py37-r41:
     ci: azure
@@ -423,37 +451,56 @@ tasks:
       config: win_64_cuda_compiler_versionNonenumpy1.18python3.7.____cpython
       r_config: win_64_r_base4.0
     artifacts:
-      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
 
-  conda-win-vs2019-py38:
+  conda-win-vs2019-openssl1.1.1:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.18python3.8.____cpython
+      config: win_64_cuda_compiler_versionNoneopenssl1.1.1
     artifacts:
-      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-win-vs2019-py39:
+  conda-win-vs2019-openssl3:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.19python3.9.____cpython
+      config: win_64_cuda_compiler_versionNoneopenssl3
     artifacts:
-      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-win-vs2019-py310:
+  conda-win-vs2019-openssl1.1.1-cuda:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.21python3.10.____cpython
+      config: win_64_cuda_compiler_versionNoneopenssl1.1.1
     artifacts:
-      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
-# TODO: Windows CUDA
+  conda-win-vs2019-openssl3-cuda:
+    ci: azure
+    template: conda-recipes/azure.win.yml
+    params:
+      config: win_64_cuda_compiler_versionNoneopenssl3
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
 {% for python_version, python_tag, abi_tag in [("3.7", "cp37", "cp37m"),
                                                ("3.8", "cp38", "cp38"),
