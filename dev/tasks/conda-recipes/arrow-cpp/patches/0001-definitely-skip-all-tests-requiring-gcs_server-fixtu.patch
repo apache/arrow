@@ -1,0 +1,36 @@
+From 2549974357216cab621d214582484e9b056c2984 Mon Sep 17 00:00:00 2001
+From: "H. Vetinari" <h.vetinari@gmx.com>
+Date: Wed, 23 Nov 2022 17:10:52 +1100
+Subject: [PATCH] definitely skip all tests requiring gcs_server fixture
+
+since we don't have https://github.com/googleapis/storage-testbench
+in conda-forge so far, which is responsible for the `python -m testbench`
+---
+ python/pyarrow/tests/conftest.py | 14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
+
+diff --git a/python/pyarrow/tests/conftest.py b/python/pyarrow/tests/conftest.py
+index 154ef79dc..d1d688814 100644
+--- a/python/pyarrow/tests/conftest.py
++++ b/python/pyarrow/tests/conftest.py
+@@ -183,16 +183,4 @@ def gcs_server():
+     env = os.environ.copy()
+     args = [sys.executable, '-m', 'testbench', '--port', str(port)]
+     proc = None
+-    try:
+-        proc = subprocess.Popen(args, env=env)
+-    except OSError as e:
+-        pytest.skip(f"Command {args} failed to execute: {e}")
+-    else:
+-        yield {
+-            'connection': ('localhost', port),
+-            'process': proc,
+-        }
+-    finally:
+-        if proc is not None:
+-            proc.kill()
+-            proc.wait()
++    pytest.skip(f"Tests depending on gcs_server disabled for conda builds for now")
+-- 
+2.38.1.windows.1
+
