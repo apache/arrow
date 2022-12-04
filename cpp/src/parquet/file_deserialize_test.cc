@@ -34,6 +34,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/crc32.h"
 
 namespace parquet {
 
@@ -86,15 +87,15 @@ class TestPageSerde : public ::testing::Test {
   }
 
   void InitSerializedPageReader(int64_t num_rows,
-                                Compression::type codec = Compression::UNCOMPRESSED) {
+                                Compression::type codec = Compression::UNCOMPRESSED, const ReaderProperties& properties = ReaderProperties()) {
     EndStream();
 
     auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
-    page_reader_ = PageReader::Open(stream, num_rows, codec);
+    page_reader_ = PageReader::Open(stream, num_rows, codec, properties);
   }
 
   void WriteDataPageHeader(int max_serialized_len = 1024, int32_t uncompressed_size = 0,
-                           int32_t compressed_size = 0) {
+                           int32_t compressed_size = 0, int32_t checksum = 0) {
     // Simplifying writing serialized data page headers which may or may not
     // have meaningful data associated with them
 
@@ -103,6 +104,9 @@ class TestPageSerde : public ::testing::Test {
     page_header_.uncompressed_page_size = uncompressed_size;
     page_header_.compressed_page_size = compressed_size;
     page_header_.type = format::PageType::DATA_PAGE;
+    if (checksum != 0) {
+      page_header_.__set_crc(checksum);
+    }
 
     ThriftSerializer serializer;
     ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
@@ -313,6 +317,49 @@ TEST_F(TestPageSerde, LZONotSupported) {
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(1024, data_size, data_size));
   ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
   ASSERT_THROW(InitSerializedPageReader(data_size, Compression::LZO), ParquetException);
+}
+
+TEST_F(TestPageSerde, CrcEnabledWithoutCompression) {
+  const int32_t num_rows = 32;  // dummy value
+  data_page_header_.num_values = num_rows;
+
+  const int num_pages = 10;
+
+  std::vector<std::vector<uint8_t>> faux_data;
+  faux_data.resize(num_pages);
+  for (int i = 0; i < num_pages; ++i) {
+    // The pages keep getting larger
+    int page_size = (i + 1) * 64;
+    test::random_bytes(page_size, 0, &faux_data[i]);
+  }
+  while (true) {
+    for (int i = 0; i < num_pages; ++i) {
+      const uint8_t* data = faux_data[i].data();
+      uint32_t checksum = ::arrow::internal::crc32(/* prev */ 0, data, faux_data[i].size());
+      auto page_size = static_cast<int32_t>(faux_data[i].size());
+      ASSERT_NO_FATAL_FAILURE(
+          WriteDataPageHeader(1024, page_size, page_size, checksum));
+      ASSERT_OK(out_stream_->Write(data, page_size));
+    }
+    ReaderProperties readerProperties;
+    readerProperties.set_use_page_checksum_verification(true);
+    InitSerializedPageReader(num_rows * num_pages, Compression::UNCOMPRESSED, readerProperties);
+
+    std::shared_ptr<Page> page;
+    const DataPageV1* data_page;
+    for (int i = 0; i < num_pages; ++i) {
+      int data_size = static_cast<int>(faux_data[i].size());
+      page = page_reader_->NextPage();
+      data_page = static_cast<const DataPageV1*>(page.get());
+      ASSERT_EQ(data_size, data_page->size());
+      ASSERT_EQ(0, memcmp(faux_data[i].data(), data_page->data(), data_size));
+    }
+
+    ResetStream();
+
+    break;
+  }
+
 }
 
 // ----------------------------------------------------------------------
