@@ -1,3 +1,5 @@
+*.patch binary
+
 r/R/RcppExports.R linguist-generated=true
 r/R/arrowExports.R linguist-generated=true
 r/src/RcppExports.cpp linguist-generated=true
