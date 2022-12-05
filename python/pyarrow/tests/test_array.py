@@ -1256,6 +1256,32 @@ def test_union_from_sparse():
         arr = pa.UnionArray.from_sparse(logical_types, [binary, int64[1:]])
 
 
+def test_union_arrays_with_validity_map():
+    kwargs = dict(types=pa.array([1, 1], pa.int8()),
+                  children=[pa.array([None, False]), pa.array([True, None])],
+                  field_names=['foo', 'bar'])
+    sparse_union = pa.UnionArray.from_sparse(**kwargs)
+    dense_union = pa.UnionArray.from_dense(
+        value_offsets=pa.array([0, 1], pa.int32()), **kwargs)
+
+    for union, n_buffers in ((sparse_union, 2), (dense_union, 3)):
+
+        # Set validity map on union
+        buffers = union.buffers()[:n_buffers]
+        assert buffers[0] is None
+
+        validity_bitmap = pa.array([True, False])
+        buffers[0] = validity_bitmap.buffers()[1]
+
+        union_with_validity_bitmap = pa.UnionArray.from_buffers(
+            type=union.type, length=len(union), buffers=buffers,
+            offset=0, children=[union.field(0), union.field(1)])
+
+        # Validity map doesn't affect children
+        assert union_with_validity_bitmap.field(0) == union.field(0)
+        assert union_with_validity_bitmap.field(1) == union.field(1)
+
+
 def test_union_array_to_pylist_with_nulls():
     # ARROW-9556
     arr = pa.UnionArray.from_sparse(

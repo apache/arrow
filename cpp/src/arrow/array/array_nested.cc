@@ -681,9 +681,6 @@ void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
   this->UnionArray::SetData(std::move(data));
   ARROW_CHECK_EQ(data_->type->id(), Type::SPARSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 2);
-
-  // No validity bitmap
-  ARROW_CHECK_EQ(data_->buffers[0], nullptr);
 }
 
 void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
@@ -691,9 +688,6 @@ void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
 
   ARROW_CHECK_EQ(data_->type->id(), Type::DENSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 3);
-
-  // No validity bitmap
-  ARROW_CHECK_EQ(data_->buffers[0], nullptr);
 
   raw_value_offsets_ = data->GetValuesSafe<int32_t>(2, /*offset=*/0);
 }
