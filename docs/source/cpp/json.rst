@@ -81,7 +81,8 @@ Reads a file incrementally in fixed-size blocks, each yielding a
 is converted to a row in the output batch.
 
 All batches adhere to a consistent :class:`~arrow:Schema`, which is
-derived from the first loaded batch.
+derived from the first loaded batch. Alternatively, an explicit schema
+may be passed via :class:`~ParseOptions`.
 
 .. code-block:: cpp
 
@@ -102,17 +103,12 @@ derived from the first loaded batch.
       std::shared_ptr<arrow::json::StreamingReader> reader = *result;
 
       std::shared_ptr<arrow::RecordBatch> batch;
-      while (true) {
-         arrow::Status status = reader->ReadNext(&batch);
-
-         if (!status.ok()) {
+      for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *reader) {
+         if (!result.ok()) {
             // Handle read/parse error
          }
-
-         if (batch == nullptr) {
-            // Handle end of file
-            break;
-         }
+         batch = *maybe_batch;
+         // Operate on each batch...
       }
    }
 
