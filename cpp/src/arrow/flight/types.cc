@@ -390,11 +390,13 @@ std::string Location::scheme() const {
 }
 
 std::string Location::path() const { return uri_->path(); }
-arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::query_items() const {
+arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::query_items()
+    const {
   return uri_->query_items();
 }
 
-arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::as_headers() const {
+arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::as_headers()
+    const {
   std::string catalog = path();
   if (catalog.empty()) {
     return query_items();
