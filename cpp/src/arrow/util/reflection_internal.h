@@ -92,8 +92,8 @@ PropertyTuple<Properties...> MakeProperties(Properties... props) {
 }
 
 /// Returns a string_view containing the name of a value.
-template <auto, bool IncludeLeadingK = false>
-constexpr std::string_view nameof();
+template <auto>
+constexpr std::string_view nameof(bool include_leading_k = false);
 
 /// Returns a string_view containing the (unqualified) name of a type.
 template <typename>
@@ -101,7 +101,7 @@ constexpr std::string_view nameof();
 
 /// Returns a string_view containing the name of an enumeration member.
 template <typename Enum>
-constexpr std::string_view enum_name(Enum e);
+constexpr std::string_view enum_name(Enum e, bool include_leading_k = false);
 
 /// Returns the enumeration member corresponding to name, or
 /// nullopt if name doesn't correspond to an enum member.
@@ -132,10 +132,13 @@ constexpr std::string_view pretty_function() {
 #endif
 }
 
-constexpr size_t kValueNamePrefix = pretty_function<27892354>().find("27892354");
+enum { kCrib };
+constexpr size_t kValueNamePrefix =
+    pretty_function<kCrib>().find("arrow::internal::impl::kCrib");
 constexpr size_t kValueNameSuffix =
-    pretty_function<27892354>()
-        .substr(kValueNamePrefix + std::string_view{"27892354"}.size())
+    pretty_function<kCrib>()
+        .substr(kValueNamePrefix +
+                std::string_view{"arrow::internal::impl::kCrib"}.size())
         .size();
 
 constexpr size_t kTypeNamePrefix = pretty_function<double>().find("double");
@@ -201,21 +204,13 @@ constexpr std::string_view TrimNamespace(std::string_view name) {
 }
 
 // TODO(bkietz) storage should not trim the k, let that be done in nameof
-template <auto Value, bool IncludeLeadingK>
+template <auto Value>
 constexpr auto kValueNameStorage = [] {
   constexpr std::string_view name = [] {
     std::string_view name = pretty_function<Value>();
     name.remove_prefix(kValueNamePrefix);
     name.remove_suffix(kValueNameSuffix);
     name = TrimNamespace(name);
-
-    if (!IncludeLeadingK) {
-      if (name.size() > 1 && name[0] == 'k') {
-        if (name[1] >= 'A' && name[1] <= 'Z') {
-          name.remove_prefix(1);
-        }
-      }
-    }
     return name;
   }();
 
@@ -236,7 +231,7 @@ constexpr auto kTypeNameStorage = [] {
 }();
 
 template <typename Enum, int I,
-          char FirstChar = kValueNameStorage<static_cast<Enum>(I), true>[0]>
+          char FirstChar = kValueNameStorage<static_cast<Enum>(I)>[0]>
 constexpr bool IsValidEnumMember() {
   return FirstChar < '0' || FirstChar > '9';
 }
@@ -260,12 +255,22 @@ constexpr void GetDefaultEnumMembers(Enum* members) {
   }
 }
 
+constexpr std::string_view TrimLeadingK(std::string_view name) {
+  if (name.size() > 1 && name[0] == 'k') {
+    if (name[1] >= 'A' && name[1] <= 'Z') {
+      name.remove_prefix(1);
+    }
+  }
+  return name;
+}
+
 }  // namespace impl
 
-template <auto Value, bool IncludeLeadingK>
-constexpr std::string_view nameof() {
-  constexpr auto& storage = impl::kValueNameStorage<Value, IncludeLeadingK>;
-  return {storage.data(), storage.size()};
+template <auto Value>
+constexpr std::string_view nameof(bool include_leading_k) {
+  constexpr auto& storage = impl::kValueNameStorage<Value>;
+  std::string_view name{storage.data(), storage.size()};
+  return include_leading_k ? name : impl::TrimLeadingK(name);
 }
 
 template <typename T>
@@ -302,14 +307,14 @@ namespace impl {
 template <typename Enum, size_t I = 0>
 constexpr void GetEnumMemberNames(std::string_view* names) {
   if constexpr (I < kEnumMembers<Enum>.size()) {
-    *names++ = nameof<kEnumMembers<Enum>[I]>();
+    *names++ = nameof<kEnumMembers<Enum>[I]>(/*include_leading_k=*/true);
     GetEnumMemberNames<Enum, I + 1>(names);
   }
 }
 }  // namespace impl
 
 template <typename Enum>
-constexpr std::string_view enum_name(Enum e) {
+constexpr std::string_view enum_name(Enum e, bool include_leading_k) {
   constexpr auto kNames = [] {
     impl::array<std::string_view, kEnumMembers<Enum>.size()> names;
     impl::GetEnumMemberNames<Enum>(names.data());
@@ -317,7 +322,9 @@ constexpr std::string_view enum_name(Enum e) {
   }();
 
   for (size_t i = 0; i < kEnumMembers<Enum>.size(); ++i) {
-    if (e == kEnumMembers<Enum>[i]) return kNames[i];
+    if (e == kEnumMembers<Enum>[i]) {
+      return include_leading_k ? kNames[i] : impl::TrimLeadingK(kNames[i]);
+    }
   }
   return {};
 }

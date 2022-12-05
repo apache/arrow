@@ -217,7 +217,7 @@ TEST(Reflection, NameOf) {
   // leading `k` is trimmed
   static_assert(nameof<kYo>() == "Yo");
   // ... unless explicitly preserved
-  static_assert(nameof<kYo, true>() == "kYo");
+  static_assert(nameof<kYo>(/*include_leading_k=*/true) == "kYo");
 
   static_assert(nameof<Person>() == "Person");
   static_assert(nameof<PersonType>() == "PersonType");
