@@ -135,6 +135,11 @@ TEST(TestScalarNested, ListSliceVariableOutput) {
     expected = ArrayFromJSON(list(value_type), "[[3], [], [], null]");
     CheckScalarUnary("list_slice", input, expected, &args);
 
+    args.start = 1;
+    args.stop = std::nullopt;
+    expected = ArrayFromJSON(list(value_type), "[[2, 3], [5], [], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
+
     args.start = 0;
     args.stop = 4;
     args.step = 2;
@@ -173,6 +178,27 @@ TEST(TestScalarNested, ListSliceFixedOutput) {
       expected = ArrayFromJSON(fixed_size_list(value_type, 2),
                                "[[3, null], [null, null], [null, null], null]");
       CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 1;
+      args.stop = std::nullopt;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                               "[[2, 3], [5, null], [null, null], null]");
+      if (input->type()->id() == Type::FIXED_SIZE_LIST) {
+        CheckScalarUnary("list_slice", input, expected, &args);
+      } else {
+        EXPECT_RAISES_WITH_MESSAGE_THAT(
+            NotImplemented,
+            ::testing::HasSubstr("Unable to produce FixedSizeListArray from "
+                                 "non-FixedSizeListArray without `stop` being set."),
+            CallFunction("list_slice", {input}, &args));
+      }
+
+      args.start = 3;
+      args.stop = std::nullopt;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 0), "[[], [], [], null]");
+      if (input->type()->id() == Type::FIXED_SIZE_LIST) {
+        CheckScalarUnary("list_slice", input, expected, &args);
+      }
 
       args.start = 0;
       args.stop = 4;
@@ -276,18 +302,13 @@ TEST(TestScalarNested, ListSliceBadParameters) {
       ::testing::HasSubstr(
           "`start`(1) should be greater than 0 and smaller than `stop`(1)"),
       CallFunction("list_slice", {input}, &args));
-  // stop not set and FixedSizeList requested
+  // stop not set and FixedSizeList requested with variable sized input
   args.stop = std::nullopt;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       NotImplemented,
-      ::testing::HasSubstr("NotImplemented: Unable to produce FixedSizeListArray without "
+      ::testing::HasSubstr("NotImplemented: Unable to produce FixedSizeListArray from "
+                           "non-FixedSizeListArray without "
                            "`stop` being set."),
-      CallFunction("list_slice", {input}, &args));
-  // stop not set and ListArray requested
-  args.stop = std::nullopt;
-  args.return_fixed_size_list = false;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, ::testing::HasSubstr("Slicing to end not yet implemented"),
       CallFunction("list_slice", {input}, &args));
   // Catch step must be >= 1
   args.start = 0;
