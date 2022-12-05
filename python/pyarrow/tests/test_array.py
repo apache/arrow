@@ -1277,7 +1277,8 @@ def test_union_arrays_with_validity_map():
             type=union.type, length=len(union), buffers=buffers,
             offset=0, children=[union.field(0), union.field(1)])
 
-        # Validity map doesn't affect children
+        # Validity map doesn't affect children, and was set to null
+        assert union_with_validity_bitmap.buffers()[0] is None
         assert union_with_validity_bitmap.field(0) == union.field(0)
         assert union_with_validity_bitmap.field(1) == union.field(1)
 
