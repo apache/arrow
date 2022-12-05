@@ -381,7 +381,10 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or (test_memory and test_env_var)" %}    # [unix]
         # test is broken; header is in $PREFIX, not $SP_DIR
         {% set tests_to_skip = tests_to_skip + " or (test_misc and test_get_include)" %}  # [unix]
-        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [not ppc64le]
+        # ^^^^^^^ TESTS THAT SHOULDN'T HAVE TO BE SKIPPED ^^^^^^^
+
+        # crossbow CI: enough to run for one python version
+        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [(not ppc64le) and py==310]
         # NOTE: test suite is skipped on ppc due to bugs in QEMU code that cause
         # CI to fail, even though the tests would run through on native hardware
 
