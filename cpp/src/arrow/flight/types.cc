@@ -395,17 +395,17 @@ arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::query_
 }
 
 arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::as_headers() const {
-  std::string this->path = this->path();
-  if (path.empty()) {
+  std::string catalog = path();
+  if (catalog.empty()) {
     return query_items();
   }
 
-  std::vector<std::pair<std::string, std::string>>> headers;
-  std::vector<std::pair<std::string, std::string>>> query_items(this->query_items());
-  headers.reserve(query_items.size() + 1);
+  std::vector<std::pair<std::string, std::string>> headers;
+  std::vector<std::pair<std::string, std::string>> items(query_items());
+  headers.reserve(items.size() + 1);
 
-  headers.emplace_back(std::pair<std::string, std::string>("catalog", path));
-  headers.insert(headers.end(), query_items.begin(), query_items.end());
+  headers.emplace_back(std::pair<std::string, std::string>("catalog", catalog));
+  headers.insert(headers.end(), items.begin(), items.end());
 
   return headers;
 }
