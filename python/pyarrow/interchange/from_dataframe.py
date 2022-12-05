@@ -101,21 +101,30 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
     -------
     pa.Table
     """
-    pass
+    batches = []
+    for chunk in df.get_chunks():
+        batch = protocol_df_chunk_to_pyarrow(chunk)
+        batches.append(batch)
+
+    table = pa.Table.from_batches(batches)
+
+    return table
 
 
 def protocol_df_chunk_to_pyarrow(df: DataFrameObject) -> pa.Table:
     """
-    Convert interchange protocol chunk to ``pd.DataFrame``.
+    Convert interchange protocol chunk to ``pa.RecordBatch``.
+
     Parameters
     ----------
     df : DataFrameObject
+
     Returns
     -------
-    pa.Table
+    pa.RecordBatch
     """
-    # We need a dict of columns here, with each column being a NumPy array
-    # (at least for now, deal with non-NumPy dtypes later).
+    # We need a dict of columns here, with each column being a PyArrow
+    # or NumPy array.
     columns: dict[str, Any] = {}
     buffers = []  # hold on to buffers, keeps memory alive
     for name in df.column_names():
@@ -143,7 +152,7 @@ def protocol_df_chunk_to_pyarrow(df: DataFrameObject) -> pa.Table:
 
         buffers.append(buf)
 
-    pass
+    return pa.RecordBatch.from_pydict(columns)
 
 
 def column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
@@ -315,9 +324,9 @@ def datetime_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
     # In case a bytemask was constructed with validity_buffer() call
     # or with sentinel_value then we have to add the mask to the array
     if bytemask is not None:
-        return pa.array(array.to_pylist(), mask=bytemask)
+        return pa.array(array.to_pylist(), mask=bytemask), buffers
     else:
-        return array
+        return array, buffers
 
 
 def parse_datetime_format_str(format_str):
