@@ -1,19 +1,19 @@
+MACOSX_DEPLOYMENT_TARGET:
+- '11.0'
 c_compiler:
-- gcc
+- clang
 c_compiler_version:
-- '10'
-cdt_name:
-- cos6
+- '14'
 channel_sources:
 - conda-forge
 channel_targets:
 - conda-forge main
 cxx_compiler:
-- gxx
+- clangxx
 cxx_compiler_version:
-- '10'
-docker_image:
-- quay.io/condaforge/linux-anvil-cos7-x86_64
+- '14'
+macos_machine:
+- arm64-apple-darwin20.0.0
 pin_run_as_build:
   r-base:
     min_pin: x.x
@@ -21,7 +21,7 @@ pin_run_as_build:
 r_base:
 - '4.1'
 target_platform:
-- linux-64
+- osx-arm64
 zip_keys:
 - - c_compiler_version
   - cxx_compiler_version

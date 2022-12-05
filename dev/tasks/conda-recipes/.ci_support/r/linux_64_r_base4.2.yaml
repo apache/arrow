@@ -19,7 +19,7 @@ pin_run_as_build:
     min_pin: x.x
     max_pin: x.x
 r_base:
-- '4.1'
+- '4.2'
 target_platform:
 - linux-64
 zip_keys:
