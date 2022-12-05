@@ -363,6 +363,10 @@ int64_t LinuxParseCpuFlags(const std::string& values) {
     {"avx512bw", CpuInfo::AVX512BW},
     {"bmi1", CpuInfo::BMI1},
     {"bmi2", CpuInfo::BMI2},
+    {"avx512ifma", CpuInfo::AVX512IFMA},
+    {"avx512vbmi", CpuInfo::AVX512VBMI},
+    {"avx512_vbmi2", CpuInfo::AVX512VBMI2},
+    {"avx512_vnni", CpuInfo::AVX512VNNI},
 #elif defined(CPUINFO_ARCH_ARM)
     {"asimd", CpuInfo::ASIMD},
 #endif
@@ -426,12 +430,15 @@ bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_fla
     USER_SIMD_AVX,
     USER_SIMD_AVX2,
     USER_SIMD_AVX512,
+    USER_SIMD_AVX512_ICX,
     USER_SIMD_MAX,
   };
 
   int level = USER_SIMD_MAX;
   // Parse the level
-  if (simd_level == "AVX512") {
+  if (simd_level == "AVX512_ICX") {
+    level = USER_SIMD_AVX512_ICX;
+  } else if (simd_level == "AVX512") {
     level = USER_SIMD_AVX512;
   } else if (simd_level == "AVX2") {
     level = USER_SIMD_AVX2;
@@ -446,6 +453,9 @@ bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_fla
   }
 
   // Disable feature as the level
+  if (level < USER_SIMD_AVX512_ICX) {
+    *hardware_flags &= ~CpuInfo::AVX512_ICX;
+  }
   if (level < USER_SIMD_AVX512) {
     *hardware_flags &= ~CpuInfo::AVX512;
   }

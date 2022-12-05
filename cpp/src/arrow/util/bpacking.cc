@@ -29,6 +29,9 @@
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
 #include "arrow/util/bpacking_avx512.h"
 #endif
+#if defined(ARROW_HAVE_AVX512_ICX)
+#include "arrow/util/bpacking_avx512_icx.h"
+#endif
 #if defined(ARROW_HAVE_NEON)
 #include "arrow/util/bpacking_neon.h"
 #endif
@@ -166,14 +169,34 @@ struct Unpack32DynamicFunction {
   }
 };
 
+#if defined(ARROW_HAVE_AVX512_ICX)
+struct Unpack32DynamicFunctionICX {
+  using FunctionType = decltype(&unpack32_default);
+
+  static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
+    return {{DispatchLevel::NONE, unpack32_default},
+            {DispatchLevel::AVX512_ICX, unpack32_avx512_icx}};
+  }
+};
+#endif
 }  // namespace
 
 int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_bits) {
 #if defined(ARROW_HAVE_NEON)
   return unpack32_neon(in, out, batch_size, num_bits);
 #else
-  static DynamicDispatch<Unpack32DynamicFunction> dispatch;
-  return dispatch.func(in, out, batch_size, num_bits);
+  if (num_bits <= 16) {
+#if defined(ARROW_HAVE_AVX512_ICX)
+    static DynamicDispatch<Unpack32DynamicFunctionICX> dispatch;
+    return dispatch.func(in, out, batch_size, num_bits);
+#else
+    static DynamicDispatch<Unpack32DynamicFunction> dispatch;
+    return dispatch.func(in, out, batch_size, num_bits);
+#endif
+  } else {
+    static DynamicDispatch<Unpack32DynamicFunction> dispatch;
+    return dispatch.func(in, out, batch_size, num_bits);
+  }
 #endif
 }
 

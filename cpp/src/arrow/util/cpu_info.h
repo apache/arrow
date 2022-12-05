@@ -53,7 +53,11 @@ class ARROW_EXPORT CpuInfo {
   static constexpr int64_t AVX512 = AVX512F | AVX512CD | AVX512VL | AVX512DQ | AVX512BW;
   static constexpr int64_t BMI1 = (1LL << 11);
   static constexpr int64_t BMI2 = (1LL << 12);
-
+  static constexpr int64_t AVX512IFMA = (1LL << 13);
+  static constexpr int64_t AVX512VBMI = (1LL << 14);
+  static constexpr int64_t AVX512VBMI2 = (1LL << 15);
+  static constexpr int64_t AVX512VNNI = (1LL << 16);
+  static constexpr int64_t AVX512_ICX = AVX512IFMA | AVX512VBMI | AVX512VNNI;
   /// Arm features
   static constexpr int64_t ASIMD = (1LL << 32);
 

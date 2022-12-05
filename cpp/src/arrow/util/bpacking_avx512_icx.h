@@ -50,7 +50,6 @@ namespace internal {
 /// The batched unpacking functions operate on batches of 32 values. This batch size
 /// is convenient because for every supported bit width, the end of a 32 value batch
 /// falls on a byte boundary. It is also large enough to amortise loop overheads.
-namespace BitPacking {
 static constexpr int MAX_BITWIDTH = sizeof(uint64_t) * 8;
 static constexpr int MAX_DICT_BITWIDTH = sizeof(uint32_t) * 8;
 
@@ -365,9 +364,8 @@ static const uint8_t* UnpackUpTo31Values(const uint8_t* __restrict__ in, int64_t
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_0(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_0(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -391,13 +389,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_0(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 0>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_1(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_1(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -447,13 +444,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_1(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 1>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_2(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_2(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -482,13 +478,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_2(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 2>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_3(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_3(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -518,13 +513,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_3(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 3>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_4(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_4(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -554,13 +548,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_4(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 4>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_5(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_5(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -599,13 +592,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_5(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 5>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_6(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_6(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -644,13 +636,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_6(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 6>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_7(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_7(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -689,13 +680,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_7(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 7>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_8(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_8(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -722,13 +712,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_8(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 8>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_9(const uint8_t* __restrict__ in,
-                                                     int64_t in_bytes, int64_t num_values,
-                                                     OutType* __restrict__ out) {
+int UnpackValuesICX_9(const uint8_t* __restrict__ in, int64_t in_bytes,
+                      int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -766,14 +755,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_9(const uint8_t* __restrict__
     in_pos = UnpackUpTo31Values<OutType, 9>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_10(const uint8_t* __restrict__ in,
-                                                      int64_t in_bytes,
-                                                      int64_t num_values,
-                                                      OutType* __restrict__ out) {
+int UnpackValuesICX_10(const uint8_t* __restrict__ in, int64_t in_bytes,
+                       int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -811,14 +798,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_10(const uint8_t* __restrict_
     in_pos = UnpackUpTo31Values<OutType, 10>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_11(const uint8_t* __restrict__ in,
-                                                      int64_t in_bytes,
-                                                      int64_t num_values,
-                                                      OutType* __restrict__ out) {
+int UnpackValuesICX_11(const uint8_t* __restrict__ in, int64_t in_bytes,
+                       int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -856,14 +841,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_11(const uint8_t* __restrict_
     in_pos = UnpackUpTo31Values<OutType, 11>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_12(const uint8_t* __restrict__ in,
-                                                      int64_t in_bytes,
-                                                      int64_t num_values,
-                                                      OutType* __restrict__ out) {
+int UnpackValuesICX_12(const uint8_t* __restrict__ in, int64_t in_bytes,
+                       int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -901,14 +884,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_12(const uint8_t* __restrict_
     in_pos = UnpackUpTo31Values<OutType, 12>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_13(const uint8_t* __restrict__ in,
-                                                      int64_t in_bytes,
-                                                      int64_t num_values,
-                                                      OutType* __restrict__ out) {
+int UnpackValuesICX_13(const uint8_t* __restrict__ in, int64_t in_bytes,
+                       int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -968,14 +949,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_13(const uint8_t* __restrict_
     in_pos = UnpackUpTo31Values<OutType, 13>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_14(const uint8_t* __restrict__ in,
-                                                      int64_t in_bytes,
-                                                      int64_t num_values,
-                                                      OutType* __restrict__ out) {
+int UnpackValuesICX_14(const uint8_t* __restrict__ in, int64_t in_bytes,
+                       int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -1013,14 +992,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_14(const uint8_t* __restrict_
     in_pos = UnpackUpTo31Values<OutType, 14>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_15(const uint8_t* __restrict__ in,
-                                                      int64_t in_bytes,
-                                                      int64_t num_values,
-                                                      OutType* __restrict__ out) {
+int UnpackValuesICX_15(const uint8_t* __restrict__ in, int64_t in_bytes,
+                       int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -1080,14 +1057,12 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_15(const uint8_t* __restrict_
     in_pos = UnpackUpTo31Values<OutType, 15>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX_16(const uint8_t* __restrict__ in,
-                                                      int64_t in_bytes,
-                                                      int64_t num_values,
-                                                      OutType* __restrict__ out) {
+int UnpackValuesICX_16(const uint8_t* __restrict__ in, int64_t in_bytes,
+                       int64_t num_values, OutType* __restrict__ out) {
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
@@ -1111,57 +1086,55 @@ std::pair<const uint8_t*, int64_t> UnpackValuesICX_16(const uint8_t* __restrict_
     in_pos = UnpackUpTo31Values<OutType, 16>(in_pos, in_bytes, remainder_values, out_pos);
   }
 
-  return std::make_pair(in_pos, values_to_read);
+  return (int)(num_values / 32 * 32);
 }
 
 template <typename OutType>
-std::pair<const uint8_t*, int64_t> UnpackValuesICX(int bit_width,
-                                                   const uint8_t* __restrict__ in,
-                                                   int64_t in_bytes, int64_t num_values,
-                                                   OutType* __restrict__ out) {
+int unpack32_avx512_icx(const uint32_t* __restrict__ in, OutType* __restrict__ out,
+                        int num_values, int bit_width) {
+  int64_t in_bytes = num_values * bit_width / 8;
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
 
   switch (bit_width) {
     case 0:
-      return UnpackValuesICX_0<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_0<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 1:
-      return UnpackValuesICX_1<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_1<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 2:
-      return UnpackValuesICX_2<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_2<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 3:
-      return UnpackValuesICX_3<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_3<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 4:
-      return UnpackValuesICX_4<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_4<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 5:
-      return UnpackValuesICX_5<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_5<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 6:
-      return UnpackValuesICX_6<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_6<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 7:
-      return UnpackValuesICX_7<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_7<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 8:
-      return UnpackValuesICX_8<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_8<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 9:
-      return UnpackValuesICX_9<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_9<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 10:
-      return UnpackValuesICX_10<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_10<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 11:
-      return UnpackValuesICX_11<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_11<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 12:
-      return UnpackValuesICX_12<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_12<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 13:
-      return UnpackValuesICX_13<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_13<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 14:
-      return UnpackValuesICX_14<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_14<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 15:
-      return UnpackValuesICX_15<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_15<OutType>((uint8_t*)in, in_bytes, num_values, out);
     case 16:
-      return UnpackValuesICX_16<OutType>(in, in_bytes, num_values, out);
+      return UnpackValuesICX_16<OutType>((uint8_t*)in, in_bytes, num_values, out);
     default:
       DCHECK(false);
-      return std::make_pair(NULLPTR, -1);
+      return -1;
   }
 }
-}  // namespace BitPacking
 }  // namespace internal
 }  // namespace arrow

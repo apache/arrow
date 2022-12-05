@@ -33,6 +33,7 @@ enum class DispatchLevel : int {
   SSE4_2,
   AVX2,
   AVX512,
+  AVX512_ICX,
   NEON,
   MAX
 };
@@ -105,6 +106,8 @@ class DynamicDispatch {
         return cpu_info->IsSupported(CpuInfo::AVX2);
       case DispatchLevel::AVX512:
         return cpu_info->IsSupported(CpuInfo::AVX512);
+      case DispatchLevel::AVX512_ICX:
+        return cpu_info->IsSupported(CpuInfo::AVX512_ICX);
       default:
         return false;
     }
