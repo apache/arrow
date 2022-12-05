@@ -383,8 +383,8 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or (test_misc and test_get_include)" %}  # [unix]
         # ^^^^^^^ TESTS THAT SHOULDN'T HAVE TO BE SKIPPED ^^^^^^^
 
-        # crossbow CI: enough to run for one python version
-        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [(not ppc64le) and py==310]
+        # crossbow CI: reduce to one python version, except on (unemulated) linux, where it's fast enough
+        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [linux64 or ((py==310) and not ppc64le)]
         # NOTE: test suite is skipped on ppc due to bugs in QEMU code that cause
         # CI to fail, even though the tests would run through on native hardware
 
