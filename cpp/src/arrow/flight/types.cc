@@ -401,7 +401,12 @@ arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::as_hea
   }
 
   std::vector<std::pair<std::string, std::string>> headers;
-  std::vector<std::pair<std::string, std::string>> items(query_items());
+
+  auto query_items_result = query_items();
+  if (!query_items_result.ok()) {
+    return query_items_result;
+  }
+  std::vector<std::pair<std::string, std::string>> items(*query_items_result);
   headers.reserve(items.size() + 1);
 
   headers.emplace_back(std::pair<std::string, std::string>("catalog", catalog));
