@@ -227,6 +227,9 @@ constexpr auto kValueNameStorage = [] {
   return array<char, name.size()>{name.data()};
 }();
 
+template <>
+static constexpr array<char, 1> kValueNameStorage<0>{{'0'}};
+
 template <typename T>
 constexpr auto kTypeNameStorage = [] {
   constexpr std::string_view name = [] {
