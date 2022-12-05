@@ -215,7 +215,10 @@ def gcsfs(request, gcs_server):
         anonymous=True,
         retry_time_limit=timedelta(seconds=45)
     )
-    fs.create_dir(bucket)
+    try:
+        fs.create_dir(bucket)
+    except OSError as e:
+        pytest.skip(f"Could not create directory in {fs}: {e}")
 
     yield dict(
         fs=fs,

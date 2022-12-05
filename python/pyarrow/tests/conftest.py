@@ -184,11 +184,16 @@ def gcs_server():
     args = [sys.executable, '-m', 'testbench', '--port', str(port)]
     proc = None
     try:
+        # check first if testbench module is available
+        import testbench
+        # start server
         proc = subprocess.Popen(args, env=env)
         # Make sure the server is alive.
         assert proc.poll() is None
-    except (AssertionError, OSError) as e:
+    except (ModuleNotFoundError, OSError) as e:
         pytest.skip(f"Command {args} failed to execute: {e}")
+    except AssertionError as e:
+        pytest.skip(f"Command {args} did not start server successfully: {e}")
     else:
         yield {
             'connection': ('localhost', port),
