@@ -1275,6 +1275,30 @@ def open_csv(input_file, read_options=None, parse_options=None,
     return reader
 
 
+def _raise_invalid_function_option(value, description, *,
+                                   exception_class=ValueError):
+    raise exception_class(f"\"{value}\" is not a valid {description}")
+
+
+cdef CQuotingStyle unwrap_quoting_style(quoting_style) except *:
+    if quoting_style == "needed":
+        return CQuotingStyle_Needed
+    elif quoting_style == "all_valid":
+        return CQuotingStyle_AllValid
+    elif quoting_style == "none":
+        return CQuotingStyle_None
+    _raise_invalid_function_option(quoting_style, "quoting style")
+
+
+cdef wrap_quoting_style(quoting_style):
+    if quoting_style == CQuotingStyle_Needed:
+        return 'needed'
+    elif quoting_style == CQuotingStyle_AllValid:
+        return 'all_valid'
+    elif quoting_style == CQuotingStyle_None:
+        return 'none'
+
+
 cdef class WriteOptions(_Weakrefable):
     """
     Options for writing CSV files.
@@ -1288,13 +1312,22 @@ cdef class WriteOptions(_Weakrefable):
         CSV data
     delimiter : 1-character string, optional (default ",")
         The character delimiting individual cells in the CSV data.
+    quoting_style : str, optional (default "needed")
+        Whether to quote values, and if so, which quoting style to use.
+        The following values are accepted:
+
+        - "needed" (default): only enclose values in quotes when needed.
+        - "all_valid": enclose all valid values in quotes; nulls are not quoted.
+        - "none": do not enclose any values in quotes; values containing
+          special characters (such as quotes, cell delimiters or line endings)
+          will raise an error.
     """
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, *, include_header=None, batch_size=None,
-                 delimiter=None):
+                 delimiter=None, quoting_style=None):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
@@ -1302,6 +1335,8 @@ cdef class WriteOptions(_Weakrefable):
             self.batch_size = batch_size
         if delimiter is not None:
             self.delimiter = delimiter
+        if quoting_style is not None:
+            self.quoting_style = quoting_style
 
     @property
     def include_header(self):
@@ -1336,6 +1371,24 @@ cdef class WriteOptions(_Weakrefable):
     @delimiter.setter
     def delimiter(self, value):
         deref(self.options).delimiter = _single_char(value)
+
+    @property
+    def quoting_style(self):
+        """
+        Whether to quote values, and if so, which quoting style to use.
+        The following values are accepted:
+
+        - "needed" (default): only enclose values in quotes when needed.
+        - "all_valid": enclose all valid values in quotes; nulls are not quoted.
+        - "none": do not enclose any values in quotes; values containing
+          special characters (such as quotes, cell delimiters or line endings)
+          will raise an error.
+        """
+        return wrap_quoting_style(deref(self.options).quoting_style)
+
+    @quoting_style.setter
+    def quoting_style(self, value):
+        deref(self.options).quoting_style = unwrap_quoting_style(value)
 
     @staticmethod
     cdef WriteOptions wrap(CCSVWriteOptions options):
