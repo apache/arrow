@@ -305,5 +305,20 @@ TEST(ReaderTest, ListArrayWithFewValues) {
   AssertTablesEqual(*actual_table, *expected_table);
 }
 
+TEST(ReaderTest, FailOnInvalidEOF) {
+  auto read_options = ReadOptions::Defaults();
+  auto parse_options = ParseOptions::Defaults();
+  read_options.use_threads = false;
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK(MakeStream("}", &input));
+
+  for (auto newlines_in_values : {false, true}) {
+    parse_options.newlines_in_values = newlines_in_values;
+    ASSERT_OK_AND_ASSIGN(auto reader, TableReader::Make(default_memory_pool(), input,
+                                                        read_options, parse_options));
+    ASSERT_RAISES(Invalid, reader->Read());
+  }
+}
+
 }  // namespace json
 }  // namespace arrow
