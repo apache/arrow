@@ -391,17 +391,17 @@ std::string Location::scheme() const {
 
 std::string Location::path() const { return uri_->path(); }
 arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::query_items() const {
-  return uri->query_items();
+  return uri_->query_items();
 }
 
 arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::as_headers() const {
-  std::string path = path();
+  std::string this->path = this->path();
   if (path.empty()) {
     return query_items();
   }
 
   std::vector<std::pair<std::string, std::string>>> headers;
-  std::vector<std::pair<std::string, std::string>>> query_items(query_items());
+  std::vector<std::pair<std::string, std::string>>> query_items(this->query_items());
   headers.reserve(query_items.size() + 1);
 
   headers.emplace_back(std::pair<std::string, std::string>("catalog", path));
