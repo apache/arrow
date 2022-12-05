@@ -134,6 +134,11 @@ TEST(TestScalarNested, ListSliceVariableOutput) {
     args.stop = 4;
     expected = ArrayFromJSON(list(value_type), "[[3], [], [], null]");
     CheckScalarUnary("list_slice", input, expected, &args);
+
+    args.start = 0;
+    args.stop = 4;
+    args.step = 2;
+    expected = ArrayFromJSON(list(value_type), "[[1, 3], [4], [6], null]");
   }
 
   // Verify passing `return_fixed_size_list=false` with fixed size input
@@ -167,6 +172,46 @@ TEST(TestScalarNested, ListSliceFixedOutput) {
       args.stop = 4;
       expected = ArrayFromJSON(fixed_size_list(value_type, 2),
                                "[[3, null], [null, null], [null, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 0;
+      args.stop = 4;
+      args.step = 2;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                               "[[1, 3], [4, null], [6, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      // More checks for step slicing start/stop/step combinations
+      args.start = 1;
+      args.stop = 3;
+      args.step = 2;
+      expected =
+          ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 2;
+      expected =
+          ArrayFromJSON(fixed_size_list(value_type, 1), "[[3], [null], [null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 0;
+      args.stop = 2;
+      args.step = 3;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 1), "[[1], [4], [6], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 0;
+      args.stop = 5;
+      args.step = 2;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 3),
+                               "[[1, 3, null], [4, null, null], [6, null, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 0;
+      args.stop = 6;
+      args.step = 3;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                               "[[1, null], [4, null], [6, null], null]");
       CheckScalarUnary("list_slice", input, expected, &args);
     }
   }
@@ -244,13 +289,13 @@ TEST(TestScalarNested, ListSliceBadParameters) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       NotImplemented, ::testing::HasSubstr("Slicing to end not yet implemented"),
       CallFunction("list_slice", {input}, &args));
-  // step other than `1` not implmented
+  // Catch step must be >= 1
+  args.start = 0;
   args.stop = 2;
-  args.step = 2;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented,
-      ::testing::HasSubstr("Setting `step` to anything other than 1 is not supported"),
-      CallFunction("list_slice", {input}, &args));
+  args.step = 0;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("`step` must be >= 1, got: 0"),
+                                  CallFunction("list_slice", {input}, &args));
 }
 
 TEST(TestScalarNested, StructField) {

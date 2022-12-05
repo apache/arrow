@@ -1,4 +1,10 @@
-# Writing Bindings
+---
+title: "Writing dplyr bindings"
+description: > 
+  Learn how to write bindings that allow arrow to mirror the behavior
+  of native R functions within dplyr pipelines
+output: rmarkdown::html_vignette
+---
 
 ```{r, include=FALSE}
 library(arrow, warn.conflicts = FALSE)
@@ -6,7 +12,7 @@ library(dplyr, warn.conflicts = FALSE)
 ```
 
 When writing bindings between C++ compute functions and R functions, the aim is 
-to expose the C++ functionality via the same interface as existing R functions. The syntax and 
+to expose the C++ functionality via the same interface as existing R functions. The syntax and
 functionality should match that of the existing R functions 
 (though there are some exceptions) so that users are able to use existing tidyverse 
 or base R syntax, whilst taking advantage of the speed and functionality of the 

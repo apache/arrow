@@ -17,12 +17,14 @@
 
 // Vector kernels involving nested types
 
+#include <cmath>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/string.h"
 
@@ -117,11 +119,8 @@ struct ListSlice {
                              ") should be greater than 0 and smaller than `stop`(",
                              ToString(opts.stop), ")");
     }
-    if (opts.step != 1) {
-      // TODO(ARROW-18282): support step in slicing
-      return Status::NotImplemented(
-          "Setting `step` to anything other than 1 is not supported; got step=",
-          opts.step);
+    if (opts.step < 1) {
+      return Status::Invalid("`step` must be >= 1, got: ", opts.step);
     }
 
     const ArraySpan& list_array = batch[0].array;
@@ -133,11 +132,10 @@ struct ListSlice {
 
     // construct array values
     if (return_fixed_size_list) {
-      RETURN_NOT_OK(MakeBuilder(
-          ctx->memory_pool(),
-          fixed_size_list(value_type,
-                          static_cast<int32_t>(opts.stop.value() - opts.start)),
-          &builder));
+      const auto length = bit_util::CeilDiv(opts.stop.value() - opts.start, opts.step);
+      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(),
+                                fixed_size_list(value_type, static_cast<int32_t>(length)),
+                                &builder));
       RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
     } else {
       if constexpr (std::is_same_v<Type, LargeListType>) {
@@ -219,7 +217,7 @@ struct ListSlice {
     auto cursor = offset;
 
     RETURN_NOT_OK(list_builder->Append());
-    while (cursor < offset + (opts->stop.value() - opts->start)) {
+    while (cursor < offset + ((opts->stop.value() - opts->start))) {
       if (cursor + opts->start >= next_offset) {
         if constexpr (!std::is_same_v<BuilderType, FixedSizeListBuilder>) {
           break;  // don't pad nulls for variable sized list output
@@ -229,7 +227,7 @@ struct ListSlice {
         RETURN_NOT_OK(
             value_builder->AppendArraySlice(*list_values, cursor + opts->start, 1));
       }
-      ++cursor;
+      cursor += static_cast<offset_type>(opts->step);
     }
     return Status::OK();
   }
@@ -247,8 +245,11 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
       return Status::NotImplemented(
           "Unable to produce FixedSizeListArray without `stop` being set.");
     }
-    return fixed_size_list(value_type,
-                           static_cast<int32_t>(opts.stop.value() - opts.start));
+    if (opts.step < 1) {
+      return Status::Invalid("`step` must be >= 1, got: ", opts.step);
+    }
+    const auto length = bit_util::CeilDiv(opts.stop.value() - opts.start, opts.step);
+    return fixed_size_list(value_type, static_cast<int32_t>(length));
   } else {
     // Returning large list if that's what we got in and didn't ask for fixed size
     if (list_type->id() == Type::LARGE_LIST) {

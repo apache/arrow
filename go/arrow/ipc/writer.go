@@ -662,7 +662,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			values        = arr.ListValues()
 			mustRelease   = false
 			values_offset int64
-			values_length int64
+			values_end    int64
 		)
 		defer func() {
 			if mustRelease {
@@ -671,13 +671,13 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		}()
 
 		if voffsets != nil {
-			values_offset = int64(arr.Offsets()[0])
-			values_length = int64(arr.Offsets()[arr.Len()]) - values_offset
+			values_offset, _ = arr.ValueOffsets(0)
+			_, values_end = arr.ValueOffsets(arr.Len() - 1)
 		}
 
-		if len(arr.Offsets()) != 0 || values_length < int64(values.Len()) {
+		if arr.Len() != 0 || values_end < int64(values.Len()) {
 			// must also slice the values
-			values = array.NewSlice(values, values_offset, values_length)
+			values = array.NewSlice(values, values_offset, values_end)
 			mustRelease = true
 		}
 		err = w.visit(p, values)
@@ -699,7 +699,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			values        = arr.ListValues()
 			mustRelease   = false
 			values_offset int64
-			values_length int64
+			values_end    int64
 		)
 		defer func() {
 			if mustRelease {
@@ -709,13 +709,12 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 
 		if arr.Len() > 0 && voffsets != nil {
 			values_offset, _ = arr.ValueOffsets(0)
-			_, values_length = arr.ValueOffsets(arr.Len() - 1)
-			values_length -= values_offset
+			_, values_end = arr.ValueOffsets(arr.Len() - 1)
 		}
 
-		if arr.Len() != 0 || values_length < int64(values.Len()) {
+		if arr.Len() != 0 || values_end < int64(values.Len()) {
 			// must also slice the values
-			values = array.NewSlice(values, values_offset, values_length)
+			values = array.NewSlice(values, values_offset, values_end)
 			mustRelease = true
 		}
 		err = w.visit(p, values)

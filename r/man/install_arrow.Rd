@@ -24,8 +24,9 @@ The default value, \code{TRUE}, tells the installation script to detect the
 Linux distribution and version and find an appropriate C++ library. \code{FALSE}
 would tell the script not to retrieve a binary and instead build Arrow C++
 from source. Other valid values are strings corresponding to a Linux
-distribution-version, to override the value that would be detected.
-See \code{vignette("install", package = "arrow")} for further details.}
+distribution-version, to override the value that would be detected. See the
+\href{https://arrow.apache.org/docs/r/articles/install.html}{install guide}
+for further details.}
 
 \item{use_system}{logical: Should we use \code{pkg-config} to look for Arrow
 system packages? Default is \code{FALSE}. If \code{TRUE}, source installation may be
@@ -56,6 +57,7 @@ after a successful \code{arrow} installation.
 }
 \seealso{
 \code{\link[=arrow_info]{arrow_info()}} to see if the package was configured with
-necessary C++ dependencies. \code{vignette("install", package = "arrow")} for
-more ways to tune installation on Linux.
+necessary C++ dependencies.
+\href{https://arrow.apache.org/docs/r/articles/install.html}{install guide}
+for more ways to tune installation on Linux.
 }

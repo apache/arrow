@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/expression.h"
 
+#include <algorithm>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -623,18 +624,6 @@ ArgumentsAndFlippedArguments(const Expression::Call& call) {
                                                           call.arguments[0]}};
 }
 
-template <typename BinOp, typename It,
-          typename Out = typename std::iterator_traits<It>::value_type>
-std::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
-  if (begin == end) return std::nullopt;
-
-  Out folded = std::move(*begin++);
-  while (begin != end) {
-    folded = bin_op(std::move(folded), std::move(*begin++));
-  }
-  return folded;
-}
-
 }  // namespace
 
 std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
@@ -664,6 +653,10 @@ bool ExpressionHasFieldRefs(const Expression& expr) {
 }
 
 Result<Expression> FoldConstants(Expression expr) {
+  if (!expr.IsBound()) {
+    return Status::Invalid("Cannot fold constants in unbound expression.");
+  }
+
   return ModifyExpression(
       std::move(expr), [](Expression expr) { return expr; },
       [](Expression expr, ...) -> Result<Expression> {
@@ -857,9 +850,34 @@ bool IsBinaryAssociativeCommutative(const Expression::Call& call) {
   return it != binary_associative_commutative.end();
 }
 
+Result<Expression> HandleInconsistentTypes(Expression::Call call,
+                                           compute::ExecContext* exec_context) {
+  // ARROW-18334: due to reordering of arguments, the call may have
+  // inconsistent argument types. For example, the call's kernel may
+  // correspond to `timestamp + duration` but the arguments happen to
+  // be `duration, timestamp`. The addition itself is still commutative,
+  // but the mismatch in declared argument types is potentially problematic
+  // if we ever start using the Expression::Call::kernel field more than
+  // we do currently. Check and rebind if necessary.
+  //
+  // The more correct fix for this problem is to ensure that all kernels of
+  // functions which are commutative be commutative as well, which would
+  // obviate rebinding like this. In the context of ARROW-18334, this
+  // would require rewriting KernelSignature so that a single kernel can
+  // handle both `timestamp + duration` and `duration + timestamp`.
+  if (call.kernel->signature->MatchesInputs(GetTypes(call.arguments))) {
+    return Expression(std::move(call));
+  }
+  return BindNonRecursive(std::move(call), /*insert_implicit_casts=*/false, exec_context);
+}
+
 }  // namespace
 
 Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_context) {
+  if (!expr.IsBound()) {
+    return Status::Invalid("Cannot canonicalize an unbound expression.");
+  }
+
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
     return Canonicalize(std::move(expr), &exec_context);
@@ -902,9 +920,12 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
           } CanonicalOrdering;
 
           FlattenedAssociativeChain chain(expr);
+
           if (chain.was_left_folded &&
               std::is_sorted(chain.fringe.begin(), chain.fringe.end(),
                              CanonicalOrdering)) {
+            // fast path for expressions which happen to have arrived in an
+            // already-canonical form
             AlreadyCanonicalized.Add(std::move(chain.exprs));
             return expr;
           }
@@ -912,16 +933,17 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
           std::stable_sort(chain.fringe.begin(), chain.fringe.end(), CanonicalOrdering);
 
           // fold the chain back up
-          auto folded =
-              FoldLeft(chain.fringe.begin(), chain.fringe.end(),
-                       [call, &AlreadyCanonicalized](Expression l, Expression r) {
-                         auto canonicalized_call = *call;
-                         canonicalized_call.arguments = {std::move(l), std::move(r)};
-                         Expression expr(std::move(canonicalized_call));
-                         AlreadyCanonicalized.Add({expr});
-                         return expr;
-                       });
-          return std::move(*folded);
+          Expression folded = std::move(chain.fringe.front());
+
+          for (auto it = chain.fringe.begin() + 1; it != chain.fringe.end(); ++it) {
+            auto canonicalized_call = *call;
+            canonicalized_call.arguments = {std::move(folded), std::move(*it)};
+            ARROW_ASSIGN_OR_RAISE(
+                folded,
+                HandleInconsistentTypes(std::move(canonicalized_call), exec_context));
+            AlreadyCanonicalized.Add({expr});
+          }
+          return folded;
         }
 
         if (auto cmp = Comparison::Get(call->function_name)) {
@@ -1415,12 +1437,13 @@ Expression and_(Expression lhs, Expression rhs) {
 }
 
 Expression and_(const std::vector<Expression>& operands) {
-  auto folded = FoldLeft<Expression(Expression, Expression)>(operands.begin(),
-                                                             operands.end(), and_);
-  if (folded) {
-    return std::move(*folded);
+  if (operands.empty()) return literal(true);
+
+  Expression folded = operands.front();
+  for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
+    folded = and_(std::move(folded), std::move(*it));
   }
-  return literal(true);
+  return folded;
 }
 
 Expression or_(Expression lhs, Expression rhs) {
@@ -1428,12 +1451,13 @@ Expression or_(Expression lhs, Expression rhs) {
 }
 
 Expression or_(const std::vector<Expression>& operands) {
-  auto folded =
-      FoldLeft<Expression(Expression, Expression)>(operands.begin(), operands.end(), or_);
-  if (folded) {
-    return std::move(*folded);
+  if (operands.empty()) return literal(false);
+
+  Expression folded = operands.front();
+  for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
+    folded = or_(std::move(folded), std::move(*it));
   }
-  return literal(false);
+  return folded;
 }
 
 Expression not_(Expression operand) { return call("invert", {std::move(operand)}); }

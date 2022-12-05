@@ -19,18 +19,27 @@ package org.apache.arrow.vector.table;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.GenerateSampleData;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
+import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
@@ -63,7 +72,9 @@ import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.writer.Float8Writer;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
@@ -247,6 +258,9 @@ public class TestUtils {
     vectors.add(new TimeStampMicroVector("timeStampMicro_vector", allocator));
     vectors.add(new TimeStampNanoVector("timeStampNano_vector", allocator));
 
+    vectors.add(new DateMilliVector("dateMilli_vector", allocator));
+    vectors.add(new DateDayVector("dateDay_vector", allocator));
+
     vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
     return vectors;
   }
@@ -262,6 +276,17 @@ public class TestUtils {
     vectors.add(new TimeStampMilliTZVector("timeStampMilliTZ_vector", allocator, "UTC"));
     vectors.add(new TimeStampMicroTZVector("timeStampMicroTZ_vector", allocator, "UTC"));
     vectors.add(new TimeStampNanoTZVector("timeStampNanoTZ_vector", allocator, "UTC"));
+    vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
+    return vectors;
+  }
+
+  static List<FieldVector> intervalVectors(BufferAllocator allocator, int rowCount) {
+    List<FieldVector> vectors = new ArrayList<>();
+    vectors.add(new IntervalDayVector("intervalDay_vector", allocator));
+    vectors.add(new IntervalYearVector("intervalYear_vector", allocator));
+    vectors.add(new IntervalMonthDayNanoVector("intervalMonthDayNano_vector", allocator));
+    vectors.add(new DurationVector("duration_vector",
+        new FieldType(true, new ArrowType.Duration(TimeUnit.SECOND), null), allocator));
     vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
     return vectors;
   }
@@ -291,7 +316,6 @@ public class TestUtils {
     }
     listVector.setLastSet(outerCount - 1);
     listVector.setValueCount(outerCount);
-
     return listVector;
   }
 
@@ -323,7 +347,7 @@ public class TestUtils {
     return structVector;
   }
 
-  /** Returns a MapVector of ints to doubles. */
+  /** Returns a MapVector of longs to doubles. */
   static MapVector simpleMapVector(BufferAllocator allocator) {
     MapVector mapVector = MapVector.empty(BIGINT_INT_MAP_VECTOR_NAME, allocator, false);
     mapVector.allocateNew();
@@ -341,6 +365,22 @@ public class TestUtils {
     }
     mapWriter.setValueCount(count);
     return mapVector;
+  }
+
+  static List<FieldVector> decimalVector(BufferAllocator allocator, int rowCount) {
+    List<FieldVector> vectors = new ArrayList<>();
+    vectors.add(new DecimalVector("decimal_vector",
+        new FieldType(true, new ArrowType.Decimal(38, 10, 128), null),
+        allocator));
+    vectors.forEach(vec -> generateDecimalData((DecimalVector) vec, rowCount));
+    return vectors;
+  }
+
+  static List<FieldVector> bitVector(BufferAllocator allocator, int rowCount) {
+    List<FieldVector> vectors = new ArrayList<>();
+    vectors.add(new BitVector("bit_vector", allocator));
+    vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
+    return vectors;
   }
 
   /** Returns a UnionVector. */
@@ -380,4 +420,18 @@ public class TestUtils {
     unionVector.setValueCount(4);
     return unionVector;
   }
+
+  private static void generateDecimalData(DecimalVector vector, int valueCount) {
+    final BigDecimal even = new BigDecimal("0.0543278923");
+    final BigDecimal odd = new BigDecimal("2.0543278923");
+    for (int i = 0; i < valueCount; i++) {
+      if (i % 2 == 0) {
+        vector.setSafe(i, even);
+      } else {
+        vector.setSafe(i, odd);
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
+
 }

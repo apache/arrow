@@ -17,6 +17,7 @@
 
 import datetime
 import io
+import warnings
 
 import numpy as np
 import pytest
@@ -321,7 +322,11 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
     # with the default resolution of ns, we get wrong values for INT96
     # that are out of bounds for nanosecond range
     tab_error = get_table(pq_reader_method, filename)
-    assert tab_error["a"].to_pylist() != oob_dts
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore",
+                                "Discarding nonzero nanoseconds in conversion",
+                                UserWarning)
+        assert tab_error["a"].to_pylist() != oob_dts
 
     # avoid this overflow by specifying the resolution to use for INT96 values
     tab_correct = get_table(

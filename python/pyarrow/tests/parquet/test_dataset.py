@@ -81,6 +81,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
 
     with pytest.warns(FutureWarning):
         piece = pq.ParquetDatasetPiece(path)
+
     table1 = piece.read()
     assert isinstance(table1, pa.Table)
     meta1 = piece.get_metadata()

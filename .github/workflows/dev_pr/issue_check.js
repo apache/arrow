@@ -17,6 +17,16 @@
 
 const helpers = require("./helpers.js");
 
+/**
+ * Performs checks on the JIRA Issue:
+ * - The issue is started in JIRA.
+ * - The issue contains components.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ * @param {String} jiraID
+ */
 async function verifyJIRAIssue(github, context, pullRequestNumber, jiraID) {
     const ticketInfo = await helpers.getJiraInfo(jiraID);
     if(!ticketInfo["fields"]["components"].length) {
@@ -30,6 +40,13 @@ async function verifyJIRAIssue(github, context, pullRequestNumber, jiraID) {
     }
 }
 
+/**
+ * Adds a comment to add components on the JIRA ticket.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ */
 async function commentMissingComponents(github, context, pullRequestNumber) {
     const {data: comments} = await github.issues.listComments({
         owner: context.repo.owner,
@@ -54,6 +71,13 @@ async function commentMissingComponents(github, context, pullRequestNumber) {
     }
 }
 
+/**
+ * Adds a comment to start the ticket in JIRA.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ */
 async function commentNotStartedTicket(github, context, pullRequestNumber) {
     const {data: comments} = await github.issues.listComments({
         owner: context.repo.owner,
@@ -78,11 +102,72 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
     }
 }
 
+/**
+ * Assigns the Github Issue to the PR creator.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ * @param {Object} issueInfo
+ */
+async function assignGitHubIssue(github, context, pullRequestNumber, issueInfo) {
+    await github.issues.addAssignees({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: issueInfo.number,
+        assignees: context.payload.pull_request.user.login
+    });
+    await github.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: pullRequestNumber,
+        body: ":warning: GitHub issue #" + issueInfo.number + " **has been automatically assigned in GitHub** to PR creator."
+    });
+}
+
+/**
+ * Performs checks on the GitHub Issue:
+ * - The issue is assigned to someone. If not assign it gets automatically
+ *   assigned to the PR creator.
+ * - The issue contains any label.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ * @param {String} pullRequestNumber
+ * @param {String} issueID
+ */
+async function verifyGitHubIssue(github, context, pullRequestNumber, issueID) {
+    const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
+    if (!issueInfo) {
+        await github.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: pullRequestNumber,
+            body: ":x: GitHub issue #" + issueID + " could not be retrieved."
+        })
+    }
+    if (!issueInfo.assignees.length) {
+        await assignGitHubIssue(github, context, pullRequestNumber, issueInfo);
+    }
+    if(!issueInfo.labels.filter((label) => label.name.startsWith("Component:")).length) {
+        await github.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: pullRequestNumber,
+            body: ":warning: GitHub issue #" + issueID + " **has no components**, please add labels for components."
+        })
+    }
+}
+
 module.exports = async ({github, context}) => {
     const pullRequestNumber = context.payload.number;
     const title = context.payload.pull_request.title;
-    const jiraID = helpers.detectJIRAID(title);
-    if (jiraID) {
-          await verifyJIRAIssue(github, context, pullRequestNumber, jiraID);
+    const issue = helpers.detectIssue(title)
+    if (issue){
+        if (issue.kind == "jira") {
+            await verifyJIRAIssue(github, context, pullRequestNumber, issue.id);
+      } else if(issue.kind == "github") {
+          await verifyGitHubIssue(github, context, pullRequestNumber, issue.id);
+      }
     }
 };

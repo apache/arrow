@@ -174,6 +174,7 @@ def s3_server(s3_connection):
         finally:
             if proc is not None:
                 proc.kill()
+                proc.wait()
 
 
 @pytest.fixture(scope='session')
@@ -194,3 +195,4 @@ def gcs_server():
     finally:
         if proc is not None:
             proc.kill()
+            proc.wait()
