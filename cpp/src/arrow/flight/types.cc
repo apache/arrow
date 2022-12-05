@@ -390,11 +390,11 @@ std::string Location::scheme() const {
 }
 
 std::string Location::path() const { return uri_->path(); }
-Result<std::vector<std::pair<std::string, std::string>>> Location::query_items() const {
+arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::query_items() const {
   return uri->query_items();
 }
 
-Result<std::vector<std::pair<std::string, std::string>>> Location::as_headers() const {
+arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::as_headers() const {
   std::string path = path();
   if (path.empty()) {
     return query_items();
