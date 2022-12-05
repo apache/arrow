@@ -189,11 +189,10 @@ def gcs_server():
         # start server
         proc = subprocess.Popen(args, env=env)
         # Make sure the server is alive.
-        assert proc.poll() is None
+        if proc.poll() is not None:
+            pytest.skip(f"Command {args} did not start server successfully!")
     except (ModuleNotFoundError, OSError) as e:
         pytest.skip(f"Command {args} failed to execute: {e}")
-    except AssertionError as e:
-        pytest.skip(f"Command {args} did not start server successfully: {e}")
     else:
         yield {
             'connection': ('localhost', port),
