@@ -231,7 +231,7 @@ TEST(Reflection, NameOf) {
 // explicit specialization of EnumMembers for enumerations
 // which are not one-byte wide
 template <>
-constexpr auto kEnumMembers<decltype(kYo)> = impl::array{{kYo}};
+constexpr impl::array kEnumMembers<decltype(kYo)>{{kYo}};
 
 TEST(Reflection, EnumWithoutTraits) {
   static_assert(kEnumMembers<PersonType> == impl::array{{

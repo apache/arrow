@@ -144,16 +144,6 @@ constexpr size_t kTypeNameSuffix =
         .substr(kTypeNamePrefix + std::string_view{"double"}.size())
         .size();
 
-template <size_t... I, typename F>
-constexpr auto Spread(std::index_sequence<I...>, const F& f) {
-  return f(std::integral_constant<size_t, I>{}...);
-}
-
-template <size_t N, typename F>
-constexpr auto Spread(const F& f) {
-  return Spread(std::make_index_sequence<N>{}, f);
-}
-
 /// std::array is not constexpr in all STL impls
 template <typename T, size_t N>
 class array {
@@ -210,12 +200,13 @@ constexpr std::string_view TrimNamespace(std::string_view name) {
   return name;
 }
 
+// TODO(bkietz) storage should not trim the k, let that be done in nameof
 template <auto Value, bool IncludeLeadingK>
 constexpr auto kValueNameStorage = [] {
   constexpr std::string_view name = [] {
-    std::string_view name = impl::pretty_function<Value>();
-    name.remove_prefix(impl::kValueNamePrefix);
-    name.remove_suffix(impl::kValueNameSuffix);
+    std::string_view name = pretty_function<Value>();
+    name.remove_prefix(kValueNamePrefix);
+    name.remove_suffix(kValueNameSuffix);
     name = TrimNamespace(name);
 
     if (!IncludeLeadingK) {
@@ -230,19 +221,44 @@ constexpr auto kValueNameStorage = [] {
 
   // copying out of the string_view here ensures that characters which were
   // sliced out are not present in (release)binaries
-  return impl::array<char, name.size()>{name.data()};
+  return array<char, name.size()>{name.data()};
 }();
 
 template <typename T>
 constexpr auto kTypeNameStorage = [] {
   constexpr std::string_view name = [] {
-    std::string_view name = impl::pretty_function<T>();
-    name.remove_prefix(impl::kTypeNamePrefix);
-    name.remove_suffix(impl::kTypeNameSuffix);
+    std::string_view name = pretty_function<T>();
+    name.remove_prefix(kTypeNamePrefix);
+    name.remove_suffix(kTypeNameSuffix);
     return TrimNamespace(name);
   }();
-  return impl::array<char, name.size()>{name.data()};
+  return array<char, name.size()>{name.data()};
 }();
+
+template <typename Enum, int I,
+          char FirstChar = kValueNameStorage<static_cast<Enum>(I), true>[0]>
+constexpr bool IsValidEnumMember() {
+  return FirstChar < '0' || FirstChar > '9';
+}
+
+template <typename Enum, int I, int Max>
+constexpr size_t GetDefaultEnumMemberCount() {
+  if constexpr (I < Max + 1) {
+    return GetDefaultEnumMemberCount<Enum, I + 1, Max>() + IsValidEnumMember<Enum, I>();
+  } else {
+    return 0;
+  }
+}
+
+template <typename Enum, int I, int Max>
+constexpr void GetDefaultEnumMembers(Enum* members) {
+  if constexpr (I < Max + 1) {
+    if constexpr (IsValidEnumMember<Enum, I>()) {
+      *members++ = static_cast<Enum>(I);
+    }
+    GetDefaultEnumMembers<Enum, I + 1, Max>(members);
+  }
+}
 
 }  // namespace impl
 
@@ -266,85 +282,44 @@ constexpr std::string_view nameof() {
 template <typename Enum>
 constexpr auto kEnumMembers = [] {
   static_assert(std::is_enum_v<Enum>);
-  static_assert(
-      sizeof(Enum) == 1,
-      "Automatic discovery of enum values is not supported for Enums which "
-      "aren't a single byte. Explicitly specialize kEnumMembers like so:    "
-      "namespace arrow::internal {    template<> constexpr auto kEnumMembers<Color> "
-      "= impl::array{{kRed, kGreen, kBlue}};    }");
 
-  constexpr int kCount = 256;
+  static_assert(sizeof(Enum) == 1,
+                "Automatic discovery of enum values is not supported for Enums which "
+                "aren't a single byte. Explicitly specialize kEnumMembers like so:    "
+                "namespace arrow::internal {    template<> constexpr impl::array "
+                "kEnumMembers<Color>{{kRed, kGreen, kBlue}};    }");
 
-  constexpr auto kInts = [&] {
-    impl::array<int, kCount> int_values;
-    for (int i = 0; i < 256; ++i) {
-      int_values.data()[i] = i + std::numeric_limits<std::underlying_type_t<Enum>>::min();
-    }
-    return int_values;
-  }();
+  using Limits = std::numeric_limits<std::underlying_type_t<Enum>>;
 
-  constexpr auto kIsValid = impl::Spread<kCount>([&](auto... i) {
-    return impl::array<bool, kCount>{
-        {nameof<static_cast<Enum>(kInts[i])>() != nameof<kInts[i]>()...}};
-  });
+  impl::array<Enum, impl::GetDefaultEnumMemberCount<Enum, Limits::min(), Limits::max()>()>
+      members;
+  impl::GetDefaultEnumMembers<Enum, Limits::min(), Limits::max()>(members.data());
 
-  constexpr size_t kValidCount = [&] {
-    size_t count = 0;
-    for (bool is_valid : kIsValid) {
-      count += is_valid;
-    }
-    return count;
-  }();
-
-  impl::array<Enum, kValidCount> members;
-
-  Enum* e = members.data();
-  for (int i = 0; i < kCount; ++i) {
-    if (kIsValid[i]) {
-      *e++ = static_cast<Enum>(kInts[i]);
-    }
-  }
   return members;
 }();
 
 namespace impl {
-template <typename Enum, const auto& values = kEnumMembers<Enum>>
-constexpr auto kEnumNamesStorage = Spread<values.size()>([](auto... i) {
-  constexpr size_t N = (... + nameof<Enum{values[i]}>().size());
-  struct {
-    array<uint16_t, values.size() + 1> offsets;
-    array<char, N> data;
-  } out;
-
-  uint16_t* offset = out.offsets.data();
-  offset[0] = 0;
-
-  char* data = out.data.data();
-
-  for (auto name : {nameof<Enum{values[i]}>()...}) {
-    for (char c : name) {
-      *data++ = c;
-    }
-    offset[1] = offset[0] + name.size();
-    ++offset;
+template <typename Enum, size_t I = 0>
+constexpr void GetEnumMemberNames(std::string_view* names) {
+  if constexpr (I < kEnumMembers<Enum>.size()) {
+    *names++ = nameof<kEnumMembers<Enum>[I]>();
+    GetEnumMemberNames<Enum, I + 1>(names);
   }
-  return out;
-});
+}
 }  // namespace impl
 
 template <typename Enum>
 constexpr std::string_view enum_name(Enum e) {
-  constexpr auto& names = impl::kEnumNamesStorage<Enum>;
-  size_t i = 0;
-  for (Enum value : kEnumMembers<Enum>) {
-    if (value == e) {
-      uint16_t offset = names.offsets[i];
-      uint16_t size = names.offsets[i + 1] - offset;
-      return {names.data.data() + offset, size};
-    }
-    ++i;
+  constexpr auto kNames = [] {
+    impl::array<std::string_view, kEnumMembers<Enum>.size()> names;
+    impl::GetEnumMemberNames<Enum>(names.data());
+    return names;
+  }();
+
+  for (size_t i = 0; i < kEnumMembers<Enum>.size(); ++i) {
+    if (e == kEnumMembers<Enum>[i]) return kNames[i];
   }
-  return "";
+  return {};
 }
 
 template <typename Enum>
