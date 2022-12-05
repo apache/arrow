@@ -23,7 +23,7 @@ gflags:
 glog:
 - '0.6'
 google_cloud_cpp:
-- 2.3.0
+- 2.5.0
 libabseil:
 - '20220623.0'
 libcrc32c:
