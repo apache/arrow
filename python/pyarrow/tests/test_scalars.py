@@ -269,7 +269,7 @@ def test_time_from_datetime_time():
     ((1, 2, -3), pa.month_day_nano_interval()),
     (None, pa.month_day_nano_interval()),
 ])
-def test_logical_types_values(value, time_type: pa.DataType):
+def test_temporal_values(value, time_type: pa.DataType):
     time_scalar = pa.scalar(value, type=time_type)
     assert time_scalar.value == value
 
