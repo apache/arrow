@@ -185,7 +185,7 @@ def gcs_server():
     proc = None
     try:
         # check first if testbench module is available
-        import testbench
+        import testbench  # noqa:F401
         # start server
         proc = subprocess.Popen(args, env=env)
         # Make sure the server is alive.
