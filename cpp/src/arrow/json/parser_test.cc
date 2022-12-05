@@ -300,6 +300,14 @@ TEST(BlockParser, InferNewFieldsInMiddle) {
   }
 }
 
+TEST(BlockParser, FailOnInvalidEOF) {
+  std::shared_ptr<Array> parsed;
+  auto status = ParseFromString(ParseOptions::Defaults(), "}", &parsed);
+  ASSERT_RAISES(Invalid, status);
+  EXPECT_THAT(status.message(),
+              ::testing::StartsWith("JSON parse error: The document is empty"));
+}
+
 TEST(BlockParser, AdHoc) {
   auto options = ParseOptions::Defaults();
   options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
