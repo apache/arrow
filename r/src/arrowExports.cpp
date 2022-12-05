@@ -2426,12 +2426,13 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
-bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs);
-extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
+bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs, bool check_metadata);
+extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp, SEXP check_metadata_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type lhs(lhs_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(DataType__Equals(lhs, rhs));
+	arrow::r::Input<bool>::type check_metadata(check_metadata_sexp);
+	return cpp11::as_sexp(DataType__Equals(lhs, rhs, check_metadata));
 END_CPP11
 }
 // datatype.cpp
@@ -5511,7 +5512,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_struct__", (DL_FUNC) &_arrow_struct__, 1}, 
 		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1}, 
 		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1}, 
-		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 2}, 
+		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 3}, 
 		{ "_arrow_DataType__num_fields", (DL_FUNC) &_arrow_DataType__num_fields, 1}, 
 		{ "_arrow_DataType__fields", (DL_FUNC) &_arrow_DataType__fields, 1}, 
 		{ "_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1}, 
