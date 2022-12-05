@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/io/interfaces.h"
@@ -470,6 +471,7 @@ TEST_P(StreamingReaderTest, PropagateChunkingErrors) {
   constexpr double kIoLatency = 1e-3;
 
   auto test_schema = schema({field("i", int64())});
+  // Object straddles multiple blocks
   auto bad_first_chunk = Join(
       {
           R"({"i": 0            })",
@@ -541,6 +543,60 @@ TEST_P(StreamingReaderTest, PropagateParsingErrors) {
   EXPECT_EQ(reader->bytes_processed(), 13);
   AssertReadEnd(reader);
   EXPECT_EQ(reader->bytes_processed(), 13);
+}
+
+TEST_P(StreamingReaderTest, PropagateErrorsNonLinewiseChunker) {
+  auto test_schema = schema({field("i", int64())});
+  auto bad_first_block = Join(
+      {
+          R"({"i":0}{1})",
+          R"({"i":2})",
+      },
+      "\n");
+  auto bad_middle_blocks = Join(
+      {
+          R"({"i": 0})",
+          R"({"i":    1})",
+          R"({}"i":2})",
+          R"({"i": 3})",
+      },
+      "\n");
+
+  std::shared_ptr<RecordBatch> batch;
+  std::shared_ptr<StreamingReader> reader;
+  Status status;
+  read_options_.block_size = 10;
+  parse_options_.newlines_in_values = true;
+
+  ASSERT_OK_AND_ASSIGN(reader, MakeReader(bad_first_block));
+  AssertReadNext(reader, &batch);
+  EXPECT_EQ(reader->bytes_processed(), 7);
+  ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, "[{\"i\":0}]"), *batch);
+  status = reader->ReadNext(&batch);
+  EXPECT_EQ(reader->bytes_processed(), 7);
+  ASSERT_RAISES(Invalid, status);
+  EXPECT_THAT(status.message(), ::testing::StartsWith("JSON parse error"));
+  AssertReadEnd(reader);
+
+  ASSERT_OK_AND_ASSIGN(reader, MakeReader(bad_middle_blocks));
+  AssertReadNext(reader, &batch);
+  EXPECT_EQ(reader->bytes_processed(), 9);
+  ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, "[{\"i\":0}]"), *batch);
+  // Chunker doesn't require newline delimiters, so this should be valid
+  AssertReadNext(reader, &batch);
+  EXPECT_EQ(reader->bytes_processed(), 20);
+  ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, "[{\"i\":1}]"), *batch);
+
+  status = reader->ReadNext(&batch);
+  EXPECT_EQ(reader->bytes_processed(), 20);
+  // Should fail to parse "{}\"i\""
+  ASSERT_RAISES(Invalid, status);
+  EXPECT_THAT(status.message(), ::testing::StartsWith("JSON parse error"));
+  // Incoming chunker error from ":2}" shouldn't leak through after the first failure,
+  // which is a possibility if async tasks are still outstanding due to readahead.
+  AssertReadEnd(reader);
+  AssertReadEnd(reader);
+  EXPECT_EQ(reader->bytes_processed(), 20);
 }
 
 TEST_P(StreamingReaderTest, IgnoreLeadingEmptyBlocks) {
