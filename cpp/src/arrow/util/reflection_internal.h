@@ -181,6 +181,19 @@ class array {
   T values_[N] = {};  // NOLINT
 };
 
+template <typename T>
+class array<T, 0> {
+ public:
+  constexpr array() = default;
+  constexpr explicit array(const T*) {}
+  [[nodiscard]] static constexpr size_t size() { return 0; }
+  [[nodiscard]] constexpr const T* data() const { return NULLPTR; }
+  [[nodiscard]] constexpr T* data() { return NULLPTR; }
+  [[nodiscard]] constexpr const T* begin() const { return NULLPTR; }
+  [[nodiscard]] constexpr const T* end() const { return NULLPTR; }
+  [[nodiscard]] constexpr const T& operator[](size_t i) const { return begin()[i]; }
+};
+
 template <typename T, size_t N, size_t M>
 constexpr bool operator==(const array<T, N>& l, const array<T, M>& r) {
   if constexpr (N != M) {
@@ -226,9 +239,6 @@ constexpr auto kValueNameStorage = [] {
   // sliced out are not present in (release)binaries
   return array<char, name.size()>{name.data()};
 }();
-
-template <>
-static constexpr array<char, 1> kValueNameStorage<0>{{'0'}};
 
 template <typename T>
 constexpr auto kTypeNameStorage = [] {
