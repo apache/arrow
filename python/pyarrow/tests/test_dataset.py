@@ -27,6 +27,8 @@ import tempfile
 import threading
 import time
 
+from urllib.parse import quote
+
 import numpy as np
 import pytest
 
@@ -4912,3 +4914,40 @@ def test_read_table_nested_columns(tempdir, format):
         {'user_id': 'qrs456', 'type': 'scroll', 'values': [None, 3, 4],
          'structs': [{'fizz': 'buzz', 'foo': None}], 'a.dotted.field': 2}
     ]
+
+
+def test_dataset_partition_with_slash(tmpdir):
+    from pyarrow import dataset as ds
+
+    path = tmpdir / "slash-writer-x"
+
+    dt_table = pa.Table.from_arrays([
+        pa.array([1, 2, 3, 4, 5], pa.int32()),
+        pa.array(["experiment/A/f.csv", "experiment/B/f.csv",
+                  "experiment/A/f.csv", "experiment/C/k.csv",
+                  "experiment/M/i.csv"], pa.utf8())], ["exp_id", "exp_meta"])
+
+    ds.write_dataset(
+        data=dt_table,
+        base_dir=path,
+        format='ipc',
+        partitioning=['exp_meta'],
+        partitioning_flavor='hive',
+    )
+
+    read_table = ds.dataset(
+        source=path,
+        format='ipc',
+        partitioning='hive',
+        schema=pa.schema([pa.field("exp_id", pa.int32()),
+                          pa.field("exp_meta", pa.utf8())])
+    ).to_table().combine_chunks()
+
+    assert dt_table == read_table.sort_by("exp_id")
+
+    exp_meta = dt_table.column(1).to_pylist()
+    exp_meta = sorted(set(exp_meta))  # take unique
+    encoded_paths = ["exp_meta=" + quote(path, safe='') for path in exp_meta]
+    file_paths = sorted(os.listdir(path))
+
+    assert encoded_paths == file_paths
