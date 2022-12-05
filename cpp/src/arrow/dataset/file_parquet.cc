@@ -539,9 +539,10 @@ Result<std::shared_ptr<FileWriter>> ParquetFileFormat::MakeWriter(
   auto parquet_options = checked_pointer_cast<ParquetFileWriteOptions>(options);
 
   std::unique_ptr<parquet::arrow::FileWriter> parquet_writer;
-  RETURN_NOT_OK(parquet::arrow::FileWriter::Open(
-      *schema, default_memory_pool(), destination, parquet_options->writer_properties,
-      parquet_options->arrow_writer_properties, &parquet_writer));
+  ARROW_ASSIGN_OR_RAISE(parquet_writer, parquet::arrow::FileWriter::Open(
+                                            *schema, default_memory_pool(), destination,
+                                            parquet_options->writer_properties,
+                                            parquet_options->arrow_writer_properties));
 
   return std::shared_ptr<FileWriter>(
       new ParquetFileWriter(std::move(destination), std::move(parquet_writer),
