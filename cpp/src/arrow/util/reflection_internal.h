@@ -132,20 +132,28 @@ constexpr std::string_view pretty_function() {
 #endif
 }
 
-enum { kCrib };
-constexpr size_t kValueNamePrefix =
-    pretty_function<kCrib>().find("arrow::internal::impl::kCrib");
-constexpr size_t kValueNameSuffix =
-    pretty_function<kCrib>()
-        .substr(kValueNamePrefix +
-                std::string_view{"arrow::internal::impl::kCrib"}.size())
-        .size();
+constexpr auto kValueNamePrefixSuffix = [] {
+  size_t prefix{}, suffix{};
 
-constexpr size_t kTypeNamePrefix = pretty_function<double>().find("double");
-constexpr size_t kTypeNameSuffix =
-    pretty_function<double>()
-        .substr(kTypeNamePrefix + std::string_view{"double"}.size())
-        .size();
+  auto raw = pretty_function<2234527>();
+  if (prefix = raw.find("2234527"); prefix != std::string_view::npos) {
+    suffix = raw.size() - prefix - std::string_view{"2234527"}.size();
+  } else {
+    // some compilers render hexadecimal integer template arguments
+    raw = pretty_function<0x346243>();
+    prefix = raw.find("0x346243");
+    suffix = raw.size() - prefix - std::string_view{"0x346243"}.size();
+  }
+
+  return std::pair{prefix, suffix};
+}();
+
+constexpr auto kTypeNamePrefixSuffix = [] {
+  auto raw = pretty_function<double>();
+  size_t prefix = raw.find("double");
+  size_t suffix = raw.size() - prefix - std::string_view{"double"}.size();
+  return std::pair{prefix, suffix};
+}();
 
 /// std::array is not constexpr in all STL impls
 template <typename T, size_t N>
@@ -203,13 +211,13 @@ constexpr std::string_view TrimNamespace(std::string_view name) {
   return name;
 }
 
-// TODO(bkietz) storage should not trim the k, let that be done in nameof
 template <auto Value>
 constexpr auto kValueNameStorage = [] {
   constexpr std::string_view name = [] {
     std::string_view name = pretty_function<Value>();
-    name.remove_prefix(kValueNamePrefix);
-    name.remove_suffix(kValueNameSuffix);
+    auto [prefix, suffix] = kValueNamePrefixSuffix;
+    name.remove_prefix(prefix);
+    name.remove_suffix(suffix);
     name = TrimNamespace(name);
     return name;
   }();
@@ -223,8 +231,9 @@ template <typename T>
 constexpr auto kTypeNameStorage = [] {
   constexpr std::string_view name = [] {
     std::string_view name = pretty_function<T>();
-    name.remove_prefix(kTypeNamePrefix);
-    name.remove_suffix(kTypeNameSuffix);
+    auto [prefix, suffix] = kTypeNamePrefixSuffix;
+    name.remove_prefix(prefix);
+    name.remove_suffix(suffix);
     return TrimNamespace(name);
   }();
   return array<char, name.size()>{name.data()};
