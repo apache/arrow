@@ -207,8 +207,6 @@ def gcsfs(request, gcs_server):
 
     host, port = gcs_server['connection']
     bucket = 'pyarrow-filesystem/'
-    # Make sure the server is alive.
-    assert gcs_server['process'].poll() is None
 
     fs = GcsFileSystem(
         endpoint_override=f'{host}:{port}',

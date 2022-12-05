@@ -12,10 +12,6 @@ package:
 
 source:
   path: ../../../../
-  patches:
-    # switch off tests that require the as-yet unpackaged
-    # https://github.com/googleapis/storage-testbench
-    - patches/0001-definitely-skip-all-tests-requiring-gcs_server-fixtu.patch
 
 build:
   number: 0

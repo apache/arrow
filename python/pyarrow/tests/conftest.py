@@ -185,7 +185,9 @@ def gcs_server():
     proc = None
     try:
         proc = subprocess.Popen(args, env=env)
-    except OSError as e:
+        # Make sure the server is alive.
+        assert proc.poll() is None
+    except (AssertionError, OSError) as e:
         pytest.skip(f"Command {args} failed to execute: {e}")
     else:
         yield {
