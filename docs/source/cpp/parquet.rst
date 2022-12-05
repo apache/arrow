@@ -38,12 +38,10 @@ Reading Parquet files
 The :class:`arrow::FileReader` class reads data into Arrow Tables and Record
 Batches.
 
-The :class:`StreamReader` and :class:`StreamWriter` classes allow for
-data to be written using a C++ input/output streams approach to
-read/write fields column by column and row by row.  This approach is
-offered for ease of use and type-safety.  It is of course also useful
-when data must be streamed as files are read and written
-incrementally.
+The :class:`StreamReader` class allows for data to be read using a C++ input
+stream approach to read fields column by column and row by row.  This approach
+is offered for ease of use and type-safety.  It is of course also useful when
+data must be streamed as files are read and written incrementally.
 
 Please note that the performance of the :class:`StreamReader` will not
 be as good due to the type checking and the fact that column values
@@ -192,10 +190,11 @@ StreamWriter
 ------------
 
 The :class:`StreamWriter` allows for Parquet files to be written using
-standard C++ output operators.  This type-safe approach also ensures
-that rows are written without omitting fields and allows for new row
-groups to be created automatically (after certain volume of data) or
-explicitly by using the :type:`EndRowGroup` stream modifier.
+standard C++ output operators, similar to reading with the :class:`StreamReader`
+class. This type-safe approach also ensures that rows are written without 
+omitting fields and allows for new row groups to be created automatically 
+(after certain volume of data) or explicitly by using the :type:`EndRowGroup` 
+stream modifier.
 
 Exceptions are used to signal errors.  A :class:`ParquetException` is
 thrown in the following circumstances:
