@@ -762,7 +762,7 @@ class HandlerBase : public BlockParser,
 
  protected:
   template <typename Handler, typename Stream>
-  Status DoParse(Handler& handler, Stream&& json) {
+  Status DoParse(Handler& handler, Stream&& json, size_t json_size) {
     constexpr auto parse_flags = rj::kParseIterativeFlag | rj::kParseNanAndInfFlag |
                                  rj::kParseStopWhenDoneFlag |
                                  rj::kParseNumbersAsStringsFlag;
@@ -776,6 +776,9 @@ class HandlerBase : public BlockParser,
           // parse the next object
           continue;
         case rj::kParseErrorDocumentEmpty:
+          if (json.Tell() < json_size) {
+            return ParseError(rj::GetParseError_En(ok.Code()));
+          }
           // parsed all objects, finish
           return Status::OK();
         case rj::kParseErrorTermination:
@@ -794,7 +797,7 @@ class HandlerBase : public BlockParser,
     RETURN_NOT_OK(ReserveScalarStorage(json->size()));
     rj::MemoryStream ms(reinterpret_cast<const char*>(json->data()), json->size());
     using InputStream = rj::EncodedInputStream<rj::UTF8<>, rj::MemoryStream>;
-    return DoParse(handler, InputStream(ms));
+    return DoParse(handler, InputStream(ms), static_cast<size_t>(json->size()));
   }
 
   /// \defgroup handlerbase-append-methods append non-nested values
