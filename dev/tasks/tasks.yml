@@ -266,7 +266,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-openssl1.1.1-cpu:
+  conda-linux-gcc-cpu-x64-openssl1.1.1:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
@@ -278,7 +278,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-openssl3-cpu:
+  conda-linux-gcc-cpu-x64-openssl3:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
@@ -290,7 +290,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-openssl1.1.1-cuda:
+  conda-linux-gcc-cuda-x64-openssl1.1.1:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
@@ -302,7 +302,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
-  conda-linux-gcc-openssl3-cuda:
+  conda-linux-gcc-cuda-x64-openssl3:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
@@ -314,7 +314,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
-  conda-linux-gcc-openssl1.1.1-aarch64:
+  conda-linux-gcc-cpu-aarch64-openssl1.1.1:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
@@ -326,7 +326,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-openssl3-aarch64:
+  conda-linux-gcc-cpu-aarch64-openssl3:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
@@ -338,7 +338,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-openssl1.1.1-ppc64le:
+  conda-linux-gcc-cpu-ppc64le-openssl1.1.1:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
@@ -350,7 +350,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-linux-gcc-openssl3-ppc64le:
+  conda-linux-gcc-cpu-ppc64le-openssl3:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
@@ -454,7 +454,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.conda
 
-  conda-win-vs2019-openssl1.1.1:
+  conda-win-vs2019-cpu-openssl1.1.1:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -466,7 +466,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-win-vs2019-openssl3:
+  conda-win-vs2019-cpu-openssl3:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -478,7 +478,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
-  conda-win-vs2019-openssl1.1.1-cuda:
+  conda-win-vs2019-cuda-openssl1.1.1:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -490,7 +490,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
-  conda-win-vs2019-openssl3-cuda:
+  conda-win-vs2019-cuda-openssl3:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
