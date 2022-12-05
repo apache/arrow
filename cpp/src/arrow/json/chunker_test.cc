@@ -272,9 +272,8 @@ TEST(ChunkerTest, Errors) {
   auto status =
       chunker->ProcessWithPartial(rest, Buffer::FromString(parts[2]), &completion, &rest);
   ASSERT_RAISES(Invalid, status);
-  EXPECT_THAT(
-      status.message(),
-      ::testing::StartsWith("JSON chunk error: partial does not start a valid block"));
+  EXPECT_THAT(status.message(),
+              ::testing::StartsWith("JSON chunk error: invalid data at end of document"));
 }
 
 TEST_P(BaseChunkerTest, StraddlingEmpty) {

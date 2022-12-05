@@ -129,7 +129,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     if (length == string_view::npos) {
       *out_pos = -1;
     } else if (ARROW_PREDICT_FALSE(length < partial.size())) {
-      return Status::Invalid("JSON chunk error: partial does not start a valid block");
+      return Status::Invalid("JSON chunk error: invalid data at end of document");
     } else {
       DCHECK_LE(length, partial.size() + block.size());
       *out_pos = static_cast<int64_t>(length - partial.size());
