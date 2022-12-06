@@ -43,7 +43,7 @@ void Decode(std::unique_ptr<typename EncodingTraits<DType>::Decoder>& decoder,
 template <>
 void Decode<ByteArrayType>(std::unique_ptr<ByteArrayDecoder>&, const std::string& src,
                            ByteArray* dst) {
-  DCHECK_LE(src.size(), std::numeric_limits<uint32_t>::max());
+  DCHECK_LE(src.size(), static_cast<size_t>(std::numeric_limits<uint32_t>::max()));
   dst->len = static_cast<uint32_t>(src.size());
   dst->ptr = reinterpret_cast<const uint8_t*>(src.data());
 }
