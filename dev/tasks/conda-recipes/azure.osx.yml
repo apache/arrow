@@ -81,5 +81,5 @@ jobs:
      sudo mv /usr/local/conda_mangled/* /usr/local/
     displayName: Unmangle homebrew
 
-  {{ macros.azure_upload_releases("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}
-  {{ macros.azure_upload_anaconda("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}
+  {{ macros.azure_upload_releases("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.conda") }}
+  {{ macros.azure_upload_anaconda("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.conda") }}
