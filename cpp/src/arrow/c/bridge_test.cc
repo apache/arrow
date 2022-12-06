@@ -2625,6 +2625,7 @@ TEST_F(TestSchemaRoundtrip, Struct) {
   TestWithTypeFactory([&]() { return struct_({f1, f2}); });
   f2 = f2->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
   TestWithTypeFactory([&]() { return struct_({f1, f2}); });
+  TestWithTypeFactory([&]() { return struct_(arrow::FieldVector{}); });
 }
 
 TEST_F(TestSchemaRoundtrip, Union) {
@@ -2632,6 +2633,10 @@ TEST_F(TestSchemaRoundtrip, Union) {
   auto f2 = field("f2", list(decimal(19, 4)));
   auto type_codes = std::vector<int8_t>{42, 43};
 
+  TestWithTypeFactory(
+      [&]() { return dense_union(arrow::FieldVector{}, std::vector<int8_t>{}); });
+  TestWithTypeFactory(
+      [&]() { return sparse_union(arrow::FieldVector{}, std::vector<int8_t>{}); });
   TestWithTypeFactory([&]() { return sparse_union({f1, f2}, type_codes); });
   f2 = f2->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
   TestWithTypeFactory([&]() { return dense_union({f1, f2}, type_codes); });
