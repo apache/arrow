@@ -93,6 +93,8 @@ def test_offset_of_sliced_array():
 
 @pytest.mark.pandas
 def test_categorical_roundtrip():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
     arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", "Sun"]
     table = pa.table(
         {"weekday": pa.array(arr).dictionary_encode()}
@@ -132,6 +134,8 @@ def test_categorical_roundtrip():
 
 @pytest.mark.pandas
 def test_pandas_roundtrip():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
     from datetime import datetime as dt
 
     table = pa.table(
