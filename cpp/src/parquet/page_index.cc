@@ -169,9 +169,10 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_unique<TypedColumnIndexImpl<FLBAType>>(descr, column_index);
     case Type::UNDEFINED:
-      ::arrow::Unreachable("Cannot make ColumnIndex of an unknown type");
       return nullptr;
   }
+  ::arrow::Unreachable("Cannot make ColumnIndex of an unknown type");
+  return nullptr;
 }
 
 std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
