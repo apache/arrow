@@ -170,6 +170,7 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
       return std::make_unique<TypedColumnIndexImpl<FLBAType>>(descr, column_index);
     case Type::UNDEFINED:
       ::arrow::Unreachable("Cannot make ColumnIndex of an unknown type");
+      return nullptr;
   }
 }
 
