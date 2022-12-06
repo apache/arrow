@@ -69,12 +69,17 @@ using NamedTableProvider =
     std::function<Result<compute::Declaration>(const std::vector<std::string>&)>;
 static NamedTableProvider kDefaultNamedTableProvider;
 
+class ARROW_ENGINE_EXPORT ExtensionDetails {
+ public:
+  virtual ~ExtensionDetails() = default;
+};
+
 class ARROW_ENGINE_EXPORT ExtensionProvider {
  public:
   static std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider;
   virtual ~ExtensionProvider() = default;
   virtual Result<RelationInfo> MakeRel(std::vector<DeclarationInfo> inputs,
-                                       const google::protobuf::Any& rel,
+                                       const ExtensionDetails& ext_details,
                                        const ExtensionSet& ext_set) = 0;
 };
 

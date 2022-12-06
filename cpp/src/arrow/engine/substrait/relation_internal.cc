@@ -25,6 +25,7 @@
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/options_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -134,15 +135,16 @@ Result<RelationInfo> GetExtensionRelationInfo(
   switch (rel.rel_type_case()) {
     case substrait::Rel::RelTypeCase::kExtensionLeaf: {
       const auto& ext = rel.extension_leaf();
-      return conversion_options.extension_provider->MakeRel({}, ext.detail(), ext_set);
+      DefaultExtensionDetails detail{ext.detail()};
+      return conversion_options.extension_provider->MakeRel({}, detail, ext_set);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionSingle: {
       const auto& ext = rel.extension_single();
       ARROW_ASSIGN_OR_RAISE(DeclarationInfo input,
                             FromProto(ext.input(), ext_set, conversion_options));
-      return conversion_options.extension_provider->MakeRel({input}, ext.detail(),
-                                                            ext_set);
+      DefaultExtensionDetails detail{ext.detail()};
+      return conversion_options.extension_provider->MakeRel({input}, detail, ext_set);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionMulti: {
@@ -153,8 +155,9 @@ Result<RelationInfo> GetExtensionRelationInfo(
                               FromProto(input, ext_set, conversion_options));
         inputs.push_back(std::move(input_info));
       }
-      return conversion_options.extension_provider->MakeRel(std::move(inputs),
-                                                            ext.detail(), ext_set);
+      DefaultExtensionDetails detail{ext.detail()};
+      return conversion_options.extension_provider->MakeRel(std::move(inputs), detail,
+                                                            ext_set);
     }
 
     default: {

@@ -14,7 +14,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include <iostream>
 
 #include "arrow/engine/substrait/options.h"
 
@@ -22,13 +21,28 @@
 #include "arrow/compute/exec/asof_join_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/options_internal.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "substrait/extension_rels.pb.h"
 
 namespace arrow {
 namespace engine {
 
-class DefaultExtensionProvider : public ExtensionProvider {
+class BaseExtensionProvider : public ExtensionProvider {
+ public:
+  Result<RelationInfo> MakeRel(std::vector<DeclarationInfo> inputs,
+                               const ExtensionDetails& ext_details,
+                               const ExtensionSet& ext_set) override {
+    auto details = dynamic_cast<const DefaultExtensionDetails&>(ext_details);
+    return MakeRel(inputs, details.rel, ext_set);
+  }
+
+  virtual Result<RelationInfo> MakeRel(std::vector<DeclarationInfo> inputs,
+                                       const google::protobuf::Any& rel,
+                                       const ExtensionSet& ext_set) = 0;
+};
+
+class DefaultExtensionProvider : public BaseExtensionProvider {
  public:
   Result<RelationInfo> MakeRel(std::vector<DeclarationInfo> inputs,
                                const google::protobuf::Any& rel,
