@@ -56,6 +56,22 @@ static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
 // 16 KB is the default expected page header size
 static constexpr uint32_t kDefaultPageHeaderSize = 16 * 1024;
 
+
+// \brief DataPageStats is a proxy around format::DataPageHeader and
+// format::DataPageHeaderV2.
+class PARQUET_EXPORT DataPageStats {
+ public:
+  DataPageStats(EncodedStatistics* encoded_statistics, int32_t num_values,
+                std::optional<int32_t> num_rows)
+      : encoded_statistics(encoded_statistics),
+        num_values(num_values),
+        num_rows(num_rows) {}
+
+  EncodedStatistics* encoded_statistics;
+  const int32_t num_values;
+  const std::optional<int32_t> num_rows;
+};
+
 class PARQUET_EXPORT LevelDecoder {
  public:
   LevelDecoder();
@@ -101,6 +117,8 @@ struct CryptoContext {
 // Abstract page iterator interface. This way, we can feed column pages to the
 // ColumnReader through whatever mechanism we choose
 class PARQUET_EXPORT PageReader {
+  using DataPageFilter = std::function<bool(const DataPageStats&)>;
+
  public:
   virtual ~PageReader() = default;
 
@@ -116,19 +134,18 @@ class PARQUET_EXPORT PageReader {
                                           bool always_compressed = false,
                                           const CryptoContext* ctx = NULLPTR);
 
-  // If skip_page_callback_ is present (not null), NextPage() will call the
+  // If data_page_filter_ is present (not null), NextPage() will call the
   // callback function exactly once per page in the order the pages appear in
   // the column. If the callback function returns true the page will be
   // skipped. The callback will be called only if the page type is DATA_PAGE or
   // DATA_PAGE_V2. Dictionary pages will not be skipped.
   // This setter must be called at most once to set the callback.
   // \note API EXPERIMENTAL
-  void set_skip_page_callback(
-      std::function<bool(const DataPageStats&)> skip_page_callback) {
-    if (skip_page_callback_) {
-      throw ParquetException("set_skip_page_callback was called more than once");
+  void set_data_page_filter(DataPageFilter data_page_filter) {
+    if (data_page_filter_) {
+      throw ParquetException("set_data_page_filter was called more than once");
     }
-    skip_page_callback_ = std::move(skip_page_callback);
+    data_page_filter_ = std::move(data_page_filter);
   }
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
@@ -139,7 +156,7 @@ class PARQUET_EXPORT PageReader {
 
  protected:
   // Callback that decides if we should skip a page or not.
-  std::function<bool(const DataPageStats&)> skip_page_callback_;
+  std::function<bool(const DataPageStats&)> data_page_filter_;
 };
 
 class PARQUET_EXPORT ColumnReader {

@@ -201,10 +201,10 @@ TEST_F(TestPageSerde, DataPageV1) {
   ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
 }
 
-// Templated test class to test both format::DataPageHeader and
-// format::DataPageHeaderV2.
+// Templated test class to test page filtering for both format::DataPageHeader
+// and format::DataPageHeaderV2.
 template <typename T>
-class SkipPageTest : public TestPageSerde {
+class PageFilterTest : public TestPageSerde {
  public:
   const int kNumPages = 10;
   void WriteStream();
@@ -215,7 +215,7 @@ class SkipPageTest : public TestPageSerde {
 };
 
 template <>
-void SkipPageTest<format::DataPageHeader>::WriteStream() {
+void PageFilterTest<format::DataPageHeader>::WriteStream() {
   for (int i = 0; i < kNumPages; ++i) {
     // Vary the number of rows to produce different headers.
     int32_t num_rows = i + 100;
@@ -237,7 +237,7 @@ void SkipPageTest<format::DataPageHeader>::WriteStream() {
 }
 
 template <>
-void SkipPageTest<format::DataPageHeaderV2>::WriteStream() {
+void PageFilterTest<format::DataPageHeaderV2>::WriteStream() {
   for (int i = 0; i < kNumPages; ++i) {
     // Vary the number of rows to produce different headers.
     int32_t num_rows = i + 100;
@@ -261,10 +261,10 @@ void SkipPageTest<format::DataPageHeaderV2>::WriteStream() {
 
 using DataPageHeaderTypes =
     ::testing::Types<format::DataPageHeader, format::DataPageHeaderV2>;
-TYPED_TEST_SUITE(SkipPageTest, DataPageHeaderTypes);
+TYPED_TEST_SUITE(PageFilterTest, DataPageHeaderTypes);
 
-// Creates a number of pages and skips some of them with the skip page callback.
-TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
+// Creates a number of pages and skips some of them with the page filter callback.
+TYPED_TEST(PageFilterTest, TestPageFilterCallback) {
   this->WriteStream();
 
   {  // Read all pages.
@@ -275,7 +275,7 @@ TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
     // This callback will always return false.
     auto read_all_pages = [](const DataPageStats& stats) -> bool { return false; };
 
-    this->page_reader_->set_skip_page_callback(read_all_pages);
+    this->page_reader_->set_data_page_filter(read_all_pages);
     for (int i = 0; i < this->kNumPages; ++i) {
       std::shared_ptr<Page> current_page = this->page_reader_->NextPage();
       ASSERT_NE(current_page, nullptr);
@@ -291,7 +291,7 @@ TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
 
     auto skip_all_pages = [](const DataPageStats& stats) -> bool { return true; };
 
-    this->page_reader_->set_skip_page_callback(skip_all_pages);
+    this->page_reader_->set_data_page_filter(skip_all_pages);
     std::shared_ptr<Page> current_page = this->page_reader_->NextPage();
     ASSERT_EQ(this->page_reader_->NextPage(), nullptr);
   }
@@ -303,11 +303,11 @@ TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
 
     // Skip pages with even number of values.
     auto skip_even_pages = [](const DataPageStats& stats) -> bool {
-      if (stats.num_values() % 2 == 0) return true;
+      if (stats.num_values % 2 == 0) return true;
       return false;
     };
 
-    this->page_reader_->set_skip_page_callback(skip_even_pages);
+    this->page_reader_->set_data_page_filter(skip_even_pages);
 
     for (int i = 0; i < this->kNumPages; ++i) {
       // Only pages with odd number of values are read.
@@ -324,7 +324,7 @@ TYPED_TEST(SkipPageTest, TestSkipPageByCallback) {
 }
 
 // Test that we do not skip dictionary pages.
-TEST_F(TestPageSerde, DoesNotSkipDictionaryPages) {
+TEST_F(TestPageSerde, DoesNotFilterDictionaryPages) {
   int data_size = 1024;
   std::vector<uint8_t> faux_data(data_size);
 
@@ -346,7 +346,7 @@ TEST_F(TestPageSerde, DoesNotSkipDictionaryPages) {
 
   auto skip_all_pages = [](const DataPageStats& stats) -> bool { return true; };
 
-  page_reader_->set_skip_page_callback(skip_all_pages);
+  page_reader_->set_data_page_filter(skip_all_pages);
   // The first data page is skipped, so we are now at the dictionary page.
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
   ASSERT_NE(current_page, nullptr);

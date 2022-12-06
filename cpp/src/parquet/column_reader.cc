@@ -270,9 +270,9 @@ class SerializedPageReader : public PageReader {
                                              int levels_byte_len = 0);
 
   // Returns true for non-data pages, and if we should skip based on
-  // skip_page_callback_. Performs basic checks on values in the page header.
-  // Fills in page_statistics.
-  bool ShouldSkipPage(EncodedStatistics* page_statistics);
+  // data_page_filter_. Performs basic checks on values in the page header.
+  // Fills in data_page_statistics.
+  bool ShouldSkipPage(EncodedStatistics* data_page_statistics);
 
   const ReaderProperties properties_;
   std::shared_ptr<ArrowInputStream> stream_;
@@ -348,17 +348,17 @@ void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& de
   }
 }
 
-bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* page_statistics) {
+bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistics) {
   const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
   if (page_type == PageType::DATA_PAGE) {
     const format::DataPageHeader& header = current_page_header_.data_page_header;
     CheckNumValuesInHeader(header.num_values);
-    *page_statistics = ExtractStatsFromHeader(header);
+    *data_page_statistics = ExtractStatsFromHeader(header);
     seen_num_values_ += header.num_values;
-    if (skip_page_callback_) {
-      DataPageStats data_page_stats(page_statistics, header.num_values,
+    if (data_page_filter_) {
+      DataPageStats data_page_stats(data_page_statistics, header.num_values,
                                     /*num_rows=*/std::nullopt);
-      if (skip_page_callback_(data_page_stats)) {
+      if (data_page_filter_(data_page_stats)) {
         return true;
       }
     }
@@ -372,11 +372,12 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* page_statistics) {
         header.repetition_levels_byte_length < 0) {
       throw ParquetException("Invalid page header (negative levels byte length)");
     }
-    *page_statistics = ExtractStatsFromHeader(header);
+    *data_page_statistics = ExtractStatsFromHeader(header);
     seen_num_values_ += header.num_values;
-    if (skip_page_callback_) {
-      DataPageStats data_page_stats(page_statistics, header.num_values, header.num_rows);
-      if (skip_page_callback_(data_page_stats)) {
+    if (data_page_filter_) {
+      DataPageStats data_page_stats(data_page_statistics, header.num_values,
+                                    header.num_rows);
+      if (data_page_filter_(data_page_stats)) {
         return true;
       }
     }
@@ -441,8 +442,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       throw ParquetException("Invalid page header");
     }
 
-    EncodedStatistics page_statistics;
-    if (ShouldSkipPage(&page_statistics)) {
+    EncodedStatistics data_page_statistics;
+    if (ShouldSkipPage(&data_page_statistics)) {
       PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
       continue;
     }
@@ -496,7 +497,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
                                           LoadEnumSafe(&header.encoding),
                                           LoadEnumSafe(&header.definition_level_encoding),
                                           LoadEnumSafe(&header.repetition_level_encoding),
-                                          uncompressed_len, page_statistics);
+                                          uncompressed_len, data_page_statistics);
     } else if (page_type == PageType::DATA_PAGE_V2) {
       ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
@@ -523,7 +524,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           page_buffer, header.num_values, header.num_nulls, header.num_rows,
           LoadEnumSafe(&header.encoding), header.definition_levels_byte_length,
           header.repetition_levels_byte_length, uncompressed_len, is_compressed,
-          page_statistics);
+          data_page_statistics);
     } else {
       throw ParquetException(
           "Internal error, we have already skipped non-data pages in ShouldSkipPage()");
