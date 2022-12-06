@@ -2450,8 +2450,10 @@ cdef class Scanner(_Weakrefable):
             columns=py_scanoptions.get("columns"),
             filter=py_scanoptions.get("filter"),
             batch_size=py_scanoptions.get("batch_size", _DEFAULT_BATCH_SIZE),
-            batch_readahead=py_scanoptions.get("batch_readahead", _DEFAULT_BATCH_READAHEAD),
-            fragment_readahead=py_scanoptions.get("fragment_readahead", _DEFAULT_FRAGMENT_READAHEAD),
+            batch_readahead=py_scanoptions.get(
+                "batch_readahead", _DEFAULT_BATCH_READAHEAD),
+            fragment_readahead=py_scanoptions.get(
+                "fragment_readahead", _DEFAULT_FRAGMENT_READAHEAD),
             use_threads=py_scanoptions.get("use_threads", True),
             memory_pool=py_scanoptions.get("memory_pool"),
             fragment_scan_options=py_scanoptions.get("fragment_scan_options"))
