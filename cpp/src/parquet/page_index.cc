@@ -17,10 +17,16 @@
 
 #include "parquet/page_index.h"
 #include "parquet/encoding.h"
+#include "parquet/exception.h"
+#include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
+#include "arrow/util/unreachable.h"
+
+#include <limits>
 #include <map>
+#include <numeric>
 
 namespace parquet {
 
@@ -37,8 +43,9 @@ void Decode(std::unique_ptr<typename EncodingTraits<DType>::Decoder>& decoder,
 template <>
 void Decode<ByteArrayType>(std::unique_ptr<ByteArrayDecoder>&, const std::string& src,
                            ByteArray* dst) {
+  DCHECK_LE(src.size(), std::numeric_limits<uint32_t>::max());
   dst->len = static_cast<uint32_t>(src.size());
-  dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
+  dst->ptr = reinterpret_cast<const uint8_t*>(src.data());
 }
 
 template <typename DType>
@@ -49,18 +56,25 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
   TypedColumnIndexImpl(const ColumnDescriptor& descr,
                        const format::ColumnIndex& column_index)
       : column_index_(column_index) {
-    min_values_.reserve(column_index_.null_pages.size());
-    max_values_.reserve(column_index_.null_pages.size());
-    // Decode min and max values into a compact form (i.e. w/o null page)
-    auto plain_decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, &descr);
-    T value;
-    for (size_t i = 0; i < column_index_.null_pages.size(); ++i) {
-      if (!column_index_.null_pages[i]) {
-        non_null_page_indices_.emplace_back(static_cast<int32_t>(i));
-        Decode<DType>(plain_decoder, column_index_.min_values[i], &value);
-        min_values_.emplace_back(value);
-        Decode<DType>(plain_decoder, column_index_.max_values[i], &value);
-        max_values_.emplace_back(value);
+    size_t num_non_null_pages = std::accumulate(
+        column_index_.null_pages.cbegin(), column_index_.null_pages.cend(), 0U,
+        [](size_t num_non_null_pages, bool null_page) {
+          return num_non_null_pages + (null_page ? 0U : 1U);
+        });
+    if (num_non_null_pages != 0U) {
+      min_values_.reserve(num_non_null_pages);
+      max_values_.reserve(num_non_null_pages);
+      // Decode min and max values into a compact form (i.e. w/o null page)
+      auto plain_decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, &descr);
+      T value;
+      for (size_t i = 0; i < column_index_.null_pages.size(); ++i) {
+        if (!column_index_.null_pages[i]) {
+          non_null_page_indices_.emplace_back(static_cast<int32_t>(i));
+          Decode<DType>(plain_decoder, column_index_.min_values[i], &value);
+          min_values_.emplace_back(value);
+          Decode<DType>(plain_decoder, column_index_.max_values[i], &value);
+          max_values_.emplace_back(value);
+        }
       }
     }
   }
@@ -77,8 +91,8 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
     return column_index_.max_values;
   }
 
-  BoundaryOrder boundary_order() const override {
-    return static_cast<BoundaryOrder>(static_cast<int>(column_index_.boundary_order));
+  BoundaryOrder::type boundary_order() const override {
+    return LoadEnumSafe(&column_index_.boundary_order);
   }
 
   bool has_null_counts() const override { return column_index_.__isset.null_counts; }
@@ -91,7 +105,7 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
   const std::vector<T>& max_values() const override { return max_values_; }
 
-  const std::vector<int32_t> GetNonNullPageIndices() const override {
+  const std::vector<int32_t>& non_null_page_indices() const override {
     return non_null_page_indices_;
   }
 
@@ -116,7 +130,7 @@ class OffsetIndexImpl : public OffsetIndex {
     }
   }
 
-  const std::vector<PageLocation>& GetPageLocations() const override {
+  const std::vector<PageLocation>& page_locations() const override {
     return page_locations_;
   }
 
@@ -154,11 +168,9 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
       return std::make_unique<TypedColumnIndexImpl<ByteArrayType>>(descr, column_index);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_unique<TypedColumnIndexImpl<FLBAType>>(descr, column_index);
-    default:
-      break;
+    case Type::UNDEFINED:
+      ::arrow::Unreachable("Cannot make ColumnIndex of an unknown type");
   }
-  DCHECK(false) << "Should not be able to reach this code";
-  return nullptr;
 }
 
 std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,

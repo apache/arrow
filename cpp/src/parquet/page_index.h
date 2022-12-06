@@ -17,16 +17,14 @@
 
 #pragma once
 
-#include "parquet/exception.h"
-#include "parquet/platform.h"
-#include "parquet/schema.h"
+#include "parquet/types.h"
 
 #include <vector>
 
 namespace parquet {
 
-/// \brief BoundaryOrder is a proxy around format::BoundaryOrder.
-enum class PARQUET_EXPORT BoundaryOrder { Unordered = 0, Ascending = 1, Descending = 2 };
+class ColumnDescriptor;
+class ReaderProperties;
 
 /// \brief ColumnIndex is a proxy around format::ColumnIndex.
 class PARQUET_EXPORT ColumnIndex {
@@ -39,28 +37,37 @@ class PARQUET_EXPORT ColumnIndex {
 
   virtual ~ColumnIndex() = default;
 
-  /// \brief Returns a list of boolean values to determine the validity of the
-  /// corresponding min and max values.
+  /// \brief A bitmap with a bit set for each data page that has only null values.
+  ///
+  /// The length of this vector is equal to the number of data pages in the column.
   virtual const std::vector<bool>& null_pages() const = 0;
 
-  /// \brief Returns a list of encoded lower bound for the values of each page. For null
-  /// pages the default value is an empty string. Readers must make sure that list entries
-  /// are populated before using them by inspecting null_pages.
+  /// \brief A vector of encoded lower bounds for each data page in this column.
+  ///
+  /// `null_pages` should be inspected first, as only pages with non-null values
+  /// may have their lower bounds populated.
   virtual const std::vector<std::string>& encoded_min_values() const = 0;
 
-  /// \brief Returns a list of encoded upper bound for the values of each page. For null
-  /// pages the default value is an empty string. Readers must make sure that list entries
-  /// are populated before using them by inspecting null_pages.
+  /// \brief A vector of encoded upper bounds for each data page in this column.
+  ///
+  /// `null_pages` should be inspected first, as only pages with non-null values
+  /// may have their upper bounds populated.
   virtual const std::vector<std::string>& encoded_max_values() const = 0;
 
-  /// \brief Returns whether both min_values and max_values are orderd and if so, in which
-  /// direction.
-  virtual BoundaryOrder boundary_order() const = 0;
+  /// \brief The ordering of lower and upper bounds.
+  ///
+  /// The boundary order applies accross all lower bounds, and all upper bounds,
+  /// respectively. However, the order between lower bounds and upper bounds
+  /// cannot be derived from this.
+  virtual BoundaryOrder::type boundary_order() const = 0;
 
-  /// \brief Returns if null count is available.
+  /// \brief Whether per-page null count information is available.
   virtual bool has_null_counts() const = 0;
 
-  /// \brief Returns A list containing the number of null values for each page.
+  /// \brief An optional vector with the number of null values in each data page.
+  ///
+  /// `has_null_counts` should be called first to determine if this information is
+  /// available.
   virtual const std::vector<int64_t>& null_counts() const = 0;
 };
 
@@ -70,18 +77,24 @@ class PARQUET_EXPORT TypedColumnIndex : public ColumnIndex {
  public:
   using T = typename DType::c_type;
 
-  /// \brief Returns a list of lower bound for the values of every non-null page.
-  /// Excluding non-null pages helps binary search if the values are ordered.
+  /// \brief A vector of lower bounds for each data page in this column.
+  ///
+  /// This is like `encoded_min_values`, but with the values decoded according to
+  /// the column's physical type.
+  /// `min_values` and `max_values` can be used together with `boundary_order`
+  /// in order to prune some data pages when searching for specific values.
   virtual const std::vector<T>& min_values() const = 0;
 
-  /// \brief Returns a list of upper bound for the values of every non-null page.
-  /// Excluding non-null pages helps binary search if the values are ordered.
+  /// \brief A vector of upper bounds for each data page in this column.
+  ///
+  /// Just like `min_values`, but for upper bounds instead of lower bounds.
   virtual const std::vector<T>& max_values() const = 0;
 
-  /// \brief Returns a list of page indices for not-null pages. It is helpful to
-  /// understand the original page id in the values returned from min_values()
-  /// and max_values() above.
-  virtual const std::vector<int32_t> GetNonNullPageIndices() const = 0;
+  /// \brief A vector of page indices for not-null pages.
+  ///
+  /// It is helpful to understand the original page id in the values returned from
+  /// min_values() and max_values() above.
+  virtual const std::vector<int32_t>& non_null_page_indices() const = 0;
 };
 
 using BoolColumnIndex = TypedColumnIndex<BooleanType>;
@@ -98,7 +111,7 @@ struct PARQUET_EXPORT PageLocation {
   int64_t offset;
   /// Total compressed size of the data page and header.
   int32_t compressed_page_size;
-  // row id of the first row in the page within the row group.
+  /// Row id of the first row in the page within the row group.
   int64_t first_row_index;
 };
 
@@ -112,8 +125,8 @@ class PARQUET_EXPORT OffsetIndex {
 
   virtual ~OffsetIndex() = default;
 
-  /// \brief Returns all page locations in the offset index.
-  virtual const std::vector<PageLocation>& GetPageLocations() const = 0;
+  /// \brief A vector of locations for each data page in this column.
+  virtual const std::vector<PageLocation>& page_locations() const = 0;
 };
 
 }  // namespace parquet
