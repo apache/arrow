@@ -341,9 +341,9 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
     # readr-style options
     if (!all(is_readr_opt)) {
       abort(c(
-        "Use either Arrow read options or readr read options, not both.",
-        i = sprintf("Passed Arrow options: %s.", oxford_paste(opt_names[is_arrow_opt])),
-        i = sprintf("Passed readr options: %s.", oxford_paste(opt_names[is_readr_opt]))
+        "Additional CSV reading options must be Arrow-style or readr-style, but not both.",
+        i = sprintf("Arrow options used: %s.", oxford_paste(opt_names[is_arrow_opt])),
+        i = sprintf("readr options used: %s.", oxford_paste(opt_names[is_readr_opt]))
       ))
     }
     do.call(readr_to_csv_read_options, opts) # all options have readr-style names
