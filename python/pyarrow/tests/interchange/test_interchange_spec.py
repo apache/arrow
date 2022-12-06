@@ -44,6 +44,7 @@ def test_only_one_dtype(test_data):
 
 
 def test_mixed_dtypes():
+    from datetime import datetime as dt
     table = pa.table(
         {
             "a": [1, 2, 3],  # dtype kind INT = 0
@@ -52,13 +53,15 @@ def test_mixed_dtypes():
             "d": [9, 10, 11],  # dtype kind INT = 0
             "e": [True, False, True],  # dtype kind BOOLEAN = 20
             "f": ["a", "", "c"],  # dtype kind STRING = 21
+            "g": [dt(2007, 7, 13), dt(2007, 7, 14),
+                  dt(2007, 7, 15)]  # dtype kind DATETIME = 22
         }
     )
     df = table.__dataframe__()
     # for meanings of dtype[0] see the spec; we cannot import the
     # spec here as this file is expected to be vendored *anywhere*;
     # values for dtype[0] are explained above
-    columns = {"a": 0, "b": 0, "c": 2, "d": 0, "e": 20, "f": 21}
+    columns = {"a": 0, "b": 0, "c": 2, "d": 0, "e": 20, "f": 21, "g": 22}
 
     for column, kind in columns.items():
         col = df.get_column_by_name(column)
