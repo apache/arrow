@@ -457,7 +457,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   options
 }
 
-readr_to_csv_write_options <- function(include_header,
+readr_to_csv_write_options <- function(include_header = TRUE,
                                        batch_size = 1024L,
                                        na = "") {
   assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
