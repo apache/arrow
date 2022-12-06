@@ -1697,6 +1697,47 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     accumulator_.builder.reset(new ::arrow::BinaryBuilder(pool));
+  }
+
+  ::arrow::ArrayVector GetBuilderChunks() override {
+    ::arrow::ArrayVector result = accumulator_.chunks;
+    if (result.size() == 0 || accumulator_.builder->length() > 0) {
+      std::shared_ptr<::arrow::Array> last_chunk;
+      PARQUET_THROW_NOT_OK(accumulator_.builder->Finish(&last_chunk));
+      result.push_back(std::move(last_chunk));
+    }
+    accumulator_.chunks = {};
+    return result;
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
+        static_cast<int>(values_to_read), &accumulator_);
+    CheckNumberDecoded(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    int64_t num_decoded = this->current_decoder_->DecodeArrow(
+        static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits_->mutable_data(), values_written_, &accumulator_);
+    CheckNumberDecoded(num_decoded, values_to_read - null_count);
+    ResetValues();
+  }
+
+ private:
+  // Helper data structure for accumulating builder chunks
+  typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
+};
+
+class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
+                                     virtual public BinaryRecordReader {
+ public:
+  ByteArrayChunkedOptRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
+                               ::arrow::MemoryPool* pool)
+      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
+    DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
+    accumulator_.builder.reset(new ::arrow::BinaryBuilder(pool));
     values_ = AllocateBuffer(pool);
     offset_ = AllocateBuffer(pool);
   }
@@ -1900,8 +1941,11 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
                                                         bool read_dictionary) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool);
-  } else {
+  } else if(descr->logical_type()->is_decimal()) {
     return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool);
+  }
+  else {
+    return std::make_shared<ByteArrayChunkedOptRecordReader>(descr, leaf_info, pool);
   }
 }
 
