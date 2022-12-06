@@ -57,20 +57,6 @@
 #include "parquet/types.h"
 #include "parquet/windows_fixup.h"  // for OPTIONAL
 
- #include <typeinfo>
- #include <cxxabi.h>
-#include <iostream>
-
-std::string getClearName(const char* name)
-{
-    int status = -1;
-    char* clear_name = abi::__cxa_demangle(name, NULL, NULL, &status);
-    const char* demangle_name = (status==0) ? clear_name : name;
-    std::string ret_val(demangle_name);
-    free(clear_name);
-    return ret_val;
-}
-
 using arrow::Array;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
@@ -371,26 +357,30 @@ std::shared_ptr<Array> TransferZeroCopy(RecordReader* reader,
   return ::arrow::MakeArray(data);
 }
 
-std::shared_ptr<Array> TransferBinaryZeroCopy(RecordReader* reader,
-                                        const std::shared_ptr<DataType>& type) {
+Status TransferBinaryZeroCopy(RecordReader* reader,
+                                              const std::shared_ptr<Field>& logical_type_field,
+                                              std::shared_ptr<ChunkedArray>* out) {
   std::vector<std::shared_ptr<Buffer>> buffers = {reader->ReleaseIsValid(),
                                                   reader->ReleaseOffsets(),
                                                   reader->ReleaseValues()};
-  auto data = std::make_shared<::arrow::ArrayData>(type, reader->values_written(),
+  auto data = std::make_shared<::arrow::ArrayData>(logical_type_field->type(), reader->values_written(),
                                                    buffers, reader->null_count());
-  // std::cout << "::arrow::MakeArray(data)->ToString():" << ::arrow::MakeArray(data)->ToString() << std::endl;
-  return ::arrow::MakeArray(data);
+  auto chunks = ::arrow::ArrayVector({::arrow::MakeArray(data)});
+  if (!logical_type_field->nullable()) {
+    ReconstructChunksWithoutNulls(&chunks);
+  }
+  *out = std::make_shared<ChunkedArray>(std::move(chunks), logical_type_field->type());
+  return Status::OK();
 }
 
 Status TransferLargeBinaryZeroCopy(RecordReader* reader, MemoryPool* pool,
-                                        const std::shared_ptr<DataType>& type,
+                                        const std::shared_ptr<Field>& logical_type_field,
                                         std::shared_ptr<ChunkedArray>* out) {
   std::vector<std::shared_ptr<Buffer>> buffers = {reader->ReleaseIsValid(),
                                                   reader->ReleaseOffsets(),
                                                   reader->ReleaseValues()};
   auto data = std::make_shared<::arrow::ArrayData>(::arrow::binary(), reader->values_written(),
                                                    buffers, reader->null_count());
-  // std::cout << "::arrow::MakeArray(data)->ToString():" << ::arrow::MakeArray(data)->ToString() << std::endl;
   auto array = ::arrow::MakeArray(data);
   ::arrow::compute::ExecContext ctx(pool);
   ::arrow::compute::CastOptions cast_options;
@@ -398,10 +388,13 @@ Status TransferLargeBinaryZeroCopy(RecordReader* reader, MemoryPool* pool,
 
   ARROW_ASSIGN_OR_RAISE(
 	  array,
-	  ::arrow::compute::Cast(*array, type, cast_options, &ctx));
+	  ::arrow::compute::Cast(*array, logical_type_field->type(), cast_options, &ctx));
 
-
-  *out = std::make_shared<ChunkedArray>(std::move(::arrow::ArrayVector({array})), type);
+  auto chunks = ::arrow::ArrayVector({array});
+  if (!logical_type_field->nullable()) {
+    ReconstructChunksWithoutNulls(&chunks);
+  }
+  *out = std::make_shared<ChunkedArray>(std::move(chunks)), logical_type_field->type();
   return Status::OK();
 }
 
@@ -819,14 +812,12 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
     } break;
     case ::arrow::Type::BINARY:
     case ::arrow::Type::STRING: {
-      result = TransferBinaryZeroCopy(reader, value_field->type());
-      // RETURN_NOT_OK(TransferBinary(reader, pool, value_field, &chunked_result));
-      // result = chunked_result;
+      RETURN_NOT_OK(TransferBinaryZeroCopy(reader, value_field, &chunked_result));
+      result = chunked_result;
     } break;
     case ::arrow::Type::LARGE_BINARY:
     case ::arrow::Type::LARGE_STRING: {
-      // result = TransferLargeBinaryZeroCopy(reader, pool, value_field->type());
-      RETURN_NOT_OK(TransferLargeBinaryZeroCopy(reader, pool, value_field->type(), &chunked_result));
+      RETURN_NOT_OK(TransferLargeBinaryZeroCopy(reader, pool, value_field, &chunked_result));
       result = chunked_result;
     } break;
     case ::arrow::Type::DECIMAL128: {
