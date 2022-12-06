@@ -39,7 +39,7 @@ other parameters.
 TableReader
 ===========
 
-Reads an entire file in one shot as a :class:`~arrow::Table`. Each
+:class:`~TableReader` reads an entire file in one shot as a :class:`~arrow::Table`. Each
 independent JSON object in the input file is converted to a row in
 the output table.
 
@@ -76,7 +76,7 @@ the output table.
 StreamingReader
 ===============
 
-Reads a file incrementally in fixed-size blocks, each yielding a
+:class:`~StreamingReader` reads a file incrementally from blocks of a roughly equal byte size, each yielding a
 :class:`~arrow::RecordBatch`. Each independent JSON object in a block
 is converted to a row in the output batch.
 
@@ -104,7 +104,7 @@ may be passed via :class:`~ParseOptions`.
 
       std::shared_ptr<arrow::RecordBatch> batch;
       for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *reader) {
-         if (!result.ok()) {
+         if (!maybe_batch.ok()) {
             // Handle read/parse error
          }
          batch = *maybe_batch;

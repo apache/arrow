@@ -363,6 +363,7 @@ class StreamingReaderTest : public ::testing::TestWithParam<bool> {
                              std::shared_ptr<RecordBatch>* out) {
     ASSERT_OK(reader->ReadNext(out));
     ASSERT_FALSE(IsIterationEnd(*out));
+    ASSERT_OK((**out).ValidateFull());
   }
   static void AssertReadEnd(const std::shared_ptr<StreamingReader>& reader) {
     std::shared_ptr<RecordBatch> out;
@@ -790,6 +791,7 @@ TEST_P(StreamingReaderTest, AsyncReentrancy) {
   EXPECT_EQ(batches.size(), static_cast<size_t>(expected.num_batches));
 
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+  ASSERT_OK(table->ValidateFull());
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }
 
