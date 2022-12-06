@@ -71,6 +71,7 @@ jobs:
       if [ ! -z "${R_CONFIG}" ]; then
         conda build r-arrow \
           -m ./.ci_support/r/${R_CONFIG}.yaml \
+          ${EXTRA_CB_OPTIONS:-} \
           --output-folder ./build_artifacts
       fi
     workingDirectory: arrow/dev/tasks/conda-recipes
