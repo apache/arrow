@@ -110,15 +110,18 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
 
             # Filters applied in CScanNodeOptions are "best effort" for the scan node itself,
             # so we always need to inject an additional Filter node to apply them for real.
-            current_decl = CDeclaration(tobytes("filter"), no_c_inputs,
-                                        static_pointer_cast[CExecNodeOptions, CFilterNodeOptions](
-                make_shared[CFilterNodeOptions](
-                    deref(deref(c_scanopts).scan_options).filter)
-            )
+            current_decl = CDeclaration(
+                tobytes("filter"),
+                no_c_inputs,
+                static_pointer_cast[CExecNodeOptions, CFilterNodeOptions](
+                    make_shared[CFilterNodeOptions](
+                        deref(deref(c_scanopts).scan_options).filter
+                    )
+                )
             )
             current_decl.inputs.push_back(
-                CDeclaration.Input(CDeclaration(
-                    tobytes("scan"), no_c_inputs, c_input_node_opts))
+                CDeclaration.Input(
+                    CDeclaration(tobytes("scan"), no_c_inputs, c_input_node_opts))
             )
         else:
             raise TypeError("Unsupported type")

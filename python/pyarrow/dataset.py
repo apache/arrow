@@ -477,7 +477,7 @@ def _union_dataset(children, schema=None, **kwargs):
             raise ValueError(
                 "Creating an UnionDataset from filtered or projected Datasets "
                 "is currently not supported. Union the unfiltered datasets "
-                "and apply the filtered to the resulting union."
+                "and apply the filter to the resulting union."
             )
 
     # create datasets with the requested schema

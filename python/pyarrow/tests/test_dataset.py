@@ -4845,7 +4845,6 @@ def test_dataset_join_collisions(tempdir):
     ], names=["colA", "colB", "colVals", "colB_r", "colVals_r"])
 
 
-@pytest.mark.dataset
 @pytest.mark.parametrize('dstype', [
     "fs", "mem"
 ])
@@ -4904,15 +4903,19 @@ def test_dataset_filter(tempdir, dstype):
         "col2": ["a", "b"]
     })
 
+    # Filter with None doesn't work for now
+    with pytest.raises(TypeError):
+        ds1.filter(None)
+
     # Can't get fragments of a filtered dataset
     with pytest.raises(ValueError):
         result.get_fragments()
 
     # Ensure replacing schema preserves the filter.
-    schema_without_colB = ds1.schema.remove(1)
+    schema_without_col2 = ds1.schema.remove(1)
     newschema = ds1.filter(
         pc.field("colA") < 3
-    ).replace_schema(schema_without_colB)
+    ).replace_schema(schema_without_col2)
     assert newschema.to_table() == pa.table({
         "colA": [1, 2],
     })
@@ -4920,10 +4923,9 @@ def test_dataset_filter(tempdir, dstype):
         # The schema might end up being replaced with
         # something that makes the filter invalid.
         # Let's make sure we error nicely.
-        result.replace_schema(schema_without_colB).to_table()
+        result.replace_schema(schema_without_col2).to_table()
 
 
-@pytest.mark.dataset
 @pytest.mark.parametrize('dstype', [
     "fs", "mem"
 ])
@@ -4968,9 +4970,8 @@ def test_union_dataset_filter(tempdir, dstype):
     filtered_ds1 = ds1.filter(pc.field("colA") < 3)
     filtered_ds2 = ds2.filter(pc.field("colA") < 10)
 
-    with pytest.raises(ValueError) as err:
+    with pytest.raises(ValueError, match="currently not supported"):
         ds.dataset((filtered_ds1, filtered_ds2))
-    assert "currently not supported" in str(err.value)
 
 
 def test_write_dataset_with_scanner_use_projected_schema(tempdir):
