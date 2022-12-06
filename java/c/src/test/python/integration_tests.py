@@ -153,7 +153,7 @@ class TestPythonIntegration(unittest.TestCase):
 
         self.assertEqual(expected, new_array)
         if check_metadata:
-            self.assertTrue(new_array.equals(expected, check_metadata=True))
+            self.assertTrue(new_array.type.equals(expected.type, check_metadata=True))
 
     def round_trip_record_batch(self, rb_generator):
         original_rb = rb_generator()

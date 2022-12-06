@@ -327,8 +327,7 @@ std::string DataType__name(const std::shared_ptr<arrow::DataType>& type) {
 
 // [[arrow::export]]
 bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs,
-                      const std::shared_ptr<arrow::DataType>& rhs,
-                      bool check_metadata) {
+                      const std::shared_ptr<arrow::DataType>& rhs, bool check_metadata) {
   return lhs->Equals(*rhs, check_metadata);
 }
 
