@@ -147,8 +147,8 @@ class GitHub(Downloader):
             raise ValueError("--repository is required")
         if tag is None:
             raise ValueError("--tag is required")
-        self.repository = repository
-        self.tag = tag
+        self._repository = repository
+        self._tag = tag
 
     def get_file_list(self, prefix, filter=None):
         url = f"https://api.github.com/repos/{self.repository}/releases/tags/{self.tag}"
@@ -183,7 +183,7 @@ class GitHub(Downloader):
 
         os.makedirs(dest, exist_ok=True)
         dest_path = os.path.join(dest, name)
-        print("Downloading {} to {}".format(url, dest_path))
+        print(f"Downloading {url} to {dest_path}")
 
         if os.path.isfile(dest_path):
             print("Already downloaded", dest_path)
