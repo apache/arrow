@@ -3,7 +3,7 @@ set -ex
 
 export DISABLE_AUTOBREW=1
 
-# set C++17 due to abseil
+# arrow uses C++17
 export ARROW_R_CXXFLAGS="${ARROW_R_CXXFLAGS} -std=c++17"
 
 if [[ "${target_platform}" == osx-* ]]; then
