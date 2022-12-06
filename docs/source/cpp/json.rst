@@ -102,12 +102,11 @@ may be passed via :class:`~ParseOptions`.
       }
       std::shared_ptr<arrow::json::StreamingReader> reader = *result;
 
-      std::shared_ptr<arrow::RecordBatch> batch;
       for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *reader) {
          if (!maybe_batch.ok()) {
             // Handle read/parse error
          }
-         batch = *maybe_batch;
+         std::shared_ptr<arrow::RecordBatch> batch = *maybe_batch;
          // Operate on each batch...
       }
    }

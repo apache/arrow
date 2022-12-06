@@ -637,75 +637,78 @@ TEST_P(StreamingReaderTest, IgnoreLeadingEmptyBlocks) {
 
 TEST_P(StreamingReaderTest, ExplicitSchemaErrorOnUnexpectedFields) {
   std::string test_json =
-      Join({R"({"s": "foo", "t": "2022-01-01"})", R"({"s": "foo", "t": "2022-01-01"})",
-            R"({"s": "foo", "t": "2022-01-01", "b": true})"},
+      Join({R"({"s": "foo", "t": "2022-01-01"})", R"({"s": "bar", "t": "2022-01-02"})",
+            R"({"s": "baz", "t": "2022-01-03", "b": true})"},
            "\n");
 
   FieldVector expected_fields = {field("s", utf8())};
   std::shared_ptr<Schema> expected_schema = schema(expected_fields);
-  std::shared_ptr<RecordBatch> expected_batch;
-  std::shared_ptr<RecordBatch> actual_batch;
-  std::shared_ptr<StreamingReader> reader;
 
   parse_options_.explicit_schema = expected_schema;
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
   read_options_.block_size = 48;
-  ASSERT_RAISES(Invalid, MakeReader(test_json));
+
+  auto result = MakeReader(test_json);
+  ASSERT_RAISES(Invalid, result);
+  EXPECT_THAT(result.status().message(),
+              ::testing::StartsWith("JSON parse error: unexpected field"));
 
   expected_fields.push_back(field("t", utf8()));
   expected_schema = schema(expected_fields);
-  expected_batch =
-      RecordBatchFromJSON(expected_schema, R"([{"s":"foo","t":"2022-01-01"}])");
 
   parse_options_.explicit_schema = expected_schema;
-  ASSERT_OK_AND_ASSIGN(reader, MakeReader(test_json));
+  ASSERT_OK_AND_ASSIGN(auto reader, MakeReader(test_json));
   AssertSchemaEqual(reader->schema(), expected_schema);
 
-  AssertReadNext(reader, &actual_batch);
-  ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
+  std::shared_ptr<RecordBatch> batch;
+  AssertReadNext(reader, &batch);
+  ASSERT_BATCHES_EQUAL(
+      *RecordBatchFromJSON(expected_schema, R"([{"s":"foo","t":"2022-01-01"}])"), *batch);
   EXPECT_EQ(reader->bytes_processed(), 32);
 
-  AssertReadNext(reader, &actual_batch);
-  ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
+  AssertReadNext(reader, &batch);
+  ASSERT_BATCHES_EQUAL(
+      *RecordBatchFromJSON(expected_schema, R"([{"s":"bar","t":"2022-01-02"}])"), *batch);
   EXPECT_EQ(reader->bytes_processed(), 64);
 
-  ASSERT_RAISES(Invalid, reader->ReadNext(&actual_batch));
+  auto status = reader->ReadNext(&batch);
   EXPECT_EQ(reader->bytes_processed(), 64);
+  ASSERT_RAISES(Invalid, status);
+  EXPECT_THAT(status.message(),
+              ::testing::StartsWith("JSON parse error: unexpected field"));
   AssertReadEnd(reader);
 }
 
 TEST_P(StreamingReaderTest, ExplicitSchemaIgnoreUnexpectedFields) {
   std::string test_json =
-      Join({R"({"s": "foo", "u": "2022-01-01"})", R"({"s": "foo", "t": "2022-01-01"})",
-            R"({"s": "foo", "t": "2022-01-01", "b": true})"},
+      Join({R"({"s": "foo", "u": "2022-01-01"})", R"({"s": "bar", "t": "2022-01-02"})",
+            R"({"s": "baz", "t": "2022-01-03", "b": true})"},
            "\n");
 
   FieldVector expected_fields = {field("s", utf8()), field("t", utf8())};
   std::shared_ptr<Schema> expected_schema = schema(expected_fields);
-  std::shared_ptr<RecordBatch> expected_batch;
-  std::shared_ptr<RecordBatch> actual_batch;
-  std::shared_ptr<StreamingReader> reader;
 
   parse_options_.explicit_schema = expected_schema;
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
   read_options_.block_size = 48;
 
-  ASSERT_OK_AND_ASSIGN(reader, MakeReader(test_json));
+  ASSERT_OK_AND_ASSIGN(auto reader, MakeReader(test_json));
   AssertSchemaEqual(reader->schema(), expected_schema);
 
-  expected_batch = RecordBatchFromJSON(expected_schema, R"([{"s":"foo","t":null}])");
-  AssertReadNext(reader, &actual_batch);
-  ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
+  std::shared_ptr<RecordBatch> batch;
+  AssertReadNext(reader, &batch);
+  ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(expected_schema, R"([{"s":"foo","t":null}])"),
+                       *batch);
   EXPECT_EQ(reader->bytes_processed(), 32);
 
-  expected_batch =
-      RecordBatchFromJSON(expected_schema, R"([{"s":"foo","t":"2022-01-01"}])");
-  AssertReadNext(reader, &actual_batch);
-  ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
+  AssertReadNext(reader, &batch);
+  ASSERT_BATCHES_EQUAL(
+      *RecordBatchFromJSON(expected_schema, R"([{"s":"bar","t":"2022-01-02"}])"), *batch);
   EXPECT_EQ(reader->bytes_processed(), 64);
 
-  AssertReadNext(reader, &actual_batch);
-  ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
+  AssertReadNext(reader, &batch);
+  ASSERT_BATCHES_EQUAL(
+      *RecordBatchFromJSON(expected_schema, R"([{"s":"baz","t":"2022-01-03"}])"), *batch);
   EXPECT_EQ(reader->bytes_processed(), 106);
   AssertReadEnd(reader);
 }
@@ -832,6 +835,7 @@ TEST_F(AsyncStreamingReaderTest, FuturesOutliveReader) {
   EXPECT_EQ(batches.size(), static_cast<size_t>(expected.num_batches));
 
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+  ASSERT_OK(table->ValidateFull());
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }
 
@@ -856,6 +860,7 @@ TEST_F(AsyncStreamingReaderTest, StressBufferedReads) {
   EXPECT_EQ(batches.size(), static_cast<size_t>(expected.num_batches));
 
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+  ASSERT_OK(table->ValidateFull());
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }
 
@@ -877,6 +882,7 @@ TEST_F(AsyncStreamingReaderTest, StressSharedIoAndCpuExecutor) {
   ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, CollectAsyncGenerator(generator));
   ASSERT_EQ(batches.size(), expected.batches.size());
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+  ASSERT_OK(table->ValidateFull());
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }
 
