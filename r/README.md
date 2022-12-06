@@ -94,7 +94,7 @@ In addition to the official [Arrow R package documentation](https://arrow.apache
 
 If you encounter a bug, please file an issue with a minimal reproducible
 example on [GitHub issues](https://github.com/apache/arrow/issues/new/choose).
-Log in to you account and select the type of issue you want to create.
+Log in to your account and select the type of issue you want to create.
 Add a meaningful title prefixed with **`[R]`** followed by a space, the
 issue summary and select component **R** from the dropdown list.
 For more information, see the **Report bugs and propose features** section
