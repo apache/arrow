@@ -69,6 +69,7 @@ jobs:
           ARROW_R_DEV: TRUE
         {{ macros.github_set_sccache_envvars()|indent(8)}}  
         run: |
+          sccache --start-server
           cd arrow/r
           R CMD INSTALL . --install-tests
       - name: Run the tests
