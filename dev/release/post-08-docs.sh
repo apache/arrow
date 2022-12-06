@@ -83,8 +83,6 @@ git checkout docs/c_glib/index.html
 if [ "$is_major_release" = "yes" ] ; then
   mv docs_temp docs/${previous_version}
 fi
-# Correct the stable version in versionwarnings.js
-sed -i -e "s/${previous_version}/${version}/g" docs/versionwarning.js
 git add docs
 git commit -m "[Website] Update documentations for ${version}"
 git clean -d -f -x
