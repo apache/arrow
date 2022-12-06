@@ -128,8 +128,8 @@ class Downloader:
                 os.remove(dest_path)
             except IOError:
                 pass
-            raise Exception(
-                f"Downloading {url} failed\nstdout: {stdout}\nstderr: {stderr}")
+            raise Exception(f"Downloading {url} failed\n"
+                            f"stdout: {stdout}\nstderr: {stderr}")
 
 
 class Artifactory(Downloader):
@@ -152,7 +152,8 @@ class GitHub(Downloader):
         self._tag = tag
 
     def get_file_list(self, prefix, filter=None):
-        url = f"https://api.github.com/repos/{self._repository}/releases/tags/{self._tag}"
+        url = (f"https://api.github.com/repos/{self._repository}/"
+               f"releases/tags/{self._tag}")
         print("Fetching release from", url)
         request = urllib.request.Request(
             url,
@@ -195,8 +196,6 @@ class GitHub(Downloader):
             extra_args=[
                 "--header",
                 "Accept: application/octet-stream",
-                "--header",
-                "User-Agent: apache/arrow-adbc dev/release/download_release.py",
             ],
         )
 
