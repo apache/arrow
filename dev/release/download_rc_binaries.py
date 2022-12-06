@@ -128,7 +128,8 @@ class Downloader:
                 os.remove(dest_path)
             except IOError:
                 pass
-            raise Exception(f"Downloading {url} failed\nstdout: {stdout}\nstderr: {stderr}")
+            raise Exception(
+                f"Downloading {url} failed\nstdout: {stdout}\nstderr: {stderr}")
 
 
 class Artifactory(Downloader):
