@@ -69,6 +69,9 @@ class PARQUET_EXPORT ColumnIndex {
   /// `has_null_counts` should be called first to determine if this information is
   /// available.
   virtual const std::vector<int64_t>& null_counts() const = 0;
+
+  /// \brief A vector of page indices for non-null pages.
+  virtual const std::vector<int32_t>& non_null_page_indices() const = 0;
 };
 
 /// \brief Typed implementation of ColumnIndex.
@@ -89,12 +92,6 @@ class PARQUET_EXPORT TypedColumnIndex : public ColumnIndex {
   ///
   /// Just like `min_values`, but for upper bounds instead of lower bounds.
   virtual const std::vector<T>& max_values() const = 0;
-
-  /// \brief A vector of page indices for not-null pages.
-  ///
-  /// It is helpful to understand the original page id in the values returned from
-  /// min_values() and max_values() above.
-  virtual const std::vector<int32_t>& non_null_page_indices() const = 0;
 };
 
 using BoolColumnIndex = TypedColumnIndex<BooleanType>;
