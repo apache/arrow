@@ -56,12 +56,12 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
   TypedColumnIndexImpl(const ColumnDescriptor& descr,
                        const format::ColumnIndex& column_index)
       : column_index_(column_index) {
-    size_t num_non_null_pages = std::accumulate(
-        column_index_.null_pages.cbegin(), column_index_.null_pages.cend(), 0U,
-        [](size_t num_non_null_pages, bool null_page) {
-          return num_non_null_pages + (null_page ? 0U : 1U);
+    int32_t num_non_null_pages = std::accumulate(
+        column_index_.null_pages.cbegin(), column_index_.null_pages.cend(), 0,
+        [](int32_t num_non_null_pages, bool null_page) {
+          return num_non_null_pages + (null_page ? 0 : 1);
         });
-    if (num_non_null_pages != 0U) {
+    if (num_non_null_pages > 0) {
       min_values_.reserve(num_non_null_pages);
       max_values_.reserve(num_non_null_pages);
       // Decode min and max values into a compact form (i.e. w/o null page)
