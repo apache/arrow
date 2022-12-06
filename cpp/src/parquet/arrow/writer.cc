@@ -59,6 +59,7 @@ using arrow::MemoryPool;
 using arrow::NumericArray;
 using arrow::PrimitiveArray;
 using arrow::ResizableBuffer;
+using arrow::Result;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
@@ -396,8 +397,10 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
                         std::shared_ptr<::arrow::io::OutputStream> sink,
                         std::shared_ptr<WriterProperties> properties,
                         std::unique_ptr<FileWriter>* writer) {
-  return Open(std::move(schema), pool, std::move(sink), std::move(properties),
-              default_arrow_writer_properties(), writer);
+  ARROW_ASSIGN_OR_RAISE(
+      *writer, Open(std::move(schema), pool, std::move(sink), std::move(properties),
+                    default_arrow_writer_properties()));
+  return Status::OK();
 }
 
 Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
@@ -432,6 +435,16 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
                         std::shared_ptr<WriterProperties> properties,
                         std::shared_ptr<ArrowWriterProperties> arrow_properties,
                         std::unique_ptr<FileWriter>* writer) {
+  ARROW_ASSIGN_OR_RAISE(*writer, Open(std::move(schema), pool, std::move(sink),
+                                      std::move(properties), arrow_properties));
+  return Status::OK();
+}
+
+Result<std::unique_ptr<FileWriter>> FileWriter::Open(
+    const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+    std::shared_ptr<::arrow::io::OutputStream> sink,
+    std::shared_ptr<WriterProperties> properties,
+    std::shared_ptr<ArrowWriterProperties> arrow_properties) {
   std::shared_ptr<SchemaDescriptor> parquet_schema;
   RETURN_NOT_OK(
       ToParquetSchema(&schema, *properties, *arrow_properties, &parquet_schema));
@@ -446,9 +459,12 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
                                                              std::move(properties),
                                                              std::move(metadata)));
 
+  std::unique_ptr<FileWriter> writer;
   auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
-  return Make(pool, std::move(base_writer), std::move(schema_ptr),
-              std::move(arrow_properties), writer);
+  RETURN_NOT_OK(Make(pool, std::move(base_writer), std::move(schema_ptr),
+                     std::move(arrow_properties), &writer));
+
+  return writer;
 }
 
 Status WriteFileMetaData(const FileMetaData& file_metadata,
@@ -468,9 +484,9 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
                   std::shared_ptr<WriterProperties> properties,
                   std::shared_ptr<ArrowWriterProperties> arrow_properties) {
   std::unique_ptr<FileWriter> writer;
-  RETURN_NOT_OK(FileWriter::Open(*table.schema(), pool, std::move(sink),
-                                 std::move(properties), std::move(arrow_properties),
-                                 &writer));
+  ARROW_ASSIGN_OR_RAISE(
+      writer, FileWriter::Open(*table.schema(), pool, std::move(sink),
+                               std::move(properties), std::move(arrow_properties)));
   RETURN_NOT_OK(writer->WriteTable(table, chunk_size));
   return writer->Close();
 }

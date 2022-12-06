@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package compute_test
 
 import (
@@ -24,15 +26,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/compute"
-	"github.com/apache/arrow/go/v10/arrow/decimal128"
-	"github.com/apache/arrow/go/v10/arrow/decimal256"
-	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/arrow/scalar"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/compute"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/decimal256"
+	"github.com/apache/arrow/go/v11/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v11/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -60,22 +63,22 @@ func getDatums[T any](inputs []T) []compute.Datum {
 	return out
 }
 
-func assertArraysEqual(t *testing.T, expected, actual arrow.Array) bool {
-	return assert.Truef(t, array.Equal(expected, actual), "expected: %s\ngot: %s", expected, actual)
+func assertArraysEqual(t *testing.T, expected, actual arrow.Array, opts ...array.EqualOption) bool {
+	return assert.Truef(t, array.ApproxEqual(expected, actual, opts...), "expected: %s\ngot: %s", expected, actual)
 }
 
-func assertDatumsEqual(t *testing.T, expected, actual compute.Datum) {
+func assertDatumsEqual(t *testing.T, expected, actual compute.Datum, opts []array.EqualOption, scalarOpts []scalar.EqualOption) {
 	require.Equal(t, expected.Kind(), actual.Kind())
 
 	switch expected.Kind() {
 	case compute.KindScalar:
 		want := expected.(*compute.ScalarDatum).Value
 		got := actual.(*compute.ScalarDatum).Value
-		assert.Truef(t, scalar.Equals(want, got), "expected: %s\ngot: %s", want, got)
+		assert.Truef(t, scalar.ApproxEquals(want, got, scalarOpts...), "expected: %s\ngot: %s", want, got)
 	case compute.KindArray:
 		want := expected.(*compute.ArrayDatum).MakeArray()
 		got := actual.(*compute.ArrayDatum).MakeArray()
-		assertArraysEqual(t, want, got)
+		assertArraysEqual(t, want, got, opts...)
 		want.Release()
 		got.Release()
 	case compute.KindChunked:
@@ -91,7 +94,7 @@ func checkScalarNonRecursive(t *testing.T, funcName string, inputs []compute.Dat
 	out, err := compute.CallFunction(context.Background(), funcName, opts, inputs...)
 	assert.NoError(t, err)
 	defer out.Release()
-	assertDatumsEqual(t, expected, out)
+	assertDatumsEqual(t, expected, out, nil, nil)
 }
 
 func checkScalarWithScalars(t *testing.T, funcName string, inputs []scalar.Scalar, expected scalar.Scalar, opts compute.FunctionOptions) {
@@ -227,16 +230,19 @@ var (
 		arrow.PrimitiveTypes.Uint32,
 		arrow.PrimitiveTypes.Uint64,
 	}
-	integerTypes = append(signedIntTypes, unsignedIntTypes...)
-	numericTypes = append(integerTypes,
+	integerTypes  = append(signedIntTypes, unsignedIntTypes...)
+	floatingTypes = []arrow.DataType{
 		arrow.PrimitiveTypes.Float32,
-		arrow.PrimitiveTypes.Float64)
+		arrow.PrimitiveTypes.Float64,
+	}
+	numericTypes    = append(integerTypes, floatingTypes...)
 	baseBinaryTypes = []arrow.DataType{
 		arrow.BinaryTypes.Binary,
 		arrow.BinaryTypes.LargeBinary,
 		arrow.BinaryTypes.String,
 		arrow.BinaryTypes.LargeString,
 	}
+	dictIndexTypes = integerTypes
 )
 
 type CastSuite struct {
@@ -361,7 +367,7 @@ func (c *CastSuite) TestCanCast() {
 		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		canCast(from, numericTypes)
 		canCast(from, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-		cannotCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: from}, []arrow.DataType{from})
+		canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: from}, []arrow.DataType{from})
 
 		cannotCast(from, []arrow.DataType{arrow.Null})
 	}
@@ -370,11 +376,11 @@ func (c *CastSuite) TestCanCast() {
 		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		canCast(from, numericTypes)
 		canCast(from, baseBinaryTypes)
-		cannotCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: from}, []arrow.DataType{from})
+		canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: from}, []arrow.DataType{from})
 
 		// any cast which is valid for the dictionary is valid for the dictionary array
-		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint32, ValueType: from}, baseBinaryTypes)
-		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int16, ValueType: from}, baseBinaryTypes)
+		canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint32, ValueType: from}, baseBinaryTypes)
+		canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int16, ValueType: from}, baseBinaryTypes)
 
 		cannotCast(from, []arrow.DataType{arrow.Null})
 	}
@@ -2254,6 +2260,9 @@ func (c *CastSuite) TestIdentityCasts() {
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Date32, `[1, 2, 3, 4]`)
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Date64, `[86400000, 0]`)
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Timestamp_s, `[1, 2, 3, 4]`)
+
+	c.checkCastSelfZeroCopy(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.PrimitiveTypes.Int8},
+		`[1, 2, 3, 1, null, 3]`)
 }
 
 func (c *CastSuite) TestListToPrimitive() {
@@ -2724,6 +2733,135 @@ func (c *CastSuite) TestNoOutBitmapIfIsAllValid() {
 	c.Nil(result.Data().Buffers()[0])
 }
 
+func (c *CastSuite) TestFromDictionary() {
+	ctx := compute.WithAllocator(context.Background(), c.mem)
+
+	dictionaries := []arrow.Array{}
+
+	for _, ty := range numericTypes {
+		a, _, _ := array.FromJSON(c.mem, ty, strings.NewReader(`[23, 12, 45, 12, null]`))
+		defer a.Release()
+		dictionaries = append(dictionaries, a)
+	}
+
+	for _, ty := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		a, _, _ := array.FromJSON(c.mem, ty, strings.NewReader(`["foo", "bar", "baz", "foo", null]`))
+		defer a.Release()
+		dictionaries = append(dictionaries, a)
+	}
+
+	for _, d := range dictionaries {
+		for _, ty := range dictIndexTypes {
+			indices, _, _ := array.FromJSON(c.mem, ty, strings.NewReader(`[4, 0, 1, 2, 0, 4, null, 2]`))
+
+			expected, err := compute.Take(ctx, compute.TakeOptions{}, &compute.ArrayDatum{d.Data()}, &compute.ArrayDatum{indices.Data()})
+			c.Require().NoError(err)
+			exp := expected.(*compute.ArrayDatum).MakeArray()
+
+			dictArr := array.NewDictionaryArray(&arrow.DictionaryType{IndexType: ty, ValueType: d.DataType()}, indices, d)
+			checkCast(c.T(), dictArr, exp, *compute.SafeCastOptions(d.DataType()))
+
+			indices.Release()
+			expected.Release()
+			exp.Release()
+			dictArr.Release()
+			return
+		}
+	}
+}
+
 func TestCasts(t *testing.T) {
 	suite.Run(t, new(CastSuite))
+}
+
+const rngseed = 0x94378165
+
+func benchmarkNumericCast(b *testing.B, fromType, toType arrow.DataType, opts compute.CastOptions, size, min, max int64, nullprob float64) {
+	rng := gen.NewRandomArrayGenerator(rngseed, memory.DefaultAllocator)
+	arr := rng.Numeric(fromType.ID(), size, min, max, nullprob)
+	var (
+		err   error
+		out   compute.Datum
+		ctx   = context.Background()
+		input = compute.NewDatum(arr.Data())
+	)
+
+	b.Cleanup(func() {
+		arr.Release()
+		input.Release()
+	})
+
+	opts.ToType = toType
+	b.ResetTimer()
+	b.SetBytes(size * int64(fromType.(arrow.FixedWidthDataType).Bytes()))
+	for i := 0; i < b.N; i++ {
+		out, err = compute.CastDatum(ctx, input, &opts)
+		if err != nil {
+			b.Fatal(err)
+		}
+		out.Release()
+	}
+}
+
+func benchmarkFloatingToIntegerCast(b *testing.B, fromType, toType arrow.DataType, opts compute.CastOptions, size, min, max int64, nullprob float64) {
+	rng := gen.NewRandomArrayGenerator(rngseed, memory.DefaultAllocator)
+	arr := rng.Numeric(toType.ID(), size, min, max, nullprob)
+	asFloat, err := compute.CastToType(context.Background(), arr, fromType)
+	if err != nil {
+		b.Fatal(err)
+	}
+	arr.Release()
+
+	var (
+		out   compute.Datum
+		ctx   = context.Background()
+		input = compute.NewDatum(asFloat.Data())
+	)
+
+	b.Cleanup(func() {
+		asFloat.Release()
+		input.Release()
+	})
+
+	opts.ToType = toType
+	b.ResetTimer()
+	b.SetBytes(size * int64(fromType.(arrow.FixedWidthDataType).Bytes()))
+	for i := 0; i < b.N; i++ {
+		out, err = compute.CastDatum(ctx, input, &opts)
+		if err != nil {
+			b.Fatal(err)
+		}
+		out.Release()
+	}
+}
+
+func BenchmarkCasting(b *testing.B) {
+	type benchfn func(b *testing.B, fromType, toType arrow.DataType, opts compute.CastOptions, size, min, max int64, nullprob float64)
+
+	tests := []struct {
+		from, to arrow.DataType
+		min, max int64
+		safe     bool
+		fn       benchfn
+	}{
+		{arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int32, math.MinInt32, math.MaxInt32, true, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int32, math.MinInt32, math.MaxInt32, false, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Uint32, arrow.PrimitiveTypes.Int32, 0, math.MaxInt32, true, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Float64, 0, 1000, true, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Float64, 0, 1000, false, benchmarkNumericCast},
+		{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Int32, -1000, 1000, true, benchmarkFloatingToIntegerCast},
+		{arrow.PrimitiveTypes.Float64, arrow.PrimitiveTypes.Int32, -1000, 1000, false, benchmarkFloatingToIntegerCast},
+	}
+
+	for _, tt := range tests {
+		for _, sz := range []int64{int64(CpuCacheSizes[1]) /* L2 Cache Size */} {
+			for _, nullProb := range []float64{0, 0.1, 0.5, 0.9, 1} {
+				arraySize := sz / int64(tt.from.(arrow.FixedWidthDataType).Bytes())
+				opts := compute.DefaultCastOptions(tt.safe)
+				b.Run(fmt.Sprintf("sz=%d/nullprob=%.2f/from=%s/to=%s/safe=%t", arraySize, nullProb, tt.from, tt.to, tt.safe), func(b *testing.B) {
+					tt.fn(b, tt.from, tt.to, *opts, arraySize, tt.min, tt.max, nullProb)
+				})
+			}
+		}
+	}
 }

@@ -185,8 +185,8 @@ map: map<string, struct<int1: int32, string1: string>>
     test("select fields") do
       require_gi_bindings(3, 2, 6)
       @reader.field_indices = [1, 3]
-      assert_equal(build_table("boolean1" => build_boolean_array([false, true]),
-                               "short1" => build_int16_array([1024, 2048])),
+      assert_equal(build_table("byte1" => build_int8_array([1, 100]),
+                               "int1" => build_int32_array([65536, 65536])),
                    @reader.read_stripes)
     end
   end
@@ -200,10 +200,8 @@ map: map<string, struct<int1: int32, string1: string>>
     test("select fields") do
       require_gi_bindings(3, 2, 6)
       @reader.field_indices = [1, 3]
-      boolean1 = build_boolean_array([false, true])
-      short1 = build_int16_array([1024, 2048])
-      assert_equal(build_record_batch("boolean1" => boolean1,
-                                      "short1" => short1),
+      assert_equal(build_record_batch("byte1" => build_int8_array([1, 100]),
+                                      "int1" => build_int32_array([65536, 65536])),
                    @reader.read_stripe(0))
     end
   end

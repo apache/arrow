@@ -21,8 +21,8 @@ import (
 	"runtime/cgo"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
 )
 
 // #include <stdlib.h>

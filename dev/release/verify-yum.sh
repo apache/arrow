@@ -73,6 +73,7 @@ case "${distribution}-${distribution_version}" in
     ;;
   almalinux-*)
     distribution_prefix="almalinux"
+    ruby_devel_packages+=(redhat-rpm-config)
     ;;
   amzn-2)
     distribution_prefix="amazon-linux"

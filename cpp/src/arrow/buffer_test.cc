@@ -397,6 +397,15 @@ TEST(TestBuffer, FromStdString) {
   ASSERT_EQ(static_cast<int64_t>(val.size()), buf.size());
 }
 
+TEST(TestBuffer, Alignment) {
+  std::string val = "hello, world";
+
+  constexpr int64_t kAlignmentTest = 1024;
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Buffer> buf,
+                       AllocateBuffer(val.size(), kAlignmentTest));
+  ASSERT_EQ(buf->address() % kAlignmentTest, 0);
+}
+
 TEST(TestBuffer, FromStdStringWithMemory) {
   std::string expected = "hello, world";
   std::shared_ptr<Buffer> buf;
@@ -706,6 +715,37 @@ TEST(TestBufferBuilder, ResizeReserve) {
   ASSERT_OK(builder.Reserve(60));
   ASSERT_EQ(128, builder.capacity());
   ASSERT_EQ(9, builder.length());
+}
+
+TEST(TestBufferBuilder, Alignment) {
+  const std::string data = "some data";
+  auto data_ptr = data.c_str();
+
+  constexpr int kTestAlignment = 512;
+  BufferBuilder builder(default_memory_pool(), /*alignment=*/kTestAlignment);
+#define TEST_ALIGNMENT() \
+  ASSERT_EQ(reinterpret_cast<uintptr_t>(builder.data()) % kTestAlignment, 0)
+
+  ASSERT_OK(builder.Append(data_ptr, 9));
+  TEST_ALIGNMENT();
+
+  ASSERT_OK(builder.Resize(128));
+  ASSERT_EQ(128, builder.capacity());
+  ASSERT_EQ(9, builder.length());
+  TEST_ALIGNMENT();
+
+  // Do not shrink to fit
+  ASSERT_OK(builder.Resize(64, false));
+  TEST_ALIGNMENT();
+
+  // Shrink to fit
+  ASSERT_OK(builder.Resize(64));
+  TEST_ALIGNMENT();
+
+  // Reserve elements
+  ASSERT_OK(builder.Reserve(60));
+  TEST_ALIGNMENT();
+#undef TEST_ALIGNMENT
 }
 
 TEST(TestBufferBuilder, Finish) {

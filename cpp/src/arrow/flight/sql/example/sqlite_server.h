@@ -19,13 +19,14 @@
 
 #include <sqlite3.h>
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
-#include "arrow/api.h"
 #include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/flight/sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/sql/server.h"
+#include "arrow/result.h"
 
 namespace arrow {
 namespace flight {
@@ -35,7 +36,7 @@ namespace example {
 /// \brief Convert a column type to a ArrowType.
 /// \param sqlite_type the sqlite type.
 /// \return            The equivalent ArrowType.
-std::shared_ptr<DataType> GetArrowType(const char* sqlite_type);
+arrow::Result<std::shared_ptr<DataType>> GetArrowType(const char* sqlite_type);
 
 /// \brief Convert a column type name to SQLite type.
 /// \param type_name the type name.

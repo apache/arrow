@@ -21,6 +21,7 @@
 
 #include <sstream>
 
+#include "arrow/array/builder_binary.h"
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/sql/example/sqlite_statement.h"
@@ -80,16 +81,19 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
 
         const ColumnMetadata& column_metadata = GetColumnMetadata(
             GetSqlTypeFromTypeName(column_type), sqlite_table_name.c_str());
-        column_fields.push_back(arrow::field(column_name, GetArrowType(column_type),
-                                             nullable == 0,
+        std::shared_ptr<DataType> arrow_type;
+        auto status = GetArrowType(column_type).Value(&arrow_type);
+        if (!status.ok()) {
+          return Status::NotImplemented("Unknown SQLite type '", column_type,
+                                        "' for column '", column_name, "' in table '",
+                                        table_name, "': ", status);
+        }
+        column_fields.push_back(arrow::field(column_name, arrow_type, nullable == 0,
                                              column_metadata.metadata_map()));
       }
     }
-    const arrow::Result<std::shared_ptr<Buffer>>& value =
-        ipc::SerializeSchema(*arrow::schema(column_fields));
-
-    std::shared_ptr<Buffer> schema_buffer;
-    ARROW_ASSIGN_OR_RAISE(schema_buffer, value);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> schema_buffer,
+                          ipc::SerializeSchema(*arrow::schema(column_fields)));
 
     column_fields.clear();
     ARROW_RETURN_NOT_OK(schema_builder.Append(::std::string_view(*schema_buffer)));

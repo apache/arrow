@@ -43,6 +43,9 @@
 const char kCookieExpiresFormat[] = "%d %m %Y %H:%M:%S";
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace flight {
 namespace internal {
 
@@ -201,7 +204,7 @@ void Cookie::ConvertCookieDate(std::string* date) {
       if ((i + 1) < 10) {
         padded_month = "0";
       }
-      padded_month += std::to_string(i + 1);
+      padded_month += ToChars(i + 1);
 
       // Replace symbolic month with numeric month.
       date->replace(it, months[i].length(), padded_month);

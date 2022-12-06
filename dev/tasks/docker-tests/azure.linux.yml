@@ -59,6 +59,8 @@ jobs:
         {{ image }} \
         {{ command|default("") }}
     displayName: Execute Docker Build
+    env:
+    {{ macros.azure_set_sccache_envvars()|indent(4) }}
 
   {% if post_script is defined %}
   - script: |

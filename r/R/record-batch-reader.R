@@ -130,8 +130,13 @@ as.data.frame.RecordBatchReader <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.RecordBatchReader <- function(x, n = 6L, ...) {
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires consuming the whole RBR
   assert_that(n >= 0)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
   RecordBatchReader__Head(x, n)
 }
 

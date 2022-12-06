@@ -18,6 +18,7 @@
 #include "arrow/compute/api_scalar.h"
 
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -345,6 +346,11 @@ static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
+static auto kListSliceOptionsType = GetFunctionOptionsType<ListSliceOptions>(
+    DataMember("start", &ListSliceOptions::start),
+    DataMember("stop", &ListSliceOptions::stop),
+    DataMember("step", &ListSliceOptions::step),
+    DataMember("return_fixed_size_list", &ListSliceOptions::return_fixed_size_list));
 static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOptions>(
     DataMember("pattern", &SplitPatternOptions::pattern),
     DataMember("max_splits", &SplitPatternOptions::max_splits),
@@ -359,7 +365,7 @@ static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("unit", &StrptimeOptions::unit),
     DataMember("error_is_null", &StrptimeOptions::error_is_null));
 static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
-    DataMember("indices", &StructFieldOptions::indices));
+    DataMember("field_ref", &StructFieldOptions::field_ref));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
     DataMember("characters", &TrimOptions::characters));
 static auto kUtf8NormalizeOptionsType = GetFunctionOptionsType<Utf8NormalizeOptions>(
@@ -528,6 +534,17 @@ SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
 SliceOptions::SliceOptions() : SliceOptions(0, 0, 1) {}
 constexpr char SliceOptions::kTypeName[];
 
+ListSliceOptions::ListSliceOptions(int64_t start, std::optional<int64_t> stop,
+                                   int64_t step,
+                                   std::optional<bool> return_fixed_size_list)
+    : FunctionOptions(internal::kListSliceOptionsType),
+      start(start),
+      stop(stop),
+      step(step),
+      return_fixed_size_list(return_fixed_size_list) {}
+ListSliceOptions::ListSliceOptions() : ListSliceOptions(0) {}
+constexpr char ListSliceOptions::kTypeName[];
+
 SplitOptions::SplitOptions(int64_t max_splits, bool reverse)
     : FunctionOptions(internal::kSplitOptionsType),
       max_splits(max_splits),
@@ -561,8 +578,13 @@ StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::MICRO, false)
 constexpr char StrptimeOptions::kTypeName[];
 
 StructFieldOptions::StructFieldOptions(std::vector<int> indices)
-    : FunctionOptions(internal::kStructFieldOptionsType), indices(std::move(indices)) {}
-StructFieldOptions::StructFieldOptions() : StructFieldOptions(std::vector<int>()) {}
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(indices)) {}
+StructFieldOptions::StructFieldOptions(std::initializer_list<int> indices)
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(indices)) {}
+StructFieldOptions::StructFieldOptions(FieldRef ref)
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(ref)) {}
+StructFieldOptions::StructFieldOptions()
+    : FunctionOptions(internal::kStructFieldOptionsType) {}
 constexpr char StructFieldOptions::kTypeName[];
 
 TrimOptions::TrimOptions(std::string characters)
@@ -597,6 +619,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kElementWiseAggregateOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kJoinOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kListSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMapLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMatchSubstringOptionsType));
@@ -653,6 +676,7 @@ SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
 SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
 SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
 SCALAR_EAGER_UNARY(Atan, "atan")
+SCALAR_EAGER_UNARY(Exp, "exp")
 SCALAR_EAGER_UNARY(Sign, "sign")
 
 Result<Datum> Round(const Datum& arg, RoundOptions options, ExecContext* ctx) {

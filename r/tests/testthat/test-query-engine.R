@@ -18,6 +18,8 @@
 library(dplyr, warn.conflicts = FALSE)
 
 test_that("ExecPlanReader does not start evaluating a query", {
+  skip_if_not(CanRunWithCapturedR())
+
   rbr <- as_record_batch_reader(
     function(x) stop("This query will error if started"),
     schema = schema(a = int32())

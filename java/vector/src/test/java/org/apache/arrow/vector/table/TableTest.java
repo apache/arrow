@@ -128,6 +128,26 @@ class TableTest {
   }
 
   @Test
+  void copy() {
+    List<FieldVector> vectorList = twoIntColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+      assertEquals(2, t.getVectorCount());
+      try (Table copy = t.copy()) {
+        for (FieldVector v: t.fieldVectors) {
+          FieldVector vCopy = copy.getVector(v.getName());
+          assertNotNull(vCopy);
+          assertEquals(v.getValueCount(), vCopy.getValueCount());
+          for (int i = 0; i < v.getValueCount(); i++) {
+            Integer vValue = ((IntVector) v).getObject(i);
+            Integer vCopyValue = ((IntVector) vCopy).getObject(i);
+            assertEquals(vValue, vCopyValue);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void addVector() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {

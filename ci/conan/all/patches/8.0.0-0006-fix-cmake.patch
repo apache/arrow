@@ -1,0 +1,447 @@
+MIT License
+
+Copyright (c) 2019 Conan.io
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+diff --git a/cpp/CMakeLists.txt b/cpp/CMakeLists.txt
+index bb463d0..ce2d1df 100644
+--- a/cpp/CMakeLists.txt
++++ b/cpp/CMakeLists.txt
+@@ -705,7 +705,7 @@ endif()
+ 
+ if(ARROW_WITH_BROTLI)
+   # Order is important for static linking
+-  set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
++  set(ARROW_BROTLI_LIBS brotli::brotlienc brotli::brotlidec brotli::brotlicommon)
+   list(APPEND ARROW_LINK_LIBS ${ARROW_BROTLI_LIBS})
+   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
+   if(Brotli_SOURCE STREQUAL "SYSTEM")
+@@ -721,11 +721,18 @@ if(ARROW_WITH_BZ2)
+ endif()
+ 
+ if(ARROW_WITH_LZ4)
+-  list(APPEND ARROW_STATIC_LINK_LIBS lz4::lz4)
+-  if(Lz4_SOURCE STREQUAL "SYSTEM")
+-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
++  if (TARGET LZ4::lz4_static)
++    list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4_static)
++    if(Lz4_SOURCE STREQUAL "SYSTEM")
++      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4_static)
++    endif()
++  else()
++    list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4_shared)
++    if(Lz4_SOURCE STREQUAL "SYSTEM")
++      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4_shared)
+   endif()
+ endif()
++endif()
+ 
+ if(ARROW_WITH_SNAPPY)
+   list(APPEND ARROW_STATIC_LINK_LIBS Snappy::snappy)
+@@ -913,8 +920,13 @@ endif()
+ 
+ if(ARROW_MIMALLOC)
+   add_definitions(-DARROW_MIMALLOC)
+-  list(APPEND ARROW_LINK_LIBS mimalloc::mimalloc)
+-  list(APPEND ARROW_STATIC_LINK_LIBS mimalloc::mimalloc)
++  if (TARGET mimalloc-static)
++    list(APPEND ARROW_LINK_LIBS mimalloc-static)
++    list(APPEND ARROW_STATIC_LINK_LIBS mimalloc-static)
++  else()
++    list(APPEND ARROW_LINK_LIBS mimalloc)
++    list(APPEND ARROW_STATIC_LINK_LIBS mimalloc)
++  endif()
+ endif()
+ 
+ # ----------------------------------------------------------------------
+diff --git a/cpp/cmake_modules/ThirdpartyToolchain.cmake b/cpp/cmake_modules/ThirdpartyToolchain.cmake
+index f070323..16faf73 100644
+--- a/cpp/cmake_modules/ThirdpartyToolchain.cmake
++++ b/cpp/cmake_modules/ThirdpartyToolchain.cmake
+@@ -959,6 +959,7 @@ endif()
+ # - Tests need Boost at runtime.
+ # - S3FS and Flight benchmarks need Boost at runtime.
+ if(ARROW_BUILD_INTEGRATION
++   OR ARROW_BOOST_REQUIRED
+    OR ARROW_BUILD_TESTS
+    OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
+    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS))
+@@ -975,7 +976,7 @@ endif()
+ 
+ if(ARROW_BOOST_REQUIRED)
+   resolve_dependency(Boost
+-                     HAVE_ALT
++                     USE_CONFIG
+                      TRUE
+                      REQUIRED_VERSION
+                      ${ARROW_BOOST_REQUIRED_VERSION}
+@@ -986,7 +987,7 @@ if(ARROW_BOOST_REQUIRED)
+   if(TARGET Boost::system)
+     set(BOOST_SYSTEM_LIBRARY Boost::system)
+     set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+-  elseif(BoostAlt_FOUND)
++  elseif(Boost_FOUND)
+     set(BOOST_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY})
+     set(BOOST_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY})
+   else()
+@@ -1129,9 +1130,9 @@ macro(build_brotli)
+ endmacro()
+ 
+ if(ARROW_WITH_BROTLI)
+-  resolve_dependency(Brotli PC_PACKAGE_NAMES libbrotlidec libbrotlienc)
++  resolve_dependency(brotli PC_PACKAGE_NAMES libbrotlidec libbrotlienc)
+   # TODO: Don't use global includes but rather target_include_directories
+-  get_target_property(BROTLI_INCLUDE_DIR Brotli::brotlicommon
++  get_target_property(BROTLI_INCLUDE_DIR brotli::brotlicommon
+                       INTERFACE_INCLUDE_DIRECTORIES)
+   include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
+ endif()
+@@ -1323,22 +1324,16 @@ endmacro()
+ if(ARROW_NEED_GFLAGS)
+   set(ARROW_GFLAGS_REQUIRED_VERSION "2.1.0")
+   resolve_dependency(gflags
+-                     HAVE_ALT
++                     USE_CONFIG
+                      TRUE
+                      REQUIRED_VERSION
+                      ${ARROW_GFLAGS_REQUIRED_VERSION}
+                      IS_RUNTIME_DEPENDENCY
+                      FALSE)
+   # TODO: Don't use global includes but rather target_include_directories
+-  include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
+-
+-  if(NOT TARGET ${GFLAGS_LIBRARIES})
+-    if(TARGET gflags-shared)
+-      set(GFLAGS_LIBRARIES gflags-shared)
+-    elseif(TARGET gflags_shared)
+-      set(GFLAGS_LIBRARIES gflags_shared)
+-    endif()
+-  endif()
++  include_directories(SYSTEM ${gflags_INCLUDE_DIR})
++  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${gflags_LIBRARIES_TARGETS})
++  set(GFLAGS_LIBRARIES gflags::gflags)
+ endif()
+ 
+ # ----------------------------------------------------------------------
+@@ -1432,9 +1427,9 @@ if(ARROW_WITH_THRIFT)
+                        thrift)
+   endif()
+   # TODO: Don't use global includes but rather target_include_directories
+-  include_directories(SYSTEM ${THRIFT_INCLUDE_DIR})
++  include_directories(SYSTEM ${Thrift_INCLUDE_DIR})
+ 
+-  string(REPLACE "." ";" VERSION_LIST ${THRIFT_VERSION})
++  string(REPLACE "." ";" VERSION_LIST ${Thrift_VERSION})
+   list(GET VERSION_LIST 0 THRIFT_VERSION_MAJOR)
+   list(GET VERSION_LIST 1 THRIFT_VERSION_MINOR)
+   list(GET VERSION_LIST 2 THRIFT_VERSION_PATCH)
+@@ -1557,6 +1552,7 @@ if(ARROW_WITH_PROTOBUF)
+     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
+   endif()
+   resolve_dependency(Protobuf
++                     USE_CONFIG
+                      REQUIRED_VERSION
+                      ${ARROW_PROTOBUF_REQUIRED_VERSION}
+                      PC_PACKAGE_NAMES
+@@ -1567,7 +1563,7 @@ if(ARROW_WITH_PROTOBUF)
+   endif()
+ 
+   # TODO: Don't use global includes but rather target_include_directories
+-  include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
++  include_directories(SYSTEM ${protobuf_INCLUDE_DIR})
+ 
+   if(TARGET arrow::protobuf::libprotobuf)
+     set(ARROW_PROTOBUF_LIBPROTOBUF arrow::protobuf::libprotobuf)
+@@ -1576,9 +1572,9 @@ if(ARROW_WITH_PROTOBUF)
+     if(NOT TARGET protobuf::libprotobuf)
+       add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
+       set_target_properties(protobuf::libprotobuf
+-                            PROPERTIES IMPORTED_LOCATION "${PROTOBUF_LIBRARY}"
++                            PROPERTIES IMPORTED_LOCATION "${Protobuf_LIBRARY}"
+                                        INTERFACE_INCLUDE_DIRECTORIES
+-                                       "${PROTOBUF_INCLUDE_DIR}")
++                                       "${Protobuf_INCLUDE_DIR}")
+     endif()
+     set(ARROW_PROTOBUF_LIBPROTOBUF protobuf::libprotobuf)
+   endif()
+@@ -1598,7 +1594,7 @@ if(ARROW_WITH_PROTOBUF)
+       set_target_properties(protobuf::libprotoc
+                             PROPERTIES IMPORTED_LOCATION "${Protobuf_PROTOC_LIBRARY}"
+                                        INTERFACE_INCLUDE_DIRECTORIES
+-                                       "${PROTOBUF_INCLUDE_DIR}")
++                                       "${Protobuf_INCLUDE_DIR}")
+     endif()
+     set(ARROW_PROTOBUF_LIBPROTOC protobuf::libprotoc)
+   endif()
+@@ -1690,11 +1686,12 @@ macro(build_substrait)
+ 
+   add_custom_target(substrait_gen ALL DEPENDS ${SUBSTRAIT_PROTO_GEN_ALL})
+ 
+-  set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR} ${PROTOBUF_INCLUDE_DIR})
++  set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR} ${protobuf_INCLUDE_DIR})
+ 
+   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
+   set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
++  target_include_directories(substrait PUBLIC ${PROTOBUF_INCLUDE_DIR})
+   target_link_libraries(substrait INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
+   add_dependencies(substrait substrait_gen)
+ 
+@@ -1711,6 +1708,7 @@ endif()
+ # jemalloc - Unix-only high-performance allocator
+ 
+ if(ARROW_JEMALLOC)
++if(0)
+   message(STATUS "Building (vendored) jemalloc from source")
+   # We only use a vendored jemalloc as we want to control its version.
+   # Also our build of jemalloc is specially prefixed so that it will not
+@@ -1780,12 +1778,18 @@ if(ARROW_JEMALLOC)
+   add_dependencies(jemalloc::jemalloc jemalloc_ep)
+ 
+   list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
++else()
++  find_package(jemalloc REQUIRED CONFIG)
++  include_directories(SYSTEM "${jemalloc_INCLUDE_DIR}")
++  list(APPEND ARROW_BUNDLED_STATIC_LIBS  ${jemalloc_LIBRARIES_TARGETS})
++endif()
+ endif()
+ 
+ # ----------------------------------------------------------------------
+ # mimalloc - Cross-platform high-performance allocator, from Microsoft
+ 
+ if(ARROW_MIMALLOC)
++if(0)
+   message(STATUS "Building (vendored) mimalloc from source")
+   # We only use a vendored mimalloc as we want to control its build options.
+ 
+@@ -1836,6 +1840,11 @@ if(ARROW_MIMALLOC)
+   add_dependencies(toolchain mimalloc_ep)
+ 
+   list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
++else()
++  find_package(mimalloc REQUIRED CONFIG)
++  include_directories(SYSTEM "${mimalloc_INCLUDE_DIR}")
++  list(APPEND ARROW_BUNDLED_STATIC_LIBS  ${mimalloc_LIBRARIES_TARGETS} )
++endif()
+ endif()
+ 
+ # ----------------------------------------------------------------------
+@@ -2121,7 +2130,7 @@ endmacro()
+ if(ARROW_WITH_RAPIDJSON)
+   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
+   resolve_dependency(RapidJSON
+-                     HAVE_ALT
++                     USE_CONFIG
+                      TRUE
+                      REQUIRED_VERSION
+                      ${ARROW_RAPIDJSON_REQUIRED_VERSION}
+@@ -2158,10 +2167,10 @@ endmacro()
+ 
+ if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQUAL "NONE"
+                                              ))
+-  set(xsimd_SOURCE "BUNDLED")
++  set(xsimd_SOURCE "SYSTEM")
+   resolve_dependency(xsimd)
+   # TODO: Don't use global includes but rather target_include_directories
+-  include_directories(SYSTEM ${XSIMD_INCLUDE_DIR})
++  include_directories(SYSTEM ${xsimd_INCLUDE_DIR})
+ endif()
+ 
+ macro(build_zlib)
+@@ -2260,10 +2269,14 @@ macro(build_lz4)
+ endmacro()
+ 
+ if(ARROW_WITH_LZ4)
+-  resolve_dependency(Lz4 PC_PACKAGE_NAMES liblz4)
++  resolve_dependency(Lz4)
+ 
+   # TODO: Don't use global includes but rather target_include_directories
+-  get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
++  if (TARGET LZ4::lz4_static)
++    get_target_property(LZ4_INCLUDE_DIR LZ4::lz4_static INTERFACE_INCLUDE_DIRECTORIES)
++  else()
++    get_target_property(LZ4_INCLUDE_DIR LZ4::lz4_shared INTERFACE_INCLUDE_DIRECTORIES)
++  endif()
+   include_directories(SYSTEM ${LZ4_INCLUDE_DIR})
+ endif()
+ 
+@@ -2394,7 +2407,7 @@ if(ARROW_WITH_RE2)
+   # Don't specify "PC_PACKAGE_NAMES re2" here because re2.pc may
+   # include -std=c++11. It's not compatible with C source and C++
+   # source not uses C++ 11.
+-  resolve_dependency(re2 HAVE_ALT TRUE)
++  resolve_dependency(re2 USE_CONFIG TRUE)
+   if(${re2_SOURCE} STREQUAL "SYSTEM")
+     get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
+     if(NOT RE2_LIB)
+@@ -2464,7 +2477,7 @@ endmacro()
+ if(ARROW_WITH_BZ2)
+   resolve_dependency(BZip2)
+   if(${BZip2_SOURCE} STREQUAL "SYSTEM")
+-    string(APPEND ARROW_PC_LIBS_PRIVATE " ${BZIP2_LIBRARIES}")
++    string(APPEND ARROW_PC_LIBS_PRIVATE " ${BZip2_LIBRARIES}")
+   endif()
+ 
+   if(NOT TARGET BZip2::BZip2)
+@@ -2473,7 +2486,7 @@ if(ARROW_WITH_BZ2)
+                           PROPERTIES IMPORTED_LOCATION "${BZIP2_LIBRARIES}"
+                                      INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
+   endif()
+-  include_directories(SYSTEM "${BZIP2_INCLUDE_DIR}")
++  include_directories(SYSTEM "${BZip2_INCLUDE_DIR}")
+ endif()
+ 
+ macro(build_utf8proc)
+@@ -3709,7 +3722,7 @@ if(ARROW_WITH_GRPC)
+     set(gRPC_SOURCE "${Protobuf_SOURCE}")
+   endif()
+   resolve_dependency(gRPC
+-                     HAVE_ALT
++                     USE_CONFIG
+                      TRUE
+                      REQUIRED_VERSION
+                      ${ARROW_GRPC_REQUIRED_VERSION}
+@@ -3727,9 +3740,9 @@ if(ARROW_WITH_GRPC)
+   else()
+     # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
+     # depending on the gRPC version.
+-    if(EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
++    if(EXISTS ${gRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h)
+       set(GRPCPP_PP_INCLUDE TRUE)
+-    elseif(EXISTS "${GRPC_INCLUDE_DIR}/grpc++/impl/codegen/config_protobuf.h")
++    elseif(EXISTS ${gRPC_INCLUDE_DIR}/grpc++/impl/codegen/config_protobuf.h)
+       set(GRPCPP_PP_INCLUDE FALSE)
+     else()
+       message(FATAL_ERROR "Cannot find grpc++ headers in ${GRPC_INCLUDE_DIR}")
+@@ -3937,7 +3950,7 @@ macro(build_google_cloud_cpp_storage)
+ endmacro()
+ 
+ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
+-  resolve_dependency(google_cloud_cpp_storage)
++  resolve_dependency(google_cloud_cpp)
+   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
+                       INTERFACE_INCLUDE_DIRECTORIES)
+   include_directories(SYSTEM ${google_cloud_cpp_storage_INCLUDE_DIR})
+@@ -4264,9 +4277,9 @@ if(ARROW_WITH_OPENTELEMETRY)
+   # cURL is required whether we build from source or use an existing installation
+   # (OTel's cmake files do not call find_curl for you)
+   find_curl()
+-  set(opentelemetry-cpp_SOURCE "AUTO")
++  set(opentelemetry-cpp_SOURCE "SYSTEM")
+   resolve_dependency(opentelemetry-cpp)
+-  get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
++  get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::opentelemetry_common
+                       INTERFACE_INCLUDE_DIRECTORIES)
+   include_directories(SYSTEM ${OPENTELEMETRY_INCLUDE_DIR})
+   message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
+diff --git a/cpp/src/arrow/CMakeLists.txt b/cpp/src/arrow/CMakeLists.txt
+index 690c51a..752f3b9 100644
+--- a/cpp/src/arrow/CMakeLists.txt
++++ b/cpp/src/arrow/CMakeLists.txt
+@@ -326,10 +326,14 @@ set(ARROW_TESTING_SRCS
+ 
+ set(_allocator_dependencies "") # Empty list
+ if(ARROW_JEMALLOC)
+-  list(APPEND _allocator_dependencies jemalloc_ep)
++  list(APPEND _allocator_dependencies jemalloc::jemalloc)
+ endif()
+ if(ARROW_MIMALLOC)
+-  list(APPEND _allocator_dependencies mimalloc_ep)
++  if (TARGET mimalloc-static)
++    list(APPEND _allocator_dependencies mimalloc-static)
++  else()
++    list(APPEND _allocator_dependencies mimalloc)
++  endif()
+ endif()
+ 
+ if(_allocator_dependencies)
+diff --git a/cpp/src/arrow/flight/CMakeLists.txt b/cpp/src/arrow/flight/CMakeLists.txt
+index f9d1356..c9bcf79 100644
+--- a/cpp/src/arrow/flight/CMakeLists.txt
++++ b/cpp/src/arrow/flight/CMakeLists.txt
+@@ -17,6 +17,9 @@
+ 
+ add_custom_target(arrow_flight)
+ 
++# TODO: This is a temporary workaround. absl should be LINKED as TARGET.
++include_directories(SYSTEM ${absl_INCLUDE_DIR})
++
+ arrow_install_all_headers("arrow/flight")
+ 
+ set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++ ${ARROW_PROTOBUF_LIBPROTOBUF})
+diff --git a/cpp/src/arrow/memory_pool.cc b/cpp/src/arrow/memory_pool.cc
+index ed1c2d8..37a89da 100644
+--- a/cpp/src/arrow/memory_pool.cc
++++ b/cpp/src/arrow/memory_pool.cc
+@@ -52,7 +52,7 @@
+ // Needed to support jemalloc 3 and 4
+ #define JEMALLOC_MANGLE
+ // Explicitly link to our version of jemalloc
+-#include "jemalloc_ep/dist/include/jemalloc/jemalloc.h"
++#include "jemalloc/jemalloc.h"
+ #endif
+ 
+ #ifdef ARROW_MIMALLOC
+diff --git a/cpp/src/gandiva/CMakeLists.txt b/cpp/src/gandiva/CMakeLists.txt
+index 71faf9a..3aabea1 100644
+--- a/cpp/src/gandiva/CMakeLists.txt
++++ b/cpp/src/gandiva/CMakeLists.txt
+@@ -25,7 +25,7 @@ add_custom_target(gandiva-benchmarks)
+ 
+ add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
+ 
+-find_package(LLVMAlt REQUIRED)
++find_package(LLVM REQUIRED)
+ 
+ if(LLVM_VERSION_MAJOR LESS "10")
+   set(GANDIVA_CXX_STANDARD ${CMAKE_CXX_STANDARD})
+@@ -40,7 +40,7 @@ endif()
+ 
+ add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
+ 
+-find_package(OpenSSLAlt REQUIRED)
++find_package(OpenSSL REQUIRED)
+ 
+ # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
+ set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
+@@ -98,10 +98,11 @@ set(SRC_FILES
+     random_generator_holder.cc
+     ${GANDIVA_PRECOMPILED_CC_PATH})
+ 
+-set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE
+-                                     ${GANDIVA_OPENSSL_LIBS})
++set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared llvm-core::llvm-core NTERFACE
++                                    ${GANDIVA_OPENSSL_LIBS})
++
++set(GANDIVA_STATIC_LINK_LIBS arrow_static llvm-core::llvm-core ${GANDIVA_OPENSSL_LIBS})
+ 
+-set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS})
+ 
+ if(ARROW_GANDIVA_STATIC_LIBSTDCPP AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX
+                                       ))
+@@ -139,7 +140,7 @@ add_arrow_lib(gandiva
+               arrow_dependencies
+               precompiled
+               EXTRA_INCLUDES
+-              $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
++              $<TARGET_PROPERTY:llvm-core::llvm-core,INTERFACE_INCLUDE_DIRECTORIES>
+               ${GANDIVA_OPENSSL_INCLUDE_DIR}
+               ${UTF8PROC_INCLUDE_DIR}
+               SHARED_LINK_FLAGS

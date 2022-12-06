@@ -156,6 +156,7 @@ addition, the constructor will also inspect configured S3 credentials as
 supported by AWS (for example the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables).
 
+
 Example how you can read contents from a S3 bucket::
 
    >>> from pyarrow import fs
@@ -178,10 +179,32 @@ Example how you can read contents from a S3 bucket::
    >>> f.readall()
    b'some data'
 
+
+Note that it is important to configure :class:`S3FileSystem` with the correct
+region for the bucket being used. If `region` is not set, the AWS SDK will
+choose a value, defaulting to 'us-east-1' if the SDK version is <1.8.
+Otherwise it will try to use a variety of heuristics (environment variables,
+configuration profile, EC2 metadata server) to resolve the region.
+
+It is also possible to resolve the region from the bucket name for
+:class:`S3FileSystem` by using :func:`pyarrow.fs.resolve_s3_region` or
+:func:`pyarrow.fs.S3FileSystem.from_uri`.
+
+Here are a couple examples in code::
+
+   >>> from pyarrow import fs
+   >>> s3 = fs.S3FileSystem(region=fs.resolve_s3_region('my-test-bucket'))
+
+   # Or via URI:
+   >>> s3, path = fs.S3FileSystem.from_uri('s3://[access_key:secret_key@]bucket/path]')
+
+
 .. seealso::
 
    See the `AWS docs <https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html>`__
    for the different ways to configure the AWS credentials.
+
+   :func:`pyarrow.fs.resolve_s3_region` for resolving region from a bucket name.
 
 
 .. _filesystem-gcs:
@@ -194,7 +217,15 @@ for GCS storage.
 
 If not running on Google Cloud Platform (GCP), this generally requires the
 environment variable ``GOOGLE_APPLICATION_CREDENTIALS`` to point to a
-JSON file containing credentials.
+JSON file containing credentials. Alternatively, use the ``gcloud`` CLI to
+generate a credentials file in the default location::
+
+   gcloud auth application-default login
+
+To connect to a public bucket without using any credentials, you must pass
+``anonymous=True`` to :class:`GcsFileSystem`. Otherwise, the filesystem
+will report ``Couldn't resolve host name`` since there are different host 
+names for authenticated and public access.
 
 Example showing how you can read contents from a GCS bucket::
 

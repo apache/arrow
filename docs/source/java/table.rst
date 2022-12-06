@@ -21,9 +21,7 @@ Table
 
 **NOTE**: The Table API is experimental and subject to change. See the list of limitations below.
 
-`Table`_ is an immutable tabular data structure based on `FieldVector`_. A mutable version is expected in a subsequent release.
-
-Like `VectorSchemaRoot`_, ``Table`` is a columnar data structure backed by Arrow arrays, or more specifically, by ``FieldVector`` objects. It differs from ``VectorSchemaRoot`` mainly in that it is fully immutable and lacks support for batch operations. Anyone processing batches of tabular data in a pipeline should continue to use ``VectorSchemaRoot``. Finally, the ``Table`` API is mainly row-oriented, so in some ways it's more like the JDBC API than the ``VectorSchemaRoot`` API, but you can still use ``FieldReaders`` to work with data in a columnar fashion.
+`Table`_ is an immutable tabular data structure based on `FieldVector`_. Like `VectorSchemaRoot`_, ``Table`` is a columnar data structure backed by Arrow arrays, or more specifically, by ``FieldVector`` objects. It differs from ``VectorSchemaRoot`` mainly in that it is fully immutable and lacks support for batch operations. Anyone processing batches of tabular data in a pipeline should continue to use ``VectorSchemaRoot``. Finally, the ``Table`` API is mainly row-oriented, so in some ways it's more like the JDBC API than the ``VectorSchemaRoot`` API, but you can still use ``FieldReaders`` to work with data in a columnar fashion.
 
 Mutation in Table and VectorSchemaRoot
 ======================================
@@ -57,13 +55,11 @@ A basic set of table functionality is currently available:
 - Slice tables
 - Convert table to ``VectorSchemaRoot``
 
-Limitations in the 10.0.0 release:
+Limitations in the 11.0.0 release:
 
-- **Creating Tables with data imported using the C-Data API will result in a runtime exception**. Support for ths feature is gated on PR#13248 (https://github.com/apache/arrow/pull/13248).
 - No support ``ChunkedArray`` or any form of row-group. Support for chunked arrays or row groups will be considered for a future release.
 - No support for the C-Stream API. Support for the streaming API is contingent on chunked array support
 - No support for creating tables directly from Java POJOs. All data held by a table must be imported via a ``VectorSchemaRoot``, or from collections or arrays of vectors.
-- No support for mutable tables.
 
 The Table API
 =============
@@ -128,7 +124,7 @@ When you create tables from vectors, it's assumed that there are no external ref
     t2.clear();
     // no change because t2 is already empty and t1 is independent
 
-With tables, memory is explicitly transferred on instantiatlon so the buffers held by a table are held by *only* that table.
+With tables, memory is explicitly transferred on instantiation so the buffers held by a table are held by *only* that table.
 
 Creating Tables with dictionary-encoded vectors
 ***********************************************
@@ -297,7 +293,7 @@ Methods are available for getting values by vector name and vector index, where 
     Row r = table.immutableRow();
     r.next(); // position the row at the first value
     int age1 = r.get("age"); // gets the value of vector named 'age' in the table at row 0
-    int age2 = r.get(12);    // gets the value of the 13th vecto in the table at row 0
+    int age2 = r.get(12);    // gets the value of the 13th vector in the table at row 0
 
 You can also get value using a nullable ``ValueHolder``. For example:
 

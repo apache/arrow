@@ -22,7 +22,7 @@ set -ex
 arrow_dir=${1}
 build_dir=${2}
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}
+dist_dir=${3}/x86_64
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -33,8 +33,7 @@ install_dir=${build_dir}/cpp-install
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 export ARROW_DATASET
-# We can enable this after ARROW-17817 is resolved.
-: ${ARROW_ORC:=OFF}
+: ${ARROW_ORC:=ON}
 export ARROW_ORC
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_S3:=ON}

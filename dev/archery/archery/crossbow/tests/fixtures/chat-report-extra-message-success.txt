@@ -1,5 +1,5 @@
 
-*<https://crossbow.voltrondata.com|Archery crossbow report> for <https://github.com/apache/crossbow/branches/all?query=ursabot-1|ursabot-1>*
+*<http://crossbow.voltrondata.com|Archery crossbow report> for <https://github.com/apache/crossbow/branches/all?query=ursabot-1|ursabot-1>*
 
 
 :tada: *4 successful jobs*

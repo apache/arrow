@@ -410,6 +410,9 @@ struct Type {
   };
 };
 
+/// \brief Get a vector of all type ids
+ARROW_EXPORT std::vector<Type::type> AllTypeIds();
+
 /// \defgroup type-factories Factory functions for creating data types
 ///
 /// Factory functions for creating data types
@@ -627,5 +630,7 @@ std::shared_ptr<Schema> schema(
 
 /// Return the process-wide default memory pool.
 ARROW_EXPORT MemoryPool* default_memory_pool();
+
+constexpr int64_t kDefaultBufferAlignment = 64;
 
 }  // namespace arrow

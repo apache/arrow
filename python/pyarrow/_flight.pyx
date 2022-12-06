@@ -1539,7 +1539,7 @@ cdef class FlightClient(_Weakrefable):
         result.reader.reset(reader.release())
         return result
 
-    def do_put(self, descriptor: FlightDescriptor, schema: Schema,
+    def do_put(self, descriptor: FlightDescriptor, Schema schema not None,
                options: FlightCallOptions = None):
         """Upload data to a flight.
 

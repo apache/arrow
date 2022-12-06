@@ -46,7 +46,7 @@ if ! git remote | grep -q '^upstream$'; then
 fi
 
 echo "Updating repository: ${repository}"
-git fetch --all --prune --tags --force -j$(nproc)
+git fetch --all --prune --tags --force
 git checkout master
 git rebase upstream/master
 
@@ -71,10 +71,10 @@ rm ${pkgbuild}.bak
 git add ${pkgbuild}
 git commit -m "arrow: Update to ${version}"
 
-reverse_dependencies=(groonga)
-for reverse_dependency in "${reverse_dependencies[@]}"; do
-  pkgbuild=mingw-w64-${reverse_dependency}/PKGBUILD
-  echo "Incrementing ${reverse_dependency}'s pkgrel: ${pkgbuild}"
+for pkgbuild in $(grep -l -r '${MINGW_PACKAGE_PREFIX}-arrow' ./); do
+  dir=${pkgbuild%/PKGBUILD}
+  name=${dir#./mingw-w64-}
+  echo "Incrementing ${name}'s pkgrel: ${pkgbuild}"
   pkgrel=$(grep -o '^pkgrel=.*' ${pkgbuild} | cut -d= -f2)
   sed \
     -i.bak \
@@ -82,7 +82,7 @@ for reverse_dependency in "${reverse_dependencies[@]}"; do
     ${pkgbuild}
   rm ${pkgbuild}.bak
   git add ${pkgbuild}
-  git commit -m "${reverse_dependency}: Rebuild for arrow"
+  git commit -m "${name}: Rebuild for arrow"
 done
 
 git push origin ${branch}
@@ -93,3 +93,4 @@ owner=$(git remote get-url origin | \
           cut -d/ -f1)
 echo "Create a pull request:"
 echo "  https://github.com/${owner}/MINGW-packages/pull/new/${branch}"
+echo "with title: 'arrow: Update to ${version}'"

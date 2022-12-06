@@ -83,6 +83,27 @@ test_that("logic ops with Array", {
   )
 })
 
+test_that("binary slice kernel with Array", {
+  binary_array <- Array$create(
+    iconv(c("a", "ab", "abc", "abcd"), toRaw = TRUE),
+    type = binary()
+  )
+
+  result <- call_function(
+    "binary_slice",
+    binary_array,
+    options = list(start = 0, stop = 1)
+  )
+  expect_equal(result$cast(string()), Array$create(c("a", "a", "a", "a")))
+
+  result <- call_function(
+    "binary_slice",
+    binary_array,
+    options = list(start = -1)
+  )
+  expect_equal(result$cast(string()), Array$create(c("a", "b", "c", "d")))
+})
+
 test_that("logic ops with ChunkedArray", {
   truth <- expand.grid(left = c(TRUE, FALSE, NA), right = c(TRUE, FALSE, NA))
   a_left <- ChunkedArray$create(truth$left)
@@ -116,7 +137,7 @@ test_that("call_function validation", {
       Array$create(c(TRUE, FALSE, TRUE)),
       options = list(keep_na = TRUE)
     ),
-    "arguments must all be the same length"
+    "Arguments for execution of vector kernel function 'array_filter' must all be the same length"
   )
   expect_error(
     call_function("filter",

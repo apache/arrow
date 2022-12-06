@@ -31,6 +31,13 @@ Abstract Function classes
    :content-only:
    :members:
 
+Function execution
+------------------
+
+.. doxygengroup:: compute-functions-executor
+   :content-only:
+   :members:
+
 Function registry
 -----------------
 
