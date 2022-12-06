@@ -151,14 +151,13 @@ class GitHub(Downloader):
         self._tag = tag
 
     def get_file_list(self, prefix, filter=None):
-        url = f"https://api.github.com/repos/{self.repository}/releases/tags/{self.tag}"
+        url = f"https://api.github.com/repos/{self._repository}/releases/tags/{self._tag}"
         print("Fetching release from", url)
         request = urllib.request.Request(
             url,
             method="GET",
             headers={
                 "Accept": "application/vnd.github+json",
-                "User-Agent": "apache/arrow dev/release/download_rc_binaries.py",
             },
         )
         raw_response = urllib.request.urlopen(request).read().decode()
@@ -172,8 +171,8 @@ class GitHub(Downloader):
             # limit unless logged in, and we have a lot of tiny
             # artifacts
             url = (
-                f"https://github.com/{self.repository}/"
-                f"releases/download/{self.tag}/{asset['name']}"
+                f"https://github.com/{self._repository}/"
+                f"releases/download/{self._tag}/{asset['name']}"
             )
             files.append((asset["name"], url))
         return files
