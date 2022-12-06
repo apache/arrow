@@ -323,9 +323,6 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
-  if (!is.null(schema) && is.null(opts[["column_names"]])) {
-    opts[["column_names"]] <- names(schema)
-  }
 
   opt_names <- names(opts)
   arrow_opts <- c(names(formals(CsvReadOptions$create)))
@@ -335,6 +332,14 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
   is_readr_opt <- !is.na(match(opt_names, readr_opts))
 
   check_ambiguous_options(opt_names, arrow_opts, readr_opts)
+
+  if (!is.null(schema) && is.null(opts[["column_names"]]) && is.null(opts[["col_names"]])) {
+    if (any(is_readr_opt)) {
+      opts[["col_names"]] <- names(schema)
+    } else {
+      opts[["column_names"]] <- names(schema)
+    }
+  }
 
   if (any(is_readr_opt)) {
     # Catch cases when the user specifies a mix of Arrow C++ options and

@@ -358,8 +358,7 @@ test_that("Can use col_names readr parameter", {
   expect_equal(ds %>% collect(), set_names(tbl, c("f0", "f1")))
 
   expect_error(
-    open_dataset(headerless_csv_dir, format = "csv", col_names = c("my_int")),
-    "Expected 1 columns, got 2"
+    open_dataset(headerless_csv_dir, format = "csv", col_names = c("my_int"))
   )
 })
 
@@ -417,7 +416,7 @@ test_that("skip argument in open_dataset", {
     header_csv_dir,
     format = "csv",
     schema = schema(int = int32(), dbl = float64()),
-    skip_rows = 1
+    skip = 1
   )
   expect_equal(collect(ds), tbl)
 })
