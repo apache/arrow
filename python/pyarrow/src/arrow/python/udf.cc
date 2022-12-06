@@ -214,8 +214,12 @@ Result<std::shared_ptr<RecordBatch>> RecordBatchFromArray(
 
 }  // namespace
 
-Result<RecordBatchIterator> GetRecordBatchesFromTabularFunction(
-    const std::string& func_name, compute::FunctionRegistry* registry) {
+Result<RecordBatchIterator> CallTabularFunction(
+    const std::string& func_name, const std::vector<Datum>& args,
+    compute::FunctionRegistry* registry) {
+  if (args.size() != 0) {
+    return Status::NotImplemented("non-empty arguments to tabular function");
+  }
   if (registry == NULLPTR) {
     registry = compute::GetFunctionRegistry();
   }

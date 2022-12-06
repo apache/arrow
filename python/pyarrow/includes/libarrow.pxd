@@ -477,6 +477,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         vector[shared_ptr[CField]] GetAllFieldsByName(const c_string& name)
         int GetFieldIndex(const c_string& name)
         vector[int] GetAllFieldIndices(const c_string& name)
+        const vector[shared_ptr[CField]] fields()
         int num_fields()
         c_string ToString()
 
@@ -2801,5 +2802,5 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
                                     function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
                                     CFunctionRegistry* registry)
 
-    CResult[CRecordBatchIterator] GetRecordBatchesFromTabularFunction(
-        const c_string& func_name, CFunctionRegistry* registry)
+    CResult[CRecordBatchIterator] CallTabularFunction(
+        const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)

@@ -62,8 +62,9 @@ Status ARROW_PYTHON_EXPORT RegisterTabularFunction(
     PyObject* user_function, ScalarUdfWrapperCallback wrapper,
     const ScalarUdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
 
-Result<RecordBatchIterator> ARROW_PYTHON_EXPORT GetRecordBatchesFromTabularFunction(
-    const std::string& func_name, compute::FunctionRegistry* registry = NULLPTR);
+Result<RecordBatchIterator> ARROW_PYTHON_EXPORT CallTabularFunction(
+    const std::string& func_name, const std::vector<Datum>& args,
+    compute::FunctionRegistry* registry = NULLPTR);
 
 }  // namespace py
 
