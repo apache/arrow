@@ -2187,7 +2187,7 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
     UT value = static_cast<UT>(src[idx]);
     // Calculate deltas. The possible overflow is handled by use of unsigned integers
     // making subtraction operations well defined and correct even in case of overflow.
-    // Encoded integes will wrap back around on decoding.
+    // Encoded integers will wrap back around on decoding.
     // See http://en.wikipedia.org/wiki/Modular_arithmetic#Integers_modulo_n
     deltas_[values_current_block_] = value - current_value_;
     current_value_ = value;
@@ -2214,7 +2214,7 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
   uint8_t* bit_width_data = bit_writer_.GetNextBytePtr(mini_blocks_per_block_);
   DCHECK(bit_width_data != nullptr);
 
-  uint32_t num_miniblocks =
+  const uint32_t num_miniblocks =
       static_cast<uint32_t>(std::ceil(static_cast<double>(values_current_block_) /
                                       static_cast<double>(values_per_mini_block_)));
   for (uint32_t i = 0; i < num_miniblocks; i++) {
@@ -2227,7 +2227,7 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
-    bit_widths_[i] = bit_util::NumRequiredBits(max_delta - min_delta);
+    const auto bit_width = bit_widths_[i] = bit_util::NumRequiredBits(max_delta - min_delta);
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // See overflow comment above.
@@ -2282,7 +2282,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   std::memcpy(buffer->mutable_data() + offset_bytes, header_buffer_,
               header_writer.bytes_written());
 
-  // Excess bytes at the beginning will are sliced off and ignored.
+  // Excess bytes at the beginning are sliced off and ignored.
   return SliceBuffer(buffer, offset_bytes);
 }
 
