@@ -359,6 +359,28 @@ AsyncGenerator<DecodedBlock> MakeDecodingGenerator(
   };
 }
 
+// Reads from a source iterator serially, completes subsequent decode tasks on the calling
+// thread.
+AsyncGenerator<DecodedBlock> MakeDecodingGenerator(
+    Iterator<ChunkedBlock> source,
+    std::function<Result<DecodedBlock>(const ChunkedBlock&)> decoder) {
+  struct State {
+    Iterator<ChunkedBlock> source;
+    std::function<Result<DecodedBlock>(const ChunkedBlock&)> decoder;
+  } state{std::move(source), std::move(decoder)};
+  return [state = std::make_shared<State>(std::move(state))] {
+    auto maybe_block = state->source.Next();
+    if (!maybe_block.ok()) {
+      return Future<DecodedBlock>::MakeFinished(maybe_block.status());
+    }
+    auto block = maybe_block.MoveValueUnsafe();
+    if (IsIterationEnd(block)) {
+      return ToFuture(IterationEnd<DecodedBlock>());
+    }
+    return ToFuture(state->decoder(block));
+  };
+}
+
 // Adds async-reentrancy to `source` by submitting tasks to a single-threaded executor
 // (FIFO order) - ensuring, at most, one future is pending at a time
 template <typename T>
@@ -398,25 +420,37 @@ class StreamingReaderImpl : public StreamingReader {
   static Future<std::shared_ptr<StreamingReaderImpl>> MakeAsync(
       std::shared_ptr<DecodeContext> context, std::shared_ptr<io::InputStream> stream,
       io::IOContext io_context, Executor* cpu_executor, const ReadOptions& read_options) {
-    if (!cpu_executor) {
-      cpu_executor = GetCpuThreadPool();
-    }
-
     ARROW_ASSIGN_OR_RAISE(
         auto buffer_it,
         io::MakeInputStreamIterator(std::move(stream), read_options.block_size));
     ARROW_ASSIGN_OR_RAISE(
         auto buffer_gen,
         MakeBackgroundGenerator(std::move(buffer_it), io_context.executor()));
-    buffer_gen = MakeTransferredGenerator(std::move(buffer_gen), cpu_executor);
 
-    auto chunking_gen = MakeChunkingGenerator(std::move(buffer_gen),
-                                              MakeChunker(context->parse_options()));
-    ARROW_ASSIGN_OR_RAISE(chunking_gen, MakeReentrantGenerator(std::move(chunking_gen)));
+    AsyncGenerator<DecodedBlock> decoding_gen;
+    int max_readahead = 0;
+    if (read_options.use_threads) {
+      // Prepare a source generator capable of async-reentrancy and parallel exececution
+      if (!cpu_executor) {
+        cpu_executor = GetCpuThreadPool();
+        max_readahead = cpu_executor->GetCapacity();
+      }
+      buffer_gen = MakeTransferredGenerator(std::move(buffer_gen), cpu_executor);
+      auto chunking_gen = MakeChunkingGenerator(std::move(buffer_gen),
+                                                MakeChunker(context->parse_options()));
+      ARROW_ASSIGN_OR_RAISE(chunking_gen,
+                            MakeReentrantGenerator(std::move(chunking_gen)));
+      decoding_gen = MakeDecodingGenerator(std::move(chunking_gen),
+                                           DecodingOperator(context), cpu_executor);
+    } else {
+      // Prepare a source generator without a separate cpu executor
+      auto chunking_it =
+          MakeChunkingIterator(MakeGeneratorIterator(std::move(buffer_gen)),
+                               MakeChunker(context->parse_options()));
+      decoding_gen =
+          MakeDecodingGenerator(std::move(chunking_it), DecodingOperator(context));
+    }
 
-    auto decoding_gen = MakeDecodingGenerator(std::move(chunking_gen),
-                                              DecodingOperator(context), cpu_executor);
-    const int max_readahead = read_options.use_threads ? cpu_executor->GetCapacity() : 0;
     return FirstBlock(decoding_gen)
         .Then([source = std::move(decoding_gen), context = std::move(context),
                max_readahead](const DecodedBlock& block) {

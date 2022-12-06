@@ -325,10 +325,11 @@ TEST(ReaderTest, FailOnInvalidEOF) {
   }
 }
 
-class StreamingReaderTest : public ::testing::TestWithParam<bool> {
- protected:
-  void SetUp() override { read_options_.use_threads = GetParam(); }
+class StreamingReaderTestBase {
+ public:
+  virtual ~StreamingReaderTestBase() = default;
 
+ protected:
   static std::shared_ptr<io::InputStream> MakeTestStream(const std::string& str) {
     auto buffer = std::make_shared<Buffer>(str);
     return std::make_shared<io::BufferReader>(std::move(buffer));
@@ -454,6 +455,17 @@ class StreamingReaderTest : public ::testing::TestWithParam<bool> {
   ParseOptions parse_options_ = ParseOptions::Defaults();
   ReadOptions read_options_ = ReadOptions::Defaults();
   io::IOContext io_context_ = io::default_io_context();
+};
+
+class AsyncStreamingReaderTest : public StreamingReaderTestBase, public ::testing::Test {
+ protected:
+  void SetUp() override { read_options_.use_threads = true; }
+};
+
+class StreamingReaderTest : public StreamingReaderTestBase,
+                            public ::testing::TestWithParam<bool> {
+ protected:
+  void SetUp() override { read_options_.use_threads = GetParam(); }
 };
 
 INSTANTIATE_TEST_SUITE_P(StreamingReaderTest, StreamingReaderTest,
@@ -768,7 +780,7 @@ TEST_P(StreamingReaderTest, InferredSchema) {
   AssertReadEnd(reader);
 }
 
-TEST_P(StreamingReaderTest, AsyncReentrancy) {
+TEST_F(AsyncStreamingReaderTest, AsyncReentrancy) {
   constexpr int kNumRows = 16;
   constexpr double kIoLatency = 1e-2;
 
@@ -795,7 +807,7 @@ TEST_P(StreamingReaderTest, AsyncReentrancy) {
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }
 
-TEST_P(StreamingReaderTest, FuturesOutliveReader) {
+TEST_F(AsyncStreamingReaderTest, FuturesOutliveReader) {
   constexpr int kNumRows = 16;
   constexpr double kIoLatency = 1e-2;
 
@@ -823,7 +835,7 @@ TEST_P(StreamingReaderTest, FuturesOutliveReader) {
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }
 
-TEST_P(StreamingReaderTest, StressBufferedReads) {
+TEST_F(AsyncStreamingReaderTest, StressBufferedReads) {
   constexpr int kNumRows = 500;
 
   auto expected = GenerateTestCase(kNumRows);
@@ -847,7 +859,7 @@ TEST_P(StreamingReaderTest, StressBufferedReads) {
   ASSERT_TABLES_EQUAL(*expected.table, *table);
 }
 
-TEST_P(StreamingReaderTest, StressSharedIoAndCpuExecutor) {
+TEST_F(AsyncStreamingReaderTest, StressSharedIoAndCpuExecutor) {
   constexpr int kNumRows = 500;
   constexpr double kIoLatency = 1e-4;
 

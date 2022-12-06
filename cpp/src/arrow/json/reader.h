@@ -63,16 +63,20 @@ ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
 /// specified, unexpected fields will only be inferred for the first block. Afterwards
 /// they'll be treated as errors.
 ///
-/// For each block, the reader will launch its subsequent parsing/decoding task on the
-/// given `cpu_executor` - potentially in parallel. If `ReadOptions::use_threads` is
-/// specified, readahead will be applied to these tasks in accordance with the executor's
-/// capacity. If an executor is not provided, the global thread pool will be used.
+/// If `ReadOptions::use_threads` is `true`, each block's parsing/decoding task will be
+/// parallelized on the given `cpu_executor` (with readahead corresponding to the
+/// executor's capacity). If an executor isn't provided, the global thread pool will be
+/// used.
+///
+/// If `ReadOptions::use_threads` is `false`, computations will be run on the calling
+/// thread and `cpu_executor` will be ignored.
 class ARROW_EXPORT StreamingReader : public RecordBatchReader {
  public:
   virtual ~StreamingReader() = default;
 
   /// \brief Read the next `RecordBatch` asynchronously
-  /// This function is async-reentrant (but not synchronously reentrant)
+  /// If threading is enabled, this function is async-reentrant (but not synchronously
+  /// reentrant).
   virtual Future<std::shared_ptr<RecordBatch>> ReadNextAsync() = 0;
 
   /// Get the number of bytes which have been succesfully converted to record batches
