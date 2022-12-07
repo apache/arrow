@@ -153,38 +153,6 @@ cdef wrap_hash_aggregate_kernel(const CHashAggregateKernel* c_kernel):
     return kernel
 
 
-cdef class RecordBatchIterator(_Weakrefable):
-    """An iterator over a sequence of record batches."""
-    cdef:
-        # An object that must be kept alive with the iterator.
-        object iterator_owner
-        # Iterator is a non-POD type and Cython uses offsetof, leading
-        # to a compiler warning unless wrapped like so
-        shared_ptr[CRecordBatchIterator] iterator
-
-    def __init__(self):
-        _forbid_instantiation(self.__class__, subclasses_instead=False)
-
-    @staticmethod
-    cdef wrap(object owner, CRecordBatchIterator iterator):
-        cdef RecordBatchIterator self = \
-            RecordBatchIterator.__new__(RecordBatchIterator)
-        self.iterator_owner = owner
-        self.iterator = make_shared[CRecordBatchIterator](move(iterator))
-        return self
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        cdef shared_ptr[CRecordBatch] record_batch
-        with nogil:
-            record_batch = GetResultValue(move(self.iterator.get().Next()))
-        if record_batch == NULL:
-            raise StopIteration
-        return pyarrow_wrap_batch(record_batch)
-
-
 cdef class Kernel(_Weakrefable):
     """
     A kernel object.
@@ -2870,6 +2838,8 @@ def call_tabular_function(function_name, args=None, func_registry=None):
         c_string c_func_name
         vector[CDatum] c_args
         CFunctionRegistry* c_func_registry
+        shared_ptr[CRecordBatchReader] c_reader
+        RecordBatchReader reader
 
     c_func_name = tobytes(function_name)
     if func_registry is None:
@@ -2880,4 +2850,9 @@ def call_tabular_function(function_name, args=None, func_registry=None):
         args = []
     _pack_compute_args(args, &c_args)
 
-    return RecordBatchIterator.wrap(None, move(GetResultValue(CallTabularFunction(c_func_name, c_args, c_func_registry))))
+    with nogil:
+        c_reader = GetResultValue(CallTabularFunction(
+            c_func_name, c_args, c_func_registry))
+    reader = RecordBatchReader.__new__(RecordBatchReader)
+    reader.reader = c_reader
+    return RecordBatchReader.from_batches(pyarrow_wrap_schema(deref(c_reader).schema()), reader)

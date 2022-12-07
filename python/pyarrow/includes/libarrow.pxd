@@ -2782,7 +2782,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
 
-cdef extern from "arrow/python/udf.h" namespace "arrow::py":
+cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
     cdef cppclass CScalarUdfContext" arrow::py::ScalarUdfContext":
         CMemoryPool *pool
         int64_t batch_length
@@ -2802,5 +2802,5 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
                                     function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
                                     CFunctionRegistry* registry)
 
-    CResult[CRecordBatchIterator] CallTabularFunction(
+    CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(
         const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)

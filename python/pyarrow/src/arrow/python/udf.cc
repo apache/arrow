@@ -214,7 +214,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatchFromArray(
 
 }  // namespace
 
-Result<RecordBatchIterator> CallTabularFunction(
+Result<std::shared_ptr<RecordBatchReader>> CallTabularFunction(
     const std::string& func_name, const std::vector<Datum>& args,
     compute::FunctionRegistry* registry) {
   if (args.size() != 0) {
@@ -251,7 +251,7 @@ Result<RecordBatchIterator> CallTabularFunction(
   ARROW_ASSIGN_OR_RAISE(auto func_exec,
                         GetFunctionExecutor(func_name, in_types, NULLPTR, registry));
   auto next_func =
-      [schema = std::move(schema),
+      [schema,
        func_exec = std::move(func_exec)]() -> Result<std::shared_ptr<RecordBatch>> {
     std::vector<Datum> args;
     // passed_length of -1 or 0 with args.size() of 0 leads to an empty ExecSpanIterator
@@ -266,7 +266,8 @@ Result<RecordBatchIterator> CallTabularFunction(
     }
     return RecordBatchFromArray(std::move(schema), std::move(array));
   };
-  return MakeFunctionIterator(std::move(next_func));
+  return RecordBatchReader::MakeFromIterator(MakeFunctionIterator(std::move(next_func)),
+                                             schema);
 }
 
 }  // namespace py
