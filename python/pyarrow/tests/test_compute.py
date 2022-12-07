@@ -2950,34 +2950,48 @@ def test_cast_table_raises():
 
 
 @pytest.mark.parametrize("start,stop,expected", (
+    (0, None, [[1, 2, 3], [4, 5, None], [6, None, None], None]),
     (0, 1, [[1], [4], [6], None]),
     (0, 2, [[1, 2], [4, 5], [6, None], None]),
     (1, 2, [[2], [5], [None], None]),
     (2, 4, [[3, None], [None, None], [None, None], None])
 ))
+@pytest.mark.parametrize("step", (1, 2))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
 @pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
-def test_list_slice_output_fixed(start, stop, expected, value_type, list_type):
+def test_list_slice_output_fixed(start, stop, step, expected, value_type,
+                                 list_type):
     if list_type == "fixed":
         arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None], None],
                        pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
     else:
         arr = pa.array([[1, 2, 3], [4, 5], [6], None],
                        pa.list_(pa.int8())).cast(list_type(value_type()))
-    result = pc.list_slice(arr, start, stop, return_fixed_size_list=True)
-    pylist = result.cast(pa.list_(pa.int8(), stop-start)).to_pylist()
-    assert pylist == expected
+
+    args = arr, start, stop, step, True
+    if stop is None and list_type != "fixed":
+        msg = ("Unable to produce FixedSizeListArray from "
+               "non-FixedSizeListArray without `stop` being set.")
+        with pytest.raises(pa.ArrowNotImplementedError, match=msg):
+            pc.list_slice(*args)
+    else:
+        result = pc.list_slice(*args)
+        pylist = result.cast(pa.list_(pa.int8(),
+                             result.type.list_size)).to_pylist()
+        assert pylist == [e[::step] if e else e for e in expected]
 
 
 @pytest.mark.parametrize("start,stop", (
+    (0, None,),
     (0, 1,),
     (0, 2,),
     (1, 2,),
     (2, 4,)
 ))
+@pytest.mark.parametrize("step", (1, 2))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
 @pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
-def test_list_slice_output_variable(start, stop, value_type, list_type):
+def test_list_slice_output_variable(start, stop, step, value_type, list_type):
     if list_type == "fixed":
         data = [[1, 2, 3], [4, 5, None], [6, None, None], None]
         arr = pa.array(
@@ -2992,13 +3006,14 @@ def test_list_slice_output_variable(start, stop, value_type, list_type):
     if list_type == "fixed":
         list_type = pa.list_  # non fixed output type
 
-    result = pc.list_slice(arr, start, stop, return_fixed_size_list=False)
+    result = pc.list_slice(arr, start, stop, step,
+                           return_fixed_size_list=False)
     assert result.type == list_type(value_type())
 
     pylist = result.cast(pa.list_(pa.int8())).to_pylist()
 
     # Variable output slicing follows Python's slice semantics
-    expected = [d[start:stop] if d is not None else None for d in data]
+    expected = [d[start:stop:step] if d is not None else None for d in data]
     assert pylist == expected
 
 
@@ -3029,21 +3044,9 @@ def test_list_slice_bad_parameters():
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 0, 0)  # start == stop?
 
-    # TODO(ARROW-18282): support step in slicing
-    msg = "Setting `step` to anything other than 1 is not supported; "\
-        "got step=2"
-    with pytest.raises(NotImplementedError, match=msg):
-        pc.list_slice(arr, 0, 1, step=2)
-
-    # TODO(ARROW-18280): support stop == None; slice to end
-    # This fails first at resolve, b/c it doesn't now how big the
-    # resulting FixedSizeListArray item size will be
-    msg = "Unable to produce FixedSizeListArray without `stop`"
-    with pytest.raises(NotImplementedError, match=msg):
-        pc.list_slice(arr, 0, return_fixed_size_list=True)
-
-    # cont. This fails inside of kernel function; resolver doesn't
-    # need to know the item size for ListArray.
-    msg = "Slicing to end not yet implemented*"
-    with pytest.raises(NotImplementedError, match=msg):
-        pc.list_slice(arr, 0, return_fixed_size_list=False)
+    # Step not >= 1
+    msg = "`step` must be >= 1, got: "
+    with pytest.raises(pa.ArrowInvalid, match=msg + "0"):
+        pc.list_slice(arr, 0, 1, step=0)
+    with pytest.raises(pa.ArrowInvalid, match=msg + "-1"):
+        pc.list_slice(arr, 0, 1, step=-1)

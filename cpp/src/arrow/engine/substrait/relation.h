@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/type_fwd.h"
 

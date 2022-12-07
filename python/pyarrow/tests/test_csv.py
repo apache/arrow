@@ -326,7 +326,8 @@ def test_write_options():
     opts = cls()
 
     check_options_class(
-        cls, include_header=[True, False], delimiter=[',', '\t', '|'])
+        cls, include_header=[True, False], delimiter=[',', '\t', '|'],
+        quoting_style=['needed', 'none', 'all_valid'])
 
     assert opts.batch_size > 0
     opts.batch_size = 12345
@@ -1906,6 +1907,39 @@ def test_write_read_round_trip():
         buf.seek(0)
         assert t == read_csv(buf, read_options=read_options,
                              parse_options=parse_options)
+
+
+def test_write_quoting_style():
+    t = pa.Table.from_arrays([[1, 2, None], ["a", None, "c"]], ["c1", "c2"])
+    buf = io.BytesIO()
+    for write_options, res in [
+        (WriteOptions(quoting_style='none'), b'"c1","c2"\n1,a\n2,\n,c\n'),
+        (WriteOptions(), b'"c1","c2"\n1,"a"\n2,\n,"c"\n'),
+        (WriteOptions(quoting_style='all_valid'),
+         b'"c1","c2"\n"1","a"\n"2",\n,"c"\n'),
+    ]:
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            writer.write_table(t)
+        assert buf.getvalue() == res
+        buf.seek(0)
+
+    # Test writing special characters with different quoting styles
+    t = pa.Table.from_arrays([[",", "\""]], ["c1"])
+    buf = io.BytesIO()
+    for write_options, res in [
+        (WriteOptions(quoting_style='needed'), b'"c1"\n","\n""""\n'),
+        (WriteOptions(quoting_style='none'), pa.lib.ArrowInvalid),
+    ]:
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            try:
+                writer.write_table(t)
+            except Exception as e:
+                # This will trigger when we try to write a comma (,)
+                # without quotes, which is invalid
+                assert type(e) == res
+                break
+        assert buf.getvalue() == res
+        buf.seek(0)
 
 
 def test_read_csv_reference_cycle():
