@@ -20,9 +20,9 @@ github:
   homepage: https://arrow.apache.org/
   collaborators:
     - assignUser
+    - milesgranger
     - raulcd
     - toddfarmer
-    - milesgranger
 
 notifications:
   commits:      commits@arrow.apache.org
