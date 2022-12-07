@@ -93,7 +93,7 @@ integrations in other projects, we'd be happy to have you involved:
 - Join the mailing list: send an email to
   [dev-subscribe@arrow.apache.org][1]. Share your ideas and use cases for the
   project.
-- Follow our activity on [GitHub issues][3] and [GitHub labels][6]
+- Follow our activity on [GitHub issues][3]
 - [Learn the format][2]
 - Contribute code to one of the reference implementations
 
@@ -102,4 +102,3 @@ integrations in other projects, we'd be happy to have you involved:
 [3]: https://github.com/apache/arrow/issues
 [4]: https://github.com/apache/arrow
 [5]: https://github.com/apache/arrow/blob/master/docs/source/developers/contributing.rst
-[6]: https://github.com/apache/arrow/labels
