@@ -214,7 +214,7 @@ func WriteArrowToColumn(ctx context.Context, cw file.ColumnChunkWriter, leafArr 
 	singleNullable := (colLevelInfo.DefLevel == colLevelInfo.RepeatedAncestorDefLevel+1) && leafFieldNullable
 	maybeParentNulls := colLevelInfo.HasNullableValues() && !singleNullable
 
-	if maybeParentNulls {
+	if maybeParentNulls && !cw.HasBitsBuffer() {
 		buf := memory.NewResizableBuffer(cw.Properties().Allocator())
 		buf.Resize(int(bitutil.BytesForBits(cw.Properties().WriteBatchSize())))
 		cw.SetBitsBuffer(buf)

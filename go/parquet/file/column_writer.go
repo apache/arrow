@@ -55,6 +55,7 @@ type ColumnChunkWriter interface {
 
 	LevelInfo() LevelInfo
 	SetBitsBuffer(*memory.Buffer)
+	HasBitsBuffer() bool
 }
 
 func computeLevelInfo(descr *schema.Column) (info LevelInfo) {
@@ -154,6 +155,7 @@ func newColumnWriterBase(metaData *metadata.ColumnChunkMetaDataBuilder, pager Pa
 	return ret
 }
 
+func (w *columnWriter) HasBitsBuffer() bool              { return w.bitsBuffer != nil }
 func (w *columnWriter) SetBitsBuffer(buf *memory.Buffer) { w.bitsBuffer = buf }
 
 func (w *columnWriter) LevelInfo() LevelInfo { return w.levelInfo }
@@ -534,6 +536,13 @@ func (w *columnWriter) Close() (err error) {
 
 		w.defLevelSink.Reset(0)
 		w.repLevelSink.Reset(0)
+		if w.bitsBuffer != nil {
+			w.bitsBuffer.Release()
+			w.bitsBuffer = nil
+		}
+
+		w.currentEncoder.Release()
+		w.currentEncoder = nil
 	}
 	return err
 }
