@@ -93,7 +93,7 @@ fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then
   pushd ${source_dir}/plasma
-  ${mvn} clean install
+  ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} clean install
   popd
 fi
 

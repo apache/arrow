@@ -20,7 +20,19 @@
     <name>Arrow Plasma Client</name>
     <description>(DEPRECATED) Java client for the Plasma object store.
         This is deprecated since 10.0.0. This will be removed from 12.0.0 or so.</description>
+    <properties>
+        <arrow.cpp.build.dir>../../../cpp/release-build</arrow.cpp.build.dir>
+    </properties>
     <build>
+        <resources>
+            <resource>
+                <directory>${arrow.cpp.build.dir}</directory>
+                <includes>
+                    <include>**/*plasma_java.*</include>
+                </includes>
+            </resource>
+        </resources>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

@@ -18,6 +18,8 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
+.. _cpp-dataset:
+
 ================
 Tabular Datasets
 ================

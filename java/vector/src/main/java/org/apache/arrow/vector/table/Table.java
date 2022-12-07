@@ -127,8 +127,7 @@ public class Table extends BaseTable implements Iterable<Row> {
     }
     return new Table(vectorCopies, (int) getRowCount(), providerCopy);
   }
-
-
+  
   /**
    * Returns a new Table created by adding the given vector to the vectors in this Table.
    *

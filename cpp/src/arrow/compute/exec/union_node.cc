@@ -17,7 +17,6 @@
 
 #include <mutex>
 
-#include "arrow/api.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
@@ -26,12 +25,14 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::ToChars;
 
 namespace compute {
 

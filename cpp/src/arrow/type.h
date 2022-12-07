@@ -1851,6 +1851,9 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
 
 ARROW_EXPORT void PrintTo(const FieldRef& ref, std::ostream* os);
 
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, const FieldRef&);
+
 // ----------------------------------------------------------------------
 // Schema
 

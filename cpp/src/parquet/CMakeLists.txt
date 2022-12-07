@@ -385,6 +385,7 @@ endif()
 add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc test_util.cc)
 add_parquet_test(schema_test)
 
+add_parquet_benchmark(column_reader_benchmark)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)

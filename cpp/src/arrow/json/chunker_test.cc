@@ -22,6 +22,7 @@
 #include <string_view>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
@@ -259,6 +260,20 @@ TEST(ChunkerTest, StraddlingPrettyPrinted) {
 TEST(ChunkerTest, StraddlingSingleLine) {
   auto chunker = MakeChunker(true);
   AssertStraddledChunking(*chunker, join(lines(), ""));
+}
+
+TEST(ChunkerTest, Errors) {
+  std::string parts[] = {R"({"a":0})", "}", R"({"a":1})"};
+  auto chunker = MakeChunker(true);
+  std::shared_ptr<Buffer> whole, rest, completion;
+  ASSERT_OK(chunker->Process(Buffer::FromString(parts[0] + parts[1]), &whole, &rest));
+  ASSERT_EQ(std::string_view(*whole), parts[0]);
+  ASSERT_EQ(std::string_view(*rest), parts[1]);
+  auto status =
+      chunker->ProcessWithPartial(rest, Buffer::FromString(parts[2]), &completion, &rest);
+  ASSERT_RAISES(Invalid, status);
+  EXPECT_THAT(status.message(),
+              ::testing::StartsWith("JSON chunk error: invalid data at end of document"));
 }
 
 TEST_P(BaseChunkerTest, StraddlingEmpty) {

@@ -63,6 +63,7 @@ def test_resolve_local_path():
         assert path == uri
 
 
+@pytest.mark.filterwarnings("ignore:pyarrow.filesystem.LocalFileSystem")
 def test_resolve_home_directory():
     uri = '~/myfile.parquet'
     fs, path = filesystem.resolve_filesystem_and_path(uri)

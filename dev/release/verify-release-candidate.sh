@@ -194,18 +194,21 @@ test_apt() {
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
-                "arm64v8/ubuntu:jammy"; do \
+                "arm64v8/ubuntu:jammy" \
+                "ubuntu:kinetic" \
+                "arm64v8/ubuntu:kinetic"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           case "${target}" in
-          arm64v8/debian:buster|arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
-            ;; # OK
-          *)
-            # qemu-user-static in Ubuntu 20.04 has a crash bug:
-            #   https://bugs.launchpad.net/qemu/+bug/1749393
-            continue
-            ;;
+            arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
+              : # OK
+              ;;
+            *)
+              # qemu-user-static in Ubuntu 20.04 has a crash bug:
+              #   https://bugs.launchpad.net/qemu/+bug/1749393
+              continue
+              ;;
           esac
         else
           continue
@@ -326,7 +329,9 @@ install_nodejs() {
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-    nvm install --lts
+    # ARROW-18335: "gulp bundle" failed with Node.js 18.
+    # nvm install --lts
+    nvm install 16
     show_info "Installed NodeJS $(node --version)"
   fi
 
@@ -843,7 +848,8 @@ test_js() {
   maybe_setup_conda nodejs=16 || exit 1
 
   if ! command -v yarn &> /dev/null; then
-    npm install -g yarn
+    npm install yarn
+    PATH=$PWD/node_modules/yarn/bin:$PATH
   fi
 
   pushd js
@@ -1112,7 +1118,7 @@ test_jars() {
   show_header "Testing Java JNI jars"
   maybe_setup_conda maven python || exit 1
 
-  local download_dir=jars
+  local download_dir=${ARROW_TMPDIR}/jars
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
@@ -1195,5 +1201,5 @@ test_binary_distribution
 
 TEST_SUCCESS=yes
 
-echo 'Release candidate looks good!'
+echo "Release candidate ${VERSION}-RC${RC_NUMBER} looks good!"
 exit 0

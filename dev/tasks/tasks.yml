@@ -546,7 +546,8 @@ tasks:
                   "debian-bookworm",
                   "ubuntu-bionic",
                   "ubuntu-focal",
-                  "ubuntu-jammy"] %}
+                  "ubuntu-jammy",
+                  "ubuntu-kinetic"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     {% if architecture == "amd64" %}
@@ -1309,7 +1310,7 @@ tasks:
     ci: azure
     template: r/azure.linux.yml
     params:
-      r_org: rocker
+      r_org: library
       r_image: r-base
       r_tag: latest
       flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
@@ -1325,7 +1326,7 @@ tasks:
     ci: azure
     template: r/azure.linux.yml
     params:
-      r_org: rocker
+      r_org: library
       r_image: r-base
       r_tag: latest
       flags: '-e TEST_OFFLINE_BUILD=true'
@@ -1352,7 +1353,7 @@ tasks:
       r_custom_ccache: true
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
-                                 ("rocker", "r-base", "latest"),
+                                 ("library", "r-base", "latest"),
                                  ("rstudio", "r-base", "4.2-focal"),
                                  ("rstudio", "r-base", "4.1-opensuse153")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
@@ -1419,7 +1420,7 @@ tasks:
     ci: azure
     template: r/azure.linux.yml
     params:
-      r_org: rocker
+      r_org: library
       r_image: r-base
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
@@ -1493,7 +1494,7 @@ tasks:
 
   ############################## Integration tests ############################
 
-{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.7", "0.24", "1.19", True),
+{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.7", "1.0", "1.19", True),
                                                                      ("3.7", "latest", "latest", False),
                                                                      ("3.8", "latest", "latest", False),
                                                                      ("3.8", "nightly", "nightly", False),

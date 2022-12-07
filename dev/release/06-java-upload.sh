@@ -23,7 +23,7 @@ set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ "$#" -ne 2 ]; then
+if [ $# -ne 2 ]; then
   echo "Usage: $0 <version> <rc-num>"
   exit
 fi
@@ -31,14 +31,19 @@ fi
 version=$1
 rc=$2
 
-pushd "${SOURCE_DIR}"
-if [ ! -f .env ]; then
-  echo "You must create $(pwd)/.env"
-  echo "You can use $(pwd)/.env.example as template"
-  exit 1
+: ${UPLOAD_DEFAULT=1}
+: ${UPLOAD_FORCE_SIGN=${UPLOAD_DEFAULT}}
+
+if [ ${UPLOAD_FORCE_SIGN} -gt 0 ]; then
+  pushd "${SOURCE_DIR}"
+  if [ ! -f .env ]; then
+    echo "You must create $(pwd)/.env"
+    echo "You can use $(pwd)/.env.example as template"
+    exit 1
+  fi
+  . .env
+  popd
 fi
-. .env
-popd
 
 version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
@@ -46,19 +51,19 @@ crossbow_package_dir="${SOURCE_DIR}/../../packages"
 
 : ${CROSSBOW_JOB_NUMBER:="0"}
 : ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
-artifact_dir="${crossbow_package_dir}/${CROSSBOW_JOB_ID}"
+: ${ARROW_ARTIFACTS_DIR:="${crossbow_package_dir}/${CROSSBOW_JOB_ID}/java-jars"}
 
-if [ ! -e "${artifact_dir}" ]; then
-  echo "${artifact_dir} does not exist"
+if [ ! -e "${ARROW_ARTIFACTS_DIR}" ]; then
+  echo "${ARROW_ARTIFACTS_DIR} does not exist"
   exit 1
 fi
 
-if [ ! -d "${artifact_dir}" ]; then
-  echo "${artifact_dir} is not a directory"
+if [ ! -d "${ARROW_ARTIFACTS_DIR}" ]; then
+  echo "${ARROW_ARTIFACTS_DIR} is not a directory"
   exit 1
 fi
 
-cd "${artifact_dir}/java-jars"
+pushd "${ARROW_ARTIFACTS_DIR}"
 
 files=
 types=
@@ -70,12 +75,14 @@ sign() {
   local type=$(echo "${path}" | grep -o "[^.]*$")
 
   local asc_path="${path}.asc"
-  rm -f "${asc_path}"
-  gpg \
-    --detach-sig \
-    --local-user "${GPG_KEY_ID}" \
-    --output "${asc_path}" \
-    "${path}"
+  if [ ${UPLOAD_FORCE_SIGN} -gt 0 ]; then
+    rm -f "${asc_path}"
+    gpg \
+      --detach-sig \
+      --local-user "${GPG_KEY_ID}" \
+      --output "${asc_path}" \
+      "${path}"
+  fi
   if [ -n "${files}" ]; then
     files="${files},"
     types="${types},"
@@ -135,6 +142,8 @@ for pom in *.pom; do
   mvn deploy:deploy-file "${args[@]}"
   popd
 done
+
+popd
 
 echo "Success!"
 echo "Press the 'Close' button manually by Web interface:"

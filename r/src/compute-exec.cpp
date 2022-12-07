@@ -474,7 +474,8 @@ class AccumulatingConsumer : public compute::SinkNodeConsumer {
   const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches() { return batches_; }
 
   arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
-                     compute::BackpressureControl* backpressure_control) override {
+                     compute::BackpressureControl* backpressure_control,
+                     compute::ExecPlan* exec_plan) override {
     schema_ = schema;
     return arrow::Status::OK();
   }

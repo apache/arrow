@@ -143,7 +143,7 @@ class CommentBot:
             # https://developer.github.com/v4/enum/commentauthorassociation/
             # Checking  privileges here enables the bot to respond
             # without relying on the handler.
-            allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR'}
+            allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR', 'COLLABORATOR'}
             if payload['comment']['author_association'] not in allowed_roles:
                 raise EventError(
                     "Only contributors can submit requests to this bot. "

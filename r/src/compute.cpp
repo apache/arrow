@@ -449,7 +449,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["characters"]));
   }
 
-  if (func_name == "utf8_slice_codeunits") {
+  if (func_name == "utf8_slice_codeunits" || func_name == "binary_slice") {
     using Options = arrow::compute::SliceOptions;
 
     int64_t step = 1;

@@ -218,16 +218,16 @@ BatchesWithSchema MakeNestedBatches() {
 }
 
 BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                    int num_batches, int batch_size) {
+                                    int num_batches, int batch_size, int64_t alignment,
+                                    MemoryPool* memory_pool) {
   BatchesWithSchema out;
 
   random::RandomArrayGenerator rng(42);
   out.batches.resize(num_batches);
 
   for (int i = 0; i < num_batches; ++i) {
-    out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
-    // add a tag scalar to ensure the batches are unique
-    out.batches[i].values.emplace_back(i);
+    out.batches[i] =
+        ExecBatch(*rng.BatchOf(schema->fields(), batch_size, alignment, memory_pool));
   }
 
   out.schema = schema;
@@ -256,6 +256,38 @@ BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,
   }
 
   return out_batches;
+}
+
+Result<std::vector<std::shared_ptr<ArrayVector>>> ToArrayVectors(
+    const BatchesWithSchema& batches_with_schema) {
+  std::vector<std::shared_ptr<ArrayVector>> arrayvecs;
+  for (auto batch : batches_with_schema.batches) {
+    ARROW_ASSIGN_OR_RAISE(auto record_batch,
+                          batch.ToRecordBatch(batches_with_schema.schema));
+    arrayvecs.push_back(std::make_shared<ArrayVector>(record_batch->columns()));
+  }
+  return arrayvecs;
+}
+
+Result<std::vector<std::shared_ptr<ExecBatch>>> ToExecBatches(
+    const BatchesWithSchema& batches_with_schema) {
+  std::vector<std::shared_ptr<ExecBatch>> exec_batches;
+  for (auto batch : batches_with_schema.batches) {
+    auto exec_batch = std::make_shared<ExecBatch>(batch);
+    exec_batches.push_back(exec_batch);
+  }
+  return exec_batches;
+}
+
+Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
+    const BatchesWithSchema& batches_with_schema) {
+  std::vector<std::shared_ptr<RecordBatch>> record_batches;
+  for (auto batch : batches_with_schema.batches) {
+    ARROW_ASSIGN_OR_RAISE(auto record_batch,
+                          batch.ToRecordBatch(batches_with_schema.schema));
+    record_batches.push_back(record_batch);
+  }
+  return record_batches;
 }
 
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab) {

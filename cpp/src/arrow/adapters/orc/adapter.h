@@ -272,11 +272,23 @@ class ARROW_EXPORT ORCFileWriter {
       io::OutputStream* output_stream,
       const WriteOptions& write_options = WriteOptions());
 
-  /// \brief Write a table
+  /// \brief Write a table. This can be called multiple times.
   ///
-  /// \param[in] table the Arrow table from which data is extracted
+  /// Tables passed in subsequent calls must match the schema of the table that was
+  /// written first.
+  ///
+  /// \param[in] table the Arrow table from which data is extracted.
   /// \return Status
   Status Write(const Table& table);
+
+  /// \brief Write a RecordBatch. This can be called multiple times.
+  ///
+  /// RecordBatches passed in subsequent calls must match the schema of the
+  /// RecordBatch that was written first.
+  ///
+  /// \param[in] record_batch the Arrow RecordBatch from which data is extracted.
+  /// \return Status
+  Status Write(const RecordBatch& record_batch);
 
   /// \brief Close an ORC writer (orc::Writer)
   ///

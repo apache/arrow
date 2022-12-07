@@ -30,12 +30,6 @@ jobs:
   {% endif %}
 
   steps:
-  - task: DockerInstaller@0
-    displayName: Docker Installer
-    inputs:
-      dockerVersion: 17.09.0-ce
-      releaseType: stable
-
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '3.8'
