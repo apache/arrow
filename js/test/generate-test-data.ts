@@ -638,7 +638,7 @@ function iterateBitmap(length: number, bitmap: Uint8Array, fn: (index: number, v
 
 function createBitmap(length: number, nullCount: number) {
     const nulls = Object.create(null) as { [key: number]: boolean };
-    const bytes = new Uint8Array((((length >> 3) + 7) & ~7) || 8).fill(255);
+    const bytes = new Uint8Array((Math.ceil(length / 8) + 63) & ~63).fill(255);
     for (let i, j = -1; ++j < nullCount;) {
         // eslint-disable-next-line unicorn/prefer-math-trunc
         while (nulls[i = (rand() * length) | 0]);
