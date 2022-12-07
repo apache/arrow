@@ -34,22 +34,22 @@ namespace {
 
 template <typename DType>
 void Decode(std::unique_ptr<typename EncodingTraits<DType>::Decoder>& decoder,
-            const std::string& input, std::vector<typename DType::c_type>& output,
-            size_t index) {
-  if (ARROW_PREDICT_FALSE(index >= output.size())) {
+            const std::string& input, std::vector<typename DType::c_type>* output,
+            size_t output_index) {
+  if (ARROW_PREDICT_FALSE(output_index >= output->size())) {
     throw ParquetException("Index out of bound");
   }
 
   decoder->SetData(/*num_values=*/1, reinterpret_cast<const uint8_t*>(input.c_str()),
                    static_cast<int>(input.size()));
-  decoder->Decode(&output[index], /*max_values=*/1);
+  decoder->Decode(&output->at(output_index), /*max_values=*/1);
 }
 
 template <>
 void Decode<BooleanType>(std::unique_ptr<BooleanDecoder>& decoder,
-                         const std::string& input, std::vector<bool>& output,
-                         size_t index) {
-  if (ARROW_PREDICT_FALSE(index >= output.size())) {
+                         const std::string& input, std::vector<bool>* output,
+                         size_t output_index) {
+  if (ARROW_PREDICT_FALSE(output_index >= output->size())) {
     throw ParquetException("Index out of bound");
   }
 
@@ -57,13 +57,13 @@ void Decode<BooleanType>(std::unique_ptr<BooleanDecoder>& decoder,
   decoder->SetData(/*num_values=*/1, reinterpret_cast<const uint8_t*>(input.c_str()),
                    static_cast<int>(input.size()));
   decoder->Decode(&value, /*max_values=*/1);
-  output[index] = value;
+  output->at(output_index) = value;
 }
 
 template <>
 void Decode<ByteArrayType>(std::unique_ptr<ByteArrayDecoder>&, const std::string& input,
-                           std::vector<ByteArray>& output, size_t index) {
-  if (ARROW_PREDICT_FALSE(index >= output.size())) {
+                           std::vector<ByteArray>* output, size_t output_index) {
+  if (ARROW_PREDICT_FALSE(output_index >= output->size())) {
     throw ParquetException("Index out of bound");
   }
 
@@ -72,7 +72,7 @@ void Decode<ByteArrayType>(std::unique_ptr<ByteArrayDecoder>&, const std::string
     throw ParquetException("Invalid encoded byte array length");
   }
 
-  auto& decoded = output.at(index);
+  auto& decoded = output->at(output_index);
   decoded.len = static_cast<uint32_t>(input.size());
   decoded.ptr = reinterpret_cast<const uint8_t*>(input.data());
 }
@@ -113,8 +113,8 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
       if (!column_index_.null_pages[i]) {
         // The check on `num_pages` has guaranteed the cast below is safe.
         non_null_page_indices_.emplace_back(static_cast<int32_t>(i));
-        Decode<DType>(plain_decoder, column_index_.min_values[i], min_values_, i);
-        Decode<DType>(plain_decoder, column_index_.max_values[i], max_values_, i);
+        Decode<DType>(plain_decoder, column_index_.min_values[i], &min_values_, i);
+        Decode<DType>(plain_decoder, column_index_.max_values[i], &max_values_, i);
       }
     }
     DCHECK_EQ(num_non_null_pages, non_null_page_indices_.size());

@@ -75,13 +75,16 @@ TEST(PageIndex, ReadOffsetIndex) {
 }
 
 template <typename DType, typename T = typename DType::c_type>
-void TestReadTypedColumnIndex(
-    int column_id, size_t num_pages, BoundaryOrder::type boundary_order,
-    const std::vector<size_t>& page_indices, const std::vector<bool>& null_pages,
-    const std::vector<T>& min_values, const std::vector<T>& max_values,
-    bool has_null_counts = false, const std::vector<int64_t>& null_counts = {}) {
+void TestReadTypedColumnIndex(const std::string& file_name, int column_id,
+                              size_t num_pages, BoundaryOrder::type boundary_order,
+                              const std::vector<size_t>& page_indices,
+                              const std::vector<bool>& null_pages,
+                              const std::vector<T>& min_values,
+                              const std::vector<T>& max_values,
+                              bool has_null_counts = false,
+                              const std::vector<int64_t>& null_counts = {}) {
   std::string dir_string(parquet::test::get_data_dir());
-  std::string path = dir_string + "/alltypes_tiny_pages.parquet";
+  std::string path = dir_string + "/" + file_name;
   auto reader = ParquetFileReader::OpenFile(path, false);
   auto file_metadata = reader->metadata();
 
@@ -146,9 +149,9 @@ TEST(PageIndex, ReadInt64ColumnIndex) {
   const std::vector<int64_t> min_values = {0, 10, 0, 0};
   const std::vector<int64_t> max_values = {90, 90, 80, 70};
 
-  TestReadTypedColumnIndex<Int64Type>(column_id, num_pages, boundary_order, page_indices,
-                                      null_pages, min_values, max_values, has_null_counts,
-                                      null_counts);
+  TestReadTypedColumnIndex<Int64Type>(
+      "alltypes_tiny_pages.parquet", column_id, num_pages, boundary_order, page_indices,
+      null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
 TEST(PageIndex, ReadDoubleColumnIndex) {
@@ -162,9 +165,9 @@ TEST(PageIndex, ReadDoubleColumnIndex) {
   const std::vector<double> min_values = {-0, 30.3, 10.1, 40.4};
   const std::vector<double> max_values = {90.9, 90.9, 90.9, 60.6};
 
-  TestReadTypedColumnIndex<DoubleType>(column_id, num_pages, boundary_order, page_indices,
-                                       null_pages, min_values, max_values,
-                                       has_null_counts, null_counts);
+  TestReadTypedColumnIndex<DoubleType>(
+      "alltypes_tiny_pages.parquet", column_id, num_pages, boundary_order, page_indices,
+      null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
 TEST(PageIndex, ByteArrayColumnIndex) {
@@ -184,9 +187,9 @@ TEST(PageIndex, ByteArrayColumnIndex) {
   const std::vector<ByteArray> max_values = {ByteArray{max_value}, ByteArray{max_value},
                                              ByteArray{max_value}};
 
-  TestReadTypedColumnIndex<ByteArrayType>(column_id, num_pages, boundary_order,
-                                          page_indices, null_pages, min_values,
-                                          max_values, has_null_counts, null_counts);
+  TestReadTypedColumnIndex<ByteArrayType>(
+      "alltypes_tiny_pages.parquet", column_id, num_pages, boundary_order, page_indices,
+      null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
 TEST(PageIndex, ReadBoolColumnIndex) {
@@ -200,9 +203,9 @@ TEST(PageIndex, ReadBoolColumnIndex) {
   const std::vector<bool> min_values = {false, false, false};
   const std::vector<bool> max_values = {true, true, true};
 
-  TestReadTypedColumnIndex<BooleanType>(column_id, num_pages, boundary_order,
-                                        page_indices, null_pages, min_values, max_values,
-                                        has_null_counts, null_counts);
+  TestReadTypedColumnIndex<BooleanType>(
+      "alltypes_tiny_pages.parquet", column_id, num_pages, boundary_order, page_indices,
+      null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
 }  // namespace parquet
