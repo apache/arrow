@@ -2227,10 +2227,6 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
-    // If, in the last block, less than <number of miniblocks in a block> miniblocks are
-    // needed to store the values, the bytes storing the bit widths of the unneeded
-    // miniblocks are still present, their value should be zero, but readers must accept
-    // arbitrary values as well.
     const auto bit_width = bit_width_data[i] =
         bit_util::NumRequiredBits(max_delta - min_delta);
 
@@ -2246,6 +2242,14 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
       bit_writer_.PutValue(0, bit_width);
     }
     values_current_block_ -= values_current_mini_block;
+  }
+
+  // If, in the last block, less than <number of miniblocks in a block> miniblocks are
+  // needed to store the values, the bytes storing the bit widths of the unneeded
+  // miniblocks are still present, their value should be zero, but readers must accept
+  // arbitrary values as well.
+  for (uint32_t i = num_miniblocks; i < mini_blocks_per_block_; i++) {
+    bit_width_data[i] = 0;
   }
   DCHECK_EQ(values_current_block_, 0);
 

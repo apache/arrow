@@ -1378,8 +1378,8 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   // Size a multiple of miniblock size
   ASSERT_NO_FATAL_FAILURE(this->Execute(values_per_mini_block * 10, 10));
   // Size a multiple of block size
-  ASSERT_NO_FATAL_FAILURE(this->Execute(values_per_block * 10, 20));
-  // Size multiple of neither miniblock or block size
+  ASSERT_NO_FATAL_FAILURE(this->Execute(values_per_block * 10, 10));
+  // Size multiple of neither miniblock nor block size
   ASSERT_NO_FATAL_FAILURE(
       this->Execute((values_per_mini_block * values_per_block) + 1, 10));
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
@@ -1393,10 +1393,11 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
       /*null_probability*/ 0.1,
       /*half_range*/ 0));
 
-  int max_bitwidth = bit_util::NumRequiredBits(std::numeric_limits<T>::max()) / 2;
-  for (int half_range_bitwidth = 0; half_range_bitwidth < max_bitwidth;
+  auto max_bitwidth =
+      std::round(bit_util::NumRequiredBits(std::numeric_limits<T>::max()) / 2);
+  for (T half_range_bitwidth = 0; half_range_bitwidth < max_bitwidth;
        half_range_bitwidth += 8) {
-    T half_range = exp2(half_range_bitwidth);
+    auto half_range = std::round(exp2(half_range_bitwidth));
     ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(25000, 200, half_range));
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
         /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
