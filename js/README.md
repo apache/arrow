@@ -187,7 +187,7 @@ issues][3] for the Apache Arrow project. Comment on the issue and/or contact
 with your questions and ideas.
 
 If you’d like to report a bug but don’t have time to fix it, you can still post
-it on GitHub, or email the mailing list
+it on GitHub issues, or email the mailing list
 [dev@arrow.apache.org](https://mail-archives.apache.org/mod_mbox/arrow-dev/)
 
 ## Packaging

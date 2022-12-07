@@ -89,7 +89,7 @@ Proceed with merging pull request #X? (y/n):
 
 ```
 === Pull Request #X ===
-title	GH-48: [Component] Title
+title	GH-#Y: [Component] Title
 source	repo/branch
 target	master
 url	https://api.github.com/apache/arrow/pulls/X

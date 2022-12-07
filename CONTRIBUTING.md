@@ -29,12 +29,13 @@ To be assigned to an issue, add a comment "take: #ISSUE-NUMBER" to that issue.
 
 Before you create a new bug entry, we recommend you first search among existing
 Arrow issues in
-[Jira]((https://issues.apache.org/jira/projects/ARROW/issues/ARROW-5140?filter=allopenissues))
+[Jira](https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open)
 or [GitHub](https://github.com/apache/arrow/issues).
 
 We conventionally prefix the issue title with the component
-name in brackets, such as "[C++] Crash in Array::Frobnicate()", so as to make
-lists more easy to navigate, and we'd be grateful if you did the same.
+name in brackets, such as "[C++][Python] Ensure no validity bitmap in
+UnionArray::SetData", so as to make lists more easy to navigate, and
+we'd be grateful if you did the same.
 
 ## Did you write a patch that fixes a bug or brings an improvement?
 
@@ -42,13 +43,13 @@ First create a GitHub issue as described above, selecting **Bug Report** or
 **Enhancement Request**. Then, submit your changes as a GitHub Pull Request.
 We'll ask you to prefix the pull request title with the GitHub issue number
 and the component name in brackets. (for example: "GH-14736: [C++][Python]
-Ensure no validity bitmap in UnionArray::SetData "). Respecting this convention
+Ensure no validity bitmap in UnionArray::SetData"). Respecting this convention
 makes it easier for us to process the backlog of submitted Pull Requests.
 
 ### Minor Fixes
 
-Any functionality change should have a GitHub opened. For minor changes that
-affect documentation, you do not need to open up a GitHub issue.  Instead you can
+Any functionality change should have a GitHub issue opened. For minor changes that
+affect documentation, you do not need to open up a GitHub issue. Instead you can
 prefix the title of your PR with "MINOR: " if meets the following guidelines:
 
 *  Grammar, usage and spelling fixes that affect no more than 2 files
