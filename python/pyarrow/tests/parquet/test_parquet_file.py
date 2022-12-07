@@ -345,7 +345,7 @@ def test_parquet_file_with_filesystem(tempdir, s3_example_fs, use_uri):
     kwargs = {} if use_uri else dict(filesystem=s3_fs)
 
     table = pa.table({"a": range(10)})
-    pq.write_table(table, *args, **kwargs)
+    pq.write_table(table, s3_path, filesystem=s3_fs)
 
     parquet_file = pq.ParquetFile(*args, **kwargs)
     assert parquet_file.read() == table
