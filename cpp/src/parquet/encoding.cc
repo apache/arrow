@@ -2099,6 +2099,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
 template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
+  // Maximum possible header size
   static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
   static constexpr uint32_t kValuesPerBlock = 128;
   static constexpr uint32_t kMiniBlocksPerBlock = 4;
@@ -2119,8 +2120,8 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         bits_buffer_(
             AllocateBuffer(pool, (kMiniBlocksPerBlock + values_per_block) * sizeof(T))),
         sink_(pool),
-        bit_writer_(bits_buffer_->mutable_data(), static_cast<int>(bits_buffer_->size())),
-        bit_widths_(mini_blocks_per_block, 0) {
+        bit_writer_(bits_buffer_->mutable_data(),
+                    static_cast<int>(bits_buffer_->size())) {
     if (values_per_block_ % 128 != 0) {
       throw ParquetException(
           "the number of values in a block must be multiple of 128, but it's " +
@@ -2166,7 +2167,6 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::BufferBuilder sink_;
   ::arrow::bit_util::BitWriter bit_writer_;
-  std::vector<uint8_t> bit_widths_;
 };
 
 template <typename DType>
@@ -2205,8 +2205,8 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     return;
   }
 
-  auto min_delta = static_cast<UT>(
-      *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_));
+  const UT min_delta =
+      *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_);
   bit_writer_.PutZigZagVlqInt(static_cast<T>(min_delta));
 
   // Call to GetNextBytePtr reserves mini_blocks_per_block_ bytes of space to write
@@ -2222,40 +2222,36 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
         std::min(values_per_mini_block_, values_current_block_);
 
     const uint32_t start = i * values_per_mini_block_;
-    auto max_delta = static_cast<UT>(*std::max_element(
-        deltas_.begin() + start, deltas_.begin() + start + values_current_mini_block));
+    const UT max_delta = *std::max_element(
+        deltas_.begin() + start, deltas_.begin() + start + values_current_mini_block);
 
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
-    const auto bit_width = bit_widths_[i] = bit_util::NumRequiredBits(max_delta - min_delta);
+    // If, in the last block, less than <number of miniblocks in a block> miniblocks are
+    // needed to store the values, the bytes storing the bit widths of the unneeded
+    // miniblocks are still present, their value should be zero, but readers must accept
+    // arbitrary values as well.
+    const auto bit_width = bit_width_data[i] =
+        bit_util::NumRequiredBits(max_delta - min_delta);
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // See overflow comment above.
       const UT value = deltas_[j] - min_delta;
-      bit_writer_.PutValue(value, bit_widths_[i]);
+      bit_writer_.PutValue(value, bit_width);
     }
     // If there are not enough values to fill the last mini block, we pad the mini block
     // with zeroes so that its length is the number of values in a full mini block
     // multiplied by the bit width.
     for (uint32_t j = values_current_mini_block; j < values_per_mini_block_; j++) {
-      bit_writer_.PutValue(0, bit_widths_[i]);
+      bit_writer_.PutValue(0, bit_width);
     }
     values_current_block_ -= values_current_mini_block;
   }
   DCHECK_EQ(values_current_block_, 0);
 
-  // If, in the last block, less than <number of miniblocks in a block> miniblocks are
-  // needed to store the values, the bytes storing the bit widths of the unneeded
-  // miniblocks are still present, their value should be zero, but readers must accept
-  // arbitrary values as well.
-  for (uint32_t i = 0; i < mini_blocks_per_block_; i++) {
-    bit_width_data[i] = bit_widths_[i];
-  }
-
   bit_writer_.Flush();
   PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
   bit_writer_.Clear();
-  bit_width_data = NULL;
 }
 
 template <typename DType>
@@ -2286,9 +2282,21 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   return SliceBuffer(buffer, offset_bytes);
 }
 
+void AssertInteger(const ::arrow::Array& values) {
+  if (values.type_id() != ::arrow::Type::INT32 &&
+      values.type_id() != ::arrow::Type::INT64) {
+    throw ParquetException("Delta bit pack encoding should only be for integer data.");
+  }
+}
+
 template <>
 void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
+  AssertInteger(values);
   const ::arrow::ArrayData& data = *values.data();
+  if (data.length % sizeof(int32_t) != 0) {
+    throw ParquetException("Data length must be multiple of length of int32.");
+  }
+
   if (values.null_count() == 0) {
     Put(data.GetValues<int32_t>(1), static_cast<int>(data.length));
   } else {
@@ -2299,18 +2307,17 @@ void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
 
 template <>
 void DeltaBitPackEncoder<Int64Type>::Put(const ::arrow::Array& values) {
+  AssertInteger(values);
   const ::arrow::ArrayData& data = *values.data();
+  if (data.length % sizeof(int64_t) != 0) {
+    throw ParquetException("Data length must be multiple of length of int64.");
+  }
   if (values.null_count() == 0) {
     Put(data.GetValues<int64_t>(1), static_cast<int>(data.length));
   } else {
     PutSpaced(data.GetValues<int64_t>(1), static_cast<int>(data.length),
               data.GetValues<uint8_t>(0, 0), data.offset);
   }
-}
-
-template <typename DType>
-void DeltaBitPackEncoder<DType>::Put(const ::arrow::Array& values) {
-  ParquetException::NYI("direct put of " + values.type()->ToString());
 }
 
 template <typename DType>

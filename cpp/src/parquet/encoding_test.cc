@@ -1291,13 +1291,13 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
-  void InitBoundData(int nvalues, int repeats) {
+  void InitBoundData(int nvalues, int repeats, c_type half_range) {
     num_values_ = nvalues * repeats;
     input_bytes_.resize(num_values_ * sizeof(c_type));
     output_bytes_.resize(num_values_ * sizeof(c_type));
     draws_ = reinterpret_cast<c_type*>(input_bytes_.data());
     decode_buf_ = reinterpret_cast<c_type*>(output_bytes_.data());
-    GenerateBoundData<c_type>(nvalues, draws_, -10, 10, &data_buffer_);
+    GenerateBoundData<c_type>(nvalues, draws_, -half_range, half_range, &data_buffer_);
 
     // add some repeated values
     for (int j = 1; j < repeats; ++j) {
@@ -1307,22 +1307,20 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     }
   }
 
-  void ExecuteBound(int nvalues, int repeats) {
-    InitBoundData(nvalues, repeats);
+  void ExecuteBound(int nvalues, int repeats, c_type half_range) {
+    InitBoundData(nvalues, repeats, half_range);
     CheckRoundtrip();
   }
 
   void ExecuteSpacedBound(int nvalues, int repeats, int64_t valid_bits_offset,
-                          double null_probability) {
-    InitBoundData(nvalues, repeats);
+                          double null_probability, c_type half_range) {
+    InitBoundData(nvalues, repeats, half_range);
 
     int64_t size = num_values_ + valid_bits_offset;
     auto rand = ::arrow::random::RandomArrayGenerator(1923);
     const auto array = rand.UInt8(size, 0, 100, null_probability);
     const auto valid_bits = array->null_bitmap_data();
-    if (valid_bits) {
-      CheckRoundtripSpaced(valid_bits, valid_bits_offset);
-    }
+    CheckRoundtripSpaced(valid_bits, valid_bits_offset);
   }
 
   void CheckRoundtrip() override {
@@ -1373,16 +1371,38 @@ using TestDeltaBitPackEncodingTypes = ::testing::Types<Int32Type, Int64Type>;
 TYPED_TEST_SUITE(TestDeltaBitPackEncoding, TestDeltaBitPackEncodingTypes);
 
 TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
-  ASSERT_NO_FATAL_FAILURE(this->Execute(25000, 200));
+  using T = typename TypeParam::c_type;
+  int values_per_block = 128;
+  int values_per_mini_block = 32;
+
+  // Size a multiple of miniblock size
+  ASSERT_NO_FATAL_FAILURE(this->Execute(values_per_mini_block * 10, 10));
+  // Size a multiple of block size
+  ASSERT_NO_FATAL_FAILURE(this->Execute(values_per_block * 10, 20));
+  // Size multiple of neither miniblock or block size
+  ASSERT_NO_FATAL_FAILURE(
+      this->Execute((values_per_mini_block * values_per_block) + 1, 10));
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 2000));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
-      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_prob*/ 0.1));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(25000, 200));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(0, 0));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(2000, 2000));
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1));
+
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(2000, 2000, 0));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
-      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_prob*/ 0.1));
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1,
+      /*half_range*/ 0));
+
+  int max_bitwidth = bit_util::NumRequiredBits(std::numeric_limits<T>::max()) / 2;
+  for (int half_range_bitwidth = 0; half_range_bitwidth < max_bitwidth;
+       half_range_bitwidth += 8) {
+    T half_range = exp2(half_range_bitwidth);
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(25000, 200, half_range));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
+        /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+        /*null_probability*/ 0.1,
+        /*half_range*/ half_range));
+  }
 }
 
 }  // namespace test
