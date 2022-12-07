@@ -326,37 +326,17 @@ class DecodingOperator {
   std::shared_ptr<const DecodeContext> context_;
 };
 
-// TODO(benibus): Replace with `MakeApplyGenerator` from
-// github.com/apache/arrow/pull/14269 if/when it gets merged
-//
 // Reads from the source and spawns fan-out decoding tasks on the given executor
 AsyncGenerator<DecodedBlock> MakeDecodingGenerator(
     AsyncGenerator<ChunkedBlock> source,
     std::function<Result<DecodedBlock>(const ChunkedBlock&)> decoder,
     Executor* executor) {
-  struct State {
-    AsyncGenerator<ChunkedBlock> source;
-    std::function<Result<DecodedBlock>(const ChunkedBlock&)> decoder;
-    Executor* executor;
-  } state{std::move(source), std::move(decoder), executor};
-
-  return [state = std::make_shared<State>(std::move(state))] {
-    auto options = CallbackOptions::Defaults();
-    options.executor = state->executor;
-    // Since the decode step is heavy we want to schedule it as
-    // a separate task so as to maximize task distribution accross CPU cores
-    options.should_schedule = ShouldSchedule::Always;
-
-    return state->source().Then(
-        [state](const ChunkedBlock& block) -> Result<DecodedBlock> {
-          if (IsIterationEnd(block)) {
-            return IterationEnd<DecodedBlock>();
-          } else {
-            return state->decoder(block);
-          }
-        },
-        {}, options);
+  AsyncGenerator<ChunkedBlock> gen = [source = std::move(source), executor] {
+    // Since the decode step is heavy we want to schedule it as a separate task so as to
+    // maximize task distribution accross CPU cores
+    return executor->TransferAlways(source());
   };
+  return MakeMappedGenerator(std::move(gen), std::move(decoder));
 }
 
 // Reads from a source iterator serially, completes subsequent decode tasks on the calling
