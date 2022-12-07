@@ -75,8 +75,8 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   virtual ~StreamingReader() = default;
 
   /// \brief Read the next `RecordBatch` asynchronously
-  /// If threading is enabled, this function is async-reentrant (but not synchronously
-  /// reentrant).
+  /// This function is async-reentrant (but not synchronously reentrant). However, if
+  /// threading is disabled, this will block until completion.
   virtual Future<std::shared_ptr<RecordBatch>> ReadNextAsync() = 0;
 
   /// Get the number of bytes which have been succesfully converted to record batches
