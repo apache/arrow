@@ -22,8 +22,8 @@
 ## Did you find a bug?
 
 The Arrow project uses GitHub as a bug tracker.  To report a bug, sign in to
-your GitHub account and select **Bug Report** in the
-[GitHub issues](https://github.com/apache/arrow/issues/new/choose).
+your GitHub account, navigate to [GitHub issues](https://github.com/apache/arrow/issues)
+and click on **New issue** .
 
 To be assigned to an issue, add a comment "take" to that issue.
 
