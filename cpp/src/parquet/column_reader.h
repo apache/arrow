@@ -56,7 +56,6 @@ static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
 // 16 KB is the default expected page header size
 static constexpr uint32_t kDefaultPageHeaderSize = 16 * 1024;
 
-
 // \brief DataPageStats is a proxy around format::DataPageHeader and
 // format::DataPageHeaderV2.
 class PARQUET_EXPORT DataPageStats {
@@ -142,9 +141,6 @@ class PARQUET_EXPORT PageReader {
   // This setter must be called at most once to set the callback.
   // \note API EXPERIMENTAL
   void set_data_page_filter(DataPageFilter data_page_filter) {
-    if (data_page_filter_) {
-      throw ParquetException("set_data_page_filter was called more than once");
-    }
     data_page_filter_ = std::move(data_page_filter);
   }
 
@@ -156,7 +152,7 @@ class PARQUET_EXPORT PageReader {
 
  protected:
   // Callback that decides if we should skip a page or not.
-  std::function<bool(const DataPageStats&)> data_page_filter_;
+  DataPageFilter data_page_filter_;
 };
 
 class PARQUET_EXPORT ColumnReader {
