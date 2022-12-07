@@ -323,6 +323,29 @@ TYPED_TEST(PageFilterTest, TestPageFilterCallback) {
   }
 }
 
+// Set the page filter more than once. The new filter should be effective
+// on the next NextPage() call.
+TYPED_TEST(PageFilterTest, TestChangingPageFilter) {
+  this->WriteStream();
+
+  auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
+  this->page_reader_ =
+      PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
+
+  // This callback will always return false.
+  auto read_all_pages = [](const DataPageStats& stats) -> bool { return false; };
+  this->page_reader_->set_data_page_filter(read_all_pages);
+  std::shared_ptr<Page> current_page = this->page_reader_->NextPage();
+  ASSERT_NE(current_page, nullptr);
+  ASSERT_NO_FATAL_FAILURE(
+      CheckDataPageHeader(this->data_page_headers_[0], current_page.get()));
+
+  // This callback will skip all pages.
+  auto skip_all_pages = [](const DataPageStats& stats) -> bool { return true; };
+  this->page_reader_->set_data_page_filter(skip_all_pages);
+  ASSERT_EQ(this->page_reader_->NextPage(), nullptr);
+}
+
 // Test that we do not skip dictionary pages.
 TEST_F(TestPageSerde, DoesNotFilterDictionaryPages) {
   int data_size = 1024;
