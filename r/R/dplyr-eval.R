@@ -40,7 +40,7 @@ arrow_eval <- function(expr, mask) {
     }
 
     out <- structure(msg, class = "try-error", condition = e)
-    if (grepl("not supported.*Arrow", msg) || getOption("arrow.debug", FALSE)) {
+    if (grepl("not supported.*Arrow|NotImplemented", msg) || getOption("arrow.debug", FALSE)) {
       # One of ours. Mark it so that consumers can handle it differently
       class(out) <- c("arrow-try-error", class(out))
     }

@@ -52,8 +52,10 @@ def fix_example_values(actual_cols, expected_cols):
         if (name == "map" and
                 [d.keys() == {'key', 'value'} for m in expected for d in m]):
             # convert [{'key': k, 'value': v}, ...] to [(k, v), ...]
+            col = expected_cols[name].copy()
             for i, m in enumerate(expected):
-                expected_cols[name][i] = [(d['key'], d['value']) for d in m]
+                col[i] = [(d['key'], d['value']) for d in m]
+            expected_cols[name] = col
             continue
 
         typ = actual[0].__class__
@@ -626,7 +628,6 @@ def test_wrong_usage_orc_writer(tempdir):
 
 def test_orc_writer_with_null_arrays(tempdir):
     from pyarrow import orc
-    import pyarrow as pa
 
     path = str(tempdir / 'test.orc')
     a = pa.array([1, None, 3, None])

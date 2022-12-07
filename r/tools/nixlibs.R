@@ -438,8 +438,8 @@ build_libarrow <- function(src_dir, dst_dir) {
     cat(paste0(
       "*** Building C++ library from source, but downloading thirdparty dependencies\n",
       "    is not possible, so this build will turn off all thirdparty features.\n",
-      "    See install vignette for details:\n",
-      "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
+      "    See installation guide for details:\n",
+      "    https://arrow.apache.org/docs/r/articles/install.html\n"
     ))
     env_var_list <- turn_off_all_optional_features(env_var_list)
   } else if (dir.exists(thirdparty_dependency_dir)) {
@@ -724,8 +724,8 @@ if (!test_mode && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     if (!is.null(src_dir)) {
       cat(paste0(
         "*** Building libarrow from source\n",
-        "    For build options and troubleshooting, see the install vignette:\n",
-        "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
+        "    For build options and troubleshooting, see the install guide:\n",
+        "    https://arrow.apache.org/docs/r/articles/install.html\n"
       ))
       build_libarrow(src_dir, dst_dir)
     } else {

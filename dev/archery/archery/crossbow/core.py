@@ -572,8 +572,9 @@ class Repo:
 
     def github_pr(self, title, head=None, base=None, body=None,
                   github_token=None, create=False):
-        # Default value for base is the default_branch_name
-        base = self.default_branch_name if base is None else base
+        if create:
+            # Default value for base is the default_branch_name
+            base = self.default_branch_name if base is None else base
         github_token = github_token or self.github_token
         repo = self.as_github_repo(github_token=github_token)
         if create:

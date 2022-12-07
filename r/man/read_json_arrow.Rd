@@ -55,7 +55,7 @@ falling back to \code{\link[=utf8]{utf8()}} if a conversion error occurs.
 }
 
 When \code{as_data_frame = FALSE}, Arrow types are further converted to R types.
-See \code{vignette("arrow", package = "arrow")} for details.
+See \url{https://arrow.apache.org/docs/r/articles/read_write.html} for details.
 }
 \examples{
 \dontshow{if (arrow_with_json()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}

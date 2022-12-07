@@ -19,19 +19,8 @@
 # The following S3 methods are registered on load if dplyr is present
 
 collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
-  tryCatch(
-    out <- as_arrow_table(x),
-    # n = 4 because we want the error to show up as being from collect()
-    # and not augment_io_error_msg()
-    error = function(e, call = caller_env(n = 4)) {
-      augment_io_error_msg(e, call, schema = x$.data$schema)
-    }
-  )
-
-  if (as_data_frame) {
-    out <- as.data.frame(out)
-  }
-  restore_dplyr_features(out, x)
+  out <- compute.arrow_dplyr_query(x)
+  collect.ArrowTabular(out, as_data_frame)
 }
 collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
   if (as_data_frame) {
@@ -40,10 +29,27 @@ collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
     x
   }
 }
-collect.Dataset <- collect.RecordBatchReader <- function(x, ...) dplyr::collect(as_adq(x), ...)
+collect.Dataset <- function(x, as_data_frame = TRUE, ...) {
+  collect.ArrowTabular(compute.Dataset(x), as_data_frame)
+}
+collect.RecordBatchReader <- collect.Dataset
 
-compute.arrow_dplyr_query <- function(x, ...) dplyr::collect(x, as_data_frame = FALSE)
 compute.ArrowTabular <- function(x, ...) x
+compute.arrow_dplyr_query <- function(x, ...) {
+  # TODO: should this tryCatch move down into as_arrow_table()?
+  tryCatch(
+    as_arrow_table(x),
+    # n = 4 because we want the error to show up as being from compute()
+    # and not augment_io_error_msg()
+    error = function(e, call = caller_env(n = 4)) {
+      # Use a dummy schema() here because the CSV file reader handler is only
+      # valid when you read_csv_arrow() with a schema, but Dataset always has
+      # schema
+      # TODO: clean up this
+      augment_io_error_msg(e, call, schema = schema())
+    }
+  )
+}
 compute.Dataset <- compute.RecordBatchReader <- compute.arrow_dplyr_query
 
 pull.Dataset <- function(.data,
@@ -91,27 +97,6 @@ handle_pull_as_vector <- function(out, as_vector) {
     out <- as.vector(out)
   }
   out
-}
-
-restore_dplyr_features <- function(df, query) {
-  # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
-  # After calling collect(), make sure these features are carried over
-
-  if (length(dplyr::group_vars(query))) {
-    if (is.data.frame(df)) {
-      # Preserve groupings, if present
-      df <- dplyr::group_by(
-        df,
-        !!!syms(dplyr::group_vars(query)),
-        .drop = dplyr::group_by_drop_default(query),
-        .add = FALSE
-      )
-    } else {
-      # This is a Table, via compute() or collect(as_data_frame = FALSE)
-      df$metadata$r$attributes$.group_vars <- dplyr::group_vars(query)
-    }
-  }
-  df
 }
 
 collapse.arrow_dplyr_query <- function(x, ...) {

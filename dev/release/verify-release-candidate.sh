@@ -194,18 +194,21 @@ test_apt() {
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
-                "arm64v8/ubuntu:jammy"; do \
+                "arm64v8/ubuntu:jammy" \
+                "ubuntu:kinetic" \
+                "arm64v8/ubuntu:kinetic"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           case "${target}" in
-          arm64v8/debian:buster|arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
-            ;; # OK
-          *)
-            # qemu-user-static in Ubuntu 20.04 has a crash bug:
-            #   https://bugs.launchpad.net/qemu/+bug/1749393
-            continue
-            ;;
+            arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
+              : # OK
+              ;;
+            *)
+              # qemu-user-static in Ubuntu 20.04 has a crash bug:
+              #   https://bugs.launchpad.net/qemu/+bug/1749393
+              continue
+              ;;
           esac
         else
           continue
@@ -326,7 +329,9 @@ install_nodejs() {
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-    nvm install --lts
+    # ARROW-18335: "gulp bundle" failed with Node.js 18.
+    # nvm install --lts
+    nvm install 16
     show_info "Installed NodeJS $(node --version)"
   fi
 
@@ -843,7 +848,8 @@ test_js() {
   maybe_setup_conda nodejs=16 || exit 1
 
   if ! command -v yarn &> /dev/null; then
-    npm install -g yarn
+    npm install yarn
+    PATH=$PWD/node_modules/yarn/bin:$PATH
   fi
 
   pushd js
@@ -1019,7 +1025,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10 3.11}"
   local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for python in ${python_versions}; do
@@ -1041,11 +1047,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10"
+    local python_versions="3.8 3.9 3.10 3.11"
     local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.7m 3.8 3.9 3.10"
+    local python_versions="3.7m 3.8 3.9 3.10 3.11"
     local platform_tags="macosx_10_14_x86_64"
   fi
 
@@ -1067,26 +1073,6 @@ test_macos_wheels() {
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
-
-  # verify arm64 and universal2 wheels using an universal2 python binary
-  # the interpreter should be installed from python.org:
-  #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
-  if [ "$(uname -m)" = "arm64" ]; then
-    for pyver in 3.9 3.10; do
-      local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
-
-      # create and activate a virtualenv for testing as arm64
-      for arch in "arm64" "x86_64"; do
-        show_header "Testing Python ${pyver} universal2 wheel on ${arch}"
-        VENV_ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
-        # install pyarrow's universal2 wheel
-        pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
-        # check the imports and execute the unittests
-        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
-          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
-      done
-    done
-  fi
 }
 
 test_wheels() {
@@ -1132,7 +1118,7 @@ test_jars() {
   show_header "Testing Java JNI jars"
   maybe_setup_conda maven python || exit 1
 
-  local download_dir=jars
+  local download_dir=${ARROW_TMPDIR}/jars
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
@@ -1215,5 +1201,5 @@ test_binary_distribution
 
 TEST_SUCCESS=yes
 
-echo 'Release candidate looks good!'
+echo "Release candidate ${VERSION}-RC${RC_NUMBER} looks good!"
 exit 0

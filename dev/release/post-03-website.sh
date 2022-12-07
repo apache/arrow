@@ -22,7 +22,7 @@ set -u
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARROW_DIR="${SOURCE_DIR}/../.."
-ARROW_SITE_DIR="${ARROW_DIR}/../arrow-site"
+: ${ARROW_SITE_DIR:="${ARROW_DIR}/../arrow-site"}
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <previous-version> <version>"
@@ -56,6 +56,7 @@ else
   release_type=major
 fi
 
+export TZ=UTC
 release_date=$(LANG=C date "+%-d %B %Y")
 previous_tag_date=$(git log -n 1 --pretty=%aI apache-arrow-${previous_version})
 rough_previous_release_date=$(date --date "${previous_tag_date}" +%s)

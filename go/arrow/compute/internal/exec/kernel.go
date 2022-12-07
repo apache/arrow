@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package exec
 
 import (
@@ -28,6 +30,8 @@ import (
 	"github.com/apache/arrow/go/v11/arrow/memory"
 	"golang.org/x/exp/slices"
 )
+
+var hashSeed = maphash.MakeSeed()
 
 type ctxAllocKey struct{}
 

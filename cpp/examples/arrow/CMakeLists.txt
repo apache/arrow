@@ -118,6 +118,14 @@ if(ARROW_FLIGHT)
   endif()
 endif()
 
+if(ARROW_PARQUET)
+  if(ARROW_BUILD_SHARED)
+    add_arrow_example(parquet_read_write EXTRA_LINK_LIBS parquet_shared)
+  else()
+    add_arrow_example(parquet_read_write EXTRA_LINK_LIBS parquet_static)
+  endif()
+endif()
+
 if(ARROW_PARQUET AND ARROW_DATASET)
   if(ARROW_BUILD_SHARED)
     set(DATASET_EXAMPLES_LINK_LIBS arrow_dataset_shared)
@@ -156,4 +164,8 @@ if(ARROW_PARQUET AND ARROW_DATASET)
     add_dependencies(dataset-skyhook-scan-example parquet)
   endif()
 
+endif()
+
+if(ARROW_GANDIVA)
+  add_arrow_example(gandiva_example EXTRA_LINK_LIBS gandiva_shared)
 endif()

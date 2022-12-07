@@ -39,31 +39,27 @@ jobs:
 
       - name: Configure non-autobrew dependencies (macos)
         run: |
-          cd arrow/r
           brew install openssl
+          brew install sccache
         if: contains(matrix.os, 'macOS')
       - name: Configure non-autobrew dependencies (linux)
         run: |
-          cd arrow/r
           sudo apt-get update
           sudo apt install libcurl4-openssl-dev libssl-dev
+          arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
           # zstd is installed by Homebrew on GitHub Actions.
           echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
             >> "$GITHUB_ENV"
         if: contains(matrix.os, 'ubuntu')
-      - uses: r-lib/actions/setup-r@v1
+      - uses: r-lib/actions/setup-r@v2
       - name: Install dependencies
-        run: |
-          install.packages("remotes")
-          remotes::install_deps("arrow/r", dependencies = TRUE)
-          remotes::install_cran(c("rcmdcheck", "sys", "sessioninfo"))
-        shell: Rscript {0}
-      - name: Session info
-        run: |
-          options(width = 100)
-          pkgs <- installed.packages()[, "Package"]
-          sessioninfo::session_info(pkgs, include_base = TRUE)
-        shell: Rscript {0}
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          cache: false # cache does not work on across branches
+          working-directory: arrow/r
+          extra-packages: |
+            any::rcmdcheck
+            any::sys
       - name: Install
         env:
           _R_CHECK_CRAN_INCOMING_: false
@@ -71,6 +67,7 @@ jobs:
           FORCE_BUNDLED_BUILD: true
           LIBARROW_MINIMAL: false
           ARROW_R_DEV: TRUE
+        {{ macros.github_set_sccache_envvars()|indent(8)}}  
         run: |
           cd arrow/r
           R CMD INSTALL . --install-tests

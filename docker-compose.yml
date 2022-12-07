@@ -357,7 +357,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -393,7 +393,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-static
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-static
     build:
       context: .
@@ -520,7 +520,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     cap_add:
       # For LeakSanitizer
@@ -557,7 +557,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -672,7 +672,7 @@ services:
     #   docker-compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -732,7 +732,7 @@ services:
     #   docker-compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -855,7 +855,7 @@ services:
     #   docker-compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -921,7 +921,7 @@ services:
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -953,7 +953,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2021-10-11-14ac00e
+        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2022-10-25-fbea779
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2014
@@ -1210,7 +1210,7 @@ services:
     command:
       [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
           /arrow/ci/scripts/python_build.sh /arrow /build &&
-          /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java &&
+          /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java/$$(arch) &&
           /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
           /arrow/ci/scripts/java_cdata_integration.sh /arrow /tmp/dist/java" ]
 
@@ -1268,7 +1268,7 @@ services:
         r_duckdb_dev: ${R_DUCKDB_DEV:-}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_R_CXXFLAGS: '-Werror'
       ARROW_FLIGHT: 'ON'
       LIBARROW_BUILD: 'false'
@@ -1314,6 +1314,7 @@ services:
         r_custom_ccache: ${R_CUSTOM_CCACHE}
     shm_size: *shm-size
     environment:
+      <<: *sccache
       LIBARROW_DOWNLOAD: "false"
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
@@ -1395,7 +1396,7 @@ services:
         r_bin: RDvalgrind
         tz: ${TZ}
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_R_DEV: ${ARROW_R_DEV}
       # AVX512 not supported by Valgrind (similar to ARROW-9851) some runners support AVX512 and some do not
       # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.

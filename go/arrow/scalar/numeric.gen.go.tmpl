@@ -87,6 +87,42 @@ func (s *{{.Name}}) CastTo(dt arrow.DataType) (Scalar, error) {
         return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
     case *arrow.LargeStringType:
         return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+    case *arrow.Decimal128Type:
+{{if eq .Name "Float32" -}}
+        v, err := decimal128.FromFloat32(s.Value, dt.Precision, dt.Scale)
+        if err != nil {
+            return nil, err
+        }
+        return NewDecimal128Scalar(v, dt), nil
+{{else if eq .Name "Float64" -}}
+        v, err := decimal128.FromFloat64(s.Value, dt.Precision, dt.Scale)
+        if err != nil {
+            return nil, err
+        }
+        return NewDecimal128Scalar(v, dt), nil
+{{else if eq .Name "Uint64" -}}
+        return NewDecimal128Scalar(decimal128.FromU64(s.Value), dt), nil
+{{else -}}
+        return NewDecimal128Scalar(decimal128.FromI64(int64(s.Value)), dt), nil
+{{end -}}
+    case *arrow.Decimal256Type:
+{{if eq .Name "Float32" -}}
+        v, err := decimal256.FromFloat32(s.Value, dt.Precision, dt.Scale)
+        if err != nil {
+            return nil, err
+        }
+        return NewDecimal256Scalar(v, dt), nil
+{{else if eq .Name "Float64" -}}
+        v, err := decimal256.FromFloat64(s.Value, dt.Precision, dt.Scale)
+        if err != nil {
+            return nil, err
+        }
+        return NewDecimal256Scalar(v, dt), nil
+{{else if eq .Name "Uint64" -}}
+        return NewDecimal256Scalar(decimal256.FromU64(s.Value), dt), nil
+{{else -}}
+        return NewDecimal256Scalar(decimal256.FromI64(int64(s.Value)), dt), nil
+{{end -}}
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type {{.Type}} to type %s", dt)

@@ -26,7 +26,6 @@ from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
-from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -315,6 +314,7 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
+@pytest.mark.filterwarnings("ignore:Parquet format '2.0':FutureWarning")
 def test_spark_flavor_preserves_pandas_metadata():
     df = _test_dataframe(size=100)
     df.index = np.arange(0, 10 * len(df), 10)
@@ -561,10 +561,6 @@ def test_pandas_categorical_roundtrip(use_legacy_dataset):
 def test_write_to_dataset_pandas_preserve_extensiondtypes(
     tempdir, use_legacy_dataset
 ):
-    # ARROW-8251 - preserve pandas extension dtypes in roundtrip
-    if Version(pd.__version__) < Version("1.0.0"):
-        pytest.skip("__arrow_array__ added to pandas in 1.0.0")
-
     df = pd.DataFrame({'part': 'a', "col": [1, 2, 3]})
     df['col'] = df['col'].astype("Int64")
     table = pa.table(df)

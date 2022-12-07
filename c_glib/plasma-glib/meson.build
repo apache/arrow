@@ -49,6 +49,7 @@ dependencies = [
 ]
 cpp_args = [
   '-DG_LOG_DOMAIN="Plasma"',
+  '-D_PLASMA_NO_DEPRECATE',
 ]
 pkg_config_requires = [
   'plasma',

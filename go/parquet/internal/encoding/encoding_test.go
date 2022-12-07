@@ -17,8 +17,12 @@
 package encoding_test
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"path"
 	"reflect"
+	"strconv"
 	"testing"
 	"unsafe"
 
@@ -30,6 +34,7 @@ import (
 	"github.com/apache/arrow/go/v11/parquet/internal/testutils"
 	"github.com/apache/arrow/go/v11/parquet/schema"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -681,4 +686,60 @@ func TestDeltaByteArrayEncoding(t *testing.T) {
 	decoded, _ := dec.(encoding.ByteArrayDecoder).Decode(out)
 	assert.Equal(t, len(test), decoded)
 	assert.Equal(t, test, out)
+}
+
+func TestDeltaBitPacking(t *testing.T) {
+	datadir := os.Getenv("ARROW_TEST_DATA")
+	if datadir == "" {
+		return
+	}
+
+	fname := path.Join(datadir, "parquet/timestamp.data")
+	require.FileExists(t, fname)
+	f, err := os.Open(fname)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	values := make([]int64, 0)
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		v, err := strconv.ParseInt(scanner.Text(), 10, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		values = append(values, v)
+	}
+
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	col := schema.NewColumn(schema.MustPrimitive(schema.NewPrimitiveNode("foo", parquet.Repetitions.Required,
+		parquet.Types.Int64, -1, -1)), 0, 0)
+	enc := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, false, col, memory.DefaultAllocator).(encoding.Int64Encoder)
+
+	enc.Put(values)
+	buf, err := enc.FlushValues()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer buf.Release()
+
+	dec := encoding.NewDecoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, col, memory.DefaultAllocator).(encoding.Int64Decoder)
+	dec.SetData(len(values), buf.Bytes())
+
+	ll := len(values)
+	for i := 0; i < ll; i += 1024 {
+		out := make([]int64, 1024)
+		n, err := dec.Decode(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, values[:n], out[:n])
+		values = values[n:]
+	}
+	assert.Equal(t, dec.ValuesLeft(), 0)
 }

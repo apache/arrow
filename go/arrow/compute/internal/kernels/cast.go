@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package kernels
 
 import (
@@ -84,7 +86,7 @@ func OutputAllNull(_ *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult
 	return nil
 }
 
-func canCastFromDict(id arrow.Type) bool {
+func CanCastFromDict(id arrow.Type) bool {
 	return arrow.IsPrimitive(id) || arrow.IsBaseBinary(id) || arrow.IsFixedSizeBinary(id)
 }
 

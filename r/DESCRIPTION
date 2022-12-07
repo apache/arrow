@@ -35,7 +35,7 @@ Imports:
     methods,
     purrr,
     R6,
-    rlang,
+    rlang (>= 1.0.0),
     stats,
     tidyselect (>= 1.0.0),
     utils,
@@ -43,7 +43,6 @@ Imports:
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
 RoxygenNote: 7.2.1
 Config/testthat/edition: 3
-VignetteBuilder: knitr
 Suggests:
     blob,
     cli,
@@ -107,6 +106,7 @@ Collate:
     'dplyr-funcs-datetime.R'
     'dplyr-funcs-doc.R'
     'dplyr-funcs-math.R'
+    'dplyr-funcs-simple.R'
     'dplyr-funcs-string.R'
     'dplyr-funcs-type.R'
     'expression.R'
@@ -142,4 +142,5 @@ Collate:
     'reexports-bit64.R'
     'reexports-tidyselect.R'
     'schema.R'
+    'udf.R'
     'util.R'

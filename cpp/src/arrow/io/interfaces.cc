@@ -50,12 +50,14 @@ using internal::ThreadPool;
 
 namespace io {
 
-static IOContext g_default_io_context{};
-
 IOContext::IOContext(MemoryPool* pool, StopToken stop_token)
     : IOContext(pool, internal::GetIOThreadPool(), std::move(stop_token)) {}
 
-const IOContext& default_io_context() { return g_default_io_context; }
+const IOContext& default_io_context() {
+  // Avoid using a global variable because of initialization order issues (ARROW-18383)
+  static IOContext g_default_io_context{};
+  return g_default_io_context;
+}
 
 int GetIOThreadPoolCapacity() { return internal::GetIOThreadPool()->GetCapacity(); }
 
@@ -103,7 +105,7 @@ class InputStreamBlockIterator {
 
 }  // namespace
 
-const IOContext& Readable::io_context() const { return g_default_io_context; }
+const IOContext& Readable::io_context() const { return default_io_context(); }
 
 Status InputStream::Advance(int64_t nbytes) { return Read(nbytes).status(); }
 
@@ -171,6 +173,20 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
                                                             int64_t nbytes) {
   return ReadAsync(io_context(), position, nbytes);
+}
+
+std::vector<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadManyAsync(
+    const IOContext& ctx, const std::vector<ReadRange>& ranges) {
+  std::vector<Future<std::shared_ptr<Buffer>>> ret;
+  for (auto r : ranges) {
+    ret.push_back(this->ReadAsync(ctx, r.offset, r.length));
+  }
+  return ret;
+}
+
+std::vector<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadManyAsync(
+    const std::vector<ReadRange>& ranges) {
+  return ReadManyAsync(io_context(), ranges);
 }
 
 // Default WillNeed() implementation: no-op

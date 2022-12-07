@@ -1770,6 +1770,15 @@ TEST(Cast, DurationToDurationMultiplyOverflow) {
       options);
 }
 
+TEST(Cast, DurationToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    for (auto unit : TimeUnit::values()) {
+      CheckCast(ArrayFromJSON(duration(unit), "[0, null, 1234567, 2000]"),
+                ArrayFromJSON(string_type, R"(["0", null, "1234567", "2000"])"));
+    }
+  }
+}
+
 TEST(Cast, MiscToFloating) {
   for (auto to_type : {float32(), float64()}) {
     CheckCast(ArrayFromJSON(int16(), "[0, null, 200, 1, 2]"),

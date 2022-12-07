@@ -402,18 +402,18 @@ func (eq equalOption) f32(f1, f2 float32) bool {
 	v2 := float64(f2)
 	switch {
 	case eq.nansEq:
-		return math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
 	default:
-		return math.Abs(v1-v2) <= eq.atol
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol
 	}
 }
 
 func (eq equalOption) f64(v1, v2 float64) bool {
 	switch {
 	case eq.nansEq:
-		return math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
 	default:
-		return math.Abs(v1-v2) <= eq.atol
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol
 	}
 }
 

@@ -110,7 +110,14 @@ class SourceTest < Test::Unit::TestCase
                      "?state=open" +
                      "&head=apache:release-#{@release_version}-rc0")
     verify_pr_url = nil
-    verify_prs.open("Accept" => "application/vnd.github+json") do |response|
+    headers = {
+      "Accept" => "application/vnd.github+json",
+    }
+    github_token = ENV["ARROW_GITHUB_API_TOKEN"]
+    if github_token
+      headers["Authorization"] = "Bearer #{github_token}"
+    end
+    verify_prs.open(headers) do |response|
       verify_pr_url = (JSON.parse(response.read)[0] || {})["html_url"]
     end
     output = source("VOTE")

@@ -267,7 +267,7 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
 // Tests skipping around page boundaries.
 TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
   int levels_per_page = 100;
-  int num_pages = 5;
+  int num_pages = 7;
   max_def_level_ = 0;
   max_rep_level_ = 0;
   NodePtr type = schema::Int32("b", Repetition::REQUIRED);
@@ -291,7 +291,7 @@ TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
                     &values_read);
   std::vector<int32_t> sub_values(
       values_.begin() + 2 * levels_per_page,
-      values_.begin() + static_cast<int>(2.5 * static_cast<double>(levels_per_page)));
+      values_.begin() + static_cast<int>(2.5 * levels_per_page));
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
   // 2) skip_size == page_size (skip across two pages from page 2.5 to 3.5)
@@ -301,34 +301,43 @@ TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
   reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
                     &values_read);
   sub_values.clear();
-  sub_values.insert(
-      sub_values.end(),
-      values_.begin() + static_cast<int>(3.5 * static_cast<double>(levels_per_page)),
-      values_.begin() + 4 * levels_per_page);
+  sub_values.insert(sub_values.end(),
+                    values_.begin() + static_cast<int>(3.5 * levels_per_page),
+                    values_.begin() + 4 * levels_per_page);
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
-  // 3) skip_size < page_size (skip limited to a single page)
-  // Skip half a page (page 4 to 4.5)
-  levels_skipped = reader->Skip(levels_per_page / 2);
-  ASSERT_EQ(0.5 * levels_per_page, levels_skipped);
-  // Read half a page (page 4.5 to 5)
+  // 3) skip_size == page_size (skip page 4 from start of the page to the end)
+  levels_skipped = reader->Skip(levels_per_page);
+  ASSERT_EQ(levels_per_page, levels_skipped);
+  // Read half a page (page 5 to 5.5)
   reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
                     &values_read);
   sub_values.clear();
-  sub_values.insert(
-      sub_values.end(),
-      values_.begin() + static_cast<int>(4.5 * static_cast<double>(levels_per_page)),
-      values_.end());
+  sub_values.insert(sub_values.end(),
+                    values_.begin() + static_cast<int>(5.0 * levels_per_page),
+                    values_.begin() + static_cast<int>(5.5 * levels_per_page));
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
-  // 4) skip_size = 0
+  // 4) skip_size < page_size (skip limited to a single page)
+  // Skip half a page (page 5.5 to 6)
+  levels_skipped = reader->Skip(levels_per_page / 2);
+  ASSERT_EQ(0.5 * levels_per_page, levels_skipped);
+  // Read half a page (6 to 6.5)
+  reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
+                    &values_read);
+  sub_values.clear();
+  sub_values.insert(sub_values.end(),
+                    values_.begin() + static_cast<int>(6.0 * levels_per_page),
+                    values_.begin() + static_cast<int>(6.5 * levels_per_page));
+  ASSERT_TRUE(vector_equal(sub_values, vresult));
+
+  // 5) skip_size = 0
   levels_skipped = reader->Skip(0);
   ASSERT_EQ(0, levels_skipped);
 
-  // 5) Skip past the end page. There are 5 pages and we have either skipped
-  // or read all of them, so there is nothing left to skip.
-  levels_skipped = reader->Skip(10);
-  ASSERT_EQ(0, levels_skipped);
+  // 6) Skip past the end page.
+  levels_skipped = reader->Skip(levels_per_page / 2 + 10);
+  ASSERT_EQ(levels_per_page / 2, levels_skipped);
 
   values_.clear();
   def_levels_.clear();

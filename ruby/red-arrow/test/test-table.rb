@@ -41,8 +41,25 @@ class TableTest < Test::Unit::TestCase
   end
 
   sub_test_case(".new") do
+    test("{Symbol: Arrow::Array}") do
+      schema = Arrow::Schema.new(numbers: :int64)
+      assert_equal(Arrow::Table.new(schema,
+                                    [Arrow::Int64Array.new([1, 2, 3])]),
+                   Arrow::Table.new(numbers: Arrow::Int64Array.new([1, 2, 3])))
+    end
+
+    test("{Symbol: Arrow::ChunkedArray}") do
+      chunked_array = Arrow::ChunkedArray.new([Arrow::Int64Array.new([1, 2, 3])])
+      schema = Arrow::Schema.new(numbers: :int64)
+      assert_equal(Arrow::Table.new(schema,
+                                    [Arrow::Int64Array.new([1, 2, 3])]),
+                   Arrow::Table.new(numbers: chunked_array))
+    end
+
     test("{Symbol: Arrow::Tensor}") do
-      assert_equal(Arrow::Table.new(numbers: Arrow::UInt8Array.new([1, 2, 3])),
+      schema = Arrow::Schema.new(numbers: :uint8)
+      assert_equal(Arrow::Table.new(schema,
+                                    [Arrow::UInt8Array.new([1, 2, 3])]),
                    Arrow::Table.new(numbers: Arrow::Tensor.new([1, 2, 3])))
     end
 
@@ -51,7 +68,8 @@ class TableTest < Test::Unit::TestCase
       def array_like.to_ary
         [1, 2, 3]
       end
-      assert_equal(Arrow::Table.new(numbers: Arrow::UInt8Array.new([1, 2, 3])),
+      schema = Arrow::Schema.new(numbers: :uint8)
+      assert_equal(Arrow::Table.new(schema, [Arrow::UInt8Array.new([1, 2, 3])]),
                    Arrow::Table.new(numbers: array_like))
     end
   end

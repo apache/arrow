@@ -81,7 +81,7 @@ fi
 popd
 
 export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
-
+export ARROW_TEST_DATA=${1}/testing/data
 pushd ${source_dir}/parquet
 
 go test $testargs -tags assert ./...

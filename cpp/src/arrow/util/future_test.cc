@@ -128,7 +128,8 @@ class SimpleExecutor {
 
   void SetFinishedDeferred(std::vector<std::pair<int, bool>> pairs) {
     std::this_thread::sleep_for(kYieldDuration);
-    ABORT_NOT_OK(pool_->Spawn([=]() { SetFinished(pairs); }));
+    ABORT_NOT_OK(
+        pool_->Spawn([this, pairs = std::move(pairs)]() { SetFinished(pairs); }));
   }
 
   // Mark future successful
@@ -136,7 +137,7 @@ class SimpleExecutor {
 
   void SetFinishedDeferred(int fut_index) {
     std::this_thread::sleep_for(kYieldDuration);
-    ABORT_NOT_OK(pool_->Spawn([=]() { SetFinished(fut_index); }));
+    ABORT_NOT_OK(pool_->Spawn([this, fut_index]() { SetFinished(fut_index); }));
   }
 
   // Mark all futures in [start, stop) successful
@@ -148,7 +149,7 @@ class SimpleExecutor {
 
   void SetFinishedDeferred(int start, int stop) {
     std::this_thread::sleep_for(kYieldDuration);
-    ABORT_NOT_OK(pool_->Spawn([=]() { SetFinished(start, stop); }));
+    ABORT_NOT_OK(pool_->Spawn([this, start, stop]() { SetFinished(start, stop); }));
   }
 
  protected:
