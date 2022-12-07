@@ -2090,6 +2090,9 @@ std::string DataType::ComputeMetadataFingerprint() const {
   // Whatever the data type, metadata can only be found on child fields
   std::string s;
   for (const auto& child : children_) {
+    // Add field name to metadata fingerprint so that the field names within
+    // list and map types are included as part of the metadata. They are
+    // excluded from the base fingerprint.
     s += child->name() + "=";
     s += child->metadata_fingerprint() + ";";
   }

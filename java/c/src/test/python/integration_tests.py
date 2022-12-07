@@ -192,7 +192,10 @@ class TestPythonIntegration(unittest.TestCase):
     def test_list_array(self):
         self.round_trip_array(lambda: pa.array(
             [[], [0], [1, 2], [4, 5, 6]], pa.list_(pa.int64())
+            # disabled check_metadata since the list internal field name ("item")
+            # is not preserved during round trips (it becomes "$data$").
         ), check_metadata=False)
+        
 
     def test_struct_array(self):
         fields = [
