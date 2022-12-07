@@ -178,6 +178,19 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 	dt, ok := formatToSimpleType[f]
 	if ok {
 		ret.Type = dt
+
+		if schema.dictionary != nil {
+			valueField, err := importSchema(schema.dictionary)
+			if err != nil {
+				return ret, err
+			}
+
+			ret.Type = &arrow.DictionaryType{
+				IndexType: ret.Type,
+				ValueType: valueField.Type,
+				Ordered:   schema.dictionary.flags&C.ARROW_FLAG_DICTIONARY_ORDERED != 0}
+		}
+
 		return
 	}
 
@@ -289,6 +302,7 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 	} else {
 		ret.Type = dt
 	}
+
 	return
 }
 
@@ -583,7 +597,19 @@ func (imp *cimporter) importFixedSizePrimitive() error {
 		}
 		values = imp.importBitsBuffer(1)
 	}
-	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, values}, nil, int(imp.arr.null_count), int(imp.arr.offset))
+
+	var dict *array.Data
+	if dt, ok := imp.dt.(*arrow.DictionaryType); ok {
+		dictImp := &cimporter{dt: dt.ValueType}
+		if err := dictImp.doImport(imp.arr.dictionary); err != nil {
+			return err
+		}
+		defer dictImp.data.Release()
+
+		dict = dictImp.data.(*array.Data)
+	}
+
+	imp.data = array.NewDataWithDictionary(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, values}, int(imp.arr.null_count), int(imp.arr.offset), dict)
 	return nil
 }
 
@@ -613,6 +639,12 @@ func (imp *cimporter) checkNumBuffers(n int64) error {
 func (imp *cimporter) importBuffer(bufferID int, sz int64) *memory.Buffer {
 	// this is not a copy, we're just having a slice which points at the data
 	// it's still owned by the C.ArrowArray object and its backing C++ object.
+	if imp.cbuffers[bufferID] == nil {
+		if sz != 0 {
+			panic("invalid buffer")
+		}
+		return memory.NewBufferBytes([]byte{})
+	}
 	const maxLen = 0x7fffffff
 	data := (*[maxLen]byte)(unsafe.Pointer(imp.cbuffers[bufferID]))[:sz:sz]
 	return memory.NewBufferBytes(data)
