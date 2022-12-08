@@ -691,6 +691,8 @@ test_that("Scalars in expressions match the type of the field, if possible", {
     tbl_with_datetime
   )
 
+  # Just see if this prints out an error on the check machine
+  cast_or_parse(Scalar$create("2018-10-07 19:04:05"), timestamp("us", "UTC"))
   expect_output(
     tab %>%
       filter(times > "2018-10-07 19:04:05") %>%
