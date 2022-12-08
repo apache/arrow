@@ -127,6 +127,7 @@ Wait for CRAN...
 - [ ] Accepted!
 - [ ] Tag the tip of the CRAN-specific release branch
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/master/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
+- [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb`, `r/DESCRIPTION`, and `r/NEWS.md`
 - [ ] Update the packaging checklist template to reflect any new realities of the
   packaging process.
 - [ ] Wait for CRAN-hosted binaries on the
