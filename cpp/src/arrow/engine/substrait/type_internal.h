@@ -19,11 +19,13 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
 #include <utility>
 
-#include "arrow/engine/substrait/extension_set.h"
-#include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
+#include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
 #include "substrait/type.pb.h"  // IWYU pragma: export

@@ -15,36 +15,64 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <google/protobuf/descriptor.h>
-#include <google/protobuf/util/json_util.h>
-#include <google/protobuf/util/type_resolver_util.h>
+#include <algorithm>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <type_traits>
+#include <utility>
+#include <variant>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/exec/options.h"
+#include "arrow/compute/registry.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/dataset/dataset.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
-#include "arrow/dataset/file_parquet.h"
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/datum.h"
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/util.h"
-
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/test_util.h"
-#include "arrow/io/compressed.h"
-#include "arrow/io/memory.h"
+#include "arrow/io/type_fwd.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/scalar.h"
+#include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-#include "arrow/util/key_value_metadata.h"
-
-#include "parquet/arrow/writer.h"
-
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/async_generator_fwd.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/future.h"
 #include "arrow/util/hash_util.h"
-#include "arrow/util/hashing.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/iterator.h"
+#include "arrow/util/key_value_metadata.h"
 
 using testing::ElementsAre;
 using testing::Eq;
@@ -366,14 +394,20 @@ TEST(Substrait, NamedStruct) {
                                                         /*ignore_unknown_fields=*/false));
   EXPECT_THAT(DeserializeSchema(*buf, ext_set), Raises(StatusCode::Invalid));
 
-  // no schema metadata allowed
-  EXPECT_THAT(SerializeSchema(Schema({}, key_value_metadata({{"ext", "yes"}})), &ext_set),
+  ConversionOptions conversion_options;
+  conversion_options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
+
+  // no schema metadata allowed with EXACT_ROUNDTRIP
+  EXPECT_THAT(SerializeSchema(Schema({}, key_value_metadata({{"ext", "yes"}})), &ext_set,
+                              conversion_options),
               Raises(StatusCode::Invalid));
 
-  // no schema metadata allowed
+  ASSERT_OK(SerializeSchema(Schema({}, key_value_metadata({{"ext", "yes"}})), &ext_set));
+
+  // no field metadata allowed with EXACT_ROUNDTRIP
   EXPECT_THAT(
       SerializeSchema(Schema({field("a", int32(), key_value_metadata({{"ext", "yes"}}))}),
-                      &ext_set),
+                      &ext_set, conversion_options),
       Raises(StatusCode::Invalid));
 }
 
@@ -2037,7 +2071,6 @@ TEST(Substrait, AggregateBadPhase) {
 }
 
 TEST(SubstraitRoundTrip, BasicPlan) {
-  compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
 
   auto dummy_schema = schema(
@@ -2258,6 +2291,57 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
                        GetTableFromPlan(roundtripped_filter, exec_context, dummy_schema));
   EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
+}
+
+TEST(SubstraitRoundTrip, FilterNamedTable) {
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
+  const std::vector<std::string> table_names{"table", "1"};
+  const auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+  auto filter = compute::equal(compute::field_ref("A"), compute::field_ref("B"));
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration({"named_table",
+                             compute::NamedTableNodeOptions{table_names, dummy_schema},
+                             "n"}),
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"})});
+
+  ExtensionSet ext_set{};
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 5, 20],
+      [4, 1, 30],
+      [2, 1, 40],
+      [5, 5, 50],
+      [2, 2, 60]
+  ])"});
+
+  NamedTableProvider table_provider =
+      [&input_table, &table_names](
+          const std::vector<std::string>& names) -> Result<compute::Declaration> {
+    if (table_names != names) {
+      return Status::Invalid("Table name mismatch");
+    }
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, std::move(options), "mock_source");
+  };
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  auto expected_table = TableFromJSON(dummy_schema, {R"([
+    [1, 1, 10],
+    [5, 5, 50],
+    [2, 2, 60]
+  ])"});
+
+  CheckRoundTripResult(std::move(dummy_schema), std::move(expected_table), exec_context,
+                       serialized_plan, {}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, ProjectRel) {

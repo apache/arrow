@@ -85,6 +85,21 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   int64_t max_batch_size;
 };
 
+/// \brief Define a lazy resolved Arrow table.
+///
+/// The table uniquely identified by the names can typically be resolved at the time when
+/// the plan is to be consumed.
+///
+/// This node is for serialization purposes only and can never be executed.
+class ARROW_EXPORT NamedTableNodeOptions : public ExecNodeOptions {
+ public:
+  NamedTableNodeOptions(std::vector<std::string> names, std::shared_ptr<Schema> schema)
+      : names(std::move(names)), schema(schema) {}
+
+  std::vector<std::string> names;
+  std::shared_ptr<Schema> schema;
+};
+
 /// \brief An extended Source node which accepts a schema
 ///
 /// ItMaker is a maker of an iterator of tabular data.

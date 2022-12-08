@@ -30,14 +30,15 @@
 #include <unordered_map>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
-#include "arrow/table.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace engine {
+
+struct Id;
+
 namespace internal {
 
 /// \brief Create a scan->project->sink plan for tests
