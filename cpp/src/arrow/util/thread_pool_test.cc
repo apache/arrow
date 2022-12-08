@@ -415,7 +415,7 @@ TEST(SerialExecutor, IterateSynchronously) {
 }
 
 struct MockGeneratorFactory {
-  MockGeneratorFactory(Executor** captured_executor)
+  explicit MockGeneratorFactory(Executor** captured_executor)
       : captured_executor(captured_executor) {}
 
   Result<AsyncGenerator<TestInt>> operator()(Executor* executor) {
