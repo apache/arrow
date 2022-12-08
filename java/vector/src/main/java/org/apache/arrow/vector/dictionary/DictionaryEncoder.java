@@ -94,12 +94,16 @@ public class DictionaryEncoder {
     // copy the dictionary values into the decoded vector
     TransferPair transfer = dictionaryVector.getTransferPair(allocator);
     transfer.getTo().allocateNewSafe();
-
-    BaseIntVector baseIntVector = (BaseIntVector) indices;
-    retrieveIndexVector(baseIntVector, transfer, dictionaryCount, 0, count);
-    ValueVector decoded = transfer.getTo();
-    decoded.setValueCount(count);
-    return decoded;
+    try {
+      BaseIntVector baseIntVector = (BaseIntVector) indices;
+      retrieveIndexVector(baseIntVector, transfer, dictionaryCount, 0, count);
+      ValueVector decoded = transfer.getTo();
+      decoded.setValueCount(count);
+      return decoded;
+    } catch (Exception e) {
+      transfer.getTo().close();
+      throw e;
+    }
   }
 
   /**
@@ -192,10 +196,14 @@ public class DictionaryEncoder {
 
     BaseIntVector indices = (BaseIntVector) createdVector;
     indices.allocateNew();
-
-    buildIndexVector(vector, indices, hashTable, 0, vector.getValueCount());
-    indices.setValueCount(vector.getValueCount());
-    return indices;
+    try {
+      buildIndexVector(vector, indices, hashTable, 0, vector.getValueCount());
+      indices.setValueCount(vector.getValueCount());
+      return indices;
+    } catch (Exception e) {
+      indices.close();
+      throw e;
+    }
   }
 
   /**
