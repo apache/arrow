@@ -76,8 +76,30 @@ public class DictionaryEncoder {
    * @return vector with values restored from dictionary
    */
   public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
-    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, indices.getAllocator());
-    return encoder.decode(indices);
+    return decode(indices, dictionary, indices.getAllocator());
+  }
+
+  /**
+   * Decodes a dictionary encoded array using the provided dictionary.
+   *
+   * @param indices dictionary encoded values, must be int type
+   * @param dictionary dictionary used to decode the values
+   * @param allocator allocator the decoded values use
+   * @return vector with values restored from dictionary
+   */
+  public static ValueVector decode(ValueVector indices, Dictionary dictionary, BufferAllocator allocator) {
+    int count = indices.getValueCount();
+    ValueVector dictionaryVector = dictionary.getVector();
+    int dictionaryCount = dictionaryVector.getValueCount();
+    // copy the dictionary values into the decoded vector
+    TransferPair transfer = dictionaryVector.getTransferPair(allocator);
+    transfer.getTo().allocateNewSafe();
+
+    BaseIntVector baseIntVector = (BaseIntVector) indices;
+    retrieveIndexVector(baseIntVector, transfer, dictionaryCount, 0, count);
+    ValueVector decoded = transfer.getTo();
+    decoded.setValueCount(count);
+    return decoded;
   }
 
   /**
@@ -180,17 +202,6 @@ public class DictionaryEncoder {
    * Decodes a vector with the built hash table in this encoder.
    */
   public ValueVector decode(ValueVector indices) {
-    int count = indices.getValueCount();
-    ValueVector dictionaryVector = dictionary.getVector();
-    int dictionaryCount = dictionaryVector.getValueCount();
-    // copy the dictionary values into the decoded vector
-    TransferPair transfer = dictionaryVector.getTransferPair(allocator);
-    transfer.getTo().allocateNewSafe();
-
-    BaseIntVector baseIntVector = (BaseIntVector) indices;
-    retrieveIndexVector(baseIntVector, transfer, dictionaryCount, 0, count);
-    ValueVector decoded = transfer.getTo();
-    decoded.setValueCount(count);
-    return decoded;
+    return decode(indices, dictionary, allocator);
   }
 }

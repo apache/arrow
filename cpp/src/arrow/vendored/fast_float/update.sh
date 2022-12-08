@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,17 +17,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-github:
-  description: "Apache Arrow is a multi-language toolbox for accelerated data interchange and in-memory processing"
-  homepage: https://arrow.apache.org/
-  collaborators:
-    - assignUser
-    - raulcd
-    - toddfarmer
+set -eu
 
-notifications:
-  commits:      commits@arrow.apache.org
-  issues_status: issues@arrow.apache.org
-  issues:       github@arrow.apache.org
-  pullrequests: github@arrow.apache.org
-  jira_options: link label worklog
+source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 VERSION"
+  echo " e.g.: $0 3.8.1"
+  exit 1
+fi
+
+version="$1"
+
+pushd "${source_dir}"
+rm -rf fast_float
+git clone \
+    --branch "v${version}" \
+    --depth 1 \
+    https://github.com/fastfloat/fast_float.git
+mv fast_float/include/fast_float/* ./
+rm -rf fast_float
+sed -i.bak -E -e "s/v[0-9.]+/v${version}/g" *.h
+sed -i.bak -E \
+    -e '/^namespace fast_float \{/ i namespace arrow_vendored {' \
+    -e '/^} \/\/ namespace fast_float/ a } // namespace arrow_vendored' \
+    *.h
+rm *.bak
+popd

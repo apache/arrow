@@ -523,11 +523,10 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileWriter:
 
         @staticmethod
-        CStatus Open(const CSchema& schema, CMemoryPool* pool,
-                     const shared_ptr[COutputStream]& sink,
-                     const shared_ptr[WriterProperties]& properties,
-                     const shared_ptr[ArrowWriterProperties]& arrow_properties,
-                     unique_ptr[FileWriter]* writer)
+        CResult[unique_ptr[FileWriter]] Open(const CSchema& schema, CMemoryPool* pool,
+                                             const shared_ptr[COutputStream]& sink,
+                                             const shared_ptr[WriterProperties]& properties,
+                                             const shared_ptr[ArrowWriterProperties]& arrow_properties)
 
         CStatus WriteTable(const CTable& table, int64_t chunk_size)
         CStatus NewRowGroup(int64_t chunk_size)

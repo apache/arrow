@@ -139,6 +139,18 @@ func GetArithmeticUnaryFloatingPointKernels(op ArithmeticOp) []exec.ScalarKernel
 	return append(kernels, NullExecKernel(1))
 }
 
+func GetArithmeticFloatingPointKernels(op ArithmeticOp) []exec.ScalarKernel {
+	kernels := make([]exec.ScalarKernel, 0)
+	for _, ty := range floatingTypes {
+		in := exec.NewExactInput(ty)
+		kernels = append(kernels, exec.NewScalarKernel(
+			[]exec.InputType{in, in}, exec.NewOutputType(ty),
+			ArithmeticExecSameType(ty.ID(), op), nil))
+	}
+
+	return append(kernels, NullExecKernel(2))
+}
+
 func GetArithmeticUnaryFixedIntOutKernels(otype arrow.DataType, op ArithmeticOp) []exec.ScalarKernel {
 	kernels := make([]exec.ScalarKernel, 0)
 
@@ -240,6 +252,35 @@ func GetBitwiseBinaryKernels(op BitwiseOp) []exec.ScalarKernel {
 			inType, inType}, exec.NewOutputType(ty), ex, nil))
 	}
 	return append(kernels, NullExecKernel(2))
+}
+
+func bitwiseNot[T exec.IntTypes | exec.UintTypes](_ *exec.KernelCtx, arg T, _ *error) T {
+	return ^arg
+}
+
+func getBitwiseNotExec(ty arrow.DataType) exec.ArrayKernelExec {
+	switch ty.ID() {
+	case arrow.INT8, arrow.UINT8:
+		return ScalarUnaryNotNull(bitwiseNot[uint8])
+	case arrow.INT16, arrow.UINT16:
+		return ScalarUnaryNotNull(bitwiseNot[uint16])
+	case arrow.INT32, arrow.UINT32:
+		return ScalarUnaryNotNull(bitwiseNot[uint32])
+	case arrow.INT64, arrow.UINT64:
+		return ScalarUnaryNotNull(bitwiseNot[uint64])
+	}
+	panic("only integral types for bitwise not kernels")
+}
+
+func GetBitwiseUnaryKernels() []exec.ScalarKernel {
+	kernels := make([]exec.ScalarKernel, 0)
+	for _, ty := range intTypes {
+		ex := getBitwiseNotExec(ty)
+		kernels = append(kernels, exec.NewScalarKernel(
+			[]exec.InputType{exec.NewExactInput(ty)}, exec.NewOutputType(ty),
+			ex, nil))
+	}
+	return append(kernels, NullExecKernel(1))
 }
 
 type ShiftDir int8

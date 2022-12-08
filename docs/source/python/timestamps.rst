@@ -67,7 +67,7 @@ The following cases assume the Spark configuration
     ...                               nanosecond=500, tz=timezone(timedelta(hours=-8)))]})
     >>> pdf
            naive                               aware
-           0 2018-10-01 2018-10-01 00:00:00.000000500-08:00
+           0 2019-01-01 2019-01-01 00:00:00.000000500-08:00
 
     >>> spark.conf.set("spark.sql.session.timeZone", "UTC")
     >>> utc_df = sqlContext.createDataFrame(pdf)

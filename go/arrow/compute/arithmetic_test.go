@@ -96,7 +96,11 @@ func assertNullToNull(t *testing.T, ctx context.Context, fn string, mem memory.A
 	})
 }
 
-type unaryArithmeticFunc = func(context.Context, compute.ArithmeticOptions, compute.Datum) (compute.Datum, error)
+type fnOpts interface {
+	compute.ArithmeticOptions | compute.RoundOptions | compute.RoundToMultipleOptions
+}
+
+type unaryArithmeticFunc[O fnOpts] func(context.Context, O, compute.Datum) (compute.Datum, error)
 
 // type unaryFunc = func(compute.Datum) (compute.Datum, error)
 
@@ -112,7 +116,7 @@ func assertBinop(t *testing.T, fn binaryFunc, left, right, expected arrow.Array,
 	actual, err := fn(&compute.ArrayDatum{Value: left.Data()}, &compute.ArrayDatum{Value: right.Data()})
 	require.NoError(t, err)
 	defer actual.Release()
-	assertDatumsEqual(t, &compute.ArrayDatum{Value: expected.Data()}, actual, opt...)
+	assertDatumsEqual(t, &compute.ArrayDatum{Value: expected.Data()}, actual, opt, scalarOpt)
 
 	// also check (Scalar, Scalar) operations
 	for i := 0; i < expected.Len(); i++ {
@@ -247,7 +251,17 @@ func (b *BinaryArithmeticSuite[T]) assertBinopScalarArr(fn binaryArithmeticFunc,
 	actual, err := fn(b.ctx, b.opts, &compute.ScalarDatum{Value: lhs}, &compute.ArrayDatum{Value: right.Data()})
 	b.NoError(err)
 	defer actual.Release()
-	assertDatumsEqual(b.T(), &compute.ArrayDatum{Value: exp.Data()}, actual)
+	assertDatumsEqual(b.T(), &compute.ArrayDatum{Value: exp.Data()}, actual, b.equalOpts, b.scalarEqualOpts)
+}
+
+func (b *BinaryArithmeticSuite[T]) assertBinopArrScalarExpArr(fn binaryArithmeticFunc, lhs string, rhs scalar.Scalar, exp arrow.Array) {
+	left, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(lhs))
+	defer left.Release()
+
+	actual, err := fn(b.ctx, b.opts, &compute.ArrayDatum{left.Data()}, compute.NewDatum(rhs))
+	b.Require().NoError(err)
+	defer actual.Release()
+	assertDatumsEqual(b.T(), &compute.ArrayDatum{exp.Data()}, actual, b.equalOpts, b.scalarEqualOpts)
 }
 
 func (b *BinaryArithmeticSuite[T]) assertBinopArrScalarVal(fn binaryArithmeticFunc, lhs string, rhs T, expected string) {
@@ -264,7 +278,22 @@ func (b *BinaryArithmeticSuite[T]) assertBinopArrScalar(fn binaryArithmeticFunc,
 	actual, err := fn(b.ctx, b.opts, &compute.ArrayDatum{Value: left.Data()}, &compute.ScalarDatum{Value: rhs})
 	b.NoError(err)
 	defer actual.Release()
-	assertDatumsEqual(b.T(), &compute.ArrayDatum{Value: exp.Data()}, actual, b.equalOpts...)
+	assertDatumsEqual(b.T(), &compute.ArrayDatum{Value: exp.Data()}, actual, b.equalOpts, b.scalarEqualOpts)
+}
+
+func (b *BinaryArithmeticSuite[T]) assertBinopArrs(fn binaryArithmeticFunc, lhs, rhs, exp arrow.Array) {
+	assertBinop(b.T(), func(left, right compute.Datum) (compute.Datum, error) {
+		return fn(b.ctx, b.opts, left, right)
+	}, lhs, rhs, exp, b.equalOpts, b.scalarEqualOpts)
+}
+
+func (b *BinaryArithmeticSuite[T]) assertBinopExpArr(fn binaryArithmeticFunc, lhs, rhs string, exp arrow.Array) {
+	left, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(lhs), array.WithUseNumber())
+	defer left.Release()
+	right, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(rhs), array.WithUseNumber())
+	defer right.Release()
+
+	b.assertBinopArrs(fn, left, right, exp)
 }
 
 func (b *BinaryArithmeticSuite[T]) assertBinop(fn binaryArithmeticFunc, lhs, rhs, expected string) {
@@ -275,9 +304,7 @@ func (b *BinaryArithmeticSuite[T]) assertBinop(fn binaryArithmeticFunc, lhs, rhs
 	exp, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(expected), array.WithUseNumber())
 	defer exp.Release()
 
-	assertBinop(b.T(), func(left, right compute.Datum) (compute.Datum, error) {
-		return fn(b.ctx, b.opts, left, right)
-	}, left, right, exp, b.equalOpts, b.scalarEqualOpts)
+	b.assertBinopArrs(fn, left, right, exp)
 }
 
 func (b *BinaryArithmeticSuite[T]) setOverflowCheck(value bool) {
@@ -487,6 +514,56 @@ func (b *BinaryArithmeticSuite[T]) TestPower() {
 	})
 }
 
+type BinaryFloatingArithmeticSuite[T constraints.Float] struct {
+	BinaryArithmeticSuite[T]
+
+	smallest T
+}
+
+func (bs *BinaryFloatingArithmeticSuite[T]) TestTrigAtan2() {
+	bs.setNansEqual(true)
+	atan2 := func(ctx context.Context, _ compute.ArithmeticOptions, x, y compute.Datum) (compute.Datum, error) {
+		return compute.Atan2(ctx, x, y)
+	}
+
+	bs.assertBinop(atan2, `[]`, `[]`, `[]`)
+	bs.assertBinop(atan2, `[0, 0, null, "NaN"]`, `[null, "NaN", 0, 0]`, `[null, "NaN", null, "NaN"]`)
+	bs.assertBinop(atan2, `[0, 0, -0.0, 0, -0.0, 0, 1, 0, -1, "Inf", "-Inf", 0, 0]`,
+		`[0, 0, 0, -0.0, -0.0, 1, 0, -1, 0, 0, 0, "Inf", "-Inf"]`,
+		fmt.Sprintf("[0, 0, -0.0, %f, %f, 0, %f, %f, %f, %f, %f, 0, %f]",
+			math.Pi, -math.Pi, math.Pi/2, math.Pi, -math.Pi/2, math.Pi/2, -math.Pi/2, math.Pi))
+}
+
+func (bs *BinaryFloatingArithmeticSuite[T]) TestLog() {
+	bs.setNansEqual(true)
+	for _, overflow := range []bool{false, true} {
+		bs.setOverflowCheck(overflow)
+		bs.assertBinop(compute.Logb, `[1, 10, null, "NaN", "Inf"]`, `[100, 10, null, 2, 10]`,
+			`[0, 1, null, "NaN", "Inf"]`)
+		bs.assertBinopScalars(compute.Logb, bs.smallest, 10, T(math.Log(float64(bs.smallest))/math.Log(10)))
+		bs.assertBinopScalars(compute.Logb, bs.max, 10, T(math.Log(float64(bs.max))/math.Log(10)))
+	}
+
+	bs.setOverflowCheck(true)
+	bs.assertBinop(compute.Logb, `[1, 10, null]`, `[10, 10, null]`, `[0, 1, null]`)
+	bs.assertBinop(compute.Logb, `[1, 2, null]`, `[2, 2, null]`, `[0, 1, null]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `[10, 100, 1000, null]`, 10, `[1, 2, 3, null]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `[1, 2, 4, 8]`, 0.25, `[-0.0, -0.5, -1.0, -1.5]`)
+
+	bs.setOverflowCheck(false)
+	bs.assertBinopArrScalarVal(compute.Logb, `["-Inf", -1, 0, "Inf"]`, 10, `["NaN", "NaN", "-Inf", "Inf"]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `["-Inf", -1, 0, "Inf"]`, 2, `["NaN", "NaN", "-Inf", "Inf"]`)
+	bs.assertBinop(compute.Logb, `["-Inf", -1, 0, "Inf"]`, `[2, 10, 0, 0]`, `["NaN", "NaN", "NaN", "NaN"]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `["-Inf", -1, 0, "Inf"]`, 0, `["NaN", "NaN", "NaN", "NaN"]`)
+	bs.assertBinopArrScalarVal(compute.Logb, `["-Inf", -2, -1, "Inf"]`, 2, `["NaN", "NaN", "NaN", "Inf"]`)
+
+	bs.setOverflowCheck(true)
+	bs.assertBinopErr(compute.Logb, `[0]`, `[2]`, "logarithm of zero")
+	bs.assertBinopErr(compute.Logb, `[2]`, `[0]`, "logarithm of zero")
+	bs.assertBinopErr(compute.Logb, `[-1]`, `[2]`, "logarithm of negative number")
+	bs.assertBinopErr(compute.Logb, `["-Inf"]`, `[2]`, "logarithm of negative number")
+}
+
 type BinaryIntegralArithmeticSuite[T exec.IntTypes | exec.UintTypes] struct {
 	BinaryArithmeticSuite[T]
 }
@@ -590,6 +667,35 @@ func (b *BinaryIntegralArithmeticSuite[T]) TestShiftRightOverflowError() {
 	})
 }
 
+func (b *BinaryIntegralArithmeticSuite[T]) TestTrig() {
+	// integer arguments promoted to float64, sanity check here
+	ty := b.DataType()
+	b.setNansEqual(true)
+	atan2 := func(ctx context.Context, _ compute.ArithmeticOptions, x, y compute.Datum) (compute.Datum, error) {
+		return compute.Atan2(ctx, x, y)
+	}
+
+	lhs, rhs := b.getArr(ty, `[0, 1]`), b.getArr(ty, `[1, 0]`)
+	defer lhs.Release()
+	defer rhs.Release()
+	exp := b.getArr(arrow.PrimitiveTypes.Float64, fmt.Sprintf(`[0, %f]`, math.Pi/2))
+	defer exp.Release()
+
+	b.assertBinopArrs(atan2, lhs, rhs, exp)
+}
+
+func (b *BinaryIntegralArithmeticSuite[T]) TestLog() {
+	// integer arguments promoted to double, sanity check here
+	exp1 := b.getArr(arrow.PrimitiveTypes.Float64, `[0, 1, null]`)
+	exp2 := b.getArr(arrow.PrimitiveTypes.Float64, `[1, 2, null]`)
+	defer exp1.Release()
+	defer exp2.Release()
+
+	b.assertBinopExpArr(compute.Logb, `[1, 10, null]`, `[10, 10, null]`, exp1)
+	b.assertBinopExpArr(compute.Logb, `[1, 2, null]`, `[2, 2, null]`, exp1)
+	b.assertBinopArrScalarExpArr(compute.Logb, `[10, 100, null]`, scalar.MakeScalar(T(10)), exp2)
+}
+
 func TestBinaryArithmetic(t *testing.T) {
 	suite.Run(t, &BinaryIntegralArithmeticSuite[int8]{BinaryArithmeticSuite[int8]{min: math.MinInt8, max: math.MaxInt8}})
 	suite.Run(t, &BinaryIntegralArithmeticSuite[uint8]{BinaryArithmeticSuite[uint8]{min: 0, max: math.MaxUint8}})
@@ -599,8 +705,8 @@ func TestBinaryArithmetic(t *testing.T) {
 	suite.Run(t, &BinaryIntegralArithmeticSuite[uint32]{BinaryArithmeticSuite[uint32]{min: 0, max: math.MaxUint32}})
 	suite.Run(t, &BinaryIntegralArithmeticSuite[int64]{BinaryArithmeticSuite[int64]{min: math.MinInt64, max: math.MaxInt64}})
 	suite.Run(t, &BinaryIntegralArithmeticSuite[uint64]{BinaryArithmeticSuite[uint64]{min: 0, max: math.MaxUint64}})
-	suite.Run(t, &BinaryArithmeticSuite[float32]{min: -math.MaxFloat32, max: math.MaxFloat32})
-	suite.Run(t, &BinaryArithmeticSuite[float64]{min: -math.MaxFloat64, max: math.MaxFloat64})
+	suite.Run(t, &BinaryFloatingArithmeticSuite[float32]{BinaryArithmeticSuite[float32]{min: -math.MaxFloat32, max: math.MaxFloat32}, math.SmallestNonzeroFloat32})
+	suite.Run(t, &BinaryFloatingArithmeticSuite[float64]{BinaryArithmeticSuite[float64]{min: -math.MaxFloat64, max: math.MaxFloat64}, math.SmallestNonzeroFloat64})
 	suite.Run(t, new(Float16BinaryFuncTestSuite))
 	suite.Run(t, new(DecimalBinaryArithmeticSuite))
 	suite.Run(t, new(ScalarBinaryTemporalArithmeticSuite))
@@ -689,7 +795,7 @@ func (ds *DecimalArithmeticSuite) checkDecimalToFloat(fn string, args []compute.
 	ds.Require().NoError(err)
 	defer actual.Release()
 
-	assertDatumsEqual(ds.T(), expected, actual)
+	assertDatumsEqual(ds.T(), expected, actual, []array.EqualOption{array.WithNaNsEqual(true)}, []scalar.EqualOption{scalar.WithNaNsEqual(true)})
 }
 
 func (ds *DecimalArithmeticSuite) checkFail(fn string, args []compute.Datum, substr string, opts compute.FunctionOptions) {
@@ -866,7 +972,7 @@ func (ds *DecimalBinaryArithmeticSuite) TestDispatchBest() {
 		}
 	}
 
-	for _, name := range []string{"power", "power_unchecked"} {
+	for _, name := range []string{"power", "power_unchecked", "atan2", "logb", "logb_unchecked"} {
 		ds.Run(name, func() {
 			CheckDispatchBest(ds.T(), name, []arrow.DataType{
 				&arrow.Decimal128Type{Precision: 2, Scale: 1}, &arrow.Decimal128Type{Precision: 2, Scale: 1}},
@@ -1192,6 +1298,135 @@ func (ds *DecimalBinaryArithmeticSuite) TestDivide() {
 	})
 }
 
+func (ds *DecimalBinaryArithmeticSuite) TestAtan2() {
+	// decimal arguments get promoted to float64, sanity check here
+	fn := "atan2"
+	for _, ty := range ds.positiveScales() {
+		empty := ds.getArr(ty, `[]`)
+		defer empty.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}, &compute.ArrayDatum{empty.Data()}})
+
+		larr := ds.getArr(ty, `["1.00", "10.00", "1.00", "2.00", null]`)
+		defer larr.Release()
+
+		ldatum := &compute.ArrayDatum{larr.Data()}
+
+		test := ds.getArr(ty, `["10.00", "10.00", "2.00", "2.00", null]`)
+		defer test.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+			&compute.ArrayDatum{test.Data()}})
+
+		test = ds.getArr(&arrow.Decimal128Type{Precision: 4, Scale: 2}, `["10.00", "10.00", "2.00", "2.00", null]`)
+		defer test.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+			&compute.ArrayDatum{test.Data()}})
+
+		ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+			compute.NewDatum(scalar.MakeScalar(int64(10)))})
+		ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+			compute.NewDatum(scalar.MakeScalar(float64(10)))})
+
+		larr = ds.getArr(arrow.PrimitiveTypes.Float64, `[1, 10, 1, 2, null]`)
+		defer larr.Release()
+
+		sc, _ := scalar.MakeScalarParam("10.00", ty)
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()},
+			compute.NewDatum(sc)})
+
+		larr = ds.getArr(arrow.PrimitiveTypes.Int64, `[1, 10, 1, 2, null]`)
+		defer larr.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()},
+			compute.NewDatum(sc)})
+	}
+
+	for _, ty := range ds.negativeScales() {
+		empty := ds.getArr(ty, `[]`)
+		defer empty.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}, &compute.ArrayDatum{empty.Data()}})
+
+		larr := ds.getArr(ty, `["12E2", "42E2", null]`)
+		defer larr.Release()
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()}, &compute.ArrayDatum{larr.Data()}})
+
+		rarr := ds.getArr(&arrow.Decimal128Type{Precision: 2, Scale: -2}, `["12E2", "42E2", null]`)
+		defer rarr.Release()
+
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()}, &compute.ArrayDatum{rarr.Data()}})
+		ds.checkDecimalToFloat(fn, []compute.Datum{
+			&compute.ArrayDatum{larr.Data()}, compute.NewDatum(scalar.MakeScalar(int64(10)))})
+	}
+}
+
+func (ds *DecimalBinaryArithmeticSuite) TestLogb() {
+	// decimal arguments get promoted to float64, sanity check here
+	for _, fn := range []string{"logb", "logb_unchecked"} {
+		ds.Run(fn, func() {
+			for _, ty := range ds.positiveScales() {
+				empty := ds.getArr(ty, `[]`)
+				defer empty.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}, &compute.ArrayDatum{empty.Data()}})
+
+				larr := ds.getArr(ty, `["1.00", "10.00", "1.00", "2.00", null]`)
+				defer larr.Release()
+
+				ldatum := &compute.ArrayDatum{larr.Data()}
+
+				test := ds.getArr(ty, `["10.00", "10.00", "2.00", "2.00", null]`)
+				defer test.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+					&compute.ArrayDatum{test.Data()}})
+
+				test = ds.getArr(&arrow.Decimal128Type{Precision: 4, Scale: 2}, `["10.00", "10.00", "2.00", "2.00", null]`)
+				defer test.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+					&compute.ArrayDatum{test.Data()}})
+
+				ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+					compute.NewDatum(scalar.MakeScalar(int64(10)))})
+				ds.checkDecimalToFloat(fn, []compute.Datum{ldatum,
+					compute.NewDatum(scalar.MakeScalar(float64(10)))})
+
+				larr = ds.getArr(arrow.PrimitiveTypes.Float64, `[1, 10, 1, 2, null]`)
+				defer larr.Release()
+
+				sc, _ := scalar.MakeScalarParam("10.00", ty)
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()},
+					compute.NewDatum(sc)})
+
+				larr = ds.getArr(arrow.PrimitiveTypes.Int64, `[1, 10, 1, 2, null]`)
+				defer larr.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()},
+					compute.NewDatum(sc)})
+			}
+
+			for _, ty := range ds.negativeScales() {
+				empty := ds.getArr(ty, `[]`)
+				defer empty.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}, &compute.ArrayDatum{empty.Data()}})
+
+				larr := ds.getArr(ty, `["12E2", "42E2", null]`)
+				defer larr.Release()
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()}, &compute.ArrayDatum{larr.Data()}})
+
+				rarr := ds.getArr(&arrow.Decimal128Type{Precision: 2, Scale: -2}, `["12E2", "42E2", null]`)
+				defer rarr.Release()
+
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()}, &compute.ArrayDatum{rarr.Data()}})
+				ds.checkDecimalToFloat(fn, []compute.Datum{
+					&compute.ArrayDatum{larr.Data()}, compute.NewDatum(scalar.MakeScalar(int64(10)))})
+			}
+		})
+	}
+}
+
 type DecimalUnaryArithmeticSuite struct {
 	DecimalArithmeticSuite
 }
@@ -1319,6 +1554,653 @@ func (ds *DecimalUnaryArithmeticSuite) TestSquareRoot() {
 	}
 }
 
+func (ds *DecimalUnaryArithmeticSuite) TestSign() {
+	max128 := decimal128.GetMaxValue(38)
+	max256 := decimal256.GetMaxValue(76)
+
+	for _, ty := range ds.positiveScales() {
+		empty := ds.decimalArrayFromJSON(ty, `[]`)
+		defer empty.Release()
+		emptyOut := ds.decimalArrayFromJSON(arrow.PrimitiveTypes.Int64, `[]`)
+		defer emptyOut.Release()
+		in := ds.decimalArrayFromJSON(ty, `["1.00", "0.00", "-42.15", null]`)
+		defer in.Release()
+		exp := ds.decimalArrayFromJSON(arrow.PrimitiveTypes.Int64, `[1, 0, -1, null]`)
+		defer exp.Release()
+
+		checkScalar(ds.T(), "sign", []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+			&compute.ArrayDatum{emptyOut.Data()}, nil)
+		checkScalar(ds.T(), "sign", []compute.Datum{&compute.ArrayDatum{in.Data()}},
+			&compute.ArrayDatum{exp.Data()}, nil)
+	}
+
+	checkScalar(ds.T(), "sign", []compute.Datum{compute.NewDatum(
+		scalar.NewDecimal128Scalar(max128, &arrow.Decimal128Type{Precision: 38}))},
+		compute.NewDatum(scalar.MakeScalar(int64(1))), nil)
+	checkScalar(ds.T(), "sign", []compute.Datum{compute.NewDatum(
+		scalar.NewDecimal128Scalar(max128.Negate(), &arrow.Decimal128Type{Precision: 38}))},
+		compute.NewDatum(scalar.MakeScalar(int64(-1))), nil)
+	checkScalar(ds.T(), "sign", []compute.Datum{compute.NewDatum(
+		scalar.NewDecimal256Scalar(max256, &arrow.Decimal256Type{Precision: 38}))},
+		compute.NewDatum(scalar.MakeScalar(int64(1))), nil)
+	checkScalar(ds.T(), "sign", []compute.Datum{compute.NewDatum(
+		scalar.NewDecimal256Scalar(max256.Negate(), &arrow.Decimal256Type{Precision: 38}))},
+		compute.NewDatum(scalar.MakeScalar(int64(-1))), nil)
+
+	for _, ty := range ds.negativeScales() {
+		empty := ds.decimalArrayFromJSON(ty, `[]`)
+		defer empty.Release()
+		emptyOut := ds.decimalArrayFromJSON(arrow.PrimitiveTypes.Int64, `[]`)
+		defer emptyOut.Release()
+		in := ds.decimalArrayFromJSON(ty, `["12e2", "0.00", "-42E2", null]`)
+		defer in.Release()
+		exp := ds.decimalArrayFromJSON(arrow.PrimitiveTypes.Int64, `[1, 0, -1, null]`)
+		defer exp.Release()
+
+		checkScalar(ds.T(), "sign", []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+			&compute.ArrayDatum{emptyOut.Data()}, nil)
+		checkScalar(ds.T(), "sign", []compute.Datum{&compute.ArrayDatum{in.Data()}},
+			&compute.ArrayDatum{exp.Data()}, nil)
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestTrigAcosAsin() {
+	for _, fn := range []string{"acos", "acos_unchecked", "asin", "asin_unchecked"} {
+		ds.Run(fn, func() {
+			for _, ty := range ds.positiveScales() {
+				ds.Run(ty.String(), func() {
+					empty := ds.decimalArrayFromJSON(ty, `[]`)
+					defer empty.Release()
+					vals := ds.decimalArrayFromJSON(ty, `["0.00", "-1.00", "1.00", null]`)
+					defer vals.Release()
+					ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+					ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+				})
+			}
+		})
+	}
+
+	for _, fn := range []string{"acos", "asin"} {
+		ds.Run(fn, func() {
+			for _, ty := range ds.negativeScales() {
+				ds.Run(ty.String(), func() {
+					arr := ds.decimalArrayFromJSON(ty, `["12E2", "-42E2", null]`)
+					defer arr.Release()
+					ds.checkDecimalToFloat(fn+"_unchecked", []compute.Datum{&compute.ArrayDatum{arr.Data()}})
+					ds.checkFail(fn, []compute.Datum{&compute.ArrayDatum{arr.Data()}}, "domain error", nil)
+				})
+			}
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestAtan() {
+	fn := "atan"
+	for _, ty := range ds.positiveScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.decimalArrayFromJSON(ty, `[]`)
+			defer empty.Release()
+			vals := ds.decimalArrayFromJSON(ty, `["0.00", "-1.00", "1.00", null]`)
+			defer vals.Release()
+			ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+			ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+		})
+	}
+	for _, ty := range ds.negativeScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.decimalArrayFromJSON(ty, `[]`)
+			defer empty.Release()
+			vals := ds.decimalArrayFromJSON(ty, `["12E2", "-42E2", null]`)
+			defer vals.Release()
+			ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+			ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestTrig() {
+	for _, fn := range []string{"cos", "sin", "tan"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+			ds.Run(fn, func() {
+				for _, ty := range ds.positiveScales() {
+					ds.Run(ty.String(), func() {
+						empty := ds.decimalArrayFromJSON(ty, `[]`)
+						defer empty.Release()
+						vals := ds.decimalArrayFromJSON(ty, `["0.00", "-1.00", "1.00", null]`)
+						defer vals.Release()
+						ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+						ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+					})
+				}
+				for _, ty := range ds.negativeScales() {
+					ds.Run(ty.String(), func() {
+						empty := ds.decimalArrayFromJSON(ty, `[]`)
+						defer empty.Release()
+						vals := ds.decimalArrayFromJSON(ty, `["12E2", "-42E2", null]`)
+						defer vals.Release()
+						ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}})
+						ds.checkDecimalToFloat(fn, []compute.Datum{&compute.ArrayDatum{vals.Data()}})
+					})
+				}
+			})
+		}
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRound() {
+	options := compute.RoundOptions{NDigits: 2, Mode: compute.RoundDown}
+
+	cases := []struct {
+		mode compute.RoundMode
+		exp  string
+	}{
+		{compute.RoundDown, `["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.020", "-1.020", "-1.020", null]`},
+		{compute.RoundUp, `["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.010", null]`},
+		{compute.RoundTowardsZero, `["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.010", "-1.010", "-1.010", null]`},
+		{compute.RoundTowardsInfinity, `["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.020", "-1.020", "-1.020", null]`},
+		{compute.RoundHalfDown, `["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null]`},
+		{compute.RoundHalfUp, `["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null]`},
+		{compute.RoundHalfTowardsZero, `["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null]`},
+		{compute.RoundHalfTowardsInfinity, `["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null]`},
+		{compute.RoundHalfToEven, `["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null]`},
+		{compute.RoundHalfToOdd, `["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null]`},
+	}
+
+	fn := "round"
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 3}, &arrow.Decimal256Type{Precision: 4, Scale: 3}} {
+		ds.Run(ty.String(), func() {
+			values := ds.getArr(ty, `["1.010", "1.012", "1.015", "1.019", "-1.010", "-1.012", "-1.015", "-1.019", null]`)
+			defer values.Release()
+
+			for _, tt := range cases {
+				ds.Run(tt.mode.String(), func() {
+					options.Mode = tt.mode
+					exp := ds.getArr(ty, tt.exp)
+					defer exp.Release()
+					checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{values.Data()}},
+						&compute.ArrayDatum{exp.Data()}, options)
+				})
+			}
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundTowardsInfinity() {
+	fn := "round"
+	options := compute.RoundOptions{NDigits: 0, Mode: compute.RoundTowardsInfinity}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+			vals := ds.getArr(ty, `["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null]`)
+			defer vals.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, options)
+			input := []compute.Datum{&compute.ArrayDatum{vals.Data()}}
+
+			options.NDigits = 0
+
+			exp0 := ds.getArr(ty, `["1.00", "2.00", "2.00", "-42.00", "-43.00", "-43.00", null]`)
+			defer exp0.Release()
+
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{exp0.Data()}, options)
+
+			exp1 := ds.getArr(ty, `["1.00", "2.00", "1.10", "-42.00", "-43.00", "-42.20", null]`)
+			defer exp1.Release()
+
+			options.NDigits = 1
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{exp1.Data()}, options)
+
+			options.NDigits = 2
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{vals.Data()}, options)
+			options.NDigits = 4
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{vals.Data()}, options)
+			options.NDigits = 100
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{vals.Data()}, options)
+
+			options.NDigits = -1
+			neg := ds.getArr(ty, `["10.00", "10.00", "10.00", "-50.00", "-50.00", "-50.00", null]`)
+			defer neg.Release()
+			checkScalar(ds.T(), fn, input, &compute.ArrayDatum{neg.Data()}, options)
+
+			options.NDigits = -2
+			ds.checkFail(fn, input, "rounding to -2 digits will not fit in precision", options)
+			options.NDigits = -1
+
+			noprec := ds.getArr(ty, `["99.99"]`)
+			defer noprec.Release()
+			ds.checkFail(fn, []compute.Datum{&compute.ArrayDatum{noprec.Data()}}, "rounded value 100.00 does not fit in precision", options)
+		})
+	}
+
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 2, Scale: -2}, &arrow.Decimal256Type{Precision: 2, Scale: -2}} {
+		ds.Run(ty.String(), func() {
+			values := ds.getArr(ty, `["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null]`)
+			defer values.Release()
+
+			input := &compute.ArrayDatum{values.Data()}
+
+			options.NDigits = 0
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 100
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -1
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -3
+			res := ds.getArr(ty, `["10E2", "20E2", "20E2", "-10E2", "-20E2", "-20E2", null]`)
+			defer res.Release()
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{res.Data()}, options)
+
+			options.NDigits = -4
+			ds.checkFail(fn, []compute.Datum{input}, "rounding to -4 digits will not fit in precision", options)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundHalfToEven() {
+	fn := "round"
+	options := compute.RoundOptions{NDigits: 0, Mode: compute.RoundHalfToEven}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, options)
+
+			values := ds.getArr(ty, `["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null]`)
+			defer values.Release()
+			input := &compute.ArrayDatum{values.Data()}
+
+			exp0 := ds.getArr(ty, `["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.00", "2.00", "2.00", "-6.00", "-3.00", null]`)
+			defer exp0.Release()
+
+			exp1 := ds.getArr(ty, `["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.20", "1.50", "2.50", "-5.50", "-2.60", null]`)
+			defer exp1.Release()
+
+			expNeg1 := ds.getArr(ty, `["0.00", "10.00", "0.00", "-40.00", "-40.00", "-40.00", "0.00", "0.00", "-10.00", "0.00", null]`)
+			defer expNeg1.Release()
+
+			options.NDigits = 0
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp0.Data()}, options)
+			options.NDigits = 1
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp1.Data()}, options)
+			options.NDigits = 2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 4
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 100
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -1
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{expNeg1.Data()}, options)
+			options.NDigits = -2
+			ds.checkFail(fn, []compute.Datum{input}, "rounding to -2 digits will not fit in precision", options)
+			options.NDigits = -1
+			noprec := ds.getArr(ty, `["99.99"]`)
+			defer noprec.Release()
+			ds.checkFail(fn, []compute.Datum{&compute.ArrayDatum{noprec.Data()}}, "rounded value 100.00 does not fit in precision", options)
+		})
+	}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 2, Scale: -2}, &arrow.Decimal256Type{Precision: 2, Scale: -2}} {
+		ds.Run(ty.String(), func() {
+			values := ds.getArr(ty, `["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null]`)
+			defer values.Release()
+
+			input := &compute.ArrayDatum{values.Data()}
+
+			options.NDigits = 0
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = 100
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -1
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -2
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+			options.NDigits = -3
+			res := ds.getArr(ty, `["0", "10E2", "10E2", "20E2", "20E2", "-10E2", "-10E2", "-20E2", "-20E2", null]`)
+			defer res.Release()
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{res.Data()}, options)
+
+			options.NDigits = -4
+			ds.checkFail(fn, []compute.Datum{input}, "rounding to -4 digits will not fit in precision", options)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundCeil() {
+	fn := "ceil"
+	for _, ty := range ds.positiveScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			in := ds.getArr(ty, `["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null]`)
+			defer in.Release()
+			out := ds.getArr(ty, `["1.00", "2.00", "2.00", "-42.00", "-42.00", "-42.00", null]`)
+			defer out.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}},
+				&compute.ArrayDatum{out.Data()}, nil)
+		})
+	}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			sc, _ := scalar.MakeScalarParam("99.99", ty)
+			ds.checkFail(fn, []compute.Datum{compute.NewDatum(sc)}, "rounded value 100.00 does not fit in precision of decimal", nil)
+			sc, _ = scalar.MakeScalarParam("-99.99", ty)
+			out, _ := scalar.MakeScalarParam("-99.00", ty)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(sc)}, compute.NewDatum(out), nil)
+		})
+	}
+	for _, ty := range ds.negativeScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			ex := ds.getArr(ty, `["12E2", "-42E2", null]`)
+			defer ex.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{ex.Data()}},
+				&compute.ArrayDatum{ex.Data()}, nil)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundFloor() {
+	fn := "floor"
+	for _, ty := range ds.positiveScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			in := ds.getArr(ty, `["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null]`)
+			defer in.Release()
+			out := ds.getArr(ty, `["1.00", "1.00", "1.00", "-42.00", "-43.00", "-43.00", null]`)
+			defer out.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}},
+				&compute.ArrayDatum{out.Data()}, nil)
+		})
+	}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			sc, _ := scalar.MakeScalarParam("-99.99", ty)
+			ds.checkFail(fn, []compute.Datum{compute.NewDatum(sc)}, "rounded value -100.00 does not fit in precision of decimal", nil)
+			sc, _ = scalar.MakeScalarParam("99.99", ty)
+			out, _ := scalar.MakeScalarParam("99.00", ty)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(sc)}, compute.NewDatum(out), nil)
+		})
+	}
+	for _, ty := range ds.negativeScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			ex := ds.getArr(ty, `["12E2", "-42E2", null]`)
+			defer ex.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{ex.Data()}},
+				&compute.ArrayDatum{ex.Data()}, nil)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundTrunc() {
+	fn := "trunc"
+	for _, ty := range ds.positiveScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			in := ds.getArr(ty, `["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null]`)
+			defer in.Release()
+			out := ds.getArr(ty, `["1.00", "1.00", "1.00", "-42.00", "-42.00", "-42.00", null]`)
+			defer out.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{in.Data()}},
+				&compute.ArrayDatum{out.Data()}, nil)
+		})
+	}
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			sc, _ := scalar.MakeScalarParam("99.99", ty)
+			out, _ := scalar.MakeScalarParam("99.00", ty)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(sc)}, compute.NewDatum(out), nil)
+			sc, _ = scalar.MakeScalarParam("-99.99", ty)
+			out, _ = scalar.MakeScalarParam("-99.00", ty)
+			checkScalar(ds.T(), fn, []compute.Datum{compute.NewDatum(sc)}, compute.NewDatum(out), nil)
+		})
+	}
+	for _, ty := range ds.negativeScales() {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}},
+				&compute.ArrayDatum{empty.Data()}, nil)
+
+			ex := ds.getArr(ty, `["12E2", "-42E2", null]`)
+			defer ex.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{ex.Data()}},
+				&compute.ArrayDatum{ex.Data()}, nil)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundToMultiple() {
+	fn := "round_to_multiple"
+	var options compute.RoundToMultipleOptions
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			if ty.ID() == arrow.DECIMAL128 {
+				options.Multiple, _ = scalar.MakeScalarParam(decimal128.FromI64(200), ty)
+			} else {
+				options.Multiple, _ = scalar.MakeScalarParam(decimal256.FromI64(200), ty)
+			}
+
+			values := ds.getArr(ty, `["-3.50", "-3.00", "-2.50", "-2.00", "-1.50", "-1.00", "-0.50", "0.00", "0.50", "1.00", "1.50", "2.00", "2.50", "3.00", "3.50", null]`)
+			defer values.Release()
+
+			input := []compute.Datum{&compute.ArrayDatum{values.Data()}}
+
+			tests := []struct {
+				mode compute.RoundMode
+				exp  string
+			}{
+				{compute.RoundDown, `["-4.00", "-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "0.00", "0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", null]`},
+				{compute.RoundUp, `["-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "-0.00", "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", "4.00", "4.00", null]`},
+				{compute.RoundTowardsZero, `["-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "-0.00", "0.00", "0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", null]`},
+				{compute.RoundTowardsInfinity, `["-4.00", "-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", "4.00", "4.00", null]`},
+				{compute.RoundHalfDown, `["-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", null]`},
+				{compute.RoundHalfUp, `["-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", "4.00", null]`},
+				{compute.RoundHalfTowardsZero, `["-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", null]`},
+				{compute.RoundHalfTowardsInfinity, `["-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", "4.00", null]`},
+				{compute.RoundHalfToEven, `["-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "4.00", "4.00", null]`},
+				{compute.RoundHalfToOdd, `["-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", "2.00", "4.00", null]`},
+			}
+
+			for _, tt := range tests {
+				ds.Run(tt.mode.String(), func() {
+					options.Mode = tt.mode
+
+					result := ds.getArr(ty, tt.exp)
+					defer result.Release()
+
+					checkScalar(ds.T(), fn, input, &compute.ArrayDatum{result.Data()}, options)
+				})
+			}
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundToMultipleTowardsInfinity() {
+	fn := "round_to_multiple"
+	options := compute.RoundToMultipleOptions{Mode: compute.RoundTowardsInfinity}
+	setMultiple := func(ty arrow.DataType, val int64) {
+		if ty.ID() == arrow.DECIMAL128 {
+			options.Multiple = scalar.NewDecimal128Scalar(decimal128.FromI64(val), ty)
+		} else {
+			options.Multiple = scalar.NewDecimal256Scalar(decimal256.FromI64(val), ty)
+		}
+	}
+
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		ds.Run(ty.String(), func() {
+			empty := ds.getArr(ty, `[]`)
+			defer empty.Release()
+
+			values := ds.getArr(ty, `["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null]`)
+			defer values.Release()
+
+			input := &compute.ArrayDatum{values.Data()}
+
+			setMultiple(ty, 25)
+			checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, options)
+
+			exp25 := ds.getArr(ty, `["1.00", "2.00", "1.25", "-42.00", "-43.00", "-42.25", null]`)
+			defer exp25.Release()
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp25.Data()}, options)
+
+			setMultiple(ty, 1)
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+
+			setMultiple(&arrow.Decimal128Type{Precision: 2, Scale: 0}, 2)
+			exp20 := ds.getArr(ty, `["2.00", "2.00", "2.00", "-42.00", "-44.00", "-44.00", null]`)
+			defer exp20.Release()
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp20.Data()}, options)
+
+			setMultiple(ty, 0)
+			ds.checkFail(fn, []compute.Datum{input}, "rounding multiple must be positive", options)
+
+			options.Multiple = scalar.NewDecimal128Scalar(decimal128.Num{}, &arrow.Decimal128Type{Precision: 4, Scale: 2})
+			ds.checkFail(fn, []compute.Datum{input}, "rounding multiple must be positive", options)
+
+			tester := ds.getArr(ty, `["99.99"]`)
+			defer tester.Release()
+
+			testDatum := &compute.ArrayDatum{tester.Data()}
+
+			setMultiple(ty, -10)
+			ds.checkFail(fn, []compute.Datum{testDatum}, "rounding multiple must be positive", options)
+			setMultiple(ty, 100)
+			ds.checkFail(fn, []compute.Datum{testDatum}, "rounded value 100.00 does not fit in precision", options)
+			options.Multiple = scalar.NewFloat64Scalar(1)
+			ds.checkFail(fn, []compute.Datum{testDatum}, "rounded value 100.00 does not fit in precision", options)
+			options.Multiple = scalar.MakeNullScalar(&arrow.Decimal128Type{Precision: 3})
+			ds.checkFail(fn, []compute.Datum{testDatum}, "rounding multiple must be non-null and valid", options)
+			options.Multiple = nil
+			ds.checkFail(fn, []compute.Datum{testDatum}, "rounding multiple must be non-null and valid", options)
+		})
+	}
+
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 2, Scale: -2}, &arrow.Decimal256Type{Precision: 2, Scale: -2}} {
+		ds.Run(ty.String(), func() {
+			values := ds.getArr(ty, `["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null]`)
+			defer values.Release()
+
+			input := &compute.ArrayDatum{values.Data()}
+
+			setMultiple(ty, 4)
+			exp := ds.getArr(ty, `["12E2", "12E2", "20E2", "-12E2", "-12E2", "-20E2", null]`)
+			defer exp.Release()
+
+			checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp.Data()}, options)
+
+			setMultiple(ty, 1)
+			checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+		})
+	}
+}
+
+func (ds *DecimalUnaryArithmeticSuite) TestRoundToMultipleHalfToOdd() {
+	fn := "round_to_multiple"
+	options := compute.RoundToMultipleOptions{Mode: compute.RoundHalfToOdd}
+	setMultiple := func(ty arrow.DataType, val int64) {
+		if ty.ID() == arrow.DECIMAL128 {
+			options.Multiple = scalar.NewDecimal128Scalar(decimal128.FromI64(val), ty)
+		} else {
+			options.Multiple = scalar.NewDecimal256Scalar(decimal256.FromI64(val), ty)
+		}
+	}
+
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 4, Scale: 2}, &arrow.Decimal256Type{Precision: 4, Scale: 2}} {
+		empty := ds.getArr(ty, `[]`)
+		defer empty.Release()
+
+		values := ds.getArr(ty, `["-0.38", "-0.37", "-0.25", "-0.13", "-0.12", "0.00", "0.12", "0.13", "0.25", "0.37", "0.38", null]`)
+		defer values.Release()
+
+		input := &compute.ArrayDatum{values.Data()}
+
+		// there is no exact halfway point, check what happens
+		setMultiple(ty, 25)
+		checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, options)
+
+		exp25 := ds.getArr(ty, `["-0.50", "-0.25", "-0.25", "-0.25", "-0.00", "0.00", "0.00", "0.25", "0.25", "0.25", "0.50", null]`)
+		defer exp25.Release()
+
+		checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp25.Data()}, options)
+
+		setMultiple(ty, 1)
+		checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+		setMultiple(ty, 24)
+		checkScalar(ds.T(), fn, []compute.Datum{&compute.ArrayDatum{empty.Data()}}, &compute.ArrayDatum{empty.Data()}, options)
+
+		exp24 := ds.getArr(ty, `["-0.48", "-0.48", "-0.24", "-0.24", "-0.24", "0.00", "0.24", "0.24", "0.24", "0.48", "0.48", null]`)
+		defer exp24.Release()
+		checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp24.Data()}, options)
+
+		setMultiple(&arrow.Decimal128Type{Precision: 3, Scale: 1}, 1)
+		exp1 := ds.getArr(ty, `["-0.40", "-0.40", "-0.30", "-0.10", "-0.10", "0.00", "0.10", "0.10", "0.30", "0.40", "0.40", null]`)
+		defer exp1.Release()
+
+		checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp1.Data()}, options)
+	}
+
+	for _, ty := range []arrow.DataType{&arrow.Decimal128Type{Precision: 2, Scale: -2}, &arrow.Decimal256Type{Precision: 2, Scale: -2}} {
+		values := ds.getArr(ty, `["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null]`)
+		defer values.Release()
+
+		exp4 := ds.getArr(ty, `["12E2", "12E2", "20E2", "-12E2", "-12E2", "-20E2", null]`)
+		defer exp4.Release()
+
+		exp5 := ds.getArr(ty, `["10E2", "10E2", "20E2", "-10E2", "-10E2", "-20E2", null]`)
+		defer exp5.Release()
+
+		input := &compute.ArrayDatum{values.Data()}
+		setMultiple(ty, 4)
+		checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp4.Data()}, options)
+
+		setMultiple(ty, 5)
+		checkScalar(ds.T(), fn, []compute.Datum{input}, &compute.ArrayDatum{exp5.Data()}, options)
+
+		setMultiple(ty, 1)
+		checkScalar(ds.T(), fn, []compute.Datum{input}, input, options)
+	}
+}
+
 type ScalarBinaryTemporalArithmeticSuite struct {
 	BinaryFuncTestSuite
 }
@@ -1404,12 +2286,12 @@ func (s *ScalarBinaryTemporalArithmeticSuite) TestTemporalAddSub() {
 					// we get back time32/time64 in those cases and can
 					// compare them accurately.
 					if arrow.TypeEqual(arr1.DataType(), out.(*compute.ArrayDatum).Type()) {
-						assertDatumsEqual(s.T(), datum1, out)
+						assertDatumsEqual(s.T(), datum1, out, nil, nil)
 					} else {
 						casted, err := compute.CastDatum(s.ctx, out, compute.SafeCastOptions(arr1.DataType()))
 						s.Require().NoError(err)
 						defer casted.Release()
-						assertDatumsEqual(s.T(), datum1, casted)
+						assertDatumsEqual(s.T(), datum1, casted, nil, nil)
 					}
 
 				})
@@ -1457,91 +2339,156 @@ func TestUnaryDispatchBest(t *testing.T) {
 			}
 		})
 	}
+
+	// float types (with _unchecked variants)
+	for _, fn := range []string{"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+			t.Run(fn, func(t *testing.T) {
+				for _, ty := range floatingTypes {
+					t.Run(ty.String(), func(t *testing.T) {
+						CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{ty})
+						CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+							[]arrow.DataType{ty})
+					})
+				}
+			})
+		}
+	}
+
+	// float types (without _unchecked variants)
+	for _, fn := range []string{"atan", "sign", "floor", "ceil", "trunc", "round"} {
+		t.Run(fn, func(t *testing.T) {
+			for _, ty := range floatingTypes {
+				t.Run(ty.String(), func(t *testing.T) {
+					CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{ty})
+					CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+						[]arrow.DataType{ty})
+				})
+			}
+		})
+	}
+
+	// integer -> float64 (with _unchecked variant)
+	for _, fn := range []string{"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos"} {
+		for _, suffix := range []string{"", "_unchecked"} {
+			fn += suffix
+			t.Run(fn, func(t *testing.T) {
+				for _, ty := range integerTypes {
+					t.Run(ty.String(), func(t *testing.T) {
+						CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{arrow.PrimitiveTypes.Float64})
+						CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+							[]arrow.DataType{arrow.PrimitiveTypes.Float64})
+					})
+				}
+			})
+		}
+	}
+
+	// integer -> float64 (without _unchecked variants)
+	for _, fn := range []string{"atan", "floor", "ceil", "trunc", "round"} {
+		t.Run(fn, func(t *testing.T) {
+			for _, ty := range integerTypes {
+				t.Run(ty.String(), func(t *testing.T) {
+					CheckDispatchBest(t, fn, []arrow.DataType{ty}, []arrow.DataType{arrow.PrimitiveTypes.Float64})
+					CheckDispatchBest(t, fn, []arrow.DataType{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: ty}},
+						[]arrow.DataType{arrow.PrimitiveTypes.Float64})
+				})
+			}
+		})
+	}
 }
 
 func TestUnaryArithmeticNull(t *testing.T) {
-	for _, fn := range []string{"abs", "negate"} {
+	for _, fn := range []string{"abs", "negate", "acos", "asin", "cos", "ln", "log10", "log1p", "log2", "sin", "tan"} {
 		for _, suffix := range []string{"", "_unchecked"} {
 			fn += suffix
 			assertNullToNull(t, context.TODO(), fn, memory.DefaultAllocator)
 		}
 	}
 
-	for _, fn := range []string{"sign"} {
+	for _, fn := range []string{"sign", "atan", "bit_wise_not", "floor", "ceil", "trunc", "round"} {
 		assertNullToNull(t, context.TODO(), fn, memory.DefaultAllocator)
 	}
 }
 
-type UnaryArithmeticSuite[T exec.NumericTypes] struct {
+type UnaryArithmeticSuite[T exec.NumericTypes, O fnOpts] struct {
 	suite.Suite
 
 	mem *memory.CheckedAllocator
 	ctx context.Context
 
-	opts compute.ArithmeticOptions
+	opts O
 }
 
-func (b *UnaryArithmeticSuite[T]) SetupTest() {
-	b.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
-	b.ctx = compute.WithAllocator(context.TODO(), b.mem)
-	b.opts = compute.ArithmeticOptions{}
+func (us *UnaryArithmeticSuite[T, O]) SetupTest() {
+	us.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+	us.ctx = compute.WithAllocator(context.TODO(), us.mem)
+	var def O
+	us.opts = def
 }
 
-func (b *UnaryArithmeticSuite[T]) TearDownTest() {
-	b.mem.AssertSize(b.T(), 0)
+func (us *UnaryArithmeticSuite[T, O]) TearDownTest() {
+	us.mem.AssertSize(us.T(), 0)
 }
 
-func (b *UnaryArithmeticSuite[T]) setOverflowCheck(v bool) {
-	b.opts.NoCheckOverflow = !v
-}
-
-func (*UnaryArithmeticSuite[T]) datatype() arrow.DataType {
+func (*UnaryArithmeticSuite[T, O]) datatype() arrow.DataType {
 	return exec.GetDataType[T]()
 }
 
-func (us *UnaryArithmeticSuite[T]) makeNullScalar() scalar.Scalar {
+func (us *UnaryArithmeticSuite[T, O]) makeNullScalar() scalar.Scalar {
 	return scalar.MakeNullScalar(us.datatype())
 }
 
-func (us *UnaryArithmeticSuite[T]) makeScalar(v T) scalar.Scalar {
+func (us *UnaryArithmeticSuite[T, O]) makeScalar(v T) scalar.Scalar {
 	return scalar.MakeScalar(v)
 }
 
-func (us *UnaryArithmeticSuite[T]) assertUnaryOpValError(fn unaryArithmeticFunc, arg T, msg string) {
+func (us *UnaryArithmeticSuite[T, O]) makeArray(v ...T) arrow.Array {
+	return exec.ArrayFromSlice(us.mem, v)
+}
+
+func (us *UnaryArithmeticSuite[T, O]) getArr(dt arrow.DataType, str string) arrow.Array {
+	arr, _, err := array.FromJSON(us.mem, dt, strings.NewReader(str), array.WithUseNumber())
+	us.Require().NoError(err)
+	return arr
+}
+
+func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpValError(fn unaryArithmeticFunc[O], arg T, msg string) {
 	in := us.makeScalar(arg)
 	_, err := fn(us.ctx, us.opts, compute.NewDatum(in))
 	us.ErrorIs(err, arrow.ErrInvalid)
 	us.ErrorContains(err, msg)
 }
 
-func (us *UnaryArithmeticSuite[T]) assertUnaryOpNotImplemented(fn unaryArithmeticFunc, arg T, msg string) {
+func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpNotImplemented(fn unaryArithmeticFunc[O], arg T, msg string) {
 	in := us.makeScalar(arg)
 	_, err := fn(us.ctx, us.opts, compute.NewDatum(in))
 	us.ErrorIs(err, arrow.ErrNotImplemented)
 	us.ErrorContains(err, msg)
 }
 
-func (us *UnaryArithmeticSuite[T]) assertUnaryOpVals(fn unaryArithmeticFunc, arg, expected T) {
+func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpVals(fn unaryArithmeticFunc[O], arg, expected T) {
 	in := us.makeScalar(arg)
 	exp := us.makeScalar(expected)
 
 	actual, err := fn(us.ctx, us.opts, compute.NewDatum(in))
 	us.Require().NoError(err)
-	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value)
+	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value, scalar.WithNaNsEqual(true))
 }
 
-func (us *UnaryArithmeticSuite[T]) assertUnaryOpScalars(fn unaryArithmeticFunc, arg, exp scalar.Scalar) {
+func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpScalars(fn unaryArithmeticFunc[O], arg, exp scalar.Scalar) {
 	actual, err := fn(us.ctx, us.opts, compute.NewDatum(arg))
 	us.Require().NoError(err)
-	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value)
+	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value, scalar.WithNaNsEqual(true))
 }
 
-func (us *UnaryArithmeticSuite[T]) assertUnaryOpArrs(fn unaryArithmeticFunc, arg, exp arrow.Array) {
+func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpArrs(fn unaryArithmeticFunc[O], arg, exp arrow.Array) {
 	datum := &compute.ArrayDatum{arg.Data()}
 	actual, err := fn(us.ctx, us.opts, datum)
 	us.Require().NoError(err)
 	defer actual.Release()
-	assertDatumsEqual(us.T(), &compute.ArrayDatum{exp.Data()}, actual)
+	assertDatumsEqual(us.T(), &compute.ArrayDatum{exp.Data()}, actual, []array.EqualOption{array.WithNaNsEqual(true)}, []scalar.EqualOption{scalar.WithNaNsEqual(true)})
 
 	// also check scalar ops
 	for i := 0; i < arg.Len(); i++ {
@@ -1552,11 +2499,19 @@ func (us *UnaryArithmeticSuite[T]) assertUnaryOpArrs(fn unaryArithmeticFunc, arg
 
 		actual, err := fn(us.ctx, us.opts, compute.NewDatum(argScalar))
 		us.Require().NoError(err)
-		assertDatumsEqual(us.T(), compute.NewDatum(expScalar), compute.NewDatum(actual))
+		assertDatumsEqual(us.T(), compute.NewDatum(expScalar), compute.NewDatum(actual), []array.EqualOption{array.WithNaNsEqual(true)}, []scalar.EqualOption{scalar.WithNaNsEqual(true)})
 	}
 }
 
-func (us *UnaryArithmeticSuite[T]) assertUnaryOp(fn unaryArithmeticFunc, arg, exp string) {
+func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpExpArr(fn unaryArithmeticFunc[O], arg string, exp arrow.Array) {
+	in, _, err := array.FromJSON(us.mem, us.datatype(), strings.NewReader(arg), array.WithUseNumber())
+	us.Require().NoError(err)
+	defer in.Release()
+
+	us.assertUnaryOpArrs(fn, in, exp)
+}
+
+func (us *UnaryArithmeticSuite[T, O]) assertUnaryOp(fn unaryArithmeticFunc[O], arg, exp string) {
 	in, _, err := array.FromJSON(us.mem, us.datatype(), strings.NewReader(arg), array.WithUseNumber())
 	us.Require().NoError(err)
 	defer in.Release()
@@ -1567,8 +2522,84 @@ func (us *UnaryArithmeticSuite[T]) assertUnaryOp(fn unaryArithmeticFunc, arg, ex
 	us.assertUnaryOpArrs(fn, in, expected)
 }
 
+func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpErr(fn unaryArithmeticFunc[O], arg string, msg string) {
+	in, _, err := array.FromJSON(us.mem, us.datatype(), strings.NewReader(arg), array.WithUseNumber())
+	us.Require().NoError(err)
+	defer in.Release()
+
+	_, err = fn(us.ctx, us.opts, &compute.ArrayDatum{in.Data()})
+	us.ErrorIs(err, arrow.ErrInvalid)
+	us.ErrorContains(err, msg)
+}
+
+type UnaryArithmeticIntegral[T exec.IntTypes | exec.UintTypes] struct {
+	UnaryArithmeticSuite[T, compute.ArithmeticOptions]
+}
+
+func (us *UnaryArithmeticIntegral[T]) setOverflowCheck(v bool) {
+	us.opts.NoCheckOverflow = !v
+}
+
+func (us *UnaryArithmeticIntegral[T]) TestTrig() {
+	// integer arguments promoted to float64, sanity check here
+	atan := func(ctx context.Context, _ compute.ArithmeticOptions, arg compute.Datum) (compute.Datum, error) {
+		return compute.Atan(ctx, arg)
+	}
+
+	input := us.makeArray(0, 1)
+	defer input.Release()
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		sinOut := us.getArr(arrow.PrimitiveTypes.Float64, `[0, 0.8414709848078965]`)
+		defer sinOut.Release()
+		cosOut := us.getArr(arrow.PrimitiveTypes.Float64, `[1, 0.5403023058681398]`)
+		defer cosOut.Release()
+		tanOut := us.getArr(arrow.PrimitiveTypes.Float64, `[0, 1.5574077246549023]`)
+		defer tanOut.Release()
+		asinOut := us.getArr(arrow.PrimitiveTypes.Float64, fmt.Sprintf("[0, %f]", math.Pi/2))
+		defer asinOut.Release()
+		acosOut := us.getArr(arrow.PrimitiveTypes.Float64, fmt.Sprintf("[%f, 0]", math.Pi/2))
+		defer acosOut.Release()
+		atanOut := us.getArr(arrow.PrimitiveTypes.Float64, fmt.Sprintf("[0, %f]", math.Pi/4))
+		defer atanOut.Release()
+
+		us.assertUnaryOpArrs(compute.Sin, input, sinOut)
+		us.assertUnaryOpArrs(compute.Cos, input, cosOut)
+		us.assertUnaryOpArrs(compute.Tan, input, tanOut)
+		us.assertUnaryOpArrs(compute.Asin, input, asinOut)
+		us.assertUnaryOpArrs(compute.Acos, input, acosOut)
+		us.assertUnaryOpArrs(atan, input, atanOut)
+	}
+}
+
+func (us *UnaryArithmeticIntegral[T]) TestLog() {
+	// integer arguments promoted to double, sanity check here
+	ty := us.datatype()
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		exp1 := us.getArr(arrow.PrimitiveTypes.Float64, `[0, null]`)
+		defer exp1.Release()
+		exp2 := us.getArr(arrow.PrimitiveTypes.Float64, `[0, 1, null]`)
+		defer exp2.Release()
+
+		ln := us.getArr(ty, `[1, null]`)
+		defer ln.Release()
+		log10 := us.getArr(ty, `[1, 10, null]`)
+		defer log10.Release()
+		log2 := us.getArr(ty, `[1, 2, null]`)
+		defer log2.Release()
+		log1p := us.getArr(ty, `[0, null]`)
+		defer log1p.Release()
+
+		us.assertUnaryOpArrs(compute.Ln, ln, exp1)
+		us.assertUnaryOpArrs(compute.Log10, log10, exp2)
+		us.assertUnaryOpArrs(compute.Log2, log2, exp2)
+		us.assertUnaryOpArrs(compute.Log1p, log1p, exp1)
+	}
+}
+
 type UnaryArithmeticSigned[T exec.IntTypes] struct {
-	UnaryArithmeticSuite[T]
+	UnaryArithmeticIntegral[T]
 }
 
 func (us *UnaryArithmeticSigned[T]) TestAbsoluteValue() {
@@ -1648,7 +2679,7 @@ func (us *UnaryArithmeticSigned[T]) TestNegate() {
 }
 
 type UnaryArithmeticUnsigned[T exec.UintTypes] struct {
-	UnaryArithmeticSuite[T]
+	UnaryArithmeticIntegral[T]
 }
 
 func (us *UnaryArithmeticUnsigned[T]) TestAbsoluteValue() {
@@ -1696,9 +2727,14 @@ func (us *UnaryArithmeticUnsigned[T]) TestNegate() {
 }
 
 type UnaryArithmeticFloating[T constraints.Float] struct {
-	UnaryArithmeticSuite[T]
+	UnaryArithmeticSuite[T, compute.ArithmeticOptions]
 
 	min, max T
+	smallest T
+}
+
+func (us *UnaryArithmeticFloating[T]) setOverflowCheck(v bool) {
+	us.opts.NoCheckOverflow = !v
 }
 
 func (us *UnaryArithmeticFloating[T]) TestAbsoluteValue() {
@@ -1760,6 +2796,161 @@ func (us *UnaryArithmeticFloating[T]) TestNegate() {
 	})
 }
 
+func (us *UnaryArithmeticFloating[T]) TestTrigSin() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Sin, `["Inf", "-Inf"]`, `["NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Sin, `[]`, `[]`)
+		us.assertUnaryOp(compute.Sin, `[null, "NaN"]`, `[null, "NaN"]`)
+		arr := us.makeArray(0, math.Pi/2, math.Pi)
+		exp := us.makeArray(0, 1, 0)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Sin, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Sin, `["Inf", "-Inf"]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigCos() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Cos, `["Inf", "-Inf"]`, `["NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Cos, `[]`, `[]`)
+		us.assertUnaryOp(compute.Cos, `[null, "NaN"]`, `[null, "NaN"]`)
+		arr := us.makeArray(0, math.Pi/2, math.Pi)
+		exp := us.makeArray(1, 0, -1)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Cos, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Cos, `["Inf", "-Inf"]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigTan() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Tan, `["Inf", "-Inf"]`, `["NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Tan, `[]`, `[]`)
+		us.assertUnaryOp(compute.Tan, `[null, "NaN"]`, `[null, "NaN"]`)
+		// pi/2 isn't representable exactly -> there are no poles
+		// (i.e. tan(pi/2) is merely a large value and not +Inf)
+		arr := us.makeArray(0, math.Pi)
+		exp := us.makeArray(0, 0)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Tan, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Tan, `["Inf", "-Inf"]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigAsin() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Asin, `["Inf", "-Inf", -2, 2]`, `["NaN", "NaN", "NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Asin, `[]`, `[]`)
+		us.assertUnaryOp(compute.Asin, `[null, "NaN"]`, `[null, "NaN"]`)
+		arr := us.makeArray(0, 1, -1)
+		exp := us.makeArray(0, math.Pi/2, -math.Pi/2)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Asin, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Asin, `["Inf", "-Inf", -2, 2]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigAcos() {
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Acos, `["Inf", "-Inf", -2, 2]`, `["NaN", "NaN", "NaN", "NaN"]`)
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.assertUnaryOp(compute.Acos, `[]`, `[]`)
+		us.assertUnaryOp(compute.Acos, `[null, "NaN"]`, `[null, "NaN"]`)
+		arr := us.makeArray(0, 1, -1)
+		exp := us.makeArray(math.Pi/2, 0, math.Pi)
+		defer arr.Release()
+		defer exp.Release()
+		us.assertUnaryOpArrs(compute.Acos, arr, exp)
+	}
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Acos, `["Inf", "-Inf", -2, 2]`, "domain error")
+}
+
+func (us *UnaryArithmeticFloating[T]) TestTrigAtan() {
+	us.setOverflowCheck(false)
+	atan := func(ctx context.Context, _ compute.ArithmeticOptions, arg compute.Datum) (compute.Datum, error) {
+		return compute.Atan(ctx, arg)
+	}
+	us.assertUnaryOp(atan, `[]`, `[]`)
+	us.assertUnaryOp(atan, `[null, "NaN"]`, `[null, "NaN"]`)
+
+	arr := us.makeArray(0, 1, -1, T(math.Inf(1)), T(math.Inf(-1)))
+	exp := us.makeArray(0, math.Pi/4, -math.Pi/4, math.Pi/2, -math.Pi/2)
+	defer arr.Release()
+	defer exp.Release()
+	us.assertUnaryOpArrs(atan, arr, exp)
+}
+
+func (us *UnaryArithmeticFloating[T]) TestLog() {
+	for _, overflow := range []bool{false, true} {
+		us.setOverflowCheck(overflow)
+		us.Run(fmt.Sprintf("checked=%t", overflow), func() {
+			us.assertUnaryOp(compute.Ln, `[1, 2.718281828459045, null, "NaN", "Inf"]`,
+				`[0, 1, null, "NaN", "Inf"]`)
+			us.assertUnaryOpVals(compute.Ln, us.smallest, T(math.Log(float64(us.smallest))))
+			us.assertUnaryOpVals(compute.Ln, us.max, T(math.Log(float64(us.max))))
+			us.assertUnaryOp(compute.Log10, `[1, 10, null, "NaN", "Inf"]`, `[0, 1, null, "NaN", "Inf"]`)
+			us.assertUnaryOpVals(compute.Log10, us.smallest, T(math.Log10(float64(us.smallest))))
+			us.assertUnaryOpVals(compute.Log10, us.max, T(math.Log10(float64(us.max))))
+			us.assertUnaryOp(compute.Log2, `[1, 2, null, "NaN", "Inf"]`, `[0, 1, null, "NaN", "Inf"]`)
+			us.assertUnaryOpVals(compute.Log2, us.smallest, T(math.Log2(float64(us.smallest))))
+			us.assertUnaryOpVals(compute.Log2, us.max, T(math.Log2(float64(us.max))))
+			us.assertUnaryOp(compute.Log1p, `[0, 1.718281828459045, null, "NaN", "Inf"]`, `[0, 1, null, "NaN", "Inf"]`)
+			us.assertUnaryOpVals(compute.Log1p, us.smallest, T(math.Log1p(float64(us.smallest))))
+			us.assertUnaryOpVals(compute.Log1p, us.max, T(math.Log1p(float64(us.max))))
+		})
+	}
+
+	us.setOverflowCheck(false)
+	us.assertUnaryOp(compute.Ln, `["-Inf", -1, 0, "Inf"]`, `["NaN", "NaN", "-Inf", "Inf"]`)
+	us.assertUnaryOp(compute.Log10, `["-Inf", -1, 0, "Inf"]`, `["NaN", "NaN", "-Inf", "Inf"]`)
+	us.assertUnaryOp(compute.Log2, `["-Inf", -1, 0, "Inf"]`, `["NaN", "NaN", "-Inf", "Inf"]`)
+	us.assertUnaryOp(compute.Log1p, `["-Inf", -2, -1, "Inf"]`, `["NaN", "NaN", "-Inf", "Inf"]`)
+
+	us.setOverflowCheck(true)
+	us.assertUnaryOpErr(compute.Ln, `[0]`, "logarithm of zero")
+	us.assertUnaryOpErr(compute.Ln, `[-1]`, "logarithm of negative number")
+	us.assertUnaryOpErr(compute.Ln, `["-Inf"]`, "logarithm of negative number")
+	us.assertUnaryOpValError(compute.Ln, us.min, "logarithm of negative number")
+
+	us.assertUnaryOpErr(compute.Log10, `[0]`, "logarithm of zero")
+	us.assertUnaryOpErr(compute.Log10, `[-1]`, "logarithm of negative number")
+	us.assertUnaryOpErr(compute.Log10, `["-Inf"]`, "logarithm of negative number")
+	us.assertUnaryOpValError(compute.Log10, us.min, "logarithm of negative number")
+
+	us.assertUnaryOpErr(compute.Log2, `[0]`, "logarithm of zero")
+	us.assertUnaryOpErr(compute.Log2, `[-1]`, "logarithm of negative number")
+	us.assertUnaryOpErr(compute.Log2, `["-Inf"]`, "logarithm of negative number")
+	us.assertUnaryOpValError(compute.Log2, us.min, "logarithm of negative number")
+
+	us.assertUnaryOpErr(compute.Log1p, `[-1]`, "logarithm of zero")
+	us.assertUnaryOpErr(compute.Log1p, `[-2]`, "logarithm of negative number")
+	us.assertUnaryOpErr(compute.Log1p, `["-Inf"]`, "logarithm of negative number")
+	us.assertUnaryOpValError(compute.Log1p, us.min, "logarithm of negative number")
+}
+
 func TestUnaryArithmetic(t *testing.T) {
 	suite.Run(t, new(UnaryArithmeticSigned[int8]))
 	suite.Run(t, new(UnaryArithmeticSigned[int16]))
@@ -1769,8 +2960,8 @@ func TestUnaryArithmetic(t *testing.T) {
 	suite.Run(t, new(UnaryArithmeticUnsigned[uint16]))
 	suite.Run(t, new(UnaryArithmeticUnsigned[uint32]))
 	suite.Run(t, new(UnaryArithmeticUnsigned[uint64]))
-	suite.Run(t, &UnaryArithmeticFloating[float32]{min: -math.MaxFloat32, max: math.MaxFloat32})
-	suite.Run(t, &UnaryArithmeticFloating[float64]{min: -math.MaxFloat64, max: math.MaxFloat64})
+	suite.Run(t, &UnaryArithmeticFloating[float32]{min: -math.MaxFloat32, max: math.MaxFloat32, smallest: math.SmallestNonzeroFloat32})
+	suite.Run(t, &UnaryArithmeticFloating[float64]{min: -math.MaxFloat64, max: math.MaxFloat64, smallest: math.SmallestNonzeroFloat64})
 	suite.Run(t, new(DecimalUnaryArithmeticSuite))
 }
 
@@ -1809,7 +3000,7 @@ func (bs *BitwiseArithmeticSuite[T]) assertBinaryOp(fn string, arg0, arg1, expec
 	actual, err := compute.CallFunction(bs.ctx, fn, nil, &compute.ArrayDatum{in0.Data()}, &compute.ArrayDatum{in1.Data()})
 	bs.Require().NoError(err)
 	defer actual.Release()
-	assertDatumsEqual(bs.T(), &compute.ArrayDatum{out.Data()}, actual)
+	assertDatumsEqual(bs.T(), &compute.ArrayDatum{out.Data()}, actual, nil, nil)
 
 	for i := 0; i < out.Len(); i++ {
 		a0, err := scalar.GetScalar(in0, i)
@@ -1855,6 +3046,323 @@ func TestBitwiseArithmetic(t *testing.T) {
 	suite.Run(t, new(BitwiseArithmeticSuite[uint32]))
 	suite.Run(t, new(BitwiseArithmeticSuite[int64]))
 	suite.Run(t, new(BitwiseArithmeticSuite[uint64]))
+}
+
+var roundModes = []compute.RoundMode{
+	compute.RoundDown,
+	compute.RoundUp,
+	compute.RoundTowardsZero,
+	compute.RoundTowardsInfinity,
+	compute.RoundHalfDown,
+	compute.RoundHalfUp,
+	compute.RoundHalfTowardsZero,
+	compute.RoundHalfTowardsInfinity,
+	compute.RoundHalfToEven,
+	compute.RoundHalfToOdd,
+}
+
+type UnaryRoundSuite[T exec.NumericTypes] struct {
+	UnaryArithmeticSuite[T, compute.RoundOptions]
+}
+
+func (us *UnaryRoundSuite[T]) setRoundMode(mode compute.RoundMode) {
+	us.opts.Mode = mode
+}
+
+func (us *UnaryRoundSuite[T]) setRoundNDigits(v int64) {
+	us.opts.NDigits = v
+}
+
+type UnaryRoundToMultipleSuite[T exec.NumericTypes] struct {
+	UnaryArithmeticSuite[T, compute.RoundToMultipleOptions]
+}
+
+func (us *UnaryRoundToMultipleSuite[T]) setRoundMode(mode compute.RoundMode) {
+	us.opts.Mode = mode
+}
+
+func (us *UnaryRoundToMultipleSuite[T]) setRoundMultiple(val float64) {
+	us.opts.Multiple = scalar.NewFloat64Scalar(val)
+}
+
+type UnaryRoundIntegral[T exec.IntTypes | exec.UintTypes] struct {
+	UnaryRoundSuite[T]
+}
+
+type UnaryRoundToMultipleIntegral[T exec.IntTypes | exec.UintTypes] struct {
+	UnaryRoundToMultipleSuite[T]
+}
+
+type UnaryRoundSigned[T exec.IntTypes] struct {
+	UnaryRoundIntegral[T]
+}
+
+func (us *UnaryRoundSigned[T]) TestRound() {
+	values := `[0, 1, -13, -50, 115]`
+	us.setRoundNDigits(0)
+
+	arr := us.getArr(arrow.PrimitiveTypes.Float64, values)
+	defer arr.Release()
+	for _, mode := range roundModes {
+		us.setRoundMode(mode)
+		us.assertUnaryOpExpArr(compute.Round, values, arr)
+	}
+
+	// test different round N-digits for nearest rounding mode
+	ndigExpected := []struct {
+		n   int64
+		exp string
+	}{
+		{-2, `[0, 0, -0.0, -100, 100]`},
+		{-1, `[0.0, 0.0, -10, -50, 120]`},
+		{0, values},
+		{1, values},
+		{2, values},
+	}
+	us.setRoundMode(compute.RoundHalfTowardsInfinity)
+	for _, tt := range ndigExpected {
+		us.Run(fmt.Sprintf("ndigits=%d", tt.n), func() {
+			us.setRoundNDigits(tt.n)
+			arr := us.getArr(arrow.PrimitiveTypes.Float64, tt.exp)
+			defer arr.Release()
+			us.assertUnaryOpExpArr(compute.Round, values, arr)
+		})
+	}
+}
+
+type UnaryRoundToMultipleSigned[T exec.IntTypes] struct {
+	UnaryRoundToMultipleIntegral[T]
+}
+
+func (us *UnaryRoundToMultipleSigned[T]) TestRoundToMultiple() {
+	values := `[0, 1, -13, -50, 115]`
+	us.setRoundMultiple(1)
+	for _, mode := range roundModes {
+		us.setRoundMode(mode)
+		arr := us.getArr(arrow.PrimitiveTypes.Float64, values)
+		defer arr.Release()
+		us.assertUnaryOpExpArr(compute.RoundToMultiple, values, arr)
+	}
+
+	tests := []struct {
+		mult float64
+		exp  string
+	}{
+		{2, `[0.0, 2, -14, -50, 116]`},
+		{0.05, `[0.0, 1, -13, -50, 115]`},
+		{0.1, values},
+		{10, `[0.0, 0.0, -10, -50, 120]`},
+		{100, `[0.0, 0.0, -0.0, -100, 100]`},
+	}
+
+	us.setRoundMode(compute.RoundHalfTowardsInfinity)
+	for _, tt := range tests {
+		us.setRoundMultiple(tt.mult)
+		arr := us.getArr(arrow.PrimitiveTypes.Float64, tt.exp)
+		defer arr.Release()
+		us.assertUnaryOpExpArr(compute.RoundToMultiple, values, arr)
+	}
+}
+
+type UnaryRoundUnsigned[T exec.UintTypes] struct {
+	UnaryRoundIntegral[T]
+}
+
+func (us *UnaryRoundUnsigned[T]) TestRound() {
+	values := `[0, 1, 13, 50, 115]`
+	us.setRoundNDigits(0)
+
+	arr := us.getArr(arrow.PrimitiveTypes.Float64, values)
+	defer arr.Release()
+	for _, mode := range roundModes {
+		us.setRoundMode(mode)
+		us.assertUnaryOpExpArr(compute.Round, values, arr)
+	}
+
+	// test different round N-digits for nearest rounding mode
+	ndigExpected := []struct {
+		n   int64
+		exp string
+	}{
+		{-2, `[0, 0, 0, 100, 100]`},
+		{-1, `[0.0, 0.0, 10, 50, 120]`},
+		{0, values},
+		{1, values},
+		{2, values},
+	}
+	us.setRoundMode(compute.RoundHalfTowardsInfinity)
+	for _, tt := range ndigExpected {
+		us.Run(fmt.Sprintf("ndigits=%d", tt.n), func() {
+			us.setRoundNDigits(tt.n)
+			arr := us.getArr(arrow.PrimitiveTypes.Float64, tt.exp)
+			defer arr.Release()
+			us.assertUnaryOpExpArr(compute.Round, values, arr)
+		})
+	}
+}
+
+type UnaryRoundToMultipleUnsigned[T exec.UintTypes] struct {
+	UnaryRoundToMultipleIntegral[T]
+}
+
+func (us *UnaryRoundToMultipleUnsigned[T]) TestRoundToMultiple() {
+	values := `[0, 1, 13, 50, 115]`
+	us.setRoundMultiple(1)
+	for _, mode := range roundModes {
+		us.setRoundMode(mode)
+		arr := us.getArr(arrow.PrimitiveTypes.Float64, values)
+		defer arr.Release()
+		us.assertUnaryOpExpArr(compute.RoundToMultiple, values, arr)
+	}
+
+	tests := []struct {
+		mult float64
+		exp  string
+	}{
+		{0.05, `[0, 1, 13, 50, 115]`},
+		{0.1, values},
+		{2, `[0, 2, 14, 50, 116]`},
+		{10, `[0, 0, 10, 50, 120]`},
+		{100, `[0, 0, 0, 100, 100]`},
+	}
+
+	us.setRoundMode(compute.RoundHalfTowardsInfinity)
+	for _, tt := range tests {
+		us.setRoundMultiple(tt.mult)
+		arr := us.getArr(arrow.PrimitiveTypes.Float64, tt.exp)
+		defer arr.Release()
+		us.assertUnaryOpExpArr(compute.RoundToMultiple, values, arr)
+	}
+}
+
+type UnaryRoundFloating[T constraints.Float] struct {
+	UnaryRoundSuite[T]
+}
+
+func (us *UnaryRoundFloating[T]) TestRound() {
+	values := `[3.2, 3.5, 3.7, 4.5, -3.2, -3.5, -3.7]`
+	rmodeExpected := []struct {
+		mode compute.RoundMode
+		exp  string
+	}{
+		{compute.RoundDown, `[3, 3, 3, 4, -4, -4, -4]`},
+		{compute.RoundUp, `[4, 4, 4, 5, -3, -3, -3]`},
+		{compute.RoundTowardsZero, `[3, 3, 3, 4, -3, -3, -3]`},
+		{compute.RoundTowardsInfinity, `[4, 4, 4, 5, -4, -4, -4]`},
+		{compute.RoundHalfDown, `[3, 3, 4, 4, -3, -4, -4]`},
+		{compute.RoundHalfUp, `[3, 4, 4, 5, -3, -3, -4]`},
+		{compute.RoundHalfTowardsZero, `[3, 3, 4, 4, -3, -3, -4]`},
+		{compute.RoundHalfToEven, `[3, 4, 4, 4, -3, -4, -4]`},
+		{compute.RoundHalfToOdd, `[3, 3, 4, 5, -3, -3, -4]`},
+	}
+	us.setRoundNDigits(0)
+	for _, tt := range rmodeExpected {
+		us.Run(tt.mode.String(), func() {
+			us.setRoundMode(tt.mode)
+			us.assertUnaryOp(compute.Round, `[]`, `[]`)
+			us.assertUnaryOp(compute.Round, `[null, 0, "Inf", "-Inf", "NaN"]`,
+				`[null, 0, "Inf", "-Inf", "NaN"]`)
+			us.assertUnaryOp(compute.Round, values, tt.exp)
+		})
+	}
+
+	// test different round n-digits for nearest rounding mode
+	values = `[320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045]`
+	ndigitsExp := []struct {
+		n   int64
+		exp string
+	}{
+		{-2, `[300, 0.0, 0.0, 0.0, -0.0, -0.0, -0.0]`},
+		{-1, `[320, 0.0, 0.0, 0.0, -0.0, -40, -0.0]`},
+		{0, `[320, 4, 3, 5, -3, -35, -3]`},
+		{1, `[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3]`},
+		{2, `[320, 3.5, 3.08, 4.5, -3.21, -35.12, -3.05]`},
+	}
+
+	us.setRoundMode(compute.RoundHalfTowardsInfinity)
+	for _, tt := range ndigitsExp {
+		us.Run(fmt.Sprintf("ndigits=%d", tt.n), func() {
+			us.setRoundNDigits(tt.n)
+			us.assertUnaryOp(compute.Round, values, tt.exp)
+		})
+	}
+}
+
+type UnaryRoundToMultipleFloating[T constraints.Float] struct {
+	UnaryRoundToMultipleSuite[T]
+}
+
+func (us *UnaryRoundToMultipleFloating[T]) TestRoundToMultiple() {
+	values := `[3.2, 3.5, 3.7, 4.5, -3.2, -3.5, -3.7]`
+	rmodeExpected := []struct {
+		mode compute.RoundMode
+		exp  string
+	}{
+		{compute.RoundDown, `[3, 3, 3, 4, -4, -4, -4]`},
+		{compute.RoundUp, `[4, 4, 4, 5, -3, -3, -3]`},
+		{compute.RoundTowardsZero, `[3, 3, 3, 4, -3, -3, -3]`},
+		{compute.RoundTowardsInfinity, `[4, 4, 4, 5, -4, -4, -4]`},
+		{compute.RoundHalfDown, `[3, 3, 4, 4, -3, -4, -4]`},
+		{compute.RoundHalfUp, `[3, 4, 4, 5, -3, -3, -4]`},
+		{compute.RoundHalfTowardsZero, `[3, 3, 4, 4, -3, -3, -4]`},
+		{compute.RoundHalfToEven, `[3, 4, 4, 4, -3, -4, -4]`},
+		{compute.RoundHalfToOdd, `[3, 3, 4, 5, -3, -3, -4]`},
+	}
+	us.setRoundMultiple(1)
+	for _, tt := range rmodeExpected {
+		us.Run(tt.mode.String(), func() {
+			us.setRoundMode(tt.mode)
+			us.assertUnaryOp(compute.RoundToMultiple, `[]`, `[]`)
+			us.assertUnaryOp(compute.RoundToMultiple, `[null, 0, "Inf", "-Inf", "NaN"]`,
+				`[null, 0, "Inf", "-Inf", "NaN"]`)
+			us.assertUnaryOp(compute.RoundToMultiple, values, tt.exp)
+		})
+	}
+
+	// test different round n-digits for nearest rounding mode
+	values = `[320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045]`
+	multAndExp := []struct {
+		mult float64
+		exp  string
+	}{
+		{0.05, `[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3.05]`},
+		{0.1, `[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3]`},
+		{2, `[320, 4, 4, 4, -4, -36, -4]`},
+		{10, `[320, 0.0, 0.0, 0.0, -0.0, -40, -0.0]`},
+		{100, `[300, 0.0, 0.0, 0.0, -0.0, -0.0, -0.0]`},
+	}
+
+	us.setRoundMode(compute.RoundHalfTowardsInfinity)
+	for _, tt := range multAndExp {
+		us.Run(fmt.Sprintf("multiple=%f", tt.mult), func() {
+			us.setRoundMultiple(tt.mult)
+			us.assertUnaryOp(compute.RoundToMultiple, values, tt.exp)
+		})
+	}
+}
+
+func TestRounding(t *testing.T) {
+	suite.Run(t, new(UnaryRoundSigned[int8]))
+	suite.Run(t, new(UnaryRoundSigned[int16]))
+	suite.Run(t, new(UnaryRoundSigned[int32]))
+	suite.Run(t, new(UnaryRoundSigned[int64]))
+	suite.Run(t, new(UnaryRoundUnsigned[uint8]))
+	suite.Run(t, new(UnaryRoundUnsigned[uint16]))
+	suite.Run(t, new(UnaryRoundUnsigned[uint32]))
+	suite.Run(t, new(UnaryRoundUnsigned[uint64]))
+	suite.Run(t, new(UnaryRoundFloating[float32]))
+	suite.Run(t, new(UnaryRoundFloating[float64]))
+
+	suite.Run(t, new(UnaryRoundToMultipleSigned[int8]))
+	suite.Run(t, new(UnaryRoundToMultipleSigned[int16]))
+	suite.Run(t, new(UnaryRoundToMultipleSigned[int32]))
+	suite.Run(t, new(UnaryRoundToMultipleSigned[int64]))
+	suite.Run(t, new(UnaryRoundToMultipleUnsigned[uint8]))
+	suite.Run(t, new(UnaryRoundToMultipleUnsigned[uint16]))
+	suite.Run(t, new(UnaryRoundToMultipleUnsigned[uint32]))
+	suite.Run(t, new(UnaryRoundToMultipleUnsigned[uint64]))
+	suite.Run(t, new(UnaryRoundToMultipleFloating[float32]))
+	suite.Run(t, new(UnaryRoundToMultipleFloating[float64]))
 }
 
 const seed = 0x94378165

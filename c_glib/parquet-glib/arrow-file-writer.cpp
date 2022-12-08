@@ -422,25 +422,24 @@ gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
   auto arrow_output_stream = garrow_output_stream_get_raw(sink);
   auto arrow_memory_pool = arrow::default_memory_pool();
   std::unique_ptr<parquet::arrow::FileWriter> parquet_arrow_file_writer;
-  arrow::Status status;
+  arrow::Result<std::unique_ptr<parquet::arrow::FileWriter>> maybe_writer;
   if (writer_properties) {
     auto parquet_writer_properties = gparquet_writer_properties_get_raw(writer_properties);
-    status = parquet::arrow::FileWriter::Open(*arrow_schema,
-                                              arrow_memory_pool,
-                                              arrow_output_stream,
-                                              parquet_writer_properties,
-                                              &parquet_arrow_file_writer);
+    maybe_writer = parquet::arrow::FileWriter::Open(*arrow_schema,
+                                                    arrow_memory_pool,
+                                                    arrow_output_stream,
+                                                    parquet_writer_properties);
   } else {
     auto parquet_writer_properties = parquet::default_writer_properties();
-    status = parquet::arrow::FileWriter::Open(*arrow_schema,
-                                              arrow_memory_pool,
-                                              arrow_output_stream,
-                                              parquet_writer_properties,
-                                              &parquet_arrow_file_writer);
+    maybe_writer = parquet::arrow::FileWriter::Open(*arrow_schema,
+                                                    arrow_memory_pool,
+                                                    arrow_output_stream,
+                                                    parquet_writer_properties);
   }
-  if (garrow_error_check(error,
-                         status,
-                         "[parquet][arrow][file-writer][new-arrow]")) {
+  if (garrow::check(error,
+                    maybe_writer,
+                    "[parquet][arrow][file-writer][new-arrow]")) {
+    parquet_arrow_file_writer = std::move(*maybe_writer);
     return gparquet_arrow_file_writer_new_raw(parquet_arrow_file_writer.release());
   } else {
     return NULL;
@@ -477,25 +476,24 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
     arrow_file_output_stream.ValueOrDie();
   auto arrow_memory_pool = arrow::default_memory_pool();
   std::unique_ptr<parquet::arrow::FileWriter> parquet_arrow_file_writer;
-  arrow::Status status;
+  arrow::Result<std::unique_ptr<parquet::arrow::FileWriter>> maybe_writer;
   if (writer_properties) {
     auto parquet_writer_properties = gparquet_writer_properties_get_raw(writer_properties);
-    status = parquet::arrow::FileWriter::Open(*arrow_schema,
-                                              arrow_memory_pool,
-                                              arrow_output_stream,
-                                              parquet_writer_properties,
-                                              &parquet_arrow_file_writer);
+    maybe_writer = parquet::arrow::FileWriter::Open(*arrow_schema,
+                                                    arrow_memory_pool,
+                                                    arrow_output_stream,
+                                                    parquet_writer_properties);
   } else {
     auto parquet_writer_properties = parquet::default_writer_properties();
-    status = parquet::arrow::FileWriter::Open(*arrow_schema,
-                                              arrow_memory_pool,
-                                              arrow_output_stream,
-                                              parquet_writer_properties,
-                                              &parquet_arrow_file_writer);
+    maybe_writer = parquet::arrow::FileWriter::Open(*arrow_schema,
+                                                    arrow_memory_pool,
+                                                    arrow_output_stream,
+                                                    parquet_writer_properties);
   }
   if (garrow::check(error,
-                    status,
+                    maybe_writer,
                     "[parquet][arrow][file-writer][new-path]")) {
+    parquet_arrow_file_writer = std::move(*maybe_writer);
     return gparquet_arrow_file_writer_new_raw(parquet_arrow_file_writer.release());
   } else {
     return NULL;
