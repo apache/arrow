@@ -208,4 +208,21 @@ TEST(PageIndex, ReadBoolColumnIndex) {
       null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
+TEST(PageIndex, ReadColumnIndexWithNullPage) {
+  const int column_id = 0;
+  const size_t num_pages = 2;
+  const BoundaryOrder::type boundary_order = BoundaryOrder::Ascending;
+  const std::vector<size_t> page_indices = {0, 1};
+  const std::vector<bool> null_pages = {true, true};
+  // It seems that the null_counts are malformed.
+  const bool has_null_counts = true;
+  const std::vector<int64_t> null_counts = {-1, -1};
+  const std::vector<int32_t> min_values = {};
+  const std::vector<int32_t> max_values = {};
+
+  TestReadTypedColumnIndex<Int32Type>(
+      "datapage_v1-corrupt-checksum.parquet", column_id, num_pages, boundary_order,
+      page_indices, null_pages, min_values, max_values, has_null_counts, null_counts);
+}
+
 }  // namespace parquet
