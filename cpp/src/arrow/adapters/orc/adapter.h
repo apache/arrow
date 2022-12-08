@@ -35,6 +35,19 @@ namespace arrow {
 namespace adapters {
 namespace orc {
 
+/// \class StripeInformation
+/// \brief Stores information about an ORC stripe
+struct StripeInformation {
+  /// \brief Offset of the stripe from the start of the file, in bytes
+  int64_t offset;
+  /// \brief The length of the stripe, in bytes
+  int64_t length;
+  /// \brief The number of rows of the stripe
+  int64_t num_rows;
+  /// \brief The index of the first row of the stripe
+  int64_t first_row_id;
+};
+
 /// \class ORCFileReader
 /// \brief Read an Arrow Table or RecordBatch from an ORC file.
 class ARROW_EXPORT ORCFileReader {
@@ -169,7 +182,7 @@ class ARROW_EXPORT ORCFileReader {
   int64_t NumberOfRows();
 
   /// \brief The number of rows by stripe.
-  int64_t NumberOfRows(int64_t stripe);
+  StripeInformation GetStripeInformation(int64_t stripe);
 
   /// \brief Get the format version of the file.
   ///         Currently known values are 0.11 and 0.12.

@@ -126,13 +126,6 @@ class ArrowInputFile : public liborc::InputStream {
   std::shared_ptr<io::RandomAccessFile> file_;
 };
 
-struct StripeInformation {
-  uint64_t offset;
-  uint64_t length;
-  uint64_t num_rows;
-  uint64_t first_row_of_stripe;
-};
-
 // The number of rows to read in a ColumnVectorBatch
 constexpr int64_t kReadRowsBatch = 1000;
 
@@ -217,7 +210,7 @@ class ORCFileReader::Impl {
 
   int64_t NumberOfRows() { return static_cast<int64_t>(reader_->getNumberOfRows()); }
 
-  int64_t NumberOfRows(int64_t stripe) { return stripes_[stripe].num_rows; }
+  StripeInformation GetStripeInformation(int64_t stripe) { return stripes_[stripe]; }
 
   FileVersion GetFileVersion() {
     liborc::FileVersion orc_file_version = reader_->getFormatVersion();
@@ -395,8 +388,8 @@ class ORCFileReader::Impl {
                     Status::Invalid("Out of bounds row number: ", row_number));
 
     for (auto it = stripes_.begin(); it != stripes_.end(); it++) {
-      if (static_cast<uint64_t>(row_number) >= it->first_row_of_stripe &&
-          static_cast<uint64_t>(row_number) < it->first_row_of_stripe + it->num_rows) {
+      if (static_cast<uint64_t>(row_number) >= it->first_row_id &&
+          static_cast<uint64_t>(row_number) < it->first_row_id + it->num_rows) {
         opts->range(it->offset, it->length);
         *out = *it;
         return Status::OK();
@@ -490,7 +483,7 @@ class ORCFileReader::Impl {
     ORC_BEGIN_CATCH_NOT_OK
     row_reader = reader_->createRowReader(opts);
     row_reader->seekToRow(current_row_);
-    current_row_ = stripe_info.first_row_of_stripe + stripe_info.num_rows;
+    current_row_ = stripe_info.first_row_id + stripe_info.num_rows;
     ORC_END_CATCH_NOT_OK
 
     return std::make_shared<OrcStripeReader>(std::move(row_reader), schema, batch_size,
@@ -602,8 +595,8 @@ int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
 
 int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
 
-int64_t ORCFileReader::NumberOfRows(int64_t stripe) {
-  return impl_->NumberOfRows(stripe);
+StripeInformation ORCFileReader::GetStripeInformation(int64_t stripe) {
+  return impl_->GetStripeInformation(stripe);
 }
 
 FileVersion ORCFileReader::GetFileVersion() { return impl_->GetFileVersion(); }
