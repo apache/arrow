@@ -94,6 +94,8 @@ constexpr int kNumBatches = 4;
 constexpr int kRowsPerBatch = 1024;
 class MockFileFormat : public FileFormat {
  public:
+  MockFileFormat() : FileFormat(/*default_fragment_scan_options=*/nullptr) {}
+
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override {

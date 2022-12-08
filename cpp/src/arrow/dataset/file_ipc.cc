@@ -124,6 +124,8 @@ static inline Result<ipc::IpcReadOptions> GetReadOptions(
   return options;
 }
 
+IpcFileFormat::IpcFileFormat() : FileFormat(std::make_shared<IpcFragmentScanOptions>()) {}
+
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());
   return OpenReader(source).ok();

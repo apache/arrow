@@ -40,6 +40,8 @@ constexpr char kOrcTypeName[] = "orc";
 /// \brief A FileFormat implementation that reads from and writes to ORC files
 class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
  public:
+  OrcFileFormat();
+
   std::string type_name() const override { return kOrcTypeName; }
 
   bool Equals(const FileFormat& other) const override {
