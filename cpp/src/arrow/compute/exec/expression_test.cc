@@ -929,17 +929,15 @@ TEST(Expression, FoldConstantsBoolean) {
   ExpectFoldsTo(or_(whatever, whatever), whatever);
 }
 
-struct {
-  void operator()(Expression expr, Expression expected,
-                  const Schema& schema = *kBoringSchema) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(schema));
-    ASSERT_OK_AND_ASSIGN(expected, expected.Bind(schema));
+void ExpectRemovesRefsTo(Expression expr, Expression expected,
+                         const Schema& schema = *kBoringSchema) {
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(schema));
+  ASSERT_OK_AND_ASSIGN(expected, expected.Bind(schema));
 
-    ASSERT_OK_AND_ASSIGN(auto without_named_refs, RemoveNamedRefs(expr));
+  ASSERT_OK_AND_ASSIGN(auto without_named_refs, RemoveNamedRefs(expr));
 
-    EXPECT_EQ(without_named_refs, expected);
-  }
-} ExpectRemovesRefsTo;
+  EXPECT_EQ(without_named_refs, expected);
+}
 
 TEST(Expression, RemoveNamedRefs) {
   ExpectRemovesRefsTo(field_ref("i32"), field_ref(2));

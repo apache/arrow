@@ -214,11 +214,19 @@ struct ARROW_EXPORT BackpressureOptions {
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
-                           std::shared_ptr<Schema>* schema = NULLPTR,
+                           std::shared_ptr<Schema>* schema,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
         schema(schema),
+        backpressure(backpressure),
+        backpressure_monitor(backpressure_monitor) {}
+
+  explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
+                           BackpressureOptions backpressure = {},
+                           BackpressureMonitor** backpressure_monitor = NULLPTR)
+      : generator(generator),
+        schema(NULLPTR),
         backpressure(std::move(backpressure)),
         backpressure_monitor(backpressure_monitor) {}
 

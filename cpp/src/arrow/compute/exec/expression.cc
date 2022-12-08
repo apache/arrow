@@ -1219,6 +1219,7 @@ Result<Expression> RemoveNamedRefs(Expression src) {
   }
   return ModifyExpression(
       std::move(src),
+      /*pre=*/
       [](Expression expr) {
         const Expression::Parameter* param = expr.parameter();
         if (param && !param->ref.IsFieldPath()) {
@@ -1230,7 +1231,7 @@ Result<Expression> RemoveNamedRefs(Expression src) {
 
         return expr;
       },
-      [](Expression expr, ...) { return expr; });
+      /*post_call=*/[](Expression expr, ...) { return expr; });
 }
 
 // Serialization is accomplished by converting expressions to KeyValueMetadata and storing

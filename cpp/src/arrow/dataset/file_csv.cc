@@ -78,8 +78,7 @@ class CsvFileScanner : public FragmentScanner {
     // It would be easy enough to handle out of order but no need for that complexity at
     // the moment.
     DCHECK_EQ(scanned_so_far_++, batch_number);
-    return reader_->ReadNextAsync().Then(
-        [](const std::shared_ptr<RecordBatch>& batch) { return batch; });
+    return reader_->ReadNextAsync();
   }
 
   int64_t EstimatedDataBytes(int batch_number) override {
