@@ -153,8 +153,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDataType" arrow::DataType":
         Type id()
 
-        c_bool Equals(const CDataType& other)
-        c_bool Equals(const shared_ptr[CDataType]& other)
+        c_bool Equals(const CDataType& other, c_bool check_metadata)
+        c_bool Equals(const shared_ptr[CDataType]& other, c_bool check_metadata)
 
         shared_ptr[CField] field(int i)
         const vector[shared_ptr[CField]] fields()

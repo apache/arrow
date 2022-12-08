@@ -43,6 +43,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
@@ -559,6 +560,14 @@ class TypeEqualsVisitor {
   explicit TypeEqualsVisitor(const DataType& right, bool check_metadata)
       : right_(right), check_metadata_(check_metadata), result_(false) {}
 
+  bool MetadataEqual(const Field& left, const Field& right) {
+    if (left.HasMetadata() && right.HasMetadata()) {
+      return left.metadata()->Equals(*right.metadata());
+    } else {
+      return !left.HasMetadata() && !right.HasMetadata();
+    }
+  }
+
   Status VisitChildren(const DataType& left) {
     if (left.num_fields() != right_.num_fields()) {
       result_ = false;
@@ -626,14 +635,39 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_list_like_type<T>::value || is_struct_type<T>::value, Status> Visit(
-      const T& left) {
+  enable_if_t<is_list_like_type<T>::value, Status> Visit(const T& left) {
+    std::shared_ptr<Field> left_field = left.field(0);
+    std::shared_ptr<Field> right_field = checked_cast<const T&>(right_).field(0);
+    bool equal_names = !check_metadata_ || (left_field->name() == right_field->name());
+    bool equal_metadata = !check_metadata_ || MetadataEqual(*left_field, *right_field);
+
+    result_ = equal_names && equal_metadata &&
+              (left_field->nullable() == right_field->nullable()) &&
+              left_field->type()->Equals(*right_field->type(), check_metadata_);
+
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_t<is_struct_type<T>::value, Status> Visit(const T& left) {
     return VisitChildren(left);
   }
 
   Status Visit(const MapType& left) {
     const auto& right = checked_cast<const MapType&>(right_);
     if (left.keys_sorted() != right.keys_sorted()) {
+      result_ = false;
+      return Status::OK();
+    }
+    if (check_metadata_ && (left.item_field()->name() != right.item_field()->name() ||
+                            left.key_field()->name() != right.key_field()->name() ||
+                            left.value_field()->name() != right.value_field()->name())) {
+      result_ = false;
+      return Status::OK();
+    }
+    if (check_metadata_ && !(MetadataEqual(*left.item_field(), *right.item_field()) &&
+                             MetadataEqual(*left.key_field(), *right.key_field()) &&
+                             MetadataEqual(*left.value_field(), *right.value_field()))) {
       result_ = false;
       return Status::OK();
     }
