@@ -326,21 +326,9 @@ class DecodingOperator {
   std::shared_ptr<const DecodeContext> context_;
 };
 
-// Reads from the source and spawns fan-out decoding tasks on the given executor
-AsyncGenerator<DecodedBlock> MakeDecodingGenerator(
-    AsyncGenerator<ChunkedBlock> source,
-    std::function<Result<DecodedBlock>(const ChunkedBlock&)> decoder,
-    Executor* executor) {
-  AsyncGenerator<ChunkedBlock> gen = [source = std::move(source), executor] {
-    // Since the decode step is heavy we want to schedule it as a separate task so as to
-    // maximize task distribution accross CPU cores
-    return executor->TransferAlways(source());
-  };
-  return MakeMappedGenerator(std::move(gen), std::move(decoder));
-}
-
-// Reads from a source iterator serially, completes subsequent decode tasks on the calling
-// thread.
+// Reads from a source iterator, completes the subsequent decode task on the calling
+// thread. This is only really used for compatibility with the async pipeline when CPU
+// threading is disabled
 AsyncGenerator<DecodedBlock> MakeDecodingGenerator(
     Iterator<ChunkedBlock> source,
     std::function<Result<DecodedBlock>(const ChunkedBlock&)> decoder) {
@@ -353,28 +341,11 @@ AsyncGenerator<DecodedBlock> MakeDecodingGenerator(
     if (!maybe_block.ok()) {
       return Future<DecodedBlock>::MakeFinished(maybe_block.status());
     }
-    auto block = maybe_block.MoveValueUnsafe();
+    const auto& block = maybe_block.ValueUnsafe();
     if (IsIterationEnd(block)) {
       return ToFuture(IterationEnd<DecodedBlock>());
     }
     return ToFuture(state->decoder(block));
-  };
-}
-
-// Adds async-reentrancy to `source` by submitting tasks to a single-threaded executor
-// (FIFO order) - ensuring, at most, one future is pending at a time
-template <typename T>
-Result<AsyncGenerator<T>> MakeReentrantGenerator(AsyncGenerator<T> source) {
-  struct State {
-    AsyncGenerator<T> source;
-    std::shared_ptr<ThreadPool> thread_pool;
-  } state{std::move(source), nullptr};
-  ARROW_ASSIGN_OR_RAISE(state.thread_pool, ThreadPool::Make(1));
-
-  return [state = std::make_shared<State>(std::move(state))]() -> Future<T> {
-    auto maybe_future =
-        state->thread_pool->Submit([state] { return state->source().result(); });
-    return DeferNotOk(std::move(maybe_future));
   };
 }
 
@@ -410,20 +381,36 @@ class StreamingReaderImpl : public StreamingReader {
     AsyncGenerator<DecodedBlock> decoding_gen;
     int max_readahead = 0;
     if (read_options.use_threads) {
-      // Prepare a source generator capable of async-reentrancy and parallel exececution
+      // Prepare a source generator capable of async-reentrancy and parallel execution
       if (!cpu_executor) {
         cpu_executor = GetCpuThreadPool();
-        max_readahead = cpu_executor->GetCapacity();
       }
-      buffer_gen = MakeTransferredGenerator(std::move(buffer_gen), cpu_executor);
+      max_readahead = cpu_executor->GetCapacity();
+
+      // Since the chunking/decoding steps are heavy we want to schedule them as a
+      // separate task so as to maximize task distribution across CPU cores
+      //
+      // TODO: Add an `always_transfer` parameter to `MakeTransferredGenerator`?
+      buffer_gen = [source = std::move(buffer_gen), cpu_executor] {
+        return cpu_executor->TransferAlways(source());
+      };
       auto chunking_gen = MakeChunkingGenerator(std::move(buffer_gen),
                                                 MakeChunker(context->parse_options()));
-      ARROW_ASSIGN_OR_RAISE(chunking_gen,
-                            MakeReentrantGenerator(std::move(chunking_gen)));
-      decoding_gen = MakeDecodingGenerator(std::move(chunking_gen),
-                                           DecodingOperator(context), cpu_executor);
+
+      // Despite having already transferred to the CPU executor, we don't bother
+      // synchronizing access to the chunking generator because `MappingGenerator` queues
+      // jobs and keeps only one future from its source active at a time. This is also
+      // why we can apply readahead later despite the generator we're providing not being
+      // async-reentrant
+      //
+      // The subsequent decoding task should run on the same CPU thread as the chunking
+      // continuation. However, the next read can be initialized before then
+      decoding_gen =
+          MakeMappedGenerator(std::move(chunking_gen), DecodingOperator(context));
     } else {
-      // Prepare a source generator without a separate cpu executor
+      buffer_gen = MakeTransferredGenerator(std::move(buffer_gen), io_context.executor());
+      // We convert the background generator back to an iterator so its work can remain on
+      // the IO pool while we process its buffers on the calling thread
       auto chunking_it =
           MakeChunkingIterator(MakeGeneratorIterator(std::move(buffer_gen)),
                                MakeChunker(context->parse_options()));
