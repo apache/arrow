@@ -334,7 +334,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 		buf.Reserve(codec.MaxCompressedLen(p.body[idx].Len()) + arrow.Int64SizeBytes)
 
 		binary.LittleEndian.PutUint64(buf.Buf(), uint64(p.body[idx].Len()))
-		bw := &bufferWriter{buf: buf}
+		bw := &bufferWriter{buf: buf, pos: arrow.Int64SizeBytes}
 		codec.Reset(bw)
 		if _, err := codec.Write(p.body[idx].Bytes()); err != nil {
 			return err
