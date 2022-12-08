@@ -655,7 +655,7 @@ function createVariableWidthOffsets(length: number, nullBitmap: Uint8Array, max 
             offsets[i + 1] = offsets[i];
         } else {
             do {
-                offsets[i + 1] = Math.min(max, offsets[i] + (Math.trunc(rand() * stride)));
+                offsets[i + 1] = Math.min(max, offsets[i] + Math.max(10, Math.trunc(rand() * stride)));
             } while (!allowEmpty && offsets[i + 1] === offsets[i]);
         }
     });
