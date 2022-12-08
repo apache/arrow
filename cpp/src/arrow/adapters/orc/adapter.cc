@@ -199,8 +199,10 @@ class ORCFileReader::Impl {
     uint64_t first_row_of_stripe = 0;
     for (int i = 0; i < nstripes; ++i) {
       stripe = reader_->getStripe(i);
-      stripes_[i] = StripeInformation({stripe->getOffset(), stripe->getLength(),
-                                       stripe->getNumberOfRows(), first_row_of_stripe});
+      stripes_[i] = StripeInformation({static_cast<int64_t>(stripe->getOffset()),
+                                      static_cast<int64_t>(stripe->getLength()),
+                                      static_cast<int64_t>(stripe->getNumberOfRows()),
+                                      static_cast<int64_t>(first_row_of_stripe)});
       first_row_of_stripe += stripe->getNumberOfRows();
     }
     return Status::OK();
@@ -378,7 +380,8 @@ class ORCFileReader::Impl {
     ARROW_RETURN_IF(stripe < 0 || stripe >= NumberOfStripes(),
                     Status::Invalid("Out of bounds stripe: ", stripe));
 
-    opts->range(stripes_[stripe].offset, stripes_[stripe].length);
+    opts->range(static_cast<uint64_t>(stripes_[stripe].offset),
+                static_cast<uint64_t>(stripes_[stripe].length));
     return Status::OK();
   }
 
@@ -388,9 +391,9 @@ class ORCFileReader::Impl {
                     Status::Invalid("Out of bounds row number: ", row_number));
 
     for (auto it = stripes_.begin(); it != stripes_.end(); it++) {
-      if (static_cast<uint64_t>(row_number) >= it->first_row_id &&
-          static_cast<uint64_t>(row_number) < it->first_row_id + it->num_rows) {
-        opts->range(it->offset, it->length);
+      if (row_number >= it->first_row_id &&
+          row_number < it->first_row_id + it->num_rows) {
+        opts->range(static_cast<uint64_t>(it->offset), static_cast<uint64_t>(it->length));
         *out = *it;
         return Status::OK();
       }
@@ -422,7 +425,7 @@ class ORCFileReader::Impl {
     liborc::RowReaderOptions opts(row_opts);
     std::vector<std::shared_ptr<RecordBatch>> batches(stripes_.size());
     for (size_t stripe = 0; stripe < stripes_.size(); stripe++) {
-      opts.range(stripes_[stripe].offset, stripes_[stripe].length);
+      opts.range(static_cast<uint64_t>(stripes_[stripe].offset), static_cast<uint64_t>(stripes_[stripe].length));
       ARROW_ASSIGN_OR_RAISE(batches[stripe],
                             ReadBatch(opts, schema, stripes_[stripe].num_rows));
     }
