@@ -269,6 +269,17 @@ arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
   return result;
 }
 
+arrow::Result<ActionCloseSessionRequest> ParseActionCloseSessionRequest(
+    const google::protobuf::Any& any) {
+  pb::sql::ActionCloseSessionRequest command;
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack ActionCloseSessionRequest");
+  }
+
+  ActionCloseSessionRequest result;
+  return result;
+}
+
 arrow::Result<ActionCreatePreparedStatementRequest>
 ParseActionCreatePreparedStatementRequest(const google::protobuf::Any& any) {
   pb::sql::ActionCreatePreparedStatementRequest command;
@@ -356,6 +367,22 @@ arrow::Result<ActionEndTransactionRequest> ParseActionEndTransactionRequest(
       return Status::Invalid("Unknown value for ActionEndTransactionRequest.action: ",
                              command.action());
   }
+  return result;
+}
+
+arrow::Result<ActionSetSessionOptionRequest> ParseActionSetSessionOptionRequest(
+    const google::protobuf::Any& any) {
+  pb::sql::ActionSetSessionOptionRequest command;
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack ActionCloseSessionRequest");
+  }
+
+  ActionSetSessionOptionRequest result;
+  if (command.session_options_size() > 0) {
+    result.session_options.reserve(command.session_options_size());
+    result.session_options.assign(command.session_options().begin(), command.session_options().end());
+  }
+
   return result;
 }
 
@@ -747,6 +774,7 @@ Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
       FlightSqlServerBase::kCreatePreparedStatementActionType,
       FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType,
       FlightSqlServerBase::kClosePreparedStatementActionType,
+      FlightSqlServerBase::kCloseSessionActionType,
       FlightSqlServerBase::kEndSavepointActionType,
       FlightSqlServerBase::kEndTransactionActionType,
   };
@@ -778,13 +806,17 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
-  } else if (action.type == FlightSqlServerBase::kCancelQueryActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionCancelQueryRequest internal_command,
-                          ParseActionCancelQueryRequest(any));
-    ARROW_ASSIGN_OR_RAISE(CancelResult result, CancelQuery(context, internal_command));
+  } else if (action.type == FlightSqlServerBase::kCloseSessionActionType.type) {
+    ARROW_ASSIGN_OR_RAISE(ActionCloseSessionRequest internal_command,
+                          ParseActionCloseSessionRequest(any));
+    ARROW_ASSIGN_OR_RAISE(CloseSessionResult result, CloseSession(context, internal_command));
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
 
     results.push_back(std::move(packed_result));
+  } else if (action.type == FlightSqlServerBase::kClosePreparedStatementActionType.type) {
+    ARROW_ASSIGN_OR_RAISE(ActionClosePreparedStatementRequest internal_command,
+                          ParseActionClosePreparedStatementRequest(any));
+    ARROW_RETURN_NOT_OK(ClosePreparedStatement(context, internal_command));
   } else if (action.type ==
              FlightSqlServerBase::kCreatePreparedStatementActionType.type) {
     ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementRequest internal_command,
@@ -815,6 +847,13 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(ActionEndTransactionRequest internal_command,
                           ParseActionEndTransactionRequest(any));
     ARROW_RETURN_NOT_OK(EndTransaction(context, internal_command));
+  } else if (action.type == FlightSqlServerBase::kSetSessionOptionActionType.type) {
+    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionRequest internal_command,
+                          ParseActionSetSessionOptionRequest(any));
+    ARROW_ASSIGN_OR_RAISE(SetSessionOptionResult result, SetSessionOption(context, internal_command));
+    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
+
+    results.push_back(std::move(packed_result));
   } else {
     return Status::NotImplemented("Action not implemented: ", action.type);
   }
