@@ -372,6 +372,23 @@ class StreamingReaderTestBase {
     ASSERT_TRUE(IsIterationEnd(out));
   }
 
+  static void AssertBatchSequenceEquals(const RecordBatchVector& expected_batches,
+                                        const RecordBatchVector& sequence) {
+    ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches(expected_batches));
+    ASSERT_OK(expected_table->ValidateFull());
+
+    auto first_null = std::find(sequence.cbegin(), sequence.cend(), nullptr);
+    for (auto it = first_null; it != sequence.cend(); ++it) {
+      ASSERT_EQ(*it, nullptr);
+    }
+
+    RecordBatchVector batches(sequence.cbegin(), first_null);
+    EXPECT_EQ(batches.size(), expected_batches.size());
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+    ASSERT_OK(table->ValidateFull());
+    ASSERT_TABLES_EQUAL(*expected_table, *table);
+  }
+
   struct TestCase {
     std::string json;
     int json_size;
@@ -380,7 +397,6 @@ class StreamingReaderTestBase {
     int num_batches;
     std::shared_ptr<Schema> schema;
     RecordBatchVector batches;
-    std::shared_ptr<Table> table;
   };
 
   // Creates a test case from valid JSON objects with a human-readable index field and a
@@ -434,7 +450,6 @@ class StreamingReaderTestBase {
     out.json_size = static_cast<int>(out.json.size());
     out.block_size = static_cast<int>(block_size);
     out.num_batches = static_cast<int>(out.batches.size());
-    out.table = *Table::FromRecordBatches(out.batches);
 
     return out;
   }
@@ -472,11 +487,13 @@ INSTANTIATE_TEST_SUITE_P(StreamingReaderTest, StreamingReaderTest,
                          ::testing::Values(false, true));
 
 TEST_P(StreamingReaderTest, ErrorOnEmptyStream) {
-  ASSERT_RAISES(Invalid, MakeReader(""));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::StartsWith("Invalid: Empty JSON stream"), MakeReader(""));
   std::string data(100, '\n');
   for (auto block_size : {25, 49, 50, 100, 200}) {
     read_options_.block_size = block_size;
-    ASSERT_RAISES(Invalid, MakeReader(data));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::StartsWith("Invalid: Empty JSON stream"), MakeReader(data));
   }
 }
 
@@ -500,7 +517,10 @@ TEST_P(StreamingReaderTest, PropagateChunkingErrors) {
       "\n");
 
   read_options_.block_size = 10;
-  ASSERT_RAISES(Invalid, MakeReader(bad_first_chunk));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::StartsWith("Invalid: straddling object straddles two block boundaries"),
+      MakeReader(bad_first_chunk));
 
   ASSERT_OK_AND_ASSIGN(auto reader, MakeReader(bad_middle_chunk, kIoLatency));
 
@@ -509,7 +529,10 @@ TEST_P(StreamingReaderTest, PropagateChunkingErrors) {
   EXPECT_EQ(reader->bytes_processed(), 9);
   ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, "[{\"i\":0}]"), *batch);
 
-  ASSERT_RAISES(Invalid, reader->ReadNext(&batch));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::StartsWith("Invalid: straddling object straddles two block boundaries"),
+      reader->ReadNext(&batch));
   EXPECT_EQ(reader->bytes_processed(), 9);
   AssertReadEnd(reader);
   AssertReadEnd(reader);
@@ -540,8 +563,12 @@ TEST_P(StreamingReaderTest, PropagateParsingErrors) {
       "\n");
 
   read_options_.block_size = 16;
-  ASSERT_RAISES(Invalid, MakeReader(bad_first_block));
-  ASSERT_RAISES(Invalid, MakeReader(bad_first_block_after_empty));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid value"),
+      MakeReader(bad_first_block));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid value"),
+      MakeReader(bad_first_block_after_empty));
 
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK_AND_ASSIGN(auto reader, MakeReader(bad_middle_block));
@@ -552,7 +579,11 @@ TEST_P(StreamingReaderTest, PropagateParsingErrors) {
   EXPECT_EQ(reader->bytes_processed(), 13);
   ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, R"([{"n":10000}])"), *batch);
 
-  ASSERT_RAISES(Invalid, reader->ReadNext(&batch));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::StartsWith(
+          "Invalid: JSON parse error: Missing a comma or '}' after an object member"),
+      reader->ReadNext(&batch));
   EXPECT_EQ(reader->bytes_processed(), 13);
   AssertReadEnd(reader);
   EXPECT_EQ(reader->bytes_processed(), 13);
@@ -585,10 +616,11 @@ TEST_P(StreamingReaderTest, PropagateErrorsNonLinewiseChunker) {
   AssertReadNext(reader, &batch);
   EXPECT_EQ(reader->bytes_processed(), 7);
   ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, "[{\"i\":0}]"), *batch);
-  status = reader->ReadNext(&batch);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::StartsWith("Invalid: JSON parse error"),
+                                  reader->ReadNext(&batch));
   EXPECT_EQ(reader->bytes_processed(), 7);
-  ASSERT_RAISES(Invalid, status);
-  EXPECT_THAT(status.message(), ::testing::StartsWith("JSON parse error"));
   AssertReadEnd(reader);
 
   ASSERT_OK_AND_ASSIGN(reader, MakeReader(bad_middle_blocks));
@@ -600,11 +632,10 @@ TEST_P(StreamingReaderTest, PropagateErrorsNonLinewiseChunker) {
   EXPECT_EQ(reader->bytes_processed(), 20);
   ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, "[{\"i\":1}]"), *batch);
 
-  status = reader->ReadNext(&batch);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::StartsWith("Invalid: JSON parse error"),
+                                  reader->ReadNext(&batch));
   EXPECT_EQ(reader->bytes_processed(), 20);
-  // Should fail to parse "{}\"i\""
-  ASSERT_RAISES(Invalid, status);
-  EXPECT_THAT(status.message(), ::testing::StartsWith("JSON parse error"));
   // Incoming chunker error from ":2}" shouldn't leak through after the first failure,
   // which is a possibility if async tasks are still outstanding due to readahead.
   AssertReadEnd(reader);
@@ -648,10 +679,9 @@ TEST_P(StreamingReaderTest, ExplicitSchemaErrorOnUnexpectedFields) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
   read_options_.block_size = 48;
 
-  auto result = MakeReader(test_json);
-  ASSERT_RAISES(Invalid, result);
-  EXPECT_THAT(result.status().message(),
-              ::testing::StartsWith("JSON parse error: unexpected field"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: unexpected field"),
+      MakeReader(test_json));
 
   expected_fields.push_back(field("t", utf8()));
   expected_schema = schema(expected_fields);
@@ -671,11 +701,10 @@ TEST_P(StreamingReaderTest, ExplicitSchemaErrorOnUnexpectedFields) {
       *RecordBatchFromJSON(expected_schema, R"([{"s":"bar","t":"2022-01-02"}])"), *batch);
   EXPECT_EQ(reader->bytes_processed(), 64);
 
-  auto status = reader->ReadNext(&batch);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: unexpected field"),
+      reader->ReadNext(&batch));
   EXPECT_EQ(reader->bytes_processed(), 64);
-  ASSERT_RAISES(Invalid, status);
-  EXPECT_THAT(status.message(),
-              ::testing::StartsWith("JSON parse error: unexpected field"));
   AssertReadEnd(reader);
 }
 
@@ -743,7 +772,9 @@ TEST_P(StreamingReaderTest, InferredSchema) {
   EXPECT_EQ(reader->bytes_processed(), 28);
   ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
 
-  ASSERT_RAISES(Invalid, reader->ReadNext(&actual_batch));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: unexpected field"),
+      reader->ReadNext(&actual_batch));
 
   // Schema derived from the first 2 lines
   fields.push_back(field("c", boolean()));
@@ -761,7 +792,9 @@ TEST_P(StreamingReaderTest, InferredSchema) {
   EXPECT_EQ(reader->bytes_processed(), 56);
   ASSERT_BATCHES_EQUAL(*expected_batch, *actual_batch);
 
-  ASSERT_RAISES(Invalid, reader->ReadNext(&actual_batch));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: unexpected field"),
+      reader->ReadNext(&actual_batch));
 
   // Schema derived from all 3 lines
   fields.push_back(field("d", timestamp(TimeUnit::SECOND)));
@@ -802,12 +835,7 @@ TEST_F(AsyncStreamingReaderTest, AsyncReentrancy) {
   ASSERT_FINISHES_OK_AND_ASSIGN(auto results, All(std::move(futures)));
   EXPECT_EQ(reader->bytes_processed(), expected.json_size);
   ASSERT_OK_AND_ASSIGN(auto batches, internal::UnwrapOrRaise(std::move(results)));
-  batches.erase(std::remove(batches.begin(), batches.end(), nullptr), batches.end());
-  EXPECT_EQ(batches.size(), static_cast<size_t>(expected.num_batches));
-
-  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
-  ASSERT_OK(table->ValidateFull());
-  ASSERT_TABLES_EQUAL(*expected.table, *table);
+  AssertBatchSequenceEquals(expected.batches, batches);
 }
 
 TEST_F(AsyncStreamingReaderTest, FuturesOutliveReader) {
@@ -831,12 +859,7 @@ TEST_F(AsyncStreamingReaderTest, FuturesOutliveReader) {
 
   ASSERT_FINISHES_OK_AND_ASSIGN(auto results, All(std::move(futures)));
   ASSERT_OK_AND_ASSIGN(auto batches, internal::UnwrapOrRaise(std::move(results)));
-  batches.erase(std::remove(batches.begin(), batches.end(), nullptr), batches.end());
-  EXPECT_EQ(batches.size(), static_cast<size_t>(expected.num_batches));
-
-  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
-  ASSERT_OK(table->ValidateFull());
-  ASSERT_TABLES_EQUAL(*expected.table, *table);
+  AssertBatchSequenceEquals(expected.batches, batches);
 }
 
 TEST_F(AsyncStreamingReaderTest, StressBufferedReads) {
@@ -856,12 +879,7 @@ TEST_F(AsyncStreamingReaderTest, StressBufferedReads) {
 
   ASSERT_FINISHES_OK_AND_ASSIGN(auto results, All(std::move(futures)));
   ASSERT_OK_AND_ASSIGN(auto batches, internal::UnwrapOrRaise(results));
-  batches.erase(std::remove(batches.begin(), batches.end(), nullptr), batches.end());
-  EXPECT_EQ(batches.size(), static_cast<size_t>(expected.num_batches));
-
-  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
-  ASSERT_OK(table->ValidateFull());
-  ASSERT_TABLES_EQUAL(*expected.table, *table);
+  AssertBatchSequenceEquals(expected.batches, batches);
 }
 
 TEST_F(AsyncStreamingReaderTest, StressSharedIoAndCpuExecutor) {
@@ -880,10 +898,7 @@ TEST_F(AsyncStreamingReaderTest, StressSharedIoAndCpuExecutor) {
 
   ASSERT_OK_AND_ASSIGN(auto generator, MakeGenerator(expected.json, kIoLatency));
   ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, CollectAsyncGenerator(generator));
-  ASSERT_EQ(batches.size(), expected.batches.size());
-  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
-  ASSERT_OK(table->ValidateFull());
-  ASSERT_TABLES_EQUAL(*expected.table, *table);
+  AssertBatchSequenceEquals(expected.batches, batches);
 }
 
 }  // namespace json
