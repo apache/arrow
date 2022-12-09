@@ -213,8 +213,8 @@ describe(`ListVector`, () => {
 
 describe(`toArray()`, () => {
     test(`when some data blobs have been padded`, () => {
-        const d1 = vectorFromArray([...Array(16).keys()]);
-        const d2 = vectorFromArray([...Array(10).keys()]);
+        const d1 = vectorFromArray([...new Array(16).keys()]);
+        const d2 = vectorFromArray([...new Array(10).keys()]);
 
         // Padding has been added
         expect(d2.length < d2.data.length)
