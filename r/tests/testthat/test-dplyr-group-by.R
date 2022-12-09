@@ -56,7 +56,7 @@ test_that("group_by supports re-grouping by overlapping groups", {
   compare_dplyr_binding(
     .input %>%
       group_by(chr, int) %>%
-      group_by(int, dbl) |>
+      group_by(int, dbl) %>%
       collect(),
     tbl
   )
