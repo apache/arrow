@@ -236,7 +236,7 @@ describe(`toArray()`, () => {
         let array = Array.from(vector.toArray());
         expect(array).toHaveLength(6 * 2);
         expect(Array.from(array)).toMatchObject([0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0]);
-    })
+    });
 });
 
 // Creates some basic tests for the given vector.
