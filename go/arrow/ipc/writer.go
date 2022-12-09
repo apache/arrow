@@ -652,44 +652,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			}
 		}
 		w.depth++
-	case *arrow.MapType:
-		arr := arr.(*array.Map)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
-		}
-		p.body = append(p.body, voffsets)
-
-		w.depth--
-		var (
-			values        = arr.ListValues()
-			mustRelease   = false
-			values_offset int64
-			values_end    int64
-		)
-		defer func() {
-			if mustRelease {
-				values.Release()
-			}
-		}()
-
-		if voffsets != nil {
-			values_offset, _ = arr.ValueOffsets(0)
-			_, values_end = arr.ValueOffsets(arr.Len() - 1)
-		}
-
-		if arr.Len() != 0 || values_end < int64(values.Len()) {
-			// must also slice the values
-			values = array.NewSlice(values, values_offset, values_end)
-			mustRelease = true
-		}
-		err = w.visit(p, values)
-
-		if err != nil {
-			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
-		}
-		w.depth++
-	case *arrow.ListType, *arrow.LargeListType:
+	case *arrow.MapType, *arrow.ListType, *arrow.LargeListType:
 		arr := arr.(array.ListLike)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
