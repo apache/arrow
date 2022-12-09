@@ -57,7 +57,7 @@ Scope and completeness
   confused if they hit problems introduced by a merged PR.
 
 * What changes are in-scope for a PR and what changes might/could/should be
-  pushed out of scope and have a follow-up JIRA created should be determined
+  pushed out of scope and have a follow-up issue created should be determined
   in collaboration between the authors and the reviewers.
 
 * When a large piece of functionality is being contributed and it seems
@@ -70,7 +70,8 @@ Scope and completeness
 Public API design
 -----------------
 
-* Public APIs should nudge users towards the most desirable constructs.
+* Public APIs should nudge users towards the mo
+st desirable constructs.
   In other words, if there is a "best" way to do something, it should
   ideally also be the most easily discoverable and the most concise to type.
   For example, safe APIs should be featured more prominently than
