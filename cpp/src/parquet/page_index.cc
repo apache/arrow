@@ -86,10 +86,12 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
                        const format::ColumnIndex& column_index)
       : column_index_(column_index) {
     // Make sure the number of pages is valid and it does not overflow to int32_t.
-    if (column_index_.null_pages.size() != column_index_.min_values.size() ||
+    if (ARROW_PREDICT_FALSE(column_index_.null_pages.size() >=
+                            static_cast<size_t>(std::numeric_limits<int32_t>::max())) ||
+        column_index_.null_pages.size() != column_index_.min_values.size() ||
         column_index_.min_values.size() != column_index_.max_values.size() ||
-        ARROW_PREDICT_FALSE(column_index_.null_pages.size() >=
-                            static_cast<size_t>(std::numeric_limits<int32_t>::max()))) {
+        (column_index_.__isset.null_counts &&
+         column_index_.null_counts.size() != column_index_.null_pages.size())) {
       throw ParquetException("Invalid column index");
     }
 

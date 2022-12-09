@@ -130,6 +130,12 @@ void TestReadTypedColumnIndex(const std::string& file_name, int column_id,
       } else if constexpr (std::is_same_v<T, float>) {
         ASSERT_FLOAT_EQ(min_values.at(i), typed_column_index->min_values().at(page_id));
         ASSERT_FLOAT_EQ(max_values.at(i), typed_column_index->max_values().at(page_id));
+      } else if constexpr (std::is_same_v<T, FLBA>) {
+        auto len = descr->type_length();
+        ASSERT_EQ(0, ::memcmp(min_values.at(i).ptr,
+                              typed_column_index->min_values().at(page_id).ptr, len));
+        ASSERT_EQ(0, ::memcmp(max_values.at(i).ptr,
+                              typed_column_index->max_values().at(page_id).ptr, len));
       } else {
         ASSERT_EQ(min_values.at(i), typed_column_index->min_values().at(page_id));
         ASSERT_EQ(max_values.at(i), typed_column_index->max_values().at(page_id));
@@ -206,6 +212,32 @@ TEST(PageIndex, ReadBoolColumnIndex) {
   TestReadTypedColumnIndex<BooleanType>(
       "alltypes_tiny_pages.parquet", column_id, num_pages, boundary_order, page_indices,
       null_pages, min_values, max_values, has_null_counts, null_counts);
+}
+
+namespace {
+FLBA toFLBA(const char* ptr) { return FLBA{reinterpret_cast<const uint8_t*>(ptr)}; }
+}  // namespace
+
+TEST(PageIndex, FixedLengthByteArrayColumnIndex) {
+  const int column_id = 0;
+  const size_t num_pages = 10;
+  const BoundaryOrder::type boundary_order = BoundaryOrder::Descending;
+  const std::vector<size_t> page_indices = {0, 4, 8};
+  const std::vector<bool> null_pages = {false, false, false};
+  const bool has_null_counts = true;
+  const std::vector<int64_t> null_counts = {9, 13, 9};
+  const std::vector<const char*> min_literals = {"\x00\x00\x03\x85", "\x00\x00\x01\xF5",
+                                                 "\x00\x00\x00\x65"};
+  const std::vector<const char*> max_literals = {"\x00\x00\x03\xE8", "\x00\x00\x02\x58",
+                                                 "\x00\x00\x00\xC8"};
+  const std::vector<FLBA> min_values = {toFLBA(min_literals[0]), toFLBA(min_literals[1]),
+                                        toFLBA(min_literals[2])};
+  const std::vector<FLBA> max_values = {toFLBA(max_literals[0]), toFLBA(max_literals[1]),
+                                        toFLBA(max_literals[2])};
+
+  TestReadTypedColumnIndex<FLBAType>(
+      "fixed_length_byte_array.parquet", column_id, num_pages, boundary_order,
+      page_indices, null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
 TEST(PageIndex, ReadColumnIndexWithNullPage) {
