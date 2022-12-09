@@ -217,7 +217,7 @@ describe(`toArray()`, () => {
         const d2 = vectorFromArray([...new Array(10).keys()]);
 
         // Padding has been added
-        expect(d2.length).toBeLessThan(d2.data.length);
+        expect(d2.length).toBeLessThan(d2.data[0].buffers[1].length);
 
         const vector = new Vector([d1, d2]);
 
