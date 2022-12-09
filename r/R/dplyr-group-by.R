@@ -35,18 +35,19 @@ group_by.arrow_dplyr_query <- function(.data,
 
   .data <- as_adq(.data)
   expression_list <- expand_across(.data, quos(...))
-  new_groups <- ensure_named_exprs(expression_list)
 
-  # set up group names and check which are new
+  # set up group names and check if there are any that need to be added
+  # to .data via a mutate() call
   gbp <- dplyr::group_by_prepare(.data, !!!expression_list, .add = .add)
-  existing_groups <- dplyr::group_vars(gbp$data)
-  new_group_names <- setdiff(gbp$group_names, existing_groups)
+  needs_adding_to_data <- !(gbp$group_names %in% names(.data)) |
+    !map_lgl(expression_list, rlang::quo_is_symbol)
 
-  names(new_groups) <- new_group_names
-
-  if (length(new_groups)) {
+  if (any(needs_adding_to_data)) {
     # Add them to the data
-    .data <- dplyr::mutate(.data, !!!new_groups)
+    existing_groups <- dplyr::groups(gbp$data)
+    new_groups <- c(existing_groups, ensure_named_exprs(expression_list))
+    groups_that_need_adding <- new_groups[needs_adding_to_data]
+    .data <- dplyr::mutate(.data, !!!groups_that_need_adding)
   }
 
   .data$group_by_vars <- gbp$group_names
