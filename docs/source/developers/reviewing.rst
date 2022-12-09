@@ -70,8 +70,7 @@ Scope and completeness
 Public API design
 -----------------
 
-* Public APIs should nudge users towards the mo
-st desirable constructs.
+* Public APIs should nudge users towards the most desirable constructs.
   In other words, if there is a "best" way to do something, it should
   ideally also be the most easily discoverable and the most concise to type.
   For example, safe APIs should be featured more prominently than
