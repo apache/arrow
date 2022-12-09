@@ -181,7 +181,7 @@ class ARROW_EXPORT ORCFileReader {
   /// \brief The number of rows in the file
   int64_t NumberOfRows();
 
-  /// \brief The number of rows by stripe.
+  /// \brief StripeInformation for each stripe.
   StripeInformation GetStripeInformation(int64_t stripe);
 
   /// \brief Get the format version of the file.
