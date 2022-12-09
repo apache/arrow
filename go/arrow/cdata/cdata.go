@@ -37,6 +37,7 @@ package cdata
 import "C"
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -476,17 +477,26 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		}
 
 		bufs := []*memory.Buffer{nil, nil, nil}
+		var err error
 		if imp.arr.n_buffers == 3 {
 			// legacy format exported by older arrow c++ versions
-			bufs[1] = imp.importFixedSizeBuffer(1, 1)
-			bufs[2] = imp.importFixedSizeBuffer(2, int64(arrow.Int32SizeBytes))
+			if bufs[1], err = imp.importFixedSizeBuffer(1, 1); err != nil {
+				return err
+			}
+			if bufs[2], err = imp.importFixedSizeBuffer(2, int64(arrow.Int32SizeBytes)); err != nil {
+				return err
+			}
 		} else {
 			if err := imp.checkNumBuffers(2); err != nil {
 				return err
 			}
 
-			bufs[1] = imp.importFixedSizeBuffer(0, 1)
-			bufs[2] = imp.importFixedSizeBuffer(1, int64(arrow.Int32SizeBytes))
+			if bufs[1], err = imp.importFixedSizeBuffer(0, 1); err != nil {
+				return err
+			}
+			if bufs[2], err = imp.importFixedSizeBuffer(1, int64(arrow.Int32SizeBytes)); err != nil {
+				return err
+			}
 		}
 
 		children := make([]arrow.ArrayData, len(imp.children))
@@ -500,15 +510,20 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		}
 
 		var buf *memory.Buffer
+		var err error
 		if imp.arr.n_buffers == 2 {
 			// legacy format exported by older Arrow C++ versions
-			buf = imp.importFixedSizeBuffer(1, 1)
+			if buf, err = imp.importFixedSizeBuffer(1, 1); err != nil {
+				return err
+			}
 		} else {
 			if err := imp.checkNumBuffers(1); err != nil {
 				return err
 			}
 
-			buf = imp.importFixedSizeBuffer(0, 1)
+			if buf, err = imp.importFixedSizeBuffer(0, 1); err != nil {
+				return err
+			}
 		}
 
 		children := make([]arrow.ArrayData, len(imp.children))
@@ -523,21 +538,27 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	return nil
 }
 
-func (imp *cimporter) importStringLike(offsetByteWidth int64) error {
-	if err := imp.checkNoChildren(); err != nil {
-		return err
+func (imp *cimporter) importStringLike(offsetByteWidth int64) (err error) {
+	if err = imp.checkNoChildren(); err != nil {
+		return
 	}
 
-	if err := imp.checkNumBuffers(3); err != nil {
-		return err
+	if err = imp.checkNumBuffers(3); err != nil {
+		return
 	}
 
-	nulls, err := imp.importNullBitmap(0)
-	if err != nil {
-		return err
+	var (
+		nulls, offsets, values *memory.Buffer
+	)
+
+	if nulls, err = imp.importNullBitmap(0); err != nil {
+		return
 	}
 
-	offsets := imp.importOffsetsBuffer(1, offsetByteWidth)
+	if offsets, err = imp.importOffsetsBuffer(1, offsetByteWidth); err != nil {
+		return
+	}
+
 	var nvals int64
 	switch offsetByteWidth {
 	case 4:
@@ -547,29 +568,34 @@ func (imp *cimporter) importStringLike(offsetByteWidth int64) error {
 		typedOffsets := arrow.Int64Traits.CastFromBytes(offsets.Bytes())
 		nvals = typedOffsets[imp.arr.offset+imp.arr.length]
 	}
-	values := imp.importVariableValuesBuffer(2, 1, nvals)
+	if values, err = imp.importVariableValuesBuffer(2, 1, nvals); err != nil {
+		return
+	}
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, values}, nil, int(imp.arr.null_count), int(imp.arr.offset))
-	return nil
+	return
 }
 
-func (imp *cimporter) importListLike() error {
-	if err := imp.checkNumChildren(1); err != nil {
+func (imp *cimporter) importListLike() (err error) {
+	if err = imp.checkNumChildren(1); err != nil {
 		return err
 	}
 
-	if err := imp.checkNumBuffers(2); err != nil {
+	if err = imp.checkNumBuffers(2); err != nil {
 		return err
 	}
 
-	nulls, err := imp.importNullBitmap(0)
-	if err != nil {
-		return err
+	var nulls, offsets *memory.Buffer
+	if nulls, err = imp.importNullBitmap(0); err != nil {
+		return
 	}
 
 	offsetSize := imp.dt.Layout().Buffers[1].ByteWidth
-	offsets := imp.importOffsetsBuffer(1, int64(offsetSize))
+	if offsets, err = imp.importOffsetsBuffer(1, int64(offsetSize)); err != nil {
+		return
+	}
+
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
-	return nil
+	return
 }
 
 func (imp *cimporter) importFixedSizePrimitive() error {
@@ -590,12 +616,16 @@ func (imp *cimporter) importFixedSizePrimitive() error {
 
 	fw := imp.dt.(arrow.FixedWidthDataType)
 	if bitutil.IsMultipleOf8(int64(fw.BitWidth())) {
-		values = imp.importFixedSizeBuffer(1, bitutil.BytesForBits(int64(fw.BitWidth())))
+		values, err = imp.importFixedSizeBuffer(1, bitutil.BytesForBits(int64(fw.BitWidth())))
 	} else {
 		if fw.BitWidth() != 1 {
 			return xerrors.New("invalid bitwidth")
 		}
-		values = imp.importBitsBuffer(1)
+		values, err = imp.importBitsBuffer(1)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	var dict *array.Data
@@ -636,21 +666,21 @@ func (imp *cimporter) checkNumBuffers(n int64) error {
 	return nil
 }
 
-func (imp *cimporter) importBuffer(bufferID int, sz int64) *memory.Buffer {
+func (imp *cimporter) importBuffer(bufferID int, sz int64) (*memory.Buffer, error) {
 	// this is not a copy, we're just having a slice which points at the data
 	// it's still owned by the C.ArrowArray object and its backing C++ object.
 	if imp.cbuffers[bufferID] == nil {
 		if sz != 0 {
-			panic("invalid buffer")
+			return nil, errors.New("invalid buffer")
 		}
-		return memory.NewBufferBytes([]byte{})
+		return memory.NewBufferBytes([]byte{}), nil
 	}
 	const maxLen = 0x7fffffff
 	data := (*[maxLen]byte)(unsafe.Pointer(imp.cbuffers[bufferID]))[:sz:sz]
-	return memory.NewBufferBytes(data)
+	return memory.NewBufferBytes(data), nil
 }
 
-func (imp *cimporter) importBitsBuffer(bufferID int) *memory.Buffer {
+func (imp *cimporter) importBitsBuffer(bufferID int) (*memory.Buffer, error) {
 	bufsize := bitutil.BytesForBits(int64(imp.arr.length) + int64(imp.arr.offset))
 	return imp.importBuffer(bufferID, bufsize)
 }
@@ -664,20 +694,20 @@ func (imp *cimporter) importNullBitmap(bufferID int) (*memory.Buffer, error) {
 		return nil, nil
 	}
 
-	return imp.importBitsBuffer(bufferID), nil
+	return imp.importBitsBuffer(bufferID)
 }
 
-func (imp *cimporter) importFixedSizeBuffer(bufferID int, byteWidth int64) *memory.Buffer {
+func (imp *cimporter) importFixedSizeBuffer(bufferID int, byteWidth int64) (*memory.Buffer, error) {
 	bufsize := byteWidth * int64(imp.arr.length+imp.arr.offset)
 	return imp.importBuffer(bufferID, bufsize)
 }
 
-func (imp *cimporter) importOffsetsBuffer(bufferID int, offsetsize int64) *memory.Buffer {
+func (imp *cimporter) importOffsetsBuffer(bufferID int, offsetsize int64) (*memory.Buffer, error) {
 	bufsize := offsetsize * int64((imp.arr.length + imp.arr.offset + 1))
 	return imp.importBuffer(bufferID, bufsize)
 }
 
-func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth, nvals int64) *memory.Buffer {
+func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth, nvals int64) (*memory.Buffer, error) {
 	bufsize := byteWidth * nvals
 	return imp.importBuffer(bufferID, int64(bufsize))
 }
