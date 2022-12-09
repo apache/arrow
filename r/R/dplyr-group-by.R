@@ -35,20 +35,20 @@ group_by.arrow_dplyr_query <- function(.data,
 
   .data <- as_adq(.data)
   expression_list <- expand_across(.data, quos(...))
+  named_expression_list <- ensure_named_exprs(expression_list)
 
-  # set up group names and check if there are any that need to be added
-  # to .data via a mutate() call
+  # Set up group names
   gbp <- dplyr::group_by_prepare(.data, !!!expression_list, .add = .add)
-  needs_adding_to_data <- !(gbp$group_names %in% names(.data)) |
-    !map_lgl(expression_list, rlang::quo_is_symbol)
 
-  if (any(needs_adding_to_data)) {
-    # Add them to the data
-    existing_groups <- dplyr::groups(gbp$data)
-    new_groups <- c(existing_groups, ensure_named_exprs(expression_list))
-    groups_that_need_adding <- new_groups[needs_adding_to_data]
-    .data <- dplyr::mutate(.data, !!!groups_that_need_adding)
-  }
+  # Add them all (or update them) to the .data via. In theory
+  # one could calculate which variables do or do not need to be added via a
+  # complex combination of the expression names, whether they are or are not
+  # a symbol, and/or whether they currently exist in .data. Instead, we just
+  # put them all into a mutate().
+  existing_groups <- dplyr::groups(gbp$data)
+  names(existing_groups) <- dplyr::group_vars(gbp$data)
+  final_groups <- c(unclass(named_expression_list), unclass(existing_groups))[gbp$group_names]
+  .data <- dplyr::mutate(.data, !!!final_groups)
 
   .data$group_by_vars <- gbp$group_names
   .data$drop_empty_groups <- ifelse(length(gbp$group_names), .drop, dplyr::group_by_drop_default(.data))
