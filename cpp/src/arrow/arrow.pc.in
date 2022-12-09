@@ -30,3 +30,4 @@ Requires.private:@ARROW_PC_REQUIRES_PRIVATE@
 Libs: -L${libdir} -larrow
 Libs.private:@ARROW_PC_LIBS_PRIVATE@
 Cflags: -I${includedir}
+Cflags.private: -DARROW_STATIC
