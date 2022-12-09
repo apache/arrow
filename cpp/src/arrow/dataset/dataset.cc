@@ -43,12 +43,14 @@ Fragment::Fragment(compute::Expression partition_expression,
     : partition_expression_(std::move(partition_expression)),
       physical_schema_(std::move(physical_schema)) {}
 
-Future<std::shared_ptr<InspectedFragment>> Fragment::InspectFragment() {
+Future<std::shared_ptr<InspectedFragment>> Fragment::InspectFragment(
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
   return Status::NotImplemented("Inspect fragment");
 }
 
 Future<std::shared_ptr<FragmentScanner>> Fragment::BeginScan(
-    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment) {
+    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
   return Status::NotImplemented("New scan method");
 }
 
@@ -154,7 +156,8 @@ Future<std::optional<int64_t>> InMemoryFragment::CountRows(
   return Future<std::optional<int64_t>>::MakeFinished(total);
 }
 
-Future<std::shared_ptr<InspectedFragment>> InMemoryFragment::InspectFragment() {
+Future<std::shared_ptr<InspectedFragment>> InMemoryFragment::InspectFragment(
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
   return std::make_shared<InspectedFragment>(physical_schema_->field_names());
 }
 
@@ -180,7 +183,8 @@ class InMemoryFragment::Scanner : public FragmentScanner {
 };
 
 Future<std::shared_ptr<FragmentScanner>> InMemoryFragment::BeginScan(
-    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment) {
+    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
   return Future<std::shared_ptr<FragmentScanner>>::MakeFinished(
       std::make_shared<InMemoryFragment::Scanner>(this));
 }

@@ -178,6 +178,13 @@ struct ARROW_DS_EXPORT ScanV2Options : public compute::ExecNodeOptions {
   ///
   /// A single guarantee-aware filtering operation should generally be applied to all
   /// resulting batches.  The scan node is not responsible for this.
+  ///
+  /// Fields that are referenced by the filter should be included in the `columns` vector.
+  /// The scan node will not automatically fetch fields referenced by the filter
+  /// expression. \see AddFieldsNeededForFilter
+  ///
+  /// If the filter references fields that are not included in `columns` this may or may
+  /// not be an error, depending on the format.
   compute::Expression filter = compute::literal(true);
 
   /// \brief The columns to scan
@@ -243,10 +250,17 @@ struct ARROW_DS_EXPORT ScanV2Options : public compute::ExecNodeOptions {
   /// one fragment at a time.
   int32_t fragment_readahead = kDefaultFragmentReadahead;
   /// \brief Options specific to the file format
-  FragmentScanOptions* format_options;
+  const FragmentScanOptions* format_options = NULLPTR;
 
   /// \brief Utility method to get a selection representing all columns in a dataset
-  static std::vector<FieldPath> AllColumns(const Dataset& dataset);
+  static std::vector<FieldPath> AllColumns(const Schema& dataset_schema);
+
+  /// \brief Utility method to add fields needed for the current filter
+  ///
+  /// This method adds any fields that are needed by `filter` which are not already
+  /// included in the list of columns.  Any new fields added will be added to the end
+  /// in no particular order.
+  static Status AddFieldsNeededForFilter(ScanV2Options* options);
 };
 
 /// \brief Describes a projection

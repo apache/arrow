@@ -1213,6 +1213,27 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   return expr;
 }
 
+Result<Expression> RemoveNamedRefs(Expression src) {
+  if (!src.IsBound()) {
+    return Status::Invalid("RemoveNamedRefs called on unbound expression");
+  }
+  return ModifyExpression(
+      std::move(src),
+      /*pre=*/
+      [](Expression expr) {
+        const Expression::Parameter* param = expr.parameter();
+        if (param && !param->ref.IsFieldPath()) {
+          FieldPath ref_as_path(
+              std::vector<int>(param->indices.begin(), param->indices.end()));
+          return Expression(
+              Expression::Parameter{std::move(ref_as_path), param->type, param->indices});
+        }
+
+        return expr;
+      },
+      /*post_call=*/[](Expression expr, ...) { return expr; });
+}
+
 // Serialization is accomplished by converting expressions to KeyValueMetadata and storing
 // this in the schema of a RecordBatch. Embedded arrays and scalars are stored in its
 // columns. Finally, the RecordBatch is written to an IPC file.

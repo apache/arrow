@@ -41,8 +41,11 @@ constexpr char kCsvTypeName[] = "csv";
 /// \brief A FileFormat implementation that reads from and writes to Csv files
 class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
  public:
+  // TODO(ARROW-18328) Remove this, moved to CsvFragmentScanOptions
   /// Options affecting the parsing of CSV files
   csv::ParseOptions parse_options = csv::ParseOptions::Defaults();
+
+  CsvFileFormat();
 
   std::string type_name() const override { return kCsvTypeName; }
 
@@ -53,9 +56,18 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
+  Future<std::shared_ptr<FragmentScanner>> BeginScan(
+      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) const override;
+
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& scan_options,
       const std::shared_ptr<FileFragment>& file) const override;
+
+  Future<std::shared_ptr<InspectedFragment>> InspectFragment(
+      const FileSource& source, const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) const override;
 
   Future<std::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
@@ -83,6 +95,9 @@ struct ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
   ///
   /// Note that use_threads is always ignored.
   csv::ReadOptions read_options = csv::ReadOptions::Defaults();
+
+  /// CSV parse options
+  csv::ParseOptions parse_options = csv::ParseOptions::Defaults();
 
   /// Optional stream wrapping function
   ///

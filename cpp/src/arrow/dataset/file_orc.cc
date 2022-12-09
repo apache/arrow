@@ -142,6 +142,8 @@ class OrcScanTaskIterator {
 
 }  // namespace
 
+OrcFileFormat::OrcFileFormat() : FileFormat(/*default_fragment_scan_options=*/nullptr) {}
+
 Result<bool> OrcFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());
   return OpenORCReader(source).ok();

@@ -249,7 +249,7 @@ const std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, si
   // specify the filter
   compute::Expression b_is_true = equal(field_ref("b"), literal(true));
   options->filter = b_is_true;
-  options->columns = ScanV2Options::AllColumns(*dataset);
+  options->columns = ScanV2Options::AllColumns(*dataset->schema());
 
   return options;
 };
@@ -314,8 +314,8 @@ static void ScanBenchmark_Customize(benchmark::internal::Benchmark* b) {
   b->UseRealTime();
 }
 
-BENCHMARK(MinimalEndToEndBench)->Apply(ScanBenchmark_Customize)->Iterations(10);
-BENCHMARK(ScanOnlyBench)->Apply(ScanBenchmark_Customize)->Iterations(10);
+BENCHMARK(MinimalEndToEndBench)->Apply(ScanBenchmark_Customize);
+BENCHMARK(ScanOnlyBench)->Apply(ScanBenchmark_Customize);
 
 }  // namespace dataset
 }  // namespace arrow

@@ -426,6 +426,14 @@ struct ArrayVectorSourceNode
 
 const char ArrayVectorSourceNode::kKindName[] = "ArrayVectorSourceNode";
 
+Result<compute::ExecNode*> MakeNamedTableNode(compute::ExecPlan* plan,
+                                              std::vector<compute::ExecNode*> inputs,
+                                              const compute::ExecNodeOptions& options) {
+  return Status::Invalid(
+      "The named table node is for serialization purposes only and can never be "
+      "converted into an exec plan or executed");
+}
+
 }  // namespace
 
 namespace internal {
@@ -436,6 +444,7 @@ void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("record_batch_source", RecordBatchSourceNode::Make));
   DCHECK_OK(registry->AddFactory("exec_batch_source", ExecBatchSourceNode::Make));
   DCHECK_OK(registry->AddFactory("array_vector_source", ArrayVectorSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("named_table", MakeNamedTableNode));
 }
 
 }  // namespace internal
