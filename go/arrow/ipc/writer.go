@@ -17,7 +17,6 @@
 package ipc
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -330,19 +329,23 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 		if p.body[idx] == nil || p.body[idx].Len() == 0 {
 			return nil
 		}
-		var buf bytes.Buffer
-		buf.Grow(codec.MaxCompressedLen(p.body[idx].Len()) + arrow.Int64SizeBytes)
-		if err := binary.Write(&buf, binary.LittleEndian, uint64(p.body[idx].Len())); err != nil {
-			return err
-		}
-		codec.Reset(&buf)
+
+		buf := memory.NewResizableBuffer(w.mem)
+		buf.Reserve(codec.MaxCompressedLen(p.body[idx].Len()) + arrow.Int64SizeBytes)
+
+		binary.LittleEndian.PutUint64(buf.Buf(), uint64(p.body[idx].Len()))
+		bw := &bufferWriter{buf: buf, pos: arrow.Int64SizeBytes}
+		codec.Reset(bw)
 		if _, err := codec.Write(p.body[idx].Bytes()); err != nil {
 			return err
 		}
 		if err := codec.Close(); err != nil {
 			return err
 		}
-		p.body[idx] = memory.NewBufferBytes(buf.Bytes())
+
+		buf.Resize(bw.pos)
+		p.body[idx].Release()
+		p.body[idx] = buf
 		return nil
 	}
 
