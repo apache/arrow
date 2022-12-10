@@ -98,9 +98,9 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
                                     const std::shared_ptr<Schema>& schema) {
   if (rel.has_common()) {
     switch (rel.common().emit_kind_case()) {
-      case ::substrait::RelCommon::EmitKindCase::kDirect:
+      case substrait::RelCommon::EmitKindCase::kDirect:
         return no_emit_declr;
-      case ::substrait::RelCommon::EmitKindCase::kEmit: {
+      case substrait::RelCommon::EmitKindCase::kEmit: {
         ARROW_ASSIGN_OR_RAISE(auto emit_info, GetEmitInfo(rel, schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
@@ -123,10 +123,10 @@ Status CheckRelCommon(const RelMessage& rel,
   if (rel.has_common()) {
     if (rel.common().has_hint() &&
         conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP) {
-      return Status::NotImplemented("::substrait::RelCommon::Hint");
+      return Status::NotImplemented("substrait::RelCommon::Hint");
     }
     if (rel.common().has_advanced_extension()) {
-      return Status::NotImplemented("::substrait::RelCommon::advanced_extension");
+      return Status::NotImplemented("substrait::RelCommon::advanced_extension");
     }
   }
   if (rel.has_advanced_extension()) {
@@ -153,8 +153,7 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
   return Status::OK();
 }
 
-Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
-                                  const ExtensionSet& ext_set,
+Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet& ext_set,
                                   const ConversionOptions& conversion_options) {
   static bool dataset_init = false;
   if (!dataset_init) {
@@ -163,7 +162,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
   }
 
   switch (rel.rel_type_case()) {
-    case ::substrait::Rel::RelTypeCase::kRead: {
+    case substrait::Rel::RelTypeCase::kRead: {
       const auto& read = rel.read();
       RETURN_NOT_OK(CheckRelCommon(read, conversion_options));
 
@@ -180,7 +179,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
       }
 
       if (read.has_projection()) {
-        return Status::NotImplemented("::substrait::ReadRel::projection");
+        return Status::NotImplemented("substrait::ReadRel::projection");
       }
 
       if (read.has_named_table()) {
@@ -196,7 +195,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
 
         const NamedTableProvider& named_table_provider =
             conversion_options.named_table_provider;
-        const ::substrait::ReadRel::NamedTable& named_table = read.named_table();
+        const substrait::ReadRel::NamedTable& named_table = read.named_table();
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
@@ -213,12 +212,12 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
 
       if (!read.has_local_files()) {
         return Status::NotImplemented(
-            "::substrait::ReadRel with read_type other than LocalFiles");
+            "substrait::ReadRel with read_type other than LocalFiles");
       }
 
       if (read.local_files().has_advanced_extension()) {
         return Status::NotImplemented(
-            "::substrait::ReadRel::LocalFiles::advanced_extension");
+            "substrait::ReadRel::LocalFiles::advanced_extension");
       }
 
       std::shared_ptr<dataset::FileFormat> format;
@@ -230,31 +229,31 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
         if (item.partition_index() != 0) {
           return Status::NotImplemented(
               "non-default "
-              "::substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
+              "substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
         }
 
         if (item.start() != 0) {
           return Status::NotImplemented(
-              "non-default ::substrait::ReadRel::LocalFiles::FileOrFiles::start offset");
+              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::start offset");
         }
 
         if (item.length() != 0) {
           return Status::NotImplemented(
-              "non-default ::substrait::ReadRel::LocalFiles::FileOrFiles::length");
+              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::length");
         }
 
         // Extract and parse the read relation's source URI
         ::arrow::internal::Uri item_uri;
         switch (item.path_type_case()) {
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath:
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath:
             RETURN_NOT_OK(item_uri.Parse(item.uri_path()));
             break;
 
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile:
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile:
             RETURN_NOT_OK(item_uri.Parse(item.uri_file()));
             break;
 
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder:
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder:
             RETURN_NOT_OK(item_uri.Parse(item.uri_folder()));
             break;
 
@@ -265,49 +264,49 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
 
         // Validate the URI before processing
         if (!item_uri.is_file_scheme()) {
-          return Status::NotImplemented("::substrait::ReadRel::LocalFiles item (",
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
                                         item_uri.ToString(),
                                         ") does not have file scheme (file:///)");
         }
 
         if (item_uri.port() != -1) {
-          return Status::NotImplemented("::substrait::ReadRel::LocalFiles item (",
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
                                         item_uri.ToString(),
                                         ") should not have a port number in path");
         }
 
         if (!item_uri.query_string().empty()) {
-          return Status::NotImplemented("::substrait::ReadRel::LocalFiles item (",
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
                                         item_uri.ToString(),
                                         ") should not have a query string in path");
         }
 
         switch (item.file_format_case()) {
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kParquet:
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kParquet:
             format = std::make_shared<dataset::ParquetFileFormat>();
             break;
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kArrow:
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kArrow:
             format = std::make_shared<dataset::IpcFileFormat>();
             break;
           default:
             return Status::NotImplemented(
                 "unsupported file format ",
-                "(see ::substrait::ReadRel::LocalFiles::FileOrFiles::file_format)");
+                "(see substrait::ReadRel::LocalFiles::FileOrFiles::file_format)");
         }
 
         // Handle the URI as appropriate
         switch (item.path_type_case()) {
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile: {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile: {
             files.emplace_back(item_uri.path(), fs::FileType::File);
             break;
           }
 
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
             RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), &files));
             break;
           }
 
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath: {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath: {
             ARROW_ASSIGN_OR_RAISE(auto file_info,
                                   filesystem->GetFileInfo(item_uri.path()));
 
@@ -330,7 +329,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
             break;
           }
 
-          case ::substrait::ReadRel::LocalFiles::FileOrFiles::kUriPathGlob: {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPathGlob: {
             ARROW_ASSIGN_OR_RAISE(auto globbed_files,
                                   fs::internal::GlobFiles(filesystem, item_uri.path()));
             std::move(globbed_files.begin(), globbed_files.end(),
@@ -358,18 +357,18 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
                          std::move(base_schema));
     }
 
-    case ::substrait::Rel::RelTypeCase::kFilter: {
+    case substrait::Rel::RelTypeCase::kFilter: {
       const auto& filter = rel.filter();
       RETURN_NOT_OK(CheckRelCommon(filter, conversion_options));
 
       if (!filter.has_input()) {
-        return Status::Invalid("::substrait::FilterRel with no input relation");
+        return Status::Invalid("substrait::FilterRel with no input relation");
       }
       ARROW_ASSIGN_OR_RAISE(auto input,
                             FromProto(filter.input(), ext_set, conversion_options));
 
       if (!filter.has_condition()) {
-        return Status::Invalid("::substrait::FilterRel with no condition expression");
+        return Status::Invalid("substrait::FilterRel with no condition expression");
       }
       ARROW_ASSIGN_OR_RAISE(auto condition,
                             FromProto(filter.condition(), ext_set, conversion_options));
@@ -384,11 +383,11 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
                          input.output_schema);
     }
 
-    case ::substrait::Rel::RelTypeCase::kProject: {
+    case substrait::Rel::RelTypeCase::kProject: {
       const auto& project = rel.project();
       RETURN_NOT_OK(CheckRelCommon(project, conversion_options));
       if (!project.has_input()) {
-        return Status::Invalid("::substrait::ProjectRel with no input relation");
+        return Status::Invalid("substrait::ProjectRel with no input relation");
       }
       ARROW_ASSIGN_OR_RAISE(auto input,
                             FromProto(project.input(), ext_set, conversion_options));
@@ -437,38 +436,38 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
                          std::move(project_schema));
     }
 
-    case ::substrait::Rel::RelTypeCase::kJoin: {
+    case substrait::Rel::RelTypeCase::kJoin: {
       const auto& join = rel.join();
       RETURN_NOT_OK(CheckRelCommon(join, conversion_options));
 
       if (!join.has_left()) {
-        return Status::Invalid("::substrait::JoinRel with no left relation");
+        return Status::Invalid("substrait::JoinRel with no left relation");
       }
 
       if (!join.has_right()) {
-        return Status::Invalid("::substrait::JoinRel with no right relation");
+        return Status::Invalid("substrait::JoinRel with no right relation");
       }
 
       compute::JoinType join_type;
       switch (join.type()) {
-        case ::substrait::JoinRel::JOIN_TYPE_UNSPECIFIED:
+        case substrait::JoinRel::JOIN_TYPE_UNSPECIFIED:
           return Status::NotImplemented("Unspecified join type is not supported");
-        case ::substrait::JoinRel::JOIN_TYPE_INNER:
+        case substrait::JoinRel::JOIN_TYPE_INNER:
           join_type = compute::JoinType::INNER;
           break;
-        case ::substrait::JoinRel::JOIN_TYPE_OUTER:
+        case substrait::JoinRel::JOIN_TYPE_OUTER:
           join_type = compute::JoinType::FULL_OUTER;
           break;
-        case ::substrait::JoinRel::JOIN_TYPE_LEFT:
+        case substrait::JoinRel::JOIN_TYPE_LEFT:
           join_type = compute::JoinType::LEFT_OUTER;
           break;
-        case ::substrait::JoinRel::JOIN_TYPE_RIGHT:
+        case substrait::JoinRel::JOIN_TYPE_RIGHT:
           join_type = compute::JoinType::RIGHT_OUTER;
           break;
-        case ::substrait::JoinRel::JOIN_TYPE_SEMI:
+        case substrait::JoinRel::JOIN_TYPE_SEMI:
           join_type = compute::JoinType::LEFT_SEMI;
           break;
-        case ::substrait::JoinRel::JOIN_TYPE_ANTI:
+        case substrait::JoinRel::JOIN_TYPE_ANTI:
           join_type = compute::JoinType::LEFT_ANTI;
           break;
         default:
@@ -481,7 +480,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
                             FromProto(join.right(), ext_set, conversion_options));
 
       if (!join.has_expression()) {
-        return Status::Invalid("::substrait::JoinRel with no expression");
+        return Status::Invalid("substrait::JoinRel with no expression");
       }
 
       ARROW_ASSIGN_OR_RAISE(auto expression,
@@ -543,12 +542,12 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
       return ProcessEmit(std::move(join), std::move(join_declaration),
                          std::move(join_schema));
     }
-    case ::substrait::Rel::RelTypeCase::kAggregate: {
+    case substrait::Rel::RelTypeCase::kAggregate: {
       const auto& aggregate = rel.aggregate();
       RETURN_NOT_OK(CheckRelCommon(aggregate, conversion_options));
 
       if (!aggregate.has_input()) {
-        return Status::Invalid("::substrait::AggregateRel with no input relation");
+        return Status::Invalid("substrait::AggregateRel with no input relation");
       }
 
       ARROW_ASSIGN_OR_RAISE(auto input,
@@ -566,7 +565,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
       std::vector<int> key_field_ids;
       std::vector<FieldRef> keys;
       if (aggregate.groupings_size() > 0) {
-        const ::substrait::AggregateRel::Grouping& group = aggregate.groupings(0);
+        const substrait::AggregateRel::Grouping& group = aggregate.groupings(0);
         int grouping_expr_size = group.grouping_expressions_size();
         keys.reserve(grouping_expr_size);
         key_field_ids.reserve(grouping_expr_size);
@@ -620,7 +619,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
 
           aggregates.push_back(std::move(arrow_agg));
         } else {
-          return Status::Invalid("::substrait::AggregateFunction not provided");
+          return Status::Invalid("substrait::AggregateFunction not provided");
         }
       }
       FieldVector output_fields;
@@ -688,14 +687,14 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
       return ProcessEmit(std::move(set), std::move(set_declaration),
                          std::move(union_schema));
     }
-    case ::substrait::Rel::RelTypeCase::kExtensionLeaf: {
+    case substrait::Rel::RelTypeCase::kExtensionLeaf: {
       const auto& ext = rel.extension_leaf();
       ARROW_ASSIGN_OR_RAISE(
           auto ext_leaf_decl,
           conversion_options.extension_provider->MakeRel({}, ext.detail(), ext_set));
       return ProcessEmit(ext, std::move(ext_leaf_decl), ext_leaf_decl.output_schema);
     }
-    case ::substrait::Rel::RelTypeCase::kExtensionSingle: {
+    case substrait::Rel::RelTypeCase::kExtensionSingle: {
       const auto& ext = rel.extension_single();
       ARROW_ASSIGN_OR_RAISE(DeclarationInfo input,
                             FromProto(ext.input(), ext_set, conversion_options));
@@ -704,7 +703,7 @@ Result<DeclarationInfo> FromProto(const ::substrait::Rel& rel,
           conversion_options.extension_provider->MakeRel({input}, ext.detail(), ext_set));
       return ProcessEmit(ext, std::move(ext_single_decl), ext_single_decl.output_schema);
     }
-    case ::substrait::Rel::RelTypeCase::kExtensionMulti: {
+    case substrait::Rel::RelTypeCase::kExtensionMulti: {
       const auto& ext = rel.extension_multi();
       std::vector<DeclarationInfo> inputs;
       for (const auto& input : ext.inputs()) {
@@ -778,7 +777,7 @@ Result<std::unique_ptr<substrait::ReadRel>> NamedTableRelationConverter(
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto read_rel = std::make_unique<::substrait::ReadRel>();
+  auto read_rel = std::make_unique<substrait::ReadRel>();
   const auto& scan_node_options =
       checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
   auto dataset =
@@ -793,22 +792,22 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   read_rel->set_allocated_base_schema(named_struct.release());
 
   // set local files
-  auto read_rel_lfs = std::make_unique<::substrait::ReadRel::LocalFiles>();
+  auto read_rel_lfs = std::make_unique<substrait::ReadRel::LocalFiles>();
   for (const auto& file : dataset->files()) {
     auto read_rel_lfs_ffs =
-        std::make_unique<::substrait::ReadRel::LocalFiles::FileOrFiles>();
+        std::make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
     read_rel_lfs_ffs->set_uri_path(UriFromAbsolutePath(file));
     // set file format
     auto format_type_name = dataset->format()->type_name();
     if (format_type_name == "parquet") {
       read_rel_lfs_ffs->set_allocated_parquet(
-          new ::substrait::ReadRel::LocalFiles::FileOrFiles::ParquetReadOptions());
+          new substrait::ReadRel::LocalFiles::FileOrFiles::ParquetReadOptions());
     } else if (format_type_name == "ipc") {
       read_rel_lfs_ffs->set_allocated_arrow(
-          new ::substrait::ReadRel::LocalFiles::FileOrFiles::ArrowReadOptions());
+          new substrait::ReadRel::LocalFiles::FileOrFiles::ArrowReadOptions());
     } else if (format_type_name == "orc") {
       read_rel_lfs_ffs->set_allocated_orc(
-          new ::substrait::ReadRel::LocalFiles::FileOrFiles::OrcReadOptions());
+          new substrait::ReadRel::LocalFiles::FileOrFiles::OrcReadOptions());
     } else {
       return Status::NotImplemented("Unsupported file type: ", format_type_name);
     }
@@ -818,10 +817,10 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   return std::move(read_rel);
 }
 
-Result<std::unique_ptr<::substrait::FilterRel>> FilterRelationConverter(
+Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto filter_rel = std::make_unique<::substrait::FilterRel>();
+  auto filter_rel = std::make_unique<substrait::FilterRel>();
   const auto& filter_node_options =
       checked_cast<const compute::FilterNodeOptions&>(*(declaration.options));
 
@@ -852,7 +851,7 @@ Result<std::unique_ptr<::substrait::FilterRel>> FilterRelationConverter(
 
 Status SerializeAndCombineRelations(const compute::Declaration& declaration,
                                     ExtensionSet* ext_set,
-                                    std::unique_ptr<::substrait::Rel>* rel,
+                                    std::unique_ptr<substrait::Rel>* rel,
                                     const ConversionOptions& conversion_options) {
   const auto& factory_name = declaration.factory_name;
   ARROW_ASSIGN_OR_RAISE(auto schema, ExtractSchemaToBind(declaration));
@@ -889,10 +888,10 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
   return Status::OK();
 }
 
-Result<std::unique_ptr<::substrait::Rel>> ToProto(
+Result<std::unique_ptr<substrait::Rel>> ToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  auto rel = std::make_unique<::substrait::Rel>();
+  auto rel = std::make_unique<substrait::Rel>();
   RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
   return std::move(rel);
 }

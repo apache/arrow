@@ -42,7 +42,7 @@ using internal::checked_cast;
 
 namespace engine {
 
-Status AddExtensionSetToPlan(const ExtensionSet& ext_set, ::substrait::Plan* plan) {
+Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan) {
   plan->clear_extension_uris();
 
   std::unordered_map<std::string_view, int, ::arrow::internal::StringViewHash> map;
@@ -53,7 +53,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, ::substrait::Plan* pla
     auto uri = ext_set.uris().at(anchor);
     if (uri.empty()) continue;
 
-    auto ext_uri = std::make_unique<::substrait::extensions::SimpleExtensionURI>();
+    auto ext_uri = std::make_unique<substrait::extensions::SimpleExtensionURI>();
     ext_uri->set_uri(std::string(uri));
     ext_uri->set_extension_uri_anchor(anchor);
     uris->AddAllocated(ext_uri.release());
@@ -64,7 +64,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, ::substrait::Plan* pla
   auto extensions = plan->mutable_extensions();
   extensions->Reserve(static_cast<int>(ext_set.num_types() + ext_set.num_functions()));
 
-  using ExtDecl = ::substrait::extensions::SimpleExtensionDeclaration;
+  using ExtDecl = substrait::extensions::SimpleExtensionDeclaration;
 
   for (uint32_t anchor = 0; anchor < ext_set.num_types(); ++anchor) {
     ARROW_ASSIGN_OR_RAISE(auto type_record, ext_set.DecodeType(anchor));
@@ -96,7 +96,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, ::substrait::Plan* pla
   return Status::OK();
 }
 
-Result<ExtensionSet> GetExtensionSetFromPlan(const ::substrait::Plan& plan,
+Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                                              const ConversionOptions& conversion_options,
                                              const ExtensionIdRegistry* registry) {
   if (registry == NULLPTR) {
@@ -114,18 +114,18 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const ::substrait::Plan& plan,
   std::unordered_map<uint32_t, Id> type_ids, function_ids;
   for (const auto& ext : plan.extensions()) {
     switch (ext.mapping_type_case()) {
-      case ::substrait::extensions::SimpleExtensionDeclaration::kExtensionTypeVariation: {
+      case substrait::extensions::SimpleExtensionDeclaration::kExtensionTypeVariation: {
         return Status::NotImplemented("Type Variations are not yet implemented");
       }
 
-      case ::substrait::extensions::SimpleExtensionDeclaration::kExtensionType: {
+      case substrait::extensions::SimpleExtensionDeclaration::kExtensionType: {
         const auto& type = ext.extension_type();
         std::string_view uri = uris[type.extension_uri_reference()];
         type_ids[type.type_anchor()] = Id{uri, type.name()};
         break;
       }
 
-      case ::substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
+      case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
         const auto& fn = ext.extension_function();
         std::string_view uri = uris[fn.extension_uri_reference()];
         function_ids[fn.function_anchor()] = Id{uri, fn.name()};
@@ -148,8 +148,8 @@ constexpr uint32_t kSubstraitMajorVersion = 0;
 constexpr uint32_t kSubstraitMinorVersion = 20;
 constexpr uint32_t kSubstraitPatchVersion = 0;
 
-std::unique_ptr<::substrait::Version> CreateVersion() {
-  auto version = std::make_unique<::substrait::Version>();
+std::unique_ptr<substrait::Version> CreateVersion() {
+  auto version = std::make_unique<substrait::Version>();
   version->set_major_number(kSubstraitMajorVersion);
   version->set_minor_number(kSubstraitMinorVersion);
   version->set_patch_number(kSubstraitPatchVersion);
@@ -159,13 +159,13 @@ std::unique_ptr<::substrait::Version> CreateVersion() {
 
 }  // namespace
 
-Result<std::unique_ptr<::substrait::Plan>> PlanToProto(
+Result<std::unique_ptr<substrait::Plan>> PlanToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  auto subs_plan = std::make_unique<::substrait::Plan>();
+  auto subs_plan = std::make_unique<substrait::Plan>();
   subs_plan->set_allocated_version(CreateVersion().release());
-  auto plan_rel = std::make_unique<::substrait::PlanRel>();
-  auto rel_root = std::make_unique<::substrait::RelRoot>();
+  auto plan_rel = std::make_unique<substrait::PlanRel>();
+  auto rel_root = std::make_unique<substrait::RelRoot>();
   ARROW_ASSIGN_OR_RAISE(auto rel, ToProto(declr, ext_set, conversion_options));
   rel_root->set_allocated_input(rel.release());
   plan_rel->set_allocated_root(rel_root.release());

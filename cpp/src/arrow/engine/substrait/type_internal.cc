@@ -228,20 +228,18 @@ struct DataTypeToProtoImpl {
   Status Visit(const NullType& t) { return EncodeUserDefined(t); }
 
   Status Visit(const BooleanType& t) {
-    return SetWith(&::substrait::Type::set_allocated_bool_);
+    return SetWith(&substrait::Type::set_allocated_bool_);
   }
 
-  Status Visit(const Int8Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_i8);
-  }
+  Status Visit(const Int8Type& t) { return SetWith(&substrait::Type::set_allocated_i8); }
   Status Visit(const Int16Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_i16);
+    return SetWith(&substrait::Type::set_allocated_i16);
   }
   Status Visit(const Int32Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_i32);
+    return SetWith(&substrait::Type::set_allocated_i32);
   }
   Status Visit(const Int64Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_i64);
+    return SetWith(&substrait::Type::set_allocated_i64);
   }
 
   Status Visit(const UInt8Type& t) { return EncodeUserDefined(t); }
@@ -251,27 +249,26 @@ struct DataTypeToProtoImpl {
 
   Status Visit(const HalfFloatType& t) { return EncodeUserDefined(t); }
   Status Visit(const FloatType& t) {
-    return SetWith(&::substrait::Type::set_allocated_fp32);
+    return SetWith(&substrait::Type::set_allocated_fp32);
   }
   Status Visit(const DoubleType& t) {
-    return SetWith(&::substrait::Type::set_allocated_fp64);
+    return SetWith(&substrait::Type::set_allocated_fp64);
   }
 
   Status Visit(const StringType& t) {
-    return SetWith(&::substrait::Type::set_allocated_string);
+    return SetWith(&substrait::Type::set_allocated_string);
   }
   Status Visit(const BinaryType& t) {
-    return SetWith(&::substrait::Type::set_allocated_binary);
+    return SetWith(&substrait::Type::set_allocated_binary);
   }
 
   Status Visit(const FixedSizeBinaryType& t) {
-    SetWithThen(&::substrait::Type::set_allocated_fixed_binary)
-        ->set_length(t.byte_width());
+    SetWithThen(&substrait::Type::set_allocated_fixed_binary)->set_length(t.byte_width());
     return Status::OK();
   }
 
   Status Visit(const Date32Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_date);
+    return SetWith(&substrait::Type::set_allocated_date);
   }
   Status Visit(const Date64Type& t) { return NotImplemented(t); }
 
@@ -279,10 +276,10 @@ struct DataTypeToProtoImpl {
     if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);
 
     if (t.timezone() == "") {
-      return SetWith(&::substrait::Type::set_allocated_timestamp);
+      return SetWith(&substrait::Type::set_allocated_timestamp);
     }
     if (t.timezone() == TimestampTzTimezoneString()) {
-      return SetWith(&::substrait::Type::set_allocated_timestamp_tz);
+      return SetWith(&substrait::Type::set_allocated_timestamp_tz);
     }
 
     return NotImplemented(t);
@@ -291,14 +288,14 @@ struct DataTypeToProtoImpl {
   Status Visit(const Time32Type& t) { return NotImplemented(t); }
   Status Visit(const Time64Type& t) {
     if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);
-    return SetWith(&::substrait::Type::set_allocated_time);
+    return SetWith(&substrait::Type::set_allocated_time);
   }
 
   Status Visit(const MonthIntervalType& t) { return EncodeUserDefined(t); }
   Status Visit(const DayTimeIntervalType& t) { return EncodeUserDefined(t); }
 
   Status Visit(const Decimal128Type& t) {
-    auto dec = SetWithThen(&::substrait::Type::set_allocated_decimal);
+    auto dec = SetWithThen(&substrait::Type::set_allocated_decimal);
     dec->set_precision(t.precision());
     dec->set_scale(t.scale());
     return Status::OK();
@@ -309,13 +306,12 @@ struct DataTypeToProtoImpl {
     // FIXME assert default field name; custom ones won't roundtrip
     ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*t.value_type(), t.value_field()->nullable(),
                                              ext_set_, conversion_options_));
-    SetWithThen(&::substrait::Type::set_allocated_list)
-        ->set_allocated_type(type.release());
+    SetWithThen(&substrait::Type::set_allocated_list)->set_allocated_type(type.release());
     return Status::OK();
   }
 
   Status Visit(const StructType& t) {
-    auto types = SetWithThen(&::substrait::Type::set_allocated_struct_)->mutable_types();
+    auto types = SetWithThen(&substrait::Type::set_allocated_struct_)->mutable_types();
 
     types->Reserve(t.num_fields());
 
@@ -336,7 +332,7 @@ struct DataTypeToProtoImpl {
 
   Status Visit(const MapType& t) {
     // FIXME assert default field names; custom ones won't roundtrip
-    auto map = SetWithThen(&::substrait::Type::set_allocated_map);
+    auto map = SetWithThen(&substrait::Type::set_allocated_map);
 
     ARROW_ASSIGN_OR_RAISE(auto key, ToProto(*t.key_type(), /*nullable=*/false, ext_set_,
                                             conversion_options_));
@@ -351,25 +347,25 @@ struct DataTypeToProtoImpl {
 
   Status Visit(const ExtensionType& t) {
     if (UnwrapUuid(t)) {
-      return SetWith(&::substrait::Type::set_allocated_uuid);
+      return SetWith(&substrait::Type::set_allocated_uuid);
     }
 
     if (auto length = UnwrapFixedChar(t)) {
-      SetWithThen(&::substrait::Type::set_allocated_fixed_char)->set_length(*length);
+      SetWithThen(&substrait::Type::set_allocated_fixed_char)->set_length(*length);
       return Status::OK();
     }
 
     if (auto length = UnwrapVarChar(t)) {
-      SetWithThen(&::substrait::Type::set_allocated_varchar)->set_length(*length);
+      SetWithThen(&substrait::Type::set_allocated_varchar)->set_length(*length);
       return Status::OK();
     }
 
     if (UnwrapIntervalYear(t)) {
-      return SetWith(&::substrait::Type::set_allocated_interval_year);
+      return SetWith(&substrait::Type::set_allocated_interval_year);
     }
 
     if (UnwrapIntervalDay(t)) {
-      return SetWith(&::substrait::Type::set_allocated_interval_day);
+      return SetWith(&substrait::Type::set_allocated_interval_day);
     }
 
     return NotImplemented(t);
@@ -383,7 +379,7 @@ struct DataTypeToProtoImpl {
   Status Visit(const MonthDayNanoIntervalType& t) { return EncodeUserDefined(t); }
 
   template <typename Sub>
-  Sub* SetWithThen(void (::substrait::Type::*set_allocated_sub)(Sub*)) {
+  Sub* SetWithThen(void (substrait::Type::*set_allocated_sub)(Sub*)) {
     auto sub = std::make_unique<Sub>();
     sub->set_nullability(nullable_ ? substrait::Type::NULLABILITY_NULLABLE
                                    : substrait::Type::NULLABILITY_REQUIRED);
@@ -394,7 +390,7 @@ struct DataTypeToProtoImpl {
   }
 
   template <typename Sub>
-  Status SetWith(void (::substrait::Type::*set_allocated_sub)(Sub*)) {
+  Status SetWith(void (substrait::Type::*set_allocated_sub)(Sub*)) {
     return SetWithThen(set_allocated_sub), Status::OK();
   }
 
@@ -480,7 +476,7 @@ Result<std::unique_ptr<substrait::NamedStruct>> ToProto(
     const ConversionOptions& conversion_options) {
   if (conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP &&
       schema.metadata() != nullptr) {
-    return Status::Invalid("::substrait::NamedStruct does not support schema metadata");
+    return Status::Invalid("substrait::NamedStruct does not support schema metadata");
   }
 
   auto named_struct = std::make_unique<substrait::NamedStruct>();
