@@ -401,7 +401,6 @@ register_bindings_datetime_conversion <- function() {
     }
 
     if (call_binding("is.character", x) && !is.null(format)) {
-      # unit = 0L is the identifier for seconds in valid_time32_units
       x <- Expression$create(
         "strptime",
         x,
