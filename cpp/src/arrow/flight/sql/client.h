@@ -392,16 +392,17 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
 
   /// \brief Retrieve the parameter schema from the query.
   /// \return The parameter schema from the query.
-  std::shared_ptr<Schema> parameter_schema() const;
+  const std::shared_ptr<Schema>& parameter_schema() const;
 
   /// \brief Retrieve the ResultSet schema from the query.
   /// \return The ResultSet schema from the query.
-  std::shared_ptr<Schema> dataset_schema() const;
+  const std::shared_ptr<Schema>& dataset_schema() const;
 
   /// \brief Set a RecordBatch that contains the parameters that will be bound.
-  /// \param parameter_binding   The parameters that will be bound.
-  /// \return                     Status.
   Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
+
+  /// \brief Set a RecordBatchReader that contains the parameters that will be bound.
+  Status SetParameters(std::shared_ptr<RecordBatchReader> parameter_binding);
 
   /// \brief Re-request the result set schema from the server (should
   ///   be identical to dataset_schema).
@@ -422,7 +423,7 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   std::string handle_;
   std::shared_ptr<Schema> dataset_schema_;
   std::shared_ptr<Schema> parameter_schema_;
-  std::shared_ptr<RecordBatch> parameter_binding_;
+  std::shared_ptr<RecordBatchReader> parameter_binding_;
   bool is_closed_;
 };
 

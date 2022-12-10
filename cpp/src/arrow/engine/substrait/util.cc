@@ -17,10 +17,24 @@
 
 #include "arrow/engine/substrait/util.h"
 
+#include <algorithm>
+#include <optional>
+#include <string_view>
+#include <utility>
+
+#include "arrow/buffer.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/type_fwd.h"
+#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/async_util.h"
+#include "arrow/util/future.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -43,7 +57,8 @@ class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
   }
 
   Status Init(const std::shared_ptr<Schema>& schema,
-              compute::BackpressureControl* backpressure_control) override {
+              compute::BackpressureControl* backpressure_control,
+              compute::ExecPlan* plan) override {
     schema_ = schema;
     return Status::OK();
   }

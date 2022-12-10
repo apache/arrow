@@ -108,23 +108,17 @@ jobs:
           name: wheel
           path: arrow/python/repaired_wheels/*.whl
 
-      - name: Test Wheel
+      - name: Test Wheel on AMD64
         shell: bash
         env:
-          TEST_DEFAULT: "0"
-          TEST_PYARROW_VERSION: "{{ arrow.no_rc_version }}"
-          TEST_WHEEL: "1"
+          PYTEST_ADDOPTS: "-k 'not test_cancellation'"
         run: |
-          case "${PYTHON_VERSION}" in
-            3.7)
-              python_version=${PYTHON_VERSION}m
-              ;;
-            *)
-              python_version=${PYTHON_VERSION}
-              ;;
-          esac
-          export TEST_PYTHON_VERSIONS=${python_version}
-          arrow/dev/release/verify-release-candidate.sh
+          $PYTHON -m venv test-amd64-env
+          source test-amd64-env/bin/activate
+          pip install --upgrade pip wheel
+          arch -x86_64 pip install -r arrow/python/requirements-wheel-test.txt
+          PYTHON=python arch -x86_64 arrow/ci/scripts/install_gcs_testbench.sh default
+          arch -x86_64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}

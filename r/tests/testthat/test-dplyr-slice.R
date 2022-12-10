@@ -89,6 +89,8 @@ test_that("slice_min/max, ungrouped", {
 })
 
 test_that("slice_sample, ungrouped", {
+  skip_if_not(CanRunWithCapturedR())
+
   tab <- arrow_table(tbl)
   expect_error(
     tab %>% slice_sample(replace = TRUE),
@@ -99,8 +101,10 @@ test_that("slice_sample, ungrouped", {
     "weight_by"
   )
 
+  # Let's not take any chances on random failures
+  skip_on_cran()
   # Because this is random (and we only have 10 rows), try several times
-  for (i in 1:10) {
+  for (i in 1:50) {
     sampled_prop <- tab %>%
       slice_sample(prop = .2) %>%
       collect() %>%

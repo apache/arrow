@@ -68,12 +68,26 @@ std::vector<FieldRef> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
-std::vector<FieldPath> ScanV2Options::AllColumns(const Dataset& dataset) {
-  std::vector<FieldPath> selection(dataset.schema()->num_fields());
-  for (std::size_t i = 0; i < selection.size(); i++) {
-    selection[i] = {static_cast<int>(i)};
+std::vector<FieldPath> ScanV2Options::AllColumns(const Schema& dataset_schema) {
+  std::vector<FieldPath> selection(dataset_schema.num_fields());
+  for (int i = 0; i < dataset_schema.num_fields(); i++) {
+    selection[i] = {i};
   }
   return selection;
+}
+
+Status ScanV2Options::AddFieldsNeededForFilter(ScanV2Options* options) {
+  std::vector<FieldRef> fields_referenced = FieldsInExpression(options->filter);
+  for (const auto& field : fields_referenced) {
+    // Note: this will fail if the field reference is ambiguous or the field doesn't
+    // exist in the dataset schema
+    ARROW_ASSIGN_OR_RAISE(auto field_path, field.FindOne(*options->dataset->schema()));
+    if (std::find(options->columns.begin(), options->columns.end(), field_path) ==
+        options->columns.end()) {
+      options->columns.push_back(std::move(field_path));
+    }
+  }
+  return Status::OK();
 }
 
 namespace {
@@ -424,7 +438,8 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
               {"filter", compute::FilterNodeOptions{scan_options_->filter}},
               {"augmented_project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"sink", compute::SinkNodeOptions{&sink_gen, scan_options_->backpressure}},
+              {"sink", compute::SinkNodeOptions{&sink_gen, /*schema=*/nullptr,
+                                                scan_options_->backpressure}},
           })
           .AddToPlan(plan.get()));
 
@@ -789,7 +804,19 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
                                                    const Schema& dataset_schema) {
   std::vector<compute::Expression> exprs(names.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
-    exprs[i] = compute::field_ref(names[i]);
+    // If name isn't in schema, try finding it by dotted path.
+    if (dataset_schema.GetFieldByName(names[i]) == nullptr) {
+      auto name = names[i];
+      if (name.rfind(".", 0) != 0) {
+        name = "." + name;
+      }
+      ARROW_ASSIGN_OR_RAISE(auto field_ref, FieldRef::FromDotPath(name));
+      // safe as we know there is at least 1 dot.
+      names[i] = name.substr(name.rfind(".") + 1);
+      exprs[i] = compute::field_ref(field_ref);
+    } else {
+      exprs[i] = compute::field_ref(names[i]);
+    }
   }
   auto fields = dataset_schema.fields();
   for (const auto& aug_field : kAugmentedFields) {

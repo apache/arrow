@@ -18,7 +18,6 @@
 #include "./arrow_types.h"
 
 #include <arrow/array/array_base.h>
-#include <arrow/builder.h>
 #include <arrow/table.h>
 #include <arrow/util/byte_size.h>
 #include <arrow/util/key_value_metadata.h>
@@ -304,31 +303,14 @@ std::shared_ptr<arrow::Table> Table__from_record_batches(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__from_schema(SEXP schema_sxp) {
-  auto schema = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(schema_sxp);
+std::shared_ptr<arrow::Table> Table__from_schema(
+    const std::shared_ptr<arrow::Schema>& schema) {
+  int64_t num_fields = schema->num_fields();
 
-  int num_fields = schema->num_fields();
-
-  std::vector<std::shared_ptr<arrow::Array>> columns;
-
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
   for (int i = 0; i < num_fields; i++) {
-    bool is_extension_type = schema->field(i)->type()->name() == "extension";
-    std::shared_ptr<arrow::DataType> type;
-
-    // need to handle extension types a bit differently
-    if (is_extension_type) {
-      // TODO: ARROW-18043 - update this to properly construct extension types instead of
-      // converting to null
-      type = arrow::null();
-    } else {
-      type = schema->field(i)->type();
-    }
-
-    std::shared_ptr<arrow::Array> array;
-    std::unique_ptr<arrow::ArrayBuilder> type_builder;
-    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), type, &type_builder));
-    StopIfNotOk(type_builder->Finish(&array));
-    columns.push_back(array);
+    auto maybe_column = arrow::ChunkedArray::Make({}, schema->field(i)->type());
+    columns[i] = ValueOrStop(maybe_column);
   }
 
   return (arrow::Table::Make(schema, std::move(columns)));

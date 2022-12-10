@@ -19,7 +19,5 @@ package org.apache.arrow.vector.table;
 
 /**
  *  Support for Table, an immutable, columnar, tabular data structure based on FieldVectors.
- *
- *  See the README.md file in this directory for detailed information about Table class and supporting classes.
- *
+ *  See the Arrow Java documentation for details: <a href="https://arrow.apache.org/docs/java/table.html">Table</a>
  */

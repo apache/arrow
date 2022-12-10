@@ -15,34 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/sql/server.h"
+#include <memory>
 
-#include <arrow/util/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
-#include <signal.h>
 #include <sqlite3.h>
 
-#include "arrow/flight/api.h"
-#include "arrow/flight/sql/api.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/flight/sql/client.h"
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
 #include "arrow/flight/sql/example/sqlite_type_info.h"
+#include "arrow/flight/sql/server.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
+#include "arrow/record_batch.h"
+#include "arrow/scalar.h"
+#include "arrow/table.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 
-using ::testing::_;
-using ::testing::Ref;
-
 using arrow::internal::checked_cast;
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 /// \brief Auxiliary variant visitor used to assert that GetSqlInfo's values are
 /// correctly placed on its DenseUnionArray
@@ -158,7 +156,7 @@ class TestFlightSqlServer : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", server->port()));
     ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
 
-    sql_client.reset(new FlightSqlClient(std::move(client)));
+    sql_client = std::make_unique<FlightSqlClient>(std::move(client));
   }
 
   void TearDown() override {
@@ -185,11 +183,11 @@ TEST_F(TestFlightSqlServer, TestCommandStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
+  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4, 5])");
   const auto keyname_array =
-      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null])");
-  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null])");
-  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null])");
+      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null, "null"])");
+  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null, null])");
+  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null, null])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -215,16 +213,14 @@ TEST_F(TestFlightSqlServer, TestCommandGetTables) {
 
   ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
-  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 3))
-  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 3))
-
+  const auto catalog_name = ArrayFromJSON(utf8(), R"(["main", "main", "main"])");
+  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 3));
   const auto table_name =
       ArrayFromJSON(utf8(), R"(["foreignTable", "intTable", "sqlite_sequence"])");
   const auto table_type = ArrayFromJSON(utf8(), R"(["table", "table", "table"])");
 
-  const std::shared_ptr<Table>& expected_table = Table::Make(
+  std::shared_ptr<Table> expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
-
   AssertTablesEqual(*expected_table, *table);
 }
 
@@ -246,7 +242,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
 
   ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
-  const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto catalog_name = ArrayFromJSON(utf8(), R"(["main"])");
   const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
   const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
   const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
@@ -298,7 +294,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) 
 
   ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
-  const auto catalog_name = ArrayFromJSON(utf8(), R"([null, null, null])");
+  const auto catalog_name = ArrayFromJSON(utf8(), R"(["main", "main", "main"])");
   const auto schema_name = ArrayFromJSON(utf8(), R"([null, null, null])");
   const auto table_name =
       ArrayFromJSON(utf8(), R"(["foreignTable", "intTable", "sqlite_sequence"])");
@@ -330,7 +326,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
 
   const char* db_table_name = "intTable";
 
-  const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto catalog_name = ArrayFromJSON(utf8(), R"(["main"])");
   const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
   const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
   const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
@@ -392,16 +388,11 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfoWithFiltering) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetCatalogs) {
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetCatalogs({}));
-
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
-
   ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
-
-  const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetCatalogsSchema();
-
-  AssertSchemaEqual(expected_schema, table->schema());
-  ASSERT_EQ(0, table->num_rows());
+  auto expected_table = TableFromJSON(SqlSchema::GetCatalogsSchema(), {R"([["main"]])"});
+  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*expected_table, *table, /*verbose=*/true));
 }
 
 TEST_F(TestFlightSqlServer, TestCommandGetDbSchemas) {
@@ -410,16 +401,12 @@ TEST_F(TestFlightSqlServer, TestCommandGetDbSchemas) {
   std::string* schema_filter_pattern = nullptr;
   ASSERT_OK_AND_ASSIGN(auto flight_info,
                        sql_client->GetDbSchemas(options, catalog, schema_filter_pattern));
-
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
-
   ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
-
-  const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetDbSchemasSchema();
-
-  AssertSchemaEqual(expected_schema, table->schema());
-  ASSERT_EQ(0, table->num_rows());
+  auto expected_table =
+      TableFromJSON(SqlSchema::GetDbSchemasSchema(), {R"([["main", null]])"});
+  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*expected_table, *table, /*verbose=*/true));
 }
 
 TEST_F(TestFlightSqlServer, TestCommandGetTableTypes) {
@@ -485,11 +472,11 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
            "foreignId", int64(),
            example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map())});
 
-  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
+  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4, 5])");
   const auto keyname_array =
-      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null])");
-  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null])");
-  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null])");
+      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null, "null"])");
+  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null, null])");
+  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null, null])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -502,51 +489,57 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBindin
       auto prepared_statement,
       sql_client->Prepare({}, "SELECT * FROM intTable WHERE keyName LIKE ?"));
 
-  auto parameter_schema = prepared_statement->parameter_schema();
-
+  const std::shared_ptr<Schema>& parameter_schema =
+      prepared_statement->parameter_schema();
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
+  ASSERT_NO_FATAL_FAILURE(AssertSchemaEqual(expected_parameter_schema, parameter_schema));
 
-  AssertSchemaEqual(expected_parameter_schema, parameter_schema);
-
-  std::shared_ptr<Array> type_ids = ArrayFromJSON(int8(), R"([0])");
-  std::shared_ptr<Array> offsets = ArrayFromJSON(int32(), R"([0])");
-  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"(["%one"])");
-  std::shared_ptr<Array> bytes_array = ArrayFromJSON(binary(), R"([])");
-  std::shared_ptr<Array> bigint_array = ArrayFromJSON(int64(), R"([])");
-  std::shared_ptr<Array> double_array = ArrayFromJSON(float64(), R"([])");
-
-  ASSERT_OK_AND_ASSIGN(
-      auto parameter_1_array,
-      DenseUnionArray::Make(*type_ids, *offsets,
-                            {string_array, bytes_array, bigint_array, double_array},
-                            {"string", "bytes", "bigint", "double"}, {0, 1, 2, 3}));
-
-  const std::shared_ptr<RecordBatch>& record_batch =
-      RecordBatch::Make(parameter_schema, 1, {parameter_1_array});
-
-  ASSERT_OK(prepared_statement->SetParameters(record_batch));
+  auto record_batch = RecordBatchFromJSON(parameter_schema, R"([ [[0, "%one"]] ])");
+  ASSERT_OK(prepared_statement->SetParameters(std::move(record_batch)));
 
   ASSERT_OK_AND_ASSIGN(auto flight_info, prepared_statement->Execute());
-
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
-
   ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const std::shared_ptr<Schema>& expected_schema =
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  const auto id_array = ArrayFromJSON(int64(), R"([1, 3])");
-  const auto keyname_array = ArrayFromJSON(utf8(), R"(["one", "negative one"])");
-  const auto value_array = ArrayFromJSON(int64(), R"([1, -1])");
-  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1])");
+  auto expected_table = TableFromJSON(expected_schema, {R"([
+      [1, "one", 1, 1],
+      [3, "negative one", -1, 1]
+  ])"});
+  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*expected_table, *table, /*verbose=*/true));
 
-  const std::shared_ptr<Table>& expected_table = Table::Make(
-      expected_schema, {id_array, keyname_array, value_array, foreignId_array});
+  // Set multiple parameters at once
+  record_batch = RecordBatchFromJSON(
+      parameter_schema, R"([ [[0, "%one"]], [[0, "%zero"]], [[0, "null"]] ])");
+  ASSERT_OK(prepared_statement->SetParameters(std::move(record_batch)));
+  ASSERT_OK_AND_ASSIGN(flight_info, prepared_statement->Execute());
+  ASSERT_OK_AND_ASSIGN(stream, sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+  ASSERT_OK_AND_ASSIGN(table, stream->ToTable());
+  expected_table = TableFromJSON(expected_schema, {R"([
+      [1, "one", 1, 1],
+      [3, "negative one", -1, 1],
+      [2, "zero", 0, 1],
+      [5, "null", null, null]
+  ])"});
+  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*expected_table, *table, /*verbose=*/true));
 
-  AssertTablesEqual(*expected_table, *table);
+  // Set a stream of parameters
+  ASSERT_OK_AND_ASSIGN(
+      auto reader,
+      RecordBatchReader::Make({
+          RecordBatchFromJSON(parameter_schema, R"([ [[0, "%one"]], [[0, "%zero"]] ])"),
+          RecordBatchFromJSON(parameter_schema, R"([ [[0, "%null%"]] ])"),
+      }));
+  ASSERT_OK(prepared_statement->SetParameters(std::move(reader)));
+  ASSERT_OK_AND_ASSIGN(flight_info, prepared_statement->Execute());
+  ASSERT_OK_AND_ASSIGN(stream, sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+  ASSERT_OK_AND_ASSIGN(table, stream->ToTable());
+  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*expected_table, *table, /*verbose=*/true));
 }
 
 TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding) {
@@ -555,41 +548,38 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBindi
       sql_client->Prepare(
           {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', ?)"));
 
-  auto parameter_schema = prepared_statement->parameter_schema();
-
+  const std::shared_ptr<Schema>& parameter_schema =
+      prepared_statement->parameter_schema();
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
+  ASSERT_NO_FATAL_FAILURE(AssertSchemaEqual(expected_parameter_schema, parameter_schema));
 
-  AssertSchemaEqual(expected_parameter_schema, parameter_schema);
-
-  std::shared_ptr<Array> type_ids = ArrayFromJSON(int8(), R"([2])");
-  std::shared_ptr<Array> offsets = ArrayFromJSON(int32(), R"([0])");
-  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"([])");
-  std::shared_ptr<Array> bytes_array = ArrayFromJSON(binary(), R"([])");
-  std::shared_ptr<Array> bigint_array = ArrayFromJSON(int64(), R"([999])");
-  std::shared_ptr<Array> double_array = ArrayFromJSON(float64(), R"([])");
-
-  ASSERT_OK_AND_ASSIGN(
-      auto parameter_1_array,
-      DenseUnionArray::Make(*type_ids, *offsets,
-                            {string_array, bytes_array, bigint_array, double_array},
-                            {"string", "bytes", "bigint", "double"}, {0, 1, 2, 3}));
-
-  const std::shared_ptr<RecordBatch>& record_batch =
-      RecordBatch::Make(parameter_schema, 1, {parameter_1_array});
-
-  ASSERT_OK(prepared_statement->SetParameters(record_batch));
-
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-
-  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
+  auto record_batch = RecordBatchFromJSON(parameter_schema, R"([ [[2, 999]] ])");
+  ASSERT_OK(prepared_statement->SetParameters(std::move(record_batch)));
 
   ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-
+  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
+  ASSERT_OK_AND_EQ(6, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_OK_AND_EQ(1, sql_client->ExecuteUpdate(
                           {}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
+  ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  // Set multiple parameters at once
+  record_batch = RecordBatchFromJSON(parameter_schema, R"([ [[2, 999]], [[2, 42]] ])");
+  ASSERT_OK(prepared_statement->SetParameters(std::move(record_batch)));
+  ASSERT_OK_AND_EQ(2, prepared_statement->ExecuteUpdate());
+  ASSERT_OK_AND_EQ(7, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+
+  // Set a stream of parameters
+  ASSERT_OK_AND_ASSIGN(
+      auto reader,
+      RecordBatchReader::Make({
+          RecordBatchFromJSON(parameter_schema, R"([ [[2, 999]], [[2, 42]] ])"),
+          RecordBatchFromJSON(parameter_schema, R"([ [[2, -1]] ])"),
+      }));
+  ASSERT_OK(prepared_statement->SetParameters(std::move(reader)));
+  ASSERT_OK_AND_EQ(3, prepared_statement->ExecuteUpdate());
+  ASSERT_OK_AND_EQ(10, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
 TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
@@ -598,16 +588,12 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
       sql_client->Prepare(
           {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', 999)"));
 
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-
-  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
-
   ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-
+  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
+  ASSERT_OK_AND_EQ(6, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_OK_AND_EQ(1, sql_client->ExecuteUpdate(
                           {}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
-
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
 TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
@@ -819,6 +805,4 @@ TEST_F(TestFlightSqlServer, Transactions) {
   ASSERT_EQ(table->num_rows(), row_count);
 }
 
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

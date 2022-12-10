@@ -17,12 +17,13 @@
 package array_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -624,6 +625,8 @@ func (s *UnionBuilderSuite) appendBasics() {
 	s.appendInt(-10)
 	s.appendDbl(0.5)
 
+	s.Equal(9, s.unionBldr.Len())
+
 	s.actual = s.unionBldr.NewArray().(array.Union)
 	s.NoError(s.actual.ValidateFull())
 	s.createExpectedTypesArr()
@@ -638,6 +641,8 @@ func (s *UnionBuilderSuite) appendNullsAndEmptyValues() {
 	s.unionBldr.AppendNulls(2)
 	s.unionBldr.AppendEmptyValues(2)
 	s.expectedTypes = append(s.expectedTypes, s.I8, s.I8, s.I8)
+
+	s.Equal(8, s.unionBldr.Len())
 
 	s.actual = s.unionBldr.NewArray().(array.Union)
 	s.NoError(s.actual.ValidateFull())
@@ -662,6 +667,8 @@ func (s *UnionBuilderSuite) appendInferred() {
 	s.appendDbl(1.0)
 	s.appendDbl(-1.0)
 	s.appendDbl(0.5)
+
+	s.Equal(9, s.unionBldr.Len())
 
 	s.actual = s.unionBldr.NewArray().(array.Union)
 	s.NoError(s.actual.ValidateFull())
@@ -693,6 +700,8 @@ func (s *UnionBuilderSuite) appendListOfInferred(utyp arrow.UnionType) *array.Li
 	s.DBL = s.unionBldr.AppendChild(s.dblBldr, "dbl")
 	s.EqualValues(2, s.DBL)
 	s.appendDbl(0.5)
+
+	s.Equal(4, s.unionBldr.Len())
 
 	s.createExpectedTypesArr()
 	return listBldr.NewListArray()
@@ -946,7 +955,81 @@ func (s *UnionBuilderSuite) TestSparseUnionStructWithUnion() {
 	s.Truef(arrow.TypeEqual(expectedType, bldr.Type()), "expected: %s, got: %s", expectedType, bldr.Type())
 }
 
+func ExampleSparseUnionBuilder() {
+	dt1 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "c", Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint16, ValueType: arrow.BinaryTypes.String}},
+	}, []arrow.UnionTypeCode{0})
+	dt2 := arrow.StructOf(arrow.Field{Name: "a", Type: dt1})
+
+	pool := memory.DefaultAllocator
+	bldr := array.NewStructBuilder(pool, dt2)
+	defer bldr.Release()
+
+	bldrDt1 := bldr.FieldBuilder(0).(*array.SparseUnionBuilder)
+	binDictBldr := bldrDt1.Child(0).(*array.BinaryDictionaryBuilder)
+
+	bldr.Append(true)
+	bldrDt1.Append(0)
+	binDictBldr.AppendString("foo")
+
+	bldr.Append(true)
+	bldrDt1.Append(0)
+	binDictBldr.AppendString("bar")
+
+	out := bldr.NewArray().(*array.Struct)
+	defer out.Release()
+
+	fmt.Println(out)
+
+	// Output:
+	// {[{c=foo} {c=bar}]}
+}
+
 func TestUnions(t *testing.T) {
 	suite.Run(t, new(UnionFactorySuite))
 	suite.Run(t, new(UnionBuilderSuite))
+}
+
+func TestNestedUnionStructDict(t *testing.T) {
+	// ARROW-18274
+	dt1 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "c", Type: &arrow.DictionaryType{
+			IndexType: arrow.PrimitiveTypes.Uint16,
+			ValueType: arrow.BinaryTypes.String,
+			Ordered:   false,
+		}},
+	}, []arrow.UnionTypeCode{0})
+	dt2 := arrow.StructOf(
+		arrow.Field{Name: "b", Type: dt1},
+	)
+	dt3 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "a", Type: dt2},
+	}, []arrow.UnionTypeCode{0})
+	pool := memory.NewGoAllocator()
+
+	builder := array.NewSparseUnionBuilder(pool, dt3)
+	defer builder.Release()
+	arr := builder.NewArray()
+	defer arr.Release()
+	assert.Equal(t, 0, arr.Len())
+}
+
+func TestNestedUnionDictUnion(t *testing.T) {
+	dt1 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "c", Type: &arrow.DictionaryType{
+			IndexType: arrow.PrimitiveTypes.Uint16,
+			ValueType: arrow.BinaryTypes.String,
+			Ordered:   false,
+		}},
+	}, []arrow.UnionTypeCode{0})
+	dt2 := arrow.SparseUnionOf([]arrow.Field{
+		{Name: "a", Type: dt1},
+	}, []arrow.UnionTypeCode{0})
+	pool := memory.NewGoAllocator()
+
+	builder := array.NewSparseUnionBuilder(pool, dt2)
+	defer builder.Release()
+	arr := builder.NewArray()
+	defer arr.Release()
+	assert.Equal(t, 0, arr.Len())
 }

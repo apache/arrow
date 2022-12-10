@@ -254,8 +254,6 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
 
-  library(dplyr, warn.conflicts = FALSE)
-
   df <- tibble::tibble(
     metadata = list(
       structure(1, my_value_as_attr = 1),
@@ -269,39 +267,36 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
 
   dst_dir <- make_temp_dir()
 
-  withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE),
-    {
-      expect_warning(
-        write_dataset(df, dst_dir, partitioning = "part"),
-        "Row-level metadata is not compatible with datasets and will be discarded"
-      )
+  withr::local_options("arrow.preserve_row_level_metadata" = TRUE)
 
-      # Reset directory as previous write will have created some files and the default
-      # behavior is to error on existing
-      dst_dir <- make_temp_dir()
-      # but we need to write a dataset with row-level metadata to make sure when
-      # reading ones that have been written with them we warn appropriately
-      fake_func_name <- write_dataset
-      fake_func_name(df, dst_dir, partitioning = "part")
+  expect_warning(
+    write_dataset(df, dst_dir, partitioning = "part"),
+    "Row-level metadata is not compatible with datasets and will be discarded"
+  )
 
-      ds <- open_dataset(dst_dir)
-      expect_warning(
-        df_from_ds <- collect(ds),
-        "Row-level metadata is not compatible with this operation and has been ignored"
-      )
-      expect_equal(
-        arrange(df_from_ds, int),
-        arrange(df, int),
-        ignore_attr = TRUE
-      )
+  # Reset directory as previous write will have created some files and the default
+  # behavior is to error on existing
+  dst_dir <- make_temp_dir()
+  # but we need to write a dataset with row-level metadata to make sure when
+  # reading ones that have been written with them we warn appropriately
+  fake_func_name <- write_dataset
+  fake_func_name(df, dst_dir, partitioning = "part")
 
-      # however there is *no* warning if we don't select the metadata column
-      expect_warning(
-        df_from_ds <- ds %>% select(int) %>% collect(),
-        NA
-      )
-    }
+  ds <- open_dataset(dst_dir)
+  expect_warning(
+    df_from_ds <- collect(ds),
+    "Row-level metadata is not compatible with this operation and has been ignored"
+  )
+  expect_equal(
+    dplyr::arrange(df_from_ds, int),
+    dplyr::arrange(df, int),
+    ignore_attr = TRUE
+  )
+
+  # however there is *no* warning if we don't select the metadata column
+  expect_warning(
+    df_from_ds <- ds %>% dplyr::select(int) %>% dplyr::collect(),
+    NA
   )
 })
 

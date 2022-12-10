@@ -90,6 +90,10 @@ public abstract class BaseTable implements AutoCloseable {
     this.schema = new Schema(fields);
   }
 
+  BaseTable() {
+    this.fieldVectors = new ArrayList<>();
+  }
+
   /**
    * Returns a FieldReader for the vector with the given name.
    *
@@ -254,7 +258,7 @@ public abstract class BaseTable implements AutoCloseable {
         return entry.getValue();
       }
     }
-    throw new IllegalStateException(String.format("No vector named '%s' is present in the table", columnName));
+    throw new IllegalArgumentException(String.format("No vector named '%s' is present in the table", columnName));
   }
 
   /**
@@ -264,6 +268,48 @@ public abstract class BaseTable implements AutoCloseable {
    */
   FieldVector getVector(int columnIndex) {
     return fieldVectors.get(columnIndex);
+  }
+
+
+  /**
+   * Returns a copy of the vector with the given name, or throws IllegalArgumentException if the name is not found.
+   * Names are case-sensitive.
+   *
+   * @param columnName The name of the vector to copy
+   * @return A copy of the Vector with the given name
+   * @throws IllegalArgumentException if the name is not the name of a vector in the table.
+   */
+  public FieldVector getVectorCopy(String columnName) {
+    FieldVector source;
+    for (Map.Entry<Field, FieldVector> entry : fieldVectorsMap.entrySet()) {
+      if (entry.getKey().getName().equals(columnName)) {
+        source = entry.getValue();
+        FieldVector copy = source.getField().createVector(source.getAllocator());
+        copy.allocateNew();
+        for (int i = 0; i < source.getValueCount(); i++) {
+          copy.copyFromSafe(i, i, source);
+        }
+        copy.setValueCount(source.getValueCount());
+        return copy;
+      }
+    }
+    throw new IllegalStateException(String.format("No vector named '%s' is present in the table", columnName));
+  }
+
+  /**
+   * Returns a copy of the vector at the given position.
+   *
+   * @param columnIndex The 0-based position of the vector to be copied
+   */
+  public FieldVector getVectorCopy(int columnIndex) {
+    FieldVector source = fieldVectors.get(columnIndex);
+    FieldVector copy = source.getField().createVector(source.getAllocator());
+    copy.allocateNew();
+    for (int i = 0; i < source.getValueCount(); i++) {
+      copy.copyFromSafe(i, i, source);
+    }
+    copy.setValueCount(source.getValueCount());
+    return copy;
   }
 
   /**

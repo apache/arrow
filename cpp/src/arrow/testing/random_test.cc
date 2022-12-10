@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -22,6 +23,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
@@ -46,6 +48,43 @@ struct RandomTestParam {
 class RandomArrayTest : public ::testing::TestWithParam<RandomTestParam> {
  protected:
   std::shared_ptr<Field> GetField() { return GetParam().field; }
+
+  BufferVector GetAllBuffers(const Array& array) {
+    BufferVector out;
+    GetAllBuffers(*array.data(), &out);
+    return out;
+  }
+
+  void GetAllBuffers(const ArrayData& data, BufferVector* out) {
+    for (const auto& buf : data.buffers) {
+      if (buf) {
+        out->push_back(buf);
+      }
+    }
+    if (data.dictionary) {
+      GetAllBuffers(*data.dictionary, out);
+    }
+    for (const auto& child : data.child_data) {
+      GetAllBuffers(*child, out);
+    }
+  }
+
+  bool HasList(const DataType& type) {
+    if (is_list_like(type.id()) && type.id() != Type::FIXED_SIZE_LIST) {
+      return true;
+    }
+    for (const auto& child : type.fields()) {
+      if (HasList(*child->type())) {
+        return true;
+      }
+    }
+    if (type.id() == Type::DICTIONARY) {
+      if (HasList(*checked_cast<const DictionaryType&>(type).value_type())) {
+        return true;
+      }
+    }
+    return false;
+  }
 };
 
 TEST_P(RandomArrayTest, GenerateArray) {
@@ -54,6 +93,23 @@ TEST_P(RandomArrayTest, GenerateArray) {
   AssertTypeEqual(field->type(), array->type());
   ASSERT_EQ(kExpectedLength, array->length());
   ASSERT_OK(array->ValidateFull());
+}
+
+TEST_P(RandomArrayTest, GenerateArrayAlignment) {
+  const int64_t alignment = 1024;
+  auto field = GetField();
+  if (HasList(*field->type())) {
+    GTEST_SKIP() << "ListArray::FromArrays does not conserve buffer alignment";
+  }
+  auto array = GenerateArray(*field, /*size=*/13, 0xDEADBEEF, alignment);
+  AssertTypeEqual(field->type(), array->type());
+  ASSERT_EQ(13, array->length());
+  ASSERT_OK(array->ValidateFull());
+
+  for (const auto& buf : GetAllBuffers(*array)) {
+    ASSERT_EQ(buf->address() % (alignment), 0)
+        << "Buffer address is unaligned: " << buf->address();
+  }
 }
 
 TEST_P(RandomArrayTest, GenerateBatch) {

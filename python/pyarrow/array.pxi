@@ -702,11 +702,11 @@ cdef class _PandasConvertible(_Weakrefable):
         memory_pool : MemoryPool, default None
             Arrow MemoryPool to use for allocations. Uses the default memory
             pool is not passed.
-        strings_to_categorical : bool, default False
-            Encode string (UTF8) and binary types to pandas.Categorical.
         categories : list, default empty
             List of fields that should be returned as pandas.Categorical. Only
             applies to table-like data structures.
+        strings_to_categorical : bool, default False
+            Encode string (UTF8) and binary types to pandas.Categorical.
         zero_copy_only : bool, default False
             Raise an ArrowException if this function call would require copying
             the underlying data.
@@ -2549,11 +2549,11 @@ cdef class DictionaryArray(Array):
             The array of values referenced by the indices.
         mask : ndarray or pandas.Series, bool type
             True values indicate that indices are actually null.
+        ordered : bool, default False
+            Set to True if the category values are ordered.
         from_pandas : bool, default False
             If True, the indices should be treated as though they originated in
             a pandas.Categorical (null encoded as -1).
-        ordered : bool, default False
-            Set to True if the category values are ordered.
         safe : bool, default True
             If True, check that the dictionary indices are in range.
         memory_pool : MemoryPool, default None

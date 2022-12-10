@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -143,4 +143,26 @@ func TestWriterCatchPanic(t *testing.T) {
 
 	writer := NewWriter(buf, WithSchema(schema))
 	assert.EqualError(t, writer.Write(rec), "arrow/ipc: unknown error while writing: runtime error: slice bounds out of range [-1:]")
+}
+
+func TestWriterMemCompression(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "s", Type: arrow.BinaryTypes.String},
+	}, nil)
+
+	b := array.NewRecordBuilder(mem, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.StringBuilder).AppendValues([]string{"foo", "bar", "baz"}, nil)
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	var buf bytes.Buffer
+	w := NewWriter(&buf, WithAllocator(mem), WithSchema(schema), WithZstd())
+	defer w.Close()
+
+	require.NoError(t, w.Write(rec))
 }

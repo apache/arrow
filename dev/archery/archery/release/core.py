@@ -18,8 +18,9 @@
 from abc import abstractmethod
 from collections import defaultdict
 import functools
-import re
+import os
 import pathlib
+import re
 import shelve
 import warnings
 
@@ -361,6 +362,46 @@ class Release:
         commit_range = f"{lower}..{upper}"
         return list(map(Commit, self.repo.iter_commits(commit_range)))
 
+    @cached_property
+    def default_branch(self):
+        default_branch_name = os.getenv("ARCHERY_DEFAULT_BRANCH")
+
+        if default_branch_name is None:
+            # Set up repo object
+            arrow = ArrowSources.find()
+            repo = Repo(arrow.path)
+            origin = repo.remotes["origin"]
+            origin_refs = origin.refs
+
+            try:
+                # Get git.RemoteReference object to origin/HEAD
+                # If the reference does not exist, a KeyError will be thrown
+                origin_head = origin_refs["HEAD"]
+
+                # Get git.RemoteReference object to origin/default-branch-name
+                origin_head_reference = origin_head.reference
+
+                # Get string value of remote head reference, should return
+                # "origin/main" or "origin/master"
+                origin_head_name = origin_head_reference.name
+                origin_head_name_tokenized = origin_head_name.split("/")
+
+                # The last token is the default branch name
+                default_branch_name = origin_head_name_tokenized[-1]
+            except KeyError:
+                # Use a hard-coded default value to set default_branch_name
+                # TODO: ARROW-18011 to track changing the hard coded default
+                # value from "master" to "main".
+                default_branch_name = "master"
+                warnings.warn('Unable to determine default branch name: '
+                              'ARCHERY_DEFAULT_BRANCH environment variable is '
+                              'not set. Git repository does not contain a '
+                              '\'refs/remotes/origin/HEAD\'reference. Setting '
+                              'the default branch name to ' +
+                              default_branch_name, RuntimeWarning)
+
+        return default_branch_name
+
     def curate(self, minimal=False):
         # handle commits with parquet issue key specially and query them from
         # jira and add it to the issues
@@ -422,9 +463,9 @@ class Release:
         return JiraChangelog(release=self, categories=categories)
 
     def commits_to_pick(self, exclude_already_applied=True):
-        # collect commits applied on the main branch since the root of the
+        # collect commits applied on the default branch since the root of the
         # maintenance branch (the previous major release)
-        commit_range = f"{self.previous.tag}..master"
+        commit_range = f"{self.previous.tag}..{self.default_branch}"
 
         # keeping the original order of the commits helps to minimize the merge
         # conflicts during cherry-picks
@@ -476,7 +517,7 @@ class MajorRelease(Release):
 
     @property
     def base_branch(self):
-        return "master"
+        return self.default_branch
 
     @cached_property
     def siblings(self):

@@ -114,6 +114,11 @@ services:
 arrow_compose_yml = """
 version: '3.5'
 
+x-sccache: &sccache
+  AWS_ACCESS_KEY_ID:
+  AWS_SECRET_ACCESS_KEY:
+  SCCACHE_BUCKET:
+
 x-with-gpus:
   - ubuntu-cuda
 
@@ -162,6 +167,8 @@ services:
     image: org/ubuntu-cpp-cmake32
   ubuntu-c-glib:
     image: org/ubuntu-c-glib
+    environment:
+      <<: [*sccache]
   ubuntu-ruby:
     image: org/ubuntu-ruby
   ubuntu-cuda:
@@ -252,12 +259,12 @@ def test_arrow_example_validation_passes(arrow_compose_path):
 def test_compose_default_params_and_env(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(
         UBUNTU='18.04',
-        DASK='master'
+        DASK='upstream_devel'
     ))
     assert compose.config.dotenv == arrow_compose_env
     assert compose.config.params == {
         'UBUNTU': '18.04',
-        'DASK': 'master',
+        'DASK': 'upstream_devel',
     }
 
 
@@ -485,7 +492,7 @@ def test_compose_push(arrow_compose_path):
 def test_compose_error(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(
         PYTHON='3.8',
-        PANDAS='master'
+        PANDAS='upstream_devel'
     ))
 
     error = subprocess.CalledProcessError(99, [])
@@ -496,7 +503,7 @@ def test_compose_error(arrow_compose_path):
     exception_message = str(exc.value)
     assert "exited with a non-zero exit code 99" in exception_message
     assert "PANDAS: latest" in exception_message
-    assert "export PANDAS=master" in exception_message
+    assert "export PANDAS=upstream_devel" in exception_message
 
 
 def test_image_with_gpu(arrow_compose_path):
@@ -528,4 +535,40 @@ def test_listing_images(arrow_compose_path):
         'ubuntu-cpp-cmake32',
         'ubuntu-cuda',
         'ubuntu-ruby',
+    ]
+
+
+def test_service_info(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+    service = compose.config.raw_config["services"]["conda-cpp"]
+    assert compose.info(service) == [
+        "  image: org/conda-cpp",
+        "  build",
+        "    context: .",
+        "    dockerfile: ci/docker/conda-cpp.dockerfile"
+    ]
+
+
+def test_service_info_filters(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+    service = compose.config.raw_config["services"]["conda-cpp"]
+    assert compose.info(service, filters="dockerfile") == [
+        "    dockerfile: ci/docker/conda-cpp.dockerfile"
+    ]
+
+
+def test_service_info_non_existing_filters(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+    service = compose.config.raw_config["services"]["conda-cpp"]
+    assert compose.info(service, filters="non-existing") == []
+
+
+def test_service_info_inherited_env(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+    service = compose.config.raw_config["services"]["ubuntu-c-glib"]
+    assert compose.info(service, filters="environment") == [
+        "  environment",
+        "    AWS_ACCESS_KEY_ID: <inherited>",
+        "    AWS_SECRET_ACCESS_KEY: <inherited>",
+        "    SCCACHE_BUCKET: <inherited>"
     ]

@@ -17,7 +17,18 @@
 
 #include "arrow/engine/substrait/serde.h"
 
+#include <cstdint>
+#include <type_traits>
 #include <utility>
+
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+#include <google/protobuf/message.h>
+#include <google/protobuf/stubs/status.h>
+#include <google/protobuf/util/json_util.h>
+#include <google/protobuf/util/message_differencer.h>
+#include <google/protobuf/util/type_resolver.h>
+#include <google/protobuf/util/type_resolver_util.h>
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -27,17 +38,11 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/plan_internal.h"
+#include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/type.h"
-
-#include <google/protobuf/descriptor.h>
-#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
-#include <google/protobuf/message.h>
-#include <google/protobuf/util/json_util.h>
-#include <google/protobuf/util/message_differencer.h>
-#include <google/protobuf/util/type_resolver_util.h>
 
 namespace arrow {
 namespace engine {
@@ -139,11 +144,21 @@ DeclarationFactory MakeWriteDeclarationFactory(
   };
 }
 
+// FIXME - Replace with actual version that includes the change
+constexpr uint32_t kMinimumMajorVersion = 0;
+constexpr uint32_t kMinimumMinorVersion = 19;
+
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, DeclarationFactory declaration_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
+
+  if (plan.version().major_number() < kMinimumMajorVersion &&
+      plan.version().minor_number() < kMinimumMinorVersion) {
+    return Status::Invalid("Can only parse plans with a version >= ",
+                           kMinimumMajorVersion, ".", kMinimumMinorVersion);
+  }
 
   ARROW_ASSIGN_OR_RAISE(auto ext_set,
                         GetExtensionSetFromPlan(plan, conversion_options, registry));
@@ -358,7 +373,8 @@ inline google::protobuf::util::TypeResolver* GetGeneratedTypeResolver() {
 }
 
 Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
-                                                  std::string_view json) {
+                                                  std::string_view json,
+                                                  bool ignore_unknown_fields) {
   std::string type_url = "/substrait." + std::string(type_name);
 
   google::protobuf::io::ArrayInputStream json_stream{json.data(),
@@ -367,7 +383,7 @@ Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
   std::string out;
   google::protobuf::io::StringOutputStream out_stream{&out};
   google::protobuf::util::JsonParseOptions json_opts;
-  json_opts.ignore_unknown_fields = true;
+  json_opts.ignore_unknown_fields = ignore_unknown_fields;
   auto status = google::protobuf::util::JsonToBinaryStream(
       GetGeneratedTypeResolver(), type_url, &json_stream, &out_stream,
       std::move(json_opts));

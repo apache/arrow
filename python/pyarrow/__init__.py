@@ -352,7 +352,7 @@ def _plasma_store_entry_point():
     .. deprecated:: 10.0.0
        Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.
     """
-    warnings.warn(
+    _warnings.warn(
         "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
         DeprecationWarning)
 

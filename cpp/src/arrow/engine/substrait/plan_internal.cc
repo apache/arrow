@@ -17,15 +17,24 @@
 
 #include "arrow/engine/substrait/plan_internal.h"
 
-#include "arrow/dataset/plan.h"
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+
+#include "arrow/compute/type_fwd.h"
+#include "arrow/config.h"
 #include "arrow/engine/substrait/relation_internal.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/result.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/unreachable.h"
 
-#include <memory>
-#include <unordered_map>
+#include "substrait/extensions/extensions.pb.h"
 
 namespace arrow {
 
@@ -132,10 +141,29 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                             conversion_options, registry);
 }
 
+namespace {
+
+// FIXME Is there some way to get these from the cmake files?
+constexpr uint32_t kSubstraitMajorVersion = 0;
+constexpr uint32_t kSubstraitMinorVersion = 20;
+constexpr uint32_t kSubstraitPatchVersion = 0;
+
+std::unique_ptr<substrait::Version> CreateVersion() {
+  auto version = std::make_unique<substrait::Version>();
+  version->set_major_number(kSubstraitMajorVersion);
+  version->set_minor_number(kSubstraitMinorVersion);
+  version->set_patch_number(kSubstraitPatchVersion);
+  version->set_producer("Acero " + GetBuildInfo().version_string);
+  return version;
+}
+
+}  // namespace
+
 Result<std::unique_ptr<substrait::Plan>> PlanToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
   auto subs_plan = std::make_unique<substrait::Plan>();
+  subs_plan->set_allocated_version(CreateVersion().release());
   auto plan_rel = std::make_unique<substrait::PlanRel>();
   auto rel_root = std::make_unique<substrait::RelRoot>();
   ARROW_ASSIGN_OR_RAISE(auto rel, ToProto(declr, ext_set, conversion_options));

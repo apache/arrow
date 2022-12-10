@@ -86,6 +86,7 @@ slice_max.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, with_ties
 }
 slice_max.Dataset <- slice_max.ArrowTabular <- slice_max.RecordBatchReader <- slice_max.arrow_dplyr_query
 
+#' @importFrom stats runif
 slice_sample.arrow_dplyr_query <- function(.data,
                                            ...,
                                            n,
@@ -116,10 +117,21 @@ slice_sample.arrow_dplyr_query <- function(.data,
   if (prop < 1) {
     .data <- as_adq(.data)
     # TODO(ARROW-17974): use Expression$create("random") instead of UDF hack
-    # HACK: use our UDF to generate random. It needs an input column because
+    # HACK: use a UDF to generate random. It needs an input column because
     # nullary functions don't work, and that column has to be typed. We've
     # chosen boolean() type because it's compact and can always be created:
     # pick any column and do is.na, that will be boolean.
+    if (is.null(.cache$functions[["_random_along"]])) {
+      register_scalar_function(
+        "_random_along",
+        function(context, x) {
+          Array$create(runif(length(x)))
+        },
+        in_type = schema(x = boolean()),
+        out_type = float64(),
+        auto_convert = FALSE
+      )
+    }
     # TODO: get an actual FieldRef because the first col could be derived
     ref <- Expression$create("is_null", .data$selected_columns[[1]])
     expr <- Expression$create("_random_along", ref) < prop

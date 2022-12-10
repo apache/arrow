@@ -529,7 +529,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
               help="Hide counters field in diff report.")
 @click.argument("contender", metavar="[<contender>",
                 default=ArrowSources.WORKSPACE, required=False)
-@click.argument("baseline", metavar="[<baseline>]]", default="origin/master",
+@click.argument("baseline", metavar="[<baseline>]]", default="origin/HEAD",
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
@@ -542,7 +542,8 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
 
     The caller can optionally specify both the contender and the baseline. If
     unspecified, the contender will default to the current workspace (like git)
-    and the baseline will default to master.
+    and the baseline will default to the mainline development branch (i.e.
+    default git branch).
 
     Each target (contender or baseline) can either be a git revision
     (commit, tag, special values like HEAD) or a cmake build directory. This
@@ -559,16 +560,18 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
     Examples:
 
     \b
-    # Compare workspace (contender) with master (baseline)
+    # Compare workspace (contender) against the mainline development branch
+    # (baseline)
     \b
     archery benchmark diff
 
     \b
-    # Compare master (contender) with latest version (baseline)
+    # Compare the mainline development branch (contender) against the latest
+    # version (baseline)
     \b
     export LAST=$(git tag -l "apache-arrow-[0-9]*" | sort -rV | head -1)
     \b
-    archery benchmark diff master "$LAST"
+    archery benchmark diff <default-branch> "$LAST"
 
     \b
     # Compare g++7 (contender) with clang++-8 (baseline) builds

@@ -14,14 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !noasm
+//go:build go1.18 && !noasm
 
 package kernels
 
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v11/arrow"
 	"golang.org/x/sys/cpu"
 )
 

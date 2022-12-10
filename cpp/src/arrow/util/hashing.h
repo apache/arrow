@@ -840,7 +840,7 @@ class BinaryMemoTable : public MemoTable {
 
   std::pair<const HashTableEntry*, bool> Lookup(hash_t h, const void* data,
                                                 builder_offset_type length) const {
-    auto cmp_func = [=](const Payload* payload) {
+    auto cmp_func = [&](const Payload* payload) {
       std::string_view lhs = binary_builder_.GetView(payload->memo_index);
       std::string_view rhs(static_cast<const char*>(data), length);
       return lhs == rhs;

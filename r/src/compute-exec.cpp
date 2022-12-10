@@ -175,8 +175,9 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     }
 
     plan_status_ = PLAN_FINISHED;
-    plan_.reset();
-    sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
+    // A previous version of this called plan_.reset() and reset
+    // sink_gen_ to an empty generator; however, this caused
+    // crashes on some platforms.
   }
 };
 
@@ -473,7 +474,8 @@ class AccumulatingConsumer : public compute::SinkNodeConsumer {
   const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches() { return batches_; }
 
   arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
-                     compute::BackpressureControl* backpressure_control) override {
+                     compute::BackpressureControl* backpressure_control,
+                     compute::ExecPlan* exec_plan) override {
     schema_ = schema;
     return arrow::Status::OK();
   }

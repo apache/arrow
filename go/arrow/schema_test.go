@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow/endian"
+	"github.com/apache/arrow/go/v11/arrow/endian"
 )
 
 func TestMetadata(t *testing.T) {

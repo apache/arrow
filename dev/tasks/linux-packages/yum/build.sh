@@ -36,6 +36,9 @@ rpmbuild_options=
 if grep -q amazon /etc/system-release-cpe; then
   distribution=$(cut -d ":" -f 5 /etc/system-release-cpe | tr '_' '-')
   distribution_version=$(cut -d ":" -f 6 /etc/system-release-cpe)
+elif grep -q oracle /etc/system-release-cpe; then
+  distribution=oracle-linux
+  distribution_version=$(cut -d ":" -f 5 /etc/system-release-cpe)
 else
   distribution=$(cut -d ":" -f 4 /etc/system-release-cpe)
   distribution_version=$(cut -d ":" -f 5 /etc/system-release-cpe)

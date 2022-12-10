@@ -68,12 +68,16 @@ class Report:
         return '{}/tree/{}'.format(self.repo_url, branch)
 
     def task_url(self, task):
-        if self._wait_for_task:
+        build_links = task.status().build_links
+        # Only wait if the link to the actual build is not present
+        # and refresh task status.
+        if not build_links and self._wait_for_task:
             time.sleep(self._wait_for_task)
-        if task.status().build_links:
+            build_links = task.status(force_query=True).build_links
+        if build_links:
             # show link to the actual build, some CI providers implement
             # the statuses API others implement the checks API, retrieve any.
-            return task.status().build_links[0]
+            return build_links[0]
         else:
             # show link to the branch if no status build link was found.
             return self.branch_url(task.branch)

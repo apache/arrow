@@ -47,7 +47,7 @@ list(INSERT CMAKE_PREFIX_PATH 0 "${ARROW_HOME}")
 # Arrow version
 #
 
-set(ARROW_PYTHON_VERSION "10.0.0-SNAPSHOT")
+set(ARROW_PYTHON_VERSION "11.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_PYTHON_BASE_VERSION "${ARROW_PYTHON_VERSION}")
 # Need to set to ARRROW_VERSION before finding Arrow package!
 project(arrow_python VERSION "${ARROW_PYTHON_BASE_VERSION}")
@@ -253,7 +253,7 @@ if(ARROW_BUILD_STATIC AND MSVC)
   target_compile_definitions(arrow_python_static PUBLIC ARROW_STATIC)
 endif()
 
-if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
+if(PYARROW_WITH_FLIGHT AND ARROW_FLIGHT AND ARROW_BUILD_SHARED)
    # Must link to shared libarrow_flight: we don't want to link more than one
    # copy of gRPC into the eventual Cython shared object, otherwise gRPC calls
    # fail with weird errors due to multiple copies of global static state (The

@@ -82,13 +82,14 @@ namespace memory_pool {
 
 namespace internal {
 
-Status JemallocAllocator::AllocateAligned(int64_t size, uint8_t** out) {
+Status JemallocAllocator::AllocateAligned(int64_t size, int64_t alignment,
+                                          uint8_t** out) {
   if (size == 0) {
     *out = kZeroSizeArea;
     return Status::OK();
   }
   *out = reinterpret_cast<uint8_t*>(
-      mallocx(static_cast<size_t>(size), MALLOCX_ALIGN(kAlignment)));
+      mallocx(static_cast<size_t>(size), MALLOCX_ALIGN(static_cast<size_t>(alignment))));
   if (*out == NULL) {
     return Status::OutOfMemory("malloc of size ", size, " failed");
   }
@@ -96,19 +97,20 @@ Status JemallocAllocator::AllocateAligned(int64_t size, uint8_t** out) {
 }
 
 Status JemallocAllocator::ReallocateAligned(int64_t old_size, int64_t new_size,
-                                            uint8_t** ptr) {
+                                            int64_t alignment, uint8_t** ptr) {
   uint8_t* previous_ptr = *ptr;
   if (previous_ptr == kZeroSizeArea) {
     DCHECK_EQ(old_size, 0);
-    return AllocateAligned(new_size, ptr);
+    return AllocateAligned(new_size, alignment, ptr);
   }
   if (new_size == 0) {
-    DeallocateAligned(previous_ptr, old_size);
+    DeallocateAligned(previous_ptr, old_size, alignment);
     *ptr = kZeroSizeArea;
     return Status::OK();
   }
-  *ptr = reinterpret_cast<uint8_t*>(
-      rallocx(*ptr, static_cast<size_t>(new_size), MALLOCX_ALIGN(kAlignment)));
+  *ptr =
+      reinterpret_cast<uint8_t*>(rallocx(*ptr, static_cast<size_t>(new_size),
+                                         MALLOCX_ALIGN(static_cast<size_t>(alignment))));
   if (*ptr == NULL) {
     *ptr = previous_ptr;
     return Status::OutOfMemory("realloc of size ", new_size, " failed");
@@ -116,11 +118,12 @@ Status JemallocAllocator::ReallocateAligned(int64_t old_size, int64_t new_size,
   return Status::OK();
 }
 
-void JemallocAllocator::DeallocateAligned(uint8_t* ptr, int64_t size) {
+void JemallocAllocator::DeallocateAligned(uint8_t* ptr, int64_t size, int64_t alignment) {
   if (ptr == kZeroSizeArea) {
     DCHECK_EQ(size, 0);
   } else {
-    dallocx(ptr, MALLOCX_ALIGN(kAlignment));
+    sdallocx(ptr, static_cast<size_t>(size),
+             MALLOCX_ALIGN(static_cast<size_t>(alignment)));
   }
 }
 

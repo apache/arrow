@@ -243,14 +243,17 @@ struct MockFragment : public Fragment {
     return Status::Invalid("Not implemented because not needed by unit tests");
   };
 
-  Future<std::shared_ptr<InspectedFragment>> InspectFragment() override {
+  Future<std::shared_ptr<InspectedFragment>> InspectFragment(
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) override {
     has_inspected_ = true;
     return inspected_future_;
   }
 
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request,
-      const InspectedFragment& inspected_fragment) override {
+      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) override {
     has_started_ = true;
     seen_request_ = request;
     return fragment_scanner_future_;
@@ -525,7 +528,7 @@ class TestScannerBase : public ::testing::TestWithParam<ScannerTestParams> {
 
   compute::Declaration MakeScanNode(std::shared_ptr<Dataset> dataset) {
     ScanV2Options options(dataset);
-    options.columns = ScanV2Options::AllColumns(*dataset);
+    options.columns = ScanV2Options::AllColumns(*dataset->schema());
     return compute::Declaration("scan2", options);
   }
 
@@ -641,7 +644,7 @@ TEST(TestNewScanner, Backpressure) {
 
   // No readahead
   options.dataset = test_dataset;
-  options.columns = ScanV2Options::AllColumns(*test_dataset);
+  options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   options.fragment_readahead = 0;
   options.target_bytes_readahead = 0;
   CheckScannerBackpressure(test_dataset, options, 1, 1,
@@ -650,7 +653,7 @@ TEST(TestNewScanner, Backpressure) {
   // Some readahead
   test_dataset = MakeTestDataset(kNumFragments, kNumBatchesPerFragment);
   options = ScanV2Options(test_dataset);
-  options.columns = ScanV2Options::AllColumns(*test_dataset);
+  options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   options.fragment_readahead = 4;
   // each batch should be 14Ki so 50Ki readahead should yield 3-at-a-time
   options.target_bytes_readahead = 50 * kRowsPerTestBatch;
@@ -696,10 +699,10 @@ std::shared_ptr<MockDataset> MakePartitionSkipDataset() {
   std::shared_ptr<Schema> test_schema = ScannerTestSchema();
   MockDatasetBuilder builder(test_schema);
   builder.AddFragment(test_schema, /*inspection=*/nullptr,
-                      greater(field_ref("filterable"), literal(50)));
+                      greater(field_ref({1}), literal(50)));
   builder.AddBatch(MakeTestBatch(0));
   builder.AddFragment(test_schema, /*inspection=*/nullptr,
-                      less_equal(field_ref("filterable"), literal(50)));
+                      less_equal(field_ref({1}), literal(50)));
   builder.AddBatch(MakeTestBatch(1));
   return builder.Finish();
 }
@@ -710,7 +713,7 @@ TEST(TestNewScanner, PartitionSkip) {
   test_dataset->DeliverBatchesInOrder(false);
 
   ScanV2Options options(test_dataset);
-  options.columns = ScanV2Options::AllColumns(*test_dataset);
+  options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   options.filter = greater(field_ref("filterable"), literal(75));
 
   ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
@@ -721,7 +724,7 @@ TEST(TestNewScanner, PartitionSkip) {
   test_dataset = MakePartitionSkipDataset();
   test_dataset->DeliverBatchesInOrder(false);
   options = ScanV2Options(test_dataset);
-  options.columns = ScanV2Options::AllColumns(*test_dataset);
+  options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   options.filter = less(field_ref("filterable"), literal(25));
 
   ASSERT_OK_AND_ASSIGN(batches, compute::DeclarationToBatches({"scan2", options}));
@@ -736,7 +739,7 @@ TEST(TestNewScanner, NoFragments) {
   std::shared_ptr<MockDataset> test_dataset = builder.Finish();
 
   ScanV2Options options(test_dataset);
-  options.columns = ScanV2Options::AllColumns(*test_dataset);
+  options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
                        compute::DeclarationToBatches({"scan2", options}));
   ASSERT_EQ(0, batches.size());
@@ -751,7 +754,7 @@ TEST(TestNewScanner, EmptyFragment) {
   test_dataset->DeliverBatchesInOrder(false);
 
   ScanV2Options options(test_dataset);
-  options.columns = ScanV2Options::AllColumns(*test_dataset);
+  options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
                        compute::DeclarationToBatches({"scan2", options}));
   ASSERT_EQ(0, batches.size());
@@ -769,7 +772,7 @@ TEST(TestNewScanner, EmptyBatch) {
   test_dataset->DeliverBatchesInOrder(false);
 
   ScanV2Options options(test_dataset);
-  options.columns = ScanV2Options::AllColumns(*test_dataset);
+  options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
                        compute::DeclarationToBatches({"scan2", options}));
   ASSERT_EQ(0, batches.size());
@@ -1080,6 +1083,24 @@ TEST_P(TestScanner, ProjectedScanNested) {
                                        {field_ref(FieldRef("struct", "i32")),
                                         field_ref(FieldRef("nested", "right", "f64"))},
                                        {"i32", "f64"}, *options_->dataset_schema))
+  SetProjection(options_.get(), std::move(descr));
+  auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  auto batch_out = ConstantArrayGenerator::Zeroes(
+      GetParam().items_per_batch,
+      schema({field("i32", int32()), field("f64", float64())}));
+  AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
+}
+
+TEST_P(TestScanner, ProjectedScanNestedFromNames) {
+  SetSchema({
+      field("struct", struct_({field("i32", int32()), field("f64", float64())})),
+      field("nested", struct_({field("left", int32()),
+                               field("right", struct_({field("i32", int32()),
+                                                       field("f64", float64())}))})),
+  });
+  ASSERT_OK_AND_ASSIGN(auto descr,
+                       ProjectionDescr::FromNames({".struct.i32", "nested.right.f64"},
+                                                  *options_->dataset_schema))
   SetProjection(options_.get(), std::move(descr));
   auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto batch_out = ConstantArrayGenerator::Zeroes(
@@ -2139,7 +2160,9 @@ struct TestPlan {
         .Then([collected_fut]() -> Result<std::vector<compute::ExecBatch>> {
           ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
           return ::arrow::internal::MapVector(
-              [](std::optional<compute::ExecBatch> batch) { return std::move(*batch); },
+              [](std::optional<compute::ExecBatch> batch) {
+                return batch.value_or(compute::ExecBatch());
+              },
               std::move(collected));
         });
   }

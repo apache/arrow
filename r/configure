@@ -51,6 +51,14 @@ if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
 
+if [ ! "`${R_HOME}/bin/R CMD config CXX17`" ]; then
+  echo "------------------------- NOTE ---------------------------"
+  echo "Cannot install arrow: a C++17 compiler is required."
+  echo "See https://arrow.apache.org/docs/r/articles/install.html"
+  echo "---------------------------------------------------------"
+  exit 1
+fi
+
 if [ -f "tools/apache-arrow.rb" ]; then
   # If you want to use a local apache-arrow.rb formula, do
   # $ cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
@@ -177,7 +185,7 @@ else
         # Assume nixlibs.R has handled and messaged about its failure already
         #
         # TODO: what about non-bundled deps?
-        # Set CDPATH locally to prevent interference from global CDPATH (if set) 
+        # Set CDPATH locally to prevent interference from global CDPATH (if set)
         BUNDLED_LIBS=`CDPATH=''; cd $LIB_DIR && ls *.a`
         BUNDLED_LIBS=`echo "$BUNDLED_LIBS" | sed -e "s/\\.a lib/ -l/g" | sed -e "s/\\.a$//" | sed -e "s/^lib/-l/" | tr '\n' ' ' | sed -e "s/ $//"`
         PKG_DIRS="-L`pwd`/$LIB_DIR"

@@ -19,6 +19,7 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
@@ -116,6 +117,208 @@ TEST(TestScalarNested, ListElementInvalid) {
               Raises(StatusCode::Invalid));
 }
 
+TEST(TestScalarNested, ListSliceVariableOutput) {
+  const auto value_types = {float32(), int32()};
+  for (auto value_type : value_types) {
+    auto input = ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]");
+    ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                          /*return_fixed_size_list=*/false);
+    auto expected = ArrayFromJSON(list(value_type), "[[1, 2], [4, 5], [6], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
+
+    args.start = 1;
+    expected = ArrayFromJSON(list(value_type), "[[2], [5], [], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
+
+    args.start = 2;
+    args.stop = 4;
+    expected = ArrayFromJSON(list(value_type), "[[3], [], [], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
+
+    args.start = 1;
+    args.stop = std::nullopt;
+    expected = ArrayFromJSON(list(value_type), "[[2, 3], [5], [], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
+
+    args.start = 0;
+    args.stop = 4;
+    args.step = 2;
+    expected = ArrayFromJSON(list(value_type), "[[1, 3], [4], [6], null]");
+  }
+
+  // Verify passing `return_fixed_size_list=false` with fixed size input
+  // returns variable size even if stop is beyond list_size
+  ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                        /*return_fixed_size_list=*/false);
+  auto input = ArrayFromJSON(fixed_size_list(int32(), 1), "[[1]]");
+  auto expected = ArrayFromJSON(list(int32()), "[[1]]");
+  CheckScalarUnary("list_slice", input, expected, &args);
+}
+
+TEST(TestScalarNested, ListSliceFixedOutput) {
+  const auto value_types = {float32(), int32()};
+  for (auto value_type : value_types) {
+    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]"),
+                   ArrayFromJSON(fixed_size_list(value_type, 3),
+                                 "[[1, 2, 3], [4, 5, null], [6, null, null], null]")};
+    for (auto input : inputs) {
+      ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                            /*return_fixed_size_list=*/true);
+      auto expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                                    "[[1, 2], [4, 5], [6, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 1;
+      expected =
+          ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 2;
+      args.stop = 4;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                               "[[3, null], [null, null], [null, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 1;
+      args.stop = std::nullopt;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                               "[[2, 3], [5, null], [null, null], null]");
+      if (input->type()->id() == Type::FIXED_SIZE_LIST) {
+        CheckScalarUnary("list_slice", input, expected, &args);
+      } else {
+        EXPECT_RAISES_WITH_MESSAGE_THAT(
+            NotImplemented,
+            ::testing::HasSubstr("Unable to produce FixedSizeListArray from "
+                                 "non-FixedSizeListArray without `stop` being set."),
+            CallFunction("list_slice", {input}, &args));
+      }
+
+      args.start = 3;
+      args.stop = std::nullopt;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 0), "[[], [], [], null]");
+      if (input->type()->id() == Type::FIXED_SIZE_LIST) {
+        CheckScalarUnary("list_slice", input, expected, &args);
+      }
+
+      args.start = 0;
+      args.stop = 4;
+      args.step = 2;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                               "[[1, 3], [4, null], [6, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      // More checks for step slicing start/stop/step combinations
+      args.start = 1;
+      args.stop = 3;
+      args.step = 2;
+      expected =
+          ArrayFromJSON(fixed_size_list(value_type, 1), "[[2], [5], [null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 2;
+      expected =
+          ArrayFromJSON(fixed_size_list(value_type, 1), "[[3], [null], [null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 0;
+      args.stop = 2;
+      args.step = 3;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 1), "[[1], [4], [6], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 0;
+      args.stop = 5;
+      args.step = 2;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 3),
+                               "[[1, 3, null], [4, null, null], [6, null, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+
+      args.start = 0;
+      args.stop = 6;
+      args.step = 3;
+      expected = ArrayFromJSON(fixed_size_list(value_type, 2),
+                               "[[1, null], [4, null], [6, null], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
+    }
+  }
+}
+
+TEST(TestScalarNested, ListSliceChildArrayOffset) {
+  auto offsets = ArrayFromJSON(int32(), "[0, 1, 3]");
+  auto data = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4]");
+  auto slice = data->Slice(2);
+
+  // [[2], [3, 4]] with offset of 2 for values.
+  ASSERT_OK_AND_ASSIGN(auto input, ListArray::FromArrays(*offsets, *slice));
+  ASSERT_EQ(input->offset(), 0);
+  ASSERT_EQ(input->values()->offset(), 2);
+
+  ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                        /*return_fixed_size_list=*/false);
+  auto expected = ArrayFromJSON(list(int8()), "[[2], [3, 4]]");
+  CheckScalarUnary("list_slice", input, expected, &args);
+
+  args.return_fixed_size_list = true;
+  expected = ArrayFromJSON(fixed_size_list(int8(), 2), "[[2, null], [3, 4]]");
+  CheckScalarUnary("list_slice", input, expected, &args);
+}
+
+TEST(TestScalarNested, ListSliceOutputEqualsInputType) {
+  // Default is to return same type as the one passed in.
+  auto inputs = {
+      ArrayFromJSON(list(int8()), "[[1, 2, 3], [4, 5], [6, null], null]"),
+      ArrayFromJSON(large_list(int8()), "[[1, 2, 3], [4, 5], [6, null], null]"),
+      ArrayFromJSON(fixed_size_list(int8(), 2), "[[1, 2], [4, 5], [6, null], null]")};
+  for (auto input : inputs) {
+    ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1);
+    auto expected = ArrayFromJSON(input->type(), "[[1, 2], [4, 5], [6, null], null]");
+    CheckScalarUnary("list_slice", input, expected, &args);
+  }
+}
+
+TEST(TestScalarNested, ListSliceBadParameters) {
+  auto input = ArrayFromJSON(list(int32()), "[[1]]");
+
+  // negative start
+  ListSliceOptions args(/*start=*/-1, /*stop=*/1, /*step=*/1,
+                        /*return_fixed_size_list=*/true);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "`start`(-1) should be greater than 0 and smaller than `stop`(1)"),
+      CallFunction("list_slice", {input}, &args));
+  // start greater than stop
+  args.start = 1;
+  args.stop = 0;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "`start`(1) should be greater than 0 and smaller than `stop`(0)"),
+      CallFunction("list_slice", {input}, &args));
+  // start same as stop
+  args.stop = args.start;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "`start`(1) should be greater than 0 and smaller than `stop`(1)"),
+      CallFunction("list_slice", {input}, &args));
+  // stop not set and FixedSizeList requested with variable sized input
+  args.stop = std::nullopt;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented,
+      ::testing::HasSubstr("NotImplemented: Unable to produce FixedSizeListArray from "
+                           "non-FixedSizeListArray without "
+                           "`stop` being set."),
+      CallFunction("list_slice", {input}, &args));
+  // Catch step must be >= 1
+  args.start = 0;
+  args.stop = 2;
+  args.step = 0;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("`step` must be >= 1, got: 0"),
+                                  CallFunction("list_slice", {input}, &args));
+}
+
 TEST(TestScalarNested, StructField) {
   StructFieldOptions trivial;
   StructFieldOptions extract0({0});
@@ -124,6 +327,13 @@ TEST(TestScalarNested, StructField) {
   StructFieldOptions invalid2({2, 4});
   StructFieldOptions invalid3({3});
   StructFieldOptions invalid4({0, 1});
+
+  // Test using FieldRefs
+  StructFieldOptions extract0_field_ref_path(FieldRef(FieldPath({0})));
+  StructFieldOptions extract0_field_ref_name(FieldRef("a"));
+  ASSERT_OK_AND_ASSIGN(auto field_ref, FieldRef::FromDotPath(".c.d"));
+  StructFieldOptions extract20_field_ref_nest(field_ref);
+
   FieldVector fields = {field("a", int32()), field("b", utf8()),
                         field("c", struct_({
                                        field("d", int64()),
@@ -141,16 +351,25 @@ TEST(TestScalarNested, StructField) {
                 &extract0);
     CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[10, 11, 12, null]"),
                 &extract20);
+
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, 3, null]"),
+                &extract0_field_ref_path);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, 3, null]"),
+                &extract0_field_ref_name);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[10, 11, 12, null]"),
+                &extract20_field_ref_nest);
+
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid4));
   }
   {
@@ -166,16 +385,25 @@ TEST(TestScalarNested, StructField) {
                 &extract0);
     CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
                 &extract20);
+
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_path);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_name);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
+                &extract20_field_ref_nest);
+
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid4));
 
     // Test edge cases for union representation
@@ -215,16 +443,25 @@ TEST(TestScalarNested, StructField) {
                 &extract0);
     CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
                 &extract20);
+
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_path);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0_field_ref_name);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
+                &extract20_field_ref_nest);
+
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid1));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("No match for FieldRef"),
                                     CallFunction("struct_field", {arr}, &invalid4));
   }
   {

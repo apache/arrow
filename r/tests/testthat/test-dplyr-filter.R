@@ -217,25 +217,29 @@ test_that("filter() with between()", {
       filter(dbl >= int, dbl <= dbl2)
   )
 
-  expect_error(
-    tbl %>%
-      record_batch() %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(between(dbl, 1, "2")) %>%
-      collect()
+      collect(),
+    tbl
   )
 
-  expect_error(
-    tbl %>%
-      record_batch() %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(between(dbl, 1, NA)) %>%
-      collect()
+      collect(),
+    tbl
   )
 
-  expect_error(
-    tbl %>%
-      record_batch() %>%
-      filter(between(chr, 1, 2)) %>%
-      collect()
+  expect_warning(
+    compare_dplyr_binding(
+      .input %>%
+        filter(between(chr, 1, 2)) %>%
+        collect(),
+      tbl
+    ),
+    # the dplyr version warns:
+    "NAs introduced by coercion"
   )
 })
 

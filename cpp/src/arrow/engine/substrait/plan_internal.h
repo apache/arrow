@@ -19,11 +19,14 @@
 
 #pragma once
 
-#include "arrow/compute/exec/exec_plan.h"
+#include <memory>
+
+#include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
-#include "arrow/type_fwd.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 
 #include "substrait/plan.pb.h"  // IWYU pragma: export
 
