@@ -70,11 +70,11 @@ public class StructSubfieldEncoder {
         dictionaryIdToHashTable.put(id, new DictionaryHashTable(provider.lookup(id).getVector(), hasher)));
   }
 
-  private FieldVector getChildVector(StructVector vector, int index) {
+  private static FieldVector getChildVector(StructVector vector, int index) {
     return vector.getChildrenFromFields().get(index);
   }
 
-  private StructVector cloneVector(StructVector vector) {
+  private static StructVector cloneVector(StructVector vector, BufferAllocator allocator) {
 
     final FieldType fieldType = vector.getField().getFieldType();
     StructVector cloned = (StructVector) fieldType.createNewSingleVector(
@@ -117,7 +117,7 @@ public class StructSubfieldEncoder {
     }
 
     // clone list vector and initialize data vector
-    StructVector encoded = cloneVector(vector);
+    StructVector encoded = cloneVector(vector, allocator);
     encoded.initializeChildrenFromFields(childrenFields);
     encoded.setValueCount(valueCount);
 
@@ -139,20 +139,38 @@ public class StructSubfieldEncoder {
 
   /**
    * Decodes a dictionary subfields encoded vector using the provided dictionary.
+   *
+   * {@link StructSubfieldEncoder#decode(StructVector, DictionaryProvider.MapDictionaryProvider, BufferAllocator)}
+   * should be used instead if only decoding is required as it can avoid building the {@link DictionaryHashTable}
+   * which only makes sense when encoding.
+   *
    * @param vector dictionary encoded vector, its child vector must be int type
    * @return vector with values restored from dictionary
    */
   public StructVector decode(StructVector vector) {
+    return decode(vector, provider, allocator);
+  }
 
+  /**
+   * Decodes a dictionary subfields encoded vector using the provided dictionary.
+   *
+   * @param vector dictionary encoded vector, its data vector must be int type
+   * @param provider  dictionary provider used to decode the values
+   * @param allocator allocator the decoded values use
+   * @return vector with values restored from dictionary
+   */
+  public static StructVector decode(StructVector vector,
+                                    DictionaryProvider.MapDictionaryProvider provider,
+                                    BufferAllocator allocator) {
     final int valueCount = vector.getValueCount();
     final int childCount = vector.getChildrenFromFields().size();
 
     // clone list vector and initialize child vectors
-    StructVector decoded = cloneVector(vector);
+    StructVector decoded = cloneVector(vector, allocator);
     List<Field> childFields = new ArrayList<>();
     for (int i = 0; i < childCount; i++) {
       FieldVector childVector = getChildVector(vector, i);
-      Dictionary dictionary = getChildVectorDictionary(childVector);
+      Dictionary dictionary = getChildVectorDictionary(childVector, provider);
       // childVector is not encoded.
       if (dictionary == null) {
         childFields.add(childVector.getField());
@@ -167,7 +185,7 @@ public class StructSubfieldEncoder {
       // get child vector
       FieldVector childVector = getChildVector(vector, index);
       FieldVector decodedChildVector = getChildVector(decoded, index);
-      Dictionary dictionary = getChildVectorDictionary(childVector);
+      Dictionary dictionary = getChildVectorDictionary(childVector, provider);
       if (dictionary == null) {
         childVector.makeTransferPair(decodedChildVector).splitAndTransfer(0, valueCount);
       } else {
@@ -184,7 +202,8 @@ public class StructSubfieldEncoder {
   /**
    * Get the child vector dictionary, return null if not dictionary encoded.
    */
-  private Dictionary getChildVectorDictionary(FieldVector childVector) {
+  private static Dictionary getChildVectorDictionary(FieldVector childVector,
+                                                     DictionaryProvider.MapDictionaryProvider provider) {
     DictionaryEncoding dictionaryEncoding = childVector.getField().getDictionary();
     if (dictionaryEncoding != null) {
       Dictionary dictionary = provider.lookup(dictionaryEncoding.getId());

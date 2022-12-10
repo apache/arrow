@@ -199,7 +199,10 @@ public class DictionaryEncoder {
   }
 
   /**
-   * Decodes a vector with the built hash table in this encoder.
+   * Decodes a vector with the dictionary in this encoder.
+   *
+   * {@link DictionaryEncoder#decode(ValueVector, Dictionary, BufferAllocator)} should be used instead if only decoding
+   * is required as it can avoid building the {@link DictionaryHashTable} which only makes sense when encoding.
    */
   public ValueVector decode(ValueVector indices) {
     return decode(indices, dictionary, allocator);
