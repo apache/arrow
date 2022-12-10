@@ -387,7 +387,7 @@ register_bindings_datetime_conversion <- function() {
     )
 
     if (call_binding("is.integer", x)) {
-      x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+      x <- cast(x, int64())
     }
 
     if (call_binding("is.numeric", x)) {
