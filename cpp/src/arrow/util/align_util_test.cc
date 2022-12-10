@@ -153,7 +153,7 @@ TEST(DefaultMemoryPool, EnsureAlignment) {
   MemoryPool* pool = default_memory_pool();
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
   auto random_array = rand.UInt8(/*size*/ 50, /*min*/ 0, /*max*/ 100,
-                                 /*null_probability*/ 0, /*alignment*/ 4, pool);
+                                 /*null_probability*/ 0, /*alignment*/ 8, pool);
   std::vector<std::shared_ptr<Buffer>> buffers_ = random_array->data()->buffers;
   auto alignment = EnsureAlignment<arrow::Array>(random_array, 16, pool);
   for (auto& it : buffers_) {
