@@ -17,13 +17,9 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
-import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.apache.arrow.vector.TestUtils.*;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -879,6 +875,45 @@ public class TestDictionaryVector {
       }
 
     }
+  }
+
+  @Test
+  public void testNoMemoryLeak() {
+    // test no memory leak when encode
+    try (final VarCharVector vector = newVarCharVector("foo", allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator)) {
+
+      setVector(vector, zero, one, two);
+      setVector(dictionaryVector, zero, one);
+
+      Dictionary dictionary =
+              new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
+        fail("There should be an exception when encoding");
+      } catch (Exception e) {
+        assertEquals("Dictionary encoding not defined for value:" + new Text(two), e.getMessage());
+      }
+    }
+    assertEquals("encode memory leak", 0, allocator.getAllocatedMemory());
+
+    // test no memory leak when decode
+    try (final IntVector indices = newVector(IntVector.class, "", Types.MinorType.INT, allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator)) {
+
+      setVector(indices, 3);
+      setVector(dictionaryVector, zero, one);
+
+      Dictionary dictionary =
+              new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+      try (final ValueVector decoded = DictionaryEncoder.decode(indices, dictionary, allocator)) {
+        fail("There should be an exception when decoding");
+      } catch (Exception e) {
+        assertEquals("Provided dictionary does not contain value for index 3", e.getMessage());
+      }
+    }
+    assertEquals("decode memory leak", 0, allocator.getAllocatedMemory());
   }
 
   private void testDictionary(Dictionary dictionary, ToIntBiFunction<ValueVector, Integer> valGetter) {
