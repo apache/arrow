@@ -1184,7 +1184,7 @@ public final class ArrowBuf implements AutoCloseable {
    * @param length length of bytes to set.
    * @return this ArrowBuf
    */
-  public ArrowBuf setOne(int index, int length) {
+  public ArrowBuf setOne(long index, long length) {
     if (length != 0) {
       this.checkIndex(index, length);
       MemoryUtil.UNSAFE.setMemory(this.addr + index, length, (byte) 0xff);
