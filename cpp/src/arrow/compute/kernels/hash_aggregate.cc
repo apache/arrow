@@ -2665,6 +2665,143 @@ struct GroupedListFactory {
   HashAggregateKernel kernel;
   InputType argument_type;
 };
+
+// ----------------------------------------------------------------------
+// First implementation
+
+template <typename Type, typename Enable = void>
+struct GroupedFirstImpl final : public GroupedAggregator {
+  using CType = typename TypeTraits<Type>::CType;
+  using GetSet = GroupedValueTraits<Type>;
+
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
+    firsts_ = TypedBufferBuilder<CType>(ctx->memory_pool());
+    firsts_order_ = TypedBufferBuilder<int64_t>(ctx->memory_pool());
+    has_valid_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    auto added_groups = new_num_groups - num_groups_;
+    num_groups_ = new_num_groups;
+    RETURN_NOT_OK(firsts_.Append(added_groups, static_cast<CType>(0)));
+    RETURN_NOT_OK(firsts_order.Append(added_groups, AntiExtrema<CType>::anti_max()));
+    RETURN_NOT_OK(has_valid_.Append(added_groups, false));
+    return Status::OK();
+  }
+
+  Status Consume(const ExecSpan& batch) override {
+    auto raw_firsts = firsts_.mutable_data();
+    auto raw_firsts_order = firsts_order_.mutable_data();
+
+    auto g = batch[2].array.GetValues<uint32_t>(1);
+    auto index = batch[1].array.GetValues<int64_t>(1);
+    auto valid_func = [&](uint32_t g, CType val){
+      if GetSet::Get(raw_firsts_order, g) < index{
+          GetSet::Set(raw_firsts, g, val);
+      }
+      GetSet::Set(raw_firsts_order, g, std::min(GetSet::Get(raw_firsts_order, g), index++));
+      bit_util::SetBit(has_values_.mutable_data(), g);
+    }
+
+    if(batch[0].is_array()){
+      return VisitArrayValuesInline<Type>(
+        batch[0].array,
+        [&](typename GetViewType<Type>::T val) { return valid_func(*g++, val); },
+        [&](uint32_t g) -> Status { return Status::OK(); }
+      );
+    }
+
+    const Scalar& input = *batch[0].scalar;
+    if (input.is_valid) {
+      const auto val = UnboxScalar<Type>::Unbox(input);
+      for (int64_t i = 0; i < batch.length; i++) {
+        RETURN_NOT_OK(valid_func(*g++, val));
+      }
+    } else {
+        return Status::OK();
+    }
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedFirstImpl*>(&raw_other);
+
+    auto raw_firsts = firsts_.mutable_data();
+    auto other_raw_firsts = other->firsts_.mutable_data();
+    
+    auto raw_firsts_order = firsts_order_.mutable_data();
+    auto other_raw_firsts_order = other->firsts_order_.mutable_data();
+
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
+         ++other_g, ++g) {
+        
+        if(GetSet::Get(other_raw_firsts_order, other_g)<GetSet::Get(raw_firsts_order, *g)){
+            GetSet::Set(raw_firsts, *g, GetSet::Get(other_raw_firsts, other_g));
+            GetSet::Set(raw_firsts_order, *g, GetSet::Get(other_raw_firsts_order, other_g));
+        }
+
+      if (bit_util::GetBit(other->has_valid_.data(), other_g)) {
+        bit_util::SetBit(has_valid_.mutable_data(), *g);
+      }
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_valid_.Finish());
+    auto firsts = ArrayData::Make(out_type_, num_groups_, {null_bitmap, nullptr});
+    auto firsts_order = ArrayData::Make(out_type_, num_groups_, {std::move(null_bitmap), nullptr});
+    ARROW_ASSIGN_OR_RAISE(firsts->buffers[1], firsts_.Finish());
+    ARROW_ASSIGN_OR_RAISE(firsts_order->buffers[1], firsts_order_.Finish());
+    return ArrayData::Make(out_type(), num_groups_, {nullptr},
+                           {std::move(firsts), std::move(firsts_order)});
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return out_type_; }
+
+  int64_t num_groups_;
+  TypedBufferBuilder<CType> firsts_;
+  TypedBufferBuilder<int64_t> firsts_order_;
+  TypedBufferBuilder<bool> has_valid_;
+  std::shared_ptr<DataType> out_type_;
+  ScalarAggregateOptions options_;
+};
+
+struct GroupedNullFirstImpl final : public GroupedAggregator {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override { return Status::OK(); }
+
+  Status Resize(int64_t new_num_groups) override {
+    num_groups_ = new_num_groups;
+    return Status::OK();
+  }
+
+  Status Consume(const ExecSpan& batch) override { return Status::OK(); }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    return ArrayData::Make(
+        out_type(), num_groups_, {nullptr},
+        {
+            ArrayData::Make(null(), num_groups_, {nullptr}, num_groups_),
+            ArrayData::Make(null(), num_groups_, {nullptr}, num_groups_),
+        });
+  }
+
+  std::shared_ptr<DataType> out_type() const override {
+    return null();
+  }
+
+  int64_t num_groups_; 
+};
+
+
 }  // namespace
 
 namespace {
