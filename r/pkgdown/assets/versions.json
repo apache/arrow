@@ -1,10 +1,10 @@
 [
     {
-        "name": "10.0.0.9000 (dev)",
+        "name": "10.0.1.9000 (dev)",
         "version": "dev/"
     },
     {
-        "name": "10.0.0 (release)",
+        "name": "10.0.1 (release)",
         "version": ""
     },
     {
