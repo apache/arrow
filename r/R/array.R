@@ -306,17 +306,7 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
     arrays <- Map(as_arrow_array, x, type = types)
     names(arrays) <- names
 
-    # TODO(ARROW-16266): a hack because there is no StructArray$create() yet
-    batch <- record_batch(!!!arrays)
-    array_ptr <- allocate_arrow_array()
-    schema_ptr <- allocate_arrow_schema()
-    on.exit({
-      delete_arrow_array(array_ptr)
-      delete_arrow_schema(schema_ptr)
-    })
-
-    batch$export_to_c(array_ptr, schema_ptr)
-    Array$import_from_c(array_ptr, schema_ptr)
+    StructArray$create(arrays)
   } else {
     stop_cant_convert_array(x, type)
   }
@@ -449,6 +439,18 @@ StructArray <- R6Class("StructArray",
     Flatten = function() StructArray__Flatten(self)
   )
 )
+
+StructArray$create <- function(...) {
+
+  dots <- list2(...)
+
+  if (length(dots) == 1 && is.data.frame(dots[[1]])) {
+    return(Array$create(dots[[1]]))
+  } else {
+    # bind arrays into structarray
+  }
+
+}
 
 
 #' @export
