@@ -1,5 +1,7 @@
 MACOSX_DEPLOYMENT_TARGET:
 - '11.0'
+aws_sdk_cpp:
+- 1.9.379
 bzip2:
 - '1'
 c_ares:
@@ -23,11 +25,11 @@ gflags:
 glog:
 - '0.6'
 google_cloud_cpp:
-- '2.2'
-grpc_cpp:
-- '1.47'
+- 2.5.0
 libabseil:
 - '20220623.0'
+libgrpc:
+- '1.51'
 libprotobuf:
 - '3.21'
 lz4_c:
@@ -36,20 +38,22 @@ macos_machine:
 - arm64-apple-darwin20.0.0
 numpy:
 - '1.21'
+- '1.23'
+- '1.20'
+- '1.20'
 openssl:
-- 1.1.1
+- '3'
 orc:
-- 1.7.6
+- 1.8.0
 pin_run_as_build:
-  bzip2:
-    max_pin: x
   python:
     min_pin: x.x
     max_pin: x.x
-  zlib:
-    max_pin: x.x
 python:
 - 3.10.* *_cpython
+- 3.11.* *_cpython
+- 3.8.* *_cpython
+- 3.9.* *_cpython
 re2:
 - 2022.06.01
 snappy:
