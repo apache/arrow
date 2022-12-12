@@ -214,6 +214,14 @@ std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::StructArray> StructArray__from_arrays(
+	const std::vector<std::shared_ptr<arrow::Array>>& arrays,
+	const std::vector<std::shared_ptr<arrow::Field>>& fields) {
+	return ValueOrStop(arrow::StructArray::Make(arrays, fields));
+}
+
+
+// [[arrow::export]]
 cpp11::list StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array) {
   return arrow::r::to_r_list(ValueOrStop(array->Flatten()));
 }

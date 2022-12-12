@@ -448,9 +448,12 @@ StructArray$create <- function(...) {
     return(Array$create(dots[[1]]))
   }
 
+  # TODO: more checks like length, class etc
+
   if (all(map_lgl(dots, ~inherits(.x, "Array")))) {
     StructArray__from_arrays(...)
   }
+
 
 }
 
