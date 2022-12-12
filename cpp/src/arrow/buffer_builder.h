@@ -43,23 +43,27 @@ namespace arrow {
 /// data
 class ARROW_EXPORT BufferBuilder {
  public:
-  explicit BufferBuilder(MemoryPool* pool = default_memory_pool())
+  explicit BufferBuilder(MemoryPool* pool = default_memory_pool(),
+                         int64_t alignment = kDefaultBufferAlignment)
       : pool_(pool),
         data_(/*ensure never null to make ubsan happy and avoid check penalties below*/
               util::MakeNonNull<uint8_t>()),
         capacity_(0),
-        size_(0) {}
+        size_(0),
+        alignment_(alignment) {}
 
   /// \brief Constructs new Builder that will start using
   /// the provided buffer until Finish/Reset are called.
   /// The buffer is not resized.
   explicit BufferBuilder(std::shared_ptr<ResizableBuffer> buffer,
-                         MemoryPool* pool = default_memory_pool())
+                         MemoryPool* pool = default_memory_pool(),
+                         int64_t alignment = kDefaultBufferAlignment)
       : buffer_(std::move(buffer)),
         pool_(pool),
         data_(buffer_->mutable_data()),
         capacity_(buffer_->capacity()),
-        size_(buffer_->size()) {}
+        size_(buffer_->size()),
+        alignment_(alignment) {}
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
@@ -71,7 +75,8 @@ class ARROW_EXPORT BufferBuilder {
   /// \return Status
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
     if (buffer_ == NULLPTR) {
-      ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(new_capacity, pool_));
+      ARROW_ASSIGN_OR_RAISE(buffer_,
+                            AllocateResizableBuffer(new_capacity, alignment_, pool_));
     } else {
       ARROW_RETURN_NOT_OK(buffer_->Resize(new_capacity, shrink_to_fit));
     }
@@ -153,7 +158,7 @@ class ARROW_EXPORT BufferBuilder {
     if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
     if (*out == NULLPTR) {
-      ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(0, pool_));
+      ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(0, alignment_, pool_));
     }
     Reset();
     return Status::OK();
@@ -198,6 +203,7 @@ class ARROW_EXPORT BufferBuilder {
   uint8_t* data_;
   int64_t capacity_;
   int64_t size_;
+  int64_t alignment_;
 };
 
 template <typename T, typename Enable = void>
@@ -209,8 +215,9 @@ class TypedBufferBuilder<
     T, typename std::enable_if<std::is_arithmetic<T>::value ||
                                std::is_standard_layout<T>::value>::type> {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool = default_memory_pool())
-      : bytes_builder_(pool) {}
+  explicit TypedBufferBuilder(MemoryPool* pool = default_memory_pool(),
+                              int64_t alignment = kDefaultBufferAlignment)
+      : bytes_builder_(pool, alignment) {}
 
   explicit TypedBufferBuilder(std::shared_ptr<ResizableBuffer> buffer,
                               MemoryPool* pool = default_memory_pool())
@@ -306,8 +313,9 @@ class TypedBufferBuilder<
 template <>
 class TypedBufferBuilder<bool> {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool = default_memory_pool())
-      : bytes_builder_(pool) {}
+  explicit TypedBufferBuilder(MemoryPool* pool = default_memory_pool(),
+                              int64_t alignment = kDefaultBufferAlignment)
+      : bytes_builder_(pool, alignment) {}
 
   explicit TypedBufferBuilder(BufferBuilder builder)
       : bytes_builder_(std::move(builder)) {}

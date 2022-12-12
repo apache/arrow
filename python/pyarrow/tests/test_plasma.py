@@ -30,6 +30,14 @@ import numpy as np
 import pyarrow as pa
 
 
+pytestmark = [
+    # ignore all Plasma deprecation warnings in this file, we test that the
+    # warnings are actually raised in test_plasma_deprecated.py
+    pytest.mark.filterwarnings("ignore:Plasma:DeprecationWarning"),
+    # Ignore other ResourceWarning as plasma is soon to be removed in ~12.0.0
+    pytest.mark.filterwarnings("ignore:subprocess:ResourceWarning")
+]
+
 DEFAULT_PLASMA_STORE_MEMORY = 10 ** 8
 USE_VALGRIND = os.getenv("PLASMA_VALGRIND") == "1"
 EXTERNAL_STORE = "hashtable://test"
@@ -1071,3 +1079,27 @@ def test_store_capacity():
     with plasma.start_plasma_store(plasma_store_memory=10000) as (name, p):
         plasma_client = plasma.connect(name)
         assert plasma_client.store_capacity() == 10000
+
+
+@pytest.mark.plasma
+def test_plasma_deprecated():
+    import pyarrow.plasma as plasma
+
+    plasma_store_ctx = plasma.start_plasma_store(
+        plasma_store_memory=10 ** 8,
+        use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
+
+    with pytest.warns(DeprecationWarning):
+        with plasma_store_ctx:
+            pass
+
+    plasma_store_ctx = plasma.start_plasma_store(
+        plasma_store_memory=10 ** 8,
+        use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
+
+    with plasma_store_ctx as (plasma_store_name, _):
+        with pytest.warns(DeprecationWarning):
+            plasma.connect(plasma_store_name)
+
+    with pytest.warns(DeprecationWarning):
+        plasma.ObjectID(20 * b"a")

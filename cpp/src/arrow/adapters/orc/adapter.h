@@ -35,6 +35,18 @@ namespace arrow {
 namespace adapters {
 namespace orc {
 
+/// \brief Information about an ORC stripe
+struct StripeInformation {
+  /// \brief Offset of the stripe from the start of the file, in bytes
+  int64_t offset;
+  /// \brief Length of the stripe, in bytes
+  int64_t length;
+  /// \brief Number of rows in the stripe
+  int64_t num_rows;
+  /// \brief Index of the first row of the stripe
+  int64_t first_row_id;
+};
+
 /// \class ORCFileReader
 /// \brief Read an Arrow Table or RecordBatch from an ORC file.
 class ARROW_EXPORT ORCFileReader {
@@ -168,6 +180,9 @@ class ARROW_EXPORT ORCFileReader {
   /// \brief The number of rows in the file
   int64_t NumberOfRows();
 
+  /// \brief StripeInformation for each stripe.
+  StripeInformation GetStripeInformation(int64_t stripe);
+
   /// \brief Get the format version of the file.
   ///         Currently known values are 0.11 and 0.12.
   ///
@@ -272,11 +287,23 @@ class ARROW_EXPORT ORCFileWriter {
       io::OutputStream* output_stream,
       const WriteOptions& write_options = WriteOptions());
 
-  /// \brief Write a table
+  /// \brief Write a table. This can be called multiple times.
   ///
-  /// \param[in] table the Arrow table from which data is extracted
+  /// Tables passed in subsequent calls must match the schema of the table that was
+  /// written first.
+  ///
+  /// \param[in] table the Arrow table from which data is extracted.
   /// \return Status
   Status Write(const Table& table);
+
+  /// \brief Write a RecordBatch. This can be called multiple times.
+  ///
+  /// RecordBatches passed in subsequent calls must match the schema of the
+  /// RecordBatch that was written first.
+  ///
+  /// \param[in] record_batch the Arrow RecordBatch from which data is extracted.
+  /// \return Status
+  Status Write(const RecordBatch& record_batch);
 
   /// \brief Close an ORC writer (orc::Writer)
   ///

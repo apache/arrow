@@ -81,6 +81,15 @@ UI Benchmark:
 
 .. image:: img/conbench_benchmark.png
 
+Integration Testing
+===================
+
+Integration tests can be run via Archery:
+
+.. code-block::
+
+    $ archery integration --with-java true --with-cpp false --with-js false --with-csharp false --with-go false --with-rust false
+
 Code Style
 ==========
 

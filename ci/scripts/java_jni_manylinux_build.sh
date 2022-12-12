@@ -22,7 +22,7 @@ set -ex
 arrow_dir=${1}
 build_dir=${2}
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}
+dist_dir=${3}/$(arch)
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers

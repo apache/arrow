@@ -160,16 +160,6 @@ cdef class DataType(_Weakrefable):
         return ty.bit_width()
 
     @property
-    def num_children(self):
-        """
-        The number of child fields.
-        """
-        import warnings
-        warnings.warn("num_children is deprecated, use num_fields",
-                      FutureWarning)
-        return self.num_fields
-
-    @property
     def num_fields(self):
         """
         The number of child fields.
@@ -202,22 +192,27 @@ cdef class DataType(_Weakrefable):
         except (TypeError, ValueError):
             return NotImplemented
 
-    def equals(self, other):
+    def equals(self, other, *, check_metadata=False):
         """
         Return true if type is equivalent to passed value.
 
         Parameters
         ----------
         other : DataType or string convertible to DataType
+        check_metadata : bool
+            Whether nested Field metadata equality should be checked as well.
 
         Returns
         -------
         is_equal : bool
         """
-        cdef DataType other_type
+        cdef:
+            DataType other_type
+            c_bool c_check_metadata
 
         other_type = ensure_type(other)
-        return self.type.Equals(deref(other_type.type))
+        c_check_metadata = check_metadata
+        return self.type.Equals(deref(other_type.type), c_check_metadata)
 
     def to_pandas_dtype(self):
         """
@@ -880,7 +875,7 @@ cdef class BaseExtensionType(DataType):
                 f"Expected array or chunked array, got {storage.__class__}")
 
         if not c_storage_type.get().Equals(deref(self.ext_type)
-                                           .storage_type()):
+                                           .storage_type(), False):
             raise TypeError(
                 f"Incompatible storage type for {self}: "
                 f"expected {self.storage_type}, got {storage.type}")
@@ -1316,11 +1311,6 @@ cdef class Field(_Weakrefable):
             return wrapped.to_dict()
         else:
             return wrapped
-
-    def add_metadata(self, metadata):
-        warnings.warn("The 'add_metadata' method is deprecated, use "
-                      "'with_metadata' instead", FutureWarning, stacklevel=2)
-        return self.with_metadata(metadata)
 
     def with_metadata(self, metadata):
         """
@@ -2276,6 +2266,8 @@ def unify_schemas(schemas):
         Schema schema
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
+        if not isinstance(schema, Schema):
+            raise TypeError("Expected Schema, got {}".format(type(schema)))
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
     return pyarrow_wrap_schema(GetResultValue(UnifySchemas(c_schemas)))
 

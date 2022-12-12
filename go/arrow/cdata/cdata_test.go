@@ -32,11 +32,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/decimal128"
-	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -693,4 +693,57 @@ func TestExportRecordReaderStream(t *testing.T) {
 		i++
 	}
 	assert.EqualValues(t, len(reclist), i)
+}
+
+func TestEmptyListExport(t *testing.T) {
+	bldr := array.NewBuilder(memory.DefaultAllocator, arrow.LargeListOf(arrow.PrimitiveTypes.Int32))
+	defer bldr.Release()
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	var out CArrowArray
+	ExportArrowArray(arr, &out, nil)
+
+	assert.Zero(t, out.length)
+	assert.Zero(t, out.null_count)
+	assert.Zero(t, out.offset)
+	assert.EqualValues(t, 2, out.n_buffers)
+	assert.NotNil(t, out.buffers)
+	assert.EqualValues(t, 1, out.n_children)
+	assert.NotNil(t, out.children)
+}
+
+func TestEmptyDictExport(t *testing.T) {
+	bldr := array.NewBuilder(memory.DefaultAllocator, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.BinaryTypes.String, Ordered: true})
+	defer bldr.Release()
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	var out CArrowArray
+	var sc CArrowSchema
+	ExportArrowArray(arr, &out, &sc)
+
+	assert.EqualValues(t, 'c', *sc.format)
+	assert.NotZero(t, sc.flags&1)
+	assert.Zero(t, sc.n_children)
+	assert.NotNil(t, sc.dictionary)
+	assert.EqualValues(t, 'u', *sc.dictionary.format)
+
+	assert.Zero(t, out.length)
+	assert.Zero(t, out.null_count)
+	assert.Zero(t, out.offset)
+	assert.EqualValues(t, 2, out.n_buffers)
+	assert.Zero(t, out.n_children)
+	assert.Nil(t, out.children)
+	assert.NotNil(t, out.dictionary)
+
+	assert.Zero(t, out.dictionary.length)
+	assert.Zero(t, out.dictionary.null_count)
+	assert.Zero(t, out.dictionary.offset)
+	assert.EqualValues(t, 3, out.dictionary.n_buffers)
+	assert.Zero(t, out.dictionary.n_children)
+	assert.Nil(t, out.dictionary.children)
+	assert.Nil(t, out.dictionary.dictionary)
 }

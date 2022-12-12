@@ -516,6 +516,10 @@ ARROW_EXPORT Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatc
 ARROW_EXPORT Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
     Declaration declaration, ExecContext* exec_context = default_exec_context());
 
+/// \brief Utility method to run a declaration and return results as a RecordBatchReader
+ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
+    Declaration declaration, bool use_threads);
+
 /// \brief Wrap an ExecBatch generator in a RecordBatchReader.
 ///
 /// The RecordBatchReader does not impose any ordering on emitted batches.

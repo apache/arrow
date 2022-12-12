@@ -31,6 +31,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_type_inline.h"
 
@@ -525,11 +526,6 @@ Status TransposeInts(const DataType& src_type, const DataType& dest_type,
   return transposer(src_type);
 }
 
-template <typename T>
-static std::string FormatInt(T val) {
-  return std::to_string(val);
-}
-
 template <typename IndexCType, bool IsSigned = std::is_signed<IndexCType>::value>
 static Status CheckIndexBoundsImpl(const ArraySpan& values, uint64_t upper_limit) {
   // For unsigned integers, if the values array is larger than the maximum
@@ -555,7 +551,7 @@ static Status CheckIndexBoundsImpl(const ArraySpan& values, uint64_t upper_limit
         if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
           for (int64_t i = 0; i < length; ++i) {
             if (IsOutOfBounds(values_data[offset + i])) {
-              return Status::IndexError("Index ", FormatInt(values_data[offset + i]),
+              return Status::IndexError("Index ", ToChars(values_data[offset + i]),
                                         " out of bounds");
             }
           }
@@ -609,9 +605,9 @@ Status IntegersInRange(const ArraySpan& values, CType bound_lower, CType bound_u
     return is_valid && (val < bound_lower || val > bound_upper);
   };
   auto GetErrorMessage = [&](CType val) {
-    return Status::Invalid("Integer value ", FormatInt(val),
-                           " not in range: ", FormatInt(bound_lower), " to ",
-                           FormatInt(bound_upper));
+    return Status::Invalid("Integer value ", ToChars(val),
+                           " not in range: ", ToChars(bound_lower), " to ",
+                           ToChars(bound_upper));
   };
 
   const CType* values_data = values.GetValues<CType>(1);

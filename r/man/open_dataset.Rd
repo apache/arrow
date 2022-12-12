@@ -167,8 +167,7 @@ tf <- tempfile()
 dir.create(tf)
 on.exit(unlink(tf))
 
-data <- dplyr::group_by(mtcars, cyl)
-write_dataset(data, tf)
+write_dataset(mtcars, tf, partitioning = "cyl")
 
 # You can specify a directory containing the files for your dataset and
 # open_dataset will scan all files in your directory.
@@ -181,7 +180,7 @@ open_dataset(c(file.path(tf, "cyl=4/part-0.parquet"), file.path(tf, "cyl=8/part-
 tf2 <- tempfile()
 dir.create(tf2)
 on.exit(unlink(tf2))
-write_dataset(data, tf2, format = "ipc")
+write_dataset(mtcars, tf2, format = "ipc")
 # This line will results in errors when you try to work with the data
 \dontrun{
 open_dataset(tf2)
@@ -212,5 +211,6 @@ open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{vignette("dataset", package = "arrow")}
+\href{https://arrow.apache.org/docs/r/articles/dataset.html}{
+datasets article}
 }

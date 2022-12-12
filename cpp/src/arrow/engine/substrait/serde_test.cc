@@ -15,36 +15,64 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <google/protobuf/descriptor.h>
-#include <google/protobuf/util/json_util.h>
-#include <google/protobuf/util/type_resolver_util.h>
+#include <algorithm>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <type_traits>
+#include <utility>
+#include <variant>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/exec/options.h"
+#include "arrow/compute/registry.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/dataset/dataset.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
-#include "arrow/dataset/file_parquet.h"
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/datum.h"
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/util.h"
-
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/test_util.h"
-#include "arrow/io/compressed.h"
-#include "arrow/io/memory.h"
+#include "arrow/io/type_fwd.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/scalar.h"
+#include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-#include "arrow/util/key_value_metadata.h"
-
-#include "parquet/arrow/writer.h"
-
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/async_generator_fwd.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/future.h"
 #include "arrow/util/hash_util.h"
-#include "arrow/util/hashing.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/iterator.h"
+#include "arrow/util/key_value_metadata.h"
 
 using testing::ElementsAre;
 using testing::Eq;
@@ -103,7 +131,8 @@ Result<std::shared_ptr<Table>> GetTableFromPlan(
 
 class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
-  Status Init(const std::shared_ptr<Schema>&, compute::BackpressureControl*) override {
+  Status Init(const std::shared_ptr<Schema>&, compute::BackpressureControl*,
+              compute::ExecPlan* plan) override {
     return Status::OK();
   }
   Status Consume(compute::ExecBatch exec_batch) override { return Status::OK(); }
@@ -182,7 +211,8 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
                           compute::ExecContext& exec_context,
                           std::shared_ptr<Buffer>& buf,
                           const std::vector<int>& include_columns = {},
-                          const ConversionOptions& conversion_options = {}) {
+                          const ConversionOptions& conversion_options = {},
+                          const compute::SortOptions* sort_options = NULLPTR) {
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   ExtensionSet ext_set(ext_id_reg);
@@ -196,6 +226,16 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
   if (!include_columns.empty()) {
     ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
   }
+  if (sort_options) {
+    ASSERT_OK_AND_ASSIGN(
+        auto sort_indices,
+        SortIndices(output_table, std::move(*sort_options), &exec_context));
+    ASSERT_OK_AND_ASSIGN(
+        auto maybe_table,
+        compute::Take(output_table, std::move(sort_indices),
+                      compute::TakeOptions::NoBoundsCheck(), &exec_context));
+    output_table = maybe_table.table();
+  }
   ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
   AssertTablesEqual(*expected_table, *output_table);
 }
@@ -205,7 +245,8 @@ TEST(Substrait, SupportedTypes) {
     ARROW_SCOPED_TRACE(json);
 
     ExtensionSet empty;
-    ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Type", json));
+    ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON(
+                                       "Type", json, /*ignore_unknown_fields=*/false));
     ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, empty));
 
     EXPECT_EQ(*type, *expected_type);
@@ -283,8 +324,10 @@ TEST(Substrait, SupportedExtensionTypes) {
     ASSERT_OK_AND_ASSIGN(
         auto buf,
         internal::SubstraitFromJSON(
-            "Type", "{\"user_defined\": { \"type_reference\": " + std::to_string(anchor) +
-                        ", \"nullability\": \"NULLABILITY_NULLABLE\" } }"));
+            "Type",
+            "{\"user_defined\": { \"type_reference\": " + std::to_string(anchor) +
+                ", \"nullability\": \"NULLABILITY_NULLABLE\" } }",
+            /*ignore_unknown_fields=*/false));
 
     ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, ext_set));
     EXPECT_EQ(*type, *expected_type);
@@ -301,7 +344,8 @@ TEST(Substrait, SupportedExtensionTypes) {
 TEST(Substrait, NamedStruct) {
   ExtensionSet ext_set;
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("NamedStruct", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("NamedStruct", R"({
     "struct": {
       "types": [
         {"i64": {}},
@@ -316,7 +360,8 @@ TEST(Substrait, NamedStruct) {
       ]
     },
     "names": ["a", "b", "c", "d", "e", "f"]
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   ASSERT_OK_AND_ASSIGN(auto schema, DeserializeSchema(*buf, ext_set));
   Schema expected_schema({
       field("a", int64()),
@@ -337,31 +382,40 @@ TEST(Substrait, NamedStruct) {
   ASSERT_OK_AND_ASSIGN(buf, internal::SubstraitFromJSON("NamedStruct", R"({
     "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]},
     "names": []
-  })"));
+  })",
+                                                        /*ignore_unknown_fields=*/false));
   EXPECT_THAT(DeserializeSchema(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // too many names
   ASSERT_OK_AND_ASSIGN(buf, internal::SubstraitFromJSON("NamedStruct", R"({
     "struct": {"types": []},
     "names": ["a", "b", "c"]
-  })"));
+  })",
+                                                        /*ignore_unknown_fields=*/false));
   EXPECT_THAT(DeserializeSchema(*buf, ext_set), Raises(StatusCode::Invalid));
 
-  // no schema metadata allowed
-  EXPECT_THAT(SerializeSchema(Schema({}, key_value_metadata({{"ext", "yes"}})), &ext_set),
+  ConversionOptions conversion_options;
+  conversion_options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
+
+  // no schema metadata allowed with EXACT_ROUNDTRIP
+  EXPECT_THAT(SerializeSchema(Schema({}, key_value_metadata({{"ext", "yes"}})), &ext_set,
+                              conversion_options),
               Raises(StatusCode::Invalid));
 
-  // no schema metadata allowed
+  ASSERT_OK(SerializeSchema(Schema({}, key_value_metadata({{"ext", "yes"}})), &ext_set));
+
+  // no field metadata allowed with EXACT_ROUNDTRIP
   EXPECT_THAT(
       SerializeSchema(Schema({field("a", int32(), key_value_metadata({{"ext", "yes"}}))}),
-                      &ext_set),
+                      &ext_set, conversion_options),
       Raises(StatusCode::Invalid));
 }
 
 TEST(Substrait, NoEquivalentArrowType) {
   ASSERT_OK_AND_ASSIGN(
       auto buf,
-      internal::SubstraitFromJSON("Type", R"({"user_defined": {"type_reference": 99}})"));
+      internal::SubstraitFromJSON("Type", R"({"user_defined": {"type_reference": 99}})",
+                                  /*ignore_unknown_fields=*/false));
   ExtensionSet empty;
   ASSERT_THAT(
       DeserializeType(*buf, empty),
@@ -401,23 +455,35 @@ TEST(Substrait, NoEquivalentSubstraitType) {
 TEST(Substrait, SupportedLiterals) {
   auto ExpectEq = [](std::string_view json, Datum expected_value) {
     ARROW_SCOPED_TRACE(json);
+    for (bool nullable : {false, true}) {
+      std::string json_with_nullable;
+      if (nullable) {
+        auto final_closing_brace = json.find_last_of('}');
+        ASSERT_NE(std::string_view::npos, final_closing_brace);
+        json_with_nullable =
+            std::string(json.substr(0, final_closing_brace)) + ", \"nullable\": true}";
+        json = json_with_nullable;
+      }
+      ASSERT_OK_AND_ASSIGN(
+          auto buf, internal::SubstraitFromJSON("Expression",
+                                                "{\"literal\":" + std::string(json) + "}",
+                                                /*ignore_unknown_fields=*/false));
+      ExtensionSet ext_set;
+      ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
 
-    ASSERT_OK_AND_ASSIGN(
-        auto buf, internal::SubstraitFromJSON("Expression",
-                                              "{\"literal\":" + std::string(json) + "}"));
-    ExtensionSet ext_set;
-    ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
+      ASSERT_TRUE(expr.literal());
+      ASSERT_THAT(*expr.literal(), DataEq(expected_value));
 
-    ASSERT_TRUE(expr.literal());
-    ASSERT_THAT(*expr.literal(), DataEq(expected_value));
+      ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
+      EXPECT_EQ(ext_set.num_functions(),
+                0);  // shouldn't need extensions for core literals
 
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-    EXPECT_EQ(ext_set.num_functions(), 0);  // shouldn't need extensions for core literals
+      ASSERT_OK_AND_ASSIGN(auto roundtripped,
+                           DeserializeExpression(*serialized, ext_set));
 
-    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
-
-    ASSERT_TRUE(roundtripped.literal());
-    ASSERT_THAT(*roundtripped.literal(), DataEq(expected_value));
+      ASSERT_TRUE(roundtripped.literal());
+      ASSERT_THAT(*roundtripped.literal(), DataEq(expected_value));
+    }
   };
 
   ExpectEq(R"({"boolean": true})", Datum(true));
@@ -512,16 +578,21 @@ TEST(Substrait, CannotDeserializeLiteral) {
   // Invalid: missing List.element_type
   ASSERT_OK_AND_ASSIGN(
       auto buf, internal::SubstraitFromJSON("Expression",
-                                            R"({"literal": {"list": {"values": []}}})"));
+                                            R"({"literal": {"list": {"values": []}}})",
+                                            /*ignore_unknown_fields=*/false));
   EXPECT_THAT(DeserializeExpression(*buf, ext_set), Raises(StatusCode::Invalid));
 
-  // Invalid: required null literal
+  // Invalid: required null literal if in strict mode
+  ConversionOptions conversion_options;
+  conversion_options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
   ASSERT_OK_AND_ASSIGN(
       buf,
       internal::SubstraitFromJSON(
           "Expression",
-          R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})"));
-  EXPECT_THAT(DeserializeExpression(*buf, ext_set), Raises(StatusCode::Invalid));
+          R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})",
+          /*ignore_unknown_fields=*/false));
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options),
+              Raises(StatusCode::Invalid));
 
   // no equivalent arrow scalar
   // FIXME no way to specify scalars of user_defined_type_reference
@@ -568,7 +639,8 @@ TEST(Substrait, RecursiveFieldRef) {
   ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-  ASSERT_OK_AND_ASSIGN(auto expected, internal::SubstraitFromJSON("Expression", R"({
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       internal::SubstraitFromJSON("Expression", R"({
     "selection": {
       "directReference": {
         "structField": {
@@ -582,7 +654,8 @@ TEST(Substrait, RecursiveFieldRef) {
       },
       "rootReference": {}
     }
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   ASSERT_OK(internal::CheckMessagesEquivalent("Expression", *serialized, *expected));
 }
 
@@ -600,7 +673,8 @@ TEST(Substrait, FieldRefsInExpressions) {
 
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-  ASSERT_OK_AND_ASSIGN(auto expected, internal::SubstraitFromJSON("Expression", R"({
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       internal::SubstraitFromJSON("Expression", R"({
     "selection": {
       "directReference": {
         "structField": {
@@ -619,7 +693,8 @@ TEST(Substrait, FieldRefsInExpressions) {
         }
       }
     }
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   ASSERT_OK(internal::CheckMessagesEquivalent("Expression", *serialized, *expected));
 }
 
@@ -710,7 +785,8 @@ TEST(Substrait, CallExtensionFunction) {
 }
 
 TEST(Substrait, ReadRel) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Rel", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Rel", R"({
     "read": {
       "base_schema": {
         "struct": {
@@ -740,7 +816,8 @@ TEST(Substrait, ReadRel) {
         ]
       }
     }
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto rel, DeserializeRelation(*buf, ext_set));
 
@@ -762,8 +839,51 @@ TEST(Substrait, ReadRel) {
   EXPECT_EQ(*dataset.schema(), Schema({field("i", int64()), field("b", boolean())}));
 }
 
+/// \brief Create a NamedTableProvider that provides `table` regardless of the name
+NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
+  return [table = std::move(table)](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+}
+
+TEST(Substrait, RelWithHint) {
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Rel", R"({
+    "read": {
+      "common": {
+        "hint": {
+          "stats": {
+            "row_count": 1
+          }
+        },
+        "direct": { }
+      },
+      "base_schema": {
+        "struct": {
+          "types": [ {"i64": {}}, {"bool": {}} ]
+        },
+        "names": ["i", "b"]
+      },
+      "named_table": { "names": [ "foo" ] }
+    }
+  })",
+                                                   /*ignore_unknown_fields=*/false));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = AlwaysProvideSameTable(nullptr);
+
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto rel, DeserializeRelation(*buf, ext_set, conversion_options));
+
+  conversion_options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
+  ASSERT_RAISES(NotImplemented, DeserializeRelation(*buf, ext_set, conversion_options));
+}
+
 TEST(Substrait, ExtensionSetFromPlan) {
   std::string substrait_json = R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [
       {"rel": {
         "read": {
@@ -802,7 +922,9 @@ TEST(Substrait, ExtensionSetFromPlan) {
       }}
     ]
 })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -840,7 +962,9 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
@@ -886,7 +1010,9 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
@@ -907,6 +1033,7 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
 
 TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   std::string substrait_json = R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [],
     "extension_uris": [
       {
@@ -923,7 +1050,9 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   auto sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -955,6 +1084,7 @@ Result<std::string> GetSubstraitJSON() {
   auto file_path = file_name->ToString();
 
   std::string substrait_json = R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [
       {"rel": {
         "read": {
@@ -987,9 +1117,6 @@ Result<std::string> GetSubstraitJSON() {
 }
 
 TEST(Substrait, DeserializeWithConsumerFactory) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations,
@@ -1006,13 +1133,9 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
 
   ASSERT_OK(plan->StartProducing());
   ASSERT_FINISHES_OK(plan->finished());
-#endif
 }
 
 TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
@@ -1026,13 +1149,9 @@ TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
 
   ASSERT_OK(plan->StartProducing());
   ASSERT_FINISHES_OK(plan->finished());
-#endif
 }
 
 TEST(Substrait, DeserializeWithWriteOptionsFactory) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
   dataset::internal::Initialize();
   fs::TimePoint mock_now = std::chrono::system_clock::now();
   fs::FileInfo testdir = ::arrow::fs::Dir("testdir");
@@ -1069,7 +1188,6 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
 
   ASSERT_OK(plan->StartProducing());
   ASSERT_FINISHES_OK(plan->finished());
-#endif
 }
 
 static void test_with_registries(
@@ -1084,9 +1202,6 @@ static void test_with_registries(
 }
 
 TEST(Substrait, GetRecordBatchReader) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
                                          compute::FunctionRegistry* func_registry) {
@@ -1097,11 +1212,11 @@ TEST(Substrait, GetRecordBatchReader) {
     // in case of a test failure, re-evalaute the content in the file
     EXPECT_EQ(table->num_rows(), 12);
   });
-#endif
 }
 
 TEST(Substrait, InvalidPlan) {
   std::string substrait_json = R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [
     ]
   })";
@@ -1112,8 +1227,34 @@ TEST(Substrait, InvalidPlan) {
   });
 }
 
+TEST(Substrait, InvalidMinimumVersion) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 0, "minor_number": 18, "patch_number": 0 },
+    "relations": [{
+      "rel": {
+        "read": {
+          "base_schema": {
+            "names": ["A"],
+            "struct": {
+              "types": [{
+                "i32": {}
+              }]
+            }
+          },
+          "named_table": { "names": ["x"] }
+        }
+      }
+    }],
+    "extensionUris": [],
+    "extensions": [],
+  })"));
+
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
 TEST(Substrait, JoinPlanBasic) {
   std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1217,7 +1358,9 @@ TEST(Substrait, JoinPlanBasic) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -1257,6 +1400,7 @@ TEST(Substrait, JoinPlanBasic) {
 
 TEST(Substrait, JoinPlanInvalidKeyCmp) {
   std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1360,7 +1504,9 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
       }}
     ]
   })";
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -1371,7 +1517,9 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
 }
 
 TEST(Substrait, JoinPlanInvalidExpression) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1428,7 +1576,8 @@ TEST(Substrait, JoinPlanInvalidExpression) {
       }
     }
   }]
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -1440,6 +1589,7 @@ TEST(Substrait, JoinPlanInvalidExpression) {
 
 TEST(Substrait, JoinPlanInvalidKeys) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -1512,7 +1662,9 @@ TEST(Substrait, JoinPlanInvalidKeys) {
 }
 
 TEST(Substrait, AggregateBasic) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1587,7 +1739,8 @@ TEST(Substrait, AggregateBasic) {
         "name": "sum"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   auto sp_ext_id_reg = MakeExtensionIdRegistry();
   ASSERT_OK_AND_ASSIGN(auto sink_decls,
@@ -1605,7 +1758,9 @@ TEST(Substrait, AggregateBasic) {
 }
 
 TEST(Substrait, AggregateInvalidRel) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1623,13 +1778,16 @@ TEST(Substrait, AggregateInvalidRel) {
         "name": "sum"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateInvalidFunction) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1684,13 +1842,16 @@ TEST(Substrait, AggregateInvalidFunction) {
         "name": "sum"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateInvalidAggFuncArgs) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1732,7 +1893,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
           "measures": [{
             "measure": {
               "functionReference": 0,
-              "args": [],
+              "arguments": [],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
               "invocation": "AGGREGATION_INVOCATION_ALL",
@@ -1755,13 +1916,16 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
         "name": "sum"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateWithFilter) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1803,7 +1967,7 @@ TEST(Substrait, AggregateWithFilter) {
           "measures": [{
             "measure": {
               "functionReference": 0,
-              "args": [],
+              "arguments": [],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
               "invocation": "AGGREGATION_INVOCATION_ALL",
@@ -1826,13 +1990,16 @@ TEST(Substrait, AggregateWithFilter) {
         "name": "equal"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateBadPhase) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -1874,7 +2041,7 @@ TEST(Substrait, AggregateBadPhase) {
           "measures": [{
             "measure": {
               "functionReference": 0,
-              "args": [],
+              "arguments": [],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
               "invocation": "AGGREGATION_INVOCATION_DISTINCT",
@@ -1897,16 +2064,13 @@ TEST(Substrait, AggregateBadPhase) {
         "name": "equal"
       }
     }],
-  })"));
+  })",
+                                                   /*ignore_unknown_fields=*/false));
 
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
-TEST(Substrait, BasicPlanRoundTripping) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
-  compute::ExecContext exec_context;
+TEST(SubstraitRoundTrip, BasicPlan) {
   arrow::dataset::internal::Initialize();
 
   auto dummy_schema = schema(
@@ -2016,10 +2180,7 @@ TEST(Substrait, BasicPlanRoundTripping) {
   }
 }
 
-TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
+TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
 
@@ -2132,19 +2293,58 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
 }
 
-/// \brief Create a NamedTableProvider that provides `table` regardless of the name
-NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
-  return [table = std::move(table)](const std::vector<std::string>&) {
+TEST(SubstraitRoundTrip, FilterNamedTable) {
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
+  const std::vector<std::string> table_names{"table", "1"};
+  const auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+  auto filter = compute::equal(compute::field_ref("A"), compute::field_ref("B"));
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration({"named_table",
+                             compute::NamedTableNodeOptions{table_names, dummy_schema},
+                             "n"}),
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"})});
+
+  ExtensionSet ext_set{};
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 5, 20],
+      [4, 1, 30],
+      [2, 1, 40],
+      [5, 5, 50],
+      [2, 2, 60]
+  ])"});
+
+  NamedTableProvider table_provider =
+      [&input_table, &table_names](
+          const std::vector<std::string>& names) -> Result<compute::Declaration> {
+    if (table_names != names) {
+      return Status::Invalid("Table name mismatch");
+    }
     std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, std::move(options), "mock_source");
   };
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  auto expected_table = TableFromJSON(dummy_schema, {R"([
+    [1, 1, 10],
+    [5, 5, 50],
+    [2, 2, 60]
+  ])"});
+
+  CheckRoundTripResult(std::move(dummy_schema), std::move(expected_table), exec_context,
+                       serialized_plan, {}, conversion_options);
 }
 
-TEST(Substrait, ProjectRel) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
+TEST(SubstraitRoundTrip, ProjectRel) {
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2160,6 +2360,7 @@ TEST(Substrait, ProjectRel) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "project": {
@@ -2235,7 +2436,9 @@ TEST(Substrait, ProjectRel) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("A", int32()), field("B", int32()),
                                field("C", int32()), field("equal", boolean())});
   auto expected_table = TableFromJSON(output_schema, {R"([
@@ -2256,10 +2459,7 @@ TEST(Substrait, ProjectRel) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, ProjectRelOnFunctionWithEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
+TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2275,6 +2475,7 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "project": {
@@ -2355,7 +2556,9 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema =
       schema({field("A", int32()), field("C", int32()), field("equal", boolean())});
   auto expected_table = TableFromJSON(output_schema, {R"([
@@ -2375,10 +2578,7 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, ReadRelWithEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
+TEST(SubstraitRoundTrip, ReadRelWithEmit) {
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2390,6 +2590,7 @@ TEST(Substrait, ReadRelWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "read": {
@@ -2418,7 +2619,9 @@ TEST(Substrait, ReadRelWithEmit) {
   }],
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("B", int32()), field("C", int32())});
   auto expected_table = TableFromJSON(output_schema, {R"([
       [1, 10],
@@ -2434,10 +2637,7 @@ TEST(Substrait, ReadRelWithEmit) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, FilterRelWithEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
+TEST(SubstraitRoundTrip, FilterRelWithEmit) {
   compute::ExecContext exec_context;
   auto dummy_schema = schema({field("A", int32()), field("B", int32()),
                               field("C", int32()), field("D", int32())});
@@ -2454,6 +2654,7 @@ TEST(Substrait, FilterRelWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "filter": {
@@ -2535,7 +2736,9 @@ TEST(Substrait, FilterRelWithEmit) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("B", int32()), field("D", int32())});
   auto expected_table = TableFromJSON(output_schema, {R"([
       [3, 5],
@@ -2552,10 +2755,7 @@ TEST(Substrait, FilterRelWithEmit) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, JoinRelEndToEnd) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
+TEST(SubstraitRoundTrip, JoinRel) {
   compute::ExecContext exec_context;
   auto left_schema = schema({field("A", int32()), field("B", int32())});
 
@@ -2575,6 +2775,7 @@ TEST(Substrait, JoinRelEndToEnd) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -2632,7 +2833,7 @@ TEST(Substrait, JoinRelEndToEnd) {
                 "selection": {
                   "directReference": {
                     "structField": {
-                      "field": 0
+                      "field": 2
                     }
                   },
                   "rootReference": {
@@ -2665,7 +2866,9 @@ TEST(Substrait, JoinRelEndToEnd) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   // include these columns for comparison
   auto output_schema = schema({
@@ -2702,10 +2905,7 @@ TEST(Substrait, JoinRelEndToEnd) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, JoinRelWithEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
+TEST(SubstraitRoundTrip, JoinRelWithEmit) {
   compute::ExecContext exec_context;
   auto left_schema = schema({field("A", int32()), field("B", int32())});
 
@@ -2725,6 +2925,7 @@ TEST(Substrait, JoinRelWithEmit) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -2787,7 +2988,7 @@ TEST(Substrait, JoinRelWithEmit) {
                 "selection": {
                   "directReference": {
                     "structField": {
-                      "field": 0
+                      "field": 2
                     }
                   },
                   "rootReference": {
@@ -2820,7 +3021,9 @@ TEST(Substrait, JoinRelWithEmit) {
     ]
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({
       field("A", int32()),
       field("B", int32()),
@@ -2854,10 +3057,7 @@ TEST(Substrait, JoinRelWithEmit) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, AggregateRel) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
+TEST(SubstraitRoundTrip, AggregateRel) {
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2874,6 +3074,7 @@ TEST(Substrait, AggregateRel) {
   ])"});
 
   std::string substrait_json = R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -2945,7 +3146,9 @@ TEST(Substrait, AggregateRel) {
     }],
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("aggregates", int64()), field("keys", int32())});
   auto expected_table = TableFromJSON(output_schema, {R"([
       [80, 10],
@@ -2963,10 +3166,7 @@ TEST(Substrait, AggregateRel) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, AggregateRelEmit) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
+TEST(SubstraitRoundTrip, AggregateRelEmit) {
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2984,6 +3184,7 @@ TEST(Substrait, AggregateRelEmit) {
 
   // TODO: fixme https://issues.apache.org/jira/browse/ARROW-17484
   std::string substrait_json = R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [{
       "rel": {
         "aggregate": {
@@ -3060,7 +3261,9 @@ TEST(Substrait, AggregateRelEmit) {
     }],
   })";
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
   auto output_schema = schema({field("aggregates", int64())});
   auto expected_table = TableFromJSON(output_schema, {R"([
       [80],
@@ -3081,10 +3284,8 @@ TEST(Substrait, AggregateRelEmit) {
 TEST(Substrait, IsthmusPlan) {
   // This is a plan generated from Isthmus
   // isthmus -c "CREATE TABLE T1(foo int)" "SELECT foo + 1 FROM T1"
-  //
-  // The plan had to be modified slightly to introduce the missing enum
-  // argument that isthmus did not put there.
   std::string substrait_json = R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "extensionUris": [{
       "extensionUriAnchor": 1,
       "uri": "/functions_arithmetic.yaml"
@@ -3093,7 +3294,7 @@ TEST(Substrait, IsthmusPlan) {
       "extensionFunction": {
         "extensionUriReference": 1,
         "functionAnchor": 0,
-        "name": "add:opt_i32_i32"
+        "name": "add:i32_i32"
       }
     }],
     "relations": [{
@@ -3132,7 +3333,6 @@ TEST(Substrait, IsthmusPlan) {
             "expressions": [{
               "scalarFunction": {
                 "functionReference": 0,
-                "args": [],
                 "outputType": {
                   "i32": {
                     "typeVariationReference": 0,
@@ -3140,10 +3340,6 @@ TEST(Substrait, IsthmusPlan) {
                   }
                 },
                 "arguments": [{
-                  "enum": {
-                    "unspecified": {}
-                  }
-                }, {
                   "value": {
                     "selection": {
                       "directReference": {
@@ -3180,11 +3376,438 @@ TEST(Substrait, IsthmusPlan) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
 
   auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
   CheckRoundTripResult(std::move(test_schema), std::move(expected_table),
                        *compute::default_exec_context(), buf, {}, conversion_options);
+}
+
+TEST(Substrait, ProjectWithMultiFieldExpressions) {
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 80],
+      [20, 2, 70],
+      [30, 3, 30]
+  ])"});
+
+  const std::string substrait_json = R"({
+    "extensionUris": [{
+        "extensionUriAnchor": 1,
+        "uri": "/functions_arithmetic.yaml"
+    }],
+      "extensions": [{
+        "extensionFunction": {
+          "extensionUriReference": 1,
+          "functionAnchor": 0,
+          "name": "add:i32_i32"
+        }
+    }],
+    "relations": [{
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "emit": {
+                "outputMapping": [0, 3, 6]
+              }
+            },
+            "input": {
+              "read": {
+                "common": {
+                  "direct": {
+                  }
+                },
+                "baseSchema": {
+                  "names": ["A", "B", "C"],
+                  "struct": {
+                    "types": [{
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }, {
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }, {
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }],
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["SIMPLEDATA"]
+                }
+              }
+            },
+            "expressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 1
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 2
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            },{
+              "scalarFunction": {
+                "functionReference": 0,
+                "outputType": {
+                  "i32": {
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_NULLABLE"
+                  }
+                },
+                "arguments": [{
+                  "value": {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 0
+                        }
+                      },
+                      "rootReference": {
+                      }
+                    }
+                  }
+                }, {
+                  "value": {
+                    "literal": {
+                      "i32": 1,
+                      "nullable": false,
+                      "typeVariationReference": 0
+                    }
+                  }
+                }]
+              }
+            }]
+          }
+        },
+        "names": ["A", "B", "C", "D"]
+      }
+    }]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema =
+      schema({field("A", int32()), field("A1", int32()), field("A+1", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [10, 10, 11],
+      [20, 20, 21],
+      [30, 30, 31]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("A", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10],
+      [20],
+      [30]
+  ])"});
+
+  const std::string substrait_json = R"({
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 2,
+        "name": "add"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "rel": {
+        "project": {
+          "input": {
+            "project": {
+              "common": {"emit": {"outputMapping": [2]}},
+              "input": {
+                "read": {
+                  "baseSchema": {
+                    "names": ["int"],
+                    "struct": {"types": [{"i32": {}}]}
+                  },
+                  "namedTable": {
+                    "names": ["SIMPLEDATA"]
+                  }
+                }
+              },
+              "expressions": [
+                {"selection": {"directReference": {"structField": {"field": 0}}}},
+                {
+                  "scalarFunction": {
+                    "functionReference": 2,
+                    "outputType": {"i32": {}},
+                    "arguments": [
+                      {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
+                      {"value": {"literal": {"fp64": 10}}}
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "expressions": [
+            {"selection": {"directReference": {"structField": {"field": 0}}}}
+          ]
+        }
+      }
+    }
+  ]
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  auto output_schema = schema({field("A", float64()), field("B", float64())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [20, 20],
+      [30, 30],
+      [40, 40]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("A", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10],
+      [20],
+      [30]
+  ])"});
+
+  const std::string substrait_json = R"({
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 2,
+        "name": "add"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "rel": {
+        "project": {
+          "common": {"emit": {"outputMapping": [2]}},
+          "input": {
+            "project": {
+              "common": {"emit": {"outputMapping": [1, 2]}},
+              "input": {
+                "read": {
+                  "baseSchema": {
+                    "names": ["int"],
+                    "struct": {"types": [{"i32": {}}]}
+                  },
+                  "namedTable": {
+                    "names": ["SIMPLEDATA"]
+                  }
+                }
+              },
+              "expressions": [
+                {"selection": {"directReference": {"structField": {"field": 0}}}},
+                {
+                  "scalarFunction": {
+                    "functionReference": 2,
+                    "outputType": {"i32": {}},
+                    "arguments": [
+                      {"value": {"selection": {"directReference": {"structField": {"field": 0}}}}},
+                      {"value": {"literal": {"fp64": 10}}}
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "expressions": [
+            {"selection": {"directReference": {"structField": {"field": 0}}}}
+          ]
+        }
+      }
+    }
+  ]
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  auto output_schema = schema({field("A", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [10],
+      [20],
+      [30]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, ReadRelWithGlobFiles) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table_1 = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+    ])"});
+  auto table_2 = TableFromJSON(dummy_schema, {R"([
+      [11, 11, 110],
+      [13, 14, 120]
+    ])"});
+  auto table_3 = TableFromJSON(dummy_schema, {R"([
+      [21, 21, 210],
+      [23, 24, 220]
+    ])"});
+  auto expected_table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20],
+      [11, 11, 110],
+      [13, 14, 120],
+      [21, 21, 210],
+      [23, 24, 220]
+    ])"});
+
+  std::vector<std::shared_ptr<Table>> input_tables = {table_1, table_2, table_3};
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::vector<std::string> file_names = {"serde_test_1.arrow", "serde_test_2.arrow",
+                                               "serde_test_3.arrow"};
+
+  const std::string path_prefix = "substrait-globfiles-";
+  int idx = 0;
+
+  // creating a vector to avoid out-of-scoping Temporary directory
+  // if out-of-scoped the written folder get wiped out
+  std::vector<std::unique_ptr<arrow::internal::TemporaryDir>> tempdirs;
+  for (size_t i = 0; i < file_names.size(); i++) {
+    ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make(path_prefix));
+    tempdirs.push_back(std::move(tempdir));
+  }
+
+  std::string sample_tempdir_path = tempdirs[0]->path().ToString();
+  std::string base_tempdir_path =
+      sample_tempdir_path.substr(0, sample_tempdir_path.find(path_prefix));
+  std::string glob_like_path =
+      "file://" + base_tempdir_path + path_prefix + "*/serde_test_*.arrow";
+
+  for (const auto& file_name : file_names) {
+    ASSERT_OK_AND_ASSIGN(auto file_path, tempdirs[idx]->path().Join(file_name));
+    std::string file_path_str = file_path.ToString();
+    WriteIpcData(file_path_str, filesystem, input_tables[idx++]);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "read": {
+          "base_schema": {
+            "names": ["A", "B", "C"],
+            "struct": {
+              "types": [{
+                "i32": {}
+              }, {
+                "i32": {}
+              }, {
+                "i32": {}
+              }]
+            }
+          },
+          "local_files": {
+            "items": [
+              {
+                "uri_path_glob": ")" + glob_like_path +
+                                                                         R"(",
+                "arrow": {}
+              }
+            ]
+          }
+        }
+      }
+    }]
+  })"));
+
+  compute::SortOptions options({compute::SortKey("A", compute::SortOrder::Ascending)});
+  CheckRoundTripResult(std::move(dummy_schema), std::move(expected_table), exec_context,
+                       buf, {}, {}, &options);
 }
 
 }  // namespace engine

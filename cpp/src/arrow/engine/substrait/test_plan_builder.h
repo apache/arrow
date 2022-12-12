@@ -27,16 +27,18 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
-#include "arrow/table.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace engine {
+
+struct Id;
+
 namespace internal {
 
 /// \brief Create a scan->project->sink plan for tests
@@ -55,6 +57,7 @@ namespace internal {
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,
     const std::vector<std::string>& arguments,
+    const std::unordered_map<std::string, std::vector<std::string>>& options,
     const std::vector<std::shared_ptr<DataType>>& data_types,
     const DataType& output_type);
 

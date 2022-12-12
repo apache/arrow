@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/cdata"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/cdata"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 // #include <stdint.h>
@@ -161,6 +161,18 @@ func importThenExportRecord(schemaIn, arrIn uintptr, schemaOut, arrOut uintptr) 
 
 	defer rec.Release()
 	cdata.ExportArrowRecordBatch(rec, cdata.ArrayFromPtr(arrOut), cdata.SchemaFromPtr(schemaOut))
+}
+
+//export roundtripArray
+func roundtripArray(arrIn, schema, arrOut uintptr) {
+	_, arr, err := cdata.ImportCArray(cdata.ArrayFromPtr(arrIn), cdata.SchemaFromPtr(schema))
+	if err != nil {
+		panic(err)
+	}
+	defer arr.Release()
+
+	outArr := cdata.ArrayFromPtr(arrOut)
+	cdata.ExportArrowArray(arr, outArr, nil)
 }
 
 func main() {}

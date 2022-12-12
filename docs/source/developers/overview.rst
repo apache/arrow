@@ -64,12 +64,18 @@ checklist for using ``git``:
     straightforward.
 
     Once you have an updated local copy, you can push to your remote repo.  Note, since your
-    remote repo still holds the old history, you would need to do a force push.
+    remote repo still holds the old history, you would need to do a force push.  Most pushes
+    should use ``--force-with-lease``:
 
     .. code:: console
 
-       $ git push --force origin branch
+       $ git push --force-with-lease origin branch
 
+    The option ``--force-with-lease`` will fail if the remote has commits that are not available
+    locally, for example if additional commits have been made by a colleague.  By using
+    ``--force-with-lease`` instead of ``--force``, you ensure those commits are not overwritten
+    and can fetch those changes if desired.
+    
   .. dropdown:: Setting rebase to be default
     :animate: fade-in-slide-down
     :class-container: sd-shadow-md

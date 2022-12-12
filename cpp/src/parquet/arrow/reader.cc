@@ -60,6 +60,7 @@ using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::RecordBatchReader;
 using arrow::ResizableBuffer;
+using arrow::Result;
 using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
@@ -203,6 +204,15 @@ class FileReaderImpl : public FileReader {
                         const std::shared_ptr<std::unordered_set<int>>& included_leaves,
                         const std::vector<int>& row_groups,
                         std::unique_ptr<ColumnReaderImpl>* out) {
+    // Should be covered by GetRecordBatchReader checks but
+    // manifest_.schema_fields is a separate variable so be extra careful.
+    if (ARROW_PREDICT_FALSE(i < 0 ||
+                            static_cast<size_t>(i) >= manifest_.schema_fields.size())) {
+      return Status::Invalid("Column index out of bounds (got ", i,
+                             ", should be "
+                             "between 0 and ",
+                             manifest_.schema_fields.size(), ")");
+    }
     auto ctx = std::make_shared<ReaderContext>();
     ctx->reader = reader_.get();
     ctx->pool = pool_;
@@ -333,6 +343,11 @@ class FileReaderImpl : public FileReader {
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                               std::unique_ptr<RecordBatchReader>* out) override {
     return GetRecordBatchReader(row_group_indices,
+                                Iota(reader_->metadata()->num_columns()), out);
+  }
+
+  Status GetRecordBatchReader(std::unique_ptr<RecordBatchReader>* out) override {
+    return GetRecordBatchReader(Iota(num_row_groups()),
                                 Iota(reader_->metadata()->num_columns()), out);
   }
 
@@ -1109,9 +1124,12 @@ class RowGroupGenerator {
     } else {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
       if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
-      row_group_read = ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
-        return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
-      });
+      row_group_read =
+          ready.Then([this, reader, row_group,
+                      column_indices = std::move(
+                          column_indices)]() -> ::arrow::Future<RecordBatchGenerator> {
+            return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
+          });
     }
     in_flight_reads_.push({std::move(row_group_read), num_rows});
   }
@@ -1264,10 +1282,17 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 // ----------------------------------------------------------------------
 // Public factory functions
 
+Status FileReader::GetRecordBatchReader(std::shared_ptr<RecordBatchReader>* out) {
+  std::unique_ptr<RecordBatchReader> tmp;
+  RETURN_NOT_OK(GetRecordBatchReader(&tmp));
+  out->reset(tmp.release());
+  return Status::OK();
+}
+
 Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                         std::shared_ptr<RecordBatchReader>* out) {
   std::unique_ptr<RecordBatchReader> tmp;
-  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
+  RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
   out->reset(tmp.release());
   return Status::OK();
 }
@@ -1276,7 +1301,7 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
                                         const std::vector<int>& column_indices,
                                         std::shared_ptr<RecordBatchReader>* out) {
   std::unique_ptr<RecordBatchReader> tmp;
-  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
+  RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
   out->reset(tmp.release());
   return Status::OK();
 }
@@ -1307,6 +1332,14 @@ Status FileReaderBuilder::Open(std::shared_ptr<::arrow::io::RandomAccessFile> fi
   return Status::OK();
 }
 
+Status FileReaderBuilder::OpenFile(const std::string& path, bool memory_map,
+                                   const ReaderProperties& properties,
+                                   std::shared_ptr<FileMetaData> metadata) {
+  PARQUET_CATCH_NOT_OK(raw_reader_ = ParquetReader::OpenFile(path, memory_map, properties,
+                                                             std::move(metadata)));
+  return Status::OK();
+}
+
 FileReaderBuilder* FileReaderBuilder::memory_pool(::arrow::MemoryPool* pool) {
   pool_ = pool;
   return this;
@@ -1320,6 +1353,12 @@ FileReaderBuilder* FileReaderBuilder::properties(
 
 Status FileReaderBuilder::Build(std::unique_ptr<FileReader>* out) {
   return FileReader::Make(pool_, std::move(raw_reader_), properties_, out);
+}
+
+Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
+  std::unique_ptr<FileReader> out;
+  RETURN_NOT_OK(FileReader::Make(pool_, std::move(raw_reader_), properties_, &out));
+  return out;
 }
 
 Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,

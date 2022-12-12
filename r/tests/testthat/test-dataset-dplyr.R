@@ -143,7 +143,7 @@ test_that("mutate()", {
 chr: string
 dbl: double
 int: int32
-twice: double (multiply_checked(int, 2))
+twice: int32 (multiply_checked(int, 2))
 
 * Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
 See $.data for the source Arrow object",
@@ -219,7 +219,7 @@ test_that("arrange()", {
 chr: string
 dbl: double
 int: int32
-twice: double (multiply_checked(int, 2))
+twice: int32 (multiply_checked(int, 2))
 
 * Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
 * Sorted by chr [asc], multiply_checked(int, 2) [desc], add_checked(dbl, int) [asc]
@@ -368,7 +368,7 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
       "ProjectNode.*", # output columns
       "FilterNode.*", # filter node
-      "int > 6.*cast.*", # filtering expressions + auto-casting of part
+      "int > 6.*", # filtering expressions
       "SourceNode" # entry point
     )
   )

@@ -98,39 +98,50 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
-  register_binding_agg("stats::quantile", function(x, probs, na.rm = FALSE) {
-    if (length(probs) != 1) {
-      arrow_not_supported("quantile() with length(probs) != 1")
-    }
-    # TODO: Bind to the Arrow function that returns an exact quantile and remove
-    # this warning (ARROW-14021)
-    warn(
-      "quantile() currently returns an approximate quantile in Arrow",
-      .frequency = "once",
-      .frequency_id = "arrow.quantile.approximate",
-      class = "arrow.quantile.approximate"
+  register_binding_agg(
+    "stats::quantile",
+    function(x, probs, na.rm = FALSE) {
+      if (length(probs) != 1) {
+        arrow_not_supported("quantile() with length(probs) != 1")
+      }
+      # TODO: Bind to the Arrow function that returns an exact quantile and remove
+      # this warning (ARROW-14021)
+      warn(
+        "quantile() currently returns an approximate quantile in Arrow",
+        .frequency = "once",
+        .frequency_id = "arrow.quantile.approximate",
+        class = "arrow.quantile.approximate"
+      )
+      list(
+        fun = "tdigest",
+        data = x,
+        options = list(skip_nulls = na.rm, q = probs)
+      )
+    },
+    notes = c(
+      "`probs` must be length 1;",
+      "approximate quantile (t-digest) is computed"
     )
-    list(
-      fun = "tdigest",
-      data = x,
-      options = list(skip_nulls = na.rm, q = probs)
-    )
-  })
-  register_binding_agg("stats::median", function(x, na.rm = FALSE) {
-    # TODO: Bind to the Arrow function that returns an exact median and remove
-    # this warning (ARROW-14021)
-    warn(
-      "median() currently returns an approximate median in Arrow",
-      .frequency = "once",
-      .frequency_id = "arrow.median.approximate",
-      class = "arrow.median.approximate"
-    )
-    list(
-      fun = "approximate_median",
-      data = x,
-      options = list(skip_nulls = na.rm)
-    )
-  })
+  )
+  register_binding_agg(
+    "stats::median",
+    function(x, na.rm = FALSE) {
+      # TODO: Bind to the Arrow function that returns an exact median and remove
+      # this warning (ARROW-14021)
+      warn(
+        "median() currently returns an approximate median in Arrow",
+        .frequency = "once",
+        .frequency_id = "arrow.median.approximate",
+        class = "arrow.median.approximate"
+      )
+      list(
+        fun = "approximate_median",
+        data = x,
+        options = list(skip_nulls = na.rm)
+      )
+    },
+    notes = "approximate median (t-digest) is computed"
+  )
   register_binding_agg("dplyr::n_distinct", function(..., na.rm = FALSE) {
     list(
       fun = "count_distinct",

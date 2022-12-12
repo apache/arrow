@@ -52,29 +52,27 @@ Result<std::shared_ptr<Schema>> OutputSchemaFromOptions(const ScanV2Options& opt
 // In the future we should support async scanning of fragments.  The
 // Dataset class doesn't support this yet but we pretend it does here to
 // ease future adoption of the feature.
-AsyncGenerator<std::shared_ptr<Fragment>> GetFragments(Dataset* dataset,
-                                                       cp::Expression predicate) {
+Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(Dataset* dataset,
+                                                               cp::Expression predicate) {
   // In the future the dataset should be responsible for figuring out
   // the I/O context.  This will allow different I/O contexts to be used
   // when scanning different datasets.  For example, if we are scanning a
   // union of a remote dataset and a local dataset.
   const auto& io_context = io::default_io_context();
   auto io_executor = io_context.executor();
-  Future<std::shared_ptr<FragmentIterator>> fragments_it_fut =
-      DeferNotOk(io_executor->Submit(
-          [dataset, predicate]() -> Result<std::shared_ptr<FragmentIterator>> {
-            ARROW_ASSIGN_OR_RAISE(FragmentIterator fragments_iter,
-                                  dataset->GetFragments(predicate));
-            return std::make_shared<FragmentIterator>(std::move(fragments_iter));
-          }));
-  Future<AsyncGenerator<std::shared_ptr<Fragment>>> fragments_gen_fut =
-      fragments_it_fut.Then([](const std::shared_ptr<FragmentIterator>& fragments_it)
-                                -> Result<AsyncGenerator<std::shared_ptr<Fragment>>> {
+  return DeferNotOk(
+             io_executor->Submit(
+                 [dataset, predicate]() -> Result<std::shared_ptr<FragmentIterator>> {
+                   ARROW_ASSIGN_OR_RAISE(FragmentIterator fragments_iter,
+                                         dataset->GetFragments(predicate));
+                   return std::make_shared<FragmentIterator>(std::move(fragments_iter));
+                 }))
+      .Then([](const std::shared_ptr<FragmentIterator>& fragments_it)
+                -> Result<AsyncGenerator<std::shared_ptr<Fragment>>> {
         ARROW_ASSIGN_OR_RAISE(std::vector<std::shared_ptr<Fragment>> fragments,
                               fragments_it->ToVector());
         return MakeVectorGenerator(std::move(fragments));
       });
-  return MakeFromFuture(std::move(fragments_gen_fut));
 }
 
 /// \brief A node that scans a dataset
@@ -83,14 +81,14 @@ AsyncGenerator<std::shared_ptr<Fragment>> GetFragments(Dataset* dataset,
 ///
 /// The first io-task (listing) fetches the fragments from the dataset.  This may be a
 /// simple iteration of paths or, if the dataset is described with wildcards, this may
-/// involve I/O for listing and walking directory paths.  There is one listing io-task per
-/// dataset.
+/// involve I/O for listing and walking directory paths.  There is one listing io-task
+/// per dataset.
 ///
-/// Ths next step is to fetch the metadata for the fragment.  For some formats (e.g. CSV)
-/// this may be quite simple (get the size of the file).  For other formats (e.g. parquet)
-/// this is more involved and requires reading data.  There is one metadata io-task per
-/// fragment.  The metadata io-task creates an AsyncGenerator<RecordBatch> from the
-/// fragment.
+/// Ths next step is to fetch the metadata for the fragment.  For some formats (e.g.
+/// CSV) this may be quite simple (get the size of the file).  For other formats (e.g.
+/// parquet) this is more involved and requires reading data.  There is one metadata
+/// io-task per fragment.  The metadata io-task creates an AsyncGenerator<RecordBatch>
+/// from the fragment.
 ///
 /// Once the metadata io-task is done we can issue read io-tasks.  Each read io-task
 /// requests a single batch of data from the disk by pulling the next Future from the
@@ -100,9 +98,9 @@ AsyncGenerator<std::shared_ptr<Fragment>> GetFragments(Dataset* dataset,
 /// through the pipeline.
 ///
 /// Most of these tasks are io-tasks.  They take very few CPU resources and they run on
-/// the I/O thread pool.  These io-tasks are invisible to the exec plan and so we need to
-/// do some custom scheduling.  We limit how many fragments we read from at any one time.
-/// This is referred to as "fragment readahead".
+/// the I/O thread pool.  These io-tasks are invisible to the exec plan and so we need
+/// to do some custom scheduling.  We limit how many fragments we read from at any one
+/// time. This is referred to as "fragment readahead".
 ///
 /// Within a fragment there is usually also some amount of "row readahead".  This row
 /// readahead is handled by the fragment (and not the scanner) because the exact details
@@ -118,12 +116,7 @@ class ScanNode : public cp::ExecNode {
            std::shared_ptr<Schema> output_schema)
       : cp::ExecNode(plan, {}, {}, std::move(output_schema),
                      /*num_outputs=*/1),
-        options_(options),
-        fragments_throttle_(
-            util::AsyncTaskScheduler::MakeThrottle(options_.fragment_readahead + 1)),
-        batches_throttle_(
-            util::AsyncTaskScheduler::MakeThrottle(options_.target_bytes_readahead + 1)) {
-  }
+        options_(options) {}
 
   static Result<ScanV2Options> NormalizeAndValidate(const ScanV2Options& options,
                                                     compute::ExecContext* ctx) {
@@ -151,11 +144,17 @@ class ScanNode : public cp::ExecNode {
       // function registry as the one in ctx so we just require it to be unbound
       // FIXME - Do we care if it was bound to a different function registry?
       return Status::Invalid("Scan filter must be unbound");
-    } else if (!normalized.filter.IsBound()) {
+    } else {
       ARROW_ASSIGN_OR_RAISE(normalized.filter,
                             normalized.filter.Bind(*options.dataset->schema(), ctx));
+      ARROW_ASSIGN_OR_RAISE(normalized.filter,
+                            compute::RemoveNamedRefs(std::move(normalized.filter)));
     }  // Else we must have some simple filter like literal(true) which might be bound
        // but we don't care
+
+    if (normalized.filter.type()->id() != Type::BOOL) {
+      return Status::Invalid("A scan filter must be a boolean expression");
+    }
 
     return std::move(normalized);
   }
@@ -190,19 +189,20 @@ class ScanNode : public cp::ExecNode {
     FragmentScanRequest scan_request;
   };
 
-  struct ScanBatchTask : util::AsyncTaskScheduler::Task {
+  struct ScanBatchTask : public util::AsyncTaskScheduler::Task {
     ScanBatchTask(ScanNode* node, ScanState* scan_state, int batch_index)
         : node_(node), scan_(scan_state), batch_index_(batch_index) {
       int64_t cost = scan_state->fragment_scanner->EstimatedDataBytes(batch_index_);
       // It's possible, though probably a bad idea, for a single batch of a fragment
-      // to be larger than 2GiB.  In that case, it doesn't matter much if we underestimate
-      // because the largest the throttle can be is 2GiB and thus we will be in "one batch
-      // at a time" mode anyways which is the best we can do in this case.
+      // to be larger than 2GiB.  In that case, it doesn't matter much if we
+      // underestimate because the largest the throttle can be is 2GiB and thus we will
+      // be in "one batch at a time" mode anyways which is the best we can do in this
+      // case.
       cost_ = static_cast<int>(
           std::min(cost, static_cast<int64_t>(std::numeric_limits<int>::max())));
     }
 
-    Result<Future<>> operator()(util::AsyncTaskScheduler* scheduler) override {
+    Result<Future<>> operator()() override {
       // Prevent concurrent calls to ScanBatch which might not be thread safe
       std::lock_guard<std::mutex> lk(scan_->mutex);
       return scan_->fragment_scanner->ScanBatch(batch_index_)
@@ -235,49 +235,54 @@ class ScanNode : public cp::ExecNode {
     ListFragmentTask(ScanNode* node, std::shared_ptr<Fragment> fragment)
         : node(node), fragment(std::move(fragment)) {}
 
-    Result<Future<>> operator()(util::AsyncTaskScheduler* scheduler) override {
-      return fragment->InspectFragment().Then(
-          [this,
-           scheduler](const std::shared_ptr<InspectedFragment>& inspected_fragment) {
-            return BeginScan(inspected_fragment, scheduler);
+    Result<Future<>> operator()() override {
+      return fragment
+          ->InspectFragment(node->options_.format_options, node->plan_->exec_context())
+          .Then([this](const std::shared_ptr<InspectedFragment>& inspected_fragment) {
+            return BeginScan(inspected_fragment);
           });
     }
 
-    Future<> BeginScan(const std::shared_ptr<InspectedFragment>& inspected_fragment,
-                       util::AsyncTaskScheduler* scan_scheduler) {
+    Future<> BeginScan(const std::shared_ptr<InspectedFragment>& inspected_fragment) {
       // Now that we have an inspected fragment we need to use the dataset's evolution
       // strategy to figure out how to scan it
       scan_state->fragment_evolution =
           node->options_.dataset->evolution_strategy()->GetStrategy(
               *node->options_.dataset, *fragment, *inspected_fragment);
       ARROW_RETURN_NOT_OK(InitFragmentScanRequest());
-      return fragment->BeginScan(scan_state->scan_request, *inspected_fragment)
-          .Then([this, scan_scheduler](
-                    const std::shared_ptr<FragmentScanner>& fragment_scanner) {
-            return AddScanTasks(fragment_scanner, scan_scheduler);
+      return fragment
+          ->BeginScan(scan_state->scan_request, *inspected_fragment,
+                      node->options_.format_options, node->plan_->exec_context())
+          .Then([this](const std::shared_ptr<FragmentScanner>& fragment_scanner) {
+            return AddScanTasks(fragment_scanner);
           });
     }
 
-    Future<> AddScanTasks(const std::shared_ptr<FragmentScanner>& fragment_scanner,
-                          util::AsyncTaskScheduler* scan_scheduler) {
+    Future<> AddScanTasks(const std::shared_ptr<FragmentScanner>& fragment_scanner) {
       scan_state->fragment_scanner = fragment_scanner;
       ScanState* state_view = scan_state.get();
+      Future<> list_and_scan_done = Future<>::Make();
       // Finish callback keeps the scan state alive until all scan tasks done
       struct StateHolder {
-        Status operator()() { return Status::OK(); }
+        Status operator()() {
+          list_and_scan_done.MarkFinished();
+          return Status::OK();
+        }
+        Future<> list_and_scan_done;
         std::unique_ptr<ScanState> scan_state;
       };
-      util::AsyncTaskScheduler* frag_scheduler = scan_scheduler->MakeSubScheduler(
-          StateHolder{std::move(scan_state)}, node->batches_throttle_.get());
+
+      std::unique_ptr<util::AsyncTaskGroup> scan_tasks = util::AsyncTaskGroup::Make(
+          node->batches_throttle_.get(),
+          StateHolder{list_and_scan_done, std::move(scan_state)});
       for (int i = 0; i < fragment_scanner->NumBatches(); i++) {
         node->num_batches_.fetch_add(1);
-        frag_scheduler->AddTask(std::make_unique<ScanBatchTask>(node, state_view, i));
+        scan_tasks->AddTask(std::make_unique<ScanBatchTask>(node, state_view, i));
       }
-      Future<> list_and_scan_node = frag_scheduler->OnFinished();
-      frag_scheduler->End();
+      return Status::OK();
       // The "list fragments" task doesn't actually end until the fragments are
       // all scanned.  This allows us to enforce fragment readahead.
-      return list_and_scan_node;
+      return list_and_scan_done;
     }
 
     // Take the dataset options, and the fragment evolution, and figure out exactly how
@@ -304,6 +309,23 @@ class ScanNode : public cp::ExecNode {
     std::unique_ptr<ScanState> scan_state = std::make_unique<ScanState>();
   };
 
+  void ScanFragments(const AsyncGenerator<std::shared_ptr<Fragment>>& frag_gen) {
+    std::shared_ptr<util::AsyncTaskScheduler> fragment_tasks =
+        util::MakeThrottledAsyncTaskGroup(
+            plan_->async_scheduler(), options_.fragment_readahead + 1,
+            /*queue=*/nullptr, [this]() {
+              outputs_[0]->InputFinished(this, num_batches_.load());
+              finished_.MarkFinished();
+              return Status::OK();
+            });
+    fragment_tasks->AddAsyncGenerator<std::shared_ptr<Fragment>>(
+        std::move(frag_gen), [this, fragment_tasks = std::move(fragment_tasks)](
+                                 const std::shared_ptr<Fragment>& fragment) {
+          fragment_tasks->AddTask(std::make_unique<ListFragmentTask>(this, fragment));
+          return Status::OK();
+        });
+  }
+
   Status StartProducing() override {
     START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
                        {{"node.kind", kind_name()},
@@ -311,25 +333,14 @@ class ScanNode : public cp::ExecNode {
                         {"node.output_schema", output_schema()->ToString()},
                         {"node.detail", ToString()}});
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
-    AsyncGenerator<std::shared_ptr<Fragment>> frag_gen =
-        GetFragments(options_.dataset.get(), options_.filter);
-    util::AsyncTaskScheduler* scan_scheduler = plan_->async_scheduler()->MakeSubScheduler(
-        [this]() {
-          outputs_[0]->InputFinished(this, num_batches_.load());
-          finished_.MarkFinished();
-          return Status::OK();
-        },
-        fragments_throttle_.get());
-    plan_->async_scheduler()->AddAsyncGenerator<std::shared_ptr<Fragment>>(
-        std::move(frag_gen),
-        [this, scan_scheduler](const std::shared_ptr<Fragment>& fragment) {
-          scan_scheduler->AddTask(std::make_unique<ListFragmentTask>(this, fragment));
-          return Status::OK();
-        },
-        [scan_scheduler]() {
-          scan_scheduler->End();
-          return Status::OK();
-        });
+    batches_throttle_ = util::ThrottledAsyncTaskScheduler::Make(
+        plan_->async_scheduler(), options_.target_bytes_readahead + 1);
+    plan_->async_scheduler()->AddSimpleTask([this] {
+      return GetFragments(options_.dataset.get(), options_.filter)
+          .Then([this](const AsyncGenerator<std::shared_ptr<Fragment>>& frag_gen) {
+            ScanFragments(frag_gen);
+          });
+    });
     return Status::OK();
   }
 
@@ -351,8 +362,7 @@ class ScanNode : public cp::ExecNode {
  private:
   ScanV2Options options_;
   std::atomic<int> num_batches_{0};
-  std::unique_ptr<util::AsyncTaskScheduler::Throttle> fragments_throttle_;
-  std::unique_ptr<util::AsyncTaskScheduler::Throttle> batches_throttle_;
+  std::shared_ptr<util::ThrottledAsyncTaskScheduler> batches_throttle_;
 };
 
 }  // namespace

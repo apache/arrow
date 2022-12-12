@@ -231,10 +231,8 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
     return false;
   }
 
-  if (check_metadata) {
-    if (!schema_->Equals(*other.schema(), /*check_metadata=*/true)) {
-      return false;
-    }
+  if (!schema_->Equals(*other.schema(), check_metadata)) {
+    return false;
   }
 
   for (int i = 0; i < num_columns(); ++i) {

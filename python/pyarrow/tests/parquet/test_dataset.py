@@ -16,11 +16,13 @@
 # under the License.
 
 import datetime
+import inspect
 import os
 import pathlib
 
 import numpy as np
 import pytest
+import unittest.mock as mock
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -79,6 +81,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
 
     with pytest.warns(FutureWarning):
         piece = pq.ParquetDatasetPiece(path)
+
     table1 = piece.read()
     assert isinstance(table1, pa.Table)
     meta1 = piece.get_metadata()
@@ -248,13 +251,11 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
     result_df = table.to_pandas().reset_index(drop=True)
 
     # Check that all rows in the DF fulfill the filter
-    # Pandas 0.23.x has problems with indexing constant memoryviews in
-    # categoricals. Thus we need to make an explicit copy here with np.array.
-    df_filter_1 = (np.array(result_df['integer']) == 1) \
-        & (np.array(result_df['string']) != 'b') \
-        & (np.array(result_df['boolean']) == 'True')
+    df_filter_1 = (result_df['integer'] == 1) \
+        & (result_df['string'] != 'b') \
+        & (result_df['boolean'] == 'True')
     df_filter_2 = (np.array(result_df['integer']) == 0) \
-        & (np.array(result_df['boolean']) == 'False')
+        & (result_df['boolean'] == 'False')
     assert df_filter_1.sum() > 0
     assert df_filter_2.sum() > 0
     assert result_df.shape[0] == (df_filter_1.sum() + df_filter_2.sum())
@@ -1252,6 +1253,7 @@ def _test_write_to_dataset_with_partitions(base_path,
                               'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
+    output_df["date"] = output_df["date"].astype('datetime64[ns]')
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
@@ -1312,6 +1314,7 @@ def _test_write_to_dataset_no_partitions(base_path,
                               'num': list(range(10)),
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
+    output_df["date"] = output_df["date"].astype('datetime64[ns]')
     cols = output_df.columns.tolist()
     output_table = pa.Table.from_pandas(output_df)
 
@@ -1440,6 +1443,7 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
                               'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
+    output_df["date"] = output_df["date"].astype('datetime64[ns]')
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df)
     path = str(tempdir)
@@ -1877,3 +1881,29 @@ def test_write_to_dataset_conflicting_keywords(tempdir):
                             use_legacy_dataset=False,
                             metadata_collector=[],
                             file_visitor=lambda x: x)
+
+
+@pytest.mark.dataset
+@pytest.mark.parametrize("write_dataset_kwarg", (
+    ("create_dir", True),
+    ("create_dir", False),
+))
+def test_write_to_dataset_kwargs_passed(tempdir, write_dataset_kwarg):
+    """Verify kwargs in pq.write_to_dataset are passed onto ds.write_dataset"""
+    import pyarrow.dataset as ds
+
+    table = pa.table({"a": [1, 2, 3]})
+    path = tempdir / 'out.parquet'
+
+    signature = inspect.signature(ds.write_dataset)
+    key, arg = write_dataset_kwarg
+
+    # kwarg not in pq.write_to_dataset, but will be passed to ds.write_dataset
+    assert key not in inspect.signature(pq.write_to_dataset).parameters
+    assert key in signature.parameters
+
+    with mock.patch.object(ds, "write_dataset", autospec=True)\
+            as mock_write_dataset:
+        pq.write_to_dataset(table, path, **{key: arg})
+        _name, _args, kwargs = mock_write_dataset.mock_calls[0]
+        assert kwargs[key] == arg

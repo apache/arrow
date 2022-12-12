@@ -23,7 +23,7 @@ expand_across <- function(.data, quos_in) {
     quo_expr <- quo_get_expr(quo_in[[1]])
     quo_env <- quo_get_env(quo_in[[1]])
 
-    if (is_call(quo_expr, "across")) {
+    if (is_call(quo_expr, c("across", "if_any", "if_all"))) {
       new_quos <- list()
 
       across_call <- match.call(
@@ -58,9 +58,30 @@ expand_across <- function(.data, quos_in) {
     } else {
       quos_out <- append(quos_out, quo_in)
     }
+
+    if (is_call(quo_expr, "if_any")) {
+      quos_out <- append(list(), purrr::reduce(quos_out, combine_if, op = "|", envir = quo_get_env(quos_out[[1]])))
+    }
+
+    if (is_call(quo_expr, "if_all")) {
+      quos_out <- append(list(), purrr::reduce(quos_out, combine_if, op = "&", envir = quo_get_env(quos_out[[1]])))
+    }
   }
 
-  quos_out
+  new_quosures(quos_out)
+}
+
+# takes multiple expressions and combines them with & or |
+combine_if <- function(lhs, rhs, op, envir) {
+  expr_text <- paste(
+    expr_text(quo_get_expr(lhs)),
+    expr_text(quo_get_expr(rhs)),
+    sep = paste0(" ", op, " ")
+  )
+
+  expr <- parse_expr(expr_text)
+
+  new_quosure(expr, envir)
 }
 
 # given a named list of functions and column names, create a list of new quosures
@@ -102,8 +123,19 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
     return(value)
   }
 
+  is_single_func <- function(fns) {
+    # function calls with package, like base::round
+    (is.call(fns) && fns[[1]] == as.name("::")) ||
+      # purrr-style formulae
+      is_formula(fns) ||
+      # single anonymous function
+      is_call(fns, "function") ||
+      # any other length 1 function calls
+      (length(fns) == 1 && (is.function(fns) || is_formula(fns) || is.name(fns)))
+  }
+
   # apply `.names` smart default
-  if (is.function(fns) || is_formula(fns) || is.name(fns) || is_call(fns, "function")) {
+  if (is_single_func(fns)) {
     names <- names %||% "{.col}"
     fns <- list("1" = fns)
   } else {
@@ -157,7 +189,7 @@ across_glue_mask <- function(.col, .fn, .caller_env) {
   env(.caller_env, .col = .col, .fn = .fn, col = .col, fn = .fn)
 }
 
-# Substitutes instances of `.` and `.x` with the variable in question
+# Substitutes instances of "." and ".x" with `var`
 as_across_fn_call <- function(fn, var, quo_env) {
   if (is_formula(fn, lhs = FALSE)) {
     expr <- f_rhs(fn)
@@ -172,13 +204,13 @@ as_across_fn_call <- function(fn, var, quo_env) {
 
 expr_substitute <- function(expr, old, new) {
   switch(typeof(expr),
-   language = {
-     expr[] <- lapply(expr, expr_substitute, old, new)
-     return(expr)
-   },
-   symbol = if (identical(expr, old)) {
-     return(new)
-   }
+    language = {
+      expr[] <- lapply(expr, expr_substitute, old, new)
+      return(expr)
+    },
+    symbol = if (identical(expr, old)) {
+      return(new)
+    }
   )
 
   expr

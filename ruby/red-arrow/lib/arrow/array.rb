@@ -47,7 +47,15 @@ module Arrow
             nil
           end
         else
-          nil
+          if value.respond_to?(:to_arrow_array)
+            begin
+              value.to_arrow_array
+            rescue RangeError
+              nil
+            end
+          else
+            nil
+          end
         end
       end
     end
@@ -101,6 +109,14 @@ module Arrow
 
     def to_arrow
       self
+    end
+
+    def to_arrow_array
+      self
+    end
+
+    def to_arrow_chunked_array
+      ChunkedArray.new([self])
     end
 
     alias_method :value_data_type_raw, :value_data_type

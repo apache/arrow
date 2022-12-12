@@ -27,7 +27,9 @@ struct TypeHolder;
 namespace compute {
 
 class Function;
+class FunctionExecutor;
 class FunctionOptions;
+class FunctionRegistry;
 
 class CastOptions;
 

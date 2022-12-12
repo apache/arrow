@@ -30,6 +30,7 @@
 #include "arrow/flight/sql/example/acero_server.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/flight/types.h"
+#include "arrow/scalar.h"
 #include "arrow/stl_iterator.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -140,10 +141,6 @@ TEST_F(TestAcero, GetSqlInfo) {
 }
 
 TEST_F(TestAcero, Scan) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
-
   FlightCallOptions call_options;
   ASSERT_OK_AND_ASSIGN(auto serialized_plan, MakeSubstraitPlan());
 
@@ -169,10 +166,6 @@ TEST_F(TestAcero, Scan) {
 }
 
 TEST_F(TestAcero, Update) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
-
   FlightCallOptions call_options;
   ASSERT_OK_AND_ASSIGN(auto serialized_plan, MakeSubstraitPlan());
   SubstraitPlan plan{serialized_plan->ToString(), /*version=*/"0.6.0"};
@@ -182,10 +175,6 @@ TEST_F(TestAcero, Update) {
 }
 
 TEST_F(TestAcero, Prepare) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
-
   FlightCallOptions call_options;
   ASSERT_OK_AND_ASSIGN(auto serialized_plan, MakeSubstraitPlan());
   SubstraitPlan plan{serialized_plan->ToString(), /*version=*/"0.6.0"};
@@ -217,10 +206,6 @@ TEST_F(TestAcero, Prepare) {
 }
 
 TEST_F(TestAcero, Transactions) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
-
   FlightCallOptions call_options;
   ASSERT_OK_AND_ASSIGN(auto serialized_plan, MakeSubstraitPlan());
   Transaction handle("fake-id");

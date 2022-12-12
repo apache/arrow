@@ -4735,16 +4735,16 @@ cdef class Table(_PandasConvertible):
             ("left semi", "right semi", "left anti", "right anti",
             "inner", "left outer", "right outer", "full outer")
         left_suffix : str, default None
-            Which suffix to add to right column names. This prevents confusion
+            Which suffix to add to left column names. This prevents confusion
             when the columns in left and right tables have colliding names.
         right_suffix : str, default None
-            Which suffic to add to the left column names. This prevents confusion
+            Which suffix to add to the right column names. This prevents confusion
             when the columns in left and right tables have colliding names.
         coalesce_keys : bool, default True
             If the duplicated keys should be omitted from one of the sides
             in the join result.
         use_threads : bool, default True
-            Whenever to use multithreading or not.
+            Whether to use multithreading or not.
 
         Returns
         -------
@@ -5282,6 +5282,7 @@ class TableGroupBy:
 list[tuple(str, str, FunctionOptions)]
             List of tuples made of aggregation column names followed
             by function names and optionally aggregation function options.
+            Pass empty list to get a single row for each group.
 
         Returns
         -------
@@ -5301,6 +5302,11 @@ list[tuple(str, str, FunctionOptions)]
         keys: string
         ----
         values_sum: [[3,7,5]]
+        keys: [["a","b","c"]]
+        >>> t.group_by("keys").aggregate([])
+        pyarrow.Table
+        keys: string
+        ----
         keys: [["a","b","c"]]
         """
         columns = [a[0] for a in aggregations]

@@ -37,12 +37,14 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::ToChars;
 
 namespace compute {
 
@@ -66,7 +68,7 @@ struct ExecPlanImpl : public ExecPlan {
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
     if (node->label().empty()) {
-      node->SetLabel(std::to_string(auto_label_counter_++));
+      node->SetLabel(ToChars(auto_label_counter_++));
     }
     if (node->num_inputs() == 0) {
       sources_.push_back(node.get());
@@ -114,7 +116,7 @@ struct ExecPlanImpl : public ExecPlan {
     return task_scheduler_->StartTaskGroup(GetThreadIndex(), task_group_id, num_tasks);
   }
 
-  util::AsyncTaskScheduler* async_scheduler() { return async_scheduler_.get(); }
+  util::AsyncTaskScheduler* async_scheduler() { return async_scheduler_; }
 
   Status Validate() const {
     if (nodes_.empty()) {
@@ -127,85 +129,89 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing() {
-    START_COMPUTE_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
-#ifdef ARROW_WITH_OPENTELEMETRY
-    if (HasMetadata()) {
-      auto pairs = metadata().get()->sorted_pairs();
-      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span =
-          ::arrow::internal::tracing::UnwrapSpan(span_.details.get());
-      std::for_each(std::begin(pairs), std::end(pairs),
-                    [span](std::pair<std::string, std::string> const& pair) {
-                      span->SetAttribute(pair.first, pair.second);
-                    });
-    }
-#endif
     if (started_) {
       return Status::Invalid("restarted ExecPlan");
     }
-
-    std::vector<Future<>> futures;
-    for (auto& n : nodes_) {
-      RETURN_NOT_OK(n->Init());
-      futures.push_back(n->finished());
-    }
-
-    AllFinished(futures).AddCallback([this](const Status& st) {
-      error_st_ = st;
-      EndTaskGroup();
-    });
-
-    task_scheduler_->RegisterEnd();
-    int num_threads = 1;
-    bool sync_execution = true;
-    if (auto executor = exec_context()->executor()) {
-      num_threads = executor->GetCapacity();
-      sync_execution = false;
-    }
-    RETURN_NOT_OK(task_scheduler_->StartScheduling(
-        0 /* thread_index */,
-        [this](std::function<Status(size_t)> fn) -> Status {
-          return this->ScheduleTask(std::move(fn));
-        },
-        /*concurrent_tasks=*/2 * num_threads, sync_execution));
-
     started_ = true;
-    // producers precede consumers
-    sorted_nodes_ = TopoSort();
 
-    Status st = Status::OK();
+    // We call StartProducing on each of the nodes.  The source nodes should generally
+    // start scheduling some tasks during this call.
+    //
+    // If no source node schedules any tasks (e.g. they do all their word synchronously as
+    // part of StartProducing) then the plan may be finished before we return from this
+    // call.
+    Future<> scheduler_finished =
+        util::AsyncTaskScheduler::Make([this](util::AsyncTaskScheduler* async_scheduler) {
+          this->async_scheduler_ = async_scheduler;
+          START_COMPUTE_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
+#ifdef ARROW_WITH_OPENTELEMETRY
+          if (HasMetadata()) {
+            auto pairs = metadata().get()->sorted_pairs();
+            opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span =
+                ::arrow::internal::tracing::UnwrapSpan(span_.details.get());
+            std::for_each(std::begin(pairs), std::end(pairs),
+                          [span](std::pair<std::string, std::string> const& pair) {
+                            span->SetAttribute(pair.first, pair.second);
+                          });
+          }
+#endif
+          // TODO(weston) The entire concept of ExecNode::finished() will hopefully go
+          // away soon (or at least be replaced by a sub-scheduler to facilitate OT)
+          for (auto& n : nodes_) {
+            RETURN_NOT_OK(n->Init());
+            async_scheduler->AddSimpleTask([&] { return n->finished(); });
+          }
 
-    using rev_it = std::reverse_iterator<NodeVector::iterator>;
-    for (rev_it it(sorted_nodes_.end()), end(sorted_nodes_.begin()); it != end; ++it) {
-      auto node = *it;
+          task_scheduler_->RegisterEnd();
+          int num_threads = 1;
+          bool sync_execution = true;
+          if (auto executor = exec_context()->executor()) {
+            num_threads = executor->GetCapacity();
+            sync_execution = false;
+          }
+          RETURN_NOT_OK(task_scheduler_->StartScheduling(
+              0 /* thread_index */,
+              [this](std::function<Status(size_t)> fn) -> Status {
+                return this->ScheduleTask(std::move(fn));
+              },
+              /*concurrent_tasks=*/2 * num_threads, sync_execution));
 
-      EVENT(span_, "StartProducing:" + node->label(),
-            {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
-      st = node->StartProducing();
-      EVENT(span_, "StartProducing:" + node->label(), {{"status", st.ToString()}});
-      if (!st.ok()) {
-        // Stop nodes that successfully started, in reverse order
-        stopped_ = true;
-        StopProducingImpl(it.base(), sorted_nodes_.end());
-        for (NodeVector::iterator fw_it = sorted_nodes_.begin(); fw_it != it.base();
-             ++fw_it) {
-          Future<> fut = (*fw_it)->finished();
-          if (!fut.is_finished()) fut.MarkFinished();
-        }
-        return st;
-      }
-    }
-    return st;
-  }
+          // producers precede consumers
+          sorted_nodes_ = TopoSort();
 
-  void EndTaskGroup() {
-    bool expected = false;
-    if (group_ended_.compare_exchange_strong(expected, true)) {
-      async_scheduler_->End();
-      async_scheduler_->OnFinished().AddCallback([this](const Status& st) {
-        MARK_SPAN(span_, error_st_ & st);
-        END_SPAN(span_);
-        finished_.MarkFinished(error_st_ & st);
-      });
+          Status st = Status::OK();
+
+          using rev_it = std::reverse_iterator<NodeVector::iterator>;
+          for (rev_it it(sorted_nodes_.end()), end(sorted_nodes_.begin()); it != end;
+               ++it) {
+            auto node = *it;
+
+            EVENT(span_, "StartProducing:" + node->label(),
+                  {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
+            st = node->StartProducing();
+            EVENT(span_, "StartProducing:" + node->label(), {{"status", st.ToString()}});
+            if (!st.ok()) {
+              // Stop nodes that successfully started, in reverse order
+              stopped_ = true;
+              StopProducingImpl(it.base(), sorted_nodes_.end());
+              for (NodeVector::iterator fw_it = sorted_nodes_.begin(); fw_it != it.base();
+                   ++fw_it) {
+                Future<> fut = (*fw_it)->finished();
+                if (!fut.is_finished()) fut.MarkFinished();
+              }
+              return st;
+            }
+          }
+          return st;
+        });
+    scheduler_finished.AddCallback(
+        [this](const Status& st) { finished_.MarkFinished(st); });
+    // TODO(weston) Do we really need to return status here?  Could we change this return
+    // to void?
+    if (finished_.is_finished()) {
+      return finished_.status();
+    } else {
+      return Status::OK();
     }
   }
 
@@ -331,9 +337,7 @@ struct ExecPlanImpl : public ExecPlan {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 
   ThreadIndexer thread_indexer_;
-  std::atomic<bool> group_ended_{false};
-  std::unique_ptr<util::AsyncTaskScheduler> async_scheduler_ =
-      util::AsyncTaskScheduler::Make();
+  util::AsyncTaskScheduler* async_scheduler_ = nullptr;
   std::unique_ptr<TaskScheduler> task_scheduler_ = TaskScheduler::Make();
 };
 
@@ -598,11 +602,11 @@ Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(Declaration declara
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
   ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
   auto collected_fut = CollectAsyncGenerator(sink_gen);
-  return AllComplete({exec_plan->finished(), Future<>(collected_fut)})
+  return AllFinished({exec_plan->finished(), Future<>(collected_fut)})
       .Then([collected_fut, exec_plan]() -> Result<std::vector<ExecBatch>> {
         ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
         return ::arrow::internal::MapVector(
-            [](std::optional<ExecBatch> batch) { return std::move(*batch); },
+            [](std::optional<ExecBatch> batch) { return batch.value_or(ExecBatch()); },
             std::move(collected));
       });
 }
@@ -610,6 +614,105 @@ Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(Declaration declara
 Result<std::vector<ExecBatch>> DeclarationToExecBatches(Declaration declaration,
                                                         ExecContext* exec_context) {
   return DeclarationToExecBatchesAsync(std::move(declaration), exec_context).result();
+}
+
+namespace {
+struct BatchConverter {
+  explicit BatchConverter(::arrow::internal::Executor* executor)
+      : exec_context(std::make_shared<ExecContext>(default_memory_pool(), executor)) {}
+
+  ~BatchConverter() {
+    if (!exec_plan) {
+      return;
+    }
+    if (exec_plan->finished().is_finished()) {
+      return;
+    }
+    exec_plan->StopProducing();
+    Status abandoned_status = exec_plan->finished().status();
+    if (!abandoned_status.ok()) {
+      abandoned_status.Warn();
+    }
+  }
+
+  Future<std::shared_ptr<RecordBatch>> operator()() {
+    return exec_batch_gen().Then(
+        [this](const std::optional<ExecBatch>& batch)
+            -> Future<std::shared_ptr<RecordBatch>> {
+          if (batch) {
+            return batch->ToRecordBatch(schema);
+          } else {
+            return exec_plan->finished().Then(
+                []() -> std::shared_ptr<RecordBatch> { return nullptr; });
+          }
+        },
+        [this](const Status& err) {
+          return exec_plan->finished().Then(
+              [err]() -> Result<std::shared_ptr<RecordBatch>> { return err; });
+        });
+  }
+
+  std::shared_ptr<ExecContext> exec_context;
+  AsyncGenerator<std::optional<ExecBatch>> exec_batch_gen;
+  std::shared_ptr<Schema> schema;
+  std::shared_ptr<ExecPlan> exec_plan;
+};
+
+Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGenerator(
+    Declaration declaration, ::arrow::internal::Executor* executor,
+    std::shared_ptr<Schema>* out_schema) {
+  auto converter = std::make_shared<BatchConverter>(executor);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan,
+                        ExecPlan::Make(converter->exec_context.get()));
+  Declaration with_sink = Declaration::Sequence(
+      {declaration,
+       {"sink", SinkNodeOptions(&converter->exec_batch_gen, &converter->schema)}});
+  ARROW_RETURN_NOT_OK(with_sink.AddToPlan(plan.get()));
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  converter->exec_plan = std::move(plan);
+  *out_schema = converter->schema;
+  return [conv = std::move(converter)] { return (*conv)(); };
+}
+}  // namespace
+
+Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration declaration,
+                                                               bool use_threads) {
+  std::shared_ptr<Schema> schema;
+  auto batch_iterator = std::make_unique<Iterator<std::shared_ptr<RecordBatch>>>(
+      ::arrow::internal::IterateSynchronously<std::shared_ptr<RecordBatch>>(
+          [&](::arrow::internal::Executor* executor)
+              -> Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> {
+            return DeclarationToRecordBatchGenerator(declaration, executor, &schema);
+          },
+          use_threads));
+
+  struct PlanReader : RecordBatchReader {
+    PlanReader(std::shared_ptr<Schema> schema,
+               std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator)
+        : schema_(std::move(schema)), iterator_(std::move(iterator)) {}
+
+    std::shared_ptr<Schema> schema() const override { return schema_; }
+
+    Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
+      DCHECK(!!iterator_) << "call to ReadNext on already closed reader";
+      return iterator_->Next().Value(record_batch);
+    }
+
+    Status Close() override {
+      // End plan and read from generator until finished
+      std::shared_ptr<RecordBatch> batch;
+      do {
+        ARROW_RETURN_NOT_OK(ReadNext(&batch));
+      } while (batch != nullptr);
+      iterator_.reset();
+      return Status::OK();
+    }
+
+    std::shared_ptr<Schema> schema_;
+    std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator_;
+  };
+
+  return std::make_unique<PlanReader>(std::move(schema), std::move(batch_iterator));
 }
 
 namespace internal {

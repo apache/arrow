@@ -9,7 +9,13 @@ class arrow::DataType
 }
 \section{Methods}{
 
-
-TODO
+\itemize{
+\item \verb{$ToString()}: String representation of the DataType
+\item \verb{$Equals(other)}: Is the DataType equal to \code{other}
+\item \verb{$fields()}: The children fields associated with this type
+}
 }
 
+\seealso{
+\code{\link{data-type}}
+}

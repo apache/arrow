@@ -76,6 +76,9 @@ ARROW_EXPORT
 Status AssertNoTrailingSlash(std::string_view s);
 
 ARROW_EXPORT
+bool HasLeadingSlash(std::string_view s);
+
+ARROW_EXPORT
 bool IsAncestorOf(std::string_view ancestor, std::string_view descendant);
 
 ARROW_EXPORT
