@@ -397,14 +397,32 @@ class StreamingReaderImpl : public StreamingReader {
       auto chunking_gen = MakeChunkingGenerator(std::move(buffer_gen),
                                                 MakeChunker(context->parse_options()));
 
-      // Despite having already transferred to the CPU executor, we don't bother
-      // synchronizing access to the chunking generator because `MappingGenerator` queues
-      // jobs and keeps only one future from its source active at a time. This is also
-      // why we can apply readahead later despite the generator we're providing not being
-      // async-reentrant
+      // At this stage, we want to allow the decoding tasks for each chunked block to run
+      // in parallel on the CPU executor. However:
+      //  - Chunking is inherently serial and not thread-safe
+      //  - The chunking generator is not async-reentrant, won't play well with readahead
       //
-      // The subsequent decoding task should run on the same CPU thread as the chunking
-      // continuation. However, the next read can be initialized before then
+      // Fortunately, `MappingGenerator` queues pending jobs and keeps only one future
+      // from its source active at a time - which takes care of those concerns. In
+      // addition, it will start the next job within the continuation of the previous one,
+      // but before invoking its map function (in our case, `DecodingOperator`). This
+      // allows for decoding tasks to gradually saturate multiple CPU cores over multiple
+      // iterations. At a high level, this is how the full pipeline would operate in cases
+      // where decoding tasks are disproportionately expensive:
+      //
+      // --------------------------------------------------------------------------
+      // Reading: IoThread(?) --> Chunking: CpuThread(0) ... Decoding: CpuThread(0)
+      // --------------------------------------------------------------------------
+      //                                                     Decoding: CpuThread(0)
+      // Reading: IoThread(?) --> Chunking: CpuThread(1) ... Decoding: CpuThread(1)
+      // --------------------------------------------------------------------------
+      //                                                     Decoding: CpuThread(0)
+      //                                                     Decoding: CpuThread(1)
+      // Reading: IoThread(?) --> Chunking: CpuThread(2) ... Decoding: CpuThread(2)
+      // --------------------------------------------------------------------------
+      //
+      // Remember that we should already be on the CPU executor following chunking, so the
+      // decoding task simply continues to use that thread rather than spawning a new one.
       decoding_gen =
           MakeMappedGenerator(std::move(chunking_gen), DecodingOperator(context));
     } else {
