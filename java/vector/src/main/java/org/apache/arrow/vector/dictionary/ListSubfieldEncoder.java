@@ -22,6 +22,7 @@ import java.util.Collections;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
@@ -101,7 +102,7 @@ public class ListSubfieldEncoder {
 
       return encoded;
     } catch (Exception e) {
-      encoded.close();
+      AutoCloseables.close(e, encoded);
       throw e;
     }
   }
@@ -158,7 +159,7 @@ public class ListSubfieldEncoder {
       }
       return decoded;
     } catch (Exception e) {
-      decoded.close();
+      AutoCloseables.close(e, decoded);
       throw e;
     }
   }

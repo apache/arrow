@@ -938,7 +938,7 @@ public class TestDictionaryVector {
       try (final ListVector encoded = (ListVector) encoder.encodeListSubField(vector)) {
         fail("There should be an exception when encoding");
       } catch (Exception e) {
-        assertEquals("Dictionary encoding not defined for value:" + 20, e.getMessage());
+        assertEquals("Dictionary encoding not defined for value:20", e.getMessage());
       }
     }
     assertEquals("list encode memory leak", 0, allocator.getAllocatedMemory());
@@ -999,7 +999,7 @@ public class TestDictionaryVector {
       try (final StructVector encoded = (StructVector) encoder.encode(vector, columnToDictionaryId)) {
         fail("There should be an exception when encoding");
       } catch (Exception e) {
-        assertEquals("Dictionary encoding not defined for value:" + "baz", e.getMessage());
+        assertEquals("Dictionary encoding not defined for value:baz", e.getMessage());
       }
     }
     assertEquals("struct encode memory leak", 0, allocator.getAllocatedMemory());

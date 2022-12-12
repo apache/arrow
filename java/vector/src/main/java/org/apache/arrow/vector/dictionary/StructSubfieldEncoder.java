@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
@@ -137,7 +138,7 @@ public class StructSubfieldEncoder {
 
       return encoded;
     } catch (Exception e) {
-      encoded.close();
+      AutoCloseables.close(e, encoded);
       throw e;
     }
   }
@@ -204,7 +205,7 @@ public class StructSubfieldEncoder {
 
       return decoded;
     } catch (Exception e) {
-      decoded.close();
+      AutoCloseables.close(e, decoded);
       throw e;
     }
   }

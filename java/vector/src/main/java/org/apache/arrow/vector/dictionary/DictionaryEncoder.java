@@ -20,6 +20,7 @@ package org.apache.arrow.vector.dictionary;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
@@ -101,7 +102,7 @@ public class DictionaryEncoder {
       decoded.setValueCount(count);
       return decoded;
     } catch (Exception e) {
-      transfer.getTo().close();
+      AutoCloseables.close(e, transfer.getTo());
       throw e;
     }
   }
@@ -201,7 +202,7 @@ public class DictionaryEncoder {
       indices.setValueCount(vector.getValueCount());
       return indices;
     } catch (Exception e) {
-      indices.close();
+      AutoCloseables.close(e, indices);
       throw e;
     }
   }
