@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
@@ -118,23 +119,28 @@ public class StructSubfieldEncoder {
 
     // clone list vector and initialize data vector
     StructVector encoded = cloneVector(vector, allocator);
-    encoded.initializeChildrenFromFields(childrenFields);
-    encoded.setValueCount(valueCount);
+    try {
+      encoded.initializeChildrenFromFields(childrenFields);
+      encoded.setValueCount(valueCount);
 
-    for (int index = 0; index < childCount; index++) {
-      FieldVector childVector = getChildVector(vector, index);
-      FieldVector encodedChildVector = getChildVector(encoded, index);
-      Long dictionaryId = columnToDictionaryId.get(index);
-      if (dictionaryId != null) {
-        BaseIntVector indices = (BaseIntVector) encodedChildVector;
-        DictionaryEncoder.buildIndexVector(childVector, indices, dictionaryIdToHashTable.get(dictionaryId),
-            0, valueCount);
-      } else {
-        childVector.makeTransferPair(encodedChildVector).splitAndTransfer(0, valueCount);
+      for (int index = 0; index < childCount; index++) {
+        FieldVector childVector = getChildVector(vector, index);
+        FieldVector encodedChildVector = getChildVector(encoded, index);
+        Long dictionaryId = columnToDictionaryId.get(index);
+        if (dictionaryId != null) {
+          BaseIntVector indices = (BaseIntVector) encodedChildVector;
+          DictionaryEncoder.buildIndexVector(childVector, indices, dictionaryIdToHashTable.get(dictionaryId),
+                  0, valueCount);
+        } else {
+          childVector.makeTransferPair(encodedChildVector).splitAndTransfer(0, valueCount);
+        }
       }
-    }
 
-    return encoded;
+      return encoded;
+    } catch (Exception e) {
+      AutoCloseables.close(e, encoded);
+      throw e;
+    }
   }
 
   /**
@@ -167,36 +173,41 @@ public class StructSubfieldEncoder {
 
     // clone list vector and initialize child vectors
     StructVector decoded = cloneVector(vector, allocator);
-    List<Field> childFields = new ArrayList<>();
-    for (int i = 0; i < childCount; i++) {
-      FieldVector childVector = getChildVector(vector, i);
-      Dictionary dictionary = getChildVectorDictionary(childVector, provider);
-      // childVector is not encoded.
-      if (dictionary == null) {
-        childFields.add(childVector.getField());
-      } else {
-        childFields.add(dictionary.getVector().getField());
+    try {
+      List<Field> childFields = new ArrayList<>();
+      for (int i = 0; i < childCount; i++) {
+        FieldVector childVector = getChildVector(vector, i);
+        Dictionary dictionary = getChildVectorDictionary(childVector, provider);
+        // childVector is not encoded.
+        if (dictionary == null) {
+          childFields.add(childVector.getField());
+        } else {
+          childFields.add(dictionary.getVector().getField());
+        }
       }
-    }
-    decoded.initializeChildrenFromFields(childFields);
-    decoded.setValueCount(valueCount);
+      decoded.initializeChildrenFromFields(childFields);
+      decoded.setValueCount(valueCount);
 
-    for (int index = 0; index < childCount; index++) {
-      // get child vector
-      FieldVector childVector = getChildVector(vector, index);
-      FieldVector decodedChildVector = getChildVector(decoded, index);
-      Dictionary dictionary = getChildVectorDictionary(childVector, provider);
-      if (dictionary == null) {
-        childVector.makeTransferPair(decodedChildVector).splitAndTransfer(0, valueCount);
-      } else {
-        TransferPair transfer = dictionary.getVector().makeTransferPair(decodedChildVector);
-        BaseIntVector indices = (BaseIntVector) childVector;
+      for (int index = 0; index < childCount; index++) {
+        // get child vector
+        FieldVector childVector = getChildVector(vector, index);
+        FieldVector decodedChildVector = getChildVector(decoded, index);
+        Dictionary dictionary = getChildVectorDictionary(childVector, provider);
+        if (dictionary == null) {
+          childVector.makeTransferPair(decodedChildVector).splitAndTransfer(0, valueCount);
+        } else {
+          TransferPair transfer = dictionary.getVector().makeTransferPair(decodedChildVector);
+          BaseIntVector indices = (BaseIntVector) childVector;
 
-        DictionaryEncoder.retrieveIndexVector(indices, transfer, valueCount, 0, valueCount);
+          DictionaryEncoder.retrieveIndexVector(indices, transfer, valueCount, 0, valueCount);
+        }
       }
-    }
 
-    return decoded;
+      return decoded;
+    } catch (Exception e) {
+      AutoCloseables.close(e, decoded);
+      throw e;
+    }
   }
 
   /**

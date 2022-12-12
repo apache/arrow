@@ -22,6 +22,7 @@ import java.util.Collections;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
@@ -85,20 +86,25 @@ public class ListSubfieldEncoder {
 
     // clone list vector and initialize data vector
     BaseListVector encoded = cloneVector(vector, allocator);
-    encoded.initializeChildrenFromFields(Collections.singletonList(valueField));
-    BaseIntVector indices = (BaseIntVector) getDataVector(encoded);
+    try {
+      encoded.initializeChildrenFromFields(Collections.singletonList(valueField));
+      BaseIntVector indices = (BaseIntVector) getDataVector(encoded);
 
-    ValueVector dataVector = getDataVector(vector);
-    for (int i = 0; i < valueCount; i++) {
-      if (!vector.isNull(i)) {
-        int start = vector.getElementStartIndex(i);
-        int end = vector.getElementEndIndex(i);
+      ValueVector dataVector = getDataVector(vector);
+      for (int i = 0; i < valueCount; i++) {
+        if (!vector.isNull(i)) {
+          int start = vector.getElementStartIndex(i);
+          int end = vector.getElementEndIndex(i);
 
-        DictionaryEncoder.buildIndexVector(dataVector, indices, hashTable, start, end);
+          DictionaryEncoder.buildIndexVector(dataVector, indices, hashTable, start, end);
+        }
       }
-    }
 
-    return encoded;
+      return encoded;
+    } catch (Exception e) {
+      AutoCloseables.close(e, encoded);
+      throw e;
+    }
   }
 
   /**
@@ -132,24 +138,29 @@ public class ListSubfieldEncoder {
 
     // clone list vector and initialize data vector
     BaseListVector decoded = cloneVector(vector, allocator);
-    Field dataVectorField = getDataVector(dictionaryVector).getField();
-    decoded.initializeChildrenFromFields(Collections.singletonList(dataVectorField));
+    try {
+      Field dataVectorField = getDataVector(dictionaryVector).getField();
+      decoded.initializeChildrenFromFields(Collections.singletonList(dataVectorField));
 
-    // get data vector
-    ValueVector dataVector = getDataVector(decoded);
+      // get data vector
+      ValueVector dataVector = getDataVector(decoded);
 
-    TransferPair transfer = getDataVector(dictionaryVector).makeTransferPair(dataVector);
-    BaseIntVector indices = (BaseIntVector) getDataVector(vector);
+      TransferPair transfer = getDataVector(dictionaryVector).makeTransferPair(dataVector);
+      BaseIntVector indices = (BaseIntVector) getDataVector(vector);
 
-    for (int i = 0; i < valueCount; i++) {
+      for (int i = 0; i < valueCount; i++) {
 
-      if (!vector.isNull(i)) {
-        int start = vector.getElementStartIndex(i);
-        int end = vector.getElementEndIndex(i);
+        if (!vector.isNull(i)) {
+          int start = vector.getElementStartIndex(i);
+          int end = vector.getElementEndIndex(i);
 
-        DictionaryEncoder.retrieveIndexVector(indices, transfer, dictionaryValueCount, start, end);
+          DictionaryEncoder.retrieveIndexVector(indices, transfer, dictionaryValueCount, start, end);
+        }
       }
+      return decoded;
+    } catch (Exception e) {
+      AutoCloseables.close(e, decoded);
+      throw e;
     }
-    return decoded;
   }
 }
