@@ -76,6 +76,7 @@ type schemaExporter struct {
 	metadata  []byte
 	flags     int64
 	children  []schemaExporter
+	dict      *schemaExporter
 }
 
 func (exp *schemaExporter) handleExtension(dt arrow.DataType) arrow.DataType {
@@ -228,6 +229,11 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 			exp.flags |= C.ARROW_FLAG_MAP_KEYS_SORTED
 		}
 		return "+m"
+	case *arrow.DictionaryType:
+		if dt.Ordered {
+			exp.flags |= C.ARROW_FLAG_DICTIONARY_ORDERED
+		}
+		return exp.exportFormat(dt.IndexType)
 	}
 	panic("unsupported data type for export")
 }
@@ -240,6 +246,9 @@ func (exp *schemaExporter) export(field arrow.Field) {
 	}
 
 	switch dt := field.Type.(type) {
+	case *arrow.DictionaryType:
+		exp.dict = new(schemaExporter)
+		exp.dict.export(arrow.Field{Type: dt.ValueType})
 	case *arrow.ListType:
 		exp.children = make([]schemaExporter, 1)
 		exp.children[0].export(dt.ElemField())
@@ -309,6 +318,10 @@ func allocateBufferPtrArr(n int) (out []*C.void) {
 
 func (exp *schemaExporter) finish(out *CArrowSchema) {
 	out.dictionary = nil
+	if exp.dict != nil {
+		out.dictionary = (*CArrowSchema)(C.malloc(C.sizeof_struct_ArrowSchema))
+		exp.dict.finish(out.dictionary)
+	}
 	out.name = C.CString(exp.name)
 	out.format = C.CString(exp.format)
 	out.metadata = (*C.char)(C.CBytes(exp.metadata))
@@ -353,7 +366,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		buffers := allocateBufferPtrArr(len(arr.Data().Buffers()))
 		for i := range arr.Data().Buffers() {
 			buf := arr.Data().Buffers()[i]
-			if buf == nil {
+			if buf == nil || buf.Len() == 0 {
 				buffers[i] = nil
 				continue
 			}
@@ -368,7 +381,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	out.private_data = unsafe.Pointer(&h)
 	out.release = (*[0]byte)(C.goReleaseArray)
 	switch arr := arr.(type) {
-	case *array.List:
+	case array.ListLike:
 		out.n_children = 1
 		childPtrs := allocateArrowArrayPtrArr(1)
 		children := allocateArrowArrayArr(1)
@@ -376,13 +389,6 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		childPtrs[0] = &children[0]
 		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
 	case *array.FixedSizeList:
-		out.n_children = 1
-		childPtrs := allocateArrowArrayPtrArr(1)
-		children := allocateArrowArrayArr(1)
-		exportArray(arr.ListValues(), &children[0], nil)
-		childPtrs[0] = &children[0]
-		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
-	case *array.Map:
 		out.n_children = 1
 		childPtrs := allocateArrowArrayPtrArr(1)
 		children := allocateArrowArrayArr(1)
@@ -398,6 +404,9 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 			childPtrs[i] = &children[i]
 		}
 		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
+	case *array.Dictionary:
+		out.dictionary = (*CArrowArray)(C.malloc(C.sizeof_struct_ArrowArray))
+		exportArray(arr.Dictionary(), out.dictionary, nil)
 	default:
 		out.n_children = 0
 		out.children = nil
