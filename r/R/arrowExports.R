@@ -112,8 +112,8 @@ StructArray__GetFieldByName <- function(array, name) {
   .Call(`_arrow_StructArray__GetFieldByName`, array, name)
 }
 
-StructArray__from_arrays <- function(arrays, fields) {
-  .Call(`_arrow_StructArray__from_arrays`, arrays, fields)
+StructArray__from_arrays <- function(arrays, field_names) {
+  .Call(`_arrow_StructArray__from_arrays`, arrays, field_names)
 }
 
 StructArray__Flatten <- function(array) {

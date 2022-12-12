@@ -442,9 +442,11 @@ StructArray <- R6Class("StructArray",
 
 StructArray$create <- function(...) {
 
-  #TODO: update this function to follow the pattern of Table$create
+  # TODO: update this function to follow the pattern of Table$create
 
   dots <- list2(...)
+
+  stopifnot(length(dots) > 0)
 
   if (length(dots) == 1 && is.data.frame(dots[[1]])) {
     return(Array$create(dots[[1]]))
@@ -453,7 +455,14 @@ StructArray$create <- function(...) {
   # TODO: more checks like length, class etc
 
   if (all(map_lgl(dots, ~inherits(.x, "Array")))) {
-    StructArray__from_arrays(...)
+
+    # TODO: here we want to do stuff like check if things are named and if not, give
+    # empty char names, like in Table$create
+
+
+    names <- names(dots)
+    # TODO: I don't think this is the right way to pass this in...
+    StructArray__from_arrays(..., names)
   }
 
 
