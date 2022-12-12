@@ -520,6 +520,20 @@ func (w *columnWriter) Close() (err error) {
 
 		w.FlushBufferedDataPages()
 
+		// ensure we release and reset everything even if we
+		// error out from the chunk statistics handling
+		defer func() {
+			w.defLevelSink.Reset(0)
+			w.repLevelSink.Reset(0)
+			if w.bitsBuffer != nil {
+				w.bitsBuffer.Release()
+				w.bitsBuffer = nil
+			}
+
+			w.currentEncoder.Release()
+			w.currentEncoder = nil
+		}()
+
 		var chunkStats metadata.EncodedStatistics
 		chunkStats, err = w.getChunkStatistics()
 		if err != nil {
@@ -533,16 +547,6 @@ func (w *columnWriter) Close() (err error) {
 			w.metaData.SetStats(chunkStats)
 		}
 		err = w.pager.Close(w.hasDict, w.fallbackToNonDict)
-
-		w.defLevelSink.Reset(0)
-		w.repLevelSink.Reset(0)
-		if w.bitsBuffer != nil {
-			w.bitsBuffer.Release()
-			w.bitsBuffer = nil
-		}
-
-		w.currentEncoder.Release()
-		w.currentEncoder = nil
 	}
 	return err
 }
