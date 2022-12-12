@@ -35,16 +35,15 @@ namespace arrow {
 namespace adapters {
 namespace orc {
 
-/// \class StripeInformation
-/// \brief Stores information about an ORC stripe
+/// \brief Information about an ORC stripe
 struct StripeInformation {
   /// \brief Offset of the stripe from the start of the file, in bytes
   int64_t offset;
-  /// \brief The length of the stripe, in bytes
+  /// \brief Length of the stripe, in bytes
   int64_t length;
-  /// \brief The number of rows of the stripe
+  /// \brief Number of rows in the stripe
   int64_t num_rows;
-  /// \brief The index of the first row of the stripe
+  /// \brief Index of the first row of the stripe
   int64_t first_row_id;
 };
 
