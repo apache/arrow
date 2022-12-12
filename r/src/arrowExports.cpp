@@ -249,12 +249,12 @@ BEGIN_CPP11
 END_CPP11
 }
 // array.cpp
-std::shared_ptr<arrow::StructArray> StructArray__from_arrays(const std::vector<std::shared_ptr<arrow::Array>>& arrays, const std::vector<std::shared_ptr<arrow::Field>>& fields);
-extern "C" SEXP _arrow_StructArray__from_arrays(SEXP arrays_sexp, SEXP fields_sexp){
+std::shared_ptr<arrow::StructArray> StructArray__from_arrays(const std::vector<std::shared_ptr<arrow::Array>>& arrays, const std::vector<std::string>& field_names);
+extern "C" SEXP _arrow_StructArray__from_arrays(SEXP arrays_sexp, SEXP field_names_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::vector<std::shared_ptr<arrow::Array>>&>::type arrays(arrays_sexp);
-	arrow::r::Input<const std::vector<std::shared_ptr<arrow::Field>>&>::type fields(fields_sexp);
-	return cpp11::as_sexp(StructArray__from_arrays(arrays, fields));
+	arrow::r::Input<const std::vector<std::string>&>::type field_names(field_names_sexp);
+	return cpp11::as_sexp(StructArray__from_arrays(arrays, field_names));
 END_CPP11
 }
 // array.cpp
