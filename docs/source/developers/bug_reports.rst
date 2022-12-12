@@ -173,8 +173,8 @@ Arrow is an expansive project supporting many languages and organized into a
 number of components. Identifying the affected component(s) helps new issues
 get attention from appropriate contributors.
 
-* Use the **Component** label to indicate the area of the project that your
-  issue pertains to (for example "Python" or "C++").
+* Use a **Component** label to indicate the area of the project that your
+  issue pertains to (for example "Component: Python" or "Component: C++").
 * Also prefix the issue title with the component name in brackets, for example
   ``[Python] issue summary`` ; this helps when navigating lists of open issues,
   and it also makes our changelogs more readable. Most prefixes are exactly the
