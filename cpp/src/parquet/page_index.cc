@@ -25,7 +25,6 @@
 #include "arrow/util/unreachable.h"
 
 #include <limits>
-#include <map>
 #include <numeric>
 
 namespace parquet {
@@ -42,7 +41,10 @@ void Decode(std::unique_ptr<typename EncodingTraits<DType>::Decoder>& decoder,
 
   decoder->SetData(/*num_values=*/1, reinterpret_cast<const uint8_t*>(input.c_str()),
                    static_cast<int>(input.size()));
-  decoder->Decode(&output->at(output_index), /*max_values=*/1);
+  const auto num_values = decoder->Decode(&output->at(output_index), /*max_values=*/1);
+  if (ARROW_PREDICT_FALSE(num_values != 1)) {
+    throw ParquetException("Could not decode statistics value");
+  }
 }
 
 template <>
@@ -56,7 +58,10 @@ void Decode<BooleanType>(std::unique_ptr<BooleanDecoder>& decoder,
   bool value;
   decoder->SetData(/*num_values=*/1, reinterpret_cast<const uint8_t*>(input.c_str()),
                    static_cast<int>(input.size()));
-  decoder->Decode(&value, /*max_values=*/1);
+  const auto num_values = decoder->Decode(&value, /*max_values=*/1);
+  if (ARROW_PREDICT_FALSE(num_values != 1)) {
+    throw ParquetException("Could not decode statistics value");
+  }
   output->at(output_index) = value;
 }
 
@@ -72,9 +77,8 @@ void Decode<ByteArrayType>(std::unique_ptr<ByteArrayDecoder>&, const std::string
     throw ParquetException("Invalid encoded byte array length");
   }
 
-  auto& decoded = output->at(output_index);
-  decoded.len = static_cast<uint32_t>(input.size());
-  decoded.ptr = reinterpret_cast<const uint8_t*>(input.data());
+  output->at(output_index) = {/*len=*/static_cast<uint32_t>(input.size()),
+                              /*ptr=*/reinterpret_cast<const uint8_t*>(input.data())};
 }
 
 template <typename DType>
@@ -86,17 +90,16 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
                        const format::ColumnIndex& column_index)
       : column_index_(column_index) {
     // Make sure the number of pages is valid and it does not overflow to int32_t.
-    if (ARROW_PREDICT_FALSE(column_index_.null_pages.size() >=
-                            static_cast<size_t>(std::numeric_limits<int32_t>::max())) ||
-        column_index_.null_pages.size() != column_index_.min_values.size() ||
-        column_index_.min_values.size() != column_index_.max_values.size() ||
+    const size_t num_pages = column_index_.null_pages.size();
+    if (num_pages >= static_cast<size_t>(std::numeric_limits<int32_t>::max()) ||
+        column_index_.min_values.size() != num_pages ||
+        column_index_.max_values.size() != num_pages ||
         (column_index_.__isset.null_counts &&
-         column_index_.null_counts.size() != column_index_.null_pages.size())) {
+         column_index_.null_counts.size() != num_pages)) {
       throw ParquetException("Invalid column index");
     }
 
-    size_t num_pages = column_index_.null_pages.size();
-    size_t num_non_null_pages = static_cast<size_t>(std::accumulate(
+    const size_t num_non_null_pages = static_cast<size_t>(std::accumulate(
         column_index_.null_pages.cbegin(), column_index_.null_pages.cend(), 0,
         [](int32_t num_non_null_pages, bool null_page) {
           return num_non_null_pages + (null_page ? 0 : 1);
@@ -104,8 +107,8 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
     DCHECK_LE(num_non_null_pages, num_pages);
 
     // Allocate slots for decoded values.
-    min_values_.resize(num_pages);
-    max_values_.resize(num_pages);
+    min_values_.resize(num_non_null_pages);
+    max_values_.resize(num_non_null_pages);
     non_null_page_indices_.reserve(num_non_null_pages);
 
     // Decode min and max values according to the physical type.

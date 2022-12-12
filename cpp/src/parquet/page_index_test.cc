@@ -176,7 +176,7 @@ TEST(PageIndex, ReadDoubleColumnIndex) {
       null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
-TEST(PageIndex, ByteArrayColumnIndex) {
+TEST(PageIndex, ReadByteArrayColumnIndex) {
   const int column_id = 9;
   const size_t num_pages = 352;
   const BoundaryOrder::type boundary_order = BoundaryOrder::Ascending;
@@ -214,11 +214,11 @@ TEST(PageIndex, ReadBoolColumnIndex) {
       null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
-namespace {
-FLBA toFLBA(const char* ptr) { return FLBA{reinterpret_cast<const uint8_t*>(ptr)}; }
-}  // namespace
-
 TEST(PageIndex, FixedLengthByteArrayColumnIndex) {
+  auto to_flba = [](const char* ptr) {
+    return FLBA{reinterpret_cast<const uint8_t*>(ptr)};
+  };
+
   const int column_id = 0;
   const size_t num_pages = 10;
   const BoundaryOrder::type boundary_order = BoundaryOrder::Descending;
@@ -230,10 +230,10 @@ TEST(PageIndex, FixedLengthByteArrayColumnIndex) {
                                                  "\x00\x00\x00\x65"};
   const std::vector<const char*> max_literals = {"\x00\x00\x03\xE8", "\x00\x00\x02\x58",
                                                  "\x00\x00\x00\xC8"};
-  const std::vector<FLBA> min_values = {toFLBA(min_literals[0]), toFLBA(min_literals[1]),
-                                        toFLBA(min_literals[2])};
-  const std::vector<FLBA> max_values = {toFLBA(max_literals[0]), toFLBA(max_literals[1]),
-                                        toFLBA(max_literals[2])};
+  const std::vector<FLBA> min_values = {
+      to_flba(min_literals[0]), to_flba(min_literals[1]), to_flba(min_literals[2])};
+  const std::vector<FLBA> max_values = {
+      to_flba(max_literals[0]), to_flba(max_literals[1]), to_flba(max_literals[2])};
 
   TestReadTypedColumnIndex<FLBAType>(
       "fixed_length_byte_array.parquet", column_id, num_pages, boundary_order,
@@ -253,7 +253,7 @@ TEST(PageIndex, ReadColumnIndexWithNullPage) {
   const std::vector<int32_t> max_values = {};
 
   TestReadTypedColumnIndex<Int32Type>(
-      "datapage_v1-corrupt-checksum.parquet", column_id, num_pages, boundary_order,
+      "datapage_v1-uncompressed-checksum.parquet", column_id, num_pages, boundary_order,
       page_indices, null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
