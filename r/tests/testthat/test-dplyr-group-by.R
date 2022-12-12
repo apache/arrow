@@ -60,6 +60,14 @@ test_that("group_by supports re-grouping by overlapping groups", {
       collect(),
     tbl
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, int) %>%
+      group_by(int, chr = "some new value") %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("ungroup", {
