@@ -4974,6 +4974,21 @@ def test_union_dataset_filter(tempdir, dstype):
         ds.dataset((filtered_ds1, filtered_ds2))
 
 
+def test_parquet_dataset_filter(tempdir):
+    root_path = tempdir / "test_parquet_dataset_filter"
+    metadata_path, _ = _create_parquet_dataset_simple(root_path)
+    dataset = ds.parquet_dataset(metadata_path)
+
+    result = dataset.to_table()
+    assert result.num_rows == 40
+
+    filtered_ds = dataset.filter(pc.field("f1") < 2)
+    assert filtered_ds.to_table().num_rows == 20
+
+    with pytest.raises(ValueError):
+        filtered_ds.get_fragments()
+
+
 def test_write_dataset_with_scanner_use_projected_schema(tempdir):
     """
     Ensure the projected schema is used to validate partitions for scanner
