@@ -732,6 +732,8 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
       } else if (auto* literal = bound_expr->literal()) {
         project_field =
             field("field_" + std::to_string(num_fields_before_proj + i), literal->type());
+      } else {
+        return Status::NotImplemented("Unsupported expression type");
       }
       ARROW_ASSIGN_OR_RAISE(
           bind_schema, bind_schema->AddField(
