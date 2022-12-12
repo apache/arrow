@@ -442,6 +442,8 @@ StructArray <- R6Class("StructArray",
 
 StructArray$create <- function(...) {
 
+  #TODO: update this function to follow the pattern of Table$create
+
   dots <- list2(...)
 
   if (length(dots) == 1 && is.data.frame(dots[[1]])) {
