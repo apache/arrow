@@ -16,6 +16,7 @@
 # under the License.
 
 from datetime import datetime as dt
+import numpy as np
 import pyarrow as pa
 from pyarrow.vendored.version import Version
 import pytest
@@ -162,3 +163,23 @@ def test_pandas_roundtrip():
     assert table_protocol.num_rows() == result_protocol.num_rows()
     assert table_protocol.num_chunks() == result_protocol.num_chunks()
     assert table_protocol.column_names() == result_protocol.column_names()
+
+
+@pytest.mark.pandas
+def test_large_string():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
+    from pandas.core.interchange.from_dataframe import (
+        from_dataframe as pandas_from_dataframe
+    )
+
+    data = np.array([b'x'*1024]*(3*1024**2), dtype='object')  # 3GB bytes data
+    arr = pa.array(data, type=pa.large_string())
+    table = pa.table([arr], names = ["large_string"])
+
+    exchange_df = table.__dataframe__()
+    result = pandas_from_dataframe(exchange_df)
+
+    assert result["string"][0] == data[0].decode()
+    assert result.size == 3*1024**2

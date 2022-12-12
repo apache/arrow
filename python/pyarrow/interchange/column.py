@@ -260,7 +260,12 @@ class _PyArrowColumn:
         except ValueError:  # in case of a variable-length strings
             bit_width = 8
 
-        if pa.types.is_timestamp(dtype):
+        if pa.types.is_large_string(dtype):
+            # format string needs to be changed from "U" to "u"
+            # in case of large strings (make an issue in pandas?)
+            kind = DtypeKind.STRING
+            return kind, bit_width, "u", Endianness.NATIVE
+        elif pa.types.is_timestamp(dtype):
             kind = DtypeKind.DATETIME
             ts = dtype.unit[0]
             tz = dtype.tz if dtype.tz else ""
@@ -510,5 +515,9 @@ class _PyArrowColumn:
             )
         elif n == 3:
             # Define the dtype of the returned buffer
-            dtype = (DtypeKind.INT, 32, "i", Endianness.NATIVE)
+            dtype = self._col.type
+            if pa.types.is_large_string(dtype):
+                dtype = (DtypeKind.INT, 64, "i", Endianness.NATIVE)
+            else:
+                dtype = (DtypeKind.INT, 32, "i", Endianness.NATIVE)
             return _PyArrowBuffer(array.buffers()[1]), dtype
