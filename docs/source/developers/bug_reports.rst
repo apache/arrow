@@ -184,16 +184,6 @@ get attention from appropriate contributors.
   * **Component:** Developer Tools — **Summary prefix:** [Dev]
   * **Component:** Documentation — **Summary prefix:** [Docs]
 
-.. _affected-version:
-
-Identify affected version
-+++++++++++++++++++++++++
-
-If you're reporting something that used to work in a previous version
-but doesn't work in the current release, you add the **Affects version**
-in the description to identify the earliest known version where the bug is
-observed.
-
 .. _issue-lifecycle:
 
 Issue lifecycle
@@ -208,7 +198,6 @@ a terminal status, it is labeled as closed.
 
 * **closed as not planned** - indicates the issue is complete,
   but *without* action being taken.
-
 
 .. _issue-assignment:
 
