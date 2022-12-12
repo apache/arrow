@@ -484,7 +484,7 @@ cdef class _CRecordBatchWriter(_Weakrefable):
         Parameters
         ----------
         batch : RecordBatch
-        custom_metadata : KeyValueMetadata
+        custom_metadata : mapping or KeyValueMetadata
             Keys and values must be string-like / coercible to bytes
         """
         metadata = ensure_metadata(custom_metadata, allow_none=True)
@@ -715,17 +715,12 @@ cdef class RecordBatchReader(_Weakrefable):
 
     def iter_batches_with_custom_metadata(self):
         """
-        Read next RecordBatch from the stream along with its custom metadata 
-        as a generator
+        Iterate over record batches from the stream along with their custom
+        metadata.
 
-        Raises
+        Yields
         ------
-        StopIteration:
-            At end of stream.
-
-        Yields 
-        -------
-        RecordBatch with optional custom metadata
+        RecordBatchWithMetadata
         """
         while True:
             try:
