@@ -56,19 +56,27 @@ static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
 // 16 KB is the default expected page header size
 static constexpr uint32_t kDefaultPageHeaderSize = 16 * 1024;
 
-// \brief DataPageStats is a proxy around format::DataPageHeader and
-// format::DataPageHeaderV2.
-class PARQUET_EXPORT DataPageStats {
- public:
+// \brief DataPageStats stores encoded statistics and number of values/rows for
+// a page.
+struct PARQUET_EXPORT DataPageStats {
   DataPageStats(EncodedStatistics* encoded_statistics, int32_t num_values,
                 std::optional<int32_t> num_rows)
       : encoded_statistics(encoded_statistics),
+        is_stats_set(encoded_statistics->is_set()),
         num_values(num_values),
         num_rows(num_rows) {}
 
+  // Encoded statistics extracted from the page header.
   EncodedStatistics* encoded_statistics;
-  const int32_t num_values;
-  const std::optional<int32_t> num_rows;
+  // False if there were no encoded statistics in the page header.
+  bool is_stats_set;
+  // Number of values stored in the page. Filled for both V1 and V2 data pages.
+  // For repeated fields, this can be greater than number of rows. For
+  // non-repeated fields, this will be the same as the number of rows.
+  int32_t num_values;
+  // Number of rows stored in the page. std::nullopt for V1 data pages since
+  // num_rows is not stored in format::DataPageHeader.
+  std::optional<int32_t> num_rows;
 };
 
 class PARQUET_EXPORT LevelDecoder {
@@ -138,7 +146,8 @@ class PARQUET_EXPORT PageReader {
   // the column. If the callback function returns true the page will be
   // skipped. The callback will be called only if the page type is DATA_PAGE or
   // DATA_PAGE_V2. Dictionary pages will not be skipped.
-  // This setter must be called at most once to set the callback.
+  // Caller must check DataPageStats.is_stats_set = true before using the filled
+  // encoded_statistics.
   // \note API EXPERIMENTAL
   void set_data_page_filter(DataPageFilter data_page_filter) {
     data_page_filter_ = std::move(data_page_filter);
