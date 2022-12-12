@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This API is EXPERIMENTAL.
-
 #pragma once
 
 #include "arrow/engine/substrait/visibility.h"
@@ -26,7 +24,7 @@ namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT std::string EnumToString(
-    int value, const google::protobuf::EnumDescriptor* descriptor);
+    int value, const google::protobuf::EnumDescriptor& descriptor);
 
 }  // namespace engine
 }  // namespace arrow

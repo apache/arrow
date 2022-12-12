@@ -46,8 +46,9 @@
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/type_internal.h"
-#include "arrow/filesystem/filesystem.h"
 #include "arrow/engine/substrait/util.h"
+#include "arrow/engine/substrait/util_internal.h"
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/type_fwd.h"
 #include "arrow/filesystem/util_internal.h"
@@ -662,7 +663,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         case substrait::SetRel::SET_OP_UNION_DISTINCT:
           return Status::NotImplemented(
               "NotImplemented union type : ",
-              EnumToString(op, substrait::SetRel_SetOp_descriptor()));
+              EnumToString(op, *substrait::SetRel_SetOp_descriptor()));
         case substrait::SetRel::SET_OP_UNION_ALL:
           break;
         default:

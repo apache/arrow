@@ -48,6 +48,7 @@
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/engine/substrait/util.h"
+#include "arrow/engine/substrait/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -134,7 +135,7 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
   if (func.phase() != substrait::AggregationPhase::AGGREGATION_PHASE_INITIAL_TO_RESULT) {
     return Status::NotImplemented(
         "Unsupported aggregation phase '",
-        EnumToString(func.phase(), substrait::AggregationPhase_descriptor()),
+        EnumToString(func.phase(), *substrait::AggregationPhase_descriptor()),
         "'.  Only INITIAL_TO_RESULT is supported");
   }
   if (func.invocation() !=
@@ -143,7 +144,7 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
     return Status::NotImplemented(
         "Unsupported aggregation invocation '",
         EnumToString(func.invocation(),
-                     substrait::AggregateFunction::AggregationInvocation_descriptor()),
+                     *substrait::AggregateFunction::AggregationInvocation_descriptor()),
         "'.  Only AGGREGATION_INVOCATION_ALL is "
         "supported");
   }

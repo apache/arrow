@@ -21,9 +21,9 @@ namespace arrow {
 
 namespace engine {
 
-std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor) {
+std::string EnumToString(int value, const google::protobuf::EnumDescriptor& descriptor) {
   const google::protobuf::EnumValueDescriptor* value_desc =
-      descriptor->FindValueByNumber(value);
+      descriptor.FindValueByNumber(value);
   if (value_desc == nullptr) {
     return "unknown";
   }
