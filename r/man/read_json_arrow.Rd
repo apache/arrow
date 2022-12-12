@@ -54,8 +54,7 @@ falling back to \code{\link[=utf8]{utf8()}} if a conversion error occurs.
 \item Nested JSON objects convert to a \code{\link[=struct]{struct()}} type, and inference proceeds recursively on the JSON objects' values.
 }
 
-When \code{as_data_frame = FALSE}, Arrow types are further converted to R types.
-See \url{https://arrow.apache.org/docs/r/articles/read_write.html} for details.
+When \code{as_data_frame = TRUE}, Arrow types are further converted to R types.
 }
 \examples{
 \dontshow{if (arrow_with_json()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
