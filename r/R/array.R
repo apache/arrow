@@ -446,8 +446,10 @@ StructArray$create <- function(...) {
 
   if (length(dots) == 1 && is.data.frame(dots[[1]])) {
     return(Array$create(dots[[1]]))
-  } else {
-    # bind arrays into structarray
+  }
+
+  if (all(map_lgl(dots, ~inherits(.x, "Array")))) {
+    StructArray__from_arrays(...)
   }
 
 }
