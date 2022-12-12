@@ -59,7 +59,6 @@
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
-#include <memory>
 #include <numeric>
 
 namespace arrow {
@@ -732,8 +731,6 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
       } else if (auto* literal = bound_expr->literal()) {
         project_field =
             field("field_" + std::to_string(num_fields_before_proj + i), literal->type());
-      } else {
-        return Status::NotImplemented("Unsupported expression type");
       }
       ARROW_ASSIGN_OR_RAISE(
           bind_schema, bind_schema->AddField(
@@ -889,7 +886,7 @@ Result<std::unique_ptr<substrait::ProjectRel>> ProjectRelationConverter(
 
   // set an emit to only output the result of the expressions passed in
   std::vector<int> emit_fields(expressions.size());
-  std::iota(emit_fields.begin(), emit_fields.end(), schema->num_fields());
+  std::iota(emit_fields.begin(), emit_fields.end(), schema->num_fields() - 1);
   ARROW_ASSIGN_OR_RAISE(auto rel_common, GetRelCommonEmit(emit_fields));
   project_rel->set_allocated_common(rel_common.release());
   return std::move(project_rel);

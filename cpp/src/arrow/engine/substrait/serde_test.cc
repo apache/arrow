@@ -2377,7 +2377,7 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
   // emit node used in the serialization outputs the 4th column since the
   // 0, 1, 2 original columns from the input data and 4th column being the
   // projected column.
-  auto expec_project_expr = {compute::field_ref(FieldPath({4}))};
+  auto expec_project_expr = {compute::field_ref(FieldPath({3}))};
   AssertProjectRelation(roundtripped_emit_project, expec_project_expr, project_schema);
 
   // assert projection declaration
