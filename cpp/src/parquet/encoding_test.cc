@@ -1393,11 +1393,10 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
       /*null_probability*/ 0.1,
       /*half_range*/ 0));
 
-  auto max_bitwidth =
-      std::round(bit_util::NumRequiredBits(std::numeric_limits<T>::max()) / 2);
-  for (T half_range_bitwidth = 0; half_range_bitwidth < max_bitwidth;
-       half_range_bitwidth += 8) {
-    auto half_range = std::round(exp2(half_range_bitwidth));
+  const uint32_t half_bitwidth = sizeof(T) * 4;
+  for (uint32_t bitwidth = 0; bitwidth < half_bitwidth; bitwidth += 4) {
+    T half_range = 2 << bitwidth;
+
     ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(25000, 200, half_range));
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
         /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
