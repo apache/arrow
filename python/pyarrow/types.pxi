@@ -3270,10 +3270,12 @@ def schema(fields, metadata=None):
     >>> import pyarrow as pa
     >>> pa.schema([
     ...     ('some_int', pa.int32()),
-    ...     ('some_string', pa.string())
+    ...     ('some_string', pa.string()),
+    ...     pa.field('some_required_string', pa.string(), nullable=False)
     ... ])
     some_int: int32
     some_string: string
+    some_required_string: string not null
     >>> pa.schema([
     ...     pa.field('some_int', pa.int32()),
     ...     pa.field('some_string', pa.string())
