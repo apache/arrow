@@ -408,12 +408,16 @@ TEST_F(TestSchemaExport, Union) {
   auto type = dense_union({field_a, field_b}, {42, 43});
   TestNested(type, {"+ud:42,43", "c", "b"}, {"", "a", "b"},
              {ARROW_FLAG_NULLABLE, ARROW_FLAG_NULLABLE, 0});
+  TestNested(dense_union(arrow::FieldVector{}, std::vector<int8_t>{}), {"+ud:"}, {""},
+             {ARROW_FLAG_NULLABLE});
   // Sparse
   field_a = field("a", int8(), /*nullable=*/false);
   field_b = field("b", boolean());
   type = sparse_union({field_a, field_b}, {42, 43});
   TestNested(type, {"+us:42,43", "c", "b"}, {"", "a", "b"},
              {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
+  TestNested(sparse_union(arrow::FieldVector{}, std::vector<int8_t>{}), {"+us:"}, {""},
+             {ARROW_FLAG_NULLABLE});
 }
 
 std::string GetIndexFormat(Type::type type_id) {
@@ -2876,6 +2880,12 @@ TEST_F(TestArrayRoundtrip, Struct) {
   TestWithJSON(type, "[[4, true], [5, null]]");
 
   TestWithJSONSliced(type, "[[4, true], [5, null], [6, false]]");
+
+  // With no fields
+  type = struct_({});
+  TestWithJSON(type, "[]");
+  TestWithJSON(type, "[[], null, [], null, []]");
+  TestWithJSONSliced(type, "[[], null, [], null, []]");
 }
 
 TEST_F(TestArrayRoundtrip, Map) {
@@ -2902,6 +2912,15 @@ TEST_F(TestArrayRoundtrip, Union) {
     TestWithJSON(type, "[]");
     TestWithJSON(type, json);
     TestWithJSONSliced(type, json);
+  }
+
+  // With no fields
+  fields = {};
+  type_codes = {};
+  union_types = {sparse_union(fields, type_codes), dense_union(fields, type_codes)};
+
+  for (const auto& type : union_types) {
+    TestWithJSON(type, "[]");
   }
 }
 
