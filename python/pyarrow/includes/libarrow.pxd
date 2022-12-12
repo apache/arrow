@@ -153,8 +153,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDataType" arrow::DataType":
         Type id()
 
-        c_bool Equals(const CDataType& other)
-        c_bool Equals(const shared_ptr[CDataType]& other)
+        c_bool Equals(const CDataType& other, c_bool check_metadata)
+        c_bool Equals(const shared_ptr[CDataType]& other, c_bool check_metadata)
 
         shared_ptr[CField] field(int i)
         const vector[shared_ptr[CField]] fields()
@@ -1706,6 +1706,11 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
 cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
+    ctypedef enum CQuotingStyle "arrow::csv::QuotingStyle":
+        CQuotingStyle_Needed "arrow::csv::QuotingStyle::Needed"
+        CQuotingStyle_AllValid "arrow::csv::QuotingStyle::AllValid"
+        CQuotingStyle_None "arrow::csv::QuotingStyle::None"
+
     cdef cppclass CCSVParseOptions" arrow::csv::ParseOptions":
         unsigned char delimiter
         c_bool quoting
@@ -1770,6 +1775,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool include_header
         int32_t batch_size
         unsigned char delimiter
+        CQuotingStyle quoting_style
         CIOContext io_context
 
         CCSVWriteOptions()

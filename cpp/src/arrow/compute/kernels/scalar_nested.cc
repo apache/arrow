@@ -106,14 +106,7 @@ struct ListSlice {
     const auto opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
 
     // Invariants
-    if (!opts.stop.has_value()) {
-      // TODO(ARROW-18280): Support slicing to arbitrary end
-      // For variable size list, this would be the largest difference in offsets
-      // For fixed size list, this would be the fixed size.
-      return Status::NotImplemented(
-          "Slicing to end not yet implemented, please set `stop` parameter.");
-    }
-    if (opts.start < 0 || opts.start >= opts.stop.value()) {
+    if (opts.start < 0 || (opts.stop.has_value() && opts.start >= opts.stop.value())) {
       // TODO(ARROW-18281): support start == stop which should give empty lists
       return Status::Invalid("`start`(", opts.start,
                              ") should be greater than 0 and smaller than `stop`(",
@@ -130,9 +123,24 @@ struct ListSlice {
         list_type->id() == arrow::Type::FIXED_SIZE_LIST);
     std::unique_ptr<ArrayBuilder> builder;
 
+    // should have been checked in resolver
+    // if stop not set, then cannot return fixed size list without input being fixed size
+    // list b/c we cannot determine the max list element in type resolving.
+    DCHECK(opts.stop.has_value() ||
+           (!opts.stop.has_value() && (!return_fixed_size_list ||
+                                       list_type->id() == arrow::Type::FIXED_SIZE_LIST)));
+
     // construct array values
     if (return_fixed_size_list) {
-      const auto length = bit_util::CeilDiv(opts.stop.value() - opts.start, opts.step);
+      int32_t stop;
+      if (opts.stop.has_value()) {
+        stop = static_cast<int32_t>(opts.stop.value());
+      } else {
+        DCHECK_EQ(list_type->id(), arrow::Type::FIXED_SIZE_LIST);
+        stop = reinterpret_cast<const FixedSizeListType*>(list_type)->list_size();
+      }
+      const auto size = std::max(stop - static_cast<int32_t>(opts.start), 0);
+      const auto length = bit_util::CeilDiv(size, opts.step);
       RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(),
                                 fixed_size_list(value_type, static_cast<int32_t>(length)),
                                 &builder));
@@ -217,7 +225,9 @@ struct ListSlice {
     auto cursor = offset;
 
     RETURN_NOT_OK(list_builder->Append());
-    while (cursor < offset + ((opts->stop.value() - opts->start))) {
+    const auto size = opts->stop.has_value() ? (opts->stop.value() - opts->start)
+                                             : ((next_offset - opts->start) - offset);
+    while (cursor < offset + size) {
       if (cursor + opts->start >= next_offset) {
         if constexpr (!std::is_same_v<BuilderType, FixedSizeListBuilder>) {
           break;  // don't pad nulls for variable sized list output
@@ -241,14 +251,23 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
   const auto return_fixed_size_list =
       opts.return_fixed_size_list.value_or(list_type->id() == Type::FIXED_SIZE_LIST);
   if (return_fixed_size_list) {
+    int32_t stop;
     if (!opts.stop.has_value()) {
-      return Status::NotImplemented(
-          "Unable to produce FixedSizeListArray without `stop` being set.");
+      if (list_type->id() == Type::FIXED_SIZE_LIST) {
+        stop = checked_cast<const FixedSizeListType*>(list_type)->list_size();
+      } else {
+        return Status::NotImplemented(
+            "Unable to produce FixedSizeListArray from non-FixedSizeListArray without "
+            "`stop` being set.");
+      }
+    } else {
+      stop = static_cast<int32_t>(opts.stop.value());
     }
+    const auto size = std::max(static_cast<int32_t>(stop - opts.start), 0);
     if (opts.step < 1) {
       return Status::Invalid("`step` must be >= 1, got: ", opts.step);
     }
-    const auto length = bit_util::CeilDiv(opts.stop.value() - opts.start, opts.step);
+    const auto length = bit_util::CeilDiv(size, opts.step);
     return fixed_size_list(value_type, static_cast<int32_t>(length));
   } else {
     // Returning large list if that's what we got in and didn't ask for fixed size

@@ -15,33 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import config from "../jest.config.js";
+#pragma once
 
-export default {
-    ...config,
-    rootDir: "../",
-    moduleNameMapper: {
-        "^apache-arrow$": "<rootDir>/targets/ts/Arrow.node",
-        "^apache-arrow(.*)": "<rootDir>/targets/ts$1",
-        "^(\\.{1,2}/.*)\\.js$": "$1",
-    },
-    transform: {
-        ...config.transform,
-        "^.+\\.js$": [
-            "ts-jest",
-            {
-                diagnostics: false,
-                tsconfig: "<rootDir>/test/tsconfig/tsconfig.ts.json",
-                useESM: true,
-            },
-        ],
-        "^.+\\.ts$": [
-            "ts-jest",
-            {
-                diagnostics: false,
-                tsconfig: "<rootDir>/test/tsconfig/tsconfig.ts.json",
-                useESM: true,
-            },
-        ],
-    },
+#include <memory>
+
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/engine/substrait/visibility.h"
+#include "arrow/type_fwd.h"
+
+namespace arrow {
+namespace engine {
+
+/// Information resulting from converting a Substrait relation.
+struct ARROW_ENGINE_EXPORT DeclarationInfo {
+  /// The compute declaration produced thus far.
+  compute::Declaration declaration;
+
+  std::shared_ptr<Schema> output_schema;
 };
+
+}  // namespace engine
+}  // namespace arrow

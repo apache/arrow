@@ -589,3 +589,34 @@ func Example_listSlice() {
 	//   rows: 1
 	//   col[0][list]: [["index3" "tag_int"]]
 }
+
+func TestIpcEmptyMap(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	schema := arrow.NewSchema([]arrow.Field{{
+		Name: "map",
+		Type: dt,
+	}}, nil)
+
+	arr, _, err := array.FromJSON(mem, dt, strings.NewReader(`[]`))
+	require.NoError(t, err)
+	defer arr.Release()
+
+	rec := array.NewRecord(schema, []arrow.Array{arr}, int64(arr.Len()))
+	defer rec.Release()
+
+	var buf bytes.Buffer
+	w := ipc.NewWriter(&buf, ipc.WithSchema(rec.Schema()))
+	require.NoError(t, w.Write(rec))
+	assert.NoError(t, w.Close())
+
+	r, err := ipc.NewReader(&buf)
+	require.NoError(t, err)
+	defer r.Release()
+
+	assert.True(t, r.Next())
+	assert.Zero(t, r.Record().NumRows())
+	assert.True(t, arrow.TypeEqual(dt, r.Record().Column(0).DataType()))
+}

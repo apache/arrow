@@ -54,11 +54,11 @@ public class ListSubfieldEncoder {
     hashTable = new DictionaryHashTable(getDataVector(dictVector), hasher);
   }
 
-  private FieldVector getDataVector(BaseListVector vector) {
+  private static FieldVector getDataVector(BaseListVector vector) {
     return vector.getChildrenFromFields().get(0);
   }
 
-  private BaseListVector cloneVector(BaseListVector vector) {
+  private static BaseListVector cloneVector(BaseListVector vector, BufferAllocator allocator) {
 
     final FieldType fieldType = vector.getField().getFieldType();
     BaseListVector cloned = (BaseListVector) fieldType.createNewSingleVector(vector.getField().getName(),
@@ -84,7 +84,7 @@ public class ListSubfieldEncoder {
     Field valueField = new Field(vector.getField().getName(), indexFieldType, null);
 
     // clone list vector and initialize data vector
-    BaseListVector encoded = cloneVector(vector);
+    BaseListVector encoded = cloneVector(vector, allocator);
     encoded.initializeChildrenFromFields(Collections.singletonList(valueField));
     BaseIntVector indices = (BaseIntVector) getDataVector(encoded);
 
@@ -103,17 +103,35 @@ public class ListSubfieldEncoder {
 
   /**
    * Decodes a dictionary subfields encoded vector using the provided dictionary.
+   *
+   * {@link ListSubfieldEncoder#decodeListSubField(BaseListVector, Dictionary, BufferAllocator)} should be used instead
+   * if only decoding is required as it can avoid building the {@link DictionaryHashTable} which only makes sense when
+   * encoding.
+   *
    * @param vector dictionary encoded vector, its data vector must be int type
    * @return vector with values restored from dictionary
    */
   public BaseListVector decodeListSubField(BaseListVector vector) {
+    return decodeListSubField(vector, dictionary, allocator);
+  }
 
+  /**
+   * Decodes a dictionary subfields encoded vector using the provided dictionary.
+   *
+   * @param vector dictionary encoded vector, its data vector must be int type
+   * @param dictionary dictionary used to decode the values
+   * @param allocator allocator the decoded values use
+   * @return vector with values restored from dictionary
+   */
+  public static BaseListVector decodeListSubField(BaseListVector vector,
+                                                  Dictionary dictionary,
+                                                  BufferAllocator allocator) {
     int valueCount = vector.getValueCount();
     BaseListVector dictionaryVector = (BaseListVector) dictionary.getVector();
     int dictionaryValueCount = getDataVector(dictionaryVector).getValueCount();
 
     // clone list vector and initialize data vector
-    BaseListVector decoded = cloneVector(vector);
+    BaseListVector decoded = cloneVector(vector, allocator);
     Field dataVectorField = getDataVector(dictionaryVector).getField();
     decoded.initializeChildrenFromFields(Collections.singletonList(dataVectorField));
 

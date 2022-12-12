@@ -17,23 +17,45 @@
 
 #include "arrow/engine/substrait/relation_internal.h"
 
-#include "arrow/compute/api_scalar.h"
+#include <cstdint>
+#include <functional>
+#include <iterator>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+#include <variant>
+#include <vector>
+
+#include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/dataset/dataset.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/datum.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/type_internal.h"
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
-#include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/io/type_fwd.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
-
-#include <memory>
 
 namespace arrow {
 
@@ -638,6 +660,10 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
   } else if (declr.factory_name == "filter") {
     auto input_declr = std::get<compute::Declaration>(declr.inputs[0]);
     ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
+  } else if (declr.factory_name == "named_table") {
+    const auto& opts =
+        checked_cast<const compute::NamedTableNodeOptions&>(*declr.options);
+    bind_schema = opts.schema;
   } else if (declr.factory_name == "sink") {
     // Note that the sink has no output_schema
     return bind_schema;
@@ -646,6 +672,30 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
                            declr.factory_name);
   }
   return bind_schema;
+}
+
+Result<std::unique_ptr<substrait::ReadRel>> NamedTableRelationConverter(
+    const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
+    ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
+  auto read_rel = std::make_unique<substrait::ReadRel>();
+  const auto& named_table_options =
+      checked_cast<const compute::NamedTableNodeOptions&>(*declaration.options);
+
+  // set schema
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*schema, ext_set, conversion_options));
+  read_rel->set_allocated_base_schema(named_struct.release());
+
+  if (named_table_options.names.empty()) {
+    return Status::Invalid("Table names cannot be empty");
+  }
+
+  auto read_rel_tn = std::make_unique<substrait::ReadRel::NamedTable>();
+  for (auto& name : named_table_options.names) {
+    read_rel_tn->add_names(name);
+  }
+  read_rel->set_allocated_named_table(read_rel_tn.release());
+
+  return std::move(read_rel);
 }
 
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
@@ -662,8 +712,7 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   }
 
   // set schema
-  ARROW_ASSIGN_OR_RAISE(auto named_struct,
-                        ToProto(*dataset->schema(), ext_set, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*schema, ext_set, conversion_options));
   read_rel->set_allocated_base_schema(named_struct.release());
 
   // set local files
@@ -743,6 +792,11 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
         auto filter_rel,
         FilterRelationConverter(schema, declaration, ext_set, conversion_options));
     (*rel)->set_allocated_filter(filter_rel.release());
+  } else if (factory_name == "named_table") {
+    ARROW_ASSIGN_OR_RAISE(
+        auto read_rel,
+        NamedTableRelationConverter(schema, declaration, ext_set, conversion_options));
+    (*rel)->set_allocated_read(read_rel.release());
   } else if (factory_name == "sink") {
     // Generally when a plan is deserialized the declaration will be a sink declaration.
     // Since there is no Sink relation in substrait, this function would be recursively
