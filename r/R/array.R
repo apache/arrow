@@ -455,7 +455,6 @@ StructArray$create <- function(...) {
   }
 
   if (all(map_lgl(dots, ~ inherits(.x, "Array")))) {
-
     # Check for Array length equality
     if (!length(unique(lengths(dots))) == 1) {
       abort(
