@@ -18,13 +18,11 @@
 # under the License.
 
 import contextlib
-import glob
 import os
 import os.path
 from os.path import join as pjoin
 import re
 import shlex
-import shutil
 import sys
 
 if sys.version_info >= (3, 10):
@@ -312,10 +310,12 @@ class build_ext(_build_ext):
             append_cmake_bool(not self.with_static_parquet,
                               'PYARROW_PARQUET_USE_SHARED')
 
-            cmake_options.append(f'-DCMAKE_BUILD_TYPE={self.build_type.lower()}')
+            cmake_options.append(
+                f'-DCMAKE_BUILD_TYPE={self.build_type.lower()}')
 
             if self.boost_namespace != 'boost':
-                cmake_options.append(f'-DBoost_NAMESPACE={self.boost_namespace}')
+                cmake_options.append(
+                    f'-DBoost_NAMESPACE={self.boost_namespace}')
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
 
