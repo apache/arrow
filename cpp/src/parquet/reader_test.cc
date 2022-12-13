@@ -514,6 +514,16 @@ TEST_F(TestLocalFile, OpenWithMetadata) {
   ASSERT_EQ(metadata.get(), reader2->metadata().get());
 }
 
+// https://github.com/google/googletest/pull/2904 not available in our version of
+// gtest/gmock
+#define EXPECT_THROW_THAT(callable, ex_type, property)   \
+  EXPECT_THROW(                                          \
+      try { (callable)(); } catch (const ex_type& err) { \
+        EXPECT_THAT(err, (property));                    \
+        throw;                                           \
+      },                                                 \
+      ex_type)
+
 TEST(TestDataPageV1Checksum, CorruptPage) {
   // works when not checking crc.
   {
@@ -567,9 +577,19 @@ TEST(TestDataPageV1Checksum, CorruptPage) {
     auto column_a_page_reader = rg->GetColumnPageReader(0);
     auto column_b_page_reader = rg->GetColumnPageReader(1);
 
-    EXPECT_THROW(column_a_page_reader->NextPage(), ParquetException);
+    EXPECT_THROW_THAT(
+        [&]() { column_a_page_reader->NextPage(); }, ParquetException,
+        ::testing::Property(
+            &ParquetException::what,
+            ::testing::HasSubstr(
+                "could not verify page integrity, CRC checksum verification failed")));
     EXPECT_NE(nullptr, column_b_page_reader->NextPage());
-    EXPECT_THROW(column_b_page_reader->NextPage(), ParquetException);
+    EXPECT_THROW_THAT(
+        [&]() { column_b_page_reader->NextPage(); }, ParquetException,
+        ::testing::Property(
+            &ParquetException::what,
+            ::testing::HasSubstr(
+                "could not verify page integrity, CRC checksum verification failed")));
   }
 }
 
@@ -1003,16 +1023,6 @@ std::unique_ptr<ParquetFileReader> OpenBuffer(const std::string& contents) {
   return ::arrow::Future<>(
       ParquetFileReader::OpenAsync(std::make_shared<::arrow::io::BufferReader>(buffer)));
 }
-
-// https://github.com/google/googletest/pull/2904 not available in our version of
-// gtest/gmock
-#define EXPECT_THROW_THAT(callable, ex_type, property)   \
-  EXPECT_THROW(                                          \
-      try { (callable)(); } catch (const ex_type& err) { \
-        EXPECT_THAT(err, (property));                    \
-        throw;                                           \
-      },                                                 \
-      ex_type)
 
 TEST(TestFileReader, TestOpenErrors) {
   EXPECT_THROW_THAT(
