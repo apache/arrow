@@ -561,6 +561,7 @@ class InputState {
 
   void Rehash() {
     MemoStore new_memo(memo_.no_future_);
+    new_memo.current_time_ = memo_.current_time_;
     for (auto e = memo_.entries_.begin(); e != memo_.entries_.end(); ++e) {
       auto& entry = e->second;
       auto new_key = GetKey(entry.batch.get(), entry.row);
@@ -570,6 +571,7 @@ class InputState {
         new_memo.future_entries_[new_key].swap(fe->second);
       }
     }
+    memo_.times_.swap(new_memo.times_);
     memo_.swap(new_memo);
   }
 
