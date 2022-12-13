@@ -42,10 +42,10 @@ For both cases, GitHub is the issue tracker that we use.
 
 - If you do not have a GitHub account yet, navigate to the
   `GitHub login page <https://github.com/join>`_ to create one.
-- If you need help with creating a new GitHub issue see
+- If you need help with creating a new GitHub issue see the
   `GitHub documentation <https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue>`_.
 
-When the ticket is created you can start a discussion about it in theGitHub comments.
+When the ticket is created you can start a discussion about it in the GitHub comments.
 
 GitHub labels
 =============
@@ -55,7 +55,7 @@ contributors, we have added a label **“good-first-issue”** to some
 GitHub issues.
 
 .. seealso::
-   Search for good first issues with labels like in the `link here
+   Search for good first issues `good-first-issue label listing
    <https://github.com/apache/arrow/labels/good-first-issue>`_
 
 The issues labeled as good first issues should take no more than two days or

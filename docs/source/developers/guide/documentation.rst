@@ -42,7 +42,7 @@ documentation itself, you can search for an issue in GitHub.
 .. note::
    When searching for an issue that deals with documentation,
    navigate to `GitHub labels <https://github.com/apache/arrow/labels>`_
-   and select **Component:Documentation** or search for **Documentation**
+   and select **Component: Documentation** or search for **Documentation**
    in the "Search all labels" window.
 
    See `Example search. <https://github.com/apache/arrow/issues?q=is%3Aopen+is%3Aissue+label%3A%22Component%3A+Documentation%22+>`_
