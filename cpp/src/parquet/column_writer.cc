@@ -263,7 +263,7 @@ class SerializedPageWriter : public PageWriter {
         page_ordinal_(0),
         row_group_ordinal_(row_group_ordinal),
         column_ordinal_(column_chunk_ordinal),
-        use_page_checksum_verification_(use_page_checksum_verification),
+        data_page_checksum_verification_(use_page_checksum_verification),
         meta_encryptor_(std::move(meta_encryptor)),
         data_encryptor_(std::move(data_encryptor)),
         encryption_buffer_(AllocateBuffer(pool, 0)) {
@@ -382,7 +382,8 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
-    if (use_page_checksum_verification_ && page.type() == PageType::DATA_PAGE) {
+    // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2
+    if (data_page_checksum_verification_ && page.type() == PageType::DATA_PAGE) {
       uint32_t crc32 =
           ::arrow::internal::crc32(/* prev */ 0, output_data_buffer, output_data_len);
       page_header.__set_crc(static_cast<int32_t>(crc32));
@@ -463,7 +464,7 @@ class SerializedPageWriter : public PageWriter {
 
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
-  bool use_page_checksum_verification() { return use_page_checksum_verification_; }
+  bool data_page_checksum_verification() { return data_page_checksum_verification_; }
 
  private:
   // To allow UpdateEncryption on Close
@@ -529,7 +530,7 @@ class SerializedPageWriter : public PageWriter {
   int16_t page_ordinal_;
   int16_t row_group_ordinal_;
   int16_t column_ordinal_;
-  bool use_page_checksum_verification_;
+  bool data_page_checksum_verification_;
 
   std::unique_ptr<ThriftSerializer> thrift_serializer_;
 
@@ -616,9 +617,8 @@ std::unique_ptr<PageWriter> PageWriter::Open(
     std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
     int compression_level, ColumnChunkMetaDataBuilder* metadata,
     int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
-    bool buffered_row_group, bool page_write_checksum_enabled,
-    std::shared_ptr<Encryptor> meta_encryptor,
-    std::shared_ptr<Encryptor> data_encryptor) {
+    bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
+    std::shared_ptr<Encryptor> data_encryptor, bool page_write_checksum_enabled) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(new BufferedPageWriter(
         std::move(sink), codec, compression_level, metadata, row_group_ordinal,

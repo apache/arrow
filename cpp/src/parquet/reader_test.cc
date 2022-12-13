@@ -552,7 +552,7 @@ TEST(TestDataPageV1Checksum, CorruptPage) {
   // check crc will read failed
   {
     ReaderProperties readerProperties;
-    readerProperties.set_use_page_checksum_verification(true);
+    readerProperties.set_data_page_checksum_verification(true);
     auto reader = ParquetFileReader::OpenFile(data_page_v1_corrupt_checksum(), false,
                                               readerProperties);
     auto metadata_ptr = reader->metadata();
@@ -577,7 +577,7 @@ void testCheckCrc(const std::string& local_file_name) {
   // works when not checking crc.
   {
     ReaderProperties readerProperties;
-    readerProperties.set_use_page_checksum_verification(true);
+    readerProperties.set_data_page_checksum_verification(true);
     auto reader = ParquetFileReader::OpenFile(local_file_name, false, readerProperties);
     auto metadata_ptr = reader->metadata();
     EXPECT_EQ(1U, metadata_ptr->num_row_groups());
@@ -613,7 +613,7 @@ void testCheckCrc(const std::string& local_file_name) {
   // check crc will read failed
   {
     ReaderProperties readerProperties;
-    readerProperties.set_use_page_checksum_verification(true);
+    readerProperties.set_data_page_checksum_verification(true);
     auto reader = ParquetFileReader::OpenFile(local_file_name, false, readerProperties);
     auto metadata_ptr = reader->metadata();
     EXPECT_EQ(1U, metadata_ptr->num_row_groups());

@@ -407,7 +407,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
 
-    if (properties_.use_page_checksum_verification() &&
+    // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2
+    if (properties_.data_page_checksum_verification() &&
         page_type == PageType::DATA_PAGE && current_page_header_.__isset.crc) {
       // verify crc
       uint32_t checksum =

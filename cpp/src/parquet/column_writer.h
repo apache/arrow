@@ -88,9 +88,10 @@ class PARQUET_EXPORT PageWriter {
       int compression_level, ColumnChunkMetaDataBuilder* metadata,
       int16_t row_group_ordinal = -1, int16_t column_chunk_ordinal = -1,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      bool buffered_row_group = false, bool page_write_checksum_enabled = false,
+      bool buffered_row_group = false,
       std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
-      std::shared_ptr<Encryptor> data_encryptor = NULLPTR);
+      std::shared_ptr<Encryptor> data_encryptor = NULLPTR,
+      bool page_write_checksum_enabled = false);
 
   // The Column Writer decides if dictionary encoding is used if set and
   // if the dictionary encoding has fallen back to default encoding on reaching dictionary

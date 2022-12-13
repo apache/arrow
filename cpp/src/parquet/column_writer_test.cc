@@ -655,12 +655,13 @@ TEST(TestWriter, EnableChecksum) {
   schema.Init(root);
 
   auto sink = CreateOutputStream();
-  auto props = WriterProperties::Builder().page_write_checksum_enabled(true)->build();
+  auto props = WriterProperties::Builder().enable_data_page_checksum()->build();
 
   auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
   std::unique_ptr<PageWriter> pager = PageWriter::Open(
       sink, Compression::UNCOMPRESSED, Codec::UseDefaultCompressionLevel(),
-      metadata.get(), -1, -1, ::arrow::default_memory_pool(), false, /* crc */ true);
+      metadata.get(), -1, -1, ::arrow::default_memory_pool(), false,
+      /* meta_encryptor */ nullptr, /* data_encryptor */ nullptr, /* crc */ true);
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
   auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);

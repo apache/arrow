@@ -367,7 +367,7 @@ TEST_F(TestPageSerde, CrcEnabled) {
       ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
     }
     ReaderProperties readerProperties;
-    readerProperties.set_use_page_checksum_verification(true);
+    readerProperties.set_data_page_checksum_verification(true);
     InitSerializedPageReader(num_rows * num_pages, codec_type, readerProperties);
 
     std::shared_ptr<Page> page;
@@ -392,7 +392,7 @@ TEST_F(TestPageSerde, CrcNotExists) {
 
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader());
   ReaderProperties readerProperties;
-  readerProperties.set_use_page_checksum_verification(true);
+  readerProperties.set_data_page_checksum_verification(true);
   InitSerializedPageReader(num_rows, Compression::UNCOMPRESSED, readerProperties);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
   ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
@@ -436,7 +436,7 @@ TEST_F(TestPageSerde, CrcCorrupt) {
     ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
 
     ReaderProperties readerProperties;
-    readerProperties.set_use_page_checksum_verification(true);
+    readerProperties.set_data_page_checksum_verification(true);
     InitSerializedPageReader(1, codec_type, readerProperties);
 
     std::shared_ptr<Page> page;
