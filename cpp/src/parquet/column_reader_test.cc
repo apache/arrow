@@ -1212,8 +1212,7 @@ TEST(RecordReaderByteArrayTest, SkipByteArray) {
 }
 
 // Test random combination of ReadRecords and SkipRecords.
-class RecordReaderStressTest
-    : public ::testing::TestWithParam<Repetition::type> {};
+class RecordReaderStressTest : public ::testing::TestWithParam<Repetition::type> {};
 
 TEST_P(RecordReaderStressTest, StressTest) {
   internal::LevelInfo level_info;
@@ -1233,8 +1232,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
   }
 
   NodePtr type = schema::Int32("b", GetParam());
-  const ColumnDescriptor descr(type, level_info.def_level,
-                               level_info.rep_level);
+  const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
 
   std::default_random_engine gen(/*seed=*/time(0));
   // Generate random number of pages with random number of values per page.
@@ -1248,8 +1246,8 @@ TEST_P(RecordReaderStressTest, StressTest) {
   std::vector<std::shared_ptr<Page>> pages;
   // Uses time(0) as seed so it would run a different test every time it is
   // run.
-  MakePages<Int32Type>(&descr, num_pages, levels_per_page, def_levels,
-                       rep_levels, values, data_buffer, pages, Encoding::PLAIN,
+  MakePages<Int32Type>(&descr, num_pages, levels_per_page, def_levels, rep_levels, values,
+                       data_buffer, pages, Encoding::PLAIN,
                        /*seed=*/time(0));
   std::unique_ptr<PageReader> pager;
   pager.reset(new test::MockPageReader(pages));
@@ -1303,8 +1301,8 @@ TEST_P(RecordReaderStressTest, StressTest) {
         ++read_records;
       }
 
-      bool has_value = required || (!required && def_levels[levels_index] ==
-                                                     level_info.def_level);
+      bool has_value =
+          required || (!required && def_levels[levels_index] == level_info.def_level);
 
       // If we are not skipping, we need to update the expected values and
       // rep/defs. If we are skipping, we just keep going.
@@ -1352,15 +1350,12 @@ TEST_P(RecordReaderStressTest, StressTest) {
     ASSERT_EQ(total_records, record_reader->values_written());
   } else {
     // We should have consumed all the column chunk.
-    ASSERT_EQ(record_reader->levels_position(),
-              record_reader->levels_written());
+    ASSERT_EQ(record_reader->levels_position(), record_reader->levels_written());
     // values_written() includes null count.
-    ASSERT_EQ(record_reader->levels_position(),
-              record_reader->values_written());
+    ASSERT_EQ(record_reader->levels_position(), record_reader->values_written());
   }
 
-  const auto read_values =
-      reinterpret_cast<const int32_t*>(record_reader->values());
+  const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
   if (required) {
     ASSERT_EQ(record_reader->null_count(), 0);
   }
@@ -1388,8 +1383,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
 }
 
 INSTANTIATE_TEST_SUITE_P(Repetition_type, RecordReaderStressTest,
-                         ::testing::Values(Repetition::REQUIRED,
-                                           Repetition::OPTIONAL,
+                         ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL,
                                            Repetition::REPEATED));
 
 }  // namespace test
