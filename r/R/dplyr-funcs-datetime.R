@@ -339,7 +339,8 @@ register_bindings_datetime_conversion <- function() {
       # => we only cast when we want the behaviour of the base version or when
       # `tz` is set (i.e. not NULL)
       if (call_binding("is.POSIXct", x)) {
-        x <- cast(x, timestamp(timezone = tz))
+        unit <- if (inherits(x, "Expression")) x$type()$unit() else "s"
+        x <- cast(x, timestamp(unit = unit, timezone = tz))
       }
 
       binding_as_date(
