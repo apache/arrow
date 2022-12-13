@@ -567,3 +567,17 @@ More specifically, Parquet C++ supports:
   supported.
 * EncryptionWithFooterKey and EncryptionWithColumnKey modes.
 * Encrypted Footer and Plaintext Footer modes.
+
+Miscellaneous
+-------------
+
++--------------------------+----------+----------+---------+
+| Feature                  | Reading  | Writing  | Notes   |
++==========================+==========+==========+=========+
+| Column Index             | ✓        |          | \(1)    |
++--------------------------+----------+----------+---------+
+| Offset Index             | ✓        |          | \(1)    |
++--------------------------+----------+----------+---------+
+
+* \(1) Access to the Column and Offset Index structures is provided, but
+  data read APIs do not currently make any use of them.
