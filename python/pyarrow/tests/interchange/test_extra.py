@@ -85,6 +85,12 @@ def test_offset_of_sliced_array():
     table = pa.table([arr], names=["arr"])
     table_sliced = pa.table([arr_sliced], names=["arr_sliced"])
 
+    # Creating a table from sliced array makes a copy?
+    # And so the offset of the sliced column in a table is 0
+    # df = table_sliced.__dataframe__()
+    # col = df.get_column(0)
+    # assert col.offset == 2
+
     df = pandas_from_dataframe(table)
     df_sliced = pandas_from_dataframe(table_sliced)
 
@@ -176,10 +182,40 @@ def test_large_string():
 
     data = np.array([b'x'*1024]*(3*1024**2), dtype='object')  # 3GB bytes data
     arr = pa.array(data, type=pa.large_string())
-    table = pa.table([arr], names = ["large_string"])
+    table = pa.table([arr], names=["large_string"])
+    result = pandas_from_dataframe(table)
 
-    exchange_df = table.__dataframe__()
-    result = pandas_from_dataframe(exchange_df)
-
-    assert result["string"][0] == data[0].decode()
+    assert result["large_string"][0] == data[0].decode()
     assert result.size == 3*1024**2
+
+
+def test_uint():
+    arr = pa.array([1, 2, 3, None], type=pa.uint16())
+    table = pa.table([arr], names=["uint"])
+    df = table.__dataframe__()
+    col = df.get_column(0)
+
+    assert col.null_count == 1
+    assert isinstance(col.null_count, int)
+    assert col.size == 4
+    assert col.offset == 0
+
+    assert col.dtype[0] == DtypeKind.UINT
+    assert col.dtype[1] == 16
+
+
+@pytest.mark.pandas
+def test_uint_roundtrip():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
+    from pandas.core.interchange.from_dataframe import (
+        from_dataframe as pandas_from_dataframe
+    )
+
+    arr = pa.array([1, 2, 3, 4], type=pa.uint16())
+    table = pa.table([arr], names=["uint"])
+    result = pandas_from_dataframe(table)
+    result_to_table = pa.Table.from_pandas(result)
+
+    assert table[0] == result_to_table[0]
