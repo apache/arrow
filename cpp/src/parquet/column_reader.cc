@@ -1958,14 +1958,14 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
-    ::arrow::ArrayVector result = accumulator_.chunks;
-    if (result.size() == 0 || accumulator_.builder->length() > 0) {
-      std::shared_ptr<::arrow::Array> last_chunk;
-      PARQUET_THROW_NOT_OK(accumulator_.builder->Finish(&last_chunk));
-      result.push_back(std::move(last_chunk));
-    }
-    accumulator_.chunks = {};
-    return result;
+    std::vector<std::shared_ptr<Buffer>> buffers = {ReleaseIsValid(),
+                                                  ReleaseOffsets(),
+                                                  ReleaseValues()};
+    auto data = std::make_shared<::arrow::ArrayData>(::arrow::binary(), values_written(),
+                                                   buffers, null_count());
+
+    auto chunks = ::arrow::ArrayVector({::arrow::MakeArray(data)});
+    return chunks;
   }
 
   void ReadValuesDense(int64_t values_to_read) override {
