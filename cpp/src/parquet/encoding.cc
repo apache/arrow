@@ -1361,14 +1361,12 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
   }
 
   int DecodeArrow_opt(int num_values, int null_count, const uint8_t* valid_bits,
-                  int32_t* offset,
-                  std::shared_ptr<::arrow::ResizableBuffer> & values,
-                  int64_t valid_bits_offset,
-                  int32_t* bianry_length) override {
+                      int32_t* offset, std::shared_ptr<::arrow::ResizableBuffer>& values,
+                      int64_t valid_bits_offset, int32_t* bianry_length) override {
     int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowDense_opt(num_values, null_count, valid_bits,
-                                          offset, values,
-                                          valid_bits_offset, &result, bianry_length));
+    PARQUET_THROW_NOT_OK(DecodeArrowDense_opt(num_values, null_count, valid_bits, offset,
+                                              values, valid_bits_offset, &result,
+                                              bianry_length));
 
     return result;
   }
@@ -1426,15 +1424,14 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
   }
 
   Status DecodeArrowDense_opt(int num_values, int null_count, const uint8_t* valid_bits,
-                          int32_t* offset,
-                          std::shared_ptr<::arrow::ResizableBuffer> & values,
-                          int64_t valid_bits_offset,
-                          int* out_values_decoded,
-                          int32_t* bianry_length) {
+                              int32_t* offset,
+                              std::shared_ptr<::arrow::ResizableBuffer>& values,
+                              int64_t valid_bits_offset, int* out_values_decoded,
+                              int32_t* bianry_length) {
     int values_decoded = 0;
     auto dst_value = values->mutable_data() + (*bianry_length);
     int capacity = values->size();
-    if (ARROW_PREDICT_FALSE((len_ + *bianry_length)  >= capacity)) {
+    if (ARROW_PREDICT_FALSE((len_ + *bianry_length) >= capacity)) {
       PARQUET_THROW_NOT_OK(values->Resize(len_ + *bianry_length, false));
       dst_value = values->mutable_data() + (*bianry_length);
     }
@@ -1456,7 +1453,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
           }
 
           (*bianry_length) += value_len;
-          offset[i+1] = offset[i] + value_len;
+          offset[i + 1] = offset[i] + value_len;
           memcpy(dst_value, data_ + 4, value_len);
           dst_value = dst_value + value_len;
 
@@ -1467,7 +1464,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
           return Status::OK();
         },
         [&]() {
-          offset[i+1] = offset[i];
+          offset[i + 1] = offset[i];
           ++i;
           return Status::OK();
         }));
@@ -1944,19 +1941,16 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
   }
 
   int DecodeArrow_opt(int num_values, int null_count, const uint8_t* valid_bits,
-                  int32_t* offset,
-                  std::shared_ptr<::arrow::ResizableBuffer> & values,
-                  int64_t valid_bits_offset,
-                  int32_t* bianry_length) override {
+                      int32_t* offset, std::shared_ptr<::arrow::ResizableBuffer>& values,
+                      int64_t valid_bits_offset, int32_t* bianry_length) override {
     int result = 0;
     if (null_count == 0) {
-      PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull_opt(num_values,
-                                          offset, values, &result, bianry_length));
+      PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull_opt(num_values, offset, values,
+                                                       &result, bianry_length));
     } else {
       PARQUET_THROW_NOT_OK(DecodeArrowDense_opt(num_values, null_count, valid_bits,
-                                          offset, values,
-                                          valid_bits_offset, &result, bianry_length));
-      
+                                                offset, values, valid_bits_offset,
+                                                &result, bianry_length));
     }
 
     return result;
@@ -2033,11 +2027,10 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
   }
 
   Status DecodeArrowDense_opt(int num_values, int null_count, const uint8_t* valid_bits,
-                          int32_t* offset,
-                          std::shared_ptr<::arrow::ResizableBuffer> & values,
-                          int64_t valid_bits_offset,
-                          int* out_num_values,
-                          int32_t* bianry_length) {
+                              int32_t* offset,
+                              std::shared_ptr<::arrow::ResizableBuffer>& values,
+                              int64_t valid_bits_offset, int* out_num_values,
+                              int32_t* bianry_length) {
     constexpr int32_t kBufferSize = 1024;
     int32_t indices[kBufferSize];
     auto dst_value = values->mutable_data() + (*bianry_length);
@@ -2067,10 +2060,11 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
           if (is_valid) {
             auto idx = indices[i];
             // RETURN_NOT_OK(IndexInBounds(idx));
-            const auto& val = dict_values[idx];            
+            const auto& val = dict_values[idx];
             auto value_len = val.len;
-            uint64_t value_offset= offset[num_appended+1] = offset[num_appended] + value_len;
-            
+            uint64_t value_offset = offset[num_appended + 1] =
+                offset[num_appended] + value_len;
+
             if (ARROW_PREDICT_FALSE(value_offset >= capacity)) {
               capacity = capacity + std::max((capacity >> 1), (uint64_t)value_len);
               PARQUET_THROW_NOT_OK(values->Resize(capacity, false));
@@ -2080,11 +2074,10 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
             memcpy(dst_value, val.ptr, static_cast<int32_t>(value_len));
             dst_value = dst_value + value_len;
 
-
             ++i;
             ++values_decoded;
           } else {
-            offset[num_appended+1] = offset[num_appended];
+            offset[num_appended + 1] = offset[num_appended];
             --null_count;
           }
           ++num_appended;
@@ -2097,15 +2090,14 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
           bit_reader.Next();
         }
       } else {
-        offset[num_appended+1] = offset[num_appended];
+        offset[num_appended + 1] = offset[num_appended];
         --null_count;
         ++num_appended;
       }
     }
     *out_num_values = values_decoded;
-    return Status::OK(); 
+    return Status::OK();
   }
-
 
   Status DecodeArrowDenseNonNull(int num_values,
                                  typename EncodingTraits<ByteArrayType>::Accumulator* out,
@@ -2136,12 +2128,9 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     return Status::OK();
   }
 
-   Status DecodeArrowDenseNonNull_opt(int num_values,
-                          int32_t* offset,
-                          std::shared_ptr<::arrow::ResizableBuffer> & values,
-                          int* out_num_values,
-                          int32_t* bianry_length) {
-
+  Status DecodeArrowDenseNonNull_opt(int num_values, int32_t* offset,
+                                     std::shared_ptr<::arrow::ResizableBuffer>& values,
+                                     int* out_num_values, int32_t* bianry_length) {
     constexpr int32_t kBufferSize = 2048;
     int32_t indices[kBufferSize];
     int values_decoded = 0;
@@ -2162,7 +2151,8 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
         // RETURN_NOT_OK(IndexInBounds(idx));
         const auto& val = dict_values[idx];
         auto value_len = val.len;
-        uint64_t value_offset= offset[num_appended+1] = offset[num_appended] + value_len;
+        uint64_t value_offset = offset[num_appended + 1] =
+            offset[num_appended] + value_len;
         if (ARROW_PREDICT_FALSE(value_offset >= capacity)) {
           capacity = capacity + std::max((capacity >> 1), (uint64_t)value_len);
           PARQUET_THROW_NOT_OK(values->Resize(capacity, false));

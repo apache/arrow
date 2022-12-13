@@ -1946,10 +1946,10 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
 };
 
 class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
-                                     virtual public BinaryRecordReader {
+                                        virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedOptRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                               ::arrow::MemoryPool* pool)
+                                  ::arrow::MemoryPool* pool)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     accumulator_.builder.reset(new ::arrow::BinaryBuilder(pool));
@@ -1958,11 +1958,10 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
-    std::vector<std::shared_ptr<Buffer>> buffers = {ReleaseIsValid(),
-                                                  ReleaseOffsets(),
-                                                  ReleaseValues()};
+    std::vector<std::shared_ptr<Buffer>> buffers = {ReleaseIsValid(), ReleaseOffsets(),
+                                                    ReleaseValues()};
     auto data = std::make_shared<::arrow::ArrayData>(::arrow::binary(), values_written(),
-                                                   buffers, null_count());
+                                                     buffers, null_count());
 
     auto chunks = ::arrow::ArrayVector({::arrow::MakeArray(data)});
     return chunks;
@@ -1970,17 +1969,18 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
 
   void ReadValuesDense(int64_t values_to_read) override {
     int64_t num_decoded = this->current_decoder_->DecodeArrow_opt(
-        static_cast<int>(values_to_read), 0,
-        NULLPTR, (reinterpret_cast<int32_t *>(offset_->mutable_data()) + values_written_), 
-        values_, 0, &bianry_length_);
+        static_cast<int>(values_to_read), 0, NULLPTR,
+        (reinterpret_cast<int32_t*>(offset_->mutable_data()) + values_written_), values_,
+        0, &bianry_length_);
     DCHECK_EQ(num_decoded, values_to_read);
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
     int64_t num_decoded = this->current_decoder_->DecodeArrow_opt(
         static_cast<int>(values_to_read), static_cast<int>(null_count),
-        valid_bits_->mutable_data(), (reinterpret_cast<int32_t *>(offset_->mutable_data()) + values_written_), 
-        values_, values_written_, &bianry_length_);
+        valid_bits_->mutable_data(),
+        (reinterpret_cast<int32_t*>(offset_->mutable_data()) + values_written_), values_,
+        values_written_, &bianry_length_);
     DCHECK_EQ(num_decoded, values_to_read - null_count);
   }
 
@@ -1990,12 +1990,11 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
     if (new_values_capacity > values_capacity_) {
       PARQUET_THROW_NOT_OK(
           values_->Resize(new_values_capacity * binary_per_row_length_, false));
-      PARQUET_THROW_NOT_OK(
-          offset_->Resize((new_values_capacity+1) * 4, false));
+      PARQUET_THROW_NOT_OK(offset_->Resize((new_values_capacity + 1) * 4, false));
 
-      auto offset = reinterpret_cast<int32_t *>(offset_->mutable_data());
+      auto offset = reinterpret_cast<int32_t*>(offset_->mutable_data());
       offset[0] = 0;
-      
+
       values_capacity_ = new_values_capacity;
     }
     if (leaf_info_.HasNullableValues()) {
@@ -2011,29 +2010,29 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
     }
   }
 
- std::shared_ptr<ResizableBuffer> ReleaseValues() override {
-      auto result = values_;
-      values_ = AllocateBuffer(this->pool_);
-      values_capacity_ = 0;
-      return result;
+  std::shared_ptr<ResizableBuffer> ReleaseValues() override {
+    auto result = values_;
+    values_ = AllocateBuffer(this->pool_);
+    values_capacity_ = 0;
+    return result;
   }
 
   std::shared_ptr<ResizableBuffer> ReleaseOffsets() override {
-      auto result = offset_;      
+    auto result = offset_;
 
-      if (ARROW_PREDICT_FALSE(!hasCal_average_len_)) {
-        auto offsetArr = reinterpret_cast<int32_t *>(offset_->mutable_data());
-        const auto first_offset = offsetArr[0];
-        const auto last_offset = offsetArr[values_written_];
-        int64_t binary_length = last_offset - first_offset;
-        binary_per_row_length_ = binary_length / values_written_ + 1;
-        // std::cout << "binary_per_row_length_:" << binary_per_row_length_ << std::endl;
-        hasCal_average_len_ = true;
-      }
-    
-      offset_ = AllocateBuffer(this->pool_);
-      bianry_length_ = 0;
-      return result;
+    if (ARROW_PREDICT_FALSE(!hasCal_average_len_)) {
+      auto offsetArr = reinterpret_cast<int32_t*>(offset_->mutable_data());
+      const auto first_offset = offsetArr[0];
+      const auto last_offset = offsetArr[values_written_];
+      int64_t binary_length = last_offset - first_offset;
+      binary_per_row_length_ = binary_length / values_written_ + 1;
+      // std::cout << "binary_per_row_length_:" << binary_per_row_length_ << std::endl;
+      hasCal_average_len_ = true;
+    }
+
+    offset_ = AllocateBuffer(this->pool_);
+    bianry_length_ = 0;
+    return result;
   }
 
   void ResetValues() {
@@ -2156,10 +2155,9 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
                                                         bool read_dictionary) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool);
-  } else if(descr->logical_type()->is_decimal()) {
+  } else if (descr->logical_type()->is_decimal()) {
     return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool);
-  }
-  else {
+  } else {
     return std::make_shared<ByteArrayChunkedOptRecordReader>(descr, leaf_info, pool);
   }
 }
