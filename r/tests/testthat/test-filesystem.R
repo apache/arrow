@@ -134,7 +134,7 @@ test_that("clean_path_abs() marks its output as utf-8", {
   on.exit(unlink(f))
 
   file.create(f)
-  f_utf8 <- enc2utf8(normalizePath(f))
+  f_utf8 <- enc2utf8(normalizePath(f, winslash = "/"))
   f_latin1 <- iconv(f_utf8, "utf-8", "latin1")
 
   expect_identical(clean_path_abs(f_utf8), f_utf8)
