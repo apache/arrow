@@ -55,8 +55,7 @@ _PYARROW_DTYPES: dict[DtypeKind, dict[int, Any]] = {
                       32: pa.float32(),
                       64: pa.float64()},
     DtypeKind.BOOL: {1: pa.bool_()},
-    DtypeKind.STRING: {1: pa.string(),
-                       8: pa.large_string()},
+    DtypeKind.STRING: {8: pa.string()},
 }
 
 
@@ -107,7 +106,6 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
         batches.append(batch)
 
     table = pa.Table.from_batches(batches)
-
     return table
 
 
@@ -177,8 +175,8 @@ def column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
 
 def bool_8_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
     """
-    Convert a column holding boolean dtype to with bit width equal 8
-    to a PyArrow array.
+    Convert a column holding boolean dtype with bit width = 8 to a
+    PyArrow array.
 
     Parameters
     ----------
@@ -197,9 +195,9 @@ def bool_8_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
     offset = col.offset
     data_bit_width = data_dtype[1]
 
-    data = get_ndarray_from_buffer(data_buff,
-                                   data_bit_width,
-                                   offset)
+    data = buffer_to_ndarray(data_buff,
+                             data_bit_width,
+                             offset)
 
     # Validity buffer
     try:
@@ -215,9 +213,9 @@ def bool_8_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
                          ColumnNullType.USE_BITMASK):
 
             validity_bit_width = validity_dtype[1]
-            bytemask = get_ndarray_from_buffer(validity_buff,
-                                               validity_bit_width,
-                                               offset)
+            bytemask = buffer_to_ndarray(validity_buff,
+                                         validity_bit_width,
+                                         offset)
             if sentinel_val == 0:
                 bytemask = np.invert(bytemask)
         else:
@@ -269,6 +267,7 @@ def categorical_column_to_dictionary(
 def datetime_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
     """
     Convert a column holding DateTime data to a NumPy array.
+
     Parameters
     ----------
     col : ColumnObject
@@ -331,6 +330,7 @@ def datetime_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
 
 def parse_datetime_format_str(format_str):
     """Parse datetime `format_str` to interpret the `data`."""
+
     # timestamp 'ts{unit}:tz'
     timestamp_meta = re.match(r"ts([smun]):(.*)", format_str)
     if timestamp_meta:
@@ -345,20 +345,8 @@ def parse_datetime_format_str(format_str):
 
         return unit, tz
 
+    # TODO
     # date 'td{Days/Ms}'
-    # date_meta = re.match(r"td([Dm])", format_str)
-    # if date_meta:
-    #     unit = date_meta.group(1)
-    #     if unit == "D":
-    #         # NumPy doesn't support DAY unit, so converting days to seconds
-    #         # (converting to uint64 to avoid overflow)
-    #         data = data.astype(np.uint64) * (24 * 60 * 60)
-    #         data = data.astype("datetime64[s]")
-    #     elif unit == "m":
-    #         data = data.astype("datetime64[ms]")
-    #     else:
-    #         raise NotImplementedError(f"Date unit is not supported: {unit}")
-    #     return data
 
     raise NotImplementedError(f"DateTime kind is not supported: {format_str}")
 
@@ -486,9 +474,9 @@ def validity_buffer(
     bytemask = None
     if null_kind == ColumnNullType.USE_BYTEMASK:
 
-        bytemask = get_ndarray_from_buffer(validity_buff,
-                                           validity_bit_width,
-                                           offset)
+        bytemask = buffer_to_ndarray(validity_buff,
+                                     validity_bit_width,
+                                     offset)
         if sentinel_val == 0:
             bytemask = np.invert(bytemask)
         validity_pa_buff = None
@@ -503,7 +491,7 @@ def validity_buffer(
     return validity_pa_buff, bytemask
 
 
-def get_ndarray_from_buffer(
+def buffer_to_ndarray(
     validity_buff: BufferObject,
     bit_width: int,
     offset: int = 0,
@@ -517,8 +505,6 @@ def get_ndarray_from_buffer(
         Tuple of underlying validity buffer and associated dtype.
     bit_width : int
         The number of bits of the buffer dtype as an integer.
-    sentinel_value : int, default: 0
-        The value (0 or 1) indicating a missing value in the bit/bytemask.
     offset : int, default: 0
         Number of elements to offset from the start of the buffer.
 
