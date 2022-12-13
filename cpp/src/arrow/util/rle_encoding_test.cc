@@ -200,7 +200,7 @@ static void TestPutValue(int bit_width, uint64_t num_vals) {
 }
 
 TEST(BitUtil, RoundTripIntValues) {
-  for (int width = 1; width <= 64; width++) {
+  for (int width = 1; width < 64; width++) {
     TestPutValue(width, 1);
     TestPutValue(width, 1024);
   }

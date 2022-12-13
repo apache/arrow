@@ -1372,6 +1372,7 @@ TYPED_TEST_SUITE(TestDeltaBitPackEncoding, TestDeltaBitPackEncodingTypes);
 
 TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   using T = typename TypeParam::c_type;
+  using UT = std::make_unsigned_t<T>;
   int values_per_block = 128;
   int values_per_mini_block = 32;
 
@@ -1393,9 +1394,9 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
       /*null_probability*/ 0.1,
       /*half_range*/ 0));
 
-  const uint32_t half_bitwidth = sizeof(T) * 4;
-  for (uint32_t bitwidth = 0; bitwidth < half_bitwidth; bitwidth += 4) {
-    T half_range = 2 << bitwidth;
+  const uint32_t max_bitwidth = sizeof(T) * 8;
+  for (uint32_t bitwidth = 4; bitwidth <= max_bitwidth; bitwidth += 4) {
+    UT half_range = (UT(1) << (bitwidth - 1)) / 2;
 
     ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(25000, 200, half_range));
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(

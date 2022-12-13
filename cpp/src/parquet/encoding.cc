@@ -2286,19 +2286,15 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   return SliceBuffer(buffer, offset_bytes);
 }
 
-void AssertInteger(const ::arrow::Array& values) {
-  if (values.type_id() != ::arrow::Type::INT32 &&
-      values.type_id() != ::arrow::Type::INT64) {
-    throw ParquetException("Delta bit pack encoding should only be for integer data.");
-  }
-}
-
 template <>
 void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
-  AssertInteger(values);
   const ::arrow::ArrayData& data = *values.data();
-  if (data.length % sizeof(int32_t) != 0) {
-    throw ParquetException("Data length must be multiple of length of int32.");
+  if (values.type_id() != ::arrow::Type::INT32) {
+    throw ParquetException("Expected Int32TArray, got ", values.type()->ToString());
+  }
+  if (data.length > std::numeric_limits<int32_t>::max()) {
+    throw ParquetException("Array cannot be longer than ",
+                           std::numeric_limits<int32_t>::max());
   }
 
   if (values.null_count() == 0) {
@@ -2311,10 +2307,13 @@ void DeltaBitPackEncoder<Int32Type>::Put(const ::arrow::Array& values) {
 
 template <>
 void DeltaBitPackEncoder<Int64Type>::Put(const ::arrow::Array& values) {
-  AssertInteger(values);
   const ::arrow::ArrayData& data = *values.data();
-  if (data.length % sizeof(int64_t) != 0) {
-    throw ParquetException("Data length must be multiple of length of int64.");
+  if (values.type_id() != ::arrow::Type::INT64) {
+    throw ParquetException("Expected Int64TArray, got ", values.type()->ToString());
+  }
+  if (data.length > std::numeric_limits<int32_t>::max()) {
+    throw ParquetException("Array cannot be longer than ",
+                           std::numeric_limits<int32_t>::max());
   }
   if (values.null_count() == 0) {
     Put(data.GetValues<int64_t>(1), static_cast<int>(data.length));
