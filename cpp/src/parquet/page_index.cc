@@ -107,8 +107,8 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
     DCHECK_LE(num_non_null_pages, num_pages);
 
     // Allocate slots for decoded values.
-    min_values_.resize(num_non_null_pages);
-    max_values_.resize(num_non_null_pages);
+    min_values_.resize(num_pages);
+    max_values_.resize(num_pages);
     non_null_page_indices_.reserve(num_non_null_pages);
 
     // Decode min and max values according to the physical type.

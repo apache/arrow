@@ -214,7 +214,7 @@ TEST(PageIndex, ReadBoolColumnIndex) {
       null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
-TEST(PageIndex, FixedLengthByteArrayColumnIndex) {
+TEST(PageIndex, ReadFixedLengthByteArrayColumnIndex) {
   auto to_flba = [](const char* ptr) {
     return FLBA{reinterpret_cast<const uint8_t*>(ptr)};
   };
@@ -242,19 +242,18 @@ TEST(PageIndex, FixedLengthByteArrayColumnIndex) {
 
 TEST(PageIndex, ReadColumnIndexWithNullPage) {
   const int column_id = 0;
-  const size_t num_pages = 2;
-  const BoundaryOrder::type boundary_order = BoundaryOrder::Ascending;
-  const std::vector<size_t> page_indices = {0, 1};
-  const std::vector<bool> null_pages = {true, true};
-  // It seems that the null_counts are malformed.
+  const size_t num_pages = 10;
+  const BoundaryOrder::type boundary_order = BoundaryOrder::Unordered;
+  const std::vector<size_t> page_indices = {2, 4, 8};
+  const std::vector<bool> null_pages = {true, false, false};
   const bool has_null_counts = true;
-  const std::vector<int64_t> null_counts = {-1, -1};
-  const std::vector<int32_t> min_values = {};
-  const std::vector<int32_t> max_values = {};
+  const std::vector<int64_t> null_counts = {100, 16, 8};
+  const std::vector<int32_t> min_values = {0, -2048691758, -2046900272};
+  const std::vector<int32_t> max_values = {0, 2143189382, 2087168549};
 
   TestReadTypedColumnIndex<Int32Type>(
-      "datapage_v1-uncompressed-checksum.parquet", column_id, num_pages, boundary_order,
-      page_indices, null_pages, min_values, max_values, has_null_counts, null_counts);
+      "int32_with_null_pages.parquet", column_id, num_pages, boundary_order, page_indices,
+      null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
 }  // namespace parquet
