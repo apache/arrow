@@ -243,7 +243,8 @@ public final class DecimalVector extends BaseFixedWidthVector {
     } else {
       if (length <= TYPE_WIDTH) {
         // copy data from value to outAddress
-        MemoryUtil.UNSAFE.copyMemory(value,
+        MemoryUtil.UNSAFE.copyMemory(
+                value,
                 MemoryUtil.BYTE_ARRAY_BASE_OFFSET,
                 null,
                 outAddress + DecimalVector.TYPE_WIDTH - length,
