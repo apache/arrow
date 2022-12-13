@@ -173,7 +173,7 @@ TEST(BitArray, TestMixed) {
   }
 }
 
-// Writes 'num_vals' values with width 'bit_width' and reads them back.
+// Write up to 'num_vals' values with width 'bit_width' and reads them back.
 static void TestPutValue(int bit_width, uint64_t num_vals) {
   const uint64_t max = uint64_t(2) << (bit_width - 1);
   num_vals = std::min(num_vals, max);
@@ -200,7 +200,7 @@ static void TestPutValue(int bit_width, uint64_t num_vals) {
 }
 
 TEST(BitUtil, RoundTripIntValues) {
-  for (int width = 1; width < 64; width++) {
+  for (int width = 1; width <= 64; width++) {
     TestPutValue(width, 1);
     TestPutValue(width, 1024);
   }
