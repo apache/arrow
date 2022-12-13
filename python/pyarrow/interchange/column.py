@@ -197,6 +197,16 @@ class _PyArrowColumn:
         Handles PyArrow Arrays and ChunkedArrays.
         """
         # Store the column as a private attribute
+        if isinstance(column, pa.ChunkedArray):
+            if column.num_chunks == 1:
+                column = column.chunk(0)
+            else:
+                if not allow_copy:
+                    raise RuntimeError(
+                        "Chunks will be combined and a copy is required which "
+                        "is forbidden by allow_copy=False"
+                    )
+                column = column.combine_chunks()
         self._col = column
         self._allow_copy = allow_copy
 
@@ -219,12 +229,7 @@ class _PyArrowColumn:
         equal size M (only the last chunk may be shorter),
         ``offset = n * M``, ``n = 0 .. N-1``.
         """
-        if isinstance(self._col, pa.Array):
-            return self._col.offset
-        else:
-            # ChunkedArray gets copied with `combine_chunks` so the offset will
-            # always be 0
-            return 0
+        return self._col.offset
 
     @property
     def dtype(self) -> Tuple[DtypeKind, int, str, str]:
@@ -316,11 +321,7 @@ class _PyArrowColumn:
                              categorical.
         TBD: are there any other in-memory representations that are needed?
         """
-        if isinstance(self._col, pa.ChunkedArray):
-            arr = self._col.combine_chunks()
-        else:
-            arr = self._col
-
+        arr = self._col
         if not pa.types.is_dictionary(arr.type):
             raise TypeError(
                 "describe_categorical only works on a column with "
@@ -369,11 +370,7 @@ class _PyArrowColumn:
         """
         Return the number of chunks the column consists of.
         """
-        if isinstance(self._col, pa.Array):
-            n_chunks = 1
-        else:
-            n_chunks = self._col.num_chunks
-        return n_chunks
+        return 1
 
     def get_chunks(
         self, n_chunks: Optional[int] = None
@@ -387,11 +384,7 @@ class _PyArrowColumn:
             if self.size % n_chunks != 0:
                 chunk_size += 1
 
-            if isinstance(self._col, pa.ChunkedArray):
-                array = self._col.combine_chunks()
-            else:
-                array = self._col
-
+            array = self._col
             i = 0
             for start in range(0, chunk_size * n_chunks, chunk_size):
                 yield _PyArrowColumn(
@@ -451,10 +444,7 @@ class _PyArrowColumn:
         Return the buffer containing the data and the buffer's
         associated dtype.
         """
-        if isinstance(self._col, pa.ChunkedArray):
-            array = self._col.combine_chunks()
-        else:
-            array = self._col
+        array = self._col
         dtype = self.dtype
 
         # In case of boolean arrays, cast to uint8 array
@@ -484,10 +474,7 @@ class _PyArrowColumn:
         """
         # Define the dtype of the returned buffer
         dtype = (DtypeKind.BOOL, 1, "b", Endianness.NATIVE)
-        if isinstance(self._col, pa.ChunkedArray):
-            array = self._col.combine_chunks()
-        else:
-            array = self._col
+        array = self._col
         buff = array.buffers()[0]
         if buff:
             return _PyArrowBuffer(buff), dtype
@@ -503,10 +490,7 @@ class _PyArrowColumn:
         Raises NoBufferPresent if the data buffer does not have an associated
         offsets buffer.
         """
-        if isinstance(self._col, pa.ChunkedArray):
-            array = self._col.combine_chunks()
-        else:
-            array = self._col
+        array = self._col
         n = len(array.buffers())
         if n == 2:
             raise NoBufferPresent(

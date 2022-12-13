@@ -102,14 +102,17 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
     """
     batches = []
     for chunk in df.get_chunks():
-        batch = protocol_df_chunk_to_pyarrow(chunk)
+        batch = protocol_df_chunk_to_pyarrow(chunk, allow_copy)
         batches.append(batch)
 
     table = pa.Table.from_batches(batches)
     return table
 
 
-def protocol_df_chunk_to_pyarrow(df: DataFrameObject) -> pa.Table:
+def protocol_df_chunk_to_pyarrow(
+    df: DataFrameObject,
+    allow_copy: bool = True
+) -> pa.Table:
     """
     Convert interchange protocol chunk to ``pa.RecordBatch``.
 
@@ -138,13 +141,14 @@ def protocol_df_chunk_to_pyarrow(df: DataFrameObject) -> pa.Table:
             DtypeKind.FLOAT,
             DtypeKind.STRING,
         ):
-            columns[name], buf = column_to_array(col)
+            columns[name], buf = column_to_array(col, allow_copy)
         elif dtype == DtypeKind.BOOL:
-            columns[name], buf = bool_8_column_to_array(col)
+            columns[name], buf = bool_8_column_to_array(col, allow_copy)
         elif dtype == DtypeKind.CATEGORICAL:
-            columns[name], buf = categorical_column_to_dictionary(col)
+            columns[name], buf = categorical_column_to_dictionary(
+                col, allow_copy)
         elif dtype == DtypeKind.DATETIME:
-            columns[name], buf = datetime_column_to_array(col)
+            columns[name], buf = datetime_column_to_array(col, allow_copy)
         else:
             raise NotImplementedError(f"Data type {dtype} not handled yet")
 
@@ -153,7 +157,10 @@ def protocol_df_chunk_to_pyarrow(df: DataFrameObject) -> pa.Table:
     return pa.RecordBatch.from_pydict(columns)
 
 
-def column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
+def column_to_array(
+    col: ColumnObject,
+    allow_copy: bool = True
+) -> tuple[pa.Array, Any]:
     """
     Convert a column holding one of the primitive dtypes to a PyArrow array.
     A primitive type is one of: int, uint, float, bool (1 bit).
@@ -169,11 +176,15 @@ def column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
         that keeps the memory alive.
     """
     buffers = col.get_buffers()
-    data = buffers_to_array(buffers, col.size(), col.describe_null, col.offset)
+    data = buffers_to_array(buffers, col.size(),
+                            col.describe_null, col.offset, allow_copy)
     return data, buffers
 
 
-def bool_8_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
+def bool_8_column_to_array(
+    col: ColumnObject,
+    allow_copy=True
+) -> tuple[pa.Array, Any]:
     """
     Convert a column holding boolean dtype with bit width = 8 to a
     PyArrow array.
@@ -188,6 +199,11 @@ def bool_8_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
         Tuple of pa.Array holding the data and the memory owner object
         that keeps the memory alive.
     """
+    if not allow_copy:
+        raise RuntimeError(
+            "PyArrow Array will always be created out of a NumPy ndarray "
+            "and a copy is required which is forbidden by allow_copy=False"
+        )
     buffers = col.get_buffers()
 
     # Data buffer
@@ -227,7 +243,8 @@ def bool_8_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
 
 
 def categorical_column_to_dictionary(
-    col: ColumnObject
+    col: ColumnObject,
+    allow_copy: bool = False
 ) -> tuple[pa.DictionaryArray, Any]:
     """
     Convert a column holding categorical data to a pa.DictionaryArray.
@@ -254,9 +271,14 @@ def categorical_column_to_dictionary(
 
     buffers = col.get_buffers()
     indices = buffers_to_array(
-        buffers, col.size(), col.describe_null, col.offset)
+        buffers, col.size(), col.describe_null, col.offset, allow_copy)
 
     if null_kind == ColumnNullType.USE_SENTINEL:
+        if not allow_copy:
+            raise RuntimeError(
+                "PyArrow Array will always be created out of a NumPy ndarray "
+                "and a copy is required which is forbidden by allow_copy=False"
+            )
         bytemask = [value == sentinel_val for value in indices.to_pylist()]
         indices = pa.array(indices.to_pylist(), mask=bytemask)
 
@@ -264,7 +286,10 @@ def categorical_column_to_dictionary(
     return dict_array, buffers
 
 
-def datetime_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
+def datetime_column_to_array(
+    col: ColumnObject,
+    allow_copy: bool = False
+) -> tuple[pa.Array, Any]:
     """
     Convert a column holding DateTime data to a NumPy array.
 
@@ -323,6 +348,11 @@ def datetime_column_to_array(col: ColumnObject) -> tuple[pa.Array, Any]:
     # In case a bytemask was constructed with validity_buffer() call
     # or with sentinel_value then we have to add the mask to the array
     if bytemask is not None:
+        if not allow_copy:
+            raise RuntimeError(
+                "PyArrow Array will always be created out of a NumPy ndarray "
+                "and a copy is required which is forbidden by allow_copy=False"
+            )
         return pa.array(array.to_pylist(), mask=bytemask), buffers
     else:
         return array, buffers
@@ -356,6 +386,7 @@ def buffers_to_array(
     length: int,
     describe_null: ColumnNullType,
     offset: int = 0,
+    allow_copy: bool = False
 ) -> pa.Array:
     """
     Build a PyArrow array from the passed buffer.
@@ -434,6 +465,11 @@ def buffers_to_array(
     # In case a bytemask was constructed with validity_buffer() call
     # then we have to add the mask to the array
     if bytemask is not None:
+        if not allow_copy:
+            raise RuntimeError(
+                "PyArrow Array will always be created out of a NumPy ndarray "
+                "and a copy is required which is forbidden by allow_copy=False"
+            )
         return pa.array(array.to_pylist(), mask=bytemask)
     else:
         return array
