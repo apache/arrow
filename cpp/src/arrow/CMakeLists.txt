@@ -450,6 +450,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_cumulative_ops.cc
        compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
+       compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_selection.cc

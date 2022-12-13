@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <unordered_set>
+
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 
@@ -418,6 +420,155 @@ class RadixRecordBatchSorter {
   const SortOptions& options_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
+};
+
+// Sort a batch using a single sort and multiple-key comparisons.
+class MultipleKeyRecordBatchSorter : public TypeVisitor {
+ private:
+  // Preprocessed sort key.
+  struct ResolvedSortKey {
+    ResolvedSortKey(const std::shared_ptr<Array>& array, SortOrder order)
+        : type(GetPhysicalType(array->type())),
+          owned_array(GetPhysicalArray(*array, type)),
+          array(*owned_array),
+          order(order),
+          null_count(array->null_count()) {}
+
+    using LocationType = int64_t;
+
+    template <typename ArrayType>
+    ResolvedChunk<ArrayType> GetChunk(int64_t index) const {
+      return {&::arrow::internal::checked_cast<const ArrayType&>(array), index};
+    }
+
+    const std::shared_ptr<DataType> type;
+    std::shared_ptr<Array> owned_array;
+    const Array& array;
+    SortOrder order;
+    int64_t null_count;
+  };
+
+  using Comparator = MultipleKeyComparator<ResolvedSortKey>;
+
+ public:
+  MultipleKeyRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
+                               const RecordBatch& batch, const SortOptions& options)
+      : indices_begin_(indices_begin),
+        indices_end_(indices_end),
+        sort_keys_(ResolveSortKeys(batch, options.sort_keys, &status_)),
+        null_placement_(options.null_placement),
+        comparator_(sort_keys_, null_placement_) {}
+
+  // This is optimized for the first sort key. The first sort key sort
+  // is processed in this class. The second and following sort keys
+  // are processed in Comparator.
+  Status Sort() {
+    RETURN_NOT_OK(status_);
+    return sort_keys_[0].type->Accept(this);
+  }
+
+#define VISIT(TYPE) \
+  Status Visit(const TYPE& type) override { return SortInternal<TYPE>(); }
+
+  VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+  VISIT(NullType)
+
+#undef VISIT
+
+ private:
+  static std::vector<ResolvedSortKey> ResolveSortKeys(
+      const RecordBatch& batch, const std::vector<SortKey>& sort_keys, Status* status) {
+    const auto maybe_resolved =
+        ::arrow::compute::internal::ResolveSortKeys<ResolvedSortKey>(batch, sort_keys);
+    if (!maybe_resolved.ok()) {
+      *status = maybe_resolved.status();
+      return {};
+    }
+    return *std::move(maybe_resolved);
+  }
+
+  template <typename Type>
+  enable_if_t<!is_null_type<Type>::value, Status> SortInternal() {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
+    using GetView = GetViewType<Type>;
+
+    auto& comparator = comparator_;
+    const auto& first_sort_key = sort_keys_[0];
+    const ArrayType& array =
+        ::arrow::internal::checked_cast<const ArrayType&>(first_sort_key.array);
+    const auto p = PartitionNullsInternal<Type>(first_sort_key);
+
+    // Sort first-key non-nulls
+    std::stable_sort(
+        p.non_nulls_begin, p.non_nulls_end, [&](uint64_t left, uint64_t right) {
+          // Both values are never null nor NaN
+          // (otherwise they've been partitioned away above).
+          const auto value_left = GetView::LogicalValue(array.GetView(left));
+          const auto value_right = GetView::LogicalValue(array.GetView(right));
+          if (value_left != value_right) {
+            bool compared = value_left < value_right;
+            if (first_sort_key.order == SortOrder::Ascending) {
+              return compared;
+            } else {
+              return !compared;
+            }
+          }
+          // If the left value equals to the right value,
+          // we need to compare the second and following
+          // sort keys.
+          return comparator.Compare(left, right, 1);
+        });
+    return comparator_.status();
+  }
+
+  template <typename Type>
+  enable_if_null<Type, Status> SortInternal() {
+    std::stable_sort(indices_begin_, indices_end_, [&](uint64_t left, uint64_t right) {
+      return comparator_.Compare(left, right, 1);
+    });
+    return comparator_.status();
+  }
+
+  // Behaves like PartitionNulls() but this supports multiple sort keys.
+  template <typename Type>
+  NullPartitionResult PartitionNullsInternal(const ResolvedSortKey& first_sort_key) {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
+    const ArrayType& array =
+        ::arrow::internal::checked_cast<const ArrayType&>(first_sort_key.array);
+
+    const auto p = PartitionNullsOnly<StablePartitioner>(indices_begin_, indices_end_,
+                                                         array, 0, null_placement_);
+    const auto q = PartitionNullLikes<ArrayType, StablePartitioner>(
+        p.non_nulls_begin, p.non_nulls_end, array, 0, null_placement_);
+
+    auto& comparator = comparator_;
+    if (q.nulls_begin != q.nulls_end) {
+      // Sort all NaNs by the second and following sort keys.
+      // TODO: could we instead run an independent sort from the second key on
+      // this slice?
+      std::stable_sort(q.nulls_begin, q.nulls_end,
+                       [&comparator](uint64_t left, uint64_t right) {
+                         return comparator.Compare(left, right, 1);
+                       });
+    }
+    if (p.nulls_begin != p.nulls_end) {
+      // Sort all nulls by the second and following sort keys.
+      // TODO: could we instead run an independent sort from the second key on
+      // this slice?
+      std::stable_sort(p.nulls_begin, p.nulls_end,
+                       [&comparator](uint64_t left, uint64_t right) {
+                         return comparator.Compare(left, right, 1);
+                       });
+    }
+    return q;
+  }
+
+  uint64_t* indices_begin_;
+  uint64_t* indices_end_;
+  Status status_;
+  std::vector<ResolvedSortKey> sort_keys_;
+  NullPlacement null_placement_;
+  Comparator comparator_;
 };
 
 // ----------------------------------------------------------------------
@@ -893,6 +1044,25 @@ class SortIndicesMetaFunction : public MetaFunction {
 };
 
 }  // namespace
+
+Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
+                                            const std::vector<SortKey>& sort_keys) {
+  std::vector<SortField> fields;
+  std::unordered_set<int> seen;
+  fields.reserve(sort_keys.size());
+  seen.reserve(sort_keys.size());
+
+  for (const auto& sort_key : sort_keys) {
+    RETURN_NOT_OK(CheckNonNested(sort_key.target));
+
+    ARROW_ASSIGN_OR_RAISE(auto match,
+                          PrependInvalidColumn(sort_key.target.FindOne(schema)));
+    if (seen.insert(match[0]).second) {
+      fields.push_back({match[0], sort_key.order});
+    }
+  }
+  return fields;
+}
 
 Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
                         const ChunkedArray& values, SortOrder sort_order,

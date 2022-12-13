@@ -295,6 +295,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterVectorCumulativeSum(registry.get());
   RegisterVectorHash(registry.get());
   RegisterVectorNested(registry.get());
+  RegisterVectorRank(registry.get());
   RegisterVectorReplace(registry.get());
   RegisterVectorSelectK(registry.get());
   RegisterVectorSelection(registry.get());
