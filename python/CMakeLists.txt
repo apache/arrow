@@ -608,6 +608,7 @@ set(CYTHON_EXTENSIONS
     _hdfsio
     _json
     _pyarrow_cpp_tests)
+set_source_files_properties(pyarrow/lib.pyx PROPERTIES CYTHON_API TRUE)
 
 set(LINK_LIBS arrow_python_shared)
 
@@ -635,6 +636,7 @@ if(PYARROW_BUILD_CUDA)
   endif()
   set(CUDA_LINK_LIBS ArrowCUDA::arrow_cuda_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
+  set_source_files_properties(pyarrow/_cuda.pyx PROPERTIES CYTHON_API TRUE)
 endif()
 
 # Dataset
@@ -773,9 +775,6 @@ foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." "/" module_root "${module}")
   set(module_SRC pyarrow/${module_root}.pyx)
   set_source_files_properties(${module_SRC} PROPERTIES CYTHON_IS_CXX TRUE)
-  if(NOT module MATCHES "^_")
-    set_source_files_properties(${module_SRC} PROPERTIES CYTHON_API TRUE)
-  endif()
 
   cython_add_module(${module_name} ${module_name}_pyx ${module_name}_output ${module_SRC})
 
@@ -815,14 +814,13 @@ foreach(module ${CYTHON_EXTENSIONS})
   target_link_libraries(${module_name} PRIVATE ${LINK_LIBS})
 
   install(TARGETS ${module_name} LIBRARY DESTINATION ".")
-  foreach(output in ${${module_name}_output})
-    if(output MATCHES "\\.h$")
-      install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${output} DESTINATION ".")
-    elseif(output MATCHES "\\.${CYTHON_CXX_EXTENSION}$")
-      if(PYARROW_BUNDLE_CYTHON_CPP)
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${output} DESTINATION ".")
+  foreach(output ${${module_name}_output})
+    if(output MATCHES "\\.${CYTHON_CXX_EXTENSION}$")
+      if(NOT PYARROW_BUNDLE_CYTHON_CPP)
+        continue()
       endif()
     endif()
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${output} DESTINATION ".")
   endforeach()
 endforeach()
 
