@@ -25,6 +25,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/io/compressed.h"
@@ -58,10 +59,23 @@ class CsvFormatHelper {
   }
 };
 
+struct CsvFileFormatParams {
+  Compression::type compression_type;
+  bool use_new_scan_v2;
+};
+
 class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
-                          public ::testing::WithParamInterface<Compression::type> {
+                          public ::testing::WithParamInterface<CsvFileFormatParams> {
  public:
-  Compression::type GetCompression() { return GetParam(); }
+  bool UseScanV2() { return GetParam().use_new_scan_v2; }
+  Compression::type GetCompression() { return GetParam().compression_type; }
+
+  void SetUp() {
+    internal::Initialize();
+    auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
+    fragment_scan_options->parse_options.ignore_empty_lines = false;
+    opts_->fragment_scan_options = fragment_scan_options;
+  }
 
   std::unique_ptr<FileSource> GetFileSource(std::string csv) {
     if (GetCompression() == Compression::UNCOMPRESSED) {
@@ -96,9 +110,44 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     return std::make_unique<FileSource>(info, fs, GetCompression());
   }
 
-  RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
-    return MakeGeneratorIterator(batch_gen);
+  CsvFragmentScanOptions MakeDefaultFormatOptions() {
+    CsvFragmentScanOptions scan_opts;
+    scan_opts.parse_options.ignore_empty_lines = false;
+    return scan_opts;
+  }
+
+  ScanV2Options MigrateLegacyOptions(std::shared_ptr<Fragment> fragment) {
+    std::shared_ptr<Dataset> dataset = std::make_shared<FragmentDataset>(
+        opts_->dataset_schema, FragmentVector{std::move(fragment)});
+    ScanV2Options updated(std::move(dataset));
+    updated.format_options = opts_->fragment_scan_options.get();
+    updated.filter = opts_->filter;
+    for (const auto& field : opts_->projected_schema->fields()) {
+      auto field_name = field->name();
+      EXPECT_OK_AND_ASSIGN(FieldPath field_path,
+                           FieldRef(field_name).FindOne(*opts_->dataset_schema));
+      updated.columns.push_back(field_path);
+    }
+    return updated;
+  }
+
+  RecordBatchIterator Batches(const std::shared_ptr<Fragment>& fragment) {
+    if (UseScanV2()) {
+      ScanV2Options v2_options = MigrateLegacyOptions(fragment);
+      EXPECT_TRUE(ScanV2Options::AddFieldsNeededForFilter(&v2_options).ok());
+      EXPECT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
+                           compute::DeclarationToReader(
+                               compute::Declaration("scan2", std::move(v2_options)),
+                               /*use_threads=*/false));
+      struct ReaderIterator {
+        Result<std::shared_ptr<RecordBatch>> Next() { return reader->Next(); }
+        std::unique_ptr<RecordBatchReader> reader;
+      };
+      return RecordBatchIterator(ReaderIterator{std::move(reader)});
+    } else {
+      EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+      return MakeGeneratorIterator(batch_gen);
+    }
   }
 };
 
@@ -111,7 +160,7 @@ TEST_P(TestCsvFileFormat, BOMQuoteInHeader) {
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
+  for (auto maybe_batch : Batches(fragment)) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     AssertSchemaEqual(batch->schema(), schema(fields));
     row_count += batch->num_rows();
@@ -133,7 +182,7 @@ N/A
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
+  for (auto maybe_batch : Batches(fragment)) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
   }
@@ -149,13 +198,13 @@ N/A
 bar)");
   SetSchema({field("str", utf8())});
   auto fragment = MakeFragment(*source);
-  auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
+  auto fragment_scan_options =
+      static_cast<CsvFragmentScanOptions*>(opts_->fragment_scan_options.get());
   fragment_scan_options->convert_options.null_values = {"MYNULL"};
   fragment_scan_options->convert_options.strings_can_be_null = true;
-  opts_->fragment_scan_options = fragment_scan_options;
 
   int64_t null_count = 0;
-  for (auto maybe_batch : Batches(fragment.get())) {
+  for (auto maybe_batch : Batches(fragment)) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     null_count += batch->GetColumnByName("str")->null_count();
   }
@@ -175,12 +224,13 @@ bar)");
     auto defaults = std::make_shared<CsvFragmentScanOptions>();
     defaults->read_options.skip_rows = 1;
     format_->default_fragment_scan_options = defaults;
+    opts_->fragment_scan_options = nullptr;
     auto fragment = MakeFragment(*source);
     ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
     AssertSchemaEqual(opts_->dataset_schema, physical_schema);
 
     int64_t rows = 0;
-    for (auto maybe_batch : Batches(fragment.get())) {
+    for (auto maybe_batch : Batches(fragment)) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       rows += batch->GetColumnByName("str")->length();
     }
@@ -189,12 +239,13 @@ bar)");
   {
     SetSchema({field("header_skipped", utf8())});
     // These options completely override the default ones
-    auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
+    opts_->fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
+    auto fragment_scan_options =
+        static_cast<CsvFragmentScanOptions*>(opts_->fragment_scan_options.get());
     fragment_scan_options->read_options.block_size = 1 << 22;
-    opts_->fragment_scan_options = fragment_scan_options;
     int64_t rows = 0;
     auto fragment = MakeFragment(*source);
-    for (auto maybe_batch : Batches(fragment.get())) {
+    for (auto maybe_batch : Batches(fragment)) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       rows += batch->GetColumnByName("header_skipped")->length();
     }
@@ -208,7 +259,7 @@ bar)");
     opts_->fragment_scan_options = nullptr;
     int64_t rows = 0;
     auto fragment = MakeFragment(*source);
-    for (auto maybe_batch : Batches(fragment.get())) {
+    for (auto maybe_batch : Batches(fragment)) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       rows += batch->GetColumnByName("custom_header")->length();
     }
@@ -222,11 +273,12 @@ TEST_P(TestCsvFileFormat, CustomReadOptionsColumnNames) {
   auto defaults = std::make_shared<CsvFragmentScanOptions>();
   defaults->read_options.column_names = {"ints_1", "ints_2"};
   format_->default_fragment_scan_options = defaults;
+  opts_->fragment_scan_options = nullptr;
   auto fragment = MakeFragment(*source);
   ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(opts_->dataset_schema, physical_schema);
   int64_t rows = 0;
-  for (auto maybe_batch : Batches(fragment.get())) {
+  for (auto maybe_batch : Batches(fragment)) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     rows += batch->num_rows();
   }
@@ -235,9 +287,25 @@ TEST_P(TestCsvFileFormat, CustomReadOptionsColumnNames) {
   defaults->read_options.column_names = {"same", "same"};
   format_->default_fragment_scan_options = defaults;
   fragment = MakeFragment(*source);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("CSV file contained multiple columns named same"),
-      Batches(fragment.get()).Next());
+  SetSchema({field("same", int64())});
+  if (UseScanV2()) {
+    // V2 scan method's basic evolution strategy builds ds_to_frag_map and just finds
+    // the first instance of a matching column and doesn't check further to see if
+    // there are duplicates.  So in this case it would grab the first column.
+    //
+    // Not clear if this is a good thing or not.
+    rows = 0;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      rows += batch->num_rows();
+    }
+    ASSERT_EQ(rows, 2);
+  } else {
+    // Legacy scan method does not support CSV columns with duplicate names
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("CSV file contained multiple columns named same"),
+        Batches(fragment).Next());
+  }
 }
 
 TEST_P(TestCsvFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
@@ -255,12 +323,17 @@ N/A
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
+  for (auto maybe_batch : Batches(fragment)) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-    AssertSchemaEqual(*batch->schema(), *physical_schema);
+    if (UseScanV2()) {
+      // In the new scan, evolution happens and inserts a null column in place of the
+      // virtual column
+      AssertSchemaEqual(*batch->schema(), *opts_->dataset_schema);
+    } else {
+      AssertSchemaEqual(*batch->schema(), *physical_schema);
+    }
     row_count += batch->num_rows();
   }
-
   ASSERT_EQ(row_count, 4);
 }
 
@@ -379,23 +452,39 @@ TEST_P(TestCsvFileFormat, CountRows) { TestCountRows(); }
 TEST_P(TestCsvFileFormat, FragmentEquals) { TestFragmentEquals(); }
 
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
-                         ::testing::Values(Compression::UNCOMPRESSED));
+                         ::testing::Values(CsvFileFormatParams{Compression::UNCOMPRESSED,
+                                                               false}));
+INSTANTIATE_TEST_SUITE_P(TestUncompressedCsvV2, TestCsvFileFormat,
+                         ::testing::Values(CsvFileFormatParams{Compression::UNCOMPRESSED,
+                                                               true}));
 #ifdef ARROW_WITH_BZ2
 INSTANTIATE_TEST_SUITE_P(TestBZ2Csv, TestCsvFileFormat,
-                         ::testing::Values(Compression::BZ2));
+                         ::testing::Values(CsvFileFormatParams{Compression::BZ2, false}));
+INSTANTIATE_TEST_SUITE_P(TestBZ2CsvV2, TestCsvFileFormat,
+                         ::testing::Values(CsvFileFormatParams{Compression::BZ2, true}));
 #endif
 #ifdef ARROW_WITH_LZ4
 INSTANTIATE_TEST_SUITE_P(TestLZ4Csv, TestCsvFileFormat,
-                         ::testing::Values(Compression::LZ4_FRAME));
+                         ::testing::Values(CsvFileFormatParams{Compression::LZ4_FRAME,
+                                                               false}));
+INSTANTIATE_TEST_SUITE_P(TestLZ4CsvV2, TestCsvFileFormat,
+                         ::testing::Values(CsvFileFormatParams{Compression::LZ4_FRAME,
+                                                               true}));
 #endif
 // Snappy does not support streaming compression
 #ifdef ARROW_WITH_ZLIB
-INSTANTIATE_TEST_SUITE_P(TestGZipCsv, TestCsvFileFormat,
-                         ::testing::Values(Compression::GZIP));
+INSTANTIATE_TEST_SUITE_P(TestGzipCsv, TestCsvFileFormat,
+                         ::testing::Values(CsvFileFormatParams{Compression::GZIP,
+                                                               false}));
+INSTANTIATE_TEST_SUITE_P(TestGzipCsvV2, TestCsvFileFormat,
+                         ::testing::Values(CsvFileFormatParams{Compression::GZIP, true}));
 #endif
 #ifdef ARROW_WITH_ZSTD
 INSTANTIATE_TEST_SUITE_P(TestZSTDCsv, TestCsvFileFormat,
-                         ::testing::Values(Compression::ZSTD));
+                         ::testing::Values(CsvFileFormatParams{Compression::ZSTD,
+                                                               false}));
+INSTANTIATE_TEST_SUITE_P(TestZSTDCsvV2, TestCsvFileFormat,
+                         ::testing::Values(CsvFileFormatParams{Compression::ZSTD, true}));
 #endif
 
 class TestCsvFileFormatScan : public FileFormatScanMixin<CsvFormatHelper> {};
@@ -419,6 +508,36 @@ TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
 TEST_P(TestCsvFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestCsvFileFormatScan,
+                         ::testing::ValuesIn(TestFormatParams::Values()),
+                         TestFormatParams::ToTestNameString);
+
+class TestCsvFileFormatScanNode : public FileFormatScanNodeMixin<CsvFormatHelper> {
+  void SetUp() override {
+    internal::Initialize();
+    scan_options_.parse_options.ignore_empty_lines = false;
+  }
+
+  const FragmentScanOptions* GetFormatOptions() override { return &scan_options_; }
+
+ protected:
+  CsvFragmentScanOptions scan_options_;
+};
+
+TEST_P(TestCsvFileFormatScanNode, Scan) { TestScan(); }
+TEST_P(TestCsvFileFormatScanNode, ScanProjected) { TestScanProjected(); }
+TEST_P(TestCsvFileFormatScanNode, ScanMissingFilterField) {
+  TestScanMissingFilterField();
+}
+// NOTE(ARROW-14658): TestScanProjectedNested is ignored since CSV
+// doesn't have any nested types for us to work with
+TEST_P(TestCsvFileFormatScanNode, ScanProjectedMissingColumns) {
+  TestScanProjectedMissingCols();
+}
+TEST_P(TestCsvFileFormatScanNode, ScanWithDuplicateColumn) {
+  TestScanWithDuplicateColumn();
+}
+// NOTE: TestScanWithPushdownNulls is ignored since CSV doesn't handle pushdown filtering
+INSTANTIATE_TEST_SUITE_P(TestScanNode, TestCsvFileFormatScanNode,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
 

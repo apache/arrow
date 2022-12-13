@@ -163,4 +163,16 @@ func importThenExportRecord(schemaIn, arrIn uintptr, schemaOut, arrOut uintptr) 
 	cdata.ExportArrowRecordBatch(rec, cdata.ArrayFromPtr(arrOut), cdata.SchemaFromPtr(schemaOut))
 }
 
+//export roundtripArray
+func roundtripArray(arrIn, schema, arrOut uintptr) {
+	_, arr, err := cdata.ImportCArray(cdata.ArrayFromPtr(arrIn), cdata.SchemaFromPtr(schema))
+	if err != nil {
+		panic(err)
+	}
+	defer arr.Release()
+
+	outArr := cdata.ArrayFromPtr(arrOut)
+	cdata.ExportArrowArray(arr, outArr, nil)
+}
+
 func main() {}

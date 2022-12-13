@@ -17,7 +17,6 @@
 package ipc
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -330,19 +329,23 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 		if p.body[idx] == nil || p.body[idx].Len() == 0 {
 			return nil
 		}
-		var buf bytes.Buffer
-		buf.Grow(codec.MaxCompressedLen(p.body[idx].Len()) + arrow.Int64SizeBytes)
-		if err := binary.Write(&buf, binary.LittleEndian, uint64(p.body[idx].Len())); err != nil {
-			return err
-		}
-		codec.Reset(&buf)
+
+		buf := memory.NewResizableBuffer(w.mem)
+		buf.Reserve(codec.MaxCompressedLen(p.body[idx].Len()) + arrow.Int64SizeBytes)
+
+		binary.LittleEndian.PutUint64(buf.Buf(), uint64(p.body[idx].Len()))
+		bw := &bufferWriter{buf: buf, pos: arrow.Int64SizeBytes}
+		codec.Reset(bw)
 		if _, err := codec.Write(p.body[idx].Bytes()); err != nil {
 			return err
 		}
 		if err := codec.Close(); err != nil {
 			return err
 		}
-		p.body[idx] = memory.NewBufferBytes(buf.Bytes())
+
+		buf.Resize(bw.pos)
+		p.body[idx].Release()
+		p.body[idx] = buf
 		return nil
 	}
 
@@ -649,44 +652,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			}
 		}
 		w.depth++
-	case *arrow.MapType:
-		arr := arr.(*array.Map)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
-		}
-		p.body = append(p.body, voffsets)
-
-		w.depth--
-		var (
-			values        = arr.ListValues()
-			mustRelease   = false
-			values_offset int64
-			values_end    int64
-		)
-		defer func() {
-			if mustRelease {
-				values.Release()
-			}
-		}()
-
-		if voffsets != nil {
-			values_offset, _ = arr.ValueOffsets(0)
-			_, values_end = arr.ValueOffsets(arr.Len() - 1)
-		}
-
-		if arr.Len() != 0 || values_end < int64(values.Len()) {
-			// must also slice the values
-			values = array.NewSlice(values, values_offset, values_end)
-			mustRelease = true
-		}
-		err = w.visit(p, values)
-
-		if err != nil {
-			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
-		}
-		w.depth++
-	case *arrow.ListType, *arrow.LargeListType:
+	case *arrow.MapType, *arrow.ListType, *arrow.LargeListType:
 		arr := arr.(array.ListLike)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {

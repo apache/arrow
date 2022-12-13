@@ -91,7 +91,7 @@ class SinkNode : public ExecNode {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
            AsyncGenerator<std::optional<ExecBatch>>* generator,
-           BackpressureOptions backpressure,
+           std::shared_ptr<Schema>* schema, BackpressureOptions backpressure,
            BackpressureMonitor** backpressure_monitor_out)
       : ExecNode(plan, std::move(inputs), {"collected"}, {},
                  /*num_outputs=*/0),
@@ -103,6 +103,9 @@ class SinkNode : public ExecNode {
       *backpressure_monitor_out = &backpressure_queue_;
     }
     auto node_destroyed_capture = node_destroyed_;
+    if (schema) {
+      *schema = inputs_[0]->output_schema();
+    }
     *generator = [this, node_destroyed_capture]() -> Future<std::optional<ExecBatch>> {
       if (*node_destroyed_capture) {
         return Status::Invalid(
@@ -126,7 +129,7 @@ class SinkNode : public ExecNode {
     const auto& sink_options = checked_cast<const SinkNodeOptions&>(options);
     RETURN_NOT_OK(ValidateOptions(sink_options));
     return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator,
-                                       sink_options.backpressure,
+                                       sink_options.schema, sink_options.backpressure,
                                        sink_options.backpressure_monitor);
   }
 
@@ -414,7 +417,8 @@ struct OrderBySinkNode final : public SinkNode {
   OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                   std::unique_ptr<OrderByImpl> impl,
                   AsyncGenerator<std::optional<ExecBatch>>* generator)
-      : SinkNode(plan, std::move(inputs), generator, /*backpressure=*/{},
+      : SinkNode(plan, std::move(inputs), generator, /*schema=*/nullptr,
+                 /*backpressure=*/{},
                  /*backpressure_monitor_out=*/nullptr),
         impl_(std::move(impl)) {}
 

@@ -17,7 +17,18 @@
 
 #include "arrow/engine/substrait/serde.h"
 
+#include <cstdint>
+#include <type_traits>
 #include <utility>
+
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+#include <google/protobuf/message.h>
+#include <google/protobuf/stubs/status.h>
+#include <google/protobuf/util/json_util.h>
+#include <google/protobuf/util/message_differencer.h>
+#include <google/protobuf/util/type_resolver.h>
+#include <google/protobuf/util/type_resolver_util.h>
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -27,17 +38,11 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/plan_internal.h"
+#include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/type.h"
-
-#include <google/protobuf/descriptor.h>
-#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
-#include <google/protobuf/message.h>
-#include <google/protobuf/util/json_util.h>
-#include <google/protobuf/util/message_differencer.h>
-#include <google/protobuf/util/type_resolver_util.h>
 
 namespace arrow {
 namespace engine {

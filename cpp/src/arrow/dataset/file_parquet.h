@@ -66,7 +66,7 @@ constexpr char kParquetTypeName[] = "parquet";
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
-  ParquetFileFormat() = default;
+  ParquetFileFormat();
 
   /// Convenience constructor which copies properties from a parquet::ReaderProperties.
   /// memory_pool will be ignored.

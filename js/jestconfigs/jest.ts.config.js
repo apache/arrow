@@ -20,16 +20,28 @@ import config from "../jest.config.js";
 export default {
     ...config,
     rootDir: "../",
-    globals: {
-        "ts-jest": {
-            diagnostics: false,
-            tsconfig: "<rootDir>/test/tsconfig/tsconfig.ts.json",
-            useESM: true,
-        },
-    },
     moduleNameMapper: {
         "^apache-arrow$": "<rootDir>/targets/ts/Arrow.node",
         "^apache-arrow(.*)": "<rootDir>/targets/ts$1",
         "^(\\.{1,2}/.*)\\.js$": "$1",
+    },
+    transform: {
+        ...config.transform,
+        "^.+\\.js$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.ts.json",
+                useESM: true,
+            },
+        ],
+        "^.+\\.ts$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.ts.json",
+                useESM: true,
+            },
+        ],
     },
 };

@@ -76,7 +76,7 @@ Type the pull request number (from https://github.com/apache/arrow/pulls) and hi
 title	Blah Blah Blah
 source	repo/branch
 target	master
-url	https://api.github.com/repos/apache/arrow/pulls/X
+url	https://api.github.com/apache/arrow/pulls/X
 === JIRA ARROW-#Y ===
 Summary		Blah Blah Blah
 Assignee	Name
@@ -84,8 +84,25 @@ Components	C++
 Status		In Progress
 URL		https://issues.apache.org/jira/browse/ARROW-#Y
 
-Proceed with merging pull request #3? (y/n):
+Proceed with merging pull request #X? (y/n):
 ```
+
+```
+=== Pull Request #X ===
+title	GH-#Y: [Component] Title
+source	repo/branch
+target	master
+url	https://api.github.com/apache/arrow/pulls/X
+=== GITHUB #Y ===
+Summary		[Component] Title
+Assignee	Name
+Components	Python
+Status		open
+URL		https://github.com/apache/arrow/issues/Y
+
+Proceed with merging pull request #X? (y/n): y
+```
+
 If this looks good, type y and hit enter.
 ```
 Author 1: Name
@@ -93,10 +110,21 @@ Pull request #X merged!
 Merge hash: #hash
 
 Would you like to update the associated JIRA? (y/n): y
-Enter comma-separated fix version(s) [9.0.0]:
+Enter comma-separated fix version(s) [11.0.0]:
 ```
-You can just hit enter and the associated JIRA will be resolved
-with the current fix version.
+
+```
+Author 1: Name
+Pull request #X merged!
+Merge hash: #hash
+
+Would you like to update the associated issue? (y/n): y
+Enter fix version [11.0.0]:
+```
+
+You can just hit enter and the associated JIRA or GitHub issue
+will be resolved with the current fix version.
+
 ```
 Successfully resolved ARROW-#Y!
 === JIRA ARROW-#Y ===
@@ -105,6 +133,16 @@ Assignee	Name
 Components	C++
 Status		Resolved
 URL		https://issues.apache.org/jira/browse/ARROW-#Y
+```
+
+```
+Successfully resolved #Y!
+=== GITHUB #Y ===
+Summary		[Component] Title
+Assignee	Name
+Components	Python
+Status		closed
+URL		https://github.com/apache/arrow/issues/Y```
 ```
 
 ## Verifying Release Candidates

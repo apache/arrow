@@ -30,6 +30,7 @@
 #include "arrow/flight/sql/example/acero_server.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/flight/types.h"
+#include "arrow/scalar.h"
 #include "arrow/stl_iterator.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
