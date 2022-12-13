@@ -441,9 +441,6 @@ StructArray <- R6Class("StructArray",
 )
 
 StructArray$create <- function(...) {
-
-  # TODO: update this function to follow the pattern of Table$create
-
   dots <- list2(...)
 
   stopifnot(length(dots) > 0)
@@ -452,20 +449,29 @@ StructArray$create <- function(...) {
     return(Array$create(dots[[1]]))
   }
 
-  # TODO: more checks like length, class etc
+  if (all(map_lgl(dots, ~ inherits(.x, "Array")))) {
 
-  if (all(map_lgl(dots, ~inherits(.x, "Array")))) {
+    # Check for Array length equality
+    if (!length(unique(lengths(dots))) == 1) {
+      abort(
+        message = c(
+          "All input Arrays must be equal lengths",
+          x = paste("Array lengths:", paste(lengths(dots), collapse = ", "))
+        )
+      )
+    }
 
-    # TODO: here we want to do stuff like check if things are named and if not, give
-    # empty char names, like in Table$create
+    # make sure there are names
+    if (is.null(names(dots))) {
+      names(dots) <- rep_len("", length(dots))
+    }
 
-
-    names <- names(dots)
-    # TODO: I don't think this is the right way to pass this in...
-    StructArray__from_arrays(..., names)
+    StructArray__from_arrays(dots, names(dots))
+  } else {
+    abort(
+      "Input to StructArray$create must be Arrays or a single data frame"
+    )
   }
-
-
 }
 
 

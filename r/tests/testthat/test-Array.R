@@ -543,6 +543,35 @@ test_that("StructArray methods", {
   expect_identical(dim(a), c(10L, 3L))
 })
 
+test_that("StructArray creation", {
+
+  # from data.frame
+  a <- StructArray$create(example_data)
+  expect_identical(names(a), c("int", "dbl", "dbl2", "lgl", "false", "chr", "fct"))
+  expect_identical(dim(a), c(10L, 7L))
+  expect_r6_class(a, "StructArray")
+
+  # from Arrays
+  str_array <- StructArray$create(Array$create(1:2), Array$create(c("a", "b")))
+  expect_identical(names(str_array), c("", ""))
+  expect_equal(str_array[[1]], Array$create(1:2))
+  expect_equal(str_array[[2]], Array$create(1:2))
+  expect_r6_class(str_array, "StructArray")
+
+  expect_error(
+    StructArray$create(Array$create(1:12), Array$create(c("a", "b"))),
+    "All input Arrays must be equal lengths"
+  )
+
+  # only works for Arrays and data.frames
+  expect_error(
+    StructArray$create(Scalar$create(1)),
+    "Input to StructArray$create must be Arrays or a single data frame",
+    fixed = TRUE
+  )
+
+})
+
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
   df <- tibble::tibble(x = 1:10, y = 1:10)
   type <- struct(x = float64(), y = int16())
