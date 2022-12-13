@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("LocalFilesystem", {
   fs <- LocalFileSystem$create()
   expect_identical(fs$type_name, "local")
@@ -128,6 +127,21 @@ test_that("LocalFileSystem + Selector", {
   types <- sapply(infos, function(.x) .x$type)
   expect_equal(sum(types == FileType$File), 2L)
   expect_equal(sum(types == FileType$Directory), 1L)
+})
+
+test_that("clean_path_abs() marks its output as utf-8", {
+  f <- tempfile(fileext = "Público")
+  on.exit(unlink(f))
+
+  file.create(f)
+  f_utf8 <- enc2utf8(normalizePath(f))
+  f_latin1 <- iconv(f_utf8, "utf-8", "latin1")
+
+  expect_identical(clean_path_abs(f_utf8), f_utf8)
+  expect_identical(Encoding(clean_path_abs(f_utf8)), Encoding(f_utf8))
+
+  expect_identical(clean_path_abs(f_latin1), f_latin1)
+  expect_identical(Encoding(clean_path_abs(f_latin1)), Encoding(f_utf8))
 })
 
 # This test_that block must be above the two that follow it because S3FileSystem$create
