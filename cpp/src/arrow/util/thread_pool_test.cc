@@ -398,6 +398,54 @@ TEST(SerialExecutor, FailingIteratorWithCleanup) {
   ASSERT_TRUE(follow_up_ran);
 }
 
+TEST(SerialExecutor, IterateSynchronously) {
+  for (bool use_threads : {false, true}) {
+    FnOnce<Result<AsyncGenerator<TestInt>>(Executor*)> factory = [](Executor* executor) {
+      AsyncGenerator<TestInt> vector_gen = MakeVectorGenerator<TestInt>({1, 2, 3});
+      return MakeTransferredGenerator(vector_gen, executor);
+    };
+
+    Iterator<TestInt> my_it =
+        IterateSynchronously<TestInt>(std::move(factory), use_threads);
+    ASSERT_EQ(TestInt(1), *my_it.Next());
+    ASSERT_EQ(TestInt(2), *my_it.Next());
+    ASSERT_EQ(TestInt(3), *my_it.Next());
+    AssertIteratorExhausted(my_it);
+  }
+}
+
+struct MockGeneratorFactory {
+  explicit MockGeneratorFactory(Executor** captured_executor)
+      : captured_executor(captured_executor) {}
+
+  Result<AsyncGenerator<TestInt>> operator()(Executor* executor) {
+    *captured_executor = executor;
+    return MakeEmptyGenerator<TestInt>();
+  }
+  Executor** captured_executor;
+};
+
+TEST(SerialExecutor, IterateSynchronouslyFactoryFails) {
+  for (bool use_threads : {false, true}) {
+    FnOnce<Result<AsyncGenerator<TestInt>>(Executor*)> factory = [](Executor* executor) {
+      return Status::Invalid("XYZ");
+    };
+
+    Iterator<TestInt> my_it =
+        IterateSynchronously<TestInt>(std::move(factory), use_threads);
+    ASSERT_RAISES(Invalid, my_it.Next());
+  }
+}
+
+TEST(SerialExecutor, IterateSynchronouslyUsesThreadsIfRequested) {
+  Executor* captured_executor;
+  MockGeneratorFactory gen_factory(&captured_executor);
+  IterateSynchronously<TestInt>(gen_factory, true);
+  ASSERT_EQ(internal::GetCpuThreadPool(), captured_executor);
+  IterateSynchronously<TestInt>(gen_factory, false);
+  ASSERT_NE(internal::GetCpuThreadPool(), captured_executor);
+}
+
 class TransferTest : public testing::Test {
  public:
   internal::Executor* executor() { return mock_executor.get(); }

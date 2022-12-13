@@ -142,7 +142,7 @@ class TestPythonIntegration(unittest.TestCase):
         expected = field_generator()
         self.assertEqual(expected, new_field)
 
-    def round_trip_array(self, array_generator, expected_diff=None):
+    def round_trip_array(self, array_generator, check_metadata=True):
         original_arr = array_generator()
         with self.bridge.java_c.CDataDictionaryProvider() as dictionary_provider, \
                 self.bridge.python_to_java_array(original_arr, dictionary_provider) as vector:
@@ -150,9 +150,10 @@ class TestPythonIntegration(unittest.TestCase):
             new_array = self.bridge.java_to_python_array(vector, dictionary_provider)
 
         expected = array_generator()
-        if expected_diff:
-            self.assertEqual(expected, new_array.view(expected.type))
-        self.assertEqual(expected.diff(new_array), expected_diff or '')
+
+        self.assertEqual(expected, new_array)
+        if check_metadata:
+            self.assertTrue(new_array.type.equals(expected.type, check_metadata=True))
 
     def round_trip_record_batch(self, rb_generator):
         original_rb = rb_generator()
@@ -191,7 +192,10 @@ class TestPythonIntegration(unittest.TestCase):
     def test_list_array(self):
         self.round_trip_array(lambda: pa.array(
             [[], [0], [1, 2], [4, 5, 6]], pa.list_(pa.int64())
-        ), "# Array types differed: list<item: int64> vs list<$data$: int64>\n")
+            # disabled check_metadata since the list internal field name ("item")
+            # is not preserved during round trips (it becomes "$data$").
+        ), check_metadata=False)
+        
 
     def test_struct_array(self):
         fields = [

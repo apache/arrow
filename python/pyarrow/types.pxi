@@ -192,22 +192,27 @@ cdef class DataType(_Weakrefable):
         except (TypeError, ValueError):
             return NotImplemented
 
-    def equals(self, other):
+    def equals(self, other, *, check_metadata=False):
         """
         Return true if type is equivalent to passed value.
 
         Parameters
         ----------
         other : DataType or string convertible to DataType
+        check_metadata : bool
+            Whether nested Field metadata equality should be checked as well.
 
         Returns
         -------
         is_equal : bool
         """
-        cdef DataType other_type
+        cdef:
+            DataType other_type
+            c_bool c_check_metadata
 
         other_type = ensure_type(other)
-        return self.type.Equals(deref(other_type.type))
+        c_check_metadata = check_metadata
+        return self.type.Equals(deref(other_type.type), c_check_metadata)
 
     def to_pandas_dtype(self):
         """
@@ -870,7 +875,7 @@ cdef class BaseExtensionType(DataType):
                 f"Expected array or chunked array, got {storage.__class__}")
 
         if not c_storage_type.get().Equals(deref(self.ext_type)
-                                           .storage_type()):
+                                           .storage_type(), False):
             raise TypeError(
                 f"Incompatible storage type for {self}: "
                 f"expected {self.storage_type}, got {storage.type}")

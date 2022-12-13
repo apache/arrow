@@ -153,8 +153,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDataType" arrow::DataType":
         Type id()
 
-        c_bool Equals(const CDataType& other)
-        c_bool Equals(const shared_ptr[CDataType]& other)
+        c_bool Equals(const CDataType& other, c_bool check_metadata)
+        c_bool Equals(const shared_ptr[CDataType]& other, c_bool check_metadata)
 
         shared_ptr[CField] field(int i)
         const vector[shared_ptr[CField]] fields()
@@ -823,6 +823,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CRecordBatch] Slice(int64_t offset)
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
 
+    cdef cppclass CRecordBatchWithMetadata" arrow::RecordBatchWithMetadata":
+        shared_ptr[CRecordBatch] batch
+        # The struct in C++ does not actually have these two `const` qualifiers, but adding `const` gets Cython to not complain
+        const shared_ptr[const CKeyValueMetadata] custom_metadata
+
     cdef cppclass CTable" arrow::Table":
         CTable(const shared_ptr[CSchema]& schema,
                const vector[shared_ptr[CChunkedArray]]& columns)
@@ -887,6 +892,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CRecordBatchReader" arrow::RecordBatchReader":
         shared_ptr[CSchema] schema()
         CStatus Close()
+        CResult[CRecordBatchWithMetadata] ReadNext()
         CStatus ReadNext(shared_ptr[CRecordBatch]* batch)
         CResult[shared_ptr[CTable]] ToTable()
 
@@ -1590,6 +1596,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchWriter" arrow::ipc::RecordBatchWriter":
         CStatus Close()
         CStatus WriteRecordBatch(const CRecordBatch& batch)
+        CStatus WriteRecordBatch(
+            const CRecordBatch& batch,
+            const shared_ptr[const CKeyValueMetadata]& metadata)
         CStatus WriteTable(const CTable& table, int64_t max_chunksize)
 
         CIpcWriteStats stats()
@@ -1624,6 +1633,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int num_record_batches()
 
         CResult[shared_ptr[CRecordBatch]] ReadRecordBatch(int i)
+
+        CResult[CRecordBatchWithMetadata] ReadRecordBatchWithCustomMetadata(int i)
 
         CIpcReadStats stats()
 
@@ -1706,6 +1717,11 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
 cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
+    ctypedef enum CQuotingStyle "arrow::csv::QuotingStyle":
+        CQuotingStyle_Needed "arrow::csv::QuotingStyle::Needed"
+        CQuotingStyle_AllValid "arrow::csv::QuotingStyle::AllValid"
+        CQuotingStyle_None "arrow::csv::QuotingStyle::None"
+
     cdef cppclass CCSVParseOptions" arrow::csv::ParseOptions":
         unsigned char delimiter
         c_bool quoting
@@ -1770,6 +1786,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool include_header
         int32_t batch_size
         unsigned char delimiter
+        CQuotingStyle quoting_style
         CIOContext io_context
 
         CCSVWriteOptions()
@@ -2543,6 +2560,9 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         pass
 
     cdef cppclass CExecNodeOptions "arrow::compute::ExecNodeOptions":
+        pass
+
+    cdef cppclass CSourceNodeOptions "arrow::compute::SourceNodeOptions"(CExecNodeOptions):
         pass
 
     cdef cppclass CTableSourceNodeOptions "arrow::compute::TableSourceNodeOptions"(CExecNodeOptions):

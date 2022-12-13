@@ -29,3 +29,4 @@ Version: @ARROW_VERSION@
 Requires: arrow
 Libs: -L${libdir} -lparquet
 Cflags: -I${includedir}
+Cflags.private: -DPARQUET_STATIC

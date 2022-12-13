@@ -19,18 +19,20 @@
 
 #pragma once
 
-#include <utility>
+#include <memory>
 
 #include "arrow/compute/type_fwd.h"
-#include "arrow/engine/substrait/extension_set.h"
-#include "arrow/engine/substrait/options.h"
+#include "arrow/datum.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
-#include "arrow/type_fwd.h"
+#include "arrow/result.h"
 
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
 
 namespace arrow {
 namespace engine {
+
+class SubstraitCall;
 
 ARROW_ENGINE_EXPORT
 Result<compute::Expression> FromProto(const substrait::Expression&, const ExtensionSet&,

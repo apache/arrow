@@ -15,16 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/substrait/extension_set.h"
-#include "arrow/engine/substrait/util.h"
+#include <cstddef>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <vector>
 
-#include <google/protobuf/descriptor.h>
-#include <google/protobuf/util/json_util.h>
-#include <google/protobuf/util/type_resolver_util.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/util.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/matchers.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/checked_cast.h"
 
 using testing::ElementsAre;
 using testing::Eq;

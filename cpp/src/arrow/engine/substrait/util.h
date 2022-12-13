@@ -17,13 +17,18 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
-#include <optional>
+#include <string>
+#include <vector>
 
-#include "arrow/compute/registry.h"
-#include "arrow/engine/substrait/api.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/options.h"
-#include "arrow/util/iterator.h"
+#include "arrow/engine/substrait/type_fwd.h"
+#include "arrow/engine/substrait/visibility.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 

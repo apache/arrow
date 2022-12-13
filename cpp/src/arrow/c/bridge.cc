@@ -746,8 +746,9 @@ class FormatStringParser {
 
   template <typename IntType = int32_t>
   Result<std::vector<IntType>> ParseInts(std::string_view v) {
-    auto parts = Split(v);
     std::vector<IntType> result;
+    if (v.empty()) return result;
+    auto parts = Split(v);
     result.reserve(parts.size());
     for (const auto& p : parts) {
       ARROW_ASSIGN_OR_RAISE(auto i, ParseInt<IntType>(p));

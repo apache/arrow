@@ -32,8 +32,7 @@
 #' - JSON arrays convert to a [list_of()] type, and inference proceeds recursively on the JSON arrays' values.
 #' - Nested JSON objects convert to a [struct()] type, and inference proceeds recursively on the JSON objects' values.
 #'
-#' When `as_data_frame = FALSE`, Arrow types are further converted to R types.
-#' See \url{https://arrow.apache.org/docs/r/articles/read_write.html} for details.
+#' When `as_data_frame = TRUE`, Arrow types are further converted to R types.
 #'
 #' @inheritParams read_delim_arrow
 #' @param schema [Schema] that describes the table.

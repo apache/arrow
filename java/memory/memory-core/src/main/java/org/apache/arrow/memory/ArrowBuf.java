@@ -1183,8 +1183,25 @@ public final class ArrowBuf implements AutoCloseable {
    *              this ArrowBuf has access to)
    * @param length length of bytes to set.
    * @return this ArrowBuf
+   * @deprecated use {@link ArrowBuf#setOne(long, long)} instead.
    */
+  @Deprecated
   public ArrowBuf setOne(int index, int length) {
+    if (length != 0) {
+      this.checkIndex(index, length);
+      MemoryUtil.UNSAFE.setMemory(this.addr + index, length, (byte) 0xff);
+    }
+    return this;
+  }
+
+  /**
+   * Sets all bits to one in the specified range.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param length length of bytes to set.
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setOne(long index, long length) {
     if (length != 0) {
       this.checkIndex(index, length);
       MemoryUtil.UNSAFE.setMemory(this.addr + index, length, (byte) 0xff);

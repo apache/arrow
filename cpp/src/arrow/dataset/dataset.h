@@ -88,7 +88,7 @@ struct ARROW_DS_EXPORT FragmentScanRequest {
   /// before returning the scanned batch.
   std::vector<FragmentSelectionColumn> columns;
   /// \brief Options specific to the format being scanned
-  FragmentScanOptions* format_scan_options;
+  const FragmentScanOptions* format_scan_options;
 };
 
 /// \brief An iterator-like object that can yield batches created from a fragment
@@ -156,11 +156,13 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   /// This will be called before a scan and a fragment should attach whatever
   /// information will be needed to figure out an evolution strategy.  This information
   /// will then be passed to the call to BeginScan
-  virtual Future<std::shared_ptr<InspectedFragment>> InspectFragment();
+  virtual Future<std::shared_ptr<InspectedFragment>> InspectFragment(
+      const FragmentScanOptions* format_options, compute::ExecContext* exec_context);
 
   /// \brief Start a scan operation
   virtual Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment);
+      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanOptions* format_options, compute::ExecContext* exec_context);
 
   /// \brief Count the number of rows in this fragment matching the filter using metadata
   /// only. That is, this method may perform I/O, but will not load data.
@@ -228,10 +230,13 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
       compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 
-  Future<std::shared_ptr<InspectedFragment>> InspectFragment() override;
+  Future<std::shared_ptr<InspectedFragment>> InspectFragment(
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) override;
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request,
-      const InspectedFragment& inspected_fragment) override;
+      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) override;
 
   std::string type_name() const override { return "in-memory"; }
 

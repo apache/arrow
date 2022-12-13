@@ -220,6 +220,12 @@ ARROW_EXPORT
 Result<Expression> SimplifyWithGuarantee(Expression,
                                          const Expression& guaranteed_true_predicate);
 
+/// Replace all named field refs (e.g. "x" or "x.y") with field paths (e.g. [0] or [1,3])
+///
+/// This isn't usually needed and does not offer any simplification by itself.  However,
+/// it can be useful to normalize an expression to paths to make it simpler to work with.
+ARROW_EXPORT Result<Expression> RemoveNamedRefs(Expression expression);
+
 /// @}
 
 // Execution

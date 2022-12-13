@@ -19,16 +19,43 @@
 
 #include "arrow/engine/substrait/expression_internal.h"
 
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstring>
+#include <functional>
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
+#include <google/protobuf/descriptor.h>
+
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/array/util.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/endian.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/small_vector.h"
 #include "arrow/util/string.h"
 #include "arrow/visit_scalar_inline.h"
 

@@ -103,8 +103,6 @@ class CastMetaFunction : public MetaFunction {
       if (!is_nested(args[0].type()->id())) {
         return args[0];
       } else if (args[0].is_array()) {
-        // TODO(ARROW-14999): if types are equal except for field names of list
-        // types, we can also use this code path.
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array,
                               ::arrow::internal::GetArrayView(
                                   args[0].array(), cast_options->to_type.owned_type));

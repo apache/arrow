@@ -4847,20 +4847,148 @@ def test_dataset_join_collisions(tempdir):
     ], names=["colA", "colB", "colVals", "colB_r", "colVals_r"])
 
 
-@pytest.mark.dataset
-def test_dataset_filter(tempdir):
+@pytest.mark.parametrize('dstype', [
+    "fs", "mem"
+])
+def test_dataset_filter(tempdir, dstype):
     t1 = pa.table({
-        "colA": [1, 2, 6],
-        "col2": ["a", "b", "f"]
+        "colA": [1, 2, 6, 8],
+        "col2": ["a", "b", "f", "g"]
     })
-    ds.write_dataset(t1, tempdir / "t1", format="ipc")
-    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+    if dstype == "fs":
+        ds.write_dataset(t1, tempdir / "t1", format="ipc")
+        ds1 = ds.dataset(tempdir / "t1", format="ipc")
+    elif dstype == "mem":
+        ds1 = ds.dataset(t1)
+    else:
+        raise NotImplementedError
 
-    result = ds1.scanner(filter=pc.field("colA") < 3)
+    # Ensure chained filtering works.
+    result = ds1.filter(pc.field("colA") < 3).filter(pc.field("col2") == "a")
+    assert type(result) == (ds.FileSystemDataset if dstype ==
+                            "fs" else ds.InMemoryDataset)
+
     assert result.to_table() == pa.table({
-        "colA": [1, 2],
+        "colA": [1],
+        "col2": ["a"]
+    })
+
+    assert result.head(5) == pa.table({
+        "colA": [1],
+        "col2": ["a"]
+    })
+
+    # Ensure that further filtering with scanners works too
+    r2 = ds1.filter(pc.field("colA") < 8).filter(
+        pc.field("colA") > 1).scanner(filter=pc.field("colA") != 6)
+    assert r2.to_table() == pa.table({
+        "colA": [2],
+        "col2": ["b"]
+    })
+
+    # Ensure that writing back to disk works.
+    ds.write_dataset(result, tempdir / "filtered", format="ipc")
+    filtered = ds.dataset(tempdir / "filtered", format="ipc")
+    assert filtered.to_table() == pa.table({
+        "colA": [1],
+        "col2": ["a"]
+    })
+
+    # Ensure that joining to a filtered Dataset works.
+    joined = result.join(ds.dataset(pa.table({
+        "colB": [10, 20],
+        "col2": ["a", "b"]
+    })), keys="col2", join_type="right outer")
+    assert joined.to_table().sort_by("colB") == pa.table({
+        "colA": [1, None],
+        "colB": [10, 20],
         "col2": ["a", "b"]
     })
+
+    # Filter with None doesn't work for now
+    with pytest.raises(TypeError):
+        ds1.filter(None)
+
+    # Can't get fragments of a filtered dataset
+    with pytest.raises(ValueError):
+        result.get_fragments()
+
+    # Ensure replacing schema preserves the filter.
+    schema_without_col2 = ds1.schema.remove(1)
+    newschema = ds1.filter(
+        pc.field("colA") < 3
+    ).replace_schema(schema_without_col2)
+    assert newschema.to_table() == pa.table({
+        "colA": [1, 2],
+    })
+    with pytest.raises(pa.ArrowInvalid):
+        # The schema might end up being replaced with
+        # something that makes the filter invalid.
+        # Let's make sure we error nicely.
+        result.replace_schema(schema_without_col2).to_table()
+
+
+@pytest.mark.parametrize('dstype', [
+    "fs", "mem"
+])
+def test_union_dataset_filter(tempdir, dstype):
+    t1 = pa.table({
+        "colA": [1, 2, 6, 8],
+        "col2": ["a", "b", "f", "g"]
+    })
+    t2 = pa.table({
+        "colA": [9, 10, 11],
+        "col2": ["h", "i", "l"]
+    })
+    if dstype == "fs":
+        ds.write_dataset(t1, tempdir / "t1", format="ipc")
+        ds1 = ds.dataset(tempdir / "t1", format="ipc")
+        ds.write_dataset(t2, tempdir / "t2", format="ipc")
+        ds2 = ds.dataset(tempdir / "t2", format="ipc")
+    elif dstype == "mem":
+        ds1 = ds.dataset(t1)
+        ds2 = ds.dataset(t2)
+    else:
+        raise NotImplementedError
+
+    filtered_union_ds = ds.dataset((ds1, ds2)).filter(
+        (pc.field("colA") < 3) | (pc.field("colA") == 9)
+    )
+    assert filtered_union_ds.to_table() == pa.table({
+        "colA": [1, 2, 9],
+        "col2": ["a", "b", "h"]
+    })
+
+    joined = filtered_union_ds.join(ds.dataset(pa.table({
+        "colB": [10, 20],
+        "col2": ["a", "b"]
+    })), keys="col2", join_type="left outer")
+    assert joined.to_table().sort_by("colA") == pa.table({
+        "colA": [1, 2, 9],
+        "col2": ["a", "b", "h"],
+        "colB": [10, 20, None]
+    })
+
+    filtered_ds1 = ds1.filter(pc.field("colA") < 3)
+    filtered_ds2 = ds2.filter(pc.field("colA") < 10)
+
+    with pytest.raises(ValueError, match="currently not supported"):
+        ds.dataset((filtered_ds1, filtered_ds2))
+
+
+def test_parquet_dataset_filter(tempdir):
+    root_path = tempdir / "test_parquet_dataset_filter"
+    metadata_path, _ = _create_parquet_dataset_simple(root_path)
+    dataset = ds.parquet_dataset(metadata_path)
+
+    result = dataset.to_table()
+    assert result.num_rows == 40
+
+    filtered_ds = dataset.filter(pc.field("f1") < 2)
+    assert filtered_ds.to_table().num_rows == 20
+
+    with pytest.raises(ValueError):
+        filtered_ds.get_fragments()
 
 
 def test_write_dataset_with_scanner_use_projected_schema(tempdir):

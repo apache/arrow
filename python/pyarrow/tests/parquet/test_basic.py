@@ -289,21 +289,26 @@ def test_fspath(tempdir, use_legacy_dataset):
 @pytest.mark.parametrize("filesystem", [
     None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
 ])
-def test_relative_paths(tempdir, use_legacy_dataset, filesystem):
+@pytest.mark.parametrize("name", ("data.parquet", "例.parquet"))
+def test_relative_paths(tempdir, use_legacy_dataset, filesystem, name):
     # reading and writing from relative paths
     table = pa.table({"a": [1, 2, 3]})
+    path = tempdir / name
 
     # reading
-    pq.write_table(table, str(tempdir / "data.parquet"))
+    pq.write_table(table, str(path))
     with util.change_cwd(tempdir):
-        result = pq.read_table("data.parquet", filesystem=filesystem,
+        result = pq.read_table(name, filesystem=filesystem,
                                use_legacy_dataset=use_legacy_dataset)
     assert result.equals(table)
 
+    path.unlink()
+    assert not path.exists()
+
     # writing
     with util.change_cwd(tempdir):
-        pq.write_table(table, "data2.parquet", filesystem=filesystem)
-    result = pq.read_table(tempdir / "data2.parquet")
+        pq.write_table(table, name, filesystem=filesystem)
+    result = pq.read_table(path)
     assert result.equals(table)
 
 
