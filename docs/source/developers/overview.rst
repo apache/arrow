@@ -34,7 +34,7 @@ checklist for using ``git``:
 * Keep your fork's **master branch synced** with ``upstream/master``.
 * **Develop on branches**, rather than your own "master" branch.
 * It does not matter what you call your branch. Some people like to use the GitHub
-  number as branch name, others use descriptive names.
+  issue number as branch name, others use descriptive names.
 * **Sync your branch** with ``upstream/master`` **regularly**, as many commits are
   merged to master every day.
 * It is recommended to use ``git rebase`` rather than ``git merge``.
@@ -98,7 +98,7 @@ When contributing a patch, use this list as a checklist of Apache Arrow workflow
 
 * Submit the patch as a **GitHub pull request** against the **master branch**.
 * So that your pull request syncs with the GitHub issue, **prefix your pull request
-  name with the GitHub issue id** (ex:
+  title with the GitHub issue id** (ex:
   `GH-14866: [C++] Remove internal GroupBy implementation <https://github.com/apache/arrow/pull/14867>`_).
 * Give the pull request a **clear, brief description**: when the pull request is
   merged, this will be retained in the extended commit message.
