@@ -46,7 +46,7 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_EQ(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT, props->dictionary_pagesize_limit());
   ASSERT_EQ(ParquetVersion::PARQUET_2_4, props->version());
   ASSERT_EQ(ParquetDataPageVersion::V1, props->data_page_version());
-  ASSERT_FALSE(props->enable_data_page_checksum());
+  ASSERT_FALSE(props->data_page_checksum_enabled());
 }
 
 TEST(TestWriterProperties, AdvancedHandling) {
