@@ -449,6 +449,11 @@ StructArray$create <- function(...) {
     return(Array$create(dots[[1]]))
   }
 
+  # if we can convert items in dots to Arrays, then do
+  if (!all(map_lgl(dots, ~ inherits(.x, "Array")))) {
+    dots <- map(dots, Array$create)
+  }
+
   if (all(map_lgl(dots, ~ inherits(.x, "Array")))) {
 
     # Check for Array length equality
