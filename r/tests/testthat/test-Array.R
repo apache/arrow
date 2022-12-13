@@ -569,7 +569,6 @@ test_that("StructArray creation", {
     "Input to StructArray$create must be Arrays or a single data frame",
     fixed = TRUE
   )
-
 })
 
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
