@@ -1678,6 +1678,14 @@ class TestConvertStringLikeTypes:
         # This would segfault under 0.11.0
         table.to_pandas(categories=['col'])
 
+    def test_to_pandas_categorical_nones_only(self):
+        array = pa.array([None, None])
+        table = pa.Table.from_arrays(arrays=[array], names=['col'])
+        result = table.to_pandas(categories=['col'])
+
+        cat = pd.CategoricalDtype(categories=[], ordered=False)
+        assert pd.DataFrame({'col': [None, None]}, dtype=cat).equals(result)
+        
     def test_to_pandas_categories_already_dictionary(self):
         # Showed up in ARROW-6434, ARROW-6435
         array = pa.array(['foo', 'foo', 'foo', 'bar']).dictionary_encode()

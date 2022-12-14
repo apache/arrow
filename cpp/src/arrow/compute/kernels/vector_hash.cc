@@ -413,7 +413,7 @@ class NullHashKernel : public HashKernel {
 
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
     std::shared_ptr<NullArray> null_array;
-    if (seen_null_) {
+    if (seen_null_ && action_.ShouldEncodeNulls()) {
       null_array = std::make_shared<NullArray>(1);
     } else {
       null_array = std::make_shared<NullArray>(0);
