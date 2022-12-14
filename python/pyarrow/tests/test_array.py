@@ -3324,7 +3324,8 @@ def test_struct_array_sort():
         pa.array(["foo", "car", "bar", "foobar"])
     ], names=["a", "b"], mask=pa.array([False, False, True, False]))
 
-    sorted_arr = arr_with_nulls.sort("descending", by="a", null_placement="at_start")
+    sorted_arr = arr_with_nulls.sort(
+        "descending", by="a", null_placement="at_start")
     assert sorted_arr.to_pylist() == [
         None,
         {"a": 35, "b": "foobar"},
@@ -3332,7 +3333,8 @@ def test_struct_array_sort():
         {"a": 5, "b": "foo"},
     ]
 
-    sorted_arr = arr_with_nulls.sort("descending", by="a", null_placement="at_end")
+    sorted_arr = arr_with_nulls.sort(
+        "descending", by="a", null_placement="at_end")
     assert sorted_arr.to_pylist() == [
         {"a": 35, "b": "foobar"},
         {"a": 7, "b": "car"},
