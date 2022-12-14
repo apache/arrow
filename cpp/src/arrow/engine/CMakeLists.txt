@@ -28,6 +28,7 @@ set(ARROW_SUBSTRAIT_SRCS
     substrait/serde.cc
     substrait/test_plan_builder.cc
     substrait/type_internal.cc
+    substrait/util_internal.cc
     substrait/util.cc)
 
 add_arrow_lib(arrow_substrait

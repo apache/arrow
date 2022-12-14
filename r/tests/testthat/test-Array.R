@@ -212,6 +212,23 @@ test_that("Character vectors > 2GB become large_utf8", {
   expect_array_roundtrip(big, large_utf8())
 })
 
+test_that("Arrays with length > INT_MAX can be created and inspected", {
+  skip_on_cran()
+  skip_if_not_running_large_memory_tests()
+
+  big <- raw(as.double(.Machine$integer.max) + 2)
+  big[length(big)] <- as.raw(0xff)
+  big_array <- Array$create(big, type = uint8())
+  expect_identical(length(big_array), length(big))
+  expect_identical(
+    Array__GetScalar(big_array, length(big) - 1)$as_vector(),
+    255L
+  )
+
+  # Calling big_array$as_vector() will return an 8 GB integer vector
+  # which is too big to run on CI.
+})
+
 test_that("empty arrays are supported", {
   expect_array_roundtrip(character(), utf8())
   expect_array_roundtrip(character(), large_utf8(), as = large_utf8())

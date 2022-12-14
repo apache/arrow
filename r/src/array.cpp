@@ -113,7 +113,9 @@ bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, R_xlen_t i) {
 }
 
 // [[arrow::export]]
-int Array__length(const std::shared_ptr<arrow::Array>& x) { return x->length(); }
+r_vec_size Array__length(const std::shared_ptr<arrow::Array>& x) {
+  return r_vec_size(x->length());
+}
 
 // [[arrow::export]]
 int Array__offset(const std::shared_ptr<arrow::Array>& x) { return x->offset(); }
