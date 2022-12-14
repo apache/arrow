@@ -604,7 +604,7 @@ test_that("UnionDataset can merge schemas", {
   expected <- union_all_common(
     as_tibble(sub_df1),
     as_tibble(sub_df2) %>% select(x)
-)
+  )
   actual <- ds %>%
     collect() %>%
     arrange(x)
