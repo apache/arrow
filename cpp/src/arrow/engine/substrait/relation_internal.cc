@@ -150,7 +150,7 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
   return Status::OK();
 }
 
-void ExtractStructSelect(
+Result<compute::Expression> ExtractStructSelect(
     const ::substrait::Expression::MaskExpression::StructSelect& struct_select) {
   for (int idx = 0; idx < struct_select.struct_items_size(); idx++) {
     ::substrait::Expression::MaskExpression::StructItem struct_item =
@@ -162,7 +162,9 @@ void ExtractStructSelect(
         ::substrait::Expression::MaskExpression::StructSelect child_struct_select =
             child.struct_();
       } else if (child.has_list()) {
+        return Status::NotImplemented("substrait::Expression::MaskExpression::ListSelect not supported");
       } else if (child.has_map()) {
+        return Status::NotImplemented("substrait::Expression::MaskExpression::MapSelect not supported");
       }
     } else {
       int32_t field = struct_item.field();
@@ -171,7 +173,7 @@ void ExtractStructSelect(
   }
 }
 
-void ToProto(const ::substrait::Expression::MaskExpression& mask_expr) {
+Result<compute::Expression> FromProto(const ::substrait::Expression::MaskExpression& mask_expr) {
   if (mask_expr.has_select()) {
     std::cout << "read.projection().has_select() == " << mask_expr.has_select()
               << std::endl;
