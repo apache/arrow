@@ -884,7 +884,7 @@ Result<std::unique_ptr<substrait::ProjectRel>> ProjectRelationConverter(
   // set an emit to only output the result of the expressions passed in
   std::vector<int> emit_fields(expressions.size());
   std::iota(emit_fields.begin(), emit_fields.end(),
-            schema->num_fields() - expressions.size());
+            static_cast<size_t>(schema->num_fields()) - expressions.size());
   auto rel_common = MakeRelCommonEmit(emit_fields);
   project_rel->set_allocated_common(rel_common.release());
   return std::move(project_rel);
