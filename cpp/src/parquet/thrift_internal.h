@@ -100,6 +100,10 @@ static inline Compression::type FromThriftUnsafe(format::CompressionCodec::type 
   }
 }
 
+static inline BoundaryOrder::type FromThriftUnsafe(format::BoundaryOrder::type type) {
+  return static_cast<BoundaryOrder::type>(type);
+}
+
 namespace internal {
 
 template <typename T>
@@ -128,6 +132,11 @@ struct ThriftEnumTypeTraits<::parquet::format::Encoding::type> {
 template <>
 struct ThriftEnumTypeTraits<::parquet::format::PageType::type> {
   using ParquetEnum = PageType;
+};
+
+template <>
+struct ThriftEnumTypeTraits<::parquet::format::BoundaryOrder::type> {
+  using ParquetEnum = BoundaryOrder;
 };
 
 // If the parquet file is corrupted it is possible the enum value decoded

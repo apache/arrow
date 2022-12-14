@@ -75,6 +75,7 @@ function validateBuilder(generate: (length?: number, nullCount?: number, ...args
     for (let i = -1; ++i < 1;) {
         validateBuilderWithNullValues(`no nulls`, [], generate(100, 0));
         validateBuilderWithNullValues(`with nulls`, [null], generate(100));
+        validateBuilderWithNullValues(`with nulls (length=518)`, [null], generate(518));
         if (DataType.isUtf8(type)) {
             validateBuilderWithNullValues(`with \\0`, ['\0'], generate(100));
             validateBuilderWithNullValues(`with n/a`, ['n/a'], generate(100));

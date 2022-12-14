@@ -36,6 +36,10 @@ source run_conda_forge_build_setup
 # make the build number clobber
 make_build_number "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
+if [[ "${HOST_PLATFORM}" != "${BUILD_PLATFORM}" ]] && [[ "${HOST_PLATFORM}" != linux-* ]] && [[ "${BUILD_WITH_CONDA_DEBUG:-0}" != 1 ]]; then
+    EXTRA_CB_OPTIONS="${EXTRA_CB_OPTIONS:-} --no-test"
+fi
+
 export CONDA_BLD_PATH="${output_dir}"
 
 conda mambabuild \
@@ -43,13 +47,15 @@ conda mambabuild \
     "${FEEDSTOCK_ROOT}/parquet-cpp" \
     -m "${CI_SUPPORT}/${CONFIG}.yaml" \
     --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml" \
-    --output-folder "${output_dir}"
+    --output-folder "${output_dir}" \
+    ${EXTRA_CB_OPTIONS:-}
 
 if [ ! -z "${R_CONFIG:-}" ]; then
   conda mambabuild \
       "${FEEDSTOCK_ROOT}/r-arrow" \
       -m "${CI_SUPPORT}/r/${R_CONFIG}.yaml" \
-      --output-folder "${output_dir}"
+      --output-folder "${output_dir}" \
+      ${EXTRA_CB_OPTIONS:-}
 fi
 
 

@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 10.0.0.9000
+Version: 10.0.1.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -35,15 +35,14 @@ Imports:
     methods,
     purrr,
     R6,
-    rlang,
+    rlang (>= 1.0.0),
     stats,
     tidyselect (>= 1.0.0),
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.2
 Config/testthat/edition: 3
-VignetteBuilder: knitr
 Suggests:
     blob,
     cli,

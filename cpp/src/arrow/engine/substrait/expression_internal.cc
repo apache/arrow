@@ -19,21 +19,52 @@
 
 #include "arrow/engine/substrait/expression_internal.h"
 
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstring>
+#include <functional>
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
+#include <google/protobuf/descriptor.h>
+
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/array/util.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/type_internal.h"
+#include "arrow/engine/substrait/util.h"
+#include "arrow/engine/substrait/util_internal.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/endian.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/small_vector.h"
+#include "arrow/util/string.h"
 #include "arrow/visit_scalar_inline.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::ToChars;
 
 namespace engine {
 
@@ -52,22 +83,11 @@ Id NormalizeFunctionName(Id id) {
 
 }  // namespace
 
-Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
-                 SubstraitCall* call, const ExtensionSet& ext_set,
+Status DecodeArg(const substrait::FunctionArgument& arg, int idx, SubstraitCall* call,
+                 const ExtensionSet& ext_set,
                  const ConversionOptions& conversion_options) {
-  if (arg.has_enum_()) {
-    const substrait::FunctionArgument::Enum& enum_val = arg.enum_();
-    switch (enum_val.enum_kind_case()) {
-      case substrait::FunctionArgument::Enum::EnumKindCase::kSpecified:
-        call->SetEnumArg(idx, enum_val.specified());
-        break;
-      case substrait::FunctionArgument::Enum::EnumKindCase::kUnspecified:
-        call->SetEnumArg(idx, std::nullopt);
-        break;
-      default:
-        return Status::Invalid("Unrecognized enum kind case: ",
-                               enum_val.enum_kind_case());
-    }
+  if (!arg.enum_().empty()) {
+    call->SetEnumArg(idx, arg.enum_());
   } else if (arg.has_value()) {
     ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
                           FromProto(arg.value(), ext_set, conversion_options));
@@ -80,6 +100,19 @@ Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
   return Status::OK();
 }
 
+Status DecodeOption(const substrait::FunctionOption& opt, SubstraitCall* call) {
+  std::vector<std::string_view> prefs;
+  if (opt.preference_size() == 0) {
+    return Status::Invalid("Invalid Substrait plan.  The option ", opt.name(),
+                           " is specified but does not list any choices");
+  }
+  for (const auto& preference : opt.preference()) {
+    prefs.push_back(preference);
+  }
+  call->SetOption(opt.name(), prefs);
+  return Status::OK();
+}
+
 Result<SubstraitCall> DecodeScalarFunction(
     Id id, const substrait::Expression::ScalarFunction& scalar_fn,
     const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
@@ -87,19 +120,13 @@ Result<SubstraitCall> DecodeScalarFunction(
                         FromProto(scalar_fn.output_type(), ext_set, conversion_options));
   SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second);
   for (int i = 0; i < scalar_fn.arguments_size(); i++) {
-    ARROW_RETURN_NOT_OK(DecodeArg(scalar_fn.arguments(i), static_cast<uint32_t>(i), &call,
-                                  ext_set, conversion_options));
+    ARROW_RETURN_NOT_OK(
+        DecodeArg(scalar_fn.arguments(i), i, &call, ext_set, conversion_options));
+  }
+  for (const auto& opt : scalar_fn.options()) {
+    ARROW_RETURN_NOT_OK(DecodeOption(opt, &call));
   }
   return std::move(call);
-}
-
-std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor) {
-  const google::protobuf::EnumValueDescriptor* value_desc =
-      descriptor->FindValueByNumber(value);
-  if (value_desc == nullptr) {
-    return "unknown";
-  }
-  return value_desc->name();
 }
 
 Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,
@@ -108,7 +135,7 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
   if (func.phase() != substrait::AggregationPhase::AGGREGATION_PHASE_INITIAL_TO_RESULT) {
     return Status::NotImplemented(
         "Unsupported aggregation phase '",
-        EnumToString(func.phase(), substrait::AggregationPhase_descriptor()),
+        EnumToString(func.phase(), *substrait::AggregationPhase_descriptor()),
         "'.  Only INITIAL_TO_RESULT is supported");
   }
   if (func.invocation() !=
@@ -117,7 +144,7 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
     return Status::NotImplemented(
         "Unsupported aggregation invocation '",
         EnumToString(func.invocation(),
-                     substrait::AggregateFunction::AggregationInvocation_descriptor()),
+                     *substrait::AggregateFunction::AggregationInvocation_descriptor()),
         "'.  Only AGGREGATION_INVOCATION_ALL is "
         "supported");
   }
@@ -170,9 +197,10 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
               out = compute::field_ref(FieldRef(*out_ref, index));
             } else if (out->call() && out->call()->function_name == "struct_field") {
               // Nested StructFields on top of an arbitrary expression
-              std::static_pointer_cast<arrow::compute::StructFieldOptions>(
-                  out->call()->options)
-                  ->indices.push_back(index);
+              auto* field_options =
+                  checked_cast<compute::StructFieldOptions*>(out->call()->options.get());
+              field_options->field_ref =
+                  FieldRef(std::move(field_options->field_ref), index);
             } else {
               // First StructField on top of an arbitrary expression
               out = compute::call("struct_field", {std::move(*out)},
@@ -249,7 +277,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
                               FromProto(if_.then(), ext_set, conversion_options));
         conditions.emplace_back(std::move(compute_if));
         args.emplace_back(std::move(compute_then));
-        condition_names.emplace_back("cond" + std::to_string(++name_counter));
+        condition_names.emplace_back("cond" + ToChars(++name_counter));
       }
       ARROW_ASSIGN_OR_RAISE(auto compute_else,
                             FromProto(if_then.else_(), ext_set, conversion_options));
@@ -926,17 +954,11 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
       ToProto(*call.output_type(), call.output_nullable(), ext_set, conversion_options));
   scalar_fn->set_allocated_output_type(output_type.release());
 
-  for (uint32_t i = 0; i < call.size(); i++) {
+  for (int i = 0; i < call.size(); i++) {
     substrait::FunctionArgument* arg = scalar_fn->add_arguments();
     if (call.HasEnumArg(i)) {
-      auto enum_val = std::make_unique<substrait::FunctionArgument::Enum>();
-      ARROW_ASSIGN_OR_RAISE(std::optional<std::string_view> enum_arg, call.GetEnumArg(i));
-      if (enum_arg) {
-        enum_val->set_specified(std::string(*enum_arg));
-      } else {
-        enum_val->set_allocated_unspecified(new google::protobuf::Empty());
-      }
-      arg->set_allocated_enum_(enum_val.release());
+      ARROW_ASSIGN_OR_RAISE(std::string_view enum_val, call.GetEnumArg(i));
+      arg->set_enum_(std::string(enum_val));
     } else if (call.HasValueArg(i)) {
       ARROW_ASSIGN_OR_RAISE(compute::Expression value_arg, call.GetValueArg(i));
       ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression> value_expr,
@@ -1019,13 +1041,16 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
 
   if (call->function_name == "struct_field") {
     // catch the special case of calls convertible to a StructField
+    const auto& field_options =
+        checked_cast<const compute::StructFieldOptions&>(*call->options);
+    const DataType& struct_type = *call->arguments[0].type();
+    DCHECK_EQ(struct_type.id(), Type::STRUCT);
+
+    ARROW_ASSIGN_OR_RAISE(auto field_path, field_options.field_ref.FindOne(struct_type));
     out = std::move(arguments[0]);
-    for (int index :
-         checked_cast<const arrow::compute::StructFieldOptions&>(*call->options)
-             .indices) {
+    for (int index : field_path.indices()) {
       ARROW_ASSIGN_OR_RAISE(out, MakeStructFieldReference(std::move(out), index));
     }
-
     return std::move(out);
   }
 

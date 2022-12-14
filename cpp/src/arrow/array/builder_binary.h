@@ -54,8 +54,11 @@ class BaseBinaryBuilder : public ArrayBuilder {
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
 
-  explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), offsets_builder_(pool), value_data_builder_(pool) {}
+  explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool(),
+                             int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment),
+        offsets_builder_(pool, alignment),
+        value_data_builder_(pool, alignment) {}
 
   BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : BaseBinaryBuilder(pool) {}
@@ -464,7 +467,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   using TypeClass = FixedSizeBinaryType;
 
   explicit FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                                  MemoryPool* pool = default_memory_pool());
+                                  MemoryPool* pool = default_memory_pool(),
+                                  int64_t alignment = kDefaultBufferAlignment);
 
   Status Append(const uint8_t* value) {
     ARROW_RETURN_NOT_OK(Reserve(1));

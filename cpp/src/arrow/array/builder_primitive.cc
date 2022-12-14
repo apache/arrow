@@ -44,11 +44,12 @@ Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-BooleanBuilder::BooleanBuilder(MemoryPool* pool)
-    : ArrayBuilder(pool), data_builder_(pool) {}
+BooleanBuilder::BooleanBuilder(MemoryPool* pool, int64_t alignment)
+    : ArrayBuilder(pool, alignment), data_builder_(pool, alignment) {}
 
-BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-    : BooleanBuilder(pool) {
+BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
+                               int64_t alignment)
+    : BooleanBuilder(pool, alignment) {
   ARROW_CHECK_EQ(Type::BOOL, type->id());
 }
 

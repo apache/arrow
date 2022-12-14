@@ -17,7 +17,18 @@
 
 #include "arrow/engine/substrait/serde.h"
 
+#include <cstdint>
+#include <type_traits>
 #include <utility>
+
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+#include <google/protobuf/message.h>
+#include <google/protobuf/stubs/status.h>
+#include <google/protobuf/util/json_util.h>
+#include <google/protobuf/util/message_differencer.h>
+#include <google/protobuf/util/type_resolver.h>
+#include <google/protobuf/util/type_resolver_util.h>
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -27,17 +38,11 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/plan_internal.h"
+#include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/type.h"
-
-#include <google/protobuf/descriptor.h>
-#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
-#include <google/protobuf/message.h>
-#include <google/protobuf/util/json_util.h>
-#include <google/protobuf/util/message_differencer.h>
-#include <google/protobuf/util/type_resolver_util.h>
 
 namespace arrow {
 namespace engine {
@@ -108,22 +113,6 @@ DeclarationFactory MakeConsumingSinkDeclarationFactory(
   };
 }
 
-compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
-                                               std::vector<std::string> names) {
-  int names_size = static_cast<int>(names.size());
-  if (names_size == 0) {
-    return input;
-  }
-  std::vector<compute::Expression> expressions;
-  for (int i = 0; i < names_size; i++) {
-    expressions.push_back(compute::field_ref(FieldRef(i)));
-  }
-  return compute::Declaration::Sequence(
-      {std::move(input),
-       {"project",
-        compute::ProjectNodeOptions{std::move(expressions), std::move(names)}}});
-}
-
 DeclarationFactory MakeWriteDeclarationFactory(
     const WriteOptionsFactory& write_options_factory) {
   return [&write_options_factory](
@@ -133,17 +122,26 @@ DeclarationFactory MakeWriteDeclarationFactory(
     if (options == nullptr) {
       return Status::Invalid("write options factory is exhausted");
     }
-    compute::Declaration projected = ProjectByNamesDeclaration(input, names);
     return compute::Declaration::Sequence(
-        {std::move(projected), {"write", std::move(*options)}});
+        {std::move(input), {"write", std::move(*options)}});
   };
 }
+
+// FIXME - Replace with actual version that includes the change
+constexpr uint32_t kMinimumMajorVersion = 0;
+constexpr uint32_t kMinimumMinorVersion = 19;
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, DeclarationFactory declaration_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
+
+  if (plan.version().major_number() < kMinimumMajorVersion &&
+      plan.version().minor_number() < kMinimumMinorVersion) {
+    return Status::Invalid("Can only parse plans with a version >= ",
+                           kMinimumMajorVersion, ".", kMinimumMinorVersion);
+  }
 
   ARROW_ASSIGN_OR_RAISE(auto ext_set,
                         GetExtensionSetFromPlan(plan, conversion_options, registry));

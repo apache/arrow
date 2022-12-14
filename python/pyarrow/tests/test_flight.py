@@ -2226,3 +2226,13 @@ def test_tracing():
         ])
         for value in client.do_action((b"", b""), options=options):
             pass
+
+
+def test_do_put_does_not_crash_when_schema_is_none():
+    client = FlightClient('grpc+tls://localhost:9643',
+                          disable_server_verification=True)
+    msg = ("Argument 'schema' has incorrect type "
+           r"\(expected pyarrow.lib.Schema, got NoneType\)")
+    with pytest.raises(TypeError, match=msg):
+        client.do_put(flight.FlightDescriptor.for_command('foo'),
+                      schema=None)

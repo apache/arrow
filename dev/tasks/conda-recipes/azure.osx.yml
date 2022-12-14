@@ -3,7 +3,7 @@
 jobs:
 - job: osx
   pool:
-    vmImage: macOS-latest
+    vmImage: macOS-11
   timeoutInMinutes: 360
   variables:
     CONFIG: {{ config }}
@@ -71,6 +71,7 @@ jobs:
       if [ ! -z "${R_CONFIG}" ]; then
         conda build r-arrow \
           -m ./.ci_support/r/${R_CONFIG}.yaml \
+          ${EXTRA_CB_OPTIONS:-} \
           --output-folder ./build_artifacts
       fi
     workingDirectory: arrow/dev/tasks/conda-recipes
@@ -80,5 +81,5 @@ jobs:
      sudo mv /usr/local/conda_mangled/* /usr/local/
     displayName: Unmangle homebrew
 
-  {{ macros.azure_upload_releases("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}
-  {{ macros.azure_upload_anaconda("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}
+  {{ macros.azure_upload_releases("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.conda") }}
+  {{ macros.azure_upload_anaconda("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.conda") }}

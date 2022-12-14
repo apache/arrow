@@ -438,19 +438,23 @@ class build_ext(_build_ext):
             else:
                 build_prefix = self.build_type
 
+            pyarrow_include = pjoin(build_lib, 'pyarrow', 'include')
+            # Move Arrow C++ headers to pyarrow/include
             if self.bundle_arrow_cpp or self.bundle_arrow_cpp_headers:
                 arrow_cpp_include = pjoin(build_prefix, 'include')
                 print('Bundling includes: ' + arrow_cpp_include)
-                pyarrow_include = pjoin(build_lib, 'pyarrow', 'include')
                 if os.path.exists(pyarrow_include):
                     shutil.rmtree(pyarrow_include)
                 shutil.move(arrow_cpp_include, pyarrow_include)
 
-                # pyarrow/include file is first deleted in the previous step
-                # so we need to add the PyArrow C++ include folder again
-                pyarrow_cpp_include = pjoin(pyarrow_cpp_home, 'include')
-                shutil.move(pjoin(pyarrow_cpp_include, 'arrow', 'python'),
-                            pjoin(pyarrow_include, 'arrow', 'python'))
+            # Move PyArrow headers to pyarrow/include
+            pyarrow_cpp_include = pjoin(pyarrow_cpp_home, 'include')
+            pyarrow_include_sub = pjoin(pyarrow_include, 'arrow', 'python')
+            print('Moving PyArrow C++ includes: ' + pyarrow_include_sub)
+            if os.path.exists(pyarrow_include_sub):
+                shutil.rmtree(pyarrow_include_sub)
+            shutil.move(pjoin(pyarrow_cpp_include, 'arrow', 'python'),
+                        pyarrow_include_sub)
 
             # Move the built C-extension to the place expected by the Python
             # build

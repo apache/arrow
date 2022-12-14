@@ -194,18 +194,21 @@ test_apt() {
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
-                "arm64v8/ubuntu:jammy"; do \
+                "arm64v8/ubuntu:jammy" \
+                "ubuntu:kinetic" \
+                "arm64v8/ubuntu:kinetic"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           case "${target}" in
-          arm64v8/debian:buster|arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
-            ;; # OK
-          *)
-            # qemu-user-static in Ubuntu 20.04 has a crash bug:
-            #   https://bugs.launchpad.net/qemu/+bug/1749393
-            continue
-            ;;
+            arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
+              : # OK
+              ;;
+            *)
+              # qemu-user-static in Ubuntu 20.04 has a crash bug:
+              #   https://bugs.launchpad.net/qemu/+bug/1749393
+              continue
+              ;;
           esac
         else
           continue
@@ -1198,5 +1201,5 @@ test_binary_distribution
 
 TEST_SUCCESS=yes
 
-echo 'Release candidate looks good!'
+echo "Release candidate ${VERSION}-RC${RC_NUMBER} looks good!"
 exit 0

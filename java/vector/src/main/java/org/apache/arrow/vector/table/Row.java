@@ -30,6 +30,8 @@ import java.util.NoSuchElementException;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
@@ -70,6 +72,8 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
+import org.apache.arrow.vector.holders.NullableDateDayHolder;
+import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
@@ -98,7 +102,7 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
 
 /**
- * Row is a positionable, immutable cursor backed by a {@link Table}. 
+ * Row is a positionable, immutable cursor backed by a {@link Table}.
  *
  * <p>Getters are provided for most vector types. The exceptions being {@link org.apache.arrow.vector.NullVector},
  * which only contains null values and has no getter, and {@link org.apache.arrow.vector.ZeroVector},
@@ -737,6 +741,87 @@ public class Row implements Iterator<Row> {
    */
   public void getBit(int columnIndex, NullableBitHolder holder) {
     BitVector vector = (BitVector) table.getVector(columnIndex);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Returns a long from the column of the given name at the current row. An IllegalArgumentException
+   * is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * present but has a different type.
+   */
+  public long getDateMilli(String columnName) {
+    DateMilliVector vector = (DateMilliVector) table.getVector(columnName);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Returns a long from the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type.
+   */
+  public long getDateMilli(int columnIndex) {
+    DateMilliVector vector = (DateMilliVector) table.getVector(columnIndex);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Updates the holder with the value in the column of the given name at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type
+   */
+  public void getDateMilli(String columnName, NullableDateMilliHolder holder) {
+    DateMilliVector vector = (DateMilliVector) table.getVector(columnName);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Updates the holder with the value in the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type
+   */
+  public void getDateMilli(int columnIndex, NullableDateMilliHolder holder) {
+    DateMilliVector vector = (DateMilliVector) table.getVector(columnIndex);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Returns an int from the column of the given name at the current row. An IllegalArgumentException
+   * is thrown if the column is not present, and a ClassCastException is thrown if it is
+   * present but has a different type.
+   */
+  public int getDateDay(String columnName) {
+    DateDayVector vector = (DateDayVector) table.getVector(columnName);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Returns an int from the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type.
+   */
+  public int getDateDay(int columnIndex) {
+    DateDayVector vector = (DateDayVector) table.getVector(columnIndex);
+    return vector.get(rowNumber);
+  }
+
+
+  /**
+   * Updates the holder with the value in the column of the given name at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type
+   */
+  public void getDateDay(String columnName, NullableDateDayHolder holder) {
+    DateDayVector vector = (DateDayVector) table.getVector(columnName);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Updates the holder with the value in the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
+   * is thrown if it is present but has a different type
+   */
+  public void getDateDay(int columnIndex, NullableDateDayHolder holder) {
+    DateDayVector vector = (DateDayVector) table.getVector(columnIndex);
     vector.get(rowNumber, holder);
   }
 
@@ -1505,6 +1590,8 @@ public class Row implements Iterator<Row> {
    * Returns a Period from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
+   *
+   * @return a Period of n MONTHS, not YEARS
    */
   public Period getIntervalYearObj(String columnName) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnName);
@@ -1515,6 +1602,8 @@ public class Row implements Iterator<Row> {
    * Returns a Period from the column with the given index at the current row. An
    * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
+   *
+   * @return a Period of n MONTHS, not YEARS
    */
   public Period getIntervalYearObj(int columnIndex) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnIndex);
@@ -1525,6 +1614,8 @@ public class Row implements Iterator<Row> {
    * Returns an int from the column of the given name at the current row. An IllegalArgumentException
    * is thrown if the column is not present, and a ClassCastException is thrown if it is
    * present but has a different type
+   *
+   * @return the number of MONTHS in the interval (not YEARS)
    */
   public int getIntervalYear(String columnName) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnName);
@@ -1535,6 +1626,8 @@ public class Row implements Iterator<Row> {
    * Returns an int from the column with the given index at the current row. An
    * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
+   *
+   * @return the number of MONTHS in the interval (not YEARS)
    */
   public int getIntervalYear(int columnIndex) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnIndex);
@@ -1545,6 +1638,8 @@ public class Row implements Iterator<Row> {
    * Updates the holder with the value from the column of the given name at the current row. An
    * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
+   *
+   * @param holder  a holder to store the interval. Note that the value of the holder represents MONTHS not years
    */
   public void getIntervalYear(String columnName, NullableIntervalYearHolder holder) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnName);
@@ -1555,6 +1650,8 @@ public class Row implements Iterator<Row> {
    * Updates the holder with the value from the column with the given index at the current row. An
    * IllegalArgumentException is thrown if the column is not present, and a ClassCastException
    * is thrown if it is present but has a different type
+   *
+   * @param holder  a holder to store the interval. Note that the value of the holder represents MONTHS not years
    */
   public void getIntervalYear(int columnIndex, NullableIntervalYearHolder holder) {
     IntervalYearVector vector = (IntervalYearVector) table.getVector(columnIndex);

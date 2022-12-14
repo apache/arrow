@@ -174,6 +174,7 @@ def s3_server(s3_connection):
         finally:
             if proc is not None:
                 proc.kill()
+                proc.wait()
 
 
 @pytest.fixture(scope='session')
@@ -183,8 +184,14 @@ def gcs_server():
     args = [sys.executable, '-m', 'testbench', '--port', str(port)]
     proc = None
     try:
+        # check first if testbench module is available
+        import testbench  # noqa:F401
+        # start server
         proc = subprocess.Popen(args, env=env)
-    except OSError as e:
+        # Make sure the server is alive.
+        if proc.poll() is not None:
+            pytest.skip(f"Command {args} did not start server successfully!")
+    except (ModuleNotFoundError, OSError) as e:
         pytest.skip(f"Command {args} failed to execute: {e}")
     else:
         yield {
@@ -194,3 +201,4 @@ def gcs_server():
     finally:
         if proc is not None:
             proc.kill()
+            proc.wait()

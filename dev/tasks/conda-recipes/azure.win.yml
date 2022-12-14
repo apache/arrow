@@ -72,5 +72,5 @@ jobs:
         PYTHONUNBUFFERED: 1
       condition: contains(variables['R_CONFIG'], 'win')
 
-    {{ macros.azure_upload_releases("D:\\bld\\win-64\\*.tar.bz2")|indent(2) }}
-    {{ macros.azure_upload_anaconda("D:\\bld\\win-64\\*.tar.bz2")|indent(2) }}
+    {{ macros.azure_upload_releases("D:\\bld\\win-64\\*.conda")|indent(2) }}
+    {{ macros.azure_upload_anaconda("D:\\bld\\win-64\\*.conda")|indent(2) }}

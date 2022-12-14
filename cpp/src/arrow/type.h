@@ -140,7 +140,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   bool Equals(const DataType& other, bool check_metadata = false) const;
 
   /// \brief Return whether the types are equal
-  bool Equals(const std::shared_ptr<DataType>& other) const;
+  bool Equals(const std::shared_ptr<DataType>& other, bool check_metadata = false) const;
 
   /// \brief Return the child field at index i.
   const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
@@ -1850,6 +1850,9 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
 };
 
 ARROW_EXPORT void PrintTo(const FieldRef& ref, std::ostream* os);
+
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, const FieldRef&);
 
 // ----------------------------------------------------------------------
 // Schema

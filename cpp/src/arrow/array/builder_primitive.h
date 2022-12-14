@@ -31,10 +31,13 @@ namespace arrow {
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
  public:
-  explicit NullBuilder(MemoryPool* pool = default_memory_pool()) : ArrayBuilder(pool) {}
+  explicit NullBuilder(MemoryPool* pool = default_memory_pool(),
+                       int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool) {}
   explicit NullBuilder(const std::shared_ptr<DataType>& type,
-                       MemoryPool* pool = default_memory_pool())
-      : NullBuilder(pool) {}
+                       MemoryPool* pool = default_memory_pool(),
+                       int64_t alignment = kDefaultBufferAlignment)
+      : NullBuilder(pool, alignment) {}
 
   /// \brief Append the specified number of null elements
   Status AppendNulls(int64_t length) final {
@@ -82,11 +85,15 @@ class NumericBuilder : public ArrayBuilder {
 
   template <typename T1 = T>
   explicit NumericBuilder(
-      enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool())
-      : ArrayBuilder(pool), type_(TypeTraits<T>::type_singleton()), data_builder_(pool) {}
+      enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool(),
+      int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment),
+        type_(TypeTraits<T>::type_singleton()),
+        data_builder_(pool, alignment) {}
 
-  NumericBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(pool), type_(type), data_builder_(pool) {}
+  NumericBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
+                 int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment), type_(type), data_builder_(pool, alignment) {}
 
   /// Append a single scalar and increase the size if necessary.
   Status Append(const value_type val) {
@@ -347,10 +354,12 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   using TypeClass = BooleanType;
   using value_type = bool;
 
-  explicit BooleanBuilder(MemoryPool* pool = default_memory_pool());
+  explicit BooleanBuilder(MemoryPool* pool = default_memory_pool(),
+                          int64_t alignment = kDefaultBufferAlignment);
 
   BooleanBuilder(const std::shared_ptr<DataType>& type,
-                 MemoryPool* pool = default_memory_pool());
+                 MemoryPool* pool = default_memory_pool(),
+                 int64_t alignment = kDefaultBufferAlignment);
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(int64_t length) final {

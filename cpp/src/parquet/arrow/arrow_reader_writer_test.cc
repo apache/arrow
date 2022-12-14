@@ -3889,9 +3889,7 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
   ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
   std::shared_ptr<::arrow::RecordBatchReader> batch_reader;
-  std::vector<int> all_row_groups =
-      ::arrow::internal::Iota(reader->metadata()->num_row_groups());
-  ASSERT_OK_NO_THROW(arrow_reader->GetRecordBatchReader(all_row_groups, &batch_reader));
+  ASSERT_OK_NO_THROW(arrow_reader->GetRecordBatchReader(&batch_reader));
   ASSERT_OK_AND_ASSIGN(auto batched_table,
                        ::arrow::Table::FromRecordBatchReader(batch_reader.get()));
 
@@ -4028,7 +4026,7 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
   ASSERT_OK_AND_ASSIGN(auto outs, BufferOutputStream::Create(1 << 10, pool));
   auto props = default_writer_properties();
   std::unique_ptr<arrow::FileWriter> writer;
-  ASSERT_OK(arrow::FileWriter::Open(*writer_schm, pool, outs, props, &writer));
+  ASSERT_OK_AND_ASSIGN(writer, arrow::FileWriter::Open(*writer_schm, pool, outs, props));
   std::shared_ptr<::arrow::Array> col;
   ::arrow::Int64Builder builder;
   ASSERT_OK(builder.Append(1));
@@ -4085,9 +4083,9 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
             ->data_pagesize(2)
             ->build();
     std::unique_ptr<FileWriter> writer;
-    ASSERT_OK(FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
-                               writer_properties, default_arrow_writer_properties(),
-                               &writer));
+    ASSERT_OK_AND_ASSIGN(
+        writer, FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
+                                 writer_properties, default_arrow_writer_properties()));
     ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
     ASSERT_OK(writer->Close());
     ASSERT_OK(out_stream->Close());
@@ -4473,8 +4471,7 @@ TEST_F(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
   ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), properties,
                              &parquet_reader));
-  ASSERT_OK(parquet_reader->GetRecordBatchReader(Iota(parquet_reader->num_row_groups()),
-                                                 &rb_reader));
+  ASSERT_OK(parquet_reader->GetRecordBatchReader(&rb_reader));
 
   auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
   std::vector<std::string> column_names = {

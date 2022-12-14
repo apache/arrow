@@ -384,8 +384,9 @@ if(NOT ARROW_BUILD_EXAMPLES)
   set(NO_EXAMPLES 1)
 endif()
 
-if(NOT ARROW_FUZZING)
-  set(NO_FUZZING 1)
+if(ARROW_FUZZING)
+  # Fuzzing builds enable ASAN without setting our home-grown option for it.
+  add_definitions(-DADDRESS_SANITIZER)
 endif()
 
 if(ARROW_LARGE_MEMORY_TESTS)
@@ -882,8 +883,8 @@ if(ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_JEMALLOC)
-  list(APPEND ARROW_SHARED_LINK_LIBS jemalloc)
-  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc)
+  list(APPEND ARROW_SHARED_LINK_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)

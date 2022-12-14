@@ -39,8 +39,12 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace compute {
 
 template <typename T, typename V = typename T::value_type>
@@ -1053,7 +1057,7 @@ class AsofJoinNode : public ExecNode {
     std::vector<std::vector<col_index_t>> indices_of_by_key(
         n_input, std::vector<col_index_t>(n_by));
     for (size_t i = 0; i < n_input; ++i) {
-      input_labels[i] = i == 0 ? "left" : "right_" + std::to_string(i);
+      input_labels[i] = i == 0 ? "left" : "right_" + ToChars(i);
       const Schema& input_schema = *inputs[i]->output_schema();
       ARROW_ASSIGN_OR_RAISE(indices_of_on_key[i],
                             FindColIndex(input_schema, join_options.on_key, "on"));

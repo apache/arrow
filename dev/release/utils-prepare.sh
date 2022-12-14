@@ -166,26 +166,11 @@ update_versions() {
     parquet/writer_properties.go
   sed -i.bak -E -e \
     "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
-    arrow/doc.go
-  # handle the pseudo version in the compute sub-module for now
-  # subsequent changes will allow this to remove the pseudo version but
-  # for now we have to overcome the slight conflict between the existing
-  # "compute" package and the new go.mod file.
-  sed -i.bak -E -e \
-    "s|arrow/go/v${major_version} v[0-9]+\\.[0-9]+\\.[0-9]+|arrow/go/v${major_version} v${version%%-*}|" \
-    arrow/compute/go.mod
+    arrow/doc.go  
 
   find . -name "*.bak" -exec rm {} \;
   git add .
-  popd
-
-  pushd "${ARROW_DIR}"
-  sed -i.bak -E -e \
-    "s|arrow/go/v[0-9]+ v[0-9]+\\.[0-9]+\\.[0-9]+|arrow/go/v${major_version} v${version%%-*}|" \
-    go.work
-  rm -f go.work.bak
-  git add go.work
-  popd
+  popd  
 
   case "${base_version}" in
     *.0.0)

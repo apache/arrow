@@ -27,12 +27,20 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+namespace internal {
+
+class Executor;
+
+}  // namespace internal
+
 namespace compute {
 
 using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
@@ -57,6 +65,10 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   static Result<std::shared_ptr<SourceNodeOptions>> FromTable(const Table& table,
                                                               arrow::internal::Executor*);
 
+  static Result<std::shared_ptr<SourceNodeOptions>> FromRecordBatchReader(
+      std::shared_ptr<RecordBatchReader> reader, std::shared_ptr<Schema> schema,
+      arrow::internal::Executor*);
+
   std::shared_ptr<Schema> output_schema;
   std::function<Future<std::optional<ExecBatch>>()> generator;
 };
@@ -75,6 +87,64 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   // If the table is larger the node will emit multiple batches from the
   // the table to be processed in parallel.
   int64_t max_batch_size;
+};
+
+/// \brief Define a lazy resolved Arrow table.
+///
+/// The table uniquely identified by the names can typically be resolved at the time when
+/// the plan is to be consumed.
+///
+/// This node is for serialization purposes only and can never be executed.
+class ARROW_EXPORT NamedTableNodeOptions : public ExecNodeOptions {
+ public:
+  NamedTableNodeOptions(std::vector<std::string> names, std::shared_ptr<Schema> schema)
+      : names(std::move(names)), schema(schema) {}
+
+  std::vector<std::string> names;
+  std::shared_ptr<Schema> schema;
+};
+
+/// \brief An extended Source node which accepts a schema
+///
+/// ItMaker is a maker of an iterator of tabular data.
+template <typename ItMaker>
+class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
+ public:
+  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
+                          arrow::internal::Executor* io_executor = NULLPTR)
+      : schema(schema), it_maker(std::move(it_maker)), io_executor(io_executor) {}
+
+  /// \brief The schema of the record batches from the iterator
+  std::shared_ptr<Schema> schema;
+
+  /// \brief A maker of an iterator which acts as the data source
+  ItMaker it_maker;
+
+  /// \brief The executor to use for scanning the iterator
+  ///
+  /// Defaults to the default I/O executor.
+  arrow::internal::Executor* io_executor;
+};
+
+using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
+/// \brief An extended Source node which accepts a schema and array-vectors
+class ARROW_EXPORT ArrayVectorSourceNodeOptions
+    : public SchemaSourceNodeOptions<ArrayVectorIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
+
+using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>>()>;
+/// \brief An extended Source node which accepts a schema and exec-batches
+class ARROW_EXPORT ExecBatchSourceNodeOptions
+    : public SchemaSourceNodeOptions<ExecBatchIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
+
+using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;
+/// \brief An extended Source node which accepts a schema and record-batches
+class ARROW_EXPORT RecordBatchSourceNodeOptions
+    : public SchemaSourceNodeOptions<RecordBatchIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
 };
 
 /// \brief Make a node which excludes some rows from batches passed through it
@@ -163,9 +233,19 @@ struct ARROW_EXPORT BackpressureOptions {
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
+                           std::shared_ptr<Schema>* schema,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
+        schema(schema),
+        backpressure(backpressure),
+        backpressure_monitor(backpressure_monitor) {}
+
+  explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
+                           BackpressureOptions backpressure = {},
+                           BackpressureMonitor** backpressure_monitor = NULLPTR)
+      : generator(generator),
+        schema(NULLPTR),
         backpressure(std::move(backpressure)),
         backpressure_monitor(backpressure_monitor) {}
 
@@ -175,6 +255,11 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// data from the plan.  If this function is not called frequently enough then the sink
   /// node will start to accumulate data and may apply backpressure.
   std::function<Future<std::optional<ExecBatch>>()>* generator;
+  /// \brief A pointer which will be set to the schema of the generated batches
+  ///
+  /// This is optional, if nullptr is passed in then it will be ignored.
+  /// This will be set when the node is added to the plan, before StartProducing is called
+  std::shared_ptr<Schema>* schema;
   /// \brief Options to control when to apply backpressure
   ///
   /// This is optional, the default is to never apply backpressure.  If the plan is not

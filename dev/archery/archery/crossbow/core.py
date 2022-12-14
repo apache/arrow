@@ -200,7 +200,7 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
 
         if (allowed_types &
                 pygit2.credentials.GIT_CREDENTIAL_USERPASS_PLAINTEXT):
-            return pygit2.UserPass(self.token, 'x-oauth-basic')
+            return pygit2.UserPass('x-oauth-basic', self.token)
         else:
             return None
 

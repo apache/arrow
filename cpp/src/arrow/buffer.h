@@ -461,6 +461,9 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 ARROW_EXPORT
 Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size,
                                                MemoryPool* pool = NULLPTR);
+ARROW_EXPORT
+Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size, int64_t alignment,
+                                               MemoryPool* pool = NULLPTR);
 
 /// \brief Allocate a resizeable buffer from a memory pool, zero its padding.
 ///
@@ -469,6 +472,9 @@ Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size,
 ARROW_EXPORT
 Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(
     const int64_t size, MemoryPool* pool = NULLPTR);
+ARROW_EXPORT
+Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(
+    const int64_t size, const int64_t alignment, MemoryPool* pool = NULLPTR);
 
 /// \brief Allocate a bitmap buffer from a memory pool
 /// no guarantee on values is provided.
@@ -479,15 +485,16 @@ ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length,
                                                MemoryPool* pool = NULLPTR);
 
-ARROW_EXPORT
-Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out);
-
 /// \brief Allocate a zero-initialized bitmap buffer from a memory pool
 ///
 /// \param[in] length size in bits of bitmap to allocate
 /// \param[in] pool memory pool to allocate memory from
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length,
+                                                    MemoryPool* pool = NULLPTR);
+
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, int64_t alignment,
                                                     MemoryPool* pool = NULLPTR);
 
 /// \brief Concatenate multiple buffers into a single buffer
@@ -497,10 +504,6 @@ Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length,
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> ConcatenateBuffers(const BufferVector& buffers,
                                                    MemoryPool* pool = NULLPTR);
-
-ARROW_EXPORT
-Status ConcatenateBuffers(const BufferVector& buffers, MemoryPool* pool,
-                          std::shared_ptr<Buffer>* out);
 
 /// @}
 
