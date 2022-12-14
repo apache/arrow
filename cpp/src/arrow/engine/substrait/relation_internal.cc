@@ -46,6 +46,8 @@
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/type_internal.h"
+#include "arrow/engine/substrait/util.h"
+#include "arrow/engine/substrait/util_internal.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/type_fwd.h"
@@ -639,6 +641,49 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       return ProcessEmit(std::move(aggregate), std::move(aggregate_declaration),
                          std::move(aggregate_schema));
+    }
+
+    case substrait::Rel::RelTypeCase::kSet: {
+      const auto& set = rel.set();
+      RETURN_NOT_OK(CheckRelCommon(set, conversion_options));
+
+      if (set.inputs_size() < 2) {
+        return Status::Invalid(
+            "substrait::SetRel with inadequate number of input relations, ",
+            set.inputs_size());
+      }
+      substrait::SetRel_SetOp op = set.op();
+      // Note: at the moment Acero only supports UNION_ALL operation
+      switch (op) {
+        case substrait::SetRel::SET_OP_UNSPECIFIED:
+        case substrait::SetRel::SET_OP_MINUS_PRIMARY:
+        case substrait::SetRel::SET_OP_MINUS_MULTISET:
+        case substrait::SetRel::SET_OP_INTERSECTION_PRIMARY:
+        case substrait::SetRel::SET_OP_INTERSECTION_MULTISET:
+        case substrait::SetRel::SET_OP_UNION_DISTINCT:
+          return Status::NotImplemented(
+              "NotImplemented union type : ",
+              EnumToString(op, *substrait::SetRel_SetOp_descriptor()));
+        case substrait::SetRel::SET_OP_UNION_ALL:
+          break;
+        default:
+          return Status::Invalid("Unknown union type");
+      }
+      int input_size = set.inputs_size();
+      compute::Declaration union_declr{"union", compute::ExecNodeOptions{}};
+      std::shared_ptr<Schema> union_schema;
+      for (int input_id = 0; input_id < input_size; input_id++) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto input, FromProto(set.inputs(input_id), ext_set, conversion_options));
+        union_declr.inputs.emplace_back(std::move(input.declaration));
+        if (union_schema == nullptr) {
+          union_schema = input.output_schema;
+        }
+      }
+
+      auto set_declaration = DeclarationInfo{union_declr, union_schema};
+      return ProcessEmit(std::move(set), std::move(set_declaration),
+                         std::move(union_schema));
     }
 
     default:

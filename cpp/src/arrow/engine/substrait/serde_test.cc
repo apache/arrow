@@ -3810,5 +3810,125 @@ TEST(Substrait, ReadRelWithGlobFiles) {
                        buf, {}, {}, &options);
 }
 
+TEST(Substrait, SetRelationBasic) {
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table1 = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 80],
+      [20, 2, 70],
+      [30, 3, 30],
+      [40, 4, 20],
+      [50, 6, 20],
+      [200, 7, 30]
+  ])"});
+
+  auto table2 = TableFromJSON(dummy_schema, {R"([
+      [70, 1, 82],
+      [80, 2, 72],
+      [90, 3, 32],
+      [100, 4, 22],
+      [110, 5, 42],
+      [111, 6, 22],
+      [112, 7, 32]
+  ])"});
+
+  NamedTableProvider table_provider = [table1,
+                                       table2](const std::vector<std::string>& names) {
+    std::shared_ptr<Table> output_table;
+    for (const auto& name : names) {
+      if (name == "T1") {
+        output_table = table1;
+      }
+      if (name == "T2") {
+        output_table = table2;
+      }
+    }
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  std::string substrait_json = R"({
+    "relations": [{
+      "root": {
+        "input": {
+          "set": {
+            "inputs": [{
+              "read": {
+                "baseSchema": {
+                  "names": ["FOO"],
+                  "struct": {
+                    "types": [{
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    }],
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["T1"]
+                }
+              }  
+            }, {
+              "read": {
+                "baseSchema": {
+                  "names": ["BAR"],
+                  "struct": {
+                    "types": [{
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    }],
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["T2"]
+                }
+              }
+            }],
+            "op": "SET_OP_UNION_ALL"
+          }
+        },
+        "names": ["FOO"]
+      }
+    }]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  auto expected_table = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 80],
+      [20, 2, 70],
+      [30, 3, 30],
+      [40, 4, 20],
+      [50, 6, 20],
+      [70, 1, 82],
+      [80, 2, 72],
+      [90, 3, 32],
+      [100, 4, 22],
+      [110, 5, 42],
+      [111, 6, 22],
+      [112, 7, 32],
+      [200, 7, 30]
+  ])"});
+
+  compute::SortOptions sort_options(
+      {compute::SortKey("A", compute::SortOrder::Ascending)});
+  CheckRoundTripResult(dummy_schema, std::move(expected_table), exec_context, buf, {},
+                       conversion_options, &sort_options);
+}
+
 }  // namespace engine
 }  // namespace arrow
