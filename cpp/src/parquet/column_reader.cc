@@ -1592,6 +1592,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     }
   }
 
+  std::shared_ptr<ResizableBuffer> ReleaseOffsets() override { return nullptr; }
+
   std::shared_ptr<ResizableBuffer> ReleaseIsValid() override {
     if (leaf_info_.HasNullableValues()) {
       auto result = valid_bits_;

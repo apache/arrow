@@ -303,7 +303,7 @@ class PARQUET_EXPORT RecordReader {
   /// allocated in subsequent ReadRecords calls
   virtual std::shared_ptr<ResizableBuffer> ReleaseValues() = 0;
 
-  virtual std::shared_ptr<ResizableBuffer> ReleaseOffsets() { return nullptr; }
+  virtual std::shared_ptr<ResizableBuffer> ReleaseOffsets() = 0;
 
   /// \brief Transfer filled validity bitmap buffer to caller. A new one will
   /// be allocated in subsequent ReadRecords calls
