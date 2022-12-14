@@ -36,6 +36,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
@@ -206,8 +207,7 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   return compute::Expression{std::move(modified_call)};
 }
 
-void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
-                          const std::shared_ptr<Table> expected_table,
+void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
                           compute::ExecContext& exec_context,
                           std::shared_ptr<Buffer>& buf,
                           const std::vector<int>& include_columns = {},
@@ -222,7 +222,8 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
   auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
 
   ASSERT_OK_AND_ASSIGN(auto output_table,
-                       GetTableFromPlan(other_declrs, exec_context, output_schema));
+                       compute::DeclarationToTable(other_declrs, &exec_context));
+
   if (!include_columns.empty()) {
     ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
   }
@@ -2340,8 +2341,8 @@ TEST(SubstraitRoundTrip, FilterNamedTable) {
     [2, 2, 60]
   ])"});
 
-  CheckRoundTripResult(std::move(dummy_schema), std::move(expected_table), exec_context,
-                       serialized_plan, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, serialized_plan,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, ProjectRel) {
@@ -2455,8 +2456,8 @@ TEST(SubstraitRoundTrip, ProjectRel) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
@@ -2574,8 +2575,8 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, ReadRelWithEmit) {
@@ -2633,8 +2634,8 @@ TEST(SubstraitRoundTrip, ReadRelWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, FilterRelWithEmit) {
@@ -2751,8 +2752,8 @@ TEST(SubstraitRoundTrip, FilterRelWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, JoinRel) {
@@ -2901,8 +2902,8 @@ TEST(SubstraitRoundTrip, JoinRel) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, JoinRelWithEmit) {
@@ -3053,8 +3054,8 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, AggregateRel) {
@@ -3162,8 +3163,8 @@ TEST(SubstraitRoundTrip, AggregateRel) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, AggregateRelEmit) {
@@ -3277,8 +3278,8 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, IsthmusPlan) {
@@ -3381,8 +3382,8 @@ TEST(Substrait, IsthmusPlan) {
                                                    /*ignore_unknown_fields=*/false));
 
   auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
-  CheckRoundTripResult(std::move(test_schema), std::move(expected_table),
-                       *compute::default_exec_context(), buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), *compute::default_exec_context(), buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, ProjectWithMultiFieldExpressions) {
@@ -3535,8 +3536,8 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
@@ -3622,8 +3623,8 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
@@ -3710,8 +3711,8 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, ReadRelWithGlobFiles) {
@@ -3804,10 +3805,120 @@ TEST(Substrait, ReadRelWithGlobFiles) {
       }
     }]
   })"));
-
+  // To avoid unnecessar metadata columns being included in the final result
+  std::vector<int> include_columns = {0, 1, 2};
   compute::SortOptions options({compute::SortKey("A", compute::SortOrder::Ascending)});
-  CheckRoundTripResult(std::move(dummy_schema), std::move(expected_table), exec_context,
-                       buf, {}, {}, &options);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       std::move(include_columns), /*conversion_options=*/{}, &options);
+}
+
+TEST(Substrait, RootRelationOutputNames) {
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  const std::vector<std::string> str_data_vec = {
+      R"([
+      [10, 1, 80],
+      [20, 2, 70],
+      [30, 3, 30]
+  ])"};
+  auto input_table = TableFromJSON(dummy_schema, str_data_vec);
+
+  const std::string substrait_json = R"({
+    "relations": [{
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "emit": {
+                "outputMapping": [3, 4, 5]
+              }
+            },
+            "input": {
+              "read": {
+                "common": {
+                  "direct": {
+                  }
+                },
+                "baseSchema": {
+                  "names": ["A", "B", "C"],
+                  "struct": {
+                    "types": [{
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }, {
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }, {
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_REQUIRED"
+                      }
+                    }],
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["SIMPLEDATA"]
+                }
+              }
+            },
+            "expressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 1
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 2
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }]
+          }
+        },
+        "names": ["X", "Y", "Z"]
+      }
+    }]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema =
+      schema({field("X", int32()), field("Y", int32()), field("Z", int32())});
+  auto expected_table = TableFromJSON(output_schema, str_data_vec);
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, SetRelationBasic) {
