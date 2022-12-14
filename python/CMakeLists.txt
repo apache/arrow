@@ -365,7 +365,7 @@ add_arrow_lib(arrow_python
               EXTRA_INCLUDES
               ${PYARROW_CPP_ROOT_DIR})
 
-foreach(LIB_TARGET ${PYARROW_LIBRARIES})
+foreach(LIB_TARGET ${PYARROW_CPP_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_PYTHON_EXPORTING)
 endforeach()
 
