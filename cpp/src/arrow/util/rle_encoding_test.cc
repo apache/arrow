@@ -175,7 +175,8 @@ TEST(BitArray, TestMixed) {
 
 // Write up to 'num_vals' values with width 'bit_width' and reads them back.
 static void TestPutValue(int bit_width, uint64_t num_vals) {
-  const uint64_t max = uint64_t(2) << (bit_width - 1);
+  // The max value representable in `bit_width` bits.
+  const uint64_t max = std::numeric_limits<uint64_t>::max() >> (64 - bit_width);
   num_vals = std::min(num_vals, max);
   int len = static_cast<int>(bit_util::BytesForBits(bit_width * num_vals));
   EXPECT_GT(len, 0);
