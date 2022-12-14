@@ -447,51 +447,31 @@ function(bundle_arrow_lib library_path)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
-  get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
+  get_filename_component(LIBRARY_PATH_REAL ${library_path} REALPATH)
+  get_filename_component(LIBRARY_NAME ${library_path} NAME_WE)
 
   # Only copy the shared library with ABI version on Linux and macOS
 
   if(MSVC)
-    install(FILES ${${library_path}}
+    install(FILES ${LIBRARY_PATH_REAL}
             DESTINATION "."
             RENAME ${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
   elseif(APPLE)
-    install(FILES ${LIBRARY_DIR}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+    install(FILES ${LIBRARY_PATH_REAL}
             DESTINATION "."
             RENAME ${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX})
   else()
-    install(FILES ${LIBRARY_DIR}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
+    install(FILES ${LIBRARY_PATH_REAL}
             DESTINATION "."
             RENAME ${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION})
   endif()
 endfunction()
 
 function(bundle_arrow_import_lib library_path)
-  get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
-  get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
-  install(FILES ${${library_path}}
+  get_filename_component(LIBRARY_NAME ${library_path} NAME_WE)
+  install(FILES ${library_path}
           DESTINATION "."
           RENAME ${LIBRARY_NAME}.lib)
-endfunction()
-
-function(bundle_boost_lib library_path)
-  get_filename_component(LIBRARY_NAME ${${library_path}} NAME)
-  get_filename_component(LIBRARY_NAME_WE ${${library_path}} NAME_WE)
-  install(FILES ${${library_path}}
-          DESTINATION "."
-          RENAME ${LIBRARY_NAME})
-  set(Boost_SO_VERSION
-      "${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
-  if(APPLE)
-    install(FILES ${${library_path}}
-            DESTINATION "."
-            RENAME ${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX})
-  else()
-    install(FILES ${${library_path}}
-            DESTINATION "."
-            RENAME ${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}.${Boost_SO_VERSION})
-  endif()
 endfunction()
 
 function(bundle_arrow_dependency library_name)
@@ -548,45 +528,11 @@ install(DIRECTORY ${ARROW_INCLUDE_DIR_REAL}/arrow TYPE INCLUDE)
 
 if(PYARROW_BUNDLE_ARROW_CPP)
   # Arrow
-  bundle_arrow_lib(ARROW_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
-
-  # boost
-  if(PYARROW_BOOST_USE_SHARED AND PYARROW_BUNDLE_BOOST)
-    set(Boost_USE_STATIC_LIBS OFF)
-    set(Boost_USE_MULTITHREADED ON)
-    if(MSVC AND ARROW_USE_STATIC_CRT)
-      set(Boost_USE_STATIC_RUNTIME ON)
-    endif()
-    set(Boost_ADDITIONAL_VERSIONS
-        "1.66.0"
-        "1.66"
-        "1.65.0"
-        "1.65"
-        "1.64.0"
-        "1.64"
-        "1.63.0"
-        "1.63"
-        "1.62.0"
-        "1.61"
-        "1.61.0"
-        "1.62"
-        "1.60.0"
-        "1.60")
-    list(GET Boost_ADDITIONAL_VERSIONS 0 BOOST_LATEST_VERSION)
-    string(REPLACE "." "_" BOOST_LATEST_VERSION_IN_PATH ${BOOST_LATEST_VERSION})
-    if(MSVC)
-      # disable autolinking in boost
-      add_definitions(-DBOOST_ALL_NO_LIB)
-    endif()
-    find_package(Boost
-                 COMPONENTS regex
-                 REQUIRED)
-    bundle_boost_lib(Boost_REGEX_LIBRARY)
-  endif()
+  bundle_arrow_lib(${ARROW_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
 
   if(MSVC)
     # TODO(kszucs): locate msvcp140.dll in a portable fashion and bundle it
-    bundle_arrow_import_lib(ARROW_IMPORT_LIB)
+    bundle_arrow_import_lib(${ARROW_IMPORT_LIB})
   endif()
 endif()
 
@@ -629,9 +575,9 @@ if(PYARROW_BUILD_CUDA)
   find_package(ArrowCUDA REQUIRED)
 
   if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(ARROW_CUDA_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    bundle_arrow_lib(${ARROW_CUDA_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
     if(MSVC)
-      bundle_arrow_import_lib(ARROW_CUDA_IMPORT_LIB)
+      bundle_arrow_import_lib(${ARROW_CUDA_IMPORT_LIB})
     endif()
   endif()
   set(CUDA_LINK_LIBS ArrowCUDA::arrow_cuda_shared)
@@ -642,9 +588,9 @@ endif()
 # Dataset
 if(PYARROW_BUILD_DATASET)
   if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(ARROW_DATASET_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    bundle_arrow_lib(${ARROW_DATASET_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
     if(MSVC)
-      bundle_arrow_import_lib(ARROW_DATASET_IMPORT_LIB)
+      bundle_arrow_import_lib(${ARROW_DATASET_IMPORT_LIB})
     endif()
   endif()
 
@@ -661,9 +607,9 @@ if(PYARROW_BUILD_PARQUET)
 
   if(PYARROW_PARQUET_USE_SHARED)
     if(PYARROW_BUNDLE_ARROW_CPP)
-      bundle_arrow_lib(PARQUET_SHARED_LIB SO_VERSION ${PARQUET_SO_VERSION})
+      bundle_arrow_lib(${PARQUET_SHARED_LIB} SO_VERSION ${PARQUET_SO_VERSION})
       if(MSVC)
-        bundle_arrow_import_lib(PARQUET_IMPORT_LIB)
+        bundle_arrow_import_lib(${PARQUET_IMPORT_LIB})
       endif()
     endif()
     set(PARQUET_LINK_LIBS Parquet::parquet_shared)
@@ -687,7 +633,7 @@ if(PYARROW_BUILD_PLASMA)
   install(DIRECTORY ${PLASMA_INCLUDE_DIR_REAL}/plasma TYPE INCLUDE)
 
   if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(PLASMA_SHARED_LIB SO_VERSION ${PLASMA_SO_VERSION})
+    bundle_arrow_lib(${PLASMA_SHARED_LIB} SO_VERSION ${PLASMA_SO_VERSION})
   endif()
   set(PLASMA_LINK_LIBS Plasma::plasma_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _plasma)
@@ -707,9 +653,9 @@ endif()
 # Flight
 if(PYARROW_BUILD_FLIGHT)
   if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(ARROW_FLIGHT_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    bundle_arrow_lib(${ARROW_FLIGHT_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
     if(MSVC)
-      bundle_arrow_import_lib(ARROW_FLIGHT_IMPORT_LIB)
+      bundle_arrow_import_lib(${ARROW_FLIGHT_IMPORT_LIB})
       # XXX Hardcoded library names because CMake is too stupid to give us
       # the shared library paths.
       # https://gitlab.kitware.com/cmake/cmake/issues/16210
@@ -726,9 +672,9 @@ endif()
 if(PYARROW_BUILD_SUBSTRAIT)
   find_package(ArrowSubstrait REQUIRED)
   if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(ARROW_SUBSTRAIT_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    bundle_arrow_lib(${ARROW_SUBSTRAIT_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
     if(MSVC)
-      bundle_arrow_import_lib(ARROW_SUBSTRAIT_IMPORT_LIB)
+      bundle_arrow_import_lib(${ARROW_SUBSTRAIT_IMPORT_LIB})
     endif()
   endif()
 
@@ -744,10 +690,10 @@ if(PYARROW_BUILD_GANDIVA)
     get_filename_component(GANDIVA_INCLUDE_DIR_REAL ${GANDIVA_INCLUDE_DIR} REALPATH)
     install(DIRECTORY ${GANDIVA_INCLUDE_DIR_REAL}/gandiva TYPE INCLUDE)
 
-    bundle_arrow_lib(GANDIVA_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    bundle_arrow_lib(${GANDIVA_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
 
     if(MSVC)
-      bundle_arrow_import_lib(GANDIVA_IMPORT_LIB)
+      bundle_arrow_import_lib(${GANDIVA_IMPORT_LIB})
     endif()
   endif()
 
