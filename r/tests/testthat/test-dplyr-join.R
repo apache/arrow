@@ -173,14 +173,12 @@ test_that("full_join", {
 })
 
 test_that("semi_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        semi_join(to_join, by = "some_grouping", keep = !!keep) %>%
-        collect(),
-      left
-    )
-  }
+  compare_dplyr_binding(
+    .input %>%
+      semi_join(to_join, by = "some_grouping") %>%
+      collect(),
+    left
+  )
 })
 
 test_that("anti_join", {

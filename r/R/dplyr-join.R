@@ -112,9 +112,8 @@ semi_join.arrow_dplyr_query <- function(x,
                                         by = NULL,
                                         copy = FALSE,
                                         suffix = c(".x", ".y"),
-                                        ...,
-                                        keep = FALSE) {
-  do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_SEMI")
+                                        ...) {
+  do_join(x, y, by, copy, suffix, ..., join_type = "LEFT_SEMI")
 }
 semi_join.Dataset <- semi_join.ArrowTabular <- semi_join.RecordBatchReader <- semi_join.arrow_dplyr_query
 
@@ -123,9 +122,8 @@ anti_join.arrow_dplyr_query <- function(x,
                                         by = NULL,
                                         copy = FALSE,
                                         suffix = c(".x", ".y"),
-                                        ...,
-                                        keep = FALSE) {
-  do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_ANTI")
+                                        ...) {
+  do_join(x, y, by, copy, suffix, ..., join_type = "LEFT_ANTI")
 }
 anti_join.Dataset <- anti_join.ArrowTabular <- anti_join.RecordBatchReader <- anti_join.arrow_dplyr_query
 
