@@ -27,14 +27,13 @@ to_join <- tibble::tibble(
 )
 
 test_that("left_join", {
-  expect_message(
+  expect_snapshot(
     compare_dplyr_binding(
       .input %>%
         left_join(to_join) %>%
         collect(),
       left
-    ),
-    'Joining, by = "some_grouping"'
+    )
   )
 })
 
