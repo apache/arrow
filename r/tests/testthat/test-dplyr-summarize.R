@@ -738,6 +738,19 @@ test_that("Do things after summarize", {
   )
 })
 
+test_that("Non-field variable references in aggregations", {
+  ds <- InMemoryDataset$create(data.frame(x = 1:5))
+  scale_factor <- 10
+  expect_identical(
+    ds %>%
+      summarize(value = sum(x) / scale_factor) %>%
+      collect(),
+    ds %>%
+      summarize(value = sum(x) / 10) %>%
+      collect()
+  )
+})
+
 test_that("Expressions on aggregations", {
   # This is what it effectively is
   compare_dplyr_binding(
