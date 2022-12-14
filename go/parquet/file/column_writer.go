@@ -270,15 +270,15 @@ func (w *columnWriter) FlushCurrentPage() error {
 
 	uncompressed := defLevelsRLESize + repLevelsRLESize + int32(values.Len())
 	if isV1DataPage {
-		w.buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
+		err = w.buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
 	} else {
-		w.buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
+		err = w.buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
 	}
 
 	w.reset()
 	w.rowsWritten += w.numBufferedRows
 	w.numBufferedValues, w.numDataValues, w.numBufferedRows = 0, 0, 0
-	return nil
+	return err
 }
 
 func (w *columnWriter) buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncompressed int32, values []byte) error {
@@ -313,7 +313,7 @@ func (w *columnWriter) buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncom
 		w.totalCompressedBytes += int64(len(data))
 		dp := NewDataPageV1WithStats(memory.NewBufferBytes(data), int32(w.numBufferedValues), w.encoding, parquet.Encodings.RLE, parquet.Encodings.RLE, uncompressed, pageStats)
 		defer dp.Release()
-		w.WriteDataPage(dp)
+		return w.WriteDataPage(dp)
 	}
 	return nil
 }
@@ -354,22 +354,27 @@ func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncom
 	} else {
 		w.totalCompressedBytes += int64(combined.Len())
 		defer page.Release()
-		w.WriteDataPage(page)
+		return w.WriteDataPage(page)
 	}
 	return nil
 }
 
-func (w *columnWriter) FlushBufferedDataPages() {
+func (w *columnWriter) FlushBufferedDataPages() (err error) {
 	if w.numBufferedValues > 0 {
-		w.FlushCurrentPage()
+		if err = w.FlushCurrentPage(); err != nil {
+			return err
+		}
 	}
 
 	for _, p := range w.pages {
 		defer p.Release()
-		w.WriteDataPage(p)
+		if err = w.WriteDataPage(p); err != nil {
+			return err
+		}
 	}
 	w.pages = w.pages[:0]
 	w.totalCompressedBytes = 0
+	return
 }
 
 func (w *columnWriter) writeLevels(numValues int64, defLevels, repLevels []int16) int64 {
@@ -516,7 +521,9 @@ func (w *columnWriter) Close() (err error) {
 			w.WriteDictionaryPage()
 		}
 
-		w.FlushBufferedDataPages()
+		if err = w.FlushBufferedDataPages(); err != nil {
+			return err
+		}
 
 		var chunkStats metadata.EncodedStatistics
 		chunkStats, err = w.getChunkStatistics()
