@@ -41,6 +41,16 @@ using std::string_view;
 
 using internal::checked_cast;
 
+static Result<std::shared_ptr<Table>> ReadToTable(std::string json,
+                                                  const ReadOptions& read_options,
+                                                  const ParseOptions& parse_options) {
+  std::shared_ptr<io::InputStream> input;
+  RETURN_NOT_OK(MakeStream(json, &input));
+  ARROW_ASSIGN_OR_RAISE(auto reader, TableReader::Make(default_memory_pool(), input,
+                                                       read_options, parse_options));
+  return reader->Read();
+}
+
 class ReaderTest : public ::testing::TestWithParam<bool> {
  public:
   void SetUpReader() {
@@ -339,10 +349,10 @@ TEST(ReaderTest, FailOnTimeUnitMismatch) {
   for (auto behavior : {UnexpectedFieldBehavior::Error, UnexpectedFieldBehavior::Ignore,
                         UnexpectedFieldBehavior::InferType}) {
     parse_options.unexpected_field_behavior = behavior;
-    ASSERT_OK(MakeStream(json, &input));
-    ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
-                                                   read_options, parse_options));
-    ASSERT_RAISES(Invalid, reader->Read());
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::StartsWith("Invalid: Failed of conversion of JSON to timestamp[s]"),
+        ReadToTable(json, read_options, parse_options));
   }
 }
 
@@ -382,19 +392,14 @@ TEST(ReaderTest, InferNestedFieldsWithSchema) {
   ])");
   ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({expected_batch}));
 
-  std::shared_ptr<io::InputStream> input;
-  std::shared_ptr<TableReader> reader;
-  ASSERT_OK(MakeStream(json, &input));
-  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
-                                                 read_options, parse_options));
-  ASSERT_OK_AND_ASSIGN(auto actual_table, reader->Read());
-  AssertTablesEqual(*actual_table, *expected_table);
+  ASSERT_OK_AND_ASSIGN(auto table, ReadToTable(json, read_options, parse_options));
+  AssertTablesEqual(*expected_table, *table);
 
   json += std::string(R"({"a": {"b": "2022-09-05T08:08:46.000"}})") + "\n";
-  ASSERT_OK(MakeStream(json, &input));
-  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
-                                                 read_options, parse_options));
-  ASSERT_RAISES(Invalid, reader->Read());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::StartsWith("Invalid: Failed of conversion of JSON to timestamp[s]"),
+      ReadToTable(json, read_options, parse_options));
 }
 
 TEST(ReaderTest, InferNestedFieldsInListWithSchema) {
@@ -422,19 +427,14 @@ TEST(ReaderTest, InferNestedFieldsInListWithSchema) {
   ])");
   ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({expected_batch}));
 
-  std::shared_ptr<io::InputStream> input;
-  std::shared_ptr<TableReader> reader;
-  ASSERT_OK(MakeStream(json, &input));
-  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
-                                                 read_options, parse_options));
-  ASSERT_OK_AND_ASSIGN(auto actual_table, reader->Read());
-  AssertTablesEqual(*actual_table, *expected_table);
+  ASSERT_OK_AND_ASSIGN(auto table, ReadToTable(json, read_options, parse_options));
+  AssertTablesEqual(*expected_table, *table);
 
-  json += std::string(R"({"a": {"b": "2022-09-05T08:08:03.000", "c": {}}})") + "\n";
-  ASSERT_OK(MakeStream(json, &input));
-  ASSERT_OK_AND_ASSIGN(reader, TableReader::Make(default_memory_pool(), input,
-                                                 read_options, parse_options));
-  ASSERT_RAISES(Invalid, reader->Read());
+  json += std::string(R"({"a": [{"b": "2022-09-05T08:08:03.000", "c": {}}]})") + "\n";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::StartsWith("Invalid: Failed of conversion of JSON to timestamp[s]"),
+      ReadToTable(json, read_options, parse_options));
 }
 
 class StreamingReaderTestBase {

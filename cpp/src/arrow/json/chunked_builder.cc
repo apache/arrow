@@ -37,6 +37,7 @@ using internal::checked_cast;
 using internal::TaskGroup;
 
 namespace json {
+namespace {
 
 Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
                                MemoryPool* pool, const PromotionGraph* promotion_graph,
@@ -484,6 +485,11 @@ Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
   return Status::OK();
 }
 
+}  // namespace
+
+// This overload is exposed to the user and will only be called once on instantiation to
+// canonicalize any explicitly-defined fields. Such fields won't be subject to
+// type inference/promotion
 Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
                                MemoryPool* pool, const PromotionGraph* promotion_graph,
                                const std::shared_ptr<DataType>& type,
