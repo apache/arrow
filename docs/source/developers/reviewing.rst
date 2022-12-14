@@ -57,7 +57,7 @@ Scope and completeness
   confused if they hit problems introduced by a merged PR.
 
 * What changes are in-scope for a PR and what changes might/could/should be
-  pushed out of scope and have a follow-up JIRA created should be determined
+  pushed out of scope and have a follow-up issue created should be determined
   in collaboration between the authors and the reviewers.
 
 * When a large piece of functionality is being contributed and it seems

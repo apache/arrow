@@ -187,7 +187,8 @@ def _resolve_filesystem_and_path(
             # neither an URI nor a locally existing path, so assume that
             # local path was given and propagate a nicer file not found error
             # instead of a more confusing scheme parsing error
-            if "empty scheme" not in str(e):
+            if "empty scheme" not in str(e) \
+                    and "Cannot parse URI" not in str(e):
                 raise
     else:
         path = filesystem.normalize_path(path)

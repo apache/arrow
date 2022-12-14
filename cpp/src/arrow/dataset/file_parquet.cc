@@ -306,6 +306,9 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
 
 }  // namespace
 
+ParquetFileFormat::ParquetFileFormat()
+    : FileFormat(std::make_shared<ParquetFragmentScanOptions>()) {}
+
 bool ParquetFileFormat::Equals(const FileFormat& other) const {
   if (other.type_name() != type_name()) return false;
 
@@ -318,10 +321,11 @@ bool ParquetFileFormat::Equals(const FileFormat& other) const {
               other_reader_options.coerce_int96_timestamp_unit);
 }
 
-ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties) {
-  auto parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
-  *parquet_scan_options->reader_properties = reader_properties;
-  default_fragment_scan_options = std::move(parquet_scan_options);
+ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties)
+    : FileFormat(std::make_shared<ParquetFragmentScanOptions>()) {
+  auto* default_scan_opts =
+      static_cast<ParquetFragmentScanOptions*>(default_fragment_scan_options.get());
+  *default_scan_opts->reader_properties = reader_properties;
 }
 
 Result<bool> ParquetFileFormat::IsSupported(const FileSource& source) const {

@@ -32,9 +32,10 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec/expression.h"
-#include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 

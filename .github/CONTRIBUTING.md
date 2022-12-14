@@ -23,7 +23,7 @@ There are many ways to contribute to Apache Arrow:
 
 * Contributing code (we call them "patches")
 * Writing documentation (another form of code, in a way)
-* Participating in discussions on JIRA or the mailing list
+* Participating in discussions on GitHub issues or the mailing list
 * Helping users of the libraries
 
 ## Reporting bugs and asking questions

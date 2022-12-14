@@ -487,7 +487,39 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   TODO: Move from https://cwiki.apache.org/confluence/display/ARROW/Release+Management+Guide#ReleaseManagementGuide-UpdatingRpackages
+   To publish the R package on CRAN, there are a few steps we need to do first
+   in order to ensure that binaries for Windows and macOS are available to CRAN.
+   Jeroen Ooms <jeroenooms@gmail.com> maintains several projects that build C++
+   dependencies for R packages for macOS and Windows. We test copies of these
+   same build scripts in our CI, and at release time, we need to send any
+   changes we have and update the versions/hashes upstream.
+
+   When the release candidate is made, make draft pull requests to each
+   repository using the rc, updating the version and SHA, as well as any cmake
+   build changes from the corresponding files in apache/arrow. Jeroen may
+   merge these PRs before the release vote passes, build the binary artifacts,
+   and publish them in the right places so that we can do pre-submission checks
+   (see below). After the release candidate vote passes, update these PRs
+   to point to the official (non-rc) URL and mark them as ready for review.
+   Jeroen will merge, build the binary artifacts, and publish them in the
+   right places. See the
+   `packaging checklist <https://github.com/apache/arrow/blob/master/r/PACKAGING.md>`_.
+   for a precise list of pull requests that must be made prior to submission
+   to CRAN.
+
+   Once these binary prerequisites have been satisfied, we can submit to CRAN.
+   Given the vagaries of the process, it is best if the R developers on the
+   project verify the CRAN-worthiness of the package before submitting.
+   Our CI systems give us some coverage for the things that CRAN checks, but
+   there are a couple of final tests we should do to confirm that the release
+   binaries will work and that everything runs on the same infrastructure that
+   CRAN has, which is difficult/impossible to emulate fully on Travis or with
+   Docker. For a precise list of checks, see the
+   `packaging checklist <https://github.com/apache/arrow/blob/master/r/PACKAGING.md>`_.
+
+   Once all checks are clean, we submit to CRAN, which has a web form for
+   uploading packages. The release process requires email confirmation
+   from the R package maintainer, currently Neal Richardson.
 
 .. dropdown:: Update vcpkg port
    :animate: fade-in-slide-down

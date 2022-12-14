@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <google/protobuf/message_lite.h>
+#include <google/protobuf/stubs/common.h>
 
 namespace arrow {
 namespace engine {

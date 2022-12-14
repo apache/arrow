@@ -532,6 +532,17 @@ class ColumnOrder {
   ColumnOrder::type column_order_;
 };
 
+/// \brief BoundaryOrder is a proxy around format::BoundaryOrder.
+struct BoundaryOrder {
+  enum type {
+    Unordered = 0,
+    Ascending = 1,
+    Descending = 2,
+    // Should always be last element
+    UNDEFINED = 3
+  };
+};
+
 // ----------------------------------------------------------------------
 
 struct ByteArray {

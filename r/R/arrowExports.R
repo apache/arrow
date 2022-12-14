@@ -936,8 +936,8 @@ DataType__name <- function(type) {
   .Call(`_arrow_DataType__name`, type)
 }
 
-DataType__Equals <- function(lhs, rhs) {
-  .Call(`_arrow_DataType__Equals`, lhs, rhs)
+DataType__Equals <- function(lhs, rhs, check_metadata) {
+  .Call(`_arrow_DataType__Equals`, lhs, rhs, check_metadata)
 }
 
 DataType__num_fields <- function(type) {
