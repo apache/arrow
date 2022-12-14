@@ -61,10 +61,10 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 # and don't fall back to a full source build
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 
-# Check if we're doing an offline build.
+# Check if we're authorized to download (not asked an offline build).
 # (Note that cmake will still be downloaded if necessary
 #  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
-download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://raw.githubusercontent.com/apache/arrow/master/r/DESCRIPTION", tempfile(), hush = TRUE)
+download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
 
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
 # create_package_with_all_dependencies() was run, or if someone has created it
@@ -83,7 +83,8 @@ download_binary <- function(lib) {
     }
   } else {
     if (!quietly) {
-      cat(sprintf("*** No libarrow binary found for version %s (%s)\n", VERSION, lib))
+      cat(sprintf("*** Downloading libarrow binary failed for version %s (%s)\n    at %s\n",
+                  VERSION, lib, binary_url))
     }
     libfile <- NULL
   }
@@ -706,13 +707,25 @@ if (!test_mode && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # don't need to do anything. Otherwise,
   # (1) Look for a prebuilt binary for this version
   bin_file <- src_dir <- NULL
-  if (download_ok) {
+
+  if (!identical(Sys.getenv("ARROW_DOWNLOADED_BINARIES"), "")) {
+    bin_zip <- Sys.getenv("ARROW_DOWNLOADED_BINARIES")
+    cat(sprintf("*** Using pre-downloaded zip for libarrow binaries: %s\n", bin_zip))
+    if (file.exists(bin_zip)) {
+      bin_file <- tempfile()
+      file.copy(bin_zip, bin_file)
+    } else {
+      cat(sprintf("*** File not found: %s ($ARROW_DOWNLOADED_BINARIES)\n", bin_zip))
+      bin_file <- NULL
+    }
+  } else if (download_ok) {
     binary_flavor <- identify_binary()
     if (!is.null(binary_flavor)) {
       # The env vars say we can, and we've determined a lib that should work
       bin_file <- download_binary(binary_flavor)
     }
   }
+
   if (!is.null(bin_file)) {
     # Extract them
     dir.create(dst_dir, showWarnings = !quietly, recursive = TRUE)
@@ -729,9 +742,9 @@ if (!test_mode && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
       ))
       build_libarrow(src_dir, dst_dir)
     } else {
-      cat("*** Proceeding without libarrow\n")
+      cat("*** Proceeding without libarrow (no local source)\n")
     }
   } else {
-    cat("*** Proceeding without libarrow\n")
+    cat("*** Proceeding without libarrow (build not authorized)\n")
   }
 }
