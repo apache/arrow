@@ -412,7 +412,7 @@ if(PYARROW_BUILD_FLIGHT)
                 arrow_python_static
                 ArrowFlight::arrow_flight_static)
 
-  foreach(LIB_TARGET ${ARROW_PYFLIGHT_LIBRARIES})
+  foreach(LIB_TARGET ${PYARROW_CPP_FLIGHT_LIBRARIES})
     target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_PYFLIGHT_EXPORTING)
   endforeach()
 
