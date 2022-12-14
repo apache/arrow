@@ -25,16 +25,9 @@
 
 namespace arrow {
 
-using internal::CpuInfo;
-
-static const CpuInfo* cpu_info = CpuInfo::GetInstance();
-
-static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L1);
-static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L2);
-static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L3);
-static const int64_t kCantFitInL3Size = kL3Size * 4;
-static const std::vector<int64_t> kMemorySizes = {kL1Size, kL2Size, kL3Size,
-                                                  kCantFitInL3Size};
+// Benchmark changed its parameter type between releases from
+// int to int64_t. As it doesn't have version macros, we need
+// to apply C++ template magic.
 
 template <typename Func>
 struct BenchmarkArgsType;
@@ -46,11 +39,21 @@ struct BenchmarkArgsType<benchmark::internal::Benchmark* (
   using type = Values;
 };
 
-// Benchmark changed its parameter type between releases from
-// int to int64_t. As it doesn't have version macros, we need
-// to apply C++ template magic.
 using ArgsType =
     typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
+
+using internal::CpuInfo;
+
+static const CpuInfo* cpu_info = CpuInfo::GetInstance();
+
+static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L1);
+static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L2);
+static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L3);
+static const int64_t kCantFitInL3Size = kL3Size * 4;
+static const std::vector<int64_t> kMemorySizes = {kL1Size, kL2Size, kL3Size,
+                                                  kCantFitInL3Size};
+// 0 is treated as "no nulls"
+static const std::vector<ArgsType> kInverseNullProportions = {10000, 100, 10, 2, 1, 0};
 
 struct GenericItemsArgs {
   // number of items processed per iteration
@@ -82,10 +85,8 @@ void BenchmarkSetArgsWithSizes(benchmark::internal::Benchmark* bench,
                                const std::vector<int64_t>& sizes = kMemorySizes) {
   bench->Unit(benchmark::kMicrosecond);
 
-  // 0 is treated as "no nulls"
   for (const auto size : sizes) {
-    for (const auto inverse_null_proportion :
-         std::vector<ArgsType>({10000, 100, 10, 2, 1, 0})) {
+    for (const auto inverse_null_proportion : kInverseNullProportions) {
       bench->Args({static_cast<ArgsType>(size), inverse_null_proportion});
     }
   }
