@@ -234,8 +234,7 @@ TEST(ConverterTest, Decimal128And256ScaleError) {
     std::shared_ptr<StructArray> parse_array;
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
 
-    std::string error_msg = "Failed of conversion of JSON to " +
-                            decimal_type->ToString() +
+    std::string error_msg = "Failed to convert JSON to " + decimal_type->ToString() +
                             ": 30.0123456789001 requires scale 13";
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr(error_msg),
@@ -256,7 +255,7 @@ TEST(ConverterTest, Decimal128And256PrecisionError) {
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
 
     std::string error_msg =
-        "Invalid: Failed of conversion of JSON to " + decimal_type->ToString() +
+        "Invalid: Failed to convert JSON to " + decimal_type->ToString() +
         ": 123456789012345678901234567890.0123456789 requires precision 40";
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr(error_msg),
