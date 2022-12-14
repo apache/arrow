@@ -1,10 +1,3 @@
-# left_join
-
-    Code
-      compare_dplyr_binding(.input %>% left_join(to_join) %>% collect(), left)
-    Message <rlang_message>
-      Joining with `by = join_by(some_grouping)`
-
 # Error handling
 
     Code

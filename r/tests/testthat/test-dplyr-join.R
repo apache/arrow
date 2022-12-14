@@ -26,14 +26,14 @@ to_join <- tibble::tibble(
   another_column = TRUE
 )
 
-test_that("left_join", {
-  expect_snapshot(
-    compare_dplyr_binding(
-      .input %>%
-        left_join(to_join) %>%
-        collect(),
-      left
-    )
+test_that("left_join with automatic grouping", {
+  expect_identical(
+    as_record_batch(left) %>%
+      left_join(to_join) %>%
+      collect(),
+    left %>%
+      left_join(to_join, by = "some_grouping") %>%
+      collect()
   )
 })
 
