@@ -409,8 +409,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                               FromProto(expr, ext_set, conversion_options));
         auto bound_expr = des_expr.Bind(*input.output_schema);
         if (auto* expr_call = bound_expr->call()) {
-          project_field = field(expr_call->function_name,
-                                expr_call->kernel->signature->out_type().type());
+          project_field = field(expr_call->function_name, expr_call->type.GetSharedPtr());
         } else if (auto* field_ref = des_expr.field_ref()) {
           ARROW_ASSIGN_OR_RAISE(FieldPath field_path,
                                 field_ref->FindOne(*input.output_schema));
@@ -717,9 +716,11 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
     const int num_fields_before_proj = input_schema->num_fields();
     const auto& opts = checked_cast<const compute::ProjectNodeOptions&>(*(declr.options));
     const auto& exprs = opts.expressions;
-    int i = 0;
-    bind_schema = input_schema;
-    for (const auto& expr : exprs) {
+
+    std::vector<std::shared_ptr<Field>> bind_fields(input_schema->fields());
+
+    for (int idx = 0; idx < static_cast<int>(exprs.size()); idx++) {
+      const auto& expr = exprs[idx];
       std::shared_ptr<Field> project_field;
       auto bound_expr = expr.Bind(*input_schema);
       if (auto* expr_call = bound_expr->call()) {
@@ -730,14 +731,11 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
         ARROW_ASSIGN_OR_RAISE(project_field, field_path.Get(*input_schema));
       } else if (auto* literal = bound_expr->literal()) {
         project_field =
-            field("field_" + std::to_string(num_fields_before_proj + i), literal->type());
+            field("field_" + ToChars(num_fields_before_proj + idx), literal->type());
       }
-      ARROW_ASSIGN_OR_RAISE(
-          bind_schema, bind_schema->AddField(
-                           num_fields_before_proj + static_cast<int>(exprs.size()) - 1,
-                           std::move(project_field)));
-      i++;
+      bind_fields.push_back(std::move(project_field));
     }
+    bind_schema = schema(std::move(bind_fields));
   } else if (declr.factory_name == "sink") {
     // Note that the sink has no output_schema
     return bind_schema;
@@ -772,15 +770,14 @@ Result<std::unique_ptr<substrait::ReadRel>> NamedTableRelationConverter(
   return std::move(read_rel);
 }
 
-Result<std::unique_ptr<substrait::RelCommon>> GetRelCommonEmit(
-    std::vector<int>& emit_fields) {
+std::unique_ptr<substrait::RelCommon> GetRelCommonEmit(std::vector<int>& emit_fields) {
   auto rel_common = std::make_unique<substrait::RelCommon>();
   auto rel_common_emit = std::make_unique<substrait::RelCommon::Emit>();
   for (const auto& emit_field : emit_fields) {
     rel_common_emit->add_output_mapping(emit_field);
   }
   rel_common->set_allocated_emit(rel_common_emit.release());
-  return std::move(rel_common);
+  return rel_common;
 }
 
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
@@ -887,7 +884,7 @@ Result<std::unique_ptr<substrait::ProjectRel>> ProjectRelationConverter(
   // set an emit to only output the result of the expressions passed in
   std::vector<int> emit_fields(expressions.size());
   std::iota(emit_fields.begin(), emit_fields.end(), schema->num_fields() - 1);
-  ARROW_ASSIGN_OR_RAISE(auto rel_common, GetRelCommonEmit(emit_fields));
+  auto rel_common = GetRelCommonEmit(emit_fields);
   project_rel->set_allocated_common(rel_common.release());
   return std::move(project_rel);
 }
