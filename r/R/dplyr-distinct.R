@@ -28,9 +28,6 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   if (length(quos(...))) {
     # group_by() calls mutate() if there are any expressions in ...
     .data <- dplyr::group_by(.data, ..., .add = TRUE)
-    # `data %>% group_by() %>% summarise()` returns cols in order supplied
-    # but distinct() returns cols in dataset order, so sort group vars
-    .data$group_by_vars <- names(.data)[names(.data) %in% .data$group_by_vars]
   } else {
     # distinct() with no vars specified means distinct across all cols
     .data <- dplyr::group_by(.data, !!!syms(names(.data)))
