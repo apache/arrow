@@ -203,16 +203,8 @@ enum class PersonType : int8_t {
 enum { kYo };
 
 TEST(Reflection, NameOf) {
-  // integer values are just stringified
-  static_assert(nameof<999>() == "999");
-  static_assert(nameof<0x10>() == "16");
-
   // enum members are identifiable by name
   static_assert(nameof<PersonType::CONTRACTOR>() == "CONTRACTOR");
-
-  // integers which don't correspond to a member can still be cast to the enum type,
-  // in which case their integer values will be stringified
-  static_assert(nameof<static_cast<PersonType>(23)>() == "23");
 
   // leading `k` is trimmed
   static_assert(nameof<kYo>() == "Yo");
@@ -231,13 +223,12 @@ TEST(Reflection, NameOf) {
 // explicit specialization of EnumMembers for enumerations
 // which are not one-byte wide
 template <>
-constexpr impl::array kEnumMembers<decltype(kYo)>{{kYo}};
+constexpr auto kEnumMembers<decltype(kYo)> = impl::sequence<kYo>();
 
 TEST(Reflection, EnumWithoutTraits) {
-  static_assert(kEnumMembers<PersonType> == impl::array{{
-                                                PersonType::EMPLOYEE,
-                                                PersonType::CONTRACTOR,
-                                            }});
+  static_assert(
+      std::is_same_v<decltype(kEnumMembers<PersonType>),
+                     const impl::sequence<PersonType::EMPLOYEE, PersonType::CONTRACTOR>>);
 
   static_assert(enum_name(PersonType::EMPLOYEE) == "EMPLOYEE");
   static_assert(enum_name(PersonType::CONTRACTOR) == "CONTRACTOR");

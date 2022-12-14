@@ -18,6 +18,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -181,19 +182,6 @@ class array {
   T values_[N] = {};  // NOLINT
 };
 
-template <typename T>
-class array<T, 0> {
- public:
-  constexpr array() = default;
-  constexpr explicit array(const T*) {}
-  [[nodiscard]] static constexpr size_t size() { return 0; }
-  [[nodiscard]] constexpr const T* data() const { return NULLPTR; }
-  [[nodiscard]] constexpr T* data() { return NULLPTR; }
-  [[nodiscard]] constexpr const T* begin() const { return NULLPTR; }
-  [[nodiscard]] constexpr const T* end() const { return NULLPTR; }
-  [[nodiscard]] constexpr const T& operator[](size_t i) const { return begin()[i]; }
-};
-
 template <typename T, size_t N, size_t M>
 constexpr bool operator==(const array<T, N>& l, const array<T, M>& r) {
   if constexpr (N != M) {
@@ -210,6 +198,9 @@ template <typename T, size_t N, typename R>
 constexpr bool operator!=(const array<T, N>& l, const R& r) {
   return !(l == r);
 }
+
+template <auto...>
+struct sequence {};
 
 constexpr std::string_view TrimNamespace(std::string_view name) {
   for (size_t i = name.size(); i != 0; --i) {
@@ -252,30 +243,27 @@ constexpr auto kTypeNameStorage = [] {
   return array<char, name.size()>{name.data()};
 }();
 
-template <typename Enum, int I,
-          char FirstChar = kValueNameStorage<static_cast<Enum>(I)>[0]>
+template <typename Enum, int I, Enum E = static_cast<Enum>(I)>
 constexpr bool IsValidEnumMember() {
-  return FirstChar < '0' || FirstChar > '9';
+  return kValueNameStorage<E>[0] < '0' || kValueNameStorage<E>[0] > '9';
 }
 
-template <typename Enum, int I, int Max>
-constexpr size_t GetDefaultEnumMemberCount() {
-  if constexpr (I < Max + 1) {
-    return GetDefaultEnumMemberCount<Enum, I + 1, Max>() + IsValidEnumMember<Enum, I>();
-  } else {
-    return 0;
-  }
-}
+template <typename Enum,
+          typename Limits = std::numeric_limits<std::underlying_type_t<Enum>>,
+          int I = Limits::min(), int Max = Limits::max(), Enum... Members>
+struct DefaultEnumMembers;
 
-template <typename Enum, int I, int Max>
-constexpr void GetDefaultEnumMembers(Enum* members) {
-  if constexpr (I < Max + 1) {
-    if constexpr (IsValidEnumMember<Enum, I>()) {
-      *members++ = static_cast<Enum>(I);
-    }
-    GetDefaultEnumMembers<Enum, I + 1, Max>(members);
-  }
-}
+template <typename Enum, typename Limits, int Max, Enum... Members>
+struct DefaultEnumMembers<Enum, Limits, Max, Max, Members...> {
+  using members = sequence<Members...>;
+};
+
+template <typename Enum, typename Limits, int I, int Max, Enum... Members>
+struct DefaultEnumMembers
+    : std::conditional_t<
+          IsValidEnumMember<Enum, I>(),
+          DefaultEnumMembers<Enum, Limits, I + 1, Max, Members..., static_cast<Enum>(I)>,
+          DefaultEnumMembers<Enum, Limits, I + 1, Max, Members...>> {};
 
 constexpr std::string_view TrimLeadingK(std::string_view name) {
   if (name.size() > 1 && name[0] == 'k') {
@@ -313,57 +301,51 @@ constexpr auto kEnumMembers = [] {
   static_assert(sizeof(Enum) == 1,
                 "Automatic discovery of enum values is not supported for Enums which "
                 "aren't a single byte. Explicitly specialize kEnumMembers like so:    "
-                "namespace arrow::internal {    template<> constexpr impl::array "
-                "kEnumMembers<Color>{{kRed, kGreen, kBlue}};    }");
+                "namespace arrow::internal {    template<> constexpr auto "
+                "kEnumMembers<Color> = impl::sequence<kRed, kGreen, kBlue>();    }");
 
-  using Limits = std::numeric_limits<std::underlying_type_t<Enum>>;
-
-  impl::array<Enum, impl::GetDefaultEnumMemberCount<Enum, Limits::min(), Limits::max()>()>
-      members;
-  impl::GetDefaultEnumMembers<Enum, Limits::min(), Limits::max()>(members.data());
-
-  return members;
+  return typename impl::DefaultEnumMembers<Enum>::members{};
 }();
 
 namespace impl {
-template <typename Enum, size_t I = 0>
-constexpr void GetEnumMemberNames(std::string_view* names) {
-  if constexpr (I < kEnumMembers<Enum>.size()) {
-    *names++ = nameof<kEnumMembers<Enum>[I]>(/*include_leading_k=*/true);
-    GetEnumMemberNames<Enum, I + 1>(names);
+template <typename Enum, Enum... Members>
+constexpr std::string_view GetEnumMemberName(sequence<Members...>, Enum e,
+                                             bool include_leading_k) {
+  for (auto [member, name] : {std::pair{Members, nameof<Members>()}...}) {
+    if (e == member) {
+      return include_leading_k ? name : impl::TrimLeadingK(name);
+    }
   }
+  return {};
+}
+template <typename Enum, Enum... Members, typename IntOrString>
+constexpr std::optional<Enum> GetEnumMember(sequence<Members...>,
+                                            IntOrString int_or_name) {
+  for (auto [member, name] : {std::pair{Members, nameof<Members>()}...}) {
+    if constexpr (std::is_integral_v<IntOrString>) {
+      // we are looking for an enum member which corresponds to an integer value
+      if (static_cast<Enum>(int_or_name) == member) return member;
+    } else {
+      // we are looking for an enum member by name
+      if (int_or_name == name) return member;
+    }
+  }
+  return {};
 }
 }  // namespace impl
 
 template <typename Enum>
 constexpr std::string_view enum_name(Enum e, bool include_leading_k) {
-  constexpr auto kNames = [] {
-    impl::array<std::string_view, kEnumMembers<Enum>.size()> names;
-    impl::GetEnumMemberNames<Enum>(names.data());
-    return names;
-  }();
-
-  for (size_t i = 0; i < kEnumMembers<Enum>.size(); ++i) {
-    if (e == kEnumMembers<Enum>[i]) {
-      return include_leading_k ? kNames[i] : impl::TrimLeadingK(kNames[i]);
-    }
-  }
-  return {};
+  return impl::GetEnumMemberName(kEnumMembers<Enum>, e, include_leading_k);
 }
 
 template <typename Enum>
 constexpr std::optional<Enum> enum_cast(std::string_view name) {
-  for (Enum e : kEnumMembers<Enum>) {
-    if (enum_name(e) == name) return e;
-  }
-  return {};
+  return impl::GetEnumMember(kEnumMembers<Enum>, name);
 }
 
 template <typename Enum, typename Int>
 constexpr auto enum_cast(Int i) -> std::optional<decltype(static_cast<Enum>(i))> {
-  for (Enum e : kEnumMembers<Enum>) {
-    if (static_cast<Enum>(i) == e) return e;
-  }
-  return {};
+  return impl::GetEnumMember(kEnumMembers<Enum>, i);
 }
 }  // namespace arrow::internal
