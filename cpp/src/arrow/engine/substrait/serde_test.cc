@@ -3810,5 +3810,643 @@ TEST(Substrait, ReadRelWithGlobFiles) {
                        buf, {}, {}, &options);
 }
 
+/// Testig ReadRel Project
+
+TEST(SubstraitRoundTrip, ReadRelProjectIssue) {
+  compute::ExecContext exec_context;
+  auto orders_schema =
+      schema({field("O_ORDERKEY", int32()), field("O_CUSTKEY", int32()),
+              field("O_ORDERSTATUS", utf8()), field("O_TOTALPRICE", decimal128(15, 2)),
+              field("O_ORDERDATE", date32()), field("O_ORDERPRIORITY", utf8()),
+              field("O_CLERK", utf8()), field("O_SHIPPRIORITY", int32()),
+              field("O_COMMENT", utf8())});
+
+  // creating a dummy dataset using a dummy table
+  auto orders = TableFromJSON(orders_schema, {R"([
+      [1, 1, "S1", "1.25", 0, "P0", "C1", 0, "CM1"]
+  ])"});
+
+  auto customer_schema =
+      schema({field("C_CUSTKEY", int32()), field("C_NAME", utf8()),
+              field("C_ADDRESS", utf8()), field("C_NATIONKEY", int32()),
+              field("C_PHONE", utf8()), field("C_ACCTBAL", decimal128(15, 2)),
+              field("C_MKTSEGMENT", utf8()), field("C_COMMENT", utf8())});
+
+  auto customer = TableFromJSON(customer_schema, {R"([
+      [1, "CUS1", "A1", 10, "PH1", "250.21", "MSG1", "CM1"]
+  ])"});
+
+  std::string substrait_json = R"({
+    "extensionUris": [
+        {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+        {
+            "extensionFunction": {
+                "extensionUriReference": 1,
+                "name": "equal:any_any"
+            }
+        }
+    ],
+    "relations": [
+        {
+            "root": {
+                "input": {
+                    "project": {
+                        "common": {
+                            "emit": {
+                                "outputMapping": [
+                                    17
+                                ]
+                            }
+                        },
+                        "input": {
+                            "join": {
+                                "common": {
+                                    "direct": {}
+                                },
+                                "left": {
+                                    "read": {
+                                        "common": {
+                                            "direct": {}
+                                        },
+                                        "baseSchema": {
+                                            "names": [
+                                                "O_ORDERKEY",
+                                                "O_CUSTKEY",
+                                                "O_ORDERSTATUS",
+                                                "O_TOTALPRICE",
+                                                "O_ORDERDATE",
+                                                "O_ORDERPRIORITY",
+                                                "O_CLERK",
+                                                "O_SHIPPRIORITY",
+                                                "O_COMMENT"
+                                            ],
+                                            "struct": {
+                                                "types": [
+                                                    {
+                                                        "i32": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "i32": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "string": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "decimal": {
+                                                            "scale": 2,
+                                                            "precision": 15,
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "date": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "string": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "string": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "i32": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "string": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    }
+                                                ],
+                                                "nullability": "NULLABILITY_REQUIRED"
+                                            }
+                                        },
+                                        "namedTable": {
+                                            "names": [
+                                                "ORDERS"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "right": {
+                                    "read": {
+                                        "common": {
+                                            "direct": {}
+                                        },
+                                        "baseSchema": {
+                                            "names": [
+                                                "C_CUSTKEY",
+                                                "C_NAME",
+                                                "C_ADDRESS",
+                                                "C_NATIONKEY",
+                                                "C_PHONE",
+                                                "C_ACCTBAL",
+                                                "C_MKTSEGMENT",
+                                                "C_COMMENT"
+                                            ],
+                                            "struct": {
+                                                "types": [
+                                                    {
+                                                        "i32": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "string": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "string": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "i32": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "string": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "decimal": {
+                                                            "scale": 2,
+                                                            "precision": 15,
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "string": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    },
+                                                    {
+                                                        "string": {
+                                                            "nullability": "NULLABILITY_REQUIRED"
+                                                        }
+                                                    }
+                                                ],
+                                                "nullability": "NULLABILITY_REQUIRED"
+                                            }
+                                        },
+                                        "namedTable": {
+                                            "names": [
+                                                "CUSTOMER"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "expression": {
+                                    "scalarFunction": {
+                                        "outputType": {
+                                            "bool": {
+                                                "nullability": "NULLABILITY_REQUIRED"
+                                            }
+                                        },
+                                        "arguments": [
+                                            {
+                                                "value": {
+                                                    "selection": {
+                                                        "directReference": {
+                                                            "structField": {
+                                                                "field": 1
+                                                            }
+                                                        },
+                                                        "rootReference": {}
+                                                    }
+                                                }
+                                            },
+                                            {
+                                                "value": {
+                                                    "selection": {
+                                                        "directReference": {
+                                                            "structField": {
+                                                                "field": 9
+                                                            }
+                                                        },
+                                                        "rootReference": {}
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                },
+                                "type": "JOIN_TYPE_INNER"
+                            }
+                        },
+                        "expressions": [
+                            {
+                                "selection": {
+                                    "directReference": {
+                                        "structField": {
+                                            "field": 1
+                                        }
+                                    },
+                                    "rootReference": {}
+                                }
+                            }
+                        ]
+                    }
+                },
+                "names": [
+                    "O_CUSTKEY"
+                ]
+            }
+        }
+    ]
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+
+  auto output_schema = schema({field("O_CUSTKEY", int32())});
+
+  NamedTableProvider table_provider = [&](const std::vector<std::string>& names) {
+    std::shared_ptr<compute::ExecNodeOptions> options;
+    if (std::find(names.begin(), names.end(), "ORDERS") != names.end()) {
+      options = std::make_shared<compute::TableSourceNodeOptions>(orders);
+    } else if (std::find(names.begin(), names.end(), "CUSTOMER") != names.end()) {
+      options = std::make_shared<compute::TableSourceNodeOptions>(customer);
+    }
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set, conversion_options));
+  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+
+  ASSERT_OK_AND_ASSIGN(auto output_table,
+                       GetTableFromPlan(other_declrs, exec_context, output_schema));
+
+  std::cout << "Output " << std::endl;
+  std::cout << output_table->ToString() << std::endl;
+  // auto array = ArrayFromJSON(date32(), "[1234, 5678, 9012, 1, 2, 3]");
+  // std::cout << "Data32" << std::endl;
+  // std::cout << array->ToString() << std::endl;
+}
+
+TEST(SubstraitRoundTrip, ReadRelProjectIssueDuckDB) {
+  compute::ExecContext exec_context;
+  auto orders_schema =
+      schema({field("O_ORDERKEY", int32()), field("O_CUSTKEY", int32()),
+              field("O_ORDERSTATUS", utf8()), field("O_TOTALPRICE", decimal128(15, 2)),
+              field("O_ORDERDATE", date32()), field("O_ORDERPRIORITY", utf8()),
+              field("O_CLERK", utf8()), field("O_SHIPPRIORITY", int32()),
+              field("O_COMMENT", utf8())});
+
+  // creating a dummy dataset using a dummy table
+  auto orders = TableFromJSON(orders_schema, {R"([
+      [1, 1, "S1", "1.25", 0, "P0", "C1", 0, "CM1"]
+  ])"});
+
+  auto customer_schema =
+      schema({field("C_CUSTKEY", int32()), field("C_NAME", utf8()),
+              field("C_ADDRESS", utf8()), field("C_NATIONKEY", int32()),
+              field("C_PHONE", utf8()), field("C_ACCTBAL", decimal128(15, 2)),
+              field("C_MKTSEGMENT", utf8()), field("C_COMMENT", utf8())});
+
+  auto customer = TableFromJSON(customer_schema, {R"([
+      [1, "CUS1", "A1", 10, "PH1", "250.21", "MSG1", "CM1"]
+  ])"});
+
+  std::string substrait_json = R"({
+    "extensionUris": [
+        {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+        {
+            "extensionFunction": {
+                "extensionUriReference": 1,
+                "name": "equal:any_any"
+            }
+        }
+    ],
+    "relations": [
+        {
+            "root": {
+                "input": {
+                    "project": {
+                        "input": {
+                            "project": {
+                                "input": {
+                                    "join": {
+                                        "left": {
+                                            "read": {
+                                                "baseSchema": {
+                                                    "names": [
+                                                        "o_orderkey",
+                                                        "o_custkey",
+                                                        "o_orderstatus",
+                                                        "o_totalprice",
+                                                        "o_orderdate",
+                                                        "o_orderpriority",
+                                                        "o_clerk",
+                                                        "o_shippriority",
+                                                        "o_comment"
+                                                    ],
+                                                    "struct": {
+                                                        "types": [
+                                                            {
+                                                                "i32": {
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "i32": {
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "varchar": {
+                                                                    "length": 1,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "decimal": {
+                                                                    "scale": 2,
+                                                                    "precision": 15,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "date": {
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "varchar": {
+                                                                    "length": 15,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "varchar": {
+                                                                    "length": 15,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "i32": {
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "varchar": {
+                                                                    "length": 78,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            }
+                                                        ],
+                                                        "nullability": "NULLABILITY_REQUIRED"
+                                                    }
+                                                },
+                                                "projection": {
+                                                    "select": {
+                                                        "structItems": [
+                                                            {
+                                                                "field": 1
+                                                            }
+                                                        ]
+                                                    },
+                                                    "maintainSingularStruct": true
+                                                },
+                                                "namedTable": {
+                                                    "names": [
+                                                        "orders"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "right": {
+                                            "read": {
+                                                "baseSchema": {
+                                                    "names": [
+                                                        "c_custkey",
+                                                        "c_name",
+                                                        "c_address",
+                                                        "c_nationkey",
+                                                        "c_phone",
+                                                        "c_acctbal",
+                                                        "c_mktsegment",
+                                                        "c_comment"
+                                                    ],
+                                                    "struct": {
+                                                        "types": [
+                                                            {
+                                                                "i32": {
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "varchar": {
+                                                                    "length": 18,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "varchar": {
+                                                                    "length": 40,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "i32": {
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "varchar": {
+                                                                    "length": 15,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "decimal": {
+                                                                    "scale": 2,
+                                                                    "precision": 15,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "varchar": {
+                                                                    "length": 10,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "varchar": {
+                                                                    "length": 116,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            }
+                                                        ],
+                                                        "nullability": "NULLABILITY_REQUIRED"
+                                                    }
+                                                },
+                                                "projection": {
+                                                    "select": {
+                                                        "structItems": [
+                                                            {}
+                                                        ]
+                                                    },
+                                                    "maintainSingularStruct": true
+                                                },
+                                                "namedTable": {
+                                                    "names": [
+                                                        "customer"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "expression": {
+                                            "scalarFunction": {
+                                                "functionReference": 1,
+                                                "outputType": {
+                                                    "bool": {
+                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                    }
+                                                },
+                                                "arguments": [
+                                                    {
+                                                        "value": {
+                                                            "selection": {
+                                                                "directReference": {
+                                                                    "structField": {}
+                                                                },
+                                                                "rootReference": {}
+                                                            }
+                                                        }
+                                                    },
+                                                    {
+                                                        "value": {
+                                                            "selection": {
+                                                                "directReference": {
+                                                                    "structField": {
+                                                                        "field": 1
+                                                                    }
+                                                                },
+                                                                "rootReference": {}
+                                                            }
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        "type": "JOIN_TYPE_INNER"
+                                    }
+                                },
+                                "expressions": [
+                                    {
+                                        "selection": {
+                                            "directReference": {
+                                                "structField": {}
+                                            },
+                                            "rootReference": {}
+                                        }
+                                    },
+                                    {
+                                        "selection": {
+                                            "directReference": {
+                                                "structField": {
+                                                    "field": 1
+                                                }
+                                            },
+                                            "rootReference": {}
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        "expressions": [
+                            {
+                                "selection": {
+                                    "directReference": {
+                                        "structField": {}
+                                    },
+                                    "rootReference": {}
+                                }
+                            }
+                        ]
+                    }
+                },
+                "names": [
+                    "o_custkey"
+                ]
+            }
+        }
+    ]
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+
+  auto output_schema = schema({field("O_CUSTKEY", int32())});
+
+  NamedTableProvider table_provider = [&](const std::vector<std::string>& names) {
+    std::shared_ptr<compute::ExecNodeOptions> options;
+    if (std::find(names.begin(), names.end(), "ORDERS") != names.end()) {
+      options = std::make_shared<compute::TableSourceNodeOptions>(orders);
+    } else if (std::find(names.begin(), names.end(), "CUSTOMER") != names.end()) {
+      options = std::make_shared<compute::TableSourceNodeOptions>(customer);
+    }
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set, conversion_options));
+  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+
+  ASSERT_OK_AND_ASSIGN(auto output_table,
+                       GetTableFromPlan(other_declrs, exec_context, output_schema));
+
+  std::cout << "Output " << std::endl;
+  std::cout << output_table->ToString() << std::endl;
+  // auto array = ArrayFromJSON(date32(), "[1234, 5678, 9012, 1, 2, 3]");
+  // std::cout << "Data32" << std::endl;
+  // std::cout << array->ToString() << std::endl;
+}
+
 }  // namespace engine
 }  // namespace arrow

@@ -150,6 +150,37 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
   return Status::OK();
 }
 
+void ExtractStructSelect(
+    const ::substrait::Expression::MaskExpression::StructSelect& struct_select) {
+  for (int idx = 0; idx < struct_select.struct_items_size(); idx++) {
+    ::substrait::Expression::MaskExpression::StructItem struct_item =
+        struct_select.struct_items(idx);
+    if (struct_item.has_child()) {
+      std::cout << "has Child" << std::endl;
+      ::substrait::Expression::MaskExpression::Select child = struct_item.child();
+      if (child.has_struct_()) {
+        ::substrait::Expression::MaskExpression::StructSelect child_struct_select =
+            child.struct_();
+      } else if (child.has_list()) {
+      } else if (child.has_map()) {
+      }
+    } else {
+      int32_t field = struct_item.field();
+      std::cout << "Field : " << field << std::endl;
+    }
+  }
+}
+
+void ToProto(const ::substrait::Expression::MaskExpression& mask_expr) {
+  if (mask_expr.has_select()) {
+    std::cout << "read.projection().has_select() == " << mask_expr.has_select()
+              << std::endl;
+    ::substrait::Expression::MaskExpression::StructSelect struct_select =
+        mask_expr.select();
+    std::cout << "Struct Item Size: " << struct_select.struct_items_size() << std::endl;
+  }
+}
+
 Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet& ext_set,
                                   const ConversionOptions& conversion_options) {
   static bool dataset_init = false;
@@ -176,6 +207,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       if (read.has_projection()) {
+        ::substrait::Expression::MaskExpression mask_expr = read.projection();
+        ReadProjectionToAcero(mask_expr);
         return Status::NotImplemented("substrait::ReadRel::projection");
       }
 
