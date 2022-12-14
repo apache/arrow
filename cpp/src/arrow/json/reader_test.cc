@@ -350,8 +350,7 @@ TEST(ReaderTest, FailOnTimeUnitMismatch) {
                         UnexpectedFieldBehavior::InferType}) {
     parse_options.unexpected_field_behavior = behavior;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid,
-        ::testing::StartsWith("Invalid: Failed of conversion of JSON to timestamp[s]"),
+        Invalid, ::testing::StartsWith("Invalid: Failed to convert JSON to timestamp[s]"),
         ReadToTable(json, read_options, parse_options));
   }
 }
@@ -397,8 +396,7 @@ TEST(ReaderTest, InferNestedFieldsWithSchema) {
 
   json += std::string(R"({"a": {"b": "2022-09-05T08:08:46.000"}})") + "\n";
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::StartsWith("Invalid: Failed of conversion of JSON to timestamp[s]"),
+      Invalid, ::testing::StartsWith("Invalid: Failed to convert JSON to timestamp[s]"),
       ReadToTable(json, read_options, parse_options));
 }
 
@@ -432,8 +430,7 @@ TEST(ReaderTest, InferNestedFieldsInListWithSchema) {
 
   json += std::string(R"({"a": [{"b": "2022-09-05T08:08:03.000", "c": {}}]})") + "\n";
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::StartsWith("Invalid: Failed of conversion of JSON to timestamp[s]"),
+      Invalid, ::testing::StartsWith("Invalid: Failed to convert JSON to timestamp[s]"),
       ReadToTable(json, read_options, parse_options));
 }
 
