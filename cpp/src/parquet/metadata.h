@@ -179,7 +179,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t total_compressed_size() const;
   int64_t total_uncompressed_size() const;
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
-  std::optional<IndexLocation> GetColumIndexLocation() const;
+  std::optional<IndexLocation> GetColumnIndexLocation() const;
   std::optional<IndexLocation> GetOffsetIndexLocation() const;
 
  private:

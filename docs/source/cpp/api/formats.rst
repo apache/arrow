@@ -67,6 +67,9 @@ Line-separated JSON
 .. doxygenclass:: arrow::json::TableReader
    :members:
 
+.. doxygenclass:: arrow::json::StreamingReader
+   :members:
+
 .. _cpp-api-parquet:
 
 Parquet reader
