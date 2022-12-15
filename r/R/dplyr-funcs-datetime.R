@@ -392,13 +392,13 @@ register_bindings_datetime_conversion <- function() {
     }
 
     if (call_binding("is.numeric", x)) {
-      multiple <- call_binding("power_checked", 1000L, unit)
+      multiple <- Expression$create("power_checked", 1000L, unit)
       delta <- call_binding("difftime", origin, "1970-01-01")
       delta <- cast(delta, int64())
-      delta <- call_binding("multiply_checked", delta, multiple)
-      x <- call_binding("multiply_checked", x, multiple)
+      delta <- Expression$create("multiply_checked", delta, multiple)
+      x <- Expression$create("multiply_checked", x, multiple)
       x <- cast(x, int64())
-      x <- call_binding("add_checked", x, delta)
+      x <- Expression$create("add_checked", x, delta)
     }
 
     if (call_binding("is.character", x) && !is.null(format)) {
