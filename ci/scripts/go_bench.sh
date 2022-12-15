@@ -38,14 +38,10 @@ source_dir=${1}/go
 export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
 pushd ${source_dir}
 
-go test -bench=. -benchmem -run=^$ ./... | tee bench_stat.dat
-
-if verlte "1.18" "${ver#go}"; then
-    # lots of benchmarks, they can take a while
-    # the timeout is for *ALL* benchmarks together,
-    # not per benchmark
-    go test -timeout 20m -bench=. -benchmem -run=^$ ./arrow/compute | tee bench_stat_compute.dat
-fi
+# lots of benchmarks, they can take a while
+# the timeout is for *ALL* benchmarks together,
+# not per benchmark
+go test -bench=. -benchmem -timeout 20m -run=^$ ./... | tee bench_stat.dat
 
 popd
 
