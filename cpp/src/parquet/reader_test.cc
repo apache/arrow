@@ -15,14 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <fcntl.h>
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
@@ -514,113 +515,128 @@ TEST_F(TestLocalFile, OpenWithMetadata) {
   ASSERT_EQ(metadata.get(), reader2->metadata().get());
 }
 
-void testCheckCrc(const std::string& local_file_name,
-                  bool data_page_checksum_verification) {
+class TestCheckDataPageCrc : public ::testing::Test {
+ public:
+  void OpenExampleFile(const std::string& file_path) {
+    file_reader_ = ParquetFileReader::OpenFile(file_path,
+                                               /*memory_map=*/false, reader_props_);
+    auto metadata_ptr = file_reader_->metadata();
+    EXPECT_EQ(1, metadata_ptr->num_row_groups());
+    EXPECT_EQ(2, metadata_ptr->num_columns());
+    row_group_ = file_reader_->RowGroup(0);
+
+    column_readers_.resize(2);
+    column_readers_[0] =
+        std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(row_group_->Column(0));
+    column_readers_[1] =
+        std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(row_group_->Column(1));
+    EXPECT_NE(nullptr, column_readers_[0]);
+    EXPECT_NE(nullptr, column_readers_[1]);
+
+    page_readers_.resize(2);
+    page_readers_[0] = row_group_->GetColumnPageReader(0);
+    page_readers_[1] = row_group_->GetColumnPageReader(1);
+  }
+
+  void CheckReadBatches(int col_index) {
+    int64_t total_values = 0;
+    std::vector<int32_t> values(1024);
+
+    while (column_readers_[col_index]->HasNext()) {
+      int64_t values_read;
+      int64_t levels_read = column_readers_[col_index]->ReadBatch(
+          values.size(), nullptr, nullptr, values.data(), &values_read);
+      EXPECT_EQ(levels_read, values_read);
+      total_values += values_read;
+    }
+    EXPECT_EQ(kValuesPerColumn, total_values);
+  }
+
+  void CheckCorrectCrc(const std::string& file_path,
+                       bool data_page_checksum_verification) {
+    reader_props_.set_data_page_checksum_verification(data_page_checksum_verification);
+    {
+      // Exercise column readers
+      OpenExampleFile(file_path);
+      CheckReadBatches(/*col_index=*/0);
+      CheckReadBatches(/*col_index=*/1);
+    }
+    {
+      // Exercise page readers directly
+      OpenExampleFile(file_path);
+      for (auto& page_reader : page_readers_) {
+        EXPECT_NE(nullptr, page_reader->NextPage());
+        EXPECT_NE(nullptr, page_reader->NextPage());
+        EXPECT_EQ(nullptr, page_reader->NextPage());
+      }
+    }
+  }
+
+  void CheckNextPageCorrupt(PageReader* page_reader) {
+    AssertCrcValidationError([&]() { page_reader->NextPage(); });
+  }
+
+  void AssertCrcValidationError(std::function<void()> func) {
+    EXPECT_THROW_THAT(
+        func, ParquetException,
+        ::testing::Property(&ParquetException::what,
+                            ::testing::HasSubstr("CRC checksum verification failed")));
+  }
+
+ protected:
+  // Example CRC files have two v1 data pages per column
+  static constexpr int kPageSize = 1024 * 10;
+  static constexpr int kValuesPerColumn = kPageSize * 2 / sizeof(int32_t);
+
+  ReaderProperties reader_props_;
+  std::unique_ptr<ParquetFileReader> file_reader_;
+  std::shared_ptr<RowGroupReader> row_group_;
+  std::vector<std::shared_ptr<TypedColumnReader<Int32Type>>> column_readers_;
+  std::vector<std::unique_ptr<PageReader>> page_readers_;
+};
+
+TEST_F(TestCheckDataPageCrc, CorruptPageV1) {
+  // Works when not checking crc
+  CheckCorrectCrc(data_page_v1_corrupt_checksum(),
+                  /*data_page_checksum_verification=*/false);
+  // Fails when checking crc
+  reader_props_.set_data_page_checksum_verification(true);
   {
-    ReaderProperties readerProperties;
-    readerProperties.set_data_page_checksum_verification(data_page_checksum_verification);
-    auto reader = ParquetFileReader::OpenFile(local_file_name, false, readerProperties);
-    auto metadata_ptr = reader->metadata();
-    EXPECT_EQ(1U, metadata_ptr->num_row_groups());
-    auto rg = reader->RowGroup(0);
-    auto column0 = std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(rg->Column(0));
-    auto column1 = std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(rg->Column(1));
-    EXPECT_NE(nullptr, column0);
-    EXPECT_NE(nullptr, column1);
-    const int kPageSize = 1024 * 10;
-    const int kMembers = kPageSize * 2 / sizeof(int32_t);
-    size_t column_a_size = 0;
-    size_t column_b_size = 0;
-    std::array<int32_t, 1024> values{};
-    while (column0->HasNext()) {
-      int64_t values_read;
-      int64_t real_read =
-          column0->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
-      EXPECT_EQ(real_read, values_read);
-      column_a_size += values_read;
-    }
+    // With column readers
+    OpenExampleFile(data_page_v1_corrupt_checksum());
 
-    while (column1->HasNext()) {
-      int64_t values_read;
-      int64_t real_read =
-          column1->ReadBatch(1024, nullptr, nullptr, values.data(), &values_read);
-      EXPECT_EQ(real_read, values_read);
-      column_b_size += values_read;
-    }
-
-    EXPECT_EQ(kMembers, column_a_size);
-    EXPECT_EQ(kMembers, column_b_size);
+    AssertCrcValidationError([this]() { CheckReadBatches(/*col_index=*/0); });
+    AssertCrcValidationError([this]() { CheckReadBatches(/*col_index=*/1); });
   }
   {
-    ReaderProperties readerProperties;
-    readerProperties.set_data_page_checksum_verification(data_page_checksum_verification);
-    auto reader = ParquetFileReader::OpenFile(local_file_name, false, readerProperties);
-    auto metadata_ptr = reader->metadata();
-    EXPECT_EQ(1U, metadata_ptr->num_row_groups());
-    auto rg = reader->RowGroup(0);
+    // With page readers
+    OpenExampleFile(data_page_v1_corrupt_checksum());
 
-    auto column0 = std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(rg->Column(0));
-    auto column1 = std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(rg->Column(1));
-    EXPECT_NE(nullptr, column0);
-    EXPECT_NE(nullptr, column1);
+    // First column has a corrupt CRC in first page
+    CheckNextPageCorrupt(page_readers_[0].get());
+    EXPECT_NE(nullptr, page_readers_[0]->NextPage());
+    EXPECT_EQ(nullptr, page_readers_[0]->NextPage());
 
-    auto column_a_page_reader = rg->GetColumnPageReader(0);
-    auto column_b_page_reader = rg->GetColumnPageReader(1);
-
-    EXPECT_NE(nullptr, column_a_page_reader->NextPage());
-    EXPECT_NE(nullptr, column_b_page_reader->NextPage());
-    EXPECT_NE(nullptr, column_a_page_reader->NextPage());
-    EXPECT_NE(nullptr, column_b_page_reader->NextPage());
-
-    EXPECT_EQ(nullptr, column_a_page_reader->NextPage());
-    EXPECT_EQ(nullptr, column_b_page_reader->NextPage());
+    // Second column has a corrupt CRC in second page
+    EXPECT_NE(nullptr, page_readers_[1]->NextPage());
+    CheckNextPageCorrupt(page_readers_[1].get());
+    EXPECT_EQ(nullptr, page_readers_[1]->NextPage());
   }
 }
 
-TEST(TestDataPageV1Checksum, CorruptPage) {
-  // works when not checking crc.
-  testCheckCrc(data_page_v1_corrupt_checksum(), false);
-  // check crc will read failed
-  {
-    ReaderProperties readerProperties;
-    readerProperties.set_data_page_checksum_verification(true);
-    auto reader = ParquetFileReader::OpenFile(data_page_v1_corrupt_checksum(), false,
-                                              readerProperties);
-    auto metadata_ptr = reader->metadata();
-    EXPECT_EQ(1U, metadata_ptr->num_row_groups());
-    auto rg = reader->RowGroup(0);
-
-    auto column0 = std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(rg->Column(0));
-    auto column1 = std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(rg->Column(1));
-    EXPECT_NE(nullptr, column0);
-    EXPECT_NE(nullptr, column1);
-
-    auto column_a_page_reader = rg->GetColumnPageReader(0);
-    auto column_b_page_reader = rg->GetColumnPageReader(1);
-
-    EXPECT_THROW_THAT(
-        [&]() { column_a_page_reader->NextPage(); }, ParquetException,
-        ::testing::Property(
-            &ParquetException::what,
-            ::testing::HasSubstr(
-                "could not verify page integrity, CRC checksum verification failed")));
-    EXPECT_NE(nullptr, column_b_page_reader->NextPage());
-    EXPECT_THROW_THAT(
-        [&]() { column_b_page_reader->NextPage(); }, ParquetException,
-        ::testing::Property(
-            &ParquetException::what,
-            ::testing::HasSubstr(
-                "could not verify page integrity, CRC checksum verification failed")));
-  }
-}
-
-TEST(TestDataPageV1Checksum, UncompressedPage) {
-  testCheckCrc(data_page_v1_uncompressed_checksum(), true);
+TEST_F(TestCheckDataPageCrc, UncompressedPageV1) {
+  CheckCorrectCrc(data_page_v1_uncompressed_checksum(),
+                  /*data_page_checksum_verification=*/false);
+  CheckCorrectCrc(data_page_v1_uncompressed_checksum(),
+                  /*data_page_checksum_verification=*/true);
 }
 
 #ifndef ARROW_WITH_SNAPPY
-TEST(TestDataPageV1Checksum, SnappyPage) {
-  testCheckCrc(data_page_v1_snappy_checksum(), true);
+TEST_F(TestCheckDataPageCrc, SnappyPageV1) {
+  CheckCorrectCrc(data_page_v1_snappy_checksum(),
+                  /*data_page_checksum_verification=*/false);
+  CheckCorrectCrc(data_page_v1_snappy_checksum(),
+                  /*data_page_checksum_verification=*/true);
 }
 #endif
 
