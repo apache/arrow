@@ -455,9 +455,9 @@ register_bindings_datetime_timezone <- function() {
       }
 
       # Remove timezone
-      time <- build_expr("cast", time, options = cast_options(to_type = timestamp(unit = time$type()$unit())))
+      time <- cast(time, timestamp(unit = time$type()$unit()))
       # Add timezone
-      build_expr("assume_timezone", time, options = list(timezone = tzone, nonexistent = .nonexistent))
+      Expression$create("assume_timezone", time, options = list(timezone = tzone, nonexistent = .nonexistent))
     },
     notes = c(
       "Timezone conversion from non-UTC timezone not supported;",
@@ -468,7 +468,7 @@ register_bindings_datetime_timezone <- function() {
     if (tzone == "") {
       tzone <- Sys.timezone()
     }
-    build_expr("cast", time, options = cast_options(to_type = timestamp(unit = time$type()$unit(), timezone = tzone)))
+    cast(time, timestamp(unit = time$type()$unit(), timezone = tzone))
   })
 }
 
