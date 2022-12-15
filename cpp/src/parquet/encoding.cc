@@ -2138,8 +2138,6 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
           "but it's " +
           std::to_string(values_per_block % mini_blocks_per_block));
     }
-    // Reserve enough space at the beginning of the buffer for largest possible header.
-    PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
   }
 
   std::shared_ptr<Buffer> FlushValues() override;
@@ -2177,6 +2175,8 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
 
   int idx = 0;
   if (total_value_count_ == 0) {
+    // Reserve enough space at the beginning of the buffer for largest possible header.
+    PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
     current_value_ = src[0];
     first_value_ = current_value_;
     idx = 1;
@@ -2186,7 +2186,7 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
   while (idx < num_values) {
     UT value = static_cast<UT>(src[idx]);
     // Calculate deltas. The possible overflow is handled by use of unsigned integers
-    // making subtraction operations well defined and correct even in case of overflow.
+    // making subtraction operations well-defined and correct even in case of overflow.
     // Encoded integers will wrap back around on decoding.
     // See http://en.wikipedia.org/wiki/Modular_arithmetic#Integers_modulo_n
     deltas_[values_current_block_] = value - current_value_;
@@ -2274,6 +2274,8 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
     throw ParquetException("header writing error");
   }
   header_writer.Flush();
+  // reset counter
+  total_value_count_ = 0;
 
   // We reserved enough space at the beginning of the buffer for largest possible header
   // and data was written immediately after. We now write the header data immediately
