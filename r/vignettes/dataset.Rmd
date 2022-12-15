@@ -359,12 +359,12 @@ system("tree nyc-taxi/feather")
 ```
 ## feather
 ## ├── payment_type=1
-## │   └── part-18.feather
+## │   └── part-18.arrow
 ## ├── payment_type=2
-## │   └── part-19.feather
+## │   └── part-19.arrow
 ## ...
 ## └── payment_type=UNK
-##     └── part-17.feather
+##     └── part-17.arrow
 ##
 ## 18 directories, 23 files
 ```
