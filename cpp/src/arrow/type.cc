@@ -459,7 +459,7 @@ std::vector<TypeHolder> TypeHolder::FromTypes(
   for (const auto& type : types) {
     type_holders.emplace_back(type);
   }
-  return std::move(type_holders);
+  return type_holders;
 }
 
 // ----------------------------------------------------------------------
