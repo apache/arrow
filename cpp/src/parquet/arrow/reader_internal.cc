@@ -357,45 +357,6 @@ std::shared_ptr<Array> TransferZeroCopy(RecordReader* reader,
   return ::arrow::MakeArray(data);
 }
 
-Status TransferBinaryZeroCopy(RecordReader* reader,
-                              const std::shared_ptr<Field>& logical_type_field,
-                              std::shared_ptr<ChunkedArray>* out) {
-  std::vector<std::shared_ptr<Buffer>> buffers = {
-      reader->ReleaseIsValid(), reader->ReleaseOffsets(), reader->ReleaseValues()};
-  auto data = std::make_shared<::arrow::ArrayData>(logical_type_field->type(),
-                                                   reader->values_written(), buffers,
-                                                   reader->null_count());
-  auto chunks = ::arrow::ArrayVector({::arrow::MakeArray(data)});
-  if (!logical_type_field->nullable()) {
-    ReconstructChunksWithoutNulls(&chunks);
-  }
-  *out = std::make_shared<ChunkedArray>(std::move(chunks), logical_type_field->type());
-  return Status::OK();
-}
-
-Status TransferLargeBinaryZeroCopy(RecordReader* reader, MemoryPool* pool,
-                                   const std::shared_ptr<Field>& logical_type_field,
-                                   std::shared_ptr<ChunkedArray>* out) {
-  std::vector<std::shared_ptr<Buffer>> buffers = {
-      reader->ReleaseIsValid(), reader->ReleaseOffsets(), reader->ReleaseValues()};
-  auto data = std::make_shared<::arrow::ArrayData>(
-      ::arrow::binary(), reader->values_written(), buffers, reader->null_count());
-  auto array = ::arrow::MakeArray(data);
-  ::arrow::compute::ExecContext ctx(pool);
-  ::arrow::compute::CastOptions cast_options;
-  cast_options.allow_invalid_utf8 = true;  // avoid spending time validating UTF8 data
-
-  ARROW_ASSIGN_OR_RAISE(array, ::arrow::compute::Cast(*array, logical_type_field->type(),
-                                                      cast_options, &ctx));
-
-  auto chunks = ::arrow::ArrayVector({array});
-  if (!logical_type_field->nullable()) {
-    ReconstructChunksWithoutNulls(&chunks);
-  }
-  *out = std::make_shared<ChunkedArray>(std::move(chunks)), logical_type_field->type();
-  return Status::OK();
-}
-
 Status TransferBool(RecordReader* reader, bool nullable, MemoryPool* pool, Datum* out) {
   int64_t length = reader->values_written();
 
@@ -804,19 +765,12 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
     case ::arrow::Type::DATE64:
       RETURN_NOT_OK(TransferDate64(reader, pool, value_field, &result));
       break;
-    case ::arrow::Type::FIXED_SIZE_BINARY: {
-      RETURN_NOT_OK(TransferBinary(reader, pool, value_field, &chunked_result));
-      result = chunked_result;
-    } break;
+    case ::arrow::Type::FIXED_SIZE_BINARY:
     case ::arrow::Type::BINARY:
-    case ::arrow::Type::STRING: {
-      RETURN_NOT_OK(TransferBinaryZeroCopy(reader, value_field, &chunked_result));
-      result = chunked_result;
-    } break;
+    case ::arrow::Type::STRING:
     case ::arrow::Type::LARGE_BINARY:
     case ::arrow::Type::LARGE_STRING: {
-      RETURN_NOT_OK(
-          TransferLargeBinaryZeroCopy(reader, pool, value_field, &chunked_result));
+      RETURN_NOT_OK(TransferBinary(reader, pool, value_field, &chunked_result));
       result = chunked_result;
     } break;
     case ::arrow::Type::DECIMAL128: {
