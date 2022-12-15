@@ -44,7 +44,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     else
       additional_env = {}
     end
-    env = { "BUMP_DEFAULT" => "0" }
+    env = {"BUMP_DEFAULT" => "0"}
     targets.each do |target|
       env["BUMP_#{target}"] = "1"
     end
@@ -259,13 +259,14 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       }
     end
 
-    bump_versions("VERSION_POST_TAG")
+    stdout = bump_versions("VERSION_POST_TAG")
     assert_equal(expected_changes.sort_by {|diff| diff[:path]},
-                 parse_patch(git("log", "-n", "1", "-p")))
+                 parse_patch(git("log", "-n", "1", "-p")),
+                 "Output:\n#{stdout}")
   end
 
   def test_deb_package_names
-    bump_versions("DEB_PACKAGE_NAMES")
+    stdout = bump_versions("DEB_PACKAGE_NAMES")
     changes = parse_patch(git("log", "-n", "1", "-p"))
     sampled_changes = changes.collect do |change|
       first_hunk = change[:hunks][0]
@@ -299,15 +300,15 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         path: "dev/tasks/tasks.yml",
       },
     ]
-    assert_equal(expected_changes, sampled_changes)
+    assert_equal(expected_changes, sampled_changes, "Output:\n#{stdout}")
   end
 
   def test_linux_packages
     name = "Arrow Developers"
     email = "dev@arrow.apache.org"
-    bump_versions("LINUX_PACKAGES",
-                  "DEBFULLNAME" => name,
-                  "DEBEMAIL" => email)
+    stdout = bump_versions("LINUX_PACKAGES",
+                           "DEBFULLNAME" => name,
+                           "DEBEMAIL" => email)
 
     release_time_string = git("log",
                               "--format=%aI",
@@ -367,6 +368,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       },
     ]
     assert_equal(expected_changes,
-                 parse_patch(git("log", "-n", "1", "-p")))
+                 parse_patch(git("log", "-n", "1", "-p")),
+                 "Output:\n#{stdout}")
   end
 end
