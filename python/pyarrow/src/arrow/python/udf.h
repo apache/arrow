@@ -35,7 +35,7 @@ namespace py {
 // TODO: TODO(ARROW-16041): UDF Options are not exposed to the Python
 // users. This feature will be included when extending to provide advanced
 // options for the users.
-struct ARROW_PYTHON_EXPORT ScalarUdfOptions {
+struct ARROW_PYTHON_EXPORT UdfOptions {
   std::string func_name;
   compute::Arity arity;
   compute::FunctionDoc func_doc;
@@ -44,23 +44,23 @@ struct ARROW_PYTHON_EXPORT ScalarUdfOptions {
 };
 
 /// \brief A context passed as the first argument of scalar UDF functions.
-struct ARROW_PYTHON_EXPORT ScalarUdfContext {
+struct ARROW_PYTHON_EXPORT UdfContext {
   MemoryPool* pool;
   int64_t batch_length;
 };
 
-using ScalarUdfWrapperCallback = std::function<PyObject*(
-    PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;
+using UdfWrapperCallback = std::function<PyObject*(
+    PyObject* user_function, const UdfContext& context, PyObject* inputs)>;
 
 /// \brief register a Scalar user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
-    PyObject* user_function, ScalarUdfWrapperCallback wrapper,
-    const ScalarUdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
+    PyObject* user_function, UdfWrapperCallback wrapper,
+    const UdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
 
 /// \brief register a Table user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterTabularFunction(
-    PyObject* user_function, ScalarUdfWrapperCallback wrapper,
-    const ScalarUdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
+    PyObject* user_function, UdfWrapperCallback wrapper,
+    const UdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
 
 Result<std::shared_ptr<RecordBatchReader>> ARROW_PYTHON_EXPORT CallTabularFunction(
     const std::string& func_name, const std::vector<Datum>& args,

@@ -4037,7 +4037,7 @@ TEST(Substrait, SetRelationBasic) {
 
   compute::SortOptions sort_options(
       {compute::SortKey("A", compute::SortOrder::Ascending)});
-  CheckRoundTripResult(dummy_schema, std::move(expected_table), exec_context, buf, {},
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
                        conversion_options, &sort_options);
 }
 

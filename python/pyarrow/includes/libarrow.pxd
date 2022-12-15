@@ -2798,7 +2798,7 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     int64_t TotalBufferSize(const CRecordBatch& record_batch)
     int64_t TotalBufferSize(const CTable& table)
 
-ctypedef PyObject* CallbackUdf(object user_function, const CScalarUdfContext& context, object inputs)
+ctypedef PyObject* CallbackUdf(object user_function, const CUdfContext& context, object inputs)
 
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
@@ -2809,11 +2809,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
-    cdef cppclass CScalarUdfContext" arrow::py::ScalarUdfContext":
+    cdef cppclass CUdfContext" arrow::py::UdfContext":
         CMemoryPool *pool
         int64_t batch_length
 
-    cdef cppclass CScalarUdfOptions" arrow::py::ScalarUdfOptions":
+    cdef cppclass CUdfOptions" arrow::py::UdfOptions":
         c_string func_name
         CArity arity
         CFunctionDoc func_doc
@@ -2821,11 +2821,11 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
         shared_ptr[CDataType] output_type
 
     CStatus RegisterScalarFunction(PyObject* function,
-                                   function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
+                                   function[CallbackUdf] wrapper, const CUdfOptions& options,
                                    CFunctionRegistry* registry)
 
     CStatus RegisterTabularFunction(PyObject* function,
-                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
+                                    function[CallbackUdf] wrapper, const CUdfOptions& options,
                                     CFunctionRegistry* registry)
 
     CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(

@@ -26,20 +26,32 @@ namespace py {
 
 namespace {
 
-struct PythonScalarUdfKernelState : public compute::KernelState {
-  explicit PythonScalarUdfKernelState(std::shared_ptr<OwnedRefNoGIL> function)
-      : function(function) {}
+struct PythonUdfKernelState : public compute::KernelState {
+  explicit PythonUdfKernelState(std::shared_ptr<OwnedRefNoGIL> function)
+      : function(function) {
+    Py_INCREF(function->obj());
+  }
+
+  // function needs to be destroyed at process exit
+  // and Python may no longer be initialized.
+  ~PythonUdfKernelState() {
+    if (_Py_IsFinalizing()) {
+      function->detach();
+    }
+  }
 
   std::shared_ptr<OwnedRefNoGIL> function;
 };
 
-struct PythonScalarUdfKernelInit {
-  explicit PythonScalarUdfKernelInit(std::shared_ptr<OwnedRefNoGIL> function)
-      : function(function) {}
+struct PythonUdfKernelInit {
+  explicit PythonUdfKernelInit(std::shared_ptr<OwnedRefNoGIL> function)
+      : function(function) {
+    Py_INCREF(function->obj());
+  }
 
   // function needs to be destroyed at process exit
   // and Python may no longer be initialized.
-  ~PythonScalarUdfKernelInit() {
+  ~PythonUdfKernelInit() {
     if (_Py_IsFinalizing()) {
       function->detach();
     }
@@ -47,7 +59,7 @@ struct PythonScalarUdfKernelInit {
 
   Result<std::unique_ptr<compute::KernelState>> operator()(
       compute::KernelContext*, const compute::KernelInitArgs&) {
-    return std::make_unique<PythonScalarUdfKernelState>(function);
+    return std::make_unique<PythonUdfKernelState>(function);
   }
 
   std::shared_ptr<OwnedRefNoGIL> function;
@@ -55,14 +67,22 @@ struct PythonScalarUdfKernelInit {
 
 struct PythonTableUdfKernelInit {
   PythonTableUdfKernelInit(std::shared_ptr<OwnedRefNoGIL> function_maker,
-                           ScalarUdfWrapperCallback cb)
+                           UdfWrapperCallback cb)
       : function_maker(function_maker), cb(cb) {
     Py_INCREF(function_maker->obj());
   }
 
+  // function needs to be destroyed at process exit
+  // and Python may no longer be initialized.
+  ~PythonTableUdfKernelInit() {
+    if (_Py_IsFinalizing()) {
+      function_maker->detach();
+    }
+  }
+
   Result<std::unique_ptr<compute::KernelState>> operator()(
       compute::KernelContext* ctx, const compute::KernelInitArgs&) {
-    ScalarUdfContext udf_context{ctx->memory_pool(), /*batch_length=*/0};
+    UdfContext udf_context{ctx->memory_pool(), /*batch_length=*/0};
     std::unique_ptr<OwnedRefNoGIL> function;
     RETURN_NOT_OK(SafeCallIntoPython([this, &udf_context, &function] {
       OwnedRef empty_tuple(PyTuple_New(0));
@@ -74,28 +94,44 @@ struct PythonTableUdfKernelInit {
     if (!PyCallable_Check(function->obj())) {
       return Status::TypeError("Expected a callable Python object.");
     }
-    return std::make_unique<PythonScalarUdfKernelState>(
+    return std::make_unique<PythonUdfKernelState>(
         std::move(function));
   }
 
   std::shared_ptr<OwnedRefNoGIL> function_maker;
-  ScalarUdfWrapperCallback cb;
+  UdfWrapperCallback cb;
 };
 
-struct PythonUdf : public PythonScalarUdfKernelState {
-  PythonUdf(std::shared_ptr<OwnedRefNoGIL> function, ScalarUdfWrapperCallback cb,
-            compute::OutputType output_type)
-      : PythonScalarUdfKernelState(function), cb(cb), output_type(output_type) {}
+struct PythonUdf : public PythonUdfKernelState {
+  PythonUdf(std::shared_ptr<OwnedRefNoGIL> function, UdfWrapperCallback cb,
+            std::vector<TypeHolder> input_types, compute::OutputType output_type)
+      : PythonUdfKernelState(function),
+        cb(cb),
+        input_types(input_types),
+        output_type(output_type) {}
 
-  ScalarUdfWrapperCallback cb;
+  UdfWrapperCallback cb;
+  std::vector<TypeHolder> input_types;
   compute::OutputType output_type;
+  TypeHolder resolved_type;
+
+  Result<TypeHolder> ResolveType(compute::KernelContext* ctx,
+                                 const std::vector<TypeHolder>& types) {
+    if (input_types == types) {
+      if (!resolved_type) {
+        ARROW_ASSIGN_OR_RAISE(resolved_type, output_type.Resolve(ctx, input_types));
+      }
+      return resolved_type;
+    }
+    return output_type.Resolve(ctx, types);
+  }
 
   Status Exec(compute::KernelContext* ctx, const compute::ExecSpan& batch,
               compute::ExecResult* out) {
-    auto state = arrow::internal::checked_cast<PythonScalarUdfKernelState*>(ctx->state());
+    auto state = arrow::internal::checked_cast<PythonUdfKernelState*>(ctx->state());
     std::shared_ptr<OwnedRefNoGIL>& function = state->function;
     const int num_args = batch.num_values();
-    ScalarUdfContext udf_context{ctx->memory_pool(), batch.length};
+    UdfContext udf_context{ctx->memory_pool(), batch.length};
 
     OwnedRef arg_tuple(PyTuple_New(num_args));
     RETURN_NOT_OK(CheckPyError());
@@ -116,7 +152,7 @@ struct PythonUdf : public PythonScalarUdfKernelState {
     // unwrapping the output for expected output type
     if (is_array(result.obj())) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> val, unwrap_array(result.obj()));
-      ARROW_ASSIGN_OR_RAISE(TypeHolder type, output_type.Resolve(ctx, batch.GetTypes()));
+      ARROW_ASSIGN_OR_RAISE(TypeHolder type, ResolveType(ctx, batch.GetTypes()));
       if (type.type == NULLPTR) {
         return Status::TypeError("expected output datatype is null");
       }
@@ -141,11 +177,9 @@ Status PythonUdfExec(compute::KernelContext* ctx, const compute::ExecSpan& batch
   return SafeCallIntoPython([&]() -> Status { return udf->Exec(ctx, batch, out); });
 }
 
-Status RegisterScalarLikeFunction(PyObject* user_function,
-                                  compute::KernelInit kernel_init,
-                                  ScalarUdfWrapperCallback wrapper,
-                                  const ScalarUdfOptions& options,
-                                  compute::FunctionRegistry* registry) {
+Status RegisterUdf(PyObject* user_function, compute::KernelInit kernel_init,
+                   UdfWrapperCallback wrapper, const UdfOptions& options,
+                   compute::FunctionRegistry* registry) {
   if (!PyCallable_Check(user_function)) {
     return Status::TypeError("Expected a callable Python object.");
   }
@@ -158,7 +192,8 @@ Status RegisterScalarLikeFunction(PyObject* user_function,
   }
   compute::OutputType output_type(options.output_type);
   auto udf_data = std::make_shared<PythonUdf>(
-      std::make_shared<OwnedRefNoGIL>(user_function), wrapper, options.output_type);
+      std::make_shared<OwnedRefNoGIL>(user_function), wrapper,
+      TypeHolder::FromTypes(options.input_types), options.output_type);
   compute::ScalarKernel kernel(
       compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
                                      options.arity.is_varargs),
@@ -177,17 +212,17 @@ Status RegisterScalarLikeFunction(PyObject* user_function,
 
 }  // namespace
 
-Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback wrapper,
-                              const ScalarUdfOptions& options,
+Status RegisterScalarFunction(PyObject* user_function, UdfWrapperCallback wrapper,
+                              const UdfOptions& options,
                               compute::FunctionRegistry* registry) {
-  return RegisterScalarLikeFunction(
+  return RegisterUdf(
       user_function,
-      PythonScalarUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)}, wrapper,
+      PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)}, wrapper,
       options, registry);
 }
 
-Status RegisterTabularFunction(PyObject* user_function, ScalarUdfWrapperCallback wrapper,
-                               const ScalarUdfOptions& options,
+Status RegisterTabularFunction(PyObject* user_function, UdfWrapperCallback wrapper,
+                               const UdfOptions& options,
                                compute::FunctionRegistry* registry) {
   if (options.arity.num_args != 0 || options.arity.is_varargs) {
     return Status::NotImplemented("tabular function of non-null arity");
@@ -195,24 +230,11 @@ Status RegisterTabularFunction(PyObject* user_function, ScalarUdfWrapperCallback
   if (options.output_type->id() != Type::type::STRUCT) {
     return Status::Invalid("tabular function with non-struct output");
   }
-  return RegisterScalarLikeFunction(
+  return RegisterUdf(
       user_function,
       PythonTableUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function), wrapper},
       wrapper, options, registry);
 }
-
-namespace  {
-
-Result<std::shared_ptr<RecordBatch>> RecordBatchFromArray(
-    std::shared_ptr<Schema> schema, std::shared_ptr<Array> array) {
-  auto& data = const_cast<std::shared_ptr<ArrayData>&>(array->data());
-  if (data->child_data.size() != static_cast<size_t>(schema->num_fields())) {
-    return Status::Invalid("UDF result with shape not conforming to schema");
-  }
-  return RecordBatch::Make(std::move(schema), data->length, std::move(data->child_data));
-}
-
-}  // namespace
 
 Result<std::shared_ptr<RecordBatchReader>> CallTabularFunction(
     const std::string& func_name, const std::vector<Datum>& args,
@@ -264,7 +286,11 @@ Result<std::shared_ptr<RecordBatchReader>> CallTabularFunction(
     if (array->length() == 0) {
       return IterationTraits<std::shared_ptr<RecordBatch>>::End();
     }
-    return RecordBatchFromArray(std::move(schema), std::move(array));
+    ARROW_ASSIGN_OR_RAISE(auto batch, RecordBatch::FromStructArray(std::move(array)));
+    if (!schema->Equals(batch->schema())) {
+      return Status::Invalid("UDF result with shape not conforming to schema");
+    }
+    return std::move(batch);
   };
   return RecordBatchReader::MakeFromIterator(MakeFunctionIterator(std::move(next_func)),
                                              schema);

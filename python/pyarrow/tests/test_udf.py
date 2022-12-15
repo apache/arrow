@@ -32,8 +32,8 @@ except ImportError:
 
 
 def mock_udf_context(batch_length=10):
-    from pyarrow._compute import _get_scalar_udf_context
-    return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
+    from pyarrow._compute import _get_udf_context
+    return _get_udf_context(pa.default_memory_pool(), batch_length)
 
 
 class MyError(RuntimeError):
@@ -266,7 +266,7 @@ def check_scalar_function(func_fixture,
         assert result_table.column(0).chunks[0] == expected_output
 
 
-def test_scalar_udf_array_unary(unary_func_fixture):
+def test_udf_array_unary(unary_func_fixture):
     check_scalar_function(unary_func_fixture,
                           [
                               pa.array([10, 20], pa.int64())
@@ -274,7 +274,7 @@ def test_scalar_udf_array_unary(unary_func_fixture):
                           )
 
 
-def test_scalar_udf_array_binary(binary_func_fixture):
+def test_udf_array_binary(binary_func_fixture):
     check_scalar_function(binary_func_fixture,
                           [
                               pa.array([10, 20], pa.int64()),
@@ -283,7 +283,7 @@ def test_scalar_udf_array_binary(binary_func_fixture):
                           )
 
 
-def test_scalar_udf_array_ternary(ternary_func_fixture):
+def test_udf_array_ternary(ternary_func_fixture):
     check_scalar_function(ternary_func_fixture,
                           [
                               pa.array([10, 20], pa.int64()),
@@ -293,7 +293,7 @@ def test_scalar_udf_array_ternary(ternary_func_fixture):
                           )
 
 
-def test_scalar_udf_array_varargs(varargs_func_fixture):
+def test_udf_array_varargs(varargs_func_fixture):
     check_scalar_function(varargs_func_fixture,
                           [
                               pa.array([2, 3], pa.int64()),
