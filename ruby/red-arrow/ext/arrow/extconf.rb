@@ -77,4 +77,15 @@ end
   add_depend_package_path(name, source_dir, build_dir)
 end
 
+case RUBY_PLATFORM
+when /darwin/
+  symbols_in_external_bundles = [
+    "_rbgerr_gerror2exception",
+    "_rbgobj_instance_from_ruby_object",
+  ]
+  symbols_in_external_bundles.each do |symbol|
+    $DLDFLAGS << " -Wl,-U,#{symbol}"
+  end
+end
+
 create_makefile("arrow")
