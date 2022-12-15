@@ -644,6 +644,7 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
         recipient_email=recipient_email
     )
 
+    message = email_report.render("token_expiration").strip()
     if send:
         ReportUtils.send_email(
             smtp_user=smtp_user,
@@ -651,7 +652,7 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
             recipient_email=recipient_email,
-            message=email_report.render("token_expiration")
+            message=message
         )
     else:
-        output.write(email_report.render("token_expiration"))
+        output.write(message)
