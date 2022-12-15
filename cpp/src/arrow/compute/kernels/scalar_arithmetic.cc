@@ -2236,25 +2236,25 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // ----------------------------------------------------------------------
   auto floor_divide =
-      MakeArithmeticFunctionNotNull<FloorDivide>("floor_divide", &floor_div_doc);
+      MakeArithmeticFunctionNotNull<FloorDivide>("floor_divide", floor_div_doc);
   DCHECK_OK(registry->AddFunction(std::move(floor_divide)));
 
   // ----------------------------------------------------------------------
   auto floor_divide_checked = MakeArithmeticFunctionNotNull<FloorDivideChecked>(
-      "floor_divide_checked", &floor_div_checked_doc);
+      "floor_divide_checked", floor_div_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(floor_divide_checked)));
 
   // ----------------------------------------------------------------------
-  auto remainder = MakeArithmeticFunctionNotNull<Remainder>("remainder", &remainder_doc);
+  auto remainder = MakeArithmeticFunctionNotNull<Remainder>("remainder", remainder_doc);
   DCHECK_OK(registry->AddFunction(std::move(remainder)));
 
   // ----------------------------------------------------------------------
   auto remainder_checked = MakeArithmeticFunctionNotNull<RemainderChecked>(
-      "remainder_checked", &remainder_checked_doc);
+      "remainder_checked", remainder_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(remainder_checked)));
 
   // ----------------------------------------------------------------------
-  auto negate = MakeUnaryArithmeticFunction<Negate>("negate", &negate_doc);
+  auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
