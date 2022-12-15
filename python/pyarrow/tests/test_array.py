@@ -2922,12 +2922,12 @@ def test_struct_array_flattened_field():
     a = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty,
                  mask=pa.array([False, True, False]))
 
-    x0 = a.flattened_field(0)
-    y0 = a.flattened_field(1)
-    x1 = a.flattened_field(-2)
-    y1 = a.flattened_field(-1)
-    x2 = a.flattened_field('x')
-    y2 = a.flattened_field('y')
+    x0 = a._flattened_field(0)
+    y0 = a._flattened_field(1)
+    x1 = a._flattened_field(-2)
+    y1 = a._flattened_field(-1)
+    x2 = a._flattened_field('x')
+    y2 = a._flattened_field('y')
 
     assert isinstance(x0, pa.lib.Int16Array)
     assert isinstance(y1, pa.lib.FloatArray)
@@ -2940,15 +2940,15 @@ def test_struct_array_flattened_field():
 
     for invalid_index in [None, pa.int16()]:
         with pytest.raises(TypeError):
-            a.flattened_field(invalid_index)
+            a._flattened_field(invalid_index)
 
     for invalid_index in [3, -3]:
         with pytest.raises(IndexError):
-            a.flattened_field(invalid_index)
+            a._flattened_field(invalid_index)
 
     for invalid_name in ['z', '']:
         with pytest.raises(KeyError):
-            a.flattened_field(invalid_name)
+            a._flattened_field(invalid_name)
 
 
 def test_empty_cast():

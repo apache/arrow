@@ -1409,7 +1409,7 @@ cdef class Array(_PandasConvertible):
             Which order to sort values in.
             Accepted values are "ascending", "descending".
         **kwargs : dict, optional
-            Additional sorting options
+            Additional sorting options.
             As allowed by :class:`SortOptions`
 
         Returns
@@ -2664,7 +2664,7 @@ cdef class StructArray(Array):
 
         return pyarrow_wrap_array(child)
 
-    def flattened_field(self, index, MemoryPool memory_pool=None):
+    def _flattened_field(self, index, MemoryPool memory_pool=None):
         """
         Retrieves the child array belonging to field,
         accounting for the parent array null bitmap.
@@ -2689,15 +2689,12 @@ cdef class StructArray(Array):
             int_index = self.type.get_field_index(index)
             if int_index < 0:
                 raise KeyError(index)
-            child = GetResultValue(arr.GetFlattenedField(int_index, pool))
         elif isinstance(index, int):
-            child = GetResultValue(arr.GetFlattenedField(
-                <int>_normalize_index(index, self.ap.num_fields()),
-                pool
-            ))
+            int_index = _normalize_index(index, self.ap.num_fields())
         else:
             raise TypeError('Expected integer or string index')
 
+        child = GetResultValue(arr.GetFlattenedField(int_index, pool))
         return pyarrow_wrap_array(child)
 
     def flatten(self, MemoryPool memory_pool=None):
@@ -2815,7 +2812,7 @@ cdef class StructArray(Array):
             If to sort the array by one of its fields
             or by the whole array.
         **kwargs : dict, optional
-            Additional sorting options
+            Additional sorting options.
             As allowed by :class:`SortOptions`
 
         Returns
@@ -2823,7 +2820,7 @@ cdef class StructArray(Array):
         result : StructArray
         """
         if by is not None:
-            tosort = self.flattened_field(by)
+            tosort = self._flattened_field(by)
         else:
             tosort = self
         indices = _pc().sort_indices(
