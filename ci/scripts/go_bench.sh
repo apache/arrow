@@ -41,7 +41,10 @@ pushd ${source_dir}
 go test -bench=. -benchmem -run=^$ ./... | tee bench_stat.dat
 
 if verlte "1.18" "${ver#go}"; then
-    go test -bench=. -benchmem -run=^$ ./arrow/compute | tee bench_stat_compute.dat
+    # lots of benchmarks, they can take a while
+    # the timeout is for *ALL* benchmarks together,
+    # not per benchmark
+    go test -timeout 20m -bench=. -benchmem -run=^$ ./arrow/compute | tee bench_stat_compute.dat
 fi
 
 popd
