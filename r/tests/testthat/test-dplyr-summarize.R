@@ -301,6 +301,7 @@ test_that("Functions that take ... but we only accept a single arg", {
   # With zero arguments, n_distinct() will error in dplyr 1.1.0 too,
   # so use a Dataset to avoid the "pulling data into R" step that would
   # trigger a dplyr error
+  skip_if_not_available("dataset")
   expect_snapshot(
     InMemoryDataset$create(tbl) %>%
       summarize(distinct = n_distinct()),
