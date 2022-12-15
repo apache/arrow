@@ -1420,3 +1420,59 @@ test_that("str_trim()", {
     tbl
   )
 })
+
+test_that("str_remove and str_remove_all", {
+  df <- tibble(x = c("Foo", "bar"))
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove_all(x, "^F")) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove_all(x, regex("^F"))) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = str_remove(x, "^F[a-z]{2}")) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        x = str_remove_all(x, fixed("o")),
+        x2 = stringr::str_remove_all(x, fixed("o"))
+      ) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        x = str_remove(x, fixed("O")),
+        x2 = stringr::str_remove(x, fixed("O"))
+      ) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove(x, fixed("O", ignore_case = TRUE))) %>%
+      collect(),
+    df
+  )
+})
