@@ -2138,6 +2138,8 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
           "but it's " +
           std::to_string(values_per_block % mini_blocks_per_block));
     }
+    // Reserve enough space at the beginning of the buffer for largest possible header.
+    PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
   }
 
   std::shared_ptr<Buffer> FlushValues() override;
@@ -2175,8 +2177,6 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
 
   int idx = 0;
   if (total_value_count_ == 0) {
-    // Reserve enough space at the beginning of the buffer for largest possible header.
-    PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
     current_value_ = src[0];
     first_value_ = current_value_;
     idx = 1;
@@ -2274,8 +2274,6 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
     throw ParquetException("header writing error");
   }
   header_writer.Flush();
-  // reset counter
-  total_value_count_ = 0;
 
   // We reserved enough space at the beginning of the buffer for largest possible header
   // and data was written immediately after. We now write the header data immediately
@@ -2283,6 +2281,11 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   const size_t offset_bytes = kMaxPageHeaderWriterSize - header_writer.bytes_written();
   std::memcpy(buffer->mutable_data() + offset_bytes, header_buffer_,
               header_writer.bytes_written());
+
+  // reset counter
+  total_value_count_ = 0;
+  // Reserve enough space at the beginning of the buffer for largest possible header.
+  PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
 
   // Excess bytes at the beginning are sliced off and ignored.
   return SliceBuffer(buffer, offset_bytes);
