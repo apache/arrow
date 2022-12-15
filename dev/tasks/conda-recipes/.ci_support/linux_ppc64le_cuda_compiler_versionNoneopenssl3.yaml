@@ -1,13 +1,15 @@
-MACOSX_DEPLOYMENT_TARGET:
-- '10.9'
+aws_sdk_cpp:
+- 1.9.379
 bzip2:
 - '1'
 c_ares:
 - '1'
 c_compiler:
-- clang
+- gcc
 c_compiler_version:
-- '14'
+- '11'
+cdt_name:
+- cos7
 channel_sources:
 - conda-forge
 channel_targets:
@@ -15,52 +17,57 @@ channel_targets:
 cuda_compiler_version:
 - None
 cxx_compiler:
-- clangxx
+- gxx
 cxx_compiler_version:
-- '14'
+- '11'
+docker_image:
+- quay.io/condaforge/linux-anvil-cos7-x86_64
 gflags:
 - '2.2'
 glog:
 - '0.6'
 google_cloud_cpp:
-- '2.2'
-grpc_cpp:
-- '1.47'
+- 2.5.0
 libabseil:
 - '20220623.0'
+libgrpc:
+- '1.51'
 libprotobuf:
 - '3.21'
 lz4_c:
 - 1.9.3
-macos_machine:
-- x86_64-apple-darwin13.4.0
 numpy:
+- '1.21'
+- '1.23'
+- '1.20'
 - '1.20'
 openssl:
-- 1.1.1
+- '3'
 orc:
-- 1.7.6
+- 1.8.0
 pin_run_as_build:
-  bzip2:
-    max_pin: x
   python:
     min_pin: x.x
     max_pin: x.x
-  zlib:
-    max_pin: x.x
 python:
+- 3.10.* *_cpython
+- 3.11.* *_cpython
+- 3.8.* *_cpython
 - 3.9.* *_cpython
 re2:
 - 2022.06.01
 snappy:
 - '1'
 target_platform:
-- osx-64
+- linux-ppc64le
 thrift_cpp:
 - 0.16.0
 zip_keys:
 - - c_compiler_version
   - cxx_compiler_version
+  - cuda_compiler_version
+  - cdt_name
+  - docker_image
 - - python
   - numpy
 zlib:

@@ -82,7 +82,7 @@ of adding a basic feature.
    Arrow libraries include a wide range of functionalities and may require
    the installation of third-party packages, depending on which build
    options and components you enable. The C++ build guide
-   has suggestions for for commonly encountered issues - you can find it
+   has suggestions for commonly encountered issues - you can find it
    :ref:`here <cpp-development>`. 
    Anytime you are stuck, feel free to reach out via
    appropriate :ref:`communication` channel.

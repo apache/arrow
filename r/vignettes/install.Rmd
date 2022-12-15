@@ -127,8 +127,22 @@ The libarrow binaries include support for AWS S3 and GCS, so they require the
 libcurl and openssl libraries installed separately, as noted above.
 If you don't have these installed, the libarrow binary won't be used, and you will fall back to the full source build (with S3 and GCS support disabled).
 
-Users on CentOS 7 will also need to install and configure a C++17 compiler.
-See "System dependencies" above.
+If the internet access of your computer doesn't allow downloading the libarrow binaries (e.g. if access is limited to CRAN), you can first identify the right source and version by trying to install on the offline computer:
+
+```{r, eval = FALSE}
+Sys.setenv("NOT_CRAN" = TRUE, "LIBARROW_BUILD" = FALSE, "ARROW_R_DEV" = TRUE)
+install.packages("arrow")
+# This will fail if no internet access, but will print the binaries URL
+```
+
+Then you can obtain the libarrow binaries (using a computer with internet access) and transfer the zip file to the target computer. Now you just have to tell the installer to use that pre-downloaded file:
+
+```{r, eval = FALSE}
+# Watchout: release numbers of the pre-downloaded libarrow must match CRAN!
+Sys.setenv("ARROW_DOWNLOADED_BINARIES" = "/path/to/downloaded/libarrow.zip")
+install.packages("arrow")
+```
+
 
 ## Install release version (less easy)
 
@@ -418,6 +432,7 @@ A second method for offline installation is a little more hands-on. Follow these
 * Create the environment variable `ARROW_THIRDPARTY_DEPENDENCY_DIR` on the offline computer, pointing to the copied directory.
 * Install the arrow package as usual.
 
+For offline installation using libarrow binaries, see Method 1b above.
 
 ## Troubleshooting
 

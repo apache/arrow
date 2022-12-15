@@ -618,7 +618,7 @@ copy_files <- function(from, to, chunk_size = 1024L * 1024L) {
 
 clean_path_abs <- function(path) {
   # Make sure we have a valid, absolute, forward-slashed path for passing to Arrow
-  normalizePath(path, winslash = "/", mustWork = FALSE)
+  enc2utf8(normalizePath(path, winslash = "/", mustWork = FALSE))
 }
 
 clean_path_rel <- function(path) {

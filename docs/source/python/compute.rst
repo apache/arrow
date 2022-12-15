@@ -368,8 +368,19 @@ our ``even_filter`` with a ``pc.field("nums") > 5`` filter:
    nums: [[6,8,10]]
    chars: [["f","h","l"]]
 
-:class:`.Dataset` currently can be filtered using :meth:`.Dataset.to_table` method
-passing a ``filter`` argument. See :ref:`py-filter-dataset` in Dataset documentation.
+:class:`.Dataset` can similarly be filtered with the :meth:`.Dataset.filter` method.
+The method will return an instance of :class:`.Dataset` which will lazily
+apply the filter as soon as actual data of the dataset is accessed:
+
+   >>> dataset = ds.dataset(table)
+   >>> filtered = dataset.filter(pc.field("nums") < 5).filter(pc.field("nums") > 2)
+   >>> filtered.to_table()
+   pyarrow.Table
+   nums: int64
+   chars: string
+   ----
+   nums: [[3,4]]
+   chars: [["c","d"]]
 
 
 User-Defined Functions

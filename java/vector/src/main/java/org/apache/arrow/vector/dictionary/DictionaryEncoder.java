@@ -20,6 +20,7 @@ package org.apache.arrow.vector.dictionary;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
@@ -94,12 +95,16 @@ public class DictionaryEncoder {
     // copy the dictionary values into the decoded vector
     TransferPair transfer = dictionaryVector.getTransferPair(allocator);
     transfer.getTo().allocateNewSafe();
-
-    BaseIntVector baseIntVector = (BaseIntVector) indices;
-    retrieveIndexVector(baseIntVector, transfer, dictionaryCount, 0, count);
-    ValueVector decoded = transfer.getTo();
-    decoded.setValueCount(count);
-    return decoded;
+    try {
+      BaseIntVector baseIntVector = (BaseIntVector) indices;
+      retrieveIndexVector(baseIntVector, transfer, dictionaryCount, 0, count);
+      ValueVector decoded = transfer.getTo();
+      decoded.setValueCount(count);
+      return decoded;
+    } catch (Exception e) {
+      AutoCloseables.close(e, transfer.getTo());
+      throw e;
+    }
   }
 
   /**
@@ -192,14 +197,21 @@ public class DictionaryEncoder {
 
     BaseIntVector indices = (BaseIntVector) createdVector;
     indices.allocateNew();
-
-    buildIndexVector(vector, indices, hashTable, 0, vector.getValueCount());
-    indices.setValueCount(vector.getValueCount());
-    return indices;
+    try {
+      buildIndexVector(vector, indices, hashTable, 0, vector.getValueCount());
+      indices.setValueCount(vector.getValueCount());
+      return indices;
+    } catch (Exception e) {
+      AutoCloseables.close(e, indices);
+      throw e;
+    }
   }
 
   /**
-   * Decodes a vector with the built hash table in this encoder.
+   * Decodes a vector with the dictionary in this encoder.
+   *
+   * {@link DictionaryEncoder#decode(ValueVector, Dictionary, BufferAllocator)} should be used instead if only decoding
+   * is required as it can avoid building the {@link DictionaryHashTable} which only makes sense when encoding.
    */
   public ValueVector decode(ValueVector indices) {
     return decode(indices, dictionary, allocator);

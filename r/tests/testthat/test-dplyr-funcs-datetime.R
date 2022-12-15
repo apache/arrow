@@ -1230,6 +1230,7 @@ test_that("date works in arrow", {
   # since as.Date returns the UTC date and date() doesn't
   test_df <- tibble(
     posixct_date = as.POSIXct(c("2012-03-26 23:12:13", NA), tz = "America/New_York"),
+    posixct_fractional_second = as_datetime(c("2012-03-26 23:12:13.676632", NA)),
     integer_var = c(32L, NA)
   )
 
@@ -1245,6 +1246,13 @@ test_that("date works in arrow", {
   compare_dplyr_binding(
     .input %>%
       mutate(a_date_base = as.Date(posixct_date)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(a_date_base = as.Date(posixct_fractional_second)) %>%
       collect(),
     test_df
   )

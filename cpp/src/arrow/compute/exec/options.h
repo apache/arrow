@@ -65,6 +65,10 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   static Result<std::shared_ptr<SourceNodeOptions>> FromTable(const Table& table,
                                                               arrow::internal::Executor*);
 
+  static Result<std::shared_ptr<SourceNodeOptions>> FromRecordBatchReader(
+      std::shared_ptr<RecordBatchReader> reader, std::shared_ptr<Schema> schema,
+      arrow::internal::Executor*);
+
   std::shared_ptr<Schema> output_schema;
   std::function<Future<std::optional<ExecBatch>>()> generator;
 };

@@ -534,6 +534,9 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Override default backpressure configuration
   Status Backpressure(compute::BackpressureOptions backpressure);
 
+  /// \brief Return the current scan options for the builder.
+  Result<std::shared_ptr<ScanOptions>> GetScanOptions();
+
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish();
 

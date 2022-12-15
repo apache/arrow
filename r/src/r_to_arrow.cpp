@@ -16,7 +16,6 @@
 // under the License.
 
 #include "./arrow_types.h"
-#include "./arrow_vctrs.h"
 
 #include <arrow/array/builder_base.h>
 #include <arrow/array/builder_binary.h>
@@ -1038,7 +1037,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     auto append_value = [this](SEXP value) {
       // TODO: if we decide that this can be run concurrently
       //       we'll have to do vec_size() upfront
-      int n = vctrs::vec_size(value);
+      int n = arrow::r::vec_size(value);
 
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
       RETURN_NOT_OK(this->list_builder_->Append());
@@ -1139,7 +1138,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
 
     for (R_xlen_t i = 0; i < n_columns; i++) {
       SEXP x_i = VECTOR_ELT(x, i);
-      if (vctrs::vec_size(x_i) < size) {
+      if (arrow::r::vec_size(x_i) < size) {
         return Status::RError("Degenerated data frame");
       }
     }
@@ -1263,7 +1262,7 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
   RConversionOptions options;
   options.strict = !type_inferred;
   options.type = type;
-  options.size = vctrs::vec_size(x);
+  options.size = arrow::r::vec_size(x);
 
   // If we can handle this in C++ we do so; otherwise we use the
   // AsArrowArrayConverter, which calls as_arrow_array().
@@ -1466,7 +1465,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       arrow::r::RConversionOptions options;
       options.strict = !infer_schema;
       options.type = schema->field(j)->type();
-      options.size = vctrs::vec_size(x);
+      options.size = arrow::r::vec_size(x);
 
       // If we can handle this in C++  we do so; otherwise we use the
       // AsArrowArrayConverter, which calls as_arrow_array().

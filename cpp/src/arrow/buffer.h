@@ -505,10 +505,6 @@ ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> ConcatenateBuffers(const BufferVector& buffers,
                                                    MemoryPool* pool = NULLPTR);
 
-ARROW_EXPORT
-Status ConcatenateBuffers(const BufferVector& buffers, MemoryPool* pool,
-                          std::shared_ptr<Buffer>* out);
-
 /// @}
 
 }  // namespace arrow

@@ -312,7 +312,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     }
   }
 
-  std::optional<IndexLocation> GetColumIndexLocation() const {
+  std::optional<IndexLocation> GetColumnIndexLocation() const {
     if (column_->__isset.column_index_offset && column_->__isset.column_index_length) {
       return IndexLocation{column_->column_index_offset, column_->column_index_length};
     }
@@ -434,8 +434,8 @@ std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() con
   return impl_->crypto_metadata();
 }
 
-std::optional<IndexLocation> ColumnChunkMetaData::GetColumIndexLocation() const {
-  return impl_->GetColumIndexLocation();
+std::optional<IndexLocation> ColumnChunkMetaData::GetColumnIndexLocation() const {
+  return impl_->GetColumnIndexLocation();
 }
 
 std::optional<IndexLocation> ColumnChunkMetaData::GetOffsetIndexLocation() const {

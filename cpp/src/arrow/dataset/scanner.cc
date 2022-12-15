@@ -942,12 +942,17 @@ Status ScannerBuilder::Backpressure(compute::BackpressureOptions backpressure) {
   return Status::OK();
 }
 
-Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
+Result<std::shared_ptr<ScanOptions>> ScannerBuilder::GetScanOptions() {
   if (!scan_options_->projection.IsBound()) {
     RETURN_NOT_OK(Project(scan_options_->dataset_schema->field_names()));
   }
 
-  return std::make_shared<AsyncScanner>(dataset_, scan_options_);
+  return scan_options_;
+}
+
+Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
+  ARROW_ASSIGN_OR_RAISE(auto scan_options, GetScanOptions());
+  return std::make_shared<AsyncScanner>(dataset_, scan_options);
 }
 
 namespace {
