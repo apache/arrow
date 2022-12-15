@@ -514,16 +514,6 @@ TEST_F(TestLocalFile, OpenWithMetadata) {
   ASSERT_EQ(metadata.get(), reader2->metadata().get());
 }
 
-// https://github.com/google/googletest/pull/2904 not available in our version of
-// gtest/gmock
-#define EXPECT_THROW_THAT(callable, ex_type, property)   \
-  EXPECT_THROW(                                          \
-      try { (callable)(); } catch (const ex_type& err) { \
-        EXPECT_THAT(err, (property));                    \
-        throw;                                           \
-      },                                                 \
-      ex_type)
-
 void testCheckCrc(const std::string& local_file_name,
                   bool data_page_checksum_verification) {
   {

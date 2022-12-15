@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -75,6 +76,32 @@ static inline void CheckStatistics(const H& expected, const EncodedStatistics& a
   if (expected.statistics.__isset.distinct_count) {
     ASSERT_EQ(expected.statistics.distinct_count, actual.distinct_count);
   }
+}
+
+static std::vector<Compression::type> GetSupportedCodecTypes() {
+  std::vector<Compression::type> codec_types;
+
+#ifdef ARROW_WITH_SNAPPY
+  codec_types.push_back(Compression::SNAPPY);
+#endif
+
+#ifdef ARROW_WITH_BROTLI
+  codec_types.push_back(Compression::BROTLI);
+#endif
+
+#ifdef ARROW_WITH_GZIP
+  codec_types.push_back(Compression::GZIP);
+#endif
+
+#ifdef ARROW_WITH_LZ4
+  codec_types.push_back(Compression::LZ4);
+  codec_types.push_back(Compression::LZ4_HADOOP);
+#endif
+
+#ifdef ARROW_WITH_ZSTD
+  codec_types.push_back(Compression::ZSTD);
+#endif
+  return codec_types;
 }
 
 class TestPageSerde : public ::testing::Test {
@@ -146,6 +173,77 @@ class TestPageSerde : public ::testing::Test {
   format::DataPageHeader data_page_header_;
   format::DataPageHeaderV2 data_page_header_v2_;
 };
+
+void TestPageSerde::TestPageSerdeCrc(bool write_checksum, bool write_page_corrupt,
+                                     bool verification_checksum) {
+  auto codec_types = GetSupportedCodecTypes();
+  codec_types.push_back(Compression::UNCOMPRESSED);
+  const int32_t num_rows = 32;  // dummy value
+  data_page_header_.num_values = num_rows;
+
+  const int num_pages = 10;
+
+  std::vector<std::vector<uint8_t>> faux_data;
+  faux_data.resize(num_pages);
+  for (int i = 0; i < num_pages; ++i) {
+    // The pages keep getting larger
+    int page_size = (i + 1) * 64;
+    test::random_bytes(page_size, 0, &faux_data[i]);
+  }
+  for (auto codec_type : codec_types) {
+    auto codec = GetCodec(codec_type);
+
+    std::vector<uint8_t> buffer;
+    for (int i = 0; i < num_pages; ++i) {
+      const uint8_t* data = faux_data[i].data();
+      int data_size = static_cast<int>(faux_data[i].size());
+      int64_t actual_size;
+      if (codec == nullptr) {
+        buffer = faux_data[i];
+        actual_size = data_size;
+      } else {
+        int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
+        buffer.resize(max_compressed_size);
+
+        ASSERT_OK_AND_ASSIGN(
+            actual_size,
+            codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
+      }
+      std::optional<uint32_t> checksum_opt;
+      if (write_checksum) {
+        uint32_t checksum =
+            ::arrow::internal::crc32(/* prev */ 0, buffer.data(), actual_size);
+        if (write_page_corrupt) {
+          checksum += 1;  // write a bad checksum
+        }
+        checksum_opt = checksum;
+      }
+      ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(
+          1024, data_size, static_cast<int32_t>(actual_size), checksum_opt));
+      ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
+    }
+    ReaderProperties readerProperties;
+    readerProperties.set_data_page_checksum_verification(verification_checksum);
+    InitSerializedPageReader(num_rows * num_pages, codec_type, readerProperties);
+
+    for (int i = 0; i < num_pages; ++i) {
+      if (write_checksum && write_page_corrupt && verification_checksum) {
+        EXPECT_THROW_THAT([&]() { page_reader_->NextPage(); }, ParquetException,
+                          ::testing::Property(
+                              &ParquetException::what,
+                              ::testing::HasSubstr("CRC checksum verification failed")));
+      } else {
+        const auto page = page_reader_->NextPage();
+        const int data_size = static_cast<int>(faux_data[i].size());
+        const auto data_page = static_cast<const DataPageV1*>(page.get());
+        ASSERT_EQ(data_size, data_page->size());
+        ASSERT_EQ(0, memcmp(faux_data[i].data(), data_page->data(), data_size));
+      }
+    }
+
+    ResetStream();
+  }
+}
 
 void CheckDataPageHeader(const format::DataPageHeader expected, const Page* page) {
   ASSERT_EQ(PageType::DATA_PAGE, page->type());
@@ -244,32 +342,6 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
   ASSERT_THROW(page_reader_->NextPage(), ParquetException);
 }
 
-std::vector<Compression::type> GetSupportedCodecTypes() {
-  std::vector<Compression::type> codec_types;
-
-#ifdef ARROW_WITH_SNAPPY
-  codec_types.push_back(Compression::SNAPPY);
-#endif
-
-#ifdef ARROW_WITH_BROTLI
-  codec_types.push_back(Compression::BROTLI);
-#endif
-
-#ifdef ARROW_WITH_GZIP
-  codec_types.push_back(Compression::GZIP);
-#endif
-
-#ifdef ARROW_WITH_LZ4
-  codec_types.push_back(Compression::LZ4);
-  codec_types.push_back(Compression::LZ4_HADOOP);
-#endif
-
-#ifdef ARROW_WITH_ZSTD
-  codec_types.push_back(Compression::ZSTD);
-#endif
-  return codec_types;
-}
-
 TEST_F(TestPageSerde, Compression) {
   auto codec_types = GetSupportedCodecTypes();
 
@@ -330,10 +402,10 @@ TEST_F(TestPageSerde, LZONotSupported) {
   ASSERT_THROW(InitSerializedPageReader(data_size, Compression::LZO), ParquetException);
 }
 
-TEST_F(TestPageSerde, CrcNotExists) {
+TEST_F(TestPageSerde, NoCrc) {
   int stats_size = 512;
   const int32_t num_rows = 4444;
-  AddDummyStats(stats_size, data_page_header_, /* fill_all_stats = */ true);
+  AddDummyStats(stats_size, data_page_header_, /*fill_all_stats=*/true);
   data_page_header_.num_values = num_rows;
 
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader());
@@ -344,92 +416,22 @@ TEST_F(TestPageSerde, CrcNotExists) {
   ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
 }
 
-void TestPageSerde::TestPageSerdeCrc(bool write_checksum, bool write_page_corrupt,
-                                     bool verification_checksum) {
-  auto codec_types = GetSupportedCodecTypes();
-  codec_types.push_back(Compression::UNCOMPRESSED);
-  const int32_t num_rows = 32;  // dummy value
-  data_page_header_.num_values = num_rows;
-
-  const int num_pages = 10;
-
-  std::vector<std::vector<uint8_t>> faux_data;
-  faux_data.resize(num_pages);
-  for (int i = 0; i < num_pages; ++i) {
-    // The pages keep getting larger
-    int page_size = (i + 1) * 64;
-    test::random_bytes(page_size, 0, &faux_data[i]);
-  }
-  for (auto codec_type : codec_types) {
-    auto codec = GetCodec(codec_type);
-
-    std::vector<uint8_t> buffer;
-    for (int i = 0; i < num_pages; ++i) {
-      const uint8_t* data = faux_data[i].data();
-      int data_size = static_cast<int>(faux_data[i].size());
-      int64_t actual_size;
-      if (codec == nullptr) {
-        buffer = faux_data[i];
-        actual_size = data_size;
-      } else {
-        int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
-        buffer.resize(max_compressed_size);
-
-        ASSERT_OK_AND_ASSIGN(
-            actual_size,
-            codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
-      }
-      std::optional<uint32_t> checksum_opt;
-      if (write_checksum) {
-        uint32_t checksum =
-            ::arrow::internal::crc32(/* prev */ 0, buffer.data(), actual_size);
-        if (write_page_corrupt) {
-          checksum += 1;  // write a bad checksum
-        }
-        checksum_opt = checksum;
-      }
-      ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(
-          1024, data_size, static_cast<int32_t>(actual_size), checksum_opt));
-      ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
-    }
-    ReaderProperties readerProperties;
-    readerProperties.set_data_page_checksum_verification(verification_checksum);
-    InitSerializedPageReader(num_rows * num_pages, codec_type, readerProperties);
-
-    std::shared_ptr<Page> page;
-    const DataPageV1* data_page;
-    for (int i = 0; i < num_pages; ++i) {
-      if (write_checksum && write_page_corrupt && verification_checksum) {
-        ASSERT_THROW(page_reader_->NextPage(), ParquetException);
-      } else {
-        page = page_reader_->NextPage();
-        int data_size = static_cast<int>(faux_data[i].size());
-        data_page = static_cast<const DataPageV1*>(page.get());
-        ASSERT_EQ(data_size, data_page->size());
-        ASSERT_EQ(0, memcmp(faux_data[i].data(), data_page->data(), data_size));
-      }
-    }
-
-    ResetStream();
-  }
-}
-
-TEST_F(TestPageSerde, CrcBasic) {
+TEST_F(TestPageSerde, CrcCheckSuccessful) {
   this->TestPageSerdeCrc(/* write_checksum */ true, /* write_page_corrupt */ false,
                          /* verification_checksum */ true);
 }
 
-TEST_F(TestPageSerde, CrcCorruptAndReadFailed) {
+TEST_F(TestPageSerde, CrcCheckFail) {
   this->TestPageSerdeCrc(/* write_checksum */ true, /* write_page_corrupt */ true,
                          /* verification_checksum */ true);
 }
 
-TEST_F(TestPageSerde, CrcCorruptAndNotVerify) {
+TEST_F(TestPageSerde, CrcCorruptNotChecked) {
   this->TestPageSerdeCrc(/* write_checksum */ true, /* write_page_corrupt */ true,
                          /* verification_checksum */ false);
 }
 
-TEST_F(TestPageSerde, CrcCheckUnexists) {
+TEST_F(TestPageSerde, CrcCheckNonExistent) {
   this->TestPageSerdeCrc(/* write_checksum */ false, /* write_page_corrupt */ false,
                          /* verification_checksum */ true);
 }
