@@ -1424,9 +1424,11 @@ def test_hdfs_options(hdfs_connection):
     ('file:/', LocalFileSystem, '/'),
     ('file:///', LocalFileSystem, '/'),
     ('file:/foo/bar', LocalFileSystem, '/foo/bar'),
+    ('file:///foo/bar', LocalFileSystem, '/foo/bar'),
     ('file:///some%20path/%C3%A9', LocalFileSystem, '/some path/é'),
     # no %-decoding for non-URI inputs
     ('/', LocalFileSystem, '/'),
+    ('/foo/bar', LocalFileSystem, '/foo/bar'),
     ('/some path/%20é', LocalFileSystem, '/some path/%20é'),
 ])
 def test_filesystem_from_uri(uri, expected_klass, expected_path):
