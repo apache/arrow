@@ -154,7 +154,11 @@ std::string Uri::scheme() const { return TextRangeToString(impl_->uri_.scheme); 
 
 bool Uri::is_file_scheme() const { return impl_->is_file_uri_; }
 
-std::string Uri::host() const { return TextRangeToString(impl_->uri_.hostText); }
+std::string Uri::host() const {
+  // XXX for now we're assuming that %-encoding is expected, but this could be
+  // scheme-dependent (for example, http(s) may expect IDNA instead?)
+  return UriUnescape(TextRangeToView(impl_->uri_.hostText));
+}
 
 bool Uri::has_host() const { return IsTextRangeSet(impl_->uri_.hostText); }
 

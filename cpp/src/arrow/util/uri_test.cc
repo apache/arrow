@@ -33,12 +33,14 @@ TEST(UriEscape, Basics) {
   ASSERT_EQ(UriEscape(""), "");
   ASSERT_EQ(UriEscape("foo123"), "foo123");
   ASSERT_EQ(UriEscape("/El Niño/"), "%2FEl%20Ni%C3%B1o%2F");
+  ASSERT_EQ(UriEscape("arrow.apache.org"), "arrow.apache.org");
+  ASSERT_EQ(UriEscape("192.168.1.1"), "192.168.1.1");
 }
 
 TEST(UriEncodeHost, Basics) {
   ASSERT_EQ(UriEncodeHost("::1"), "[::1]");
-  ASSERT_EQ(UriEscape("arrow.apache.org"), "arrow.apache.org");
-  ASSERT_EQ(UriEscape("192.168.1.1"), "192.168.1.1");
+  ASSERT_EQ(UriEncodeHost("arrow.apache.org"), "arrow.apache.org");
+  ASSERT_EQ(UriEncodeHost("192.168.1.1"), "192.168.1.1");
 }
 
 TEST(IsValidUriScheme, Basics) {
@@ -309,6 +311,8 @@ TEST(Uri, FileScheme) {
   check_file_with_host("file://localhost/foo/bar", "localhost", "/foo/bar");
   check_file_with_host("file://hostname.com/", "hostname.com", "/");
   check_file_with_host("file://hostname.com/foo/bar", "hostname.com", "/foo/bar");
+  // (authority with special chars, not 100% sure this is the right behavior)
+  check_file_with_host("file://some%20host/foo/bar", "some host", "/foo/bar");
 
 #ifdef _WIN32
   // Relative paths
