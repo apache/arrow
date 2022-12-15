@@ -24,6 +24,7 @@
 #include <sstream>
 #include <unordered_set>
 
+#include "arrow/compute/api.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -670,10 +671,10 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 template <typename Enum>
 class EnumParser {
  public:
-  explicit EnumParser(const std::vector<std::string>& options) {
+  explicit EnumParser(const std::vector<std::string>& options, int offset) {
     for (std::size_t i = 0; i < options.size(); i++) {
-      parse_map_[options[i]] = static_cast<Enum>(i + 1);
-      reverse_map_[static_cast<Enum>(i + 1)] = options[i];
+      parse_map_[options[i]] = static_cast<Enum>(i + offset);
+      reverse_map_[static_cast<Enum>(i + offset)] = options[i];
     }
   }
 
@@ -708,11 +709,17 @@ class EnumParser {
 enum class TemporalComponent { kUnspecified = 0, kYear, kMonth, kDay, kSecond };
 static std::vector<std::string> kTemporalComponentOptions = {"YEAR", "MONTH", "DAY",
                                                              "SECOND"};
-static EnumParser<TemporalComponent> kTemporalComponentParser(kTemporalComponentOptions);
+static EnumParser<TemporalComponent> kTemporalComponentParser(kTemporalComponentOptions,
+                                                              1);
 
 enum class OverflowBehavior { kUnspecified = 0, kSilent, kSaturate, kError };
 static std::vector<std::string> kOverflowOptions = {"SILENT", "SATURATE", "ERROR"};
-static EnumParser<OverflowBehavior> kOverflowParser(kOverflowOptions);
+static EnumParser<OverflowBehavior> kOverflowParser(kOverflowOptions, 1);
+
+static std::vector<std::string> kRoundModes = {
+    "FLOOR",  "CEILING",          "TRUNCATE",           "AWAY_FROM_ZERO", "TIE_DOWN",
+    "TIE_UP", "TIE_TOWARDS_ZERO", "TIE_AWAY_FROM_ZERO", "TIE_TO_EVEN",    "TIE_TO_ODD"};
+static EnumParser<compute::RoundMode> kRoundModeParser(kRoundModes, 0);
 
 template <typename Enum>
 Result<Enum> ParseOptionOrElse(const SubstraitCall& call, std::string_view option_name,
@@ -787,6 +794,34 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessUncheckedArithmetic(
     ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
                           GetValueArgs(call, 0));
     return arrow::compute::call(function_name, std::move(value_args));
+  };
+}
+
+ExtensionIdRegistry::SubstraitCallToArrow DecodeRoundingMode(
+    const std::string& function_name) {
+  return [function_name](const SubstraitCall& call) -> Result<compute::Expression> {
+    ARROW_ASSIGN_OR_RAISE(
+        compute::RoundMode round_mode,
+        ParseOptionOrElse(
+            call, "rounding", kRoundModeParser,
+            {compute::RoundMode::DOWN, compute::RoundMode::UP,
+             compute::RoundMode::TOWARDS_ZERO, compute::RoundMode::TOWARDS_INFINITY,
+             compute::RoundMode::HALF_DOWN, compute::RoundMode::HALF_UP,
+             compute::RoundMode::HALF_TOWARDS_ZERO,
+             compute::RoundMode::HALF_TOWARDS_INFINITY, compute::RoundMode::HALF_TO_EVEN,
+             compute::RoundMode::HALF_TO_ODD},
+            compute::RoundMode::HALF_TOWARDS_INFINITY));
+    ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
+                          GetValueArgs(call, 0));
+    std::shared_ptr<compute::RoundOptions> options =
+        std::make_shared<compute::RoundOptions>();
+    std::optional<std::vector<std::string> const*> s_arg = call.GetOption("s");
+    if (s_arg.has_value()) {
+      // Substrait will enforce at least one choice is present so this is safe.
+      options->ndigits = std::stol(s_arg.value()->at(0), NULLPTR, 10);
+    }
+    options->round_mode = round_mode;
+    return arrow::compute::call(function_name, std::move(value_args), std::move(options));
   };
 }
 
@@ -958,6 +993,8 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
           AddSubstraitCallToArrow({kSubstraitRoundingFunctionsUri, function_name},
                                   DecodeOptionlessUncheckedArithmetic(function_name)));
     }
+    DCHECK_OK(AddSubstraitCallToArrow({kSubstraitRoundingFunctionsUri, "round"},
+                                      DecodeRoundingMode("round")));
 
     // Basic mappings that need _kleene appended to them
     for (const auto& function_name : {"or", "and"}) {

@@ -15,11 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <cstddef>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -450,6 +447,36 @@ TEST(FunctionMapping, ValidCases) {
        kNoOptions,
        {float64()},
        "4",
+       float64()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323.125"},
+       {
+           {"rounding", {"TIE_AWAY_FROM_ZERO"}},
+           {"s", {"2"}},
+           {"function", {"0"}},
+       },
+       {float32()},
+       "323.13",
+       float32()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323.125"},
+       {
+           {"rounding", {"TIE_AWAY_FROM_ZERO"}},
+           {"s", {"-2"}},
+           {"function", {"0"}},
+       },
+       {float64()},
+       "300",
+       float64()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323.135"},
+       {
+           {"rounding", {"TIE_TO_EVEN"}},
+           {"s", {"2"}},
+           {"function", {"0"}},
+       },
+       {float64()},
+       "323.14",
        float64()}};
   CheckValidTestCases(valid_test_cases);
 }
