@@ -28,7 +28,6 @@
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
-#include "parquet/statistics.h"
 #include "parquet/types.h"
 
 namespace parquet {

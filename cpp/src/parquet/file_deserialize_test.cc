@@ -208,6 +208,8 @@ class PageFilterTest : public TestPageSerde {
  public:
   const int kNumPages = 10;
   void WriteStream();
+  void WritePageWithoutStats();
+  void CheckNumRows(std::optional<int32_t> num_rows, const T& header);
 
  protected:
   std::vector<T> data_page_headers_;
@@ -222,9 +224,10 @@ void PageFilterTest<format::DataPageHeader>::WriteStream() {
     total_rows_ += num_rows;
     int data_size = i + 1024;
     this->data_page_header_.__set_num_values(num_rows);
-    this->data_page_header_.statistics.__set_min_value("A");
-    this->data_page_header_.statistics.__set_max_value("Z");
+    this->data_page_header_.statistics.__set_min_value("A" + std::to_string(i));
+    this->data_page_header_.statistics.__set_max_value("Z" + std::to_string(i));
     this->data_page_header_.statistics.__set_null_count(0);
+    this->data_page_header_.statistics.__set_distinct_count(num_rows);
     this->data_page_header_.__isset.statistics = true;
     ASSERT_NO_FATAL_FAILURE(
         this->WriteDataPageHeader(/*max_serialized_len=*/1024, data_size, data_size));
@@ -245,9 +248,10 @@ void PageFilterTest<format::DataPageHeaderV2>::WriteStream() {
     int data_size = i + 1024;
     this->data_page_header_v2_.__set_num_values(num_rows);
     this->data_page_header_v2_.__set_num_rows(num_rows);
-    this->data_page_header_v2_.statistics.__set_min_value("A");
-    this->data_page_header_v2_.statistics.__set_max_value("Z");
+    this->data_page_header_v2_.statistics.__set_min_value("A" + std::to_string(i));
+    this->data_page_header_v2_.statistics.__set_max_value("Z" + std::to_string(i));
     this->data_page_header_v2_.statistics.__set_null_count(0);
+    this->data_page_header_v2_.statistics.__set_distinct_count(num_rows);
     this->data_page_header_v2_.__isset.statistics = true;
     ASSERT_NO_FATAL_FAILURE(
         this->WriteDataPageHeaderV2(/*max_serialized_len=*/1024, data_size, data_size));
@@ -259,21 +263,96 @@ void PageFilterTest<format::DataPageHeaderV2>::WriteStream() {
   this->EndStream();
 }
 
+template <>
+void PageFilterTest<format::DataPageHeader>::WritePageWithoutStats() {
+  int32_t num_rows = 100;
+  total_rows_ += num_rows;
+  int data_size = 1024;
+  this->data_page_header_.__set_num_values(num_rows);
+  ASSERT_NO_FATAL_FAILURE(
+      this->WriteDataPageHeader(/*max_serialized_len=*/1024, data_size, data_size));
+  data_page_headers_.push_back(this->data_page_header_);
+  std::vector<uint8_t> faux_data(data_size);
+  ASSERT_OK(this->out_stream_->Write(faux_data.data(), data_size));
+  this->EndStream();
+}
+
+template <>
+void PageFilterTest<format::DataPageHeaderV2>::WritePageWithoutStats() {
+  int32_t num_rows = 100;
+  total_rows_ += num_rows;
+  int data_size = 1024;
+  this->data_page_header_v2_.__set_num_values(num_rows);
+  this->data_page_header_v2_.__set_num_rows(num_rows);
+  ASSERT_NO_FATAL_FAILURE(
+      this->WriteDataPageHeaderV2(/*max_serialized_len=*/1024, data_size, data_size));
+  data_page_headers_.push_back(this->data_page_header_v2_);
+  std::vector<uint8_t> faux_data(data_size);
+  ASSERT_OK(this->out_stream_->Write(faux_data.data(), data_size));
+  this->EndStream();
+}
+
+template <>
+void PageFilterTest<format::DataPageHeader>::CheckNumRows(
+    std::optional<int32_t> num_rows, const format::DataPageHeader& header) {
+  ASSERT_EQ(num_rows, std::nullopt);
+}
+
+template <>
+void PageFilterTest<format::DataPageHeaderV2>::CheckNumRows(
+    std::optional<int32_t> num_rows, const format::DataPageHeaderV2& header) {
+  ASSERT_EQ(*num_rows, header.num_rows);
+}
+
 using DataPageHeaderTypes =
     ::testing::Types<format::DataPageHeader, format::DataPageHeaderV2>;
 TYPED_TEST_SUITE(PageFilterTest, DataPageHeaderTypes);
+
+// Test that the returned encoded_statistics is nullptr when there are no
+// statistics in the page header.
+TYPED_TEST(PageFilterTest, TestPageWithoutStatistics) {
+  this->WritePageWithoutStats();
+
+  auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
+  this->page_reader_ =
+      PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
+
+  int num_pages = 0;
+  bool is_stats_null = false;
+  auto read_all_pages = [&](const DataPageStats& stats) -> bool {
+    is_stats_null = stats.encoded_statistics == nullptr;
+    ++num_pages;
+    return false;
+  };
+
+  this->page_reader_->set_data_page_filter(read_all_pages);
+  std::shared_ptr<Page> current_page = this->page_reader_->NextPage();
+  ASSERT_EQ(num_pages, 1);
+  ASSERT_EQ(is_stats_null, true);
+  ASSERT_EQ(this->page_reader_->NextPage(), nullptr);
+}
 
 // Creates a number of pages and skips some of them with the page filter callback.
 TYPED_TEST(PageFilterTest, TestPageFilterCallback) {
   this->WriteStream();
 
   {  // Read all pages.
+     // Also check that the encoded statistics passed to the callback function
+     // are right.
     auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
     this->page_reader_ =
         PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
 
-    // This callback will always return false.
-    auto read_all_pages = [](const DataPageStats& stats) -> bool { return false; };
+    std::vector<EncodedStatistics> read_stats;
+    std::vector<int64_t> read_num_values;
+    std::vector<std::optional<int32_t>> read_num_rows;
+    auto read_all_pages = [&](const DataPageStats& stats) -> bool {
+      DCHECK_NE(stats.encoded_statistics, nullptr);
+      read_stats.push_back(*stats.encoded_statistics);
+      read_num_values.push_back(stats.num_values);
+      read_num_rows.push_back(stats.num_rows);
+      return false;
+    };
 
     this->page_reader_->set_data_page_filter(read_all_pages);
     for (int i = 0; i < this->kNumPages; ++i) {
@@ -281,9 +360,18 @@ TYPED_TEST(PageFilterTest, TestPageFilterCallback) {
       ASSERT_NE(current_page, nullptr);
       ASSERT_NO_FATAL_FAILURE(
           CheckDataPageHeader(this->data_page_headers_[i], current_page.get()));
+      auto data_page = static_cast<const DataPage*>(current_page.get());
+      const EncodedStatistics encoded_statistics = data_page->statistics();
+      ASSERT_EQ(read_stats[i].max(), encoded_statistics.max());
+      ASSERT_EQ(read_stats[i].min(), encoded_statistics.min());
+      ASSERT_EQ(read_stats[i].null_count, encoded_statistics.null_count);
+      ASSERT_EQ(read_stats[i].distinct_count, encoded_statistics.distinct_count);
+      ASSERT_EQ(read_num_values[i], this->data_page_headers_[i].num_values);
+      this->CheckNumRows(read_num_rows[i], this->data_page_headers_[i]);
     }
     ASSERT_EQ(this->page_reader_->NextPage(), nullptr);
   }
+
   {  // Skip all pages.
     auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
     this->page_reader_ =

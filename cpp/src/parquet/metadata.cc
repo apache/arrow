@@ -19,8 +19,6 @@
 
 #include <algorithm>
 #include <cinttypes>
-#include <csignal>
-#include <iostream>
 #include <ostream>
 #include <string>
 #include <string_view>

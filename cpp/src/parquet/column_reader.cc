@@ -356,7 +356,9 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistic
     *data_page_statistics = ExtractStatsFromHeader(header);
     seen_num_values_ += header.num_values;
     if (data_page_filter_) {
-      DataPageStats data_page_stats(data_page_statistics, header.num_values,
+      const EncodedStatistics* filter_statistics =
+          data_page_statistics->is_set() ? data_page_statistics : nullptr;
+      DataPageStats data_page_stats(filter_statistics, header.num_values,
                                     /*num_rows=*/std::nullopt);
       if (data_page_filter_(data_page_stats)) {
         return true;
@@ -375,7 +377,9 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistic
     *data_page_statistics = ExtractStatsFromHeader(header);
     seen_num_values_ += header.num_values;
     if (data_page_filter_) {
-      DataPageStats data_page_stats(data_page_statistics, header.num_values,
+      const EncodedStatistics* filter_statistics =
+          data_page_statistics->is_set() ? data_page_statistics : nullptr;
+      DataPageStats data_page_stats(filter_statistics, header.num_values,
                                     header.num_rows);
       if (data_page_filter_(data_page_stats)) {
         return true;

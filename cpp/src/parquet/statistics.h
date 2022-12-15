@@ -217,10 +217,11 @@ class PARQUET_EXPORT Statistics {
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   // Helper function to convert EncodedStatistics to Statistics.
-  // Note that num_values will be set to -1 because number of non-null values in
-  // the column is not available in EncodedStatistics.
+  // EncodedStatistics does not contain number of non-null values, and it can be
+  // passed using the num_values parameter.
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const EncodedStatistics* encoded_statistics,
+      int64_t num_values = -1,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// \brief Return true if the count of null values is set
