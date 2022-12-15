@@ -40,6 +40,7 @@
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
@@ -302,6 +303,17 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<FileMetaData> metadata() const override { return file_metadata_; }
 
+  std::shared_ptr<PageIndexReader> page_index_reader() override {
+    if (!file_metadata_) {
+      throw ParquetException("Cannot get PageIndexReader as file metadata is not ready");
+    }
+    if (!page_index_reader_) {
+      page_index_reader_ = PageIndexReader::Make(source_.get(), file_metadata_,
+                                                 properties_, file_decryptor_);
+    }
+    return page_index_reader_;
+  }
+
   void set_metadata(std::shared_ptr<FileMetaData> metadata) {
     file_metadata_ = std::move(metadata);
   }
@@ -522,7 +534,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   int64_t source_size_;
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
-
+  std::shared_ptr<PageIndexReader> page_index_reader_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
   // \return The true length of the metadata in bytes
@@ -782,6 +794,10 @@ void ParquetFileReader::Close() {
 
 std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
   return contents_->metadata();
+}
+
+std::shared_ptr<PageIndexReader> ParquetFileReader::page_index_reader() {
+  return contents_->page_index_reader();
 }
 
 std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {

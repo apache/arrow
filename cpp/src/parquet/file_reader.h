@@ -32,6 +32,7 @@ namespace parquet {
 
 class ColumnReader;
 class FileMetaData;
+class PageIndexReader;
 class PageReader;
 class RowGroupMetaData;
 
@@ -98,6 +99,7 @@ class PARQUET_EXPORT ParquetFileReader {
     virtual void Close() = 0;
     virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i) = 0;
     virtual std::shared_ptr<FileMetaData> metadata() const = 0;
+    virtual std::shared_ptr<PageIndexReader> page_index_reader() = 0;
   };
 
   ParquetFileReader();
@@ -132,6 +134,9 @@ class PARQUET_EXPORT ParquetFileReader {
 
   // Returns the file metadata. Only one instance is ever created
   std::shared_ptr<FileMetaData> metadata() const;
+
+  // Returns the page index reader. Only one instance is ever created
+  std::shared_ptr<PageIndexReader> page_index_reader();
 
   /// Pre-buffer the specified column indices in all row groups.
   ///
