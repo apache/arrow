@@ -4114,7 +4114,7 @@ TEST(SubstraitRoundTrip, ReadRelProjectIssue) {
   // std::cout << array->ToString() << std::endl;
 }
 
-TEST(SubstraitRoundTrip, ReadRelProjectIssueDuckDB) {
+TEST(SubstraitRoundTrip, ScanPushdownProject) {
   compute::ExecContext exec_context;
   auto orders_schema =
       schema({field("O_ORDERKEY", int32()), field("O_CUSTKEY", int32()),
@@ -4141,7 +4141,7 @@ TEST(SubstraitRoundTrip, ReadRelProjectIssueDuckDB) {
   std::string substrait_json = R"({
     "extensionUris": [
         {
-        "extension_uri_anchor": 0,
+        "extension_uri_anchor": 1,
         "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
@@ -4150,6 +4150,7 @@ TEST(SubstraitRoundTrip, ReadRelProjectIssueDuckDB) {
         {
             "extensionFunction": {
                 "extensionUriReference": 1,
+                "functionAnchor": 1,
                 "name": "equal:any_any"
             }
         }
@@ -4345,7 +4346,9 @@ TEST(SubstraitRoundTrip, ReadRelProjectIssueDuckDB) {
                                                         "value": {
                                                             "selection": {
                                                                 "directReference": {
-                                                                    "structField": {}
+                                                                    "structField": {
+                                                                      "field": 1
+                                                                    }
                                                                 },
                                                                 "rootReference": {}
                                                             }
@@ -4356,7 +4359,7 @@ TEST(SubstraitRoundTrip, ReadRelProjectIssueDuckDB) {
                                                             "selection": {
                                                                 "directReference": {
                                                                     "structField": {
-                                                                        "field": 1
+                                                                        "field": 9
                                                                     }
                                                                 },
                                                                 "rootReference": {}
@@ -4419,9 +4422,9 @@ TEST(SubstraitRoundTrip, ReadRelProjectIssueDuckDB) {
 
   NamedTableProvider table_provider = [&](const std::vector<std::string>& names) {
     std::shared_ptr<compute::ExecNodeOptions> options;
-    if (std::find(names.begin(), names.end(), "ORDERS") != names.end()) {
+    if (std::find(names.begin(), names.end(), "orders") != names.end()) {
       options = std::make_shared<compute::TableSourceNodeOptions>(orders);
-    } else if (std::find(names.begin(), names.end(), "CUSTOMER") != names.end()) {
+    } else if (std::find(names.begin(), names.end(), "customer") != names.end()) {
       options = std::make_shared<compute::TableSourceNodeOptions>(customer);
     }
     return compute::Declaration("table_source", {}, options, "mock_source");
@@ -4446,6 +4449,72 @@ TEST(SubstraitRoundTrip, ReadRelProjectIssueDuckDB) {
   // auto array = ArrayFromJSON(date32(), "[1234, 5678, 9012, 1, 2, 3]");
   // std::cout << "Data32" << std::endl;
   // std::cout << array->ToString() << std::endl;
+}
+
+TEST(SubstraitRoundTrip, ScanProjection) {
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
+  auto dummy_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 4]
+    ])",
+                                            R"([
+      [0, 2, 1],
+      [1, 3, 2],
+      [4, 1, 1],
+      [3, 1, 3],
+      [1, 2, 2]
+    ])",
+                                            R"([
+      [2, 2, 12],
+      [5, 3, 12],
+      [1, 3, 3]
+    ])"});
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "serde_test.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  WriteIpcData(file_path_str, filesystem, table);
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  compute::Expression extract_expr = compute::field_ref("shared");
+  // don't use a function.
+  scan_options->projection = compute::project({compute::field_ref("shared")}, {"shared"});
+
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"})});
+  
+
+  //auto output_schema = schema({field("shared", int32())});
+  ASSERT_OK_AND_ASSIGN(auto expected_table,
+                       GetTableFromPlan(declarations, exec_context, dummy_schema));
+  std::cout << "Output" << std::endl;
+  std::cout << expected_table->ToString() << std::endl;
 }
 
 }  // namespace engine
