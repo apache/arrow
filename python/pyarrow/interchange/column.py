@@ -501,7 +501,7 @@ class _PyArrowColumn:
             # Define the dtype of the returned buffer
             dtype = self._col.type
             if pa.types.is_large_string(dtype):
-                dtype = (DtypeKind.INT, 64, "i", Endianness.NATIVE)
+                dtype = (DtypeKind.INT, 64, "l", Endianness.NATIVE)
             else:
                 dtype = (DtypeKind.INT, 32, "i", Endianness.NATIVE)
             return _PyArrowBuffer(array.buffers()[1]), dtype
