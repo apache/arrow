@@ -4504,13 +4504,10 @@ TEST(SubstraitRoundTrip, ScanProjection) {
   // don't use a function.
   scan_options->projection = compute::project({compute::field_ref("shared")}, {"shared"});
 
+  auto declarations = compute::Declaration::Sequence({compute::Declaration(
+      {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"})});
 
-  auto declarations = compute::Declaration::Sequence(
-      {compute::Declaration(
-           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"})});
-  
-
-  //auto output_schema = schema({field("shared", int32())});
+  // auto output_schema = schema({field("shared", int32())});
   ASSERT_OK_AND_ASSIGN(auto expected_table,
                        GetTableFromPlan(declarations, exec_context, dummy_schema));
   std::cout << "Output" << std::endl;

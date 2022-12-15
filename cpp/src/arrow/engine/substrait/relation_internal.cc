@@ -152,7 +152,7 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
 
 Result<std::vector<compute::Expression>> ExtractStructSelect(
     const ::substrait::Expression::MaskExpression::StructSelect& struct_select) {
-  int struct_items_size = struct_select.struct_items_size(); 
+  int struct_items_size = struct_select.struct_items_size();
   std::vector<compute::Expression> project_exprs;
   project_exprs.reserve(struct_items_size);
   for (int idx = 0; idx < struct_items_size; idx++) {
@@ -166,7 +166,8 @@ Result<std::vector<compute::Expression>> ExtractStructSelect(
             child.struct_();
         return ExtractStructSelect(child_struct_select);
       } else if (child.has_list()) {
-        return Status::NotImplemented("substrait::Expression::MaskExpression::ListSelect");
+        return Status::NotImplemented(
+            "substrait::Expression::MaskExpression::ListSelect");
       } else if (child.has_map()) {
         return Status::NotImplemented("substrait::Expression::MaskExpression::MapSelect");
       } else {
@@ -181,7 +182,8 @@ Result<std::vector<compute::Expression>> ExtractStructSelect(
   return std::move(project_exprs);
 }
 
-Result<std::vector<compute::Expression>> FromProtoMaskExpression(const ::substrait::Expression::MaskExpression& mask_expr) {
+Result<std::vector<compute::Expression>> FromProtoMaskExpression(
+    const ::substrait::Expression::MaskExpression& mask_expr) {
   if (mask_expr.has_select()) {
     std::cout << "read.projection().has_select() == " << mask_expr.has_select()
               << std::endl;
@@ -223,11 +225,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         ::substrait::Expression::MaskExpression mask_expr = read.projection();
         ARROW_ASSIGN_OR_RAISE(auto proj_exprs, FromProtoMaskExpression(mask_expr));
         std::cout << "Proj Expr: " << std::endl;
-        for(const auto& expr: proj_exprs) {
+        for (const auto& expr : proj_exprs) {
           std::cout << expr.ToString() << std::endl;
         }
         scan_options->projection = compute::project({proj_exprs}, {});
-        //return Status::NotImplemented("substrait::ReadRel::projection");
+        // return Status::NotImplemented("substrait::ReadRel::projection");
       }
 
       if (read.has_named_table()) {
