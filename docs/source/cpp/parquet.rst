@@ -578,6 +578,10 @@ Miscellaneous
 +--------------------------+----------+----------+---------+
 | Offset Index             | ✓        |          | \(1)    |
 +--------------------------+----------+----------+---------+
+| CRC checksums            | ✓        | ✓        | \(2)    |
++--------------------------+----------+----------+---------+
 
 * \(1) Access to the Column and Offset Index structures is provided, but
   data read APIs do not currently make any use of them.
+
+* \(2) For now, only the checksums of V1 Data Pages are computed.
