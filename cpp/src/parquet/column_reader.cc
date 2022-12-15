@@ -1998,7 +1998,6 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
 
   void ReadValuesDense(int64_t values_to_read) override {
     if (uses_opt_) {
-      std::cout << "ReadValuesDense:current_encoding_:" << current_encoding_ << std::endl;
       int64_t num_decoded = this->current_decoder_->DecodeArrow_opt(
           static_cast<int>(values_to_read), 0, NULLPTR,
           (reinterpret_cast<int32_t*>(offset_->mutable_data()) + values_written_),
@@ -2014,8 +2013,6 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
     if (uses_opt_) {
-      std::cout << "ReadValuesSpaced:current_encoding_:" << current_encoding_
-                << std::endl;
       int64_t num_decoded = this->current_decoder_->DecodeArrow_opt(
           static_cast<int>(values_to_read), static_cast<int>(null_count),
           valid_bits_->mutable_data(),
