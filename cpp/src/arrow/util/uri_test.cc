@@ -121,6 +121,10 @@ TEST(Uri, ParsePath) {
   check_case("unix://localhost/tmp?", "unix", true, "localhost", "/tmp");
   check_case("unix://localhost/tmp?foo", "unix", true, "localhost", "/tmp");
   check_case("unix://localhost/tmp?foo=bar", "unix", true, "localhost", "/tmp");
+
+  // With escaped path characters
+  check_case("unix://localhost/tmp/some%20path/100%25%20%C3%A9l%C3%A9phant", "unix", true,
+             "localhost", "/tmp/some path/100% éléphant");
 }
 
 TEST(Uri, ParseQuery) {
@@ -340,6 +344,27 @@ TEST(Uri, ParseError) {
   ASSERT_RAISES(Invalid, uri.Parse("/foo/bar"));
   ASSERT_RAISES(Invalid, uri.Parse("foo/bar"));
   ASSERT_RAISES(Invalid, uri.Parse(""));
+}
+
+TEST(UriFromAbsolutePath, Basics) {
+#ifdef _WIN32
+  ASSERT_OK_AND_EQ("file:///C:/foo/bar", UriFromAbsolutePath("C:\\foo\\bar"));
+  ASSERT_OK_AND_EQ("file:///C:/foo/bar", UriFromAbsolutePath("C:/foo/bar"));
+  ASSERT_OK_AND_EQ("file:///C:/some%20path/100%25%20%C3%A9l%C3%A9phant",
+                   UriFromAbsolutePath("C:/some path/100% éléphant"));
+
+  ASSERT_OK_AND_EQ("file://some/share/foo/bar",
+                   UriFromAbsolutePath("\\\\some\\share\\foo\\bar"));
+  ASSERT_OK_AND_EQ("file://some/share/foo/bar",
+                   UriFromAbsolutePath("//some/share/foo/bar"));
+  ASSERT_OK_AND_EQ("file://some%20share/some%20path/100%25%20%C3%A9l%C3%A9phant",
+                   UriFromAbsolutePath("//some share/some path/100% éléphant"));
+#else
+  ASSERT_OK_AND_EQ("file:///", UriFromAbsolutePath("/"));
+  ASSERT_OK_AND_EQ("file:///tmp/foo/bar", UriFromAbsolutePath("/tmp/foo/bar"));
+  ASSERT_OK_AND_EQ("file:///some%20path/100%25%20%C3%A9l%C3%A9phant",
+                   UriFromAbsolutePath("/some path/100% éléphant"));
+#endif
 }
 
 }  // namespace internal
