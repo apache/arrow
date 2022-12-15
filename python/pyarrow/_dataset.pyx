@@ -448,6 +448,17 @@ cdef class Dataset(_Weakrefable):
         filtered_dataset._scan_options = dict(filter=new_filter)
         return filtered_dataset
 
+    def sort_by(self, sorting):
+
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        res = _pc()._exec_plan._sort_source(self, output_type=InMemoryDataset,
+                                            sort_options=_pc().SortOptions(
+                                                sort_keys=sorting
+                                            ))
+        return res
+
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
              use_threads=True):

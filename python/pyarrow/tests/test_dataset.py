@@ -5079,3 +5079,37 @@ def test_dataset_partition_with_slash(tmpdir):
     file_paths = sorted(os.listdir(path))
 
     assert encoded_paths == file_paths
+
+
+def test_dataset_sort_by():
+    table = pa.table([
+        pa.array([3, 1, 4, 2, 5]),
+        pa.array(["b", "a", "b", "a", "c"]),
+    ], names=["values", "keys"])
+    dt = ds.dataset(table)
+
+    assert dt.sort_by("values").to_table().to_pydict() == {
+        "keys": ["a", "a", "b", "b", "c"],
+        "values": [1, 2, 3, 4, 5]
+    }
+
+    assert dt.sort_by([("values", "descending")]).to_table().to_pydict() == {
+        "keys": ["c", "b", "b", "a", "a"],
+        "values": [5, 4, 3, 2, 1]
+    }
+
+    table = pa.Table.from_arrays([
+        pa.array([5, 7, 7, 35], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=["a", "b"])
+    dt = ds.dataset(table)
+
+    sorted_tab = dt.sort_by([("a", "descending")])
+    sorted_tab_dict = sorted_tab.to_table().to_pydict()
+    assert sorted_tab_dict["a"] == [35, 7, 7, 5]
+    assert sorted_tab_dict["b"] == ["foobar", "car", "bar", "foo"]
+
+    sorted_tab = dt.sort_by([("a", "ascending")])
+    sorted_tab_dict = sorted_tab.to_table().to_pydict()
+    assert sorted_tab_dict["a"] == [5, 7, 7, 35]
+    assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
