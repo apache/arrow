@@ -850,11 +850,22 @@ class ColumnReaderImplBase {
     current_encoding_ = encoding;
     current_decoder_->SetData(static_cast<int>(num_buffered_values_), buffer,
                               static_cast<int>(data_size));
+    if (!hasSet_uses_opt_) {
+      if (current_encoding_ == Encoding::PLAIN_DICTIONARY ||
+          current_encoding_ == Encoding::PLAIN ||
+          current_encoding_ == Encoding::RLE_DICTIONARY) {
+        uses_opt_ = true;
+      }
+      hasSet_uses_opt_ = true;
+    }
   }
 
   int64_t available_values_current_page() const {
     return num_buffered_values_ - num_decoded_values_;
   }
+
+  bool hasSet_uses_opt_ = false;
+  bool uses_opt_ = false;
 
   const ColumnDescriptor* descr_;
   const int16_t max_def_level_;
@@ -1969,10 +1980,6 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
     accumulator_.builder.reset(new ::arrow::BinaryBuilder(pool));
     values_ = AllocateBuffer(pool);
     offset_ = AllocateBuffer(pool);
-    if (current_encoding_ == Encoding::PLAIN_DICTIONARY ||
-        current_encoding_ == Encoding::PLAIN) {
-      uses_opt_ = true;
-    }
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -2032,14 +2039,12 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
     const int64_t new_values_capacity =
         UpdateCapacity(values_capacity_, values_written_, extra_values);
     if (new_values_capacity > values_capacity_) {
-      if (uses_opt_) {
-        PARQUET_THROW_NOT_OK(
-            values_->Resize(new_values_capacity * binary_per_row_length_, false));
-        PARQUET_THROW_NOT_OK(offset_->Resize((new_values_capacity + 1) * 4, false));
+      PARQUET_THROW_NOT_OK(
+          values_->Resize(new_values_capacity * binary_per_row_length_, false));
+      PARQUET_THROW_NOT_OK(offset_->Resize((new_values_capacity + 1) * 4, false));
 
-        auto offset = reinterpret_cast<int32_t*>(offset_->mutable_data());
-        offset[0] = 0;
-      }
+      auto offset = reinterpret_cast<int32_t*>(offset_->mutable_data());
+      offset[0] = 0;
 
       values_capacity_ = new_values_capacity;
     }
@@ -2048,24 +2053,20 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
       if (valid_bits_->size() < valid_bytes_new) {
         int64_t valid_bytes_old = bit_util::BytesForBits(values_written_);
         PARQUET_THROW_NOT_OK(valid_bits_->Resize(valid_bytes_new, false));
-
         // Avoid valgrind warnings
         memset(valid_bits_->mutable_data() + valid_bytes_old, 0,
                valid_bytes_new - valid_bytes_old);
       }
     }
   }
-
   std::shared_ptr<ResizableBuffer> ReleaseValues() override {
     auto result = values_;
     values_ = AllocateBuffer(this->pool_);
     values_capacity_ = 0;
     return result;
   }
-
   std::shared_ptr<ResizableBuffer> ReleaseOffsets() override {
     auto result = offset_;
-
     if (ARROW_PREDICT_FALSE(!hasCal_average_len_)) {
       auto offsetArr = reinterpret_cast<int32_t*>(offset_->mutable_data());
       const auto first_offset = offsetArr[0];
@@ -2075,24 +2076,21 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
       // std::cout << "binary_per_row_length_:" << binary_per_row_length_ << std::endl;
       hasCal_average_len_ = true;
     }
-
     offset_ = AllocateBuffer(this->pool_);
     bianry_length_ = 0;
     return result;
   }
-
   void ResetValues() {
     if (values_written_ > 0) {
       // Resize to 0, but do not shrink to fit
-      if (uses_opt_) {
-        PARQUET_THROW_NOT_OK(offset_->Resize(0, false));
-        PARQUET_THROW_NOT_OK(values_->Resize(0, false));
-        bianry_length_ = 0;
-      }
       PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, false));
+      PARQUET_THROW_NOT_OK(offset_->Resize(0, false));
+      PARQUET_THROW_NOT_OK(values_->Resize(0, false));
+
       values_written_ = 0;
       values_capacity_ = 0;
       null_count_ = 0;
+      bianry_length_ = 0;
     }
   }
 
@@ -2101,8 +2099,6 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
   typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 
   int32_t bianry_length_ = 0;
-
-  bool uses_opt_ = false;
 
   std::shared_ptr<::arrow::ResizableBuffer> offset_;
 };
