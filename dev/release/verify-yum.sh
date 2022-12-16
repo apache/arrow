@@ -36,7 +36,8 @@ fi
 VERSION="$1"
 TYPE="$2"
 
-local_prefix="/arrow/dev/tasks/linux-packages"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+local_prefix="${SOURCE_DIR}/../../dev/tasks/linux-packages"
 
 artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 

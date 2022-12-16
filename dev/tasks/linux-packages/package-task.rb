@@ -84,13 +84,6 @@ class PackageTask
     end
   end
 
-  def latest_commit_time(git_directory)
-    return nil unless git_directory?(git_directory)
-    cd(git_directory) do
-      return Time.iso8601(`git log -n 1 --format=%aI`.chomp).utc
-    end
-  end
-
   def download(url, output_path)
     if File.directory?(output_path)
       base_name = url.split("/").last
