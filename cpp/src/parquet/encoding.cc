@@ -1430,7 +1430,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
                               int32_t* bianry_length) {
     int values_decoded = 0;
     auto dst_value = values->mutable_data() + (*bianry_length);
-    int capacity = values->size();
+    int64_t capacity = values->size();
     if (ARROW_PREDICT_FALSE((len_ + *bianry_length) >= capacity)) {
       PARQUET_THROW_NOT_OK(values->Resize(len_ + *bianry_length, false));
       dst_value = values->mutable_data() + (*bianry_length);
