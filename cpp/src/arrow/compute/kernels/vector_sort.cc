@@ -425,29 +425,7 @@ class RadixRecordBatchSorter {
 // Sort a batch using a single sort and multiple-key comparisons.
 class MultipleKeyRecordBatchSorter : public TypeVisitor {
  private:
-  // Preprocessed sort key.
-  struct ResolvedSortKey {
-    ResolvedSortKey(const std::shared_ptr<Array>& array, SortOrder order)
-        : type(GetPhysicalType(array->type())),
-          owned_array(GetPhysicalArray(*array, type)),
-          array(*owned_array),
-          order(order),
-          null_count(array->null_count()) {}
-
-    using LocationType = int64_t;
-
-    template <typename ArrayType>
-    ResolvedChunk<ArrayType> GetChunk(int64_t index) const {
-      return {&::arrow::internal::checked_cast<const ArrayType&>(array), index};
-    }
-
-    const std::shared_ptr<DataType> type;
-    std::shared_ptr<Array> owned_array;
-    const Array& array;
-    SortOrder order;
-    int64_t null_count;
-  };
-
+  using ResolvedSortKey = ResolvedRecordBatchSortKey;
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
  public:
@@ -579,56 +557,12 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
 // that batch columns are contiguous and therefore have less indexing
 // overhead), then sorted batches are merged recursively.
 class TableSorter {
- public:
-  // Preprocessed sort key.
-  struct ResolvedSortKey {
-    ResolvedSortKey(const std::shared_ptr<DataType>& type, ArrayVector chunks,
-                    SortOrder order, int64_t null_count)
-        : type(GetPhysicalType(type)),
-          owned_chunks(std::move(chunks)),
-          chunks(GetArrayPointers(owned_chunks)),
-          order(order),
-          null_count(null_count) {}
-
-    using LocationType = ::arrow::internal::ChunkLocation;
-
-    template <typename ArrayType>
-    ResolvedChunk<ArrayType> GetChunk(::arrow::internal::ChunkLocation loc) const {
-      return {checked_cast<const ArrayType*>(chunks[loc.chunk_index]),
-              loc.index_in_chunk};
-    }
-
-    // Make a vector of ResolvedSortKeys for the sort keys and the given table.
-    // `batches` must be a chunking of `table`.
-    static Result<std::vector<ResolvedSortKey>> Make(
-        const Table& table, const RecordBatchVector& batches,
-        const std::vector<SortKey>& sort_keys) {
-      auto factory = [&](const SortField& f) {
-        const auto& type = table.schema()->field(f.field_index)->type();
-        // We must expose a homogenous chunking for all ResolvedSortKey,
-        // so we can't simply pass `table.column(f.field_index)`
-        ArrayVector chunks(batches.size());
-        std::transform(batches.begin(), batches.end(), chunks.begin(),
-                       [&](const std::shared_ptr<RecordBatch>& batch) {
-                         return batch->column(f.field_index);
-                       });
-        return ResolvedSortKey(type, std::move(chunks), f.order,
-                               table.column(f.field_index)->null_count());
-      };
-
-      return ::arrow::compute::internal::ResolveSortKeys<ResolvedSortKey>(
-          *table.schema(), sort_keys, factory);
-    }
-
-    std::shared_ptr<DataType> type;
-    ArrayVector owned_chunks;
-    std::vector<const Array*> chunks;
-    SortOrder order;
-    int64_t null_count;
-  };
-
   // TODO make all methods const and defer initialization into a Init() method?
+ private:
+  using ResolvedSortKey = ResolvedTableSortKey;
+  using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
+ public:
   TableSorter(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
               const Table& table, const SortOptions& options)
       : ctx_(ctx),
@@ -651,8 +585,6 @@ class TableSorter {
   }
 
  private:
-  using Comparator = MultipleKeyComparator<ResolvedSortKey>;
-
   static RecordBatchVector MakeBatches(const Table& table, Status* status) {
     const auto maybe_batches = BatchesFromTable(table);
     if (!maybe_batches.ok()) {

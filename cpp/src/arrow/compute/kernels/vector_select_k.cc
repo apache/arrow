@@ -135,8 +135,8 @@ class ArraySelecter : public TypeVisitor {
       }
     }
     auto out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
-                                                                    ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
 
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
@@ -250,8 +250,8 @@ class ChunkedArraySelecter : public TypeVisitor {
     }
 
     auto out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
-                                                                    ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       auto top_item = heap.top();
@@ -274,28 +274,7 @@ class ChunkedArraySelecter : public TypeVisitor {
 
 class RecordBatchSelecter : public TypeVisitor {
  private:
-  struct ResolvedSortKey {
-    ResolvedSortKey(const std::shared_ptr<Array>& array, SortOrder order)
-        : type(GetPhysicalType(array->type())),
-          owned_array(GetPhysicalArray(*array, type)),
-          array(*owned_array),
-          order(order),
-          null_count(array->null_count()) {}
-
-    using LocationType = int64_t;
-
-    template <typename ArrayType>
-    ResolvedChunk<ArrayType> GetChunk(int64_t index) const {
-      return {&::arrow::internal::checked_cast<const ArrayType&>(array), index};
-    }
-
-    const std::shared_ptr<DataType> type;
-    std::shared_ptr<Array> owned_array;
-    const Array& array;
-    SortOrder order;
-    int64_t null_count;
-  };
-
+  using ResolvedSortKey = ResolvedRecordBatchSortKey;
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
  public:
@@ -383,8 +362,8 @@ class RecordBatchSelecter : public TypeVisitor {
       }
     }
     auto out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
-                                                                    ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       *out_cbegin = heap.top();
@@ -546,8 +525,8 @@ class TableSelecter : public TypeVisitor {
       }
     }
     auto out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
-                                                                    ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       *out_cbegin = heap.top();

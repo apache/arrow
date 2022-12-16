@@ -687,8 +687,75 @@ class MultipleKeyComparator {
   Status status_;
 };
 
+struct ResolvedRecordBatchSortKey {
+  ResolvedRecordBatchSortKey(const std::shared_ptr<Array>& array, SortOrder order)
+      : type(GetPhysicalType(array->type())),
+        owned_array(GetPhysicalArray(*array, type)),
+        array(*owned_array),
+        order(order),
+        null_count(array->null_count()) {}
+
+  using LocationType = int64_t;
+
+  template <typename ArrayType>
+  ResolvedChunk<ArrayType> GetChunk(int64_t index) const {
+    return {&::arrow::internal::checked_cast<const ArrayType&>(array), index};
+  }
+
+  const std::shared_ptr<DataType> type;
+  std::shared_ptr<Array> owned_array;
+  const Array& array;
+  SortOrder order;
+  int64_t null_count;
+};
+
+struct ResolvedTableSortKey {
+  ResolvedTableSortKey(const std::shared_ptr<DataType>& type, ArrayVector chunks,
+                       SortOrder order, int64_t null_count)
+      : type(GetPhysicalType(type)),
+        owned_chunks(std::move(chunks)),
+        chunks(GetArrayPointers(owned_chunks)),
+        order(order),
+        null_count(null_count) {}
+
+  using LocationType = ::arrow::internal::ChunkLocation;
+
+  template <typename ArrayType>
+  ResolvedChunk<ArrayType> GetChunk(::arrow::internal::ChunkLocation loc) const {
+    return {checked_cast<const ArrayType*>(chunks[loc.chunk_index]), loc.index_in_chunk};
+  }
+
+  // Make a vector of ResolvedSortKeys for the sort keys and the given table.
+  // `batches` must be a chunking of `table`.
+  static Result<std::vector<ResolvedTableSortKey>> Make(
+      const Table& table, const RecordBatchVector& batches,
+      const std::vector<SortKey>& sort_keys) {
+    auto factory = [&](const SortField& f) {
+      const auto& type = table.schema()->field(f.field_index)->type();
+      // We must expose a homogenous chunking for all ResolvedSortKey,
+      // so we can't simply pass `table.column(f.field_index)`
+      ArrayVector chunks(batches.size());
+      std::transform(batches.begin(), batches.end(), chunks.begin(),
+                     [&](const std::shared_ptr<RecordBatch>& batch) {
+                       return batch->column(f.field_index);
+                     });
+      return ResolvedTableSortKey(type, std::move(chunks), f.order,
+                                  table.column(f.field_index)->null_count());
+    };
+
+    return ::arrow::compute::internal::ResolveSortKeys<ResolvedTableSortKey>(
+        *table.schema(), sort_keys, factory);
+  }
+
+  std::shared_ptr<DataType> type;
+  ArrayVector owned_chunks;
+  std::vector<const Array*> chunks;
+  SortOrder order;
+  int64_t null_count;
+};
+
 inline Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
-    std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {
+    int64_t length, MemoryPool* memory_pool) {
   auto buffer_size = length * sizeof(uint64_t);
   ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(buffer_size, memory_pool));
   return ArrayData::Make(uint64(), length, {nullptr, std::move(data)}, /*null_count=*/0);

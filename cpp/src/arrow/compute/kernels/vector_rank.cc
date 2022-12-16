@@ -68,7 +68,7 @@ class ArrayRanker : public TypeVisitor {
 
     auto length = array_.length();
     ARROW_ASSIGN_OR_RAISE(auto sort_indices,
-                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
+                          MakeMutableUInt64Array(length, ctx_->memory_pool()));
     auto sort_begin = sort_indices->GetMutableValues<uint64_t>(1);
     auto sort_end = sort_begin + length;
     std::iota(sort_begin, sort_end, 0);
@@ -80,7 +80,7 @@ class ArrayRanker : public TypeVisitor {
     uint64_t rank;
 
     ARROW_ASSIGN_OR_RAISE(auto rankings,
-                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
+                          MakeMutableUInt64Array(length, ctx_->memory_pool()));
     auto out_begin = rankings->GetMutableValues<uint64_t>(1);
 
     switch (tiebreaker_) {
