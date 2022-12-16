@@ -30,6 +30,15 @@
 #include <iostream>
 #include <optional>
 
+// Can't find the header for this?
+namespace arrow {
+namespace io {
+namespace internal {
+arrow::internal::ThreadPool* GetIOThreadPool();
+}
+}  // namespace io
+}  // namespace arrow
+
 namespace compute = ::arrow::compute;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
@@ -447,7 +456,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(
   arrow::compute::SourceNodeOptions options{
       /*output_schema=*/reader->schema(),
       /*generator=*/ValueOrStop(
-          compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))};
+          compute::MakeReaderGenerator(reader, arrow::io::internal::GetIOThreadPool()))};
 
   return MakeExecNodeOrStop("source", plan.get(), {}, options);
 }
