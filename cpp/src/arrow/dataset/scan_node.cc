@@ -238,7 +238,8 @@ class ScanNode : public cp::ExecNode {
 
     Result<Future<>> operator()() override {
       return fragment
-          ->InspectFragment(node->options_.format_options, node->plan_->exec_context())
+          ->InspectFragment(node->options_.format_options,
+                            node->plan_->query_context()->exec_context())
           .Then([this](const std::shared_ptr<InspectedFragment>& inspected_fragment) {
             return BeginScan(inspected_fragment);
           });
@@ -253,7 +254,8 @@ class ScanNode : public cp::ExecNode {
       ARROW_RETURN_NOT_OK(InitFragmentScanRequest());
       return fragment
           ->BeginScan(scan_state->scan_request, *inspected_fragment,
-                      node->options_.format_options, node->plan_->exec_context())
+                      node->options_.format_options,
+                      node->plan_->query_context()->exec_context())
           .Then([this](const std::shared_ptr<FragmentScanner>& fragment_scanner) {
             return AddScanTasks(fragment_scanner);
           });
@@ -335,8 +337,8 @@ class ScanNode : public cp::ExecNode {
                         {"node.detail", ToString()}});
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
     batches_throttle_ = util::ThrottledAsyncTaskScheduler::Make(
-        plan_->async_scheduler(), options_.target_bytes_readahead + 1);
-    plan_->async_scheduler()->AddSimpleTask([this] {
+        plan_->query_context()->async_scheduler(), options_.target_bytes_readahead + 1);
+    plan_->query_context()->async_scheduler()->AddSimpleTask([this] {
       return GetFragments(options_.dataset.get(), options_.filter)
           .Then([this](const AsyncGenerator<std::shared_ptr<Fragment>>& frag_gen) {
             ScanFragments(frag_gen);

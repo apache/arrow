@@ -323,7 +323,7 @@ Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
 
 Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
     ExecContext* ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
-  return Make({}, ctx, std::move(metadata));
+  return Make(/*opts=*/{}, ctx, std::move(metadata));
 }
 
 ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
