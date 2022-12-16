@@ -76,10 +76,20 @@ func appendBinary(bldr binaryBuilder, scalars []Scalar) {
 	}
 }
 
+// Append requires the passed in builder and scalar to have the same datatype
+// otherwise it will return an error. Will return arrow.ErrNotImplemented if
+// the type hasn't been implemented for this.
+//
+// NOTE only available in go1.18+
 func Append(bldr array.Builder, s Scalar) error {
 	return AppendSlice(bldr, []Scalar{s})
 }
 
+// AppendSlice requires the passed in builder and all scalars in the slice
+// to have the same datatype otherwise it will return an error. Will return
+// arrow.ErrNotImplemented if the type hasn't been implemented for this.
+//
+// NOTE only available in go1.18+
 func AppendSlice(bldr array.Builder, scalars []Scalar) error {
 	if len(scalars) == 0 {
 		return nil
