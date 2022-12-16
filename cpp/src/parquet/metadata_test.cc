@@ -314,7 +314,7 @@ TEST(Metadata, TestReadPageIndex) {
                                      5280, 9735, 3521, 10545, 3251, 3251};
   for (int i = 0; i < row_group_metadata->num_columns(); ++i) {
     auto col_chunk_metadata = row_group_metadata->ColumnChunk(i);
-    auto ci_location = col_chunk_metadata->GetColumIndexLocation();
+    auto ci_location = col_chunk_metadata->GetColumnIndexLocation();
     if (i == 10) {
       // column_id 10 does not have column index
       ASSERT_FALSE(ci_location.has_value());

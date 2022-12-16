@@ -1,3 +1,4 @@
+{#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,18 +15,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#}
+From: {{ sender_name }} <{{ sender_email }}>
+To: {{ recipient_email }}
+Subject: [CI] Arrow Crossbow Token Expiration in {{ report.token_expiration_date }}
 
-github:
-  description: "Apache Arrow is a multi-language toolbox for accelerated data interchange and in-memory processing"
-  homepage: https://arrow.apache.org/
-  collaborators:
-    - assignUser
-    - milesgranger
-    - toddfarmer
+The Arrow Crossbow Token will expire in {{ report.days_left }} days.
 
-notifications:
-  commits:      commits@arrow.apache.org
-  issues_status: issues@arrow.apache.org
-  issues:       github@arrow.apache.org
-  pullrequests: github@arrow.apache.org
-  jira_options: link label worklog
+Please generate a new Token. Send it to Apache INFRA to update the CROSSBOW_GITHUB_TOKEN.
+Update it on the crossbow repository and in the Azure pipelines.

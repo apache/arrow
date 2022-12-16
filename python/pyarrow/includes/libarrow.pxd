@@ -766,6 +766,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CArray] field(int pos)
         shared_ptr[CArray] GetFieldByName(const c_string& name) const
+        CResult[shared_ptr[CArray]] GetFlattenedField(int index, CMemoryPool* pool) const
 
         CResult[vector[shared_ptr[CArray]]] Flatten(CMemoryPool* pool)
 
@@ -1668,6 +1669,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     CResult[shared_ptr[CBuffer]] SerializeRecordBatch(
         const CRecordBatch& schema, const CIpcWriteOptions& options)
+
+    CResult[shared_ptr[CSchema]] ReadSchema(const CMessage& message,
+                                            CDictionaryMemo* dictionary_memo)
 
     CResult[shared_ptr[CSchema]] ReadSchema(CInputStream* stream,
                                             CDictionaryMemo* dictionary_memo)

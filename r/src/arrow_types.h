@@ -109,9 +109,14 @@ static inline void StopIfNotOk(const Status& status) {
     if (unwind_detail) {
       throw cpp11::unwind_exception(unwind_detail->token);
     } else {
-      // ARROW-13039: be careful not to interpret our error message as a %-format string
+      // We need to translate this to "native" encoding for the error to be
+      // displayed properly using cpp11::stop()
       std::string s = status.ToString();
-      cpp11::stop("%s", s.c_str());
+      cpp11::strings s_utf8 = cpp11::as_sexp(s);
+      const char* s_native = cpp11::safe[Rf_translateChar](s_utf8[0]);
+
+      // ARROW-13039: be careful not to interpret our error message as a %-format string
+      cpp11::stop("%s", s_native);
     }
   }
 }

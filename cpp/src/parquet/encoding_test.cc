@@ -124,6 +124,12 @@ void GenerateData(int num_values, T* out, std::vector<uint8_t>* heap) {
                  std::numeric_limits<T>::max(), out);
 }
 
+template <typename T>
+void GenerateBoundData(int num_values, T* out, T min, T max, std::vector<uint8_t>* heap) {
+  // seed the prng so failure is deterministic
+  random_numbers(num_values, 0, min, max, out);
+}
+
 template <>
 void GenerateData<bool>(int num_values, bool* out, std::vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
@@ -1274,6 +1280,132 @@ TEST(ByteStreamSplitEncodeDecode, InvalidDataTypes) {
   ASSERT_THROW(MakeTypedDecoder<ByteArrayType>(Encoding::BYTE_STREAM_SPLIT),
                ParquetException);
   ASSERT_THROW(MakeTypedDecoder<FLBAType>(Encoding::BYTE_STREAM_SPLIT), ParquetException);
+}
+
+// ----------------------------------------------------------------------
+// DELTA_BINARY_PACKED encode/decode tests.
+
+template <typename Type>
+class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
+ public:
+  using c_type = typename Type::c_type;
+  static constexpr int TYPE = Type::type_num;
+
+  void InitBoundData(int nvalues, int repeats, c_type half_range) {
+    num_values_ = nvalues * repeats;
+    input_bytes_.resize(num_values_ * sizeof(c_type));
+    output_bytes_.resize(num_values_ * sizeof(c_type));
+    draws_ = reinterpret_cast<c_type*>(input_bytes_.data());
+    decode_buf_ = reinterpret_cast<c_type*>(output_bytes_.data());
+    GenerateBoundData<c_type>(nvalues, draws_, -half_range, half_range, &data_buffer_);
+
+    // add some repeated values
+    for (int j = 1; j < repeats; ++j) {
+      for (int i = 0; i < nvalues; ++i) {
+        draws_[nvalues * j + i] = draws_[i];
+      }
+    }
+  }
+
+  void ExecuteBound(int nvalues, int repeats, c_type half_range) {
+    InitBoundData(nvalues, repeats, half_range);
+    CheckRoundtrip();
+  }
+
+  void ExecuteSpacedBound(int nvalues, int repeats, int64_t valid_bits_offset,
+                          double null_probability, c_type half_range) {
+    InitBoundData(nvalues, repeats, half_range);
+
+    int64_t size = num_values_ + valid_bits_offset;
+    auto rand = ::arrow::random::RandomArrayGenerator(1923);
+    const auto array = rand.UInt8(size, 0, 100, null_probability);
+    const auto valid_bits = array->null_bitmap_data();
+    CheckRoundtripSpaced(valid_bits, valid_bits_offset);
+  }
+
+  void CheckRoundtrip() override {
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
+
+    encoder->Put(draws_, num_values_);
+    encode_buffer_ = encoder->FlushValues();
+
+    decoder->SetData(num_values_, encode_buffer_->data(),
+                     static_cast<int>(encode_buffer_->size()));
+    int values_decoded = decoder->Decode(decode_buf_, num_values_);
+    ASSERT_EQ(num_values_, values_decoded);
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+  }
+
+  void CheckRoundtripSpaced(const uint8_t* valid_bits,
+                            int64_t valid_bits_offset) override {
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
+    int null_count = 0;
+    for (auto i = 0; i < num_values_; i++) {
+      if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        null_count++;
+      }
+    }
+
+    encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
+    encode_buffer_ = encoder->FlushValues();
+    decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+                     static_cast<int>(encode_buffer_->size()));
+    auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
+                                                valid_bits, valid_bits_offset);
+    ASSERT_EQ(num_values_, values_decoded);
+    ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(decode_buf_, draws_, num_values_,
+                                                        valid_bits, valid_bits_offset));
+  }
+
+ protected:
+  USING_BASE_MEMBERS();
+  std::vector<uint8_t> input_bytes_;
+  std::vector<uint8_t> output_bytes_;
+};
+
+using TestDeltaBitPackEncodingTypes = ::testing::Types<Int32Type, Int64Type>;
+TYPED_TEST_SUITE(TestDeltaBitPackEncoding, TestDeltaBitPackEncodingTypes);
+
+TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
+  using T = typename TypeParam::c_type;
+  int values_per_block = 128;
+  int values_per_mini_block = 32;
+
+  // Size a multiple of miniblock size
+  ASSERT_NO_FATAL_FAILURE(this->Execute(values_per_mini_block * 10, 10));
+  // Size a multiple of block size
+  ASSERT_NO_FATAL_FAILURE(this->Execute(values_per_block * 10, 10));
+  // Size multiple of neither miniblock nor block size
+  ASSERT_NO_FATAL_FAILURE(
+      this->Execute((values_per_mini_block * values_per_block) + 1, 10));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1));
+
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(2000, 2000, 0));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1,
+      /*half_range*/ 0));
+
+  const int max_bitwidth = sizeof(T) * 8;
+  std::vector<int> bitwidths = {
+      1, 2, 3, 5, 8, 11, 16, max_bitwidth - 8, max_bitwidth - 1, max_bitwidth};
+  for (int bitwidth : bitwidths) {
+    T half_range =
+        std::numeric_limits<T>::max() >> static_cast<uint32_t>(max_bitwidth - bitwidth);
+
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(25000, 200, half_range));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
+        /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+        /*null_probability*/ 0.1,
+        /*half_range*/ half_range));
+  }
 }
 
 }  // namespace test

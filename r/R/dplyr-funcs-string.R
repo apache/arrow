@@ -360,10 +360,26 @@ register_bindings_string_regex <- function() {
     }
   }
 
+  arrow_stringr_string_remove_function <- function(max_replacements) {
+    force(max_replacements)
+    function(string, pattern) {
+      opts <- get_stringr_pattern_options(enexpr(pattern))
+      arrow_r_string_replace_function(max_replacements)(
+        pattern = opts$pattern,
+        replacement = "",
+        x = string,
+        ignore.case = opts$ignore_case,
+        fixed = opts$fixed
+      )
+    }
+  }
+
   register_binding("base::sub", arrow_r_string_replace_function(1L))
   register_binding("base::gsub", arrow_r_string_replace_function(-1L))
   register_binding("stringr::str_replace", arrow_stringr_string_replace_function(1L))
   register_binding("stringr::str_replace_all", arrow_stringr_string_replace_function(-1L))
+  register_binding("stringr::str_remove", arrow_stringr_string_remove_function(1L))
+  register_binding("stringr::str_remove_all", arrow_stringr_string_remove_function(-1L))
 
   register_binding("base::strsplit", function(x, split, fixed = FALSE, perl = FALSE,
                                               useBytes = FALSE) {

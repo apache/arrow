@@ -52,6 +52,24 @@ test_that("group_by supports creating/renaming", {
   )
 })
 
+test_that("group_by supports re-grouping by overlapping groups", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, int) %>%
+      group_by(int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, int) %>%
+      group_by(int, chr = "some new value") %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("ungroup", {
   compare_dplyr_binding(
     .input %>%

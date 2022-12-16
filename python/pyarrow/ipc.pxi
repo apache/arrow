@@ -1180,21 +1180,24 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     cdef:
         shared_ptr[CSchema] result
         shared_ptr[CRandomAccessFile] cpp_file
+        Message message
         CDictionaryMemo temp_memo
         CDictionaryMemo* arg_dict_memo
-
-    if isinstance(obj, Message):
-        raise NotImplementedError(type(obj))
-
-    get_reader(obj, False, &cpp_file)
 
     if dictionary_memo is not None:
         arg_dict_memo = dictionary_memo.memo
     else:
         arg_dict_memo = &temp_memo
 
-    with nogil:
-        result = GetResultValue(ReadSchema(cpp_file.get(), arg_dict_memo))
+    if isinstance(obj, Message):
+        message = obj
+        with nogil:
+            result = GetResultValue(ReadSchema(
+                deref(message.message.get()), arg_dict_memo))
+    else:
+        get_reader(obj, False, &cpp_file)
+        with nogil:
+            result = GetResultValue(ReadSchema(cpp_file.get(), arg_dict_memo))
 
     return pyarrow_wrap_schema(result)
 

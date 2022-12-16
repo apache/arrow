@@ -102,7 +102,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // array.cpp
-int Array__length(const std::shared_ptr<arrow::Array>& x);
+r_vec_size Array__length(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__length(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
