@@ -18,6 +18,13 @@
 module Helper
   module ApacheArrow
     private
+    def git_directory?(directory)
+      candidate_paths = [".git", "HEAD"]
+      candidate_paths.any? do |candidate_path|
+        File.exist?(File.join(directory, candidate_path))
+      end
+    end
+
     def latest_commit_time(git_directory)
       return nil unless git_directory?(git_directory)
       cd(git_directory) do

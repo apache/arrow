@@ -77,13 +77,6 @@ class PackageTask
     ENV["DEBUG"] != "no"
   end
 
-  def git_directory?(directory)
-    candidate_paths = [".git", "HEAD"]
-    candidate_paths.any? do |candidate_path|
-      File.exist?(File.join(directory, candidate_path))
-    end
-  end
-
   def download(url, output_path)
     if File.directory?(output_path)
       base_name = url.split("/").last
