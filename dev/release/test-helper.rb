@@ -109,7 +109,11 @@ module VersionDetectable
     @next_so_version = compute_so_version(@next_version)
     r_description = top_dir + "r" + "DESCRIPTION"
     @previous_version = r_description.read[/^Version: (.+?)\.9000$/, 1]
-    @previous_compatible_version = @previous_version.split(".")[0, 2].join(".")
+    if @previous_version
+      @previous_compatible_version = @previous_version.split(".")[0, 2].join(".")
+    else
+      @previous_compatible_version = nil
+    end
   end
 
   def compute_so_version(version)
