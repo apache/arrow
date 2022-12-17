@@ -278,6 +278,9 @@ set(PYARROW_CPP_STATIC_INSTALL_INTERFACE_LIBS)
 
 # Check all the options from Arrow and PyArrow C++ to be in line
 if(PYARROW_BUILD_DATASET)
+  if(NOT ARROW_DATASET)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_DATASET=ON")
+  endif()
   find_package(ArrowDataset REQUIRED)
   list(APPEND PYARROW_CPP_SHARED_LINK_LIBS ArrowDataset::arrow_dataset_shared)
   list(APPEND PYARROW_CPP_SHARED_INSTALL_INTERFACE_LIBS
@@ -288,6 +291,9 @@ if(PYARROW_BUILD_DATASET)
 endif()
 
 if(PYARROW_BUILD_PARQUET OR PYARROW_BUILD_PARQUET_ENCRYPTION)
+  if(NOT ARROW_PARQUET)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_PARQUET=ON")
+  endif()
   find_package(Parquet REQUIRED)
 endif()
 
@@ -575,6 +581,9 @@ endif()
 
 if(PYARROW_BUILD_CUDA)
   # Arrow CUDA
+  if(NOT ARROW_CUDA)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_CUDA=ON")
+  endif()
   find_package(ArrowCUDA REQUIRED)
 
   if(PYARROW_BUNDLE_ARROW_CPP)
@@ -630,6 +639,9 @@ endif()
 
 # Plasma
 if(PYARROW_BUILD_PLASMA)
+  if(NOT ARROW_PLASMA)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_PLASMA=ON")
+  endif()
   find_package(Plasma REQUIRED)
 
   get_filename_component(PLASMA_INCLUDE_DIR_REAL ${PLASMA_INCLUDE_DIR} REALPATH)
@@ -647,6 +659,9 @@ endif()
 
 if(PYARROW_BUILD_ORC)
   # ORC
+  if(NOT ARROW_ORC)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_ORC=ON")
+  endif()
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
   if(PYARROW_BUILD_DATASET)
     set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_orc)
@@ -671,8 +686,11 @@ if(PYARROW_BUILD_FLIGHT)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
 endif()
 
-# Engine
+# Substrait
 if(PYARROW_BUILD_SUBSTRAIT)
+  if(NOT ARROW_SUBSTRAIT)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_SUBSTRAIT=ON")
+  endif()
   find_package(ArrowSubstrait REQUIRED)
   if(PYARROW_BUNDLE_ARROW_CPP)
     bundle_arrow_lib(${ARROW_SUBSTRAIT_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
@@ -687,6 +705,9 @@ endif()
 
 # Gandiva
 if(PYARROW_BUILD_GANDIVA)
+  if(NOT ARROW_GANDIVA)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_GANDIVA=ON")
+  endif()
   find_package(Gandiva REQUIRED)
 
   if(PYARROW_BUNDLE_ARROW_CPP)
