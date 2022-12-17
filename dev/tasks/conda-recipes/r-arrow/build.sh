@@ -11,5 +11,7 @@ if [[ "${target_platform}" == osx-* ]]; then
     export ARROW_R_CXXFLAGS="${ARROW_R_CXXFLAGS} -D_LIBCPP_DISABLE_AVAILABILITY"
 fi
 
+export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+
 # ${R_ARGS} necessary to support cross-compilation
 ${R} CMD INSTALL --build r/. ${R_ARGS}
