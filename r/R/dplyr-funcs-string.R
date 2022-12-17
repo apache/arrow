@@ -258,8 +258,7 @@ register_bindings_string_regex <- function() {
         string,
         options = list(pattern = pattern, ignore_case = ignore_case)
       )
-    },
-    notes = "not yet in a released version of `stringr`, but it is supported in `arrow`"
+    }
   )
 
   register_binding(
