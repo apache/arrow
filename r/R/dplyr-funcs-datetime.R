@@ -267,7 +267,6 @@ register_bindings_datetime_conversion <- function() {
              min = 0L,
              sec = 0,
              tz = "UTC") {
-
       # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
       # Stop if tz other than 'UTC' is provided.
       if (tz != "UTC") {
@@ -294,7 +293,6 @@ register_bindings_datetime_conversion <- function() {
                                                  min,
                                                  sec,
                                                  tz = "UTC") {
-
     # NAs for seconds aren't propagated (but treated as 0) in the base version
     sec <- call_binding(
       "if_else",
@@ -367,7 +365,8 @@ register_bindings_datetime_conversion <- function() {
     # => we only cast when we want the behaviour of the base version or when
     # `tz` is set (i.e. not NULL)
     if (call_binding("is.POSIXct", x) && !is.null(tz)) {
-      x <- cast(x, timestamp("ns", timezone = tz))
+      unit <- if (inherits(x, "Expression")) x$type()$unit() else "s"
+      x <- cast(x, timestamp(unit = unit, timezone = tz))
     }
     binding_as_date(
       x = x,
