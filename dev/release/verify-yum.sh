@@ -217,7 +217,7 @@ else
     make
 fi
 mkdir -p build
-cp -a /arrow/cpp/examples/minimal_build build/
+cp -a ${SOURCE_DIR}/cpp/examples/minimal_build build/
 pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
@@ -235,7 +235,7 @@ if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
 
   ${install_command} vala
-  cp -a /arrow/c_glib/example/vala build/
+  cp -a ${SOURCE_DIR}/c_glib/example/vala build/
   pushd build/vala
   valac --pkg arrow-glib --pkg posix build.vala
   ./build
