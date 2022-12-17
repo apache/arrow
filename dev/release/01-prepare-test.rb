@@ -54,7 +54,9 @@ class PrepareTest < Test::Unit::TestCase
   def test_linux_packages
     user = "Arrow Developers"
     email = "dev@arrow.apache.org"
-    prepare("LINUX_PACKAGES", "DEBFULLNAME" => user, "DEBEMAIL" => email)
+    stdout = prepare("LINUX_PACKAGES",
+                     "DEBFULLNAME" => user,
+                     "DEBEMAIL" => email)
     changes = parse_patch(git("log", "-n", "1", "-p"))
     sampled_changes = changes.collect do |change|
       {
@@ -91,7 +93,7 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
     ]
-    assert_equal(expected_changes, sampled_changes)
+    assert_equal(expected_changes, sampled_changes, "Output:\n#{stdout}")
   end
 
   def test_version_pre_tag
@@ -273,8 +275,9 @@ class PrepareTest < Test::Unit::TestCase
       }
     end
 
-    prepare("VERSION_PRE_TAG")
+    stdout = prepare("VERSION_PRE_TAG")
     assert_equal(expected_changes.sort_by {|diff| diff[:path]},
-                 parse_patch(git("log", "-n", "1", "-p")))
+                 parse_patch(git("log", "-n", "1", "-p")),
+                 "Output:\n#{stdout}")
   end
 end

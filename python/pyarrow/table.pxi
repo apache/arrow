@@ -1039,6 +1039,29 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
+    def sort(self, order="ascending", **kwargs):
+        """
+        Sort the ChunkedArray
+
+        Parameters
+        ----------
+        order : str, default "ascending"
+            Which order to sort values in.
+            Accepted values are "ascending", "descending".
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        result : ChunkedArray
+        """
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+        )
+        return self.take(indices)
+
     def unify_dictionaries(self, MemoryPool memory_pool=None):
         """
         Unify dictionaries across all chunks.
@@ -2230,6 +2253,35 @@ cdef class RecordBatch(_PandasConvertible):
         4     100  Centipede
         """
         return _pc().drop_null(self)
+
+    def sort_by(self, sorting, **kwargs):
+        """
+        Sort the RecordBatch by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        RecordBatch
+            A new record batch sorted according to the sort keys.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
+        )
+        return self.take(indices)
 
     def to_pydict(self):
         """
@@ -4664,7 +4716,7 @@ cdef class Table(_PandasConvertible):
         """
         return TableGroupBy(self, keys)
 
-    def sort_by(self, sorting):
+    def sort_by(self, sorting, **kwargs):
         """
         Sort the table by one or multiple columns.
 
@@ -4675,6 +4727,9 @@ cdef class Table(_PandasConvertible):
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
 
         Returns
         -------
@@ -4705,7 +4760,7 @@ cdef class Table(_PandasConvertible):
 
         indices = _pc().sort_indices(
             self,
-            sort_keys=sorting
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
         )
         return self.take(indices)
 

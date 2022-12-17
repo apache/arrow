@@ -739,13 +739,13 @@ test_that("Do things after summarize", {
 })
 
 test_that("Non-field variable references in aggregations", {
-  ds <- InMemoryDataset$create(data.frame(x = 1:5))
+  tab <- arrow_table(x = 1:5)
   scale_factor <- 10
   expect_identical(
-    ds %>%
+    tab %>%
       summarize(value = sum(x) / scale_factor) %>%
       collect(),
-    ds %>%
+    tab %>%
       summarize(value = sum(x) / 10) %>%
       collect()
   )

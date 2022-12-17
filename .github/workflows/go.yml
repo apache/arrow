@@ -82,6 +82,13 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push debian-go
+      - name: Install Go ${{ matrix.go }} for Benchmarks
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go/go.sum
       - name: Run Benchmarks
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         env:

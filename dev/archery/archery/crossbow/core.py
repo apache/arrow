@@ -444,21 +444,38 @@ class Repo:
         blob = self.repo[entry.id]
         return blob.data
 
+    def _github_login(self, github_token):
+        """Returns a logged in github3.GitHub instance"""
+        if not _have_github3:
+            raise ImportError('Must install github3.py')
+        github_token = github_token or self.github_token
+        session = github3.session.GitHubSession(
+            default_connect_timeout=10,
+            default_read_timeout=30
+        )
+        github = github3.GitHub(session=session)
+        github.login(token=github_token)
+        return github
+
     def as_github_repo(self, github_token=None):
         """Converts it to a repository object which wraps the GitHub API"""
         if self._github_repo is None:
-            if not _have_github3:
-                raise ImportError('Must install github3.py')
-            github_token = github_token or self.github_token
+            github = self._github_login(github_token)
             username, reponame = _parse_github_user_repo(self.remote_url)
-            session = github3.session.GitHubSession(
-                default_connect_timeout=10,
-                default_read_timeout=30
-            )
-            github = github3.GitHub(session=session)
-            github.login(token=github_token)
             self._github_repo = github.repository(username, reponame)
         return self._github_repo
+
+    def token_expiration_date(self, github_token=None):
+        """Returns the expiration date for the github_token provided"""
+        github = self._github_login(github_token)
+        # github3 hides the headers from us. Use the _get method
+        # to access the response headers.
+        resp = github._get(github.session.base_url)
+        # Response in the form '2023-01-23 10:40:28 UTC'
+        date_string = resp.headers.get(
+            'github-authentication-token-expiration')
+        if date_string:
+            return date.fromisoformat(date_string.split()[0])
 
     def github_commit(self, sha):
         repo = self.as_github_repo()

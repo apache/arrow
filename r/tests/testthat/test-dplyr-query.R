@@ -691,6 +691,12 @@ test_that("Scalars in expressions match the type of the field, if possible", {
     tbl_with_datetime
   )
 
+  # ARROW-18401: These will error if the system timezone is not valid. A PR was
+  # submitted to fix this docker image upstream; this skip can be removed after
+  # it merges.
+  # https://github.com/r-hub/rhub-linux-builders/pull/65
+  skip_if(identical(Sys.timezone(), "/UTC"))
+
   expect_output(
     tab %>%
       filter(times > "2018-10-07 19:04:05") %>%
