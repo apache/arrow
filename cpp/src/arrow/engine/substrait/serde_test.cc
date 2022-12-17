@@ -4049,7 +4049,7 @@ TEST(Substrait, SetRelationBasic) {
 
   compute::SortOptions sort_options(
       {compute::SortKey("A", compute::SortOrder::Ascending)});
-  CheckRoundTripResult(dummy_schema, std::move(expected_table), exec_context, buf, {},
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
                        conversion_options, &sort_options);
 }
 
@@ -4238,8 +4238,8 @@ TEST(Substrait, PlanWithExtension) {
           input_schema, {{FieldRef(0), {FieldRef(1)}}, {FieldRef(0), {FieldRef(1)}}}));
   auto expected_table = TableFromJSON(
       out_schema, {"[[2, 1, 1.1, 1.2], [4, 1, 2.1, 1.2], [6, 2, 3.1, 3.2]]"});
-  CheckRoundTripResult(std::move(out_schema), std::move(expected_table),
-                       *compute::default_exec_context(), buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), *compute::default_exec_context(), buf,
+                       {}, conversion_options);
 }
 
 TEST(Substrait, AsOfJoinDefaultEmit) {
@@ -4422,8 +4422,8 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
   auto expected_table = TableFromJSON(
       out_schema,
       {"[[2, 1, 1.1, 2, 1, 1.2], [4, 1, 2.1, 4, 1, 1.2], [6, 2, 3.1, 6, 2, 3.2]]"});
-  CheckRoundTripResult(std::move(out_schema), std::move(expected_table),
-                       *compute::default_exec_context(), buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), *compute::default_exec_context(), buf,
+                       {}, conversion_options);
 }
 
 }  // namespace engine

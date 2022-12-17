@@ -59,6 +59,12 @@ inline bool std_has(const T& container, const V& val) {
   return container.end() != std_find(container, val);
 }
 
+template <typename T, typename V = typename T::value_type,
+          typename D = typename T::difference_type>
+inline D std_index(const T& container, const V& val) {
+  return std_find(container, val) - container.begin();
+}
+
 typedef uint64_t ByType;
 typedef uint64_t OnType;
 typedef uint64_t HashType;
@@ -1142,6 +1148,15 @@ class AsofJoinNode : public ExecNode {
     }
   }
 
+  /// \brief Make the output schema of an as-of-join node
+  ///
+  /// Optionally, also provides the field output indices for this node.
+  /// \see arrow::engine::RelationInfo
+  ///
+  /// \param[in] input_schema the schema of each input to the node
+  /// \param[in] indices_of_on_key the on-key index of each input to the node
+  /// \param[in] indices_of_by_key the by-key indices of each input to the node
+  /// \param[out] field_output_indices the output index of each field
   static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
       const std::vector<std::shared_ptr<Schema>> input_schema,
       const std::vector<col_index_t>& indices_of_on_key,
@@ -1187,24 +1202,29 @@ class AsofJoinNode : public ExecNode {
 
       for (int i = 0; i < input_schema[j]->num_fields(); ++i) {
         const auto field = input_schema[j]->field(i);
-        bool as_output;
+        bool as_output;        // true if the field appears as an output
+        int final_output_idx;  // the final output index for the field
         if (i == on_field_ix) {
           ARROW_RETURN_NOT_OK(is_valid_on_field(field));
           // Only add on field from the left table
           as_output = (j == 0);
+          final_output_idx = as_output ? output_field_idx++ : indices_of_on_key[0];
         } else if (std_has(by_field_ix, i)) {
           ARROW_RETURN_NOT_OK(is_valid_by_field(field));
           // Only add by field from the left table
           as_output = (j == 0);
+          final_output_idx = as_output ? output_field_idx++
+                                       : indices_of_by_key[0][std_index(by_field_ix, i)];
         } else {
           ARROW_RETURN_NOT_OK(is_valid_data_field(field));
           as_output = true;
+          final_output_idx = output_field_idx++;
         }
         if (as_output) {
           fields.push_back(field);
         }
         if (field_output_indices) {
-          field_output_indices->push_back(as_output ? output_field_idx++ : i);
+          field_output_indices->push_back(final_output_idx);
         }
       }
     }

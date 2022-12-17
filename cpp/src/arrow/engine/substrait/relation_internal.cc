@@ -124,15 +124,15 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
 }
 
 Result<DeclarationInfo> ProcessExtensionEmit(
-    const DeclarationInfo& no_emit_declr, const std::vector<int>& emit_info,
+    const DeclarationInfo& no_emit_declr, const std::vector<int>& emit_order,
     const std::vector<int>& field_output_indices) {
   const std::shared_ptr<Schema>& input_schema = no_emit_declr.output_schema;
   std::vector<compute::Expression> proj_field_refs;
-  proj_field_refs.reserve(emit_info.size());
+  proj_field_refs.reserve(emit_order.size());
   FieldVector emit_fields;
-  emit_fields.reserve(emit_info.size());
+  emit_fields.reserve(emit_order.size());
 
-  for (int emit_idx : emit_info) {
+  for (int emit_idx : emit_order) {
     if (emit_idx < 0 || static_cast<size_t>(emit_idx) >= field_output_indices.size()) {
       return Status::Invalid("Out of bounds emit index ", emit_idx);
     }
@@ -153,35 +153,40 @@ Result<DeclarationInfo> ProcessExtensionEmit(
       std::move(emit_schema)};
 }
 
-Result<RelationInfo> GetExtensionRelationInfo(
-    const substrait::Rel& rel, const ExtensionSet& ext_set,
-    const ConversionOptions& conversion_options) {
+Result<RelationInfo> GetExtensionRelationInfo(const substrait::Rel& rel,
+                                              const ExtensionSet& ext_set,
+                                              const ConversionOptions& conv_opts,
+                                              std::vector<DeclarationInfo>* inputs_arg) {
+  if (inputs_arg == nullptr) {
+    std::vector<DeclarationInfo> inputs_tmp;
+    return GetExtensionRelationInfo(rel, ext_set, conv_opts, &inputs_tmp);
+  }
+  std::vector<DeclarationInfo>& inputs = *inputs_arg;
+  inputs.clear();
   switch (rel.rel_type_case()) {
     case substrait::Rel::RelTypeCase::kExtensionLeaf: {
       const auto& ext = rel.extension_leaf();
       DefaultExtensionDetails detail{ext.detail()};
-      return conversion_options.extension_provider->MakeRel({}, detail, ext_set);
+      return conv_opts.extension_provider->MakeRel(inputs, detail, ext_set);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionSingle: {
       const auto& ext = rel.extension_single();
-      ARROW_ASSIGN_OR_RAISE(DeclarationInfo input,
-                            FromProto(ext.input(), ext_set, conversion_options));
+      ARROW_ASSIGN_OR_RAISE(DeclarationInfo input_info,
+                            FromProto(ext.input(), ext_set, conv_opts));
+      inputs.push_back(std::move(input_info));
       DefaultExtensionDetails detail{ext.detail()};
-      return conversion_options.extension_provider->MakeRel({input}, detail, ext_set);
+      return conv_opts.extension_provider->MakeRel(inputs, detail, ext_set);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionMulti: {
       const auto& ext = rel.extension_multi();
-      std::vector<DeclarationInfo> inputs;
       for (const auto& input : ext.inputs()) {
-        ARROW_ASSIGN_OR_RAISE(auto input_info,
-                              FromProto(input, ext_set, conversion_options));
+        ARROW_ASSIGN_OR_RAISE(auto input_info, FromProto(input, ext_set, conv_opts));
         inputs.push_back(std::move(input_info));
       }
       DefaultExtensionDetails detail{ext.detail()};
-      return conversion_options.extension_provider->MakeRel(std::move(inputs), detail,
-                                                            ext_set);
+      return conv_opts.extension_provider->MakeRel(inputs, detail, ext_set);
     }
 
     default: {
@@ -743,8 +748,10 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
     case substrait::Rel::RelTypeCase::kExtensionLeaf:
     case substrait::Rel::RelTypeCase::kExtensionSingle:
     case substrait::Rel::RelTypeCase::kExtensionMulti: {
-      ARROW_ASSIGN_OR_RAISE(auto ext_rel_info,
-                            GetExtensionRelationInfo(rel, ext_set, conversion_options));
+      std::vector<DeclarationInfo> ext_rel_inputs;
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_rel_info,
+          GetExtensionRelationInfo(rel, ext_set, conversion_options, &ext_rel_inputs));
       const auto& ext_decl_info = ext_rel_info.decl_info;
       auto ext_common_opt = GetExtensionRelCommon(rel);
       bool has_emit = ext_common_opt && ext_common_opt->emit_kind_case() ==
@@ -756,17 +763,22 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         return Status::NotImplemented("Emit not supported by ",
                                       ext_decl_info.declaration.factory_name);
       }
+      // Set up the emit order - an ordered list of indices that specifies an output
+      // mapping as expected by Substrait. This is a sublist of [0..N), where N is the
+      // total number of input fields across all inputs of the relation, that selects
+      // from these input fields.
       std::vector<int> emit_order;
       if (has_emit) {
+        // the emit order in defined in the Substrait plan - pick it up
         const auto& emit_info = ext_common_opt->emit();
         emit_order.reserve(emit_info.output_mapping_size());
         for (const auto& emit_idx : emit_info.output_mapping()) {
           emit_order.push_back(emit_idx);
         }
       } else {
-        // default output mapping
+        // the emit order is the default output mapping [0..N)
         int emit_size = 0;
-        for (const auto& input : ext_rel_info.inputs) {
+        for (const auto& input : ext_rel_inputs) {
           emit_size += input.output_schema->num_fields();
         }
         emit_order.reserve(emit_size);

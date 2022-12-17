@@ -78,7 +78,7 @@ class ARROW_ENGINE_EXPORT ExtensionProvider {
  public:
   static std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider;
   virtual ~ExtensionProvider() = default;
-  virtual Result<RelationInfo> MakeRel(std::vector<DeclarationInfo> inputs,
+  virtual Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
                                        const ExtensionDetails& ext_details,
                                        const ExtensionSet& ext_set) = 0;
 };
