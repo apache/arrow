@@ -315,7 +315,7 @@
 #' * [`str_dup()`][stringr::str_dup()]
 #' * [`str_ends()`][stringr::str_ends()]
 #' * [`str_length()`][stringr::str_length()]
-#' * `str_like()`: not yet in a released version of `stringr`, but it is supported in `arrow`
+#' * [`str_like()`][stringr::str_like()]
 #' * [`str_pad()`][stringr::str_pad()]
 #' * [`str_remove()`][stringr::str_remove()]
 #' * [`str_remove_all()`][stringr::str_remove_all()]
