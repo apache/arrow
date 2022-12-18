@@ -85,9 +85,7 @@ library(dplyr)
 library(purrr)
 
 # Functions that for whatever reason cause xref problems, so don't hyperlink
-do_not_link <- c(
-  "stringr::str_like" # Still only in the unreleased version
-)
+do_not_link <- c()
 
 package_notes <- list(
   stringr = "Pattern modifiers `coll()` and `boundary()` are not supported in any functions."
