@@ -37,7 +37,8 @@ VERSION="$1"
 TYPE="$2"
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-local_prefix="${SOURCE_DIR}/../../dev/tasks/linux-packages"
+TOP_SOURCE_DIR="${SOURCE_DIR}/../.."
+local_prefix="${TOP_SOURCE_DIR}/dev/tasks/linux-packages"
 
 
 echo "::group::Prepare repository"
@@ -149,7 +150,7 @@ required_packages+=(pkg-config)
 required_packages+=(${workaround_missing_packages[@]})
 ${APT_INSTALL} ${required_packages[@]}
 mkdir -p build
-cp -a ${SOURCE_DIR}/cpp/examples/minimal_build build/
+cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
 pushd build/minimal_build
 cmake .
 make -j$(nproc)
@@ -167,7 +168,7 @@ ${APT_INSTALL} libarrow-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-glib-doc=${package_version}
 
 ${APT_INSTALL} valac
-cp -a ${SOURCE_DIR}/c_glib/example/vala build/
+cp -a "${TOP_SOURCE_DIR}/c_glib/example/vala" build/
 pushd build/vala
 valac --pkg arrow-glib --pkg posix build.vala
 ./build
