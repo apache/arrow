@@ -219,6 +219,13 @@ class _PyArrowColumn:
         self._col = column
         self._allow_copy = allow_copy
 
+        dtype = self._col.type
+        try:
+            bit_width = dtype.bit_width
+        except ValueError:  # in case of a variable-length strings
+            bit_width = 8
+        self._dtype = self._dtype_from_arrowdtype(dtype, bit_width)
+
     @property
     def size(self) -> int:
         """
@@ -273,11 +280,18 @@ class _PyArrowColumn:
             - Data types not included: complex, Arrow-style null, binary,
               decimal, and nested (list, struct, map, union) dtypes.
         """
-        dtype = self._col.type
-        try:
-            bit_width = dtype.bit_width
-        except ValueError:  # in case of a variable-length strings
-            bit_width = 8
+        return self._dtype
+
+    def _dtype_from_arrowdtype(
+        self, dtype: pa.DataType, bit_width: int
+    ) -> Tuple[DtypeKind, int, str, str]:
+        """
+        See `self.dtype` for details.
+        """
+        # Note: 'c' (complex) not handled yet (not in array spec v1).
+        #       'b', 'B' (bytes), 'S', 'a', (old-style string) 'V' (void)
+        #       not handled datetime and timedelta both map to datetime
+        #       (is timedelta handled?)
 
         if pa.types.is_large_string(dtype):
             # format string needs to be changed from "U" to "u"
@@ -295,25 +309,12 @@ class _PyArrowColumn:
             f_string = "L"
             return kind, bit_width, f_string, Endianness.NATIVE
         else:
-            return self._dtype_from_arrowdtype(dtype, bit_width)
+            kind, f_string = _PYARROW_KINDS.get(dtype, (None, None))
+            if kind is None:
+                raise ValueError(
+                    f"Data type {dtype} not supported by interchange protocol")
 
-    def _dtype_from_arrowdtype(
-        self, dtype, bit_width
-    ) -> Tuple[DtypeKind, int, str, str]:
-        """
-        See `self.dtype` for details.
-        """
-        # Note: 'c' (complex) not handled yet (not in array spec v1).
-        #       'b', 'B' (bytes), 'S', 'a', (old-style string) 'V' (void)
-        #       not handled datetime and timedelta both map to datetime
-        #       (is timedelta handled?)
-
-        kind, f_string = _PYARROW_KINDS.get(dtype, (None, None))
-        if kind is None:
-            raise ValueError(
-                f"Data type {dtype} not supported by interchange protocol")
-
-        return kind, bit_width, f_string, Endianness.NATIVE
+            return kind, bit_width, f_string, Endianness.NATIVE
 
     @property
     def describe_categorical(self) -> CategoricalDescription:
