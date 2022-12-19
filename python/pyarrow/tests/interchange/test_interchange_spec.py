@@ -37,6 +37,8 @@ all_types = st.deferred(
 )
 
 
+# datetime is tested in test_extra.py
+# dictionary is tested in test_categorical()
 @h.given(past.arrays(all_types, size=3))
 def test_dtypes(arr):
     table = pa.table([arr], names=["a"])

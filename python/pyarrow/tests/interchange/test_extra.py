@@ -41,6 +41,7 @@ def test_datetime():
     col = table.__dataframe__().get_column_by_name("A")
 
     assert col.size == 2
+    assert col.offset == 0
     assert col.null_count == 1
     assert col.dtype[0] == DtypeKind.DATETIME
     assert col.describe_null == (ColumnNullType.USE_BITMASK, 0)
@@ -138,21 +139,36 @@ def test_categorical_roundtrip():
 
 
 @pytest.mark.pandas
-def test_pandas_roundtrip():
+@pytest.mark.parametrize(
+    "uint", [pa.uint8(), pa.uint16(), pa.uint32()]
+)
+@pytest.mark.parametrize(
+    "int", [pa.int8(), pa.int16(), pa.int32(), pa.int64()]
+)
+@pytest.mark.parametrize(
+    "float, np_float", [
+        (pa.float16(), np.float16),
+        (pa.float32(), np.float32),
+        (pa.float64(), np.float64)
+    ]
+)
+def test_pandas_roundtrip(uint, int, float, np_float):
     if Version(pd.__version__) < Version("1.5.0"):
         pytest.skip("__dataframe__ added to pandas in 1.5.0")
     from datetime import datetime as dt
 
+    arr = [1, 2, 3]
+    dt_arr = [dt(2007, 7, 13), dt(2007, 7, 14), dt(2007, 7, 15)]
     table = pa.table(
         {
-            "a": [1, 2, 3, 4],  # dtype kind INT = 0
-            "b": [3, 4, 5, 6],  # dtype kind INT = 0
-            "c": [1.5, 2.5, 3.5, 4.5],  # dtype kind FLOAT = 2
-            "d": [9, 10, 11, 12],  # dtype kind INT = 0
-            "e": [True, True, False, False],  # dtype kind BOOLEAN = 20
-            "f": ["a", "", "c", "d"],  # dtype kind STRING = 21
-            "g": [dt(2007, 7, 13), dt(2007, 7, 14),
-                  dt(2007, 7, 15), dt(2007, 7, 16)]  # dtype kind DATETIME = 22
+            "a": pa.array(arr, type=uint),
+            "b": pa.array(arr, type=int),
+            "c": pa.array(np.array(arr, dtype=np_float), type=float),
+            "d": [True, False, True],
+            "e": ["a", "", "c"],
+            # pandas seems to only support datetime64 in "us" resolution(?)
+            # without time zone
+            "f": pa.array(dt_arr, type=pa.timestamp('us'))
         }
     )
 
@@ -170,6 +186,7 @@ def test_pandas_roundtrip():
 
 
 @pytest.mark.pandas
+@pytest.mark.large_memory
 def test_large_string():
     if Version(pd.__version__) < Version("1.5.0"):
         pytest.skip("__dataframe__ added to pandas in 1.5.0")
@@ -185,35 +202,3 @@ def test_large_string():
 
     assert result["large_string"][0] == data[0].decode()
     assert result.size == 3*1024**2
-
-
-def test_uint():
-    arr = pa.array([1, 2, 3, None], type=pa.uint16())
-    table = pa.table([arr], names=["uint"])
-    df = table.__dataframe__()
-    col = df.get_column(0)
-
-    assert col.null_count == 1
-    assert isinstance(col.null_count, int)
-    assert col.size == 4
-    assert col.offset == 0
-
-    assert col.dtype[0] == DtypeKind.UINT
-    assert col.dtype[1] == 16
-
-
-@pytest.mark.pandas
-def test_uint_roundtrip():
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
-    from pandas.core.interchange.from_dataframe import (
-        from_dataframe as pandas_from_dataframe
-    )
-
-    arr = pa.array([1, 2, 3, 4], type=pa.uint16())
-    table = pa.table([arr], names=["uint"])
-    result = pandas_from_dataframe(table)
-    result_to_table = pa.Table.from_pandas(result)
-
-    assert table[0] == result_to_table[0]
