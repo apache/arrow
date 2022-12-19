@@ -89,6 +89,11 @@ func (b *FixedSizeBinaryBuilder) AppendEmptyValue() {
 	b.UnsafeAppendBoolToBitmap(true)
 }
 
+func (b *FixedSizeBinaryBuilder) UnsafeAppend(v []byte) {
+	b.values.unsafeAppend(v)
+	b.UnsafeAppendBoolToBitmap(true)
+}
+
 // AppendValues will append the values in the v slice. The valid slice determines which values
 // in v are valid (not null). The valid slice must either be empty or be equal in length to v. If empty,
 // all values in v are appended and considered valid.

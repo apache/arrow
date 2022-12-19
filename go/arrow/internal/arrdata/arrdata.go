@@ -1398,7 +1398,7 @@ func mapOf(mem memory.Allocator, sortedKeys bool, values []arrow.Array, valids [
 		valid = func(i int) bool { return true }
 	}
 
-	vb := bldr.ValueBuilder()
+	vb := bldr.ValueBuilder().(*array.StructBuilder)
 	for i, value := range values {
 		bldr.Append(valid(i))
 		buildArray(vb.FieldBuilder(0), value.(*array.Struct).Field(0))
