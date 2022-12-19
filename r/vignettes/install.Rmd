@@ -117,7 +117,7 @@ knitr::include_graphics("./r_source_libarrow_binary.png")
 Another way of achieving faster installation with all key features enabled is to use static libarrow binaries we host. These are used automatically on many Linux distributions (x86_64 architecture only), according to the [allowlist](https://github.com/apache/arrow/blob/master/r/tools/nixlibs-allowlist.txt). If your distribution isn't in the list, you can opt-in by setting the `NOT_CRAN` environment variable before you call `install.packages()`:
 
 ```{r, eval = FALSE}
-Sys.setenv("NOT_CRAN" = TRUE)
+Sys.setenv("NOT_CRAN" = "true")
 install.packages("arrow")
 ```
 
@@ -130,7 +130,7 @@ If you don't have these installed, the libarrow binary won't be used, and you wi
 If the internet access of your computer doesn't allow downloading the libarrow binaries (e.g. if access is limited to CRAN), you can first identify the right source and version by trying to install on the offline computer:
 
 ```{r, eval = FALSE}
-Sys.setenv("NOT_CRAN" = TRUE, "LIBARROW_BUILD" = FALSE, "ARROW_R_DEV" = TRUE)
+Sys.setenv("NOT_CRAN" = "true", "LIBARROW_BUILD" = FALSE, "ARROW_R_DEV" = TRUE)
 install.packages("arrow")
 # This will fail if no internet access, but will print the binaries URL
 ```
