@@ -16,63 +16,96 @@
 # under the License.
 
 import ctypes
+import hypothesis as h
+import hypothesis.strategies as st
 
+import numpy as np
 import pyarrow as pa
+import pyarrow.tests.strategies as past
 import pytest
 
 
-@pytest.mark.parametrize(
-    "test_data",
-    [
-        {"a": ["foo", "bar"], "b": ["baz", "qux"]},
-        {"a": [1.5, 2.5, 3.5], "b": [9.2, 10.5, 11.8]},
-        {"A": [1, 2, 3, 4], "B": [1, 2, 3, 4]},
-    ],
+all_types = st.deferred(
+    lambda: (
+        past.signed_integer_types |
+        past.unsigned_integer_types |
+        past.floating_types |
+        past.bool_type |
+        past.string_type |
+        past.large_string_type
+    )
 )
-def test_only_one_dtype(test_data):
-    columns = list(test_data.keys())
-    table = pa.table(test_data)
+
+
+@h.given(past.arrays(all_types, size=3))
+def test_dtypes(arr):
+    table = pa.table([arr], names=["a"])
     df = table.__dataframe__()
 
-    column_size = len(test_data[columns[0]])
-    for column in columns:
-        null_count = df.get_column_by_name(column).null_count
-        assert null_count == 0
-        assert isinstance(null_count, int)
-        assert df.get_column_by_name(column).size == column_size
-        assert df.get_column_by_name(column).offset == 0
+    null_count = df.get_column(0).null_count
+    assert null_count == arr.null_count
+    assert isinstance(null_count, int)
+    assert df.get_column(0).size == 3
+    assert df.get_column(0).offset == 0
 
 
-def test_mixed_dtypes():
+@pytest.mark.parametrize(
+    "uint, uint_bw",
+    [
+        (pa.uint8(), 8),
+        (pa.uint16(), 16),
+        (pa.uint32(), 32)
+    ]
+)
+@pytest.mark.parametrize(
+    "int, int_bw", [
+        (pa.int8(), 8),
+        (pa.int16(), 16),
+        (pa.int32(), 32),
+        (pa.int64(), 64)
+    ]
+)
+@pytest.mark.parametrize(
+    "float, float_bw, np_float", [
+        (pa.float16(), 16, np.float16),
+        (pa.float32(), 32, np.float32),
+        (pa.float64(), 64, np.float64)
+    ]
+)
+@pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
+@pytest.mark.parametrize("tz", ['', 'America/New_York', '+07:30', '-04:30'])
+def test_mixed_dtypes(uint, uint_bw, int, int_bw,
+                      float, float_bw, np_float, unit, tz):
     from datetime import datetime as dt
+    arr = [1, 2, 3]
+    dt_arr = [dt(2007, 7, 13), dt(2007, 7, 14), dt(2007, 7, 15)]
     table = pa.table(
         {
-            "a": [1, 2, 3],  # dtype kind INT = 0
-            "b": [3, 4, 5],  # dtype kind INT = 0
-            "c": [1.5, 2.5, 3.5],  # dtype kind FLOAT = 2
-            "d": [9, 10, 11],  # dtype kind INT = 0
-            "e": [True, False, True],  # dtype kind BOOLEAN = 20
-            "f": ["a", "", "c"],  # dtype kind STRING = 21
-            "g": [dt(2007, 7, 13), dt(2007, 7, 14),
-                  dt(2007, 7, 15)]  # dtype kind DATETIME = 22
+            "a": pa.array(arr, type=uint),
+            "b": pa.array(arr, type=int),
+            "c": pa.array(np.array(arr, dtype=np_float), type=float),
+            "d": [True, False, True],
+            "e": ["a", "", "c"],
+            "f": pa.array(dt_arr, type=pa.timestamp(unit, tz=tz))
         }
     )
     df = table.__dataframe__()
-    # for meanings of dtype[0] see the spec; we cannot import the
-    # spec here as this file is expected to be vendored *anywhere*;
-    # values for dtype[0] are explained above
-    columns = {"a": 0, "b": 0, "c": 2, "d": 0, "e": 20, "f": 21, "g": 22}
+    # 0 = DtypeKind.INT, 1 = DtypeKind.UINT, 2 = DtypeKind.FLOAT,
+    # 20 = DtypeKind.BOOL, 21 = DtypeKind.STRING, 22 = DtypeKind.DATETIME
+    # see DtypeKind class in column.py
+    columns = {"a": 1, "b": 0, "c": 2, "d": 20, "e": 21, "f": 22}
 
     for column, kind in columns.items():
         col = df.get_column_by_name(column)
+
         assert col.null_count == 0
-        assert isinstance(col.null_count, int)
         assert col.size == 3
         assert col.offset == 0
-
         assert col.dtype[0] == kind
 
-    assert df.get_column_by_name("c").dtype[1] == 64
+    assert df.get_column_by_name("a").dtype[1] == uint_bw
+    assert df.get_column_by_name("b").dtype[1] == int_bw
+    assert df.get_column_by_name("c").dtype[1] == float_bw
 
 
 def test_na_float():
