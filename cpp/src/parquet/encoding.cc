@@ -2575,24 +2575,24 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 // ----------------------------------------------------------------------
 // DeltaLengthByteArrayEncoder
 
-template <typename DType>
 class DeltaLengthByteArrayEncoder : public EncoderImpl,
-                                    virtual public TypedEncoder<DType> {
+                                    virtual public TypedEncoder<ByteArrayType> {
  public:
-  using T = typename DType::c_type;
+  using T = typename ByteArrayType::c_type;
 
   explicit DeltaLengthByteArrayEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
       : EncoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY,
                     pool = ::arrow::default_memory_pool()),
         sink_(pool),
         length_encoder_(nullptr, pool),
-        encoded_size_{0} {}
+        encoded_size_{0},
+        lengths_{0} {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
   int64_t EstimatedDataEncodedSize() override { return encoded_size_; }
 
-  using TypedEncoder<DType>::Put;
+  using TypedEncoder<ByteArrayType>::Put;
 
   void Put(const ::arrow::Array& values) override;
 
@@ -2605,38 +2605,36 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
   ::arrow::BufferBuilder sink_;
   DeltaBitPackEncoder<Int32Type> length_encoder_;
   uint32_t encoded_size_;
+  std::vector<int32_t> lengths_;
 };
 
-template <>
-void DeltaLengthByteArrayEncoder<ByteArrayType>::Put(const ::arrow::Array& values) {
+void DeltaLengthByteArrayEncoder::Put(const ::arrow::Array& values) {
   auto src = values.data()->GetValues<ByteArray>(1);
   Put(src, static_cast<int>(values.length()));
 }
 
-template <typename DType>
-void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
+void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
   if (num_values == 0) {
     return;
   }
+  lengths_.resize(num_values);
 
-  std::vector<int32_t> lengths(num_values);
   for (int idx = 0; idx < num_values; idx++) {
     auto len = static_cast<const int32_t>(src[idx].len);
-    lengths[idx] = len;
+    lengths_[idx] = len;
     encoded_size_ += len;
   }
-  length_encoder_.Put(lengths.data(), num_values);
+  length_encoder_.Put(lengths_.data(), num_values);
   PARQUET_THROW_NOT_OK(sink_.Reserve(encoded_size_));
 
   for (int idx = 0; idx < num_values; idx++) {
-    sink_.UnsafeAppend(src[idx].ptr, lengths[idx]);
+    sink_.UnsafeAppend(src[idx].ptr, lengths_[idx]);
   }
 }
 
-template <typename DType>
-void DeltaLengthByteArrayEncoder<DType>::PutSpaced(const T* src, int num_values,
-                                                   const uint8_t* valid_bits,
-                                                   int64_t valid_bits_offset) {
+void DeltaLengthByteArrayEncoder::PutSpaced(const T* src, int num_values,
+                                            const uint8_t* valid_bits,
+                                            int64_t valid_bits_offset) {
   if (valid_bits != NULLPTR) {
     PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
                                                                  this->memory_pool()));
@@ -2649,8 +2647,7 @@ void DeltaLengthByteArrayEncoder<DType>::PutSpaced(const T* src, int num_values,
   }
 }
 
-template <typename DType>
-std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
+std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder::FlushValues() {
   std::shared_ptr<Buffer> encoded_lengths = length_encoder_.FlushValues();
 
   std::shared_ptr<Buffer> data;
@@ -2662,6 +2659,7 @@ std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
 
   std::shared_ptr<Buffer> buffer;
   PARQUET_THROW_NOT_OK(sink_.Finish(&buffer, true));
+  encoded_size_ = 0;
   return buffer;
 }
 
@@ -3187,8 +3185,7 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     switch (type_num) {
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(
-            new DeltaLengthByteArrayEncoder<ByteArrayType>(descr, pool));
+        return std::unique_ptr<Encoder>(new DeltaLengthByteArrayEncoder(descr, pool));
       default:
         throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
         break;
