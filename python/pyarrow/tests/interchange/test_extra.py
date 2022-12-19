@@ -21,7 +21,7 @@ import pyarrow as pa
 from pyarrow.vendored.version import Version
 import pytest
 
-import  pyarrow.interchange as pi
+import pyarrow.interchange as pi
 from pyarrow.interchange.column import (
     _PyArrowColumn,
     ColumnNullType,

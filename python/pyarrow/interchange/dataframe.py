@@ -56,11 +56,11 @@ class _PyArrowDataFrame:
         # ``NaT``). This currently has no effect; once support for nullable
         # extension dtypes is added, this value should be propagated to
         # columns.
-        if nan_as_null == True:
+        if nan_as_null is True:
             raise RuntimeError(
-                        "nan_as_null=True currently has no effect, "
-                        "use the default nan_as_null=False"
-                    )
+                "nan_as_null=True currently has no effect, "
+                "use the default nan_as_null=False"
+            )
         self._nan_as_null = nan_as_null
         self._allow_copy = allow_copy
 
