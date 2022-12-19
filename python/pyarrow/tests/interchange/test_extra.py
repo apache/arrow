@@ -21,12 +21,12 @@ import pyarrow as pa
 from pyarrow.vendored.version import Version
 import pytest
 
+import  pyarrow.interchange as pi
 from pyarrow.interchange.column import (
     _PyArrowColumn,
     ColumnNullType,
     DtypeKind,
 )
-from pyarrow.interchange.from_dataframe import from_dataframe
 
 try:
     import pandas as pd
@@ -106,7 +106,7 @@ def test_categorical_roundtrip():
     )
 
     pandas_df = table.to_pandas()
-    result = from_dataframe(pandas_df)
+    result = pi.from_dataframe(pandas_df)
 
     # Checking equality for the values
     # As the dtype of the indices is changed from int32 in pa.Table
@@ -157,7 +157,7 @@ def test_pandas_roundtrip():
     )
 
     pandas_df = table.to_pandas()
-    result = from_dataframe(pandas_df)
+    result = pi.from_dataframe(pandas_df)
     assert table.equals(result)
 
     table_protocol = table.__dataframe__()
