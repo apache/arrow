@@ -196,6 +196,30 @@ Result<std::vector<compute::Expression>> FromProtoMaskExpression(
   }
 }
 
+Result<std::shared_ptr<Schema>> SchemaFromProjectExpressions(
+    const std::vector<compute::Expression>& expressions,
+    const std::shared_ptr<Schema>& base_schema) {
+  std::vector<std::shared_ptr<Field>> fields;
+  fields.reserve(expressions.size());
+  for (size_t idx = 0; idx < expressions.size(); idx++) {
+    const auto& expr = expressions[idx];
+    auto bound_expr = expr.Bind(*base_schema);
+    if (auto* expr_call = bound_expr->call()) {
+      fields.push_back(field(expr_call->function_name,
+                             expr_call->kernel->signature->out_type().type()));
+    } else if (auto* field_ref = expr.field_ref()) {
+      ARROW_ASSIGN_OR_RAISE(FieldPath field_path, field_ref->FindOne(*base_schema));
+      ARROW_ASSIGN_OR_RAISE(auto project_field, field_path.Get(*base_schema));
+      fields.push_back(std::move(project_field));
+    } else if (auto* literal = expr.literal()) {
+      fields.push_back(field("field_" + ToChars(idx), literal->type()));
+    } else {
+      return Status::Invalid("Unsupported expression type");
+    }
+  }
+  return schema(fields);
+}
+
 Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet& ext_set,
                                   const ConversionOptions& conversion_options) {
   static bool dataset_init = false;
@@ -229,7 +253,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           std::cout << expr.ToString() << std::endl;
         }
         scan_options->projection = compute::project({proj_exprs}, {});
-        // return Status::NotImplemented("substrait::ReadRel::projection");
+        // update schema with the projection
+        ARROW_ASSIGN_OR_RAISE(base_schema,
+                              SchemaFromProjectExpressions(proj_exprs, base_schema));
       }
 
       if (read.has_named_table()) {

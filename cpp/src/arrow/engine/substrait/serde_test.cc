@@ -4115,6 +4115,12 @@ TEST(SubstraitRoundTrip, ReadRelProjectIssue) {
 }
 
 TEST(SubstraitRoundTrip, ScanPushdownProject) {
+  // TODO: the way I have interpreted this plan is wrong
+  // In the pushdown filter, only have to project out the said columns and
+  // leave out the other columns. Then the join would happen on the 0th column
+  // of the first table and the 1st column of the second table. The duckdb definition
+  // has a pushdown filter for this reason so that we don't load the unnecessary data
+  // into memory.
   compute::ExecContext exec_context;
   auto orders_schema =
       schema({field("O_ORDERKEY", int32()), field("O_CUSTKEY", int32()),
@@ -4346,9 +4352,7 @@ TEST(SubstraitRoundTrip, ScanPushdownProject) {
                                                         "value": {
                                                             "selection": {
                                                                 "directReference": {
-                                                                    "structField": {
-                                                                      "field": 1
-                                                                    }
+                                                                    "structField": {}
                                                                 },
                                                                 "rootReference": {}
                                                             }
@@ -4359,7 +4363,7 @@ TEST(SubstraitRoundTrip, ScanPushdownProject) {
                                                             "selection": {
                                                                 "directReference": {
                                                                     "structField": {
-                                                                        "field": 9
+                                                                        "field": 1
                                                                     }
                                                                 },
                                                                 "rootReference": {}
