@@ -57,7 +57,10 @@ jobs:
 
     - script: |
         call activate base
-        conda.exe mambabuild arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
+        if NOT "%R_CONFIG%"=="" (
+          set "EXTRA_CB_OPTIONS= --no-test"
+        )
+        conda.exe mambabuild arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml %EXTRA_CB_OPTIONS%
       displayName: Build Arrow recipe
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:

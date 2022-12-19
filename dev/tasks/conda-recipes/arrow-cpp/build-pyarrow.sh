@@ -1,7 +1,10 @@
 #!/bin/sh
+set -ex
 
-set -e
-set -x
+# arrow-CI: don't build pyarrow for R-builds (which only needs libarrow)
+if [[ -n "${R_CONFIG}" ]]; then
+    exit 0
+fi
 
 # Build dependencies
 export ARROW_HOME=$PREFIX

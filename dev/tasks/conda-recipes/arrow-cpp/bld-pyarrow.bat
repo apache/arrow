@@ -1,5 +1,9 @@
 @echo on
-pushd "%SRC_DIR%"\python
+
+:: arrow-CI: don't build pyarrow for R-builds (which only needs libarrow)
+if NOT "%R_CONFIG%"=="" (
+  exit /b 0
+)
 
 @rem the symlinks for cmake modules don't work here
 @rem NOTE: In contrast to conda-forge, they work here as we clone from git.
@@ -34,6 +38,8 @@ if "%cuda_compiler_version%"=="None" (
 ) else (
     set "PYARROW_WITH_CUDA=1"
 )
+
+pushd "%SRC_DIR%"\python
 
 %PYTHON%   setup.py ^
            build_ext ^

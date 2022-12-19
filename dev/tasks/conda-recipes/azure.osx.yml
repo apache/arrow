@@ -59,7 +59,7 @@ jobs:
       source activate base
       set -e
       set +x
-      if [[ "${CONFIG}" == osx_arm* ]]; then
+      if [[ "${CONFIG}" == osx_arm* ]] || [[ -n "${R_CONFIG}" ]]; then
         EXTRA_CB_OPTIONS="${EXTRA_CB_OPTIONS:-} --no-test"
       fi
       conda build arrow-cpp \
