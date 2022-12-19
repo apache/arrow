@@ -125,7 +125,7 @@ arrow::Status RunMain() {
 
   // (Doc section: ChunkedArray Month Year)
   // Repeat for months.
-  arrow::ArrayVector month_vecs{months, months};
+  arrow::ArrayVector month_vecs{months, months2};
   std::shared_ptr<arrow::ChunkedArray> month_chunks =
       std::make_shared<arrow::ChunkedArray>(month_vecs);
 
