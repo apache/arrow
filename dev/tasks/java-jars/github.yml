@@ -82,6 +82,12 @@ jobs:
           # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
           # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
           brew uninstall aws-sdk-cpp
+          # We want to link z3 statically but Homebrew's LLVM lists
+          # shared z3 in its CMake package. We rewrite it to use
+          # static z3.
+          sed -i'' \
+            -e 's/libz3\.dylib/libz3.a/g' \
+            $(brew --prefix llvm)/lib/cmake/llvm/LLVMExports.cmake
           brew bundle --file=arrow/java/Brewfile
       - name: Build C++ libraries
         env:
