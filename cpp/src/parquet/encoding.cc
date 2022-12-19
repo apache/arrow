@@ -2282,7 +2282,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   std::memcpy(buffer->mutable_data() + offset_bytes, header_buffer_,
               header_writer.bytes_written());
 
-  // reset counter
+  // Reset counter of cached values
   total_value_count_ = 0;
   // Reserve enough space at the beginning of the buffer for largest possible header.
   PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));

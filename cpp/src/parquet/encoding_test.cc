@@ -1290,7 +1290,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
  public:
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
-  static constexpr size_t ROUND_TRIP_TIME = 3;
+  static constexpr size_t ROUND_TRIP_TIMES = 3;
 
   void InitBoundData(int nvalues, int repeats, c_type half_range) {
     num_values_ = nvalues * repeats;
@@ -1329,7 +1329,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
         MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
 
-    for (size_t i = 0; i < ROUND_TRIP_TIME; ++i) {
+    for (size_t i = 0; i < ROUND_TRIP_TIMES; ++i) {
       encoder->Put(draws_, num_values_);
       encode_buffer_ = encoder->FlushValues();
 
@@ -1353,7 +1353,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
       }
     }
 
-    for (size_t i = 0; i < ROUND_TRIP_TIME; ++i) {
+    for (size_t i = 0; i < ROUND_TRIP_TIMES; ++i) {
       encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
       encode_buffer_ = encoder->FlushValues();
       decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
