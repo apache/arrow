@@ -2005,7 +2005,7 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
 
   void ReadValuesDense(int64_t values_to_read) override {
     if (uses_opt_) {
-      int64_t num_decoded = this->current_decoder_->DecodeArrow_opt(
+      int64_t num_decoded = this->current_decoder_->DecodeArrowZeroCopy(
           static_cast<int>(values_to_read), 0, NULLPTR,
           (reinterpret_cast<int32_t*>(offset_->mutable_data()) + values_written_),
           values_, 0, &bianry_length_);
@@ -2020,7 +2020,7 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
     if (uses_opt_) {
-      int64_t num_decoded = this->current_decoder_->DecodeArrow_opt(
+      int64_t num_decoded = this->current_decoder_->DecodeArrowZeroCopy(
           static_cast<int>(values_to_read), static_cast<int>(null_count),
           valid_bits_->mutable_data(),
           (reinterpret_cast<int32_t*>(offset_->mutable_data()) + values_written_),
@@ -2073,7 +2073,6 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
       const auto last_offset = offsetArr[values_written_];
       int64_t binary_length = last_offset - first_offset;
       binary_per_row_length_ = binary_length / values_written_ + 1;
-      // std::cout << "binary_per_row_length_:" << binary_per_row_length_ << std::endl;
       hasCal_average_len_ = true;
     }
     offset_ = AllocateBuffer(this->pool_);

@@ -317,7 +317,7 @@ class TypedDecoder : virtual public Decoder {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<DType>::Accumulator* out) = 0;
 
-  virtual int DecodeArrow_opt(int num_values, int null_count, const uint8_t* valid_bits,
+  virtual int DecodeArrowZeroCopy(int num_values, int null_count, const uint8_t* valid_bits,
                               int32_t* offset,
                               std::shared_ptr<::arrow::ResizableBuffer>& values,
                               int64_t valid_bits_offset, int32_t* bianry_length) {

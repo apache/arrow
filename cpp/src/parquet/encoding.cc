@@ -1360,11 +1360,11 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     return result;
   }
 
-  int DecodeArrow_opt(int num_values, int null_count, const uint8_t* valid_bits,
+  int DecodeArrowZeroCopy(int num_values, int null_count, const uint8_t* valid_bits,
                       int32_t* offset, std::shared_ptr<::arrow::ResizableBuffer>& values,
                       int64_t valid_bits_offset, int32_t* bianry_length) override {
     int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowDense_opt(num_values, null_count, valid_bits, offset,
+    PARQUET_THROW_NOT_OK(DecodeArrowDenseZeroCopy(num_values, null_count, valid_bits, offset,
                                               values, valid_bits_offset, &result,
                                               bianry_length));
 
@@ -1423,7 +1423,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     return Status::OK();
   }
 
-  Status DecodeArrowDense_opt(int num_values, int null_count, const uint8_t* valid_bits,
+  Status DecodeArrowDenseZeroCopy(int num_values, int null_count, const uint8_t* valid_bits,
                               int32_t* offset,
                               std::shared_ptr<::arrow::ResizableBuffer>& values,
                               int64_t valid_bits_offset, int* out_values_decoded,
@@ -1940,7 +1940,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     return result;
   }
 
-  int DecodeArrow_opt(int num_values, int null_count, const uint8_t* valid_bits,
+  int DecodeArrowZeroCopy(int num_values, int null_count, const uint8_t* valid_bits,
                       int32_t* offset, std::shared_ptr<::arrow::ResizableBuffer>& values,
                       int64_t valid_bits_offset, int32_t* bianry_length) override {
     int result = 0;
@@ -1948,7 +1948,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
       PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull_opt(num_values, offset, values,
                                                        &result, bianry_length));
     } else {
-      PARQUET_THROW_NOT_OK(DecodeArrowDense_opt(num_values, null_count, valid_bits,
+      PARQUET_THROW_NOT_OK(DecodeArrowDenseZeroCopy(num_values, null_count, valid_bits,
                                                 offset, values, valid_bits_offset,
                                                 &result, bianry_length));
     }
@@ -2026,7 +2026,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     return Status::OK();
   }
 
-  Status DecodeArrowDense_opt(int num_values, int null_count, const uint8_t* valid_bits,
+  Status DecodeArrowDenseZeroCopy(int num_values, int null_count, const uint8_t* valid_bits,
                               int32_t* offset,
                               std::shared_ptr<::arrow::ResizableBuffer>& values,
                               int64_t valid_bits_offset, int* out_num_values,
