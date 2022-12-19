@@ -1786,12 +1786,12 @@ class ArrayStreamBatchReader : public RecordBatchReader {
     }
     std::shared_ptr<Schema> schema;
     struct ArrowSchema c_schema = {};
-    Status status = StatusFromCError(stream, stream->get_schema(stream, &c_schema));
+    auto status = StatusFromCError(stream, stream->get_schema(stream, &c_schema));
     if (status.ok()) {
       status = ImportSchema(&c_schema).Value(&schema);
     }
     if (!status.ok()) {
-      stream->release(stream);
+      ArrowArrayStreamRelease(stream);
       return status;
     }
     return std::make_shared<ArrayStreamBatchReader>(std::move(schema), stream);
