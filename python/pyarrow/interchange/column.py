@@ -139,7 +139,7 @@ class CategoricalDescription(TypedDict):
     is_dictionary: bool
     # Python-level only (e.g. ``{int: str}``).
     # None if not a dictionary-style categorical.
-    # categories: Optional[Column]
+    categories: Optional[_PyArrowColumn]
 
 
 class Endianness:
