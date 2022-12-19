@@ -317,7 +317,7 @@ Pattern modifiers \code{coll()} and \code{boundary()} are not supported in any f
 \item \code{\link[stringr:str_dup]{str_dup()}}
 \item \code{\link[stringr:str_starts]{str_ends()}}
 \item \code{\link[stringr:str_length]{str_length()}}
-\item \code{str_like()}: not yet in a released version of \code{stringr}, but it is supported in \code{arrow}
+\item \code{\link[stringr:str_like]{str_like()}}
 \item \code{\link[stringr:str_pad]{str_pad()}}
 \item \code{\link[stringr:str_remove]{str_remove()}}
 \item \code{\link[stringr:str_remove]{str_remove_all()}}

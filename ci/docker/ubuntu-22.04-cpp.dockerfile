@@ -81,13 +81,21 @@ RUN apt-get update -y -q && \
         libgflags-dev \
         libgoogle-glog-dev \
         libgrpc++-dev \
+        libidn2-dev \
+        libkrb5-dev \
+        libldap-dev \
         liblz4-dev \
+        libnghttp2-dev \
         libprotobuf-dev \
         libprotoc-dev \
+        libpsl-dev \
         libre2-dev \
+        librtmp-dev \
         libsnappy-dev \
-        libssl-dev \
         libsqlite3-dev \
+        libssh-dev \
+        libssh2-1-dev \
+        libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
         libzstd-dev \

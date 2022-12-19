@@ -86,7 +86,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
     -Dzstd_SOURCE=${zstd_SOURCE:-} \
     ${EXTRA_CMAKE_FLAGS} \
-    -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
+    -G "${CMAKE_GENERATOR:-Unix Makefiles}" \
     ${SOURCE_DIR}
 
 ${CMAKE} --build . --target install -- -j $N_JOBS

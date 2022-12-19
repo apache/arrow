@@ -846,64 +846,53 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 test_that("str_like", {
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
-  # TODO: After new version of stringr with str_like has been released, update all
-  # these tests to use compare_dplyr_binding
-
   # No match - entire string
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "baz")) %>%
       collect(),
-    tibble(x = c(FALSE, FALSE))
+    df
   )
   # with namespacing
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = stringr::str_like(x, "baz")) %>%
       collect(),
-    tibble(x = c(FALSE, FALSE))
+    df
   )
 
   # Match - entire string
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "Foo and bar")) %>%
       collect(),
-    tibble(x = c(TRUE, FALSE))
+    df
   )
 
   # Wildcard
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "f%", ignore_case = TRUE)) %>%
       collect(),
-    tibble(x = c(TRUE, FALSE))
+    df
   )
 
   # Ignore case
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "f%", ignore_case = FALSE)) %>%
       collect(),
-    tibble(x = c(FALSE, FALSE))
+    df
   )
 
   # Single character
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "_a%")) %>%
       collect(),
-    tibble(x = c(FALSE, TRUE))
+    df
   )
 
-  # TODO: remove this skip once a new version of stringr is released (maybe 1.5.0?)
-  skip_if_not("str_like" %in% getNamespaceExports("stringr"))
   compare_dplyr_binding(
     .input %>%
       mutate(x = str_like(x, "%baz%")) %>%
