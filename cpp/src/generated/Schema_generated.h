@@ -56,8 +56,8 @@ struct FixedSizeBinaryBuilder;
 struct Bool;
 struct BoolBuilder;
 
-struct RunLengthEncoded;
-struct RunLengthEncodedBuilder;
+struct RunEndEncoded;
+struct RunEndEncodedBuilder;
 
 struct Decimal;
 struct DecimalBuilder;
@@ -385,9 +385,9 @@ enum class Type : uint8_t {
   LargeBinary = 19,
   LargeUtf8 = 20,
   LargeList = 21,
-  RunLengthEncoded = 22,
+  RunEndEncoded = 22,
   MIN = NONE,
-  MAX = RunLengthEncoded
+  MAX = RunEndEncoded
 };
 
 inline const Type (&EnumValuesType())[23] {
@@ -414,7 +414,7 @@ inline const Type (&EnumValuesType())[23] {
     Type::LargeBinary,
     Type::LargeUtf8,
     Type::LargeList,
-    Type::RunLengthEncoded
+    Type::RunEndEncoded
   };
   return values;
 }
@@ -443,14 +443,14 @@ inline const char * const *EnumNamesType() {
     "LargeBinary",
     "LargeUtf8",
     "LargeList",
-    "RunLengthEncoded",
+    "RunEndEncoded",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameType(Type e) {
-  if (flatbuffers::IsOutRange(e, Type::NONE, Type::RunLengthEncoded)) return "";
+  if (flatbuffers::IsOutRange(e, Type::NONE, Type::RunEndEncoded)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesType()[index];
 }
@@ -543,8 +543,8 @@ template<> struct TypeTraits<org::apache::arrow::flatbuf::LargeList> {
   static const Type enum_value = Type::LargeList;
 };
 
-template<> struct TypeTraits<org::apache::arrow::flatbuf::RunLengthEncoded> {
-  static const Type enum_value = Type::RunLengthEncoded;
+template<> struct TypeTraits<org::apache::arrow::flatbuf::RunEndEncoded> {
+  static const Type enum_value = Type::RunEndEncoded;
 };
 
 bool VerifyType(flatbuffers::Verifier &verifier, const void *obj, Type type);
@@ -1229,32 +1229,32 @@ inline flatbuffers::Offset<Bool> CreateBool(
   return builder_.Finish();
 }
 
-struct RunLengthEncoded FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RunLengthEncodedBuilder Builder;
+struct RunEndEncoded FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RunEndEncodedBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
   }
 };
 
-struct RunLengthEncodedBuilder {
-  typedef RunLengthEncoded Table;
+struct RunEndEncodedBuilder {
+  typedef RunEndEncoded Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  explicit RunLengthEncodedBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit RunEndEncodedBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<RunLengthEncoded> Finish() {
+  flatbuffers::Offset<RunEndEncoded> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RunLengthEncoded>(end);
+    auto o = flatbuffers::Offset<RunEndEncoded>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RunLengthEncoded> CreateRunLengthEncoded(
+inline flatbuffers::Offset<RunEndEncoded> CreateRunEndEncoded(
     flatbuffers::FlatBufferBuilder &_fbb) {
-  RunLengthEncodedBuilder builder_(_fbb);
+  RunEndEncodedBuilder builder_(_fbb);
   return builder_.Finish();
 }
 
@@ -1944,8 +1944,8 @@ struct Field FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
     return type_type() == org::apache::arrow::flatbuf::Type::LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::RunLengthEncoded *type_as_RunLengthEncoded() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::RunLengthEncoded ? static_cast<const org::apache::arrow::flatbuf::RunLengthEncoded *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::RunEndEncoded *type_as_RunEndEncoded() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::RunEndEncoded ? static_cast<const org::apache::arrow::flatbuf::RunEndEncoded *>(type()) : nullptr;
   }
   /// Present only if the field is dictionary encoded.
   const org::apache::arrow::flatbuf::DictionaryEncoding *dictionary() const {
@@ -2064,8 +2064,8 @@ template<> inline const org::apache::arrow::flatbuf::LargeList *Field::type_as<o
   return type_as_LargeList();
 }
 
-template<> inline const org::apache::arrow::flatbuf::RunLengthEncoded *Field::type_as<org::apache::arrow::flatbuf::RunLengthEncoded>() const {
-  return type_as_RunLengthEncoded();
+template<> inline const org::apache::arrow::flatbuf::RunEndEncoded *Field::type_as<org::apache::arrow::flatbuf::RunEndEncoded>() const {
+  return type_as_RunEndEncoded();
 }
 
 struct FieldBuilder {
@@ -2335,8 +2335,8 @@ inline bool VerifyType(flatbuffers::Verifier &verifier, const void *obj, Type ty
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::LargeList *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Type::RunLengthEncoded: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::RunLengthEncoded *>(obj);
+    case Type::RunEndEncoded: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::RunEndEncoded *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

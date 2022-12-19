@@ -178,7 +178,7 @@ table FixedSizeBinary {
 table Bool {
 }
 
-table RunLengthEncoded {
+table RunEndEncoded {
 }
 
 /// Exact decimal value represented as an integer value in two's
@@ -420,7 +420,7 @@ union Type {
   LargeBinary,
   LargeUtf8,
   LargeList,
-  RunLengthEncoded,
+  RunEndEncoded,
 }
 
 /// ----------------------------------------------------------------------

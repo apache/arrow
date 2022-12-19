@@ -168,8 +168,8 @@ struct Tensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
     return type_type() == org::apache::arrow::flatbuf::Type::LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::RunLengthEncoded *type_as_RunLengthEncoded() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::RunLengthEncoded ? static_cast<const org::apache::arrow::flatbuf::RunLengthEncoded *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::RunEndEncoded *type_as_RunEndEncoded() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::RunEndEncoded ? static_cast<const org::apache::arrow::flatbuf::RunEndEncoded *>(type()) : nullptr;
   }
   /// The dimensions of the tensor, optionally named
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *shape() const {
@@ -283,8 +283,8 @@ template<> inline const org::apache::arrow::flatbuf::LargeList *Tensor::type_as<
   return type_as_LargeList();
 }
 
-template<> inline const org::apache::arrow::flatbuf::RunLengthEncoded *Tensor::type_as<org::apache::arrow::flatbuf::RunLengthEncoded>() const {
-  return type_as_RunLengthEncoded();
+template<> inline const org::apache::arrow::flatbuf::RunEndEncoded *Tensor::type_as<org::apache::arrow::flatbuf::RunEndEncoded>() const {
+  return type_as_RunEndEncoded();
 }
 
 struct TensorBuilder {
