@@ -72,6 +72,7 @@ def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
     allow_copy : bool, default: True
         Whether to allow copying the memory to perform the conversion
         (if false then zero-copy approach is requested).
+
     Returns
     -------
     pa.Table
@@ -88,6 +89,7 @@ def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
 def _from_dataframe(df: DataFrameObject, allow_copy=True):
     """
     Build a ``pa.Table`` from the DataFrame interchange object.
+
     Parameters
     ----------
     df : DataFrameObject
@@ -96,6 +98,7 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
     allow_copy : bool, default: True
         Whether to allow copying the memory to perform the conversion
         (if false then zero-copy approach is requested).
+
     Returns
     -------
     pa.Table

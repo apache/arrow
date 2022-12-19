@@ -32,9 +32,11 @@ class _PyArrowDataFrame:
     """
     A data frame class, with only the methods required by the interchange
     protocol defined.
+
     A "data frame" represents an ordered collection of named columns.
     A column's "name" must be a unique string.
     Columns may be accessed by name or by position.
+
     This could be a public data frame class, or an object with the methods and
     attributes defined on this DataFrame class could be returned from the
     ``__dataframe__`` method of a public data frame class in a library adhering
@@ -163,10 +165,12 @@ class _PyArrowDataFrame:
     ) -> Iterable[_PyArrowDataFrame]:
         """
         Return an iterator yielding the chunks.
+
         By default (None), yields the chunks that the data is stored as by the
         producer. If given, ``n_chunks`` must be a multiple of
         ``self.num_chunks()``, meaning the producer must subdivide each chunk
         before yielding it.
+
         Note that the producer must ensure that all columns are chunked the
         same way.
         """
