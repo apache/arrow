@@ -4225,7 +4225,7 @@ macro(build_google_cloud_cpp_storage)
 endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP)
-  resolve_dependency(google_cloud_cpp_storage)
+  resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
@@ -4766,6 +4766,16 @@ if(ARROW_S3)
 
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
+
+  if(${AWSSDK_SOURCE} STREQUAL "SYSTEM")
+    foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
+      string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
+    endforeach()
+  endif()
+  if(UNIX)
+    string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+  endif()
+  string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
 
   if(APPLE)
     # CoreFoundation's path is hardcoded in the CMake files provided by
