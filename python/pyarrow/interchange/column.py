@@ -226,7 +226,6 @@ class _PyArrowColumn:
             bit_width = 8
         self._dtype = self._dtype_from_arrowdtype(dtype, bit_width)
 
-    @property
     def size(self) -> int:
         """
         Size of the column, in elements.
@@ -293,12 +292,7 @@ class _PyArrowColumn:
         #       not handled datetime and timedelta both map to datetime
         #       (is timedelta handled?)
 
-        if pa.types.is_large_string(dtype):
-            # format string needs to be changed from "U" to "u"
-            # in case of large strings (make an issue in pandas?)
-            kind = DtypeKind.STRING
-            return kind, bit_width, "u", Endianness.NATIVE
-        elif pa.types.is_timestamp(dtype):
+        if pa.types.is_timestamp(dtype):
             kind = DtypeKind.DATETIME
             ts = dtype.unit[0]
             tz = dtype.tz if dtype.tz else ""
@@ -401,8 +395,8 @@ class _PyArrowColumn:
         See `DataFrame.get_chunks` for details on ``n_chunks``.
         """
         if n_chunks and n_chunks > 1:
-            chunk_size = self.size // n_chunks
-            if self.size % n_chunks != 0:
+            chunk_size = self.size() // n_chunks
+            if self.size() % n_chunks != 0:
                 chunk_size += 1
 
             array = self._col
@@ -412,12 +406,6 @@ class _PyArrowColumn:
                     array.slice(start, chunk_size), self._allow_copy
                 )
                 i += 1
-
-        elif isinstance(self._col, pa.ChunkedArray):
-            return [
-                _PyArrowColumn(chunk, self._allow_copy)
-                for chunk in self._col.chunks
-            ]
         else:
             yield self
 

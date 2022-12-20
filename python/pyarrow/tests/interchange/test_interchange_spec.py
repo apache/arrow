@@ -47,7 +47,7 @@ def test_dtypes(arr):
     null_count = df.get_column(0).null_count
     assert null_count == arr.null_count
     assert isinstance(null_count, int)
-    assert df.get_column(0).size == 3
+    assert df.get_column(0).size() == 3
     assert df.get_column(0).offset == 0
 
 
@@ -101,7 +101,7 @@ def test_mixed_dtypes(uint, uint_bw, int, int_bw,
         col = df.get_column_by_name(column)
 
         assert col.null_count == 0
-        assert col.size == 3
+        assert col.size() == 3
         assert col.offset == 0
         assert col.dtype[0] == kind
 
@@ -128,7 +128,7 @@ def test_noncategorical():
 
 def test_categorical():
     import pyarrow as pa
-    arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", "Sun"]
+    arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", None]
     table = pa.table(
         {"weekday": pa.array(arr).dictionary_encode()}
     )
@@ -170,24 +170,51 @@ def test_column_get_chunks(size, n_chunks):
     df = table.__dataframe__()
     chunks = list(df.get_column(0).get_chunks(n_chunks))
     assert len(chunks) == n_chunks
-    assert sum(chunk.size for chunk in chunks) == size
+    assert sum(chunk.size() for chunk in chunks) == size
 
 
-def test_get_columns():
-    table = pa.table({"a": [0, 1], "b": [2.5, 3.5]})
+@pytest.mark.pandas
+@pytest.mark.parametrize(
+    "uint", [pa.uint8(), pa.uint16(), pa.uint32()]
+)
+@pytest.mark.parametrize(
+    "int", [pa.int8(), pa.int16(), pa.int32(), pa.int64()]
+)
+@pytest.mark.parametrize(
+    "float, np_float", [
+        (pa.float16(), np.float16),
+        (pa.float32(), np.float32),
+        (pa.float64(), np.float64)
+    ]
+)
+def test_get_columns(uint, int, float, np_float):
+    arr = [[1, 2, 3], [4, 5]]
+    arr_float = np.array([1, 2, 3, 4, 5], dtype=np_float)
+    table = pa.table(
+        {
+            "a": pa.chunked_array(arr, type=uint),
+            "b": pa.chunked_array(arr, type=int),
+            "c": pa.array(arr_float, type=float)
+        }
+    )
     df = table.__dataframe__()
     for col in df.get_columns():
-        assert col.size == 2
+        assert col.size() == 5
         assert col.num_chunks() == 1
-    # for meanings of dtype[0] see the spec; we cannot import the
-    # spec here as this file is expected to be vendored *anywhere*
-    assert df.get_column(0).dtype[0] == 0  # INT
-    assert df.get_column(1).dtype[0] == 2  # FLOAT
+
+    # 0 = DtypeKind.INT, 1 = DtypeKind.UINT, 2 = DtypeKind.FLOAT,
+    # see DtypeKind class in column.py
+    assert df.get_column(0).dtype[0] == 1  # UINT
+    assert df.get_column(1).dtype[0] == 0  # INT
+    assert df.get_column(2).dtype[0] == 2  # FLOAT
 
 
-def test_buffer():
+@pytest.mark.parametrize(
+    "int", [pa.int8(), pa.int16(), pa.int32(), pa.int64()]
+)
+def test_buffer(int):
     arr = [0, 1, -1]
-    table = pa.table({"a": arr})
+    table = pa.table({"a": pa.array(arr, type=int)})
     df = table.__dataframe__()
     col = df.get_column(0)
     buf = col.get_buffers()
@@ -198,9 +225,9 @@ def test_buffer():
     assert dataBuf.ptr != 0
     device, _ = dataBuf.__dlpack_device__()
 
-    # for meanings of dtype[0] see the spec; we cannot import the spec
-    # here as this file is expected to be vendored *anywhere*
-    assert dataDtype[0] == 0  # INT
+    # 0 = DtypeKind.INT
+    # see DtypeKind class in column.py
+    assert dataDtype[0] == 0
 
     if device == 1:  # CPU-only as we're going to directly read memory here
         bitwidth = dataDtype[1]

@@ -368,8 +368,6 @@ def parse_datetime_format_str(format_str):
     timestamp_meta = re.match(r"ts([smun]):(.*)", format_str)
     if timestamp_meta:
         unit, tz = timestamp_meta.group(1), timestamp_meta.group(2)
-        if tz != "":
-            raise NotImplementedError("Timezones are not supported yet")
         if unit != "s":
             # the format string describes only a first letter of the unit, so
             # add one extra letter to convert the unit to numpy-style:
@@ -377,9 +375,6 @@ def parse_datetime_format_str(format_str):
             unit += "s"
 
         return unit, tz
-
-    # TODO
-    # date 'td{Days/Ms}'
 
     raise NotImplementedError(f"DateTime kind is not supported: {format_str}")
 
@@ -452,7 +447,7 @@ def buffers_to_array(
         # and add it to the construction of an array
         offset_pa_buffer = pa.py_buffer(offset_buff._x)
         array = pa.Array.from_buffers(
-            pa.large_string(),
+            data_dtype,
             length,
             [validity_pa_buff, offset_pa_buffer, data_pa_buffer],
             offset=offset,
