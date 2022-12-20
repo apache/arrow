@@ -449,6 +449,11 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
+        if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
+            # TODO: regression in pandas, should be fixed before final 2.0.0
+            # https://issues.apache.org/jira/browse/ARROW-18394
+            # https://github.com/pandas-dev/pandas/issues/50127
+            pytest.skip("Regression in pandas 2.0.0.dev")
         column_data = ['い']
         key = 'あ'.encode()
         data = {key: column_data}
@@ -2877,6 +2882,12 @@ def _fully_loaded_dataframe_example():
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
+    if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
+        # TODO: regression in pandas, should be fixed before final 2.0.0
+        # https://issues.apache.org/jira/browse/ARROW-18394
+        # https://github.com/pandas-dev/pandas/issues/50127
+        pytest.skip("Regression in pandas 2.0.0.dev")
+
     df = pd.DataFrame(columns=columns)
     table1 = pa.Table.from_pandas(df)
     table2 = pa.Table.from_pandas(table1.to_pandas())
