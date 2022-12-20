@@ -69,7 +69,8 @@ BufferAllocator
 
 The `BufferAllocator`_ is primarily an arena or nursery used for accounting of buffers (ArrowBuf instances). 
 As the name suggests, it can allocate new buffers associated with itself, but it can also 
-handle the accounting for buffers allocated elsewhere. In the code below it performs an allocation:
+handle the accounting for buffers allocated elsewhere. For example, it handles the Java-side accounting for 
+memory allocated in C++ and shared with Java using the C-Data Interface. In the code below it performs an allocation:
 
 .. code-block:: Java
 
