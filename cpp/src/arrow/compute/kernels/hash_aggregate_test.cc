@@ -2526,20 +2526,20 @@ TEST(GroupBy, OneMiscTypes) {
                            GroupByTest(
                                {
                                    table->GetColumnByName("floats"),
-                                  //  table->GetColumnByName("nulls"),
-                                  //  table->GetColumnByName("booleans"),
-                                  //  table->GetColumnByName("decimal128"),
-                                  //  table->GetColumnByName("decimal256"),
-                                  //  table->GetColumnByName("fixed_binary"),
+                                   table->GetColumnByName("nulls"),
+                                   table->GetColumnByName("booleans"),
+                                   table->GetColumnByName("decimal128"),
+                                   table->GetColumnByName("decimal256"),
+                                   table->GetColumnByName("fixed_binary"),
                                },
                                {table->GetColumnByName("key")},
                                {
                                    {"hash_one", nullptr},
-                                  //  {"hash_one", nullptr},
-                                  //  {"hash_one", nullptr},
-                                  //  {"hash_one", nullptr},
-                                  //  {"hash_one", nullptr},
-                                  //  {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
                                },
                                use_threads, use_exec_plan));
       ValidateOutput(aggregated_and_grouped);

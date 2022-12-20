@@ -2667,18 +2667,21 @@ struct GroupedListFactory {
 };
 
 // ----------------------------------------------------------------------
-// First implementation
+// First/Last implementation
 
 template <typename Type, typename Enable = void>
-struct GroupedFirstImpl final : public GroupedAggregator {
+struct GroupedFirstLastImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
 
   Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
     firsts_ = TypedBufferBuilder<CType>(ctx->memory_pool());
+    lasts_  = TypedBufferBuilder<CType>(ctx->memory_pool());
     firsts_order_ = TypedBufferBuilder<int64_t>(ctx->memory_pool());
-    has_valid_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    lasts_order_  = TypedBufferBuilder<int64_t>(ctx->memory_pool());
+    has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_  = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
@@ -2687,21 +2690,29 @@ struct GroupedFirstImpl final : public GroupedAggregator {
     num_groups_ = new_num_groups;
     RETURN_NOT_OK(firsts_.Append(added_groups, static_cast<CType>(0)));
     RETURN_NOT_OK(firsts_order.Append(added_groups, AntiExtrema<CType>::anti_max()));
-    RETURN_NOT_OK(has_valid_.Append(added_groups, false));
-    return Status::OK();
+    RETURN_NOT_OK(lasts_.Append(added_groups, static_cast<CType>(0)));
+    RETURN_NOT_OK(lasts_order.Append(added_groups, AntiExtrema<CType>::anti_min()));
+    RETURN_NOT_OK(has_values_.Append(added_groups, false));
+    RETURN_NOT_OK(has_nulls_.Append(added_groups, false));    return Status::OK();
   }
 
   Status Consume(const ExecSpan& batch) override {
     auto raw_firsts = firsts_.mutable_data();
     auto raw_firsts_order = firsts_order_.mutable_data();
+    auto raw_lasts  = lasts_.mutable_data();
+    auto raw_lasts_order = lasts_order.mutable_data();
 
     auto g = batch[2].array.GetValues<uint32_t>(1);
     auto index = batch[1].array.GetValues<int64_t>(1);
     auto valid_func = [&](uint32_t g, CType val){
       if GetSet::Get(raw_firsts_order, g) < index{
           GetSet::Set(raw_firsts, g, val);
-      }
-      GetSet::Set(raw_firsts_order, g, std::min(GetSet::Get(raw_firsts_order, g), index++));
+      } 
+      if GetSet::Get(raw_lasts_order, g) > index{
+          GetSet::Set(raw_lasts, g, val);
+      } 
+      GetSet::Set(raw_firsts_order, g, std::min(GetSet::Get(raw_firsts_order, g), index));
+      GetSet::Set(raw_lasts_order, g, std::max(GetSet::Get(raw_lasts_order, g), index++));
       bit_util::SetBit(has_values_.mutable_data(), g);
     }
 
@@ -2709,8 +2720,7 @@ struct GroupedFirstImpl final : public GroupedAggregator {
       return VisitArrayValuesInline<Type>(
         batch[0].array,
         [&](typename GetViewType<Type>::T val) { return valid_func(*g++, val); },
-        [&](uint32_t g) -> Status { return Status::OK(); }
-      );
+        [&](uint32_t g) { bit_util::SetBit(has_nulls_.mutable_data(), *g++); });
     }
 
     const Scalar& input = *batch[0].scalar;
@@ -2720,8 +2730,11 @@ struct GroupedFirstImpl final : public GroupedAggregator {
         RETURN_NOT_OK(valid_func(*g++, val));
       }
     } else {
-        return Status::OK();
+        for (int64_t i = 0; i < batch.length; i++) {
+          bit_util::SetBit(has_nulls_.mutable_data(), *g++);
+        }
     }
+    return Status::OK();
   }
 
   Status Merge(GroupedAggregator&& raw_other,
@@ -2730,9 +2743,14 @@ struct GroupedFirstImpl final : public GroupedAggregator {
 
     auto raw_firsts = firsts_.mutable_data();
     auto other_raw_firsts = other->firsts_.mutable_data();
-    
+    auto raw_lasts  = lasts_.mutable_data();
+    auto other_raw_lasts  = other->lasts_.mutable_data();
+
     auto raw_firsts_order = firsts_order_.mutable_data();
     auto other_raw_firsts_order = other->firsts_order_.mutable_data();
+    auto raw_lasts_order  = lasts_order_.mutable_data();
+    auto other_raw_lasts_order  = other->lasts_order_.mutable_data();
+    
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
@@ -2741,10 +2759,16 @@ struct GroupedFirstImpl final : public GroupedAggregator {
         if(GetSet::Get(other_raw_firsts_order, other_g)<GetSet::Get(raw_firsts_order, *g)){
             GetSet::Set(raw_firsts, *g, GetSet::Get(other_raw_firsts, other_g));
             GetSet::Set(raw_firsts_order, *g, GetSet::Get(other_raw_firsts_order, other_g));
+        } 
+        if(GetSet::Get(other_raw_lasts_order, other_g)>GetSet::Get(raw_lasts_order, *g)){
+            GetSet::Set(raw_lasts, *g, GetSet::Get(other_raw_lasts, other_g));
+            GetSet::Set(raw_lasts_order, *g, GetSet::Get(other_raw_lasts_order, other_g));
         }
-
-      if (bit_util::GetBit(other->has_valid_.data(), other_g)) {
-        bit_util::SetBit(has_valid_.mutable_data(), *g);
+      if (bit_util::GetBit(other->has_values_.data(), other_g)) {
+        bit_util::SetBit(has_values_.mutable_data(), *g);
+      }
+      if (bit_util::GetBit(other->has_nulls_.data(), other_g)) {
+        bit_util::SetBit(has_nulls_.mutable_data(), *g);
       }
     }
     return Status::OK();
@@ -2752,25 +2776,39 @@ struct GroupedFirstImpl final : public GroupedAggregator {
 
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_valid_.Finish());
+
+    // implementation similar to that of MinMax kernel
+    if (!options_.skip_nulls) {
+      ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
+      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,
+                                    num_groups_, 0, null_bitmap->mutable_data());
+    }
     auto firsts = ArrayData::Make(out_type_, num_groups_, {null_bitmap, nullptr});
-    auto firsts_order = ArrayData::Make(out_type_, num_groups_, {std::move(null_bitmap), nullptr});
+    auto firsts_order = ArrayData::Make(out_type_, num_groups_, {null_bitmap, nullptr});
+    auto lasts  = ArrayData::Make(out_type_, num_groups_, {null_bitmap, nullptr});
+    auto lasts_order = ArrayData::Make(out_type_, num_groups_, {std::move(null_bitmap), nullptr});
+
     ARROW_ASSIGN_OR_RAISE(firsts->buffers[1], firsts_.Finish());
     ARROW_ASSIGN_OR_RAISE(firsts_order->buffers[1], firsts_order_.Finish());
+    ARROW_ASSIGN_OR_RAISE(lasts->buffers[1], lasts_.Finish());
+    ARROW_ASSIGN_OR_RAISE(lasts_order->buffers[1], lasts_order_.Finish());
     return ArrayData::Make(out_type(), num_groups_, {nullptr},
-                           {std::move(firsts), std::move(firsts_order)});
+                           {std::move(firsts_), std::move(firsts_order), std::move(lasts_), std::move(lasts_order)});
   }
 
-  std::shared_ptr<DataType> out_type() const override { return out_type_; }
+  std::shared_ptr<DataType> out_type() const override { 
+    return struct_({field("first", type_), field("last", type_)}); 
+  }
 
   int64_t num_groups_;
-  TypedBufferBuilder<CType> firsts_;
-  TypedBufferBuilder<int64_t> firsts_order_;
-  TypedBufferBuilder<bool> has_valid_;
+  TypedBufferBuilder<CType> firsts_, lasts_;
+  TypedBufferBuilder<int64_t> firsts_order_, lasts_order;
+  TypedBufferBuilder<bool> has_values_, has_nulls_;
   std::shared_ptr<DataType> out_type_;
   ScalarAggregateOptions options_;
 };
 
-struct GroupedNullFirstImpl final : public GroupedAggregator {
+struct GroupedNullFirstLastImpl final : public GroupedAggregator {
   Status Init(ExecContext* ctx, const KernelInitArgs&) override { return Status::OK(); }
 
   Status Resize(int64_t new_num_groups) override {
@@ -2791,16 +2829,278 @@ struct GroupedNullFirstImpl final : public GroupedAggregator {
         {
             ArrayData::Make(null(), num_groups_, {nullptr}, num_groups_),
             ArrayData::Make(null(), num_groups_, {nullptr}, num_groups_),
+            ArrayData::Make(null(), num_groups_, {nullptr}, num_groups_),
+            ArrayData::Make(null(), num_groups_, {nullptr}, num_groups_),
+
         });
   }
 
   std::shared_ptr<DataType> out_type() const override {
-    return null();
+    return struct_({field("first", null()), field("last", null())});
   }
 
   int64_t num_groups_; 
 };
 
+template <typename Type>
+struct GroupedFirstLastImpl<Type,
+                            enable_if_t<is_base_binary_type<Type>::value ||
+                                        std::is_same<Type, FixedSizeBinaryType>::value>>
+    final : public GroupedAggregator {
+  using Allocator = arrow::stl::allocator<char>;
+  using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
+
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    ctx_ = ctx;
+    allocator_ = Allocator(ctx->memory_pool());
+    options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
+    // type_ initialized by FirstLastInit
+    has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    auto added_groups = new_num_groups - num_groups_;
+    DCHECK_GE(added_groups, 0);
+    num_groups_ = new_num_groups;
+    firsts_.resize(new_num_groups);
+    lasts_.resize(new_num_groups);
+    firsts_order_.resize(new_num_groups);
+    lasts_order_.resize(new_num_groups);
+    RETURN_NOT_OK(has_values_.Append(added_groups, false));
+    RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
+    return Status::OK();
+  }
+
+  Status Consume(const ExecSpan& batch) override {
+    auto g = batch[2].array.GetValues<uint32_t>(1);
+    auto index = batch[1].array.GetValues<int64_t>(1);
+    auto valid_func = [&](uint32_t g, std::string_view val){
+      if(!firsts_[g] || *index<*firsts_order_[g]){
+        firsts_[g].emplace(val.data(), val.size(), allocator_);
+        firsts_order_[g].emplace(*index, sizeof(int64_t), allocator_);   
+        index++;             
+      } 
+      if(!lasts_[g] || *index>*lasts_order_[g]){
+        lasts_[g].emplace(val.data(), val.size(), allocator_);
+        lasts_order_[g].emplace(*index, sizeof(int64_t), allocator_);   
+        index++;             
+      } 
+      bit_util::SetBit(has_values_.mutable_data(), g);
+      return Status::OK();
+    }
+    return VisitArrayValuesInline<Type>(
+        batch[0].array,
+        [&](std::string_view val) { return valid_func(*g++, val); },
+        [&](uint32_t g) { bit_util::SetBit(has_nulls_.mutable_data(), *g++); });
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedFirstLastImpl*>(&raw_other);
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
+         ++other_g, ++g) {
+      if (!firsts_[*g] ||
+          (firsts_[*g] && other->firsts_[other_g] && *firsts_order_[*g] > *other->firsts_order_[other_g])) {
+          firsts_[*g] = std::move(other->firsts_[other_g]);
+          firsts_order_[*g] = std::move(other->firsts_order[other_g]);
+      }
+      if (!lasts_[*g] || (lasts_[*g] && other->lasts_[other_g] &&
+                          *lasts_order_[*g] < *other->lasts_order_[other_g])) {
+        lasts_[*g] = std::move(other->lasts_[other_g]);
+        lasts_order_[*g] = std::move(other->lasts_order_[other_g]);
+      }
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    // implementation similar to that of minmax kernel
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_values_.Finish());
+
+    if (!options_.skip_nulls) {
+      ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
+      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,
+                                    num_groups_, 0, null_bitmap->mutable_data());
+    }
+
+    auto firsts = ArrayData::Make(out_type_, num_groups_, {null_bitmap, nullptr});
+    auto firsts_order = ArrayData::Make(out_type_, num_groups_, {null_bitmap, nullptr});
+    auto lasts  = ArrayData::Make(out_type_, num_groups_, {null_bitmap, nullptr});
+    auto lasts_order = ArrayData::Make(out_type_, num_groups_, {std::move(null_bitmap), nullptr});
+
+    RETURN_NOT_OK(MakeOffsetsValues(firsts_.get(), firsts_));
+    RETURN_NOT_OK(MakeOffsetsValues(lasts_.get(), lasts_));
+    return ArrayData::Make(out_type(), num_groups_, {nullptr},
+                           {std::move(firsts_), std::move(firsts_order), std::move(lasts_), std::move(lasts_order)});
+  }
+
+  template <typename T = Type>
+  enable_if_base_binary<T, Status> MakeOffsetsValues(
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    using offset_type = typename T::offset_type;
+    ARROW_ASSIGN_OR_RAISE(
+        auto raw_offsets,
+        AllocateBuffer((1 + values.size()) * sizeof(offset_type), ctx_->memory_pool()));
+    offset_type* offsets = reinterpret_cast<offset_type*>(raw_offsets->mutable_data());
+    offsets[0] = 0;
+    offsets++;
+    const uint8_t* null_bitmap = array->buffers[0]->data();
+    offset_type total_length = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (bit_util::GetBit(null_bitmap, i)) {
+        const std::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        if (value->size() >
+                static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
+            arrow::internal::AddWithOverflow(
+                total_length, static_cast<offset_type>(value->size()), &total_length)) {
+          return Status::Invalid("Result is too large to fit in ", *array->type,
+                                 " cast to large_ variant of type");
+        }
+      }
+      offsets[i] = total_length;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
+    int64_t offset = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (bit_util::GetBit(null_bitmap, i)) {
+        const std::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        std::memcpy(data->mutable_data() + offset, value->data(), value->size());
+        offset += value->size();
+      }
+    }
+    array->buffers[1] = std::move(raw_offsets);
+    array->buffers.push_back(std::move(data));
+    return Status::OK();
+  }
+
+  template <typename T = Type>
+  enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    const uint8_t* null_bitmap = array->buffers[0]->data();
+    const int32_t slot_width =
+        checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
+    int64_t total_length = values.size() * slot_width;
+    ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
+    int64_t offset = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (bit_util::GetBit(null_bitmap, i)) {
+        const std::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
+      } else {
+        std::memset(data->mutable_data() + offset, 0x00, slot_width);
+      }
+      offset += slot_width;
+    }
+    array->buffers[1] = std::move(data);
+    return Status::OK();
+  }
+
+
+  ExecContext* ctx_;
+  Allocator allocator_;
+  int64_t num_groups_;
+  std::vector<std::optional<StringType>> firsts_, lasts_;
+  std::vector<int64_t> firsts_order_, lasts_order_;
+  TypedBufferBuilder<bool> has_values_, has_nulls_;
+  std::shared_ptr<DataType> type_;
+  ScalarAggregateOptions options_;
+}
+
+template <typename T>
+Result<std::unique_ptr<KernelState>> GroupedFirstLastInit(KernelContext* ctx,
+                                                    const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedFirstLastImpl<T>>(ctx, args));
+  static_cast<GroupedFirstLastImpl<T>*>(impl.get())->type_ = args.inputs[0].GetSharedPtr();
+  return std::move(impl);
+}
+
+template <FirstorLast first_or_last>
+HashAggregateKernel MakeFirstOrLastKernel(HashAggregateFunction* first_last_func) {
+  HashAggregateKernel kernel;
+  kernel.init = [first_last_func](
+                    KernelContext* ctx,
+                    const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
+    std::vector<TypeHolder> inputs = args.inputs;
+    ARROW_ASSIGN_OR_RAISE(auto kernel, first_last_func->DispatchExact(args.inputs));
+    KernelInitArgs new_args{kernel, inputs, args.options};
+    return kernel->init(ctx, new_args);
+  };
+  kernel.signature =
+      KernelSignature::Make({InputType::Any(), Type::UINT32}, OutputType(FirstType));
+  kernel.resize = HashAggregateResize;
+  kernel.consume = HashAggregateConsume;
+  kernel.merge = HashAggregateMerge;
+  kernel.finalize = [](KernelContext* ctx, Datum* out) {
+    ARROW_ASSIGN_OR_RAISE(Datum temp,
+                          checked_cast<GroupedAggregator*>(ctx->state())->Finalize());
+    *out = temp.array_as<StructArray>()->field(static_cast<uint8_t>(first_or_last));
+    return Status::OK();
+  };
+  return kernel;
+}
+
+struct GroupedFirstLastFactory {
+  template <typename T>
+  enable_if_physical_integer<T, Status> Visit(const T&) {
+    using PhysicalType = typename T::PhysicalType;
+    kernel = MakeKernel(std::move(argument_type), GroupedFirstLastInit<PhysicalType>);
+    return Status::OK();
+  }
+
+  Status Visit(const FloatType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedFirstLastInit<FloatType>);
+    return Status::OK();
+  }
+
+  Status Visit(const DoubleType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedFirstLastInit<DoubleType>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), MinMGroupedFirstLastInitaxInit<T>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedFirstLastInit<T>);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeBinaryType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedFirstLastInit<FixedSizeBinaryType>);
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedFirstLastInit<BooleanType>);
+    return Status::OK();
+  }
+
+  Status Visit(const NullType&) {
+    kernel =
+        MakeKernel(std::move(argument_type), HashAggregateInit<GroupedNullFirstLastImpl>);
+    return Status::OK();
+  }
+
+  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+    GroupedFirstLastFactory factory;
+    factory.argument_type = type->id();
+    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
+    return std::move(factory.kernel);
+  }
+
+  HashAggregateKernel kernel;
+  InputType argument_type;
+};
 
 }  // namespace
 
@@ -2911,6 +3211,21 @@ const FunctionDoc hash_one_doc{"Get one value from each group",
 const FunctionDoc hash_list_doc{"List all values in each group",
                                 ("Null values are also returned."),
                                 {"array", "group_id_array"}};
+
+const FunctionDoc hash_first_last_doc{
+    "Compute the first and last values in each group",
+    ("Null values are ignored by default.\n"
+     "This can be changed through ScalarAggregateOptions."),
+    {"array", "order", "group_id_array"},
+    "ScalarAggregateOptions"};
+
+const FunctionDoc hash_first_or_last_doc{
+    "Compute the first or last values in each group",
+    ("Null values are ignored by default.\n"
+     "This can be changed through ScalarAggregateOptions."),
+    {"array", "order","group_id_array"},
+    "ScalarAggregateOptions"};
+
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
@@ -3115,6 +3430,38 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
                                  month_interval(), fixed_size_binary(1)},
                                 GroupedListFactory::Make, func.get()));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  HashAggregateFunction* first_last_func = nullptr;
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_first_last", Arity::Binary(), hash_first_last_doc,
+        &default_scalar_aggregate_options);
+    DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedFirstLastFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedFirstLastFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels(BaseBinaryTypes(), GroupedFirstLastFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
+                                 month_interval(), fixed_size_binary(1)},
+                                GroupedFirstLastFactory::Make, func.get()));
+    first_last_func = func.get();
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_first", Arity::Binary(), hash_first_or_last_doc,
+        &default_scalar_aggregate_options);
+    DCHECK_OK(func->AddKernel(MakeFirstOrLastKernel<FirstOrLast::First>(first_last_func)));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_last", Arity::Binary(), hash_first_or_last_doc,
+        &default_scalar_aggregate_options);
+    DCHECK_OK(func->AddKernel(MakeFirstOrLastKernel<FirstOrLast::Last>(first_last_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }
