@@ -1963,7 +1963,7 @@ def test_extract_datetime_components():
                   "2005-12-31T09:45:45.0",
                   "2008-12-28T00:00:00.0",
                   "2008-12-29T00:00:00.0",
-                  "2012-01-01 01:02:03.0"]
+                  "2012-01-01T01:02:03.0"]
     timezones = ["UTC", "US/Central", "Asia/Kolkata",
                  "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
@@ -1999,7 +1999,7 @@ def test_assume_timezone():
                                  "2005-12-31T09:45:45.0",
                                  "2008-12-28T00:00:00.0",
                                  "2008-12-29T00:00:00.0",
-                                 "2012-01-01 01:02:03.0"])
+                                 "2012-01-01T01:02:03.0"])
     nonexistent = pd.to_datetime(["2015-03-29 02:30:00",
                                   "2015-03-29 03:30:00"])
     ambiguous = pd.to_datetime(["2018-10-28 01:20:00",
