@@ -775,6 +775,14 @@ cdef class FileWriteOptions(_Weakrefable):
 
     @staticmethod
     cdef wrap(const shared_ptr[CFileWriteOptions]& sp):
+
+        if sp.get() == nullptr:
+            # DefaultWriteOptions() may return `nullptr` which means that
+            # the format does not yet support writing datasets.
+            raise NotImplementedError(
+                "Writing datasets not yet implemented for this file format."
+            )
+
         type_name = frombytes(sp.get().type_name())
 
         classes = {
