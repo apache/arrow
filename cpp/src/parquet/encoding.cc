@@ -2585,8 +2585,7 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
                     pool = ::arrow::default_memory_pool()),
         sink_(pool),
         length_encoder_(nullptr, pool),
-        encoded_size_{0},
-        lengths_(0, ::arrow::stl::allocator<int32_t>(pool)) {}
+        encoded_size_{0} {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
@@ -2607,7 +2606,6 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
   ::arrow::BufferBuilder sink_;
   DeltaBitPackEncoder<Int32Type> length_encoder_;
   uint32_t encoded_size_;
-  ArrowPoolVector<int32_t> lengths_;
 };
 
 void DeltaLengthByteArrayEncoder::Put(const ::arrow::Array& values) {
@@ -2631,18 +2629,22 @@ void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
   if (num_values == 0) {
     return;
   }
-  lengths_.resize(num_values);
 
-  for (int idx = 0; idx < num_values; idx++) {
-    auto len = static_cast<const int32_t>(src[idx].len);
-    lengths_[idx] = len;
-    encoded_size_ += len;
+  constexpr int kBatchSize = 256;
+  std::array<int32_t, kBatchSize> lengths;
+  for (int idx = 0; idx < num_values; idx += kBatchSize) {
+    const int batch_size = std::min(kBatchSize, num_values - idx);
+    for (int j = 0; j < batch_size; ++j) {
+      const int32_t len = src[idx + j].len;
+      encoded_size_ += len;
+      lengths[j] = len;
+    }
+    length_encoder_.Put(lengths.data(), batch_size);
   }
-  length_encoder_.Put(lengths_.data(), num_values);
-  PARQUET_THROW_NOT_OK(sink_.Reserve(encoded_size_));
 
+  PARQUET_THROW_NOT_OK(sink_.Reserve(encoded_size_));
   for (int idx = 0; idx < num_values; idx++) {
-    sink_.UnsafeAppend(src[idx].ptr, lengths_[idx]);
+    sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
   }
 }
 
