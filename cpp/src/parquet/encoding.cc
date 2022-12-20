@@ -2586,11 +2586,13 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
         sink_(pool),
         length_encoder_(nullptr, pool),
         encoded_size_{0},
-        lengths_{0} {}
+        lengths_(0, ::arrow::stl::allocator<int32_t>(pool)) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
-  int64_t EstimatedDataEncodedSize() override { return encoded_size_; }
+  int64_t EstimatedDataEncodedSize() override {
+    return encoded_size_ + length_encoder_.EstimatedDataEncodedSize();
+  }
 
   using TypedEncoder<ByteArrayType>::Put;
 
@@ -2605,12 +2607,24 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
   ::arrow::BufferBuilder sink_;
   DeltaBitPackEncoder<Int32Type> length_encoder_;
   uint32_t encoded_size_;
-  std::vector<int32_t> lengths_;
+  ArrowPoolVector<int32_t> lengths_;
 };
 
 void DeltaLengthByteArrayEncoder::Put(const ::arrow::Array& values) {
-  auto src = values.data()->GetValues<ByteArray>(1);
-  Put(src, static_cast<int>(values.length()));
+  const ::arrow::ArrayData& data = *values.data();
+  if (values.type_id() != ::arrow::Type::BINARY) {
+    throw ParquetException("Expected ByteArrayType, got ", values.type()->ToString());
+  }
+  if (data.length > std::numeric_limits<int32_t>::max()) {
+    throw ParquetException("Array cannot be longer than ",
+                           std::numeric_limits<int32_t>::max());
+  }
+  if (values.null_count() == 0) {
+    Put(data.GetValues<ByteArray>(1), static_cast<int>(data.length));
+  } else {
+    PutSpaced(data.GetValues<ByteArray>(1), static_cast<int>(data.length),
+              data.GetValues<uint8_t>(0, 0), data.offset);
+  }
 }
 
 void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
