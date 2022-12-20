@@ -187,6 +187,10 @@ class TestConvertMetadata:
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_column_index_names_with_tz(self):
+        if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
+            # TODO: regression in pandas, should be fixed before final 2.0.0
+            # https://github.com/pandas-dev/pandas/issues/50140
+            pytest.skip("Regression in pandas 2.0.0.dev")
         # ARROW-13756
         # Bug if index is timezone aware DataTimeIndex
 
