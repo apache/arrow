@@ -82,7 +82,10 @@ jobs:
           # building both shared and static libraries at once.
           # See also: Z3_BUILD_LIBZ3_SHARED in
           # https://github.com/Z3Prover/z3/blob/master/README-CMake.md
-          brew uninstall llvm
+          #
+          # If llvm is installed, Apache Arrow C++ uses llvm rather than
+          # llvm@14 because llvm is newer than llvm@14.
+          brew uninstall llvm || :
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have
