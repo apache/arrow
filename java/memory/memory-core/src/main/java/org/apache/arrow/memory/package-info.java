@@ -17,9 +17,7 @@
 
 /**
  *  Memory Allocation, Account and Management
- *
- *  See the README.md file in this directory for detailed information about Arrow's memory
- *  allocation subsystem.
+ *  See the Arrow Java documentation for details: <a href="https://arrow.apache.org/docs/java/memory.html">Memory Management</a>
  *
  */
 
