@@ -394,9 +394,8 @@ perspective as below:
 Memory Perspective
 ~~~~~~~~~~~~~~~~~~
 
-.. raw:: html
+.. code-block:: none
 
-   <pre>
    + AllocationManager
    |
    |-- UnsignedDirectLittleEndian (One per AllocationManager)
@@ -409,7 +408,6 @@ Memory Perspective
      | - ArrowBuf 3
      | - ArrowBuf 4
      ` - ArrowBuf 5
-   </pre>
 
 In this picture, a piece of memory is owned by an allocator manager. An
 allocator manager is responsible for that piece of memory no matter
@@ -421,9 +419,8 @@ BufferAllocator it has a relationship to.
 Allocator Perspective
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. raw:: html
+.. code-block:: none
 
-   <pre>
    + RootAllocator
    |-+ ChildAllocator 1
    | | - ChildAllocator 1.1
@@ -443,7 +440,6 @@ Allocator Perspective
      | - ArrowBuf 4
      | - ArrowBuf 5
      ` - ArrowBuf 6
-   </pre>
 
 In this picture, a RootAllocator owns three ChildAllocators. The first
 ChildAllocator (ChildAllocator 1) owns a subsequent ChildAllocator.
