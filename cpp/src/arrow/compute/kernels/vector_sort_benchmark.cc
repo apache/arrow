@@ -107,8 +107,8 @@ static void ChunkedArraySortFuncStringBenchmark(benchmark::State& state,
 
   ArrayVector chunks;
   for (int64_t i = 0; i < n_chunks; ++i) {
-    chunks.push_back(std::static_pointer_cast<StringArray>(
-        rand.String(array_size, min_length, max_length, args.null_proportion)));
+    chunks.push_back(
+        rand.String(array_size, min_length, max_length, args.null_proportion));
   }
 
   ArraySortFuncBenchmark(state, runner, std::make_shared<ChunkedArray>(chunks));
@@ -133,8 +133,7 @@ static void ArraySortFuncStringBenchmark(benchmark::State& state, const Runner& 
   const int64_t array_size = args.size / sizeof(int64_t);
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto values = std::static_pointer_cast<StringArray>(
-      rand.String(array_size, min_length, max_length, args.null_proportion));
+  auto values = rand.String(array_size, min_length, max_length, args.null_proportion);
 
   ArraySortFuncBenchmark(state, runner, values);
 }
