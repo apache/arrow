@@ -85,10 +85,17 @@ jobs:
           # We want to link z3 statically but Homebrew's LLVM lists
           # shared z3 in its CMake package. We rewrite it to use
           # static z3.
+          set -x
           llvm_package=$(grep -E -o 'llvm[^"]*' arrow/cpp/Brewfile)
           sed -i'' \
             -e 's/libz3\.dylib/libz3.a/g' \
             $(brew --prefix ${llvm_package})/lib/cmake/llvm/LLVMExports.cmake
+          if [ -f $(brew --prefix llvm)/lib/cmake/llvm/LLVMExports.cmake ]; then
+            sed -i'' \
+              -e 's/libz3\.dylib/libz3.a/g' \
+              $(brew --prefix llvm)/lib/cmake/llvm/LLVMExports.cmake
+          fi
+          set +x
           brew bundle --file=arrow/java/Brewfile
       - name: Build C++ libraries
         env:
