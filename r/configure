@@ -104,7 +104,7 @@ else
     PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
   fi
 
-  if [ "$PKGCONFIG_CFLAGS" ] && [ "$PKGCONFIG_LIBS" ]; then
+  if [ "$PKGCONFIG_LIBS" != "" ]; then
     FOUND_LIB_DIR=`echo $PKGCONFIG_DIRS | sed -e 's/^-L//'`
     echo "*** Arrow C++ libraries found via pkg-config at $FOUND_LIB_DIR"
     PKG_CFLAGS="$PKGCONFIG_CFLAGS $PKG_CFLAGS"
