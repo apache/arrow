@@ -193,6 +193,7 @@ def test_pandas_roundtrip(uint, int, float, np_float):
     assert table_protocol.column_names() == result_protocol.column_names()
 
 
+@pytest.mark.pandas
 def test_roundtrip_pandas_boolean():
     # Boolean pyarrow Arrays are casted to uint8 as bit packed boolean
     # is not yet supported by the protocol
@@ -220,6 +221,7 @@ def test_roundtrip_pandas_boolean():
     assert expected_protocol.column_names() == result_protocol.column_names()
 
 
+@pytest.mark.pandas
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 def test_roundtrip_pandas_datetime(unit):
     # pandas always creates datetime64 in "us"
@@ -248,6 +250,25 @@ def test_roundtrip_pandas_datetime(unit):
     assert expected_protocol.num_rows() == result_protocol.num_rows()
     assert expected_protocol.num_chunks() == result_protocol.num_chunks()
     assert expected_protocol.column_names() == result_protocol.column_names()
+
+
+@pytest.mark.large_memory
+@pytest.mark.pandas
+def test_pandas_assertion_error_large_string():
+    # Test AssertionError as pandas does not support "U" type strings
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
+    data = np.array([b'x'*1024]*(3*1024**2), dtype='object')  # 3GB bytes data
+    arr = pa.array(data, type=pa.large_string())
+    table = pa.table([arr], names=["large_string"])
+
+    from pandas.core.interchange.from_dataframe import (
+        from_dataframe as pandas_from_dataframe
+    )
+
+    with pytest.raises(AssertionError):
+        pandas_from_dataframe(table)
 
 
 @pytest.mark.parametrize(
@@ -325,6 +346,23 @@ def test_pyarrow_roundtrip_categorical():
     assert desc_cat_table["is_ordered"] == desc_cat_result["is_ordered"]
     assert desc_cat_table["is_dictionary"] == desc_cat_result["is_dictionary"]
     assert isinstance(desc_cat_result["categories"]._col, pa.Array)
+
+
+@pytest.mark.large_memory
+def test_pyarrow_roundtrip_large_string():
+
+    data = np.array([b'x'*1024]*(3*1024**2), dtype='object')  # 3GB bytes data
+    arr = pa.array(data, type=pa.large_string())
+    table = pa.table([arr], names=["large_string"])
+
+    result = _from_dataframe(table.__dataframe__())
+    col = result.__dataframe__().get_column(0)
+
+    assert col.size() == 3*1024**2
+    assert pa.types.is_large_string(table[0].type)
+    assert pa.types.is_large_string(result[0].type)
+
+    assert table.equals(result)
 
 
 def test_nan_as_null():

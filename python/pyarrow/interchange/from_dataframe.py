@@ -179,14 +179,17 @@ def column_to_array(
         that keeps the memory alive.
     """
     buffers = col.get_buffers()
+    null_count = col.null_count
     data = buffers_to_array(buffers, col.size(),
-                            col.describe_null, col.offset, allow_copy)
+                            col.describe_null,
+                            col.dtype, col.offset,
+                            allow_copy, null_count)
     return data, buffers
 
 
 def bool_8_column_to_array(
     col: ColumnObject,
-    allow_copy=True
+    allow_copy: bool = True
 ) -> tuple[pa.Array, Any]:
     """
     Convert a column holding boolean dtype with bit width = 8 to a
@@ -247,7 +250,7 @@ def bool_8_column_to_array(
 
 def categorical_column_to_dictionary(
     col: ColumnObject,
-    allow_copy: bool = False
+    allow_copy: bool = True
 ) -> tuple[pa.DictionaryArray, Any]:
     """
     Convert a column holding categorical data to a pa.DictionaryArray.
@@ -273,8 +276,10 @@ def categorical_column_to_dictionary(
     dictionary = column_to_array(cat_column)[0]
 
     buffers = col.get_buffers()
-    indices = buffers_to_array(
-        buffers, col.size(), col.describe_null, col.offset, allow_copy)
+    indices = buffers_to_array(buffers, col.size(),
+                               col.describe_null,
+                               col.dtype, col.offset,
+                               allow_copy)
 
     if null_kind == ColumnNullType.USE_SENTINEL:
         if not allow_copy:
@@ -291,7 +296,7 @@ def categorical_column_to_dictionary(
 
 def datetime_column_to_array(
     col: ColumnObject,
-    allow_copy: bool = False
+    allow_copy: bool = True
 ) -> tuple[pa.Array, Any]:
     """
     Convert a column holding DateTime data to a NumPy array.
@@ -383,8 +388,10 @@ def buffers_to_array(
     buffers: ColumnBuffers,
     length: int,
     describe_null: ColumnNullType,
+    validity_dtype: Dtype,
     offset: int = 0,
-    allow_copy: bool = False
+    allow_copy: bool = True,
+    null_count: int = -1
 ) -> pa.Array:
     """
     Build a PyArrow array from the passed buffer.
@@ -399,8 +406,15 @@ def buffers_to_array(
     describe_null: ColumnNullType
         Null representation the column dtype uses,
         as a tuple ``(kind, value)``
+    validity_dtype : Dtype,
+        Dtype description as a tuple ``(kind, bit-width, format string,
+        endianness)``.
     offset : int, default: 0
         Number of elements to offset from the start of the buffer.
+    allow_copy : bool, default: True
+        Whether to allow copying the memory to perform the conversion
+        (if false then zero-copy approach is requested).
+    null_count : int, default: -1
 
     Returns
     -------
@@ -434,6 +448,7 @@ def buffers_to_array(
 
     # Construct a validity pyarrow Buffer or a bytemask, if exists
     validity_pa_buff = validity_buff
+    _, _, validity_f_string, _ = validity_dtype
     bytemask = None
     if validity_pa_buff:
         validity_pa_buff, bytemask = validity_buffer(validity_buff,
@@ -446,12 +461,24 @@ def buffers_to_array(
         # If an offset buffer exists, construct an offset pyarrow Buffer
         # and add it to the construction of an array
         offset_pa_buffer = pa.py_buffer(offset_buff._x)
-        array = pa.Array.from_buffers(
-            data_dtype,
-            length,
-            [validity_pa_buff, offset_pa_buffer, data_pa_buffer],
-            offset=offset,
-        )
+        if validity_f_string == 'U':
+            if not null_count:
+                null_count = -1
+            array = pa.LargeStringArray.from_buffers(
+                length,
+                offset_pa_buffer,
+                data_pa_buffer,
+                validity_pa_buff,
+                null_count=null_count,
+                offset=offset,
+            )
+        else:
+            array = pa.Array.from_buffers(
+                pa.string(),
+                length,
+                [validity_pa_buff, offset_pa_buffer, data_pa_buffer],
+                offset=offset,
+            )
     else:
         array = pa.Array.from_buffers(
             data_dtype,

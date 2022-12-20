@@ -84,7 +84,7 @@ _PYARROW_KINDS = {
     pa.float32(): (DtypeKind.FLOAT, "f"),
     pa.float64(): (DtypeKind.FLOAT, "g"),
     pa.bool_(): (DtypeKind.BOOL, "b"),
-    pa.string(): (DtypeKind.STRING, "u"),  # utf-8
+    pa.string(): (DtypeKind.STRING, "u"),
     pa.large_string(): (DtypeKind.STRING, "U"),
 }
 
@@ -371,7 +371,9 @@ class _PyArrowColumn:
 
         Note: Arrow uses -1 to indicate "unknown", but None seems cleaner.
         """
-        return self._col.null_count
+        arrow_null_count = self._col.null_count
+        n = arrow_null_count if arrow_null_count != -1 else None
+        return n
 
     @property
     def metadata(self) -> Dict[str, Any]:
