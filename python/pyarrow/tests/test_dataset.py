@@ -3075,6 +3075,11 @@ def test_orc_format_not_supported():
 
 
 def test_orc_writer_not_implemented_for_dataset():
+    try:
+        from pyarrow.dataset import OrcFileFormat  # noqa
+    except ImportError:
+        pytest.skip('this case is covered by test_orc_format_not_supported')
+
     with pytest.raises(
             NotImplementedError,
             match="Writing datasets not yet implemented for this file format"
