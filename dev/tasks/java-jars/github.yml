@@ -94,6 +94,7 @@ jobs:
             sed -i'' \
               -e 's/libz3\.dylib/libz3.a/g' \
               $(brew --prefix llvm)/lib/cmake/llvm/LLVMExports.cmake
+            ls -lah $(brew --prefix)/lib/
           fi
           set +x
           brew bundle --file=arrow/java/Brewfile
