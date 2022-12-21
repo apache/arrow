@@ -2088,7 +2088,7 @@ cdef class Codec(_Weakrefable):
             out_buf.resize(output_length)
             return out_buf
 
-    def decompress(self, object buf, decompressed_size=None, asbytes=False,
+    def decompress(self, object buf, decompressed_size, asbytes=False,
                    memory_pool=None):
         """
         Decompress data from buffer-like object.
@@ -2096,9 +2096,8 @@ cdef class Codec(_Weakrefable):
         Parameters
         ----------
         buf : pyarrow.Buffer, bytes, or memoryview-compatible object
-        decompressed_size : int, default None
-            If not specified, will be computed if the codec is able to
-            determine the uncompressed buffer size.
+        decompressed_size : int
+            Size of the decompressed result
         asbytes : boolean, default False
             Return result as Python bytes object, otherwise Buffer
         memory_pool : MemoryPool, default None
