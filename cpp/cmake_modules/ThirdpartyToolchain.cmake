@@ -2566,7 +2566,7 @@ macro(build_utf8proc)
     )
   endif()
 
-  set(UTF8PROC_CMAKE_ARGS ${EP_COMMON_TOOLCHAIN}
+  set(UTF8PROC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                           "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}")
 
   externalproject_add(utf8proc_ep
