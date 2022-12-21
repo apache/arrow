@@ -449,7 +449,25 @@ cdef class Dataset(_Weakrefable):
         return filtered_dataset
 
     def sort_by(self, sorting):
+        """
+        Sort the Dataset by one or multiple columns.
 
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        InMemoryDataset
+            A new dataset sorted according to the sort keys.
+        """
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
 

@@ -5081,12 +5081,22 @@ def test_dataset_partition_with_slash(tmpdir):
     assert encoded_paths == file_paths
 
 
-def test_dataset_sort_by():
+@pytest.mark.parametrize('dstype', [
+    "fs", "mem"
+])
+def test_dataset_sort_by(tempdir, dstype):
     table = pa.table([
         pa.array([3, 1, 4, 2, 5]),
         pa.array(["b", "a", "b", "a", "c"]),
     ], names=["values", "keys"])
-    dt = ds.dataset(table)
+
+    if dstype == "fs":
+        ds.write_dataset(table, tempdir / "t1", format="ipc")
+        dt = ds.dataset(tempdir / "t1", format="ipc")
+    elif dstype == "mem":
+        dt = ds.dataset(table)
+    else:
+        raise NotImplementedError
 
     assert dt.sort_by("values").to_table().to_pydict() == {
         "keys": ["a", "a", "b", "b", "c"],
@@ -5096,6 +5106,13 @@ def test_dataset_sort_by():
     assert dt.sort_by([("values", "descending")]).to_table().to_pydict() == {
         "keys": ["c", "b", "b", "a", "a"],
         "values": [5, 4, 3, 2, 1]
+    }
+
+    assert dt.filter((pc.field("values") < 4)).sort_by(
+        "values"
+    ).to_table().to_pydict() == {
+        "keys": ["a", "a", "b"],
+        "values": [1, 2, 3]
     }
 
     table = pa.Table.from_arrays([
