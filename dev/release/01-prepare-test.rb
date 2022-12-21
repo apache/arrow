@@ -200,10 +200,10 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "python/pyarrow/src/CMakeLists.txt",
+        path: "python/CMakeLists.txt",
         hunks: [
-          ["-set(ARROW_PYTHON_VERSION \"#{@snapshot_version}\")",
-           "+set(ARROW_PYTHON_VERSION \"#{@release_version}\")"],
+          ["-set(PYARROW_VERSION \"#{@snapshot_version}\")",
+           "+set(PYARROW_VERSION \"#{@release_version}\")"],
         ],
       },
       {
