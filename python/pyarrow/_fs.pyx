@@ -425,7 +425,7 @@ cdef class FileSystem(_Weakrefable):
         """
         Create a new FileSystem from URI or Path.
 
-        Recognized URI schemes are "file", "mock", "s3fs", "gcsfs", "hdfs" and "viewfs".
+        Recognized URI schemes are "file", "mock", "s3fs", "gs", "gcs", "hdfs" and "viewfs".
         In addition, the argument can be a pathlib.Path object, or a string
         describing an absolute local path.
 
