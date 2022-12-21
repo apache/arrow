@@ -1195,6 +1195,7 @@ Result<std::vector<compute::Expression>> FromProto(
 Result<std::vector<compute::Expression>> FromProto(
     const ::substrait::Expression::MaskExpression& mask_expr, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options) {
+  // TODO::Vibhatha consider bool maintain_singular_struct = 2;
   if (mask_expr.has_select()) {
     // class Expression_MaskExpression_StructSelect final :
     return FromProto(mask_expr.select(), ext_set, conversion_options);
