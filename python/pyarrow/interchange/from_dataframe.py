@@ -129,7 +129,7 @@ def protocol_df_chunk_to_pyarrow(
     """
     # We need a dict of columns here, with each column being a PyArrow
     # or NumPy array.
-    columns: dict[str, Any] = {}
+    columns: dict[str, pa.Array | np.ndarray] = {}
     buffers = []  # hold on to buffers, keeps memory alive
     for name in df.column_names():
         if not isinstance(name, str):
