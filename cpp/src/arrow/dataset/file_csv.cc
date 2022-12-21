@@ -68,16 +68,22 @@ struct CsvInspectedFragment : public InspectedFragment {
 class CsvFileScanner : public FragmentScanner {
  public:
   CsvFileScanner(std::shared_ptr<csv::StreamingReader> reader, int num_batches,
-                 int64_t best_guess_bytes_per_batch)
+                 int64_t best_guess_bytes_per_batch, bool discard_data)
       : reader_(std::move(reader)),
         num_batches_(num_batches),
-        best_guess_bytes_per_batch_(best_guess_bytes_per_batch) {}
+        best_guess_bytes_per_batch_(best_guess_bytes_per_batch),
+        discard_data_(discard_data) {}
 
   Future<std::shared_ptr<RecordBatch>> ScanBatch(int batch_number) override {
     // This should be called in increasing order but let's verify that in case it changes.
     // It would be easy enough to handle out of order but no need for that complexity at
     // the moment.
     DCHECK_EQ(scanned_so_far_++, batch_number);
+    if (discard_data_) {
+      return reader_->ReadNextAsync().Then([](const std::shared_ptr<RecordBatch>& batch) {
+        return batch->SelectColumns({});
+      });
+    }
     return reader_->ReadNextAsync();
   }
 
@@ -104,6 +110,14 @@ class CsvFileScanner : public FragmentScanner {
       columns.push_back(column_name);
       column_types[column_name] = scan_column.requested_type->GetSharedPtr();
     }
+    // TODO(GH-34346) The CSV reader does not support reading 0 columns today.  If we
+    // don't send it anything it will read and parse all columns which is the
+    // worst case.  So, as a hack, we just have it read the first column and
+    // we will throw it away later.
+    if (scan_request.fragment_selection->columns().empty()) {
+      DCHECK_GT(inspected_fragment.column_names.size(), 0);
+      columns.push_back(inspected_fragment.column_names[0]);
+    }
     convert_options.include_columns = std::move(columns);
     convert_options.column_types = std::move(column_types);
     return std::move(convert_options);
@@ -123,14 +137,16 @@ class CsvFileScanner : public FragmentScanner {
         csv::ConvertOptions convert_options,
         GetConvertOptions(csv_options, scan_request, inspected_fragment));
 
+    bool discard_data = scan_request.fragment_selection->columns().empty();
+
     return csv::StreamingReader::MakeAsync(
                io::default_io_context(), inspected_fragment.input_stream, cpu_executor,
                read_options, csv_options.parse_options, convert_options)
-        .Then([num_batches, best_guess_bytes_per_batch](
-                  const std::shared_ptr<csv::StreamingReader>& reader)
+        .Then([num_batches, best_guess_bytes_per_batch,
+               discard_data](const std::shared_ptr<csv::StreamingReader>& reader)
                   -> std::shared_ptr<FragmentScanner> {
-          return std::make_shared<CsvFileScanner>(reader, num_batches,
-                                                  best_guess_bytes_per_batch);
+          return std::make_shared<CsvFileScanner>(
+              reader, num_batches, best_guess_bytes_per_batch, discard_data);
         });
   }
 
@@ -138,6 +154,8 @@ class CsvFileScanner : public FragmentScanner {
   std::shared_ptr<csv::StreamingReader> reader_;
   int num_batches_;
   int64_t best_guess_bytes_per_batch_;
+  // TODO(GH-34346) Get rid of this hack once the CSV reader can read zero columns.
+  bool discard_data_;
 
   int scanned_so_far_ = 0;
 };

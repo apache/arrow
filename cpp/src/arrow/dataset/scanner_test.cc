@@ -699,13 +699,15 @@ TEST(TestNewScanner, NestedRead) {
 std::shared_ptr<MockDataset> MakePartitionSkipDataset() {
   std::shared_ptr<Schema> test_schema = ScannerTestSchema();
   MockDatasetBuilder builder(test_schema);
+  // One fragment uses path-expressions and the other uses name-expressions.  This is
+  // intentional and both cases should be handled.
   builder.AddFragment(test_schema, /*inspection=*/nullptr,
                       equal(field_ref({1}), literal(100)));
   std::shared_ptr<RecordBatch> batch = MakeTestBatch(0);
   EXPECT_OK_AND_ASSIGN(batch, batch->RemoveColumn(1));
   builder.AddBatch(std::move(batch));
   builder.AddFragment(test_schema, /*inspection=*/nullptr,
-                      equal(field_ref({1}), literal(50)));
+                      equal(field_ref({"filterable"}), literal(50)));
   batch = MakeTestBatch(1);
   EXPECT_OK_AND_ASSIGN(batch, batch->RemoveColumn(1));
   builder.AddBatch(std::move(batch));
@@ -720,7 +722,7 @@ std::shared_ptr<MockDataset> MakeInvalidPartitionSkipDataset() {
                        test_schema->SetField(1, field("filterable", date64())));
   MockDatasetBuilder builder(test_schema);
   builder.AddFragment(test_schema, /*inspection=*/nullptr,
-                      equal(field_ref({1}), literal(100)));
+                      equal(field_ref({"filterable"}), literal(100)));
   std::shared_ptr<RecordBatch> batch = MakeTestBatch(0);
   EXPECT_OK_AND_ASSIGN(batch, batch->RemoveColumn(1));
   builder.AddBatch(std::move(batch));
@@ -774,9 +776,7 @@ TEST(TestNewScanner, PartitionSkip) {
     options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid,
-        ::testing::HasSubstr(
-            "The dataset schema defines the field FieldRef.FieldPath(1)"),
+        NotImplemented, ::testing::HasSubstr("has no kernel matching input types"),
         compute::DeclarationToBatches({"scan2", options}));
   }
 }

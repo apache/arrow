@@ -372,7 +372,11 @@ Result<FragmentGenerator> AsyncScanner::GetFragments() const {
   // TODO(ARROW-8163): Async fragment scanning will return AsyncGenerator<Fragment>
   // here. Current iterator based versions are all fast & sync so we will just ToVector
   // it
-  ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset_->GetFragments(scan_options_->filter));
+  ARROW_ASSIGN_OR_RAISE(
+      auto normalized_filter,
+      NormalizeDatasetExpression(scan_options_->filter, *scan_options_->dataset_schema));
+  ARROW_ASSIGN_OR_RAISE(auto fragments_it,
+                        dataset_->GetFragments(std::move(normalized_filter)));
   ARROW_ASSIGN_OR_RAISE(auto fragments_vec, fragments_it.ToVector());
   return MakeVectorGenerator(std::move(fragments_vec));
 }
@@ -460,7 +464,11 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   plan->StartProducing();
 
   auto options = scan_options_;
-  ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset_->GetFragments(scan_options_->filter));
+  ARROW_ASSIGN_OR_RAISE(
+      auto normalized_filter,
+      NormalizeDatasetExpression(scan_options_->filter, *scan_options_->dataset_schema));
+  ARROW_ASSIGN_OR_RAISE(auto fragments_it,
+                        dataset_->GetFragments(std::move(normalized_filter)));
   ARROW_ASSIGN_OR_RAISE(auto fragments, fragments_it.ToVector());
   auto shared_fragments = std::make_shared<FragmentVector>(std::move(fragments));
 
@@ -996,8 +1004,12 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
 
   RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
 
+  ARROW_ASSIGN_OR_RAISE(
+      auto normalized_filter,
+      NormalizeDatasetExpression(scan_options->filter, *scan_options->dataset_schema));
   // using a generator for speculative forward compatibility with async fragment discovery
-  ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset->GetFragments(scan_options->filter));
+  ARROW_ASSIGN_OR_RAISE(auto fragments_it,
+                        dataset->GetFragments(std::move(normalized_filter)));
   ARROW_ASSIGN_OR_RAISE(auto fragments_vec, fragments_it.ToVector());
   auto fragment_gen = MakeVectorGenerator(std::move(fragments_vec));
 

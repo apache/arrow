@@ -202,8 +202,10 @@ Result<FragmentIterator> Dataset::GetFragments() {
 }
 
 Result<FragmentIterator> Dataset::GetFragments(compute::Expression predicate) {
+  ARROW_ASSIGN_OR_RAISE(compute::Expression normalized_part_expr,
+                        NormalizeDatasetExpression(partition_expression_, *schema_));
   ARROW_ASSIGN_OR_RAISE(
-      predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
+      predicate, SimplifyWithGuarantee(std::move(predicate), normalized_part_expr));
   return predicate.IsSatisfiable() ? GetFragmentsImpl(std::move(predicate))
                                    : MakeEmptyIterator<std::shared_ptr<Fragment>>();
 }
@@ -439,6 +441,8 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
 
   std::string ToString() const override { return "basic-fragment-evolution"; }
 
+  // A map from dataset field indices to fragment field indices and -1 if the
+  // field is not present in the fragment
   std::vector<int> ds_to_frag_map;
   Schema* dataset_schema;
 

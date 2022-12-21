@@ -21,6 +21,7 @@ arrow_install_all_headers("arrow/dataset")
 
 set(ARROW_DATASET_SRCS
     dataset.cc
+    dataset_internal.cc
     dataset_writer.cc
     discovery.cc
     file_base.cc
@@ -147,6 +148,7 @@ add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
 add_arrow_dataset_test(partition_test)
 add_arrow_dataset_test(scanner_test)
+add_arrow_dataset_test(scanner_e2e_test)
 
 if(ARROW_CSV)
   add_arrow_dataset_test(file_csv_test)

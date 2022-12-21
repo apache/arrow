@@ -578,6 +578,9 @@ std::shared_ptr<arrow::Array> GenerateArray(
     int64_t alignment = kDefaultBufferAlignment,
     MemoryPool* memory_pool = default_memory_pool());
 
+/// \brief return the time since the unix epoch, in nanoseconds, to use as a seed
+SeedType SeedFromTime();
+
 }  // namespace random
 
 //

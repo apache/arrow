@@ -27,6 +27,7 @@
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -150,18 +151,9 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
       normalized.filter = compute::literal(true);
     }
 
-    if (normalized.filter.call() && normalized.filter.IsBound()) {
-      // There is no easy way to make sure a filter was bound agaisnt the same
-      // function registry as the one in ctx so we just require it to be unbound
-      // FIXME - Do we care if it was bound to a different function registry?
-      return Status::Invalid("Scan filter must be unbound");
-    } else {
-      ARROW_ASSIGN_OR_RAISE(normalized.filter,
-                            normalized.filter.Bind(*options.dataset->schema(), ctx));
-      ARROW_ASSIGN_OR_RAISE(normalized.filter,
-                            compute::RemoveNamedRefs(std::move(normalized.filter)));
-    }  // Else we must have some simple filter like literal(true) which might be bound
-       // but we don't care
+    ARROW_ASSIGN_OR_RAISE(
+        normalized.filter,
+        NormalizeDatasetExpression(normalized.filter, *normalized.dataset->schema()));
 
     if (normalized.filter.type()->id() != Type::BOOL) {
       return Status::Invalid("A scan filter must be a boolean expression");
@@ -303,33 +295,18 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
 
     Result<ExtractedKnownValues> ExtractKnownValuesFromGuarantee(
         const compute::Expression& guarantee) {
-      ARROW_ASSIGN_OR_RAISE(
-          compute::KnownFieldValues part_values,
-          compute::ExtractKnownFieldValues(fragment->partition_expression()));
+      ARROW_ASSIGN_OR_RAISE(compute::KnownFieldValues part_values,
+                            compute::ExtractKnownFieldValues(guarantee));
       ExtractedKnownValues extracted;
       for (std::size_t i = 0; i < node->options_.columns.size(); i++) {
-        const auto& field_path = node->options_.columns[i];
+        const FieldPath& field_path = node->options_.columns[i];
         FieldRef field_ref(field_path);
         auto existing = part_values.map.find(FieldRef(field_path));
         if (existing == part_values.map.end()) {
           // Column not in our known values, we must load from fragment
           extracted.remaining_columns.push_back(field_path);
         } else {
-          ARROW_ASSIGN_OR_RAISE(const std::shared_ptr<Field>& field,
-                                field_path.Get(*node->options_.dataset->schema()));
-          Result<Datum> maybe_casted = compute::Cast(existing->second, field->type());
-          if (!maybe_casted.ok()) {
-            // TODO(weston) In theory this should be preventable.  The dataset and
-            // partitioning schemas are known at the beginning of the scan and we could
-            // compare the two and discover that they are incompatible.
-            //
-            // Provide some context here as this error can be confusing
-            return Status::Invalid(
-                "The dataset schema defines the field ", field_path, " as type ",
-                field->type()->ToString(), " but a partition column was found with type ",
-                existing->second.type()->ToString(), " which cannot be safely cast");
-          }
-          extracted.known_values.push_back({i, *maybe_casted});
+          extracted.known_values.push_back({i, std::move(existing->second)});
         }
       }
       return std::move(extracted);
@@ -338,14 +315,18 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
     Future<> BeginScan(const std::shared_ptr<InspectedFragment>& inspected_fragment) {
       // Based on the fragment's guarantee we may not need to retrieve all the columns
       compute::Expression fragment_filter = node->options_.filter;
-      ARROW_ASSIGN_OR_RAISE(
-          compute::Expression filter_minus_part,
-          compute::SimplifyWithGuarantee(std::move(fragment_filter),
-                                         fragment->partition_expression()));
 
       ARROW_ASSIGN_OR_RAISE(
-          ExtractedKnownValues extracted,
-          ExtractKnownValuesFromGuarantee(fragment->partition_expression()));
+          compute::Expression fragment_part,
+          NormalizeDatasetExpression(fragment->partition_expression(),
+                                     *node->options_.dataset->schema()));
+
+      ARROW_ASSIGN_OR_RAISE(
+          compute::Expression filter_minus_part,
+          compute::SimplifyWithGuarantee(std::move(fragment_filter), fragment_part));
+
+      ARROW_ASSIGN_OR_RAISE(ExtractedKnownValues extracted,
+                            ExtractKnownValuesFromGuarantee(fragment_part));
 
       // Now that we have an inspected fragment we need to use the dataset's evolution
       // strategy to figure out how to scan it

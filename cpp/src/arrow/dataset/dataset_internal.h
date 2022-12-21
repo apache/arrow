@@ -89,6 +89,19 @@ arrow::Result<std::shared_ptr<T>> GetFragmentScanOptions(
   return ::arrow::internal::checked_pointer_cast<T>(source);
 }
 
+// The datasets API is often dealing with a mixture of expressions that have come from
+// users (e.g. a scan filter), expressions that may have come from Arrow (e.g. discovered
+// partition guarantees from arrow's filesystem dataset discover), and expressions that
+// may have come in from plugin authors (e.g. someone adding a new dataset type)
+//
+// So, we often don't know if the expression has been bound and also whether field
+// references use name-semantics or index-semantics.
+//
+// In order to reliably compare expressions we normalize all expressions so that they
+// are bound against the dataset schema and use index-semantics.
+Result<compute::Expression> NormalizeDatasetExpression(const compute::Expression& expr,
+                                                       const Schema& dataset_schema);
+
 class FragmentDataset : public Dataset {
  public:
   FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
@@ -119,8 +132,10 @@ class FragmentDataset : public Dataset {
     FragmentVector fragments;
     for (const auto& fragment : fragments_) {
       ARROW_ASSIGN_OR_RAISE(
-          auto simplified_filter,
-          compute::SimplifyWithGuarantee(predicate, fragment->partition_expression()));
+          compute::Expression normalized_part_expr,
+          NormalizeDatasetExpression(fragment->partition_expression(), *schema_));
+      ARROW_ASSIGN_OR_RAISE(auto simplified_filter, compute::SimplifyWithGuarantee(
+                                                        predicate, normalized_part_expr));
 
       if (simplified_filter.IsSatisfiable()) {
         fragments.push_back(fragment);

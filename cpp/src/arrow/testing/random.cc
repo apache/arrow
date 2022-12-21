@@ -1028,6 +1028,21 @@ std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields,
                                                   MemoryPool* memory_pool) {
   return RandomArrayGenerator(seed).BatchOf(fields, length, alignment, memory_pool);
 }
+
+SeedType SeedFromTime() {
+  auto now = std::chrono::system_clock::now();
+  // Upcast, if needed, into int64_t
+  int64_t now_ns = static_cast<int64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch())
+          .count());
+  if (sizeof(SeedType) >= 8) {
+    return static_cast<SeedType>(now_ns);
+  }
+  // If the seed type is smaller than 8 bytes then return the least significant bytes
+  int64_t mask = bit_util::LeastSignificantBitMask(sizeof(SeedType) * 8);
+  return static_cast<SeedType>(now_ns & mask);
+}
+
 }  // namespace random
 
 void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds>* out) {
