@@ -672,8 +672,8 @@ class EnumParser {
  public:
   explicit EnumParser(const std::vector<std::string>& options) {
     for (std::size_t i = 0; i < options.size(); i++) {
-      parse_map_[options[i]] = static_cast<Enum>(i + 1);
-      reverse_map_[static_cast<Enum>(i + 1)] = options[i];
+      parse_map_[options[i]] = static_cast<Enum>(i);
+      reverse_map_[static_cast<Enum>(i)] = options[i];
     }
   }
 
@@ -706,11 +706,11 @@ class EnumParser {
 };
 
 enum class TemporalComponent { kUnspecified = 0, kYear, kMonth, kDay, kSecond };
-static std::vector<std::string> kTemporalComponentOptions = {"YEAR", "MONTH", "DAY",
+static std::vector<std::string> kTemporalComponentOptions = {"UNSPECIFIED", "YEAR", "MONTH", "DAY",
                                                              "SECOND"};
 static EnumParser<TemporalComponent> kTemporalComponentParser(kTemporalComponentOptions);
 
-enum class OverflowBehavior { kUnspecified = 0, kSilent, kSaturate, kError };
+enum class OverflowBehavior { kSilent = 0, kSaturate, kError };
 static std::vector<std::string> kOverflowOptions = {"SILENT", "SATURATE", "ERROR"};
 static EnumParser<OverflowBehavior> kOverflowParser(kOverflowOptions);
 
@@ -776,7 +776,7 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessOverflowableArithmetic
     } else {
       return Status::NotImplemented(
           "Only SILENT and ERROR arithmetic kernels are currently implemented but ",
-          kOverflowOptions[static_cast<int>(overflow_behavior) - 1], " was requested");
+          kOverflowOptions[static_cast<int>(overflow_behavior)], " was requested");
     }
   };
 }
