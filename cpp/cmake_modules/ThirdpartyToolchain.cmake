@@ -2385,7 +2385,7 @@ macro(build_zstd)
       list(APPEND ZSTD_CMAKE_ARGS "-DZSTD_USE_STATIC_RUNTIME=ON")
     endif()
   else()
-    set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/${CMAKE_INSTALL_LIBDIR}/libzstd.a")
+    set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/lib/libzstd.a")
   endif()
 
   externalproject_add(zstd_ep
