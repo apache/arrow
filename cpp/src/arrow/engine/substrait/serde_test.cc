@@ -4114,7 +4114,7 @@ TEST(SubstraitRoundTrip, ReadRelProjectIssue) {
   // std::cout << array->ToString() << std::endl;
 }
 
-TEST(SubstraitRoundTrip, ScanPushdownProject) {
+TEST(SubstraitRoundTrip, ScanPushdownProjectSingleItem) {
   // TODO: the way I have interpreted this plan is wrong
   // In the pushdown filter, only have to project out the said columns and
   // leave out the other columns. Then the join would happen on the 0th column
@@ -4453,6 +4453,141 @@ TEST(SubstraitRoundTrip, ScanPushdownProject) {
   // auto array = ArrayFromJSON(date32(), "[1234, 5678, 9012, 1, 2, 3]");
   // std::cout << "Data32" << std::endl;
   // std::cout << array->ToString() << std::endl;
+}
+
+TEST(SubstraitRoundTrip, ScanProjectPushdownStructItems) {
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("a", int32()), field("b", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto sample_table = TableFromJSON(dummy_schema, {R"([
+      [1, 2],
+      [10, 20],
+      [100, 200]
+  ])"});
+
+  std::string substrait_json = R"({
+    "relations":[
+      {
+         "root":{
+            "input":{
+               "project":{
+                  "input":{
+                     "read":{
+                        "baseSchema":{
+                           "names":[
+                              "a",
+                              "b",
+                              "c"
+                           ],
+                           "struct":{
+                              "types":[
+                                 {
+                                    "i32":{
+                                       "nullability":"NULLABILITY_NULLABLE"
+                                    }
+                                 },
+                                 {
+                                    "i32":{
+                                       "nullability":"NULLABILITY_NULLABLE"
+                                    }
+                                 },
+                                 {
+                                    "i32":{
+                                       "nullability":"NULLABILITY_NULLABLE"
+                                    }
+                                 }
+                              ],
+                              "nullability":"NULLABILITY_REQUIRED"
+                           }
+                        },
+                        "projection":{
+                           "select":{
+                              "structItems":[
+                                 {
+                                    
+                                 },
+                                 {
+                                    "field":1
+                                 }
+                              ]
+                           },
+                           "maintainSingularStruct":true
+                        },
+                        "namedTable":{
+                           "names":[
+                              "t1"
+                           ]
+                        }
+                     }
+                  },
+                  "expressions":[
+                     {
+                        "selection":{
+                           "directReference":{
+                              "structField":{
+                                 
+                              }
+                           },
+                           "rootReference":{
+                              
+                           }
+                        }
+                     },
+                     {
+                        "selection":{
+                           "directReference":{
+                              "structField":{
+                                 "field":1
+                              }
+                           },
+                           "rootReference":{
+                              
+                           }
+                        }
+                     }
+                  ]
+               }
+            },
+            "names":[
+               "a",
+               "b"
+            ]
+         }
+      }
+   ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+
+  auto output_schema = dummy_schema;
+
+  NamedTableProvider table_provider = [&](const std::vector<std::string>& names) {
+    std::shared_ptr<compute::ExecNodeOptions> options;
+    if (std::find(names.begin(), names.end(), "t1") != names.end()) {
+      options = std::make_shared<compute::TableSourceNodeOptions>(sample_table);
+    }
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set, conversion_options));
+  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+
+  ASSERT_OK_AND_ASSIGN(auto output_table,
+                       GetTableFromPlan(other_declrs, exec_context, output_schema));
+
+  std::cout << "Output " << std::endl;
+  std::cout << output_table->ToString() << std::endl;
 }
 
 TEST(SubstraitRoundTrip, ScanProjection) {

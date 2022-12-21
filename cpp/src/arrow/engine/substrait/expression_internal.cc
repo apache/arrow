@@ -1165,11 +1165,13 @@ Result<std::vector<compute::Expression>> FromProto(
   std::vector<compute::Expression> proj_exprs;
   if (struct_item.has_child()) {
     // class Expression_MaskExpression_Select final :
+    std::cout << "Struct Item has child" << std::endl;
     auto mask_expr_select = struct_item.child();
     ARROW_ASSIGN_OR_RAISE(proj_exprs,
                           FromProto(mask_expr_select, ext_set, conversion_options));
   }
   if (struct_item.field() >= 0) {
+    std::cout << "Struct Item Just have a field" << std::endl;
     int32_t field = struct_item.field();
     proj_exprs.push_back(compute::field_ref(field));
   }
@@ -1195,7 +1197,7 @@ Result<std::vector<compute::Expression>> FromProto(
 Result<std::vector<compute::Expression>> FromProto(
     const ::substrait::Expression::MaskExpression& mask_expr, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options) {
-  // TODO::Vibhatha consider bool maintain_singular_struct = 2;
+  // TODO(vibhatha) consider bool maintain_singular_struct = 2;
   if (mask_expr.has_select()) {
     // class Expression_MaskExpression_StructSelect final :
     return FromProto(mask_expr.select(), ext_set, conversion_options);
