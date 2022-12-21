@@ -23,8 +23,6 @@
 #include <string>
 #include <vector>
 
-#include <google/protobuf/any.pb.h>
-
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
