@@ -706,8 +706,8 @@ class EnumParser {
 };
 
 enum class TemporalComponent { kUnspecified = 0, kYear, kMonth, kDay, kSecond };
-static std::vector<std::string> kTemporalComponentOptions = {"UNSPECIFIED", "YEAR", "MONTH", "DAY",
-                                                             "SECOND"};
+static std::vector<std::string> kTemporalComponentOptions = {"UNSPECIFIED", "YEAR",
+                                                             "MONTH", "DAY", "SECOND"};
 static EnumParser<TemporalComponent> kTemporalComponentParser(kTemporalComponentOptions);
 
 enum class OverflowBehavior { kSilent = 0, kSaturate, kError };
