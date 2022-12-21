@@ -169,7 +169,7 @@ class ConcreteFutureImpl : public FutureImpl {
 namespace {
 
 ConcreteFutureImpl* GetConcreteFuture(FutureImpl* future) {
-  return checked_cast<ConcreteFutureImpl*>(future);
+  return static_cast<ConcreteFutureImpl*>(future);
 }
 
 }  // namespace
