@@ -1098,5 +1098,110 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
   return std::move(out);
 }
 
+Result<std::vector<compute::Expression>> FromProto(
+    const ::substrait::Expression::MaskExpression::Select& mask_expr_select,
+    const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
+  // class Expression_MaskExpression_Select final :
+  std::vector<compute::Expression> proj_exprs;
+  switch (mask_expr_select.type_case()) {
+    case ::substrait::Expression::MaskExpression::Select::kStruct: {
+      // class Expression_MaskExpression_StructSelect final :
+      ARROW_ASSIGN_OR_RAISE(
+          proj_exprs, FromProto(mask_expr_select.struct_(), ext_set, conversion_options));
+    }
+
+    case ::substrait::Expression::MaskExpression::Select::kList: {
+      auto list_select = mask_expr_select.list();
+      // class Expression_MaskExpression_ListSelect final :
+      if (list_select.selection_size() > 0) {
+        for (int idx = 0; idx < list_select.selection_size(); idx++) {
+          // class Expression_MaskExpression_ListSelect_ListSelectItem final :
+          auto list_select_item = list_select.selection(idx);
+          switch (list_select_item.type_case()) {
+            case ::substrait::Expression::MaskExpression::ListSelect::ListSelectItem::
+                kItem: {
+              auto list_element = list_select_item.item();
+              int32_t field = list_element.field();
+              proj_exprs.push_back(compute::field_ref(field));
+            }
+            case ::substrait::Expression::MaskExpression::ListSelect::ListSelectItem::
+                kSlice: {
+              return Status::NotImplemented(
+                  "::substrait::Expression::MaskExpression::ListSelect::kSlice");
+            }
+            case ::substrait::Expression::MaskExpression::ListSelect::ListSelectItem::
+                TYPE_NOT_SET:
+              return Status::Invalid(
+                  "::substrait::Expression::MaskExpression::ListSelect::ListSelectItem "
+                  "type not set");
+          }
+        }
+      }
+      if (list_select.has_child()) {
+        auto select = list_select.child();
+        ARROW_ASSIGN_OR_RAISE(auto child_select_exprs,
+                              FromProto(select, ext_set, conversion_options));
+        proj_exprs.insert(proj_exprs.end(), child_select_exprs.begin(),
+                          child_select_exprs.end());
+      }
+    }
+
+    case ::substrait::Expression::MaskExpression::Select::kMap: {
+      return Status::NotImplemented(
+          "::substrait::Expression::MaskExpression::Select::kMap");
+    }
+
+    case ::substrait::Expression::MaskExpression::Select::TYPE_NOT_SET: {
+      return Status::Invalid(
+          "Unsupported ::substrait::Expression::MaskExpression::Select type");
+    }
+  }
+  return std::move(proj_exprs);
+}
+
+Result<std::vector<compute::Expression>> FromProto(
+    const ::substrait::Expression::MaskExpression::StructItem& struct_item,
+    const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
+  std::vector<compute::Expression> proj_exprs;
+  if (struct_item.has_child()) {
+    // class Expression_MaskExpression_Select final :
+    auto mask_expr_select = struct_item.child();
+    ARROW_ASSIGN_OR_RAISE(proj_exprs,
+                          FromProto(mask_expr_select, ext_set, conversion_options));
+  }
+  if (struct_item.field() >= 0) {
+    int32_t field = struct_item.field();
+    proj_exprs.push_back(compute::field_ref(field));
+  }
+  return std::move(proj_exprs);
+}
+
+Result<std::vector<compute::Expression>> FromProto(
+    const ::substrait::Expression::MaskExpression::StructSelect& struct_select,
+    const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
+  int struct_items_size = struct_select.struct_items_size();
+  std::vector<compute::Expression> project_exprs;
+  for (int idx = 0; idx < struct_items_size; idx++) {
+    // class Expression_MaskExpression_StructItem final :
+    auto struct_item = struct_select.struct_items(idx);
+    ARROW_ASSIGN_OR_RAISE(auto struct_item_exprs,
+                          FromProto(struct_item, ext_set, conversion_options));
+    project_exprs.insert(project_exprs.end(), struct_item_exprs.begin(),
+                         struct_item_exprs.end());
+  }
+  return std::move(project_exprs);
+}
+
+Result<std::vector<compute::Expression>> FromProto(
+    const ::substrait::Expression::MaskExpression& mask_expr, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options) {
+  if (mask_expr.has_select()) {
+    // class Expression_MaskExpression_StructSelect final :
+    return FromProto(mask_expr.select(), ext_set, conversion_options);
+  } else {
+    return Status::Invalid("substrait::Expression::MaskExpression has no select");
+  }
+}
+
 }  // namespace engine
 }  // namespace arrow

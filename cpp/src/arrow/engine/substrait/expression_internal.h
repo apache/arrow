@@ -56,5 +56,21 @@ ARROW_ENGINE_EXPORT
 Result<SubstraitCall> FromProto(const substrait::AggregateFunction&, bool is_hash,
                                 const ExtensionSet&, const ConversionOptions&);
 
+Result<std::vector<compute::Expression>> FromProto(
+    const ::substrait::Expression::MaskExpression::Select& mask_expr_select,
+    const ExtensionSet& ext_set, const ConversionOptions& conversion_options);
+
+Result<std::vector<compute::Expression>> FromProto(
+    const ::substrait::Expression::MaskExpression::StructItem& struct_item,
+    const ExtensionSet& ext_set, const ConversionOptions& conversion_options);
+
+Result<std::vector<compute::Expression>> FromProto(
+    const ::substrait::Expression::MaskExpression::StructSelect& struct_select,
+    const ExtensionSet& ext_set, const ConversionOptions& conversion_options);
+
+Result<std::vector<compute::Expression>> FromProto(
+    const ::substrait::Expression::MaskExpression& mask_expr, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options);
+
 }  // namespace engine
 }  // namespace arrow

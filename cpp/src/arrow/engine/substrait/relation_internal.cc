@@ -150,52 +150,6 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
   return Status::OK();
 }
 
-Result<std::vector<compute::Expression>> ExtractStructSelect(
-    const ::substrait::Expression::MaskExpression::StructSelect& struct_select) {
-  int struct_items_size = struct_select.struct_items_size();
-  std::vector<compute::Expression> project_exprs;
-  project_exprs.reserve(struct_items_size);
-  for (int idx = 0; idx < struct_items_size; idx++) {
-    ::substrait::Expression::MaskExpression::StructItem struct_item =
-        struct_select.struct_items(idx);
-    if (struct_item.has_child()) {
-      std::cout << "has Child" << std::endl;
-      ::substrait::Expression::MaskExpression::Select child = struct_item.child();
-      if (child.has_struct_()) {
-        ::substrait::Expression::MaskExpression::StructSelect child_struct_select =
-            child.struct_();
-        return ExtractStructSelect(child_struct_select);
-      } else if (child.has_list()) {
-        return Status::NotImplemented(
-            "substrait::Expression::MaskExpression::ListSelect");
-      } else if (child.has_map()) {
-        return Status::NotImplemented("substrait::Expression::MaskExpression::MapSelect");
-      } else {
-        return Status::Invalid("Unsupported expression type");
-      }
-    } else {
-      int32_t field = struct_item.field();
-      std::cout << "Field: " << field << std::endl;
-      project_exprs.push_back(compute::field_ref(field));
-    }
-  }
-  return std::move(project_exprs);
-}
-
-Result<std::vector<compute::Expression>> FromProtoMaskExpression(
-    const ::substrait::Expression::MaskExpression& mask_expr) {
-  if (mask_expr.has_select()) {
-    std::cout << "read.projection().has_select() == " << mask_expr.has_select()
-              << std::endl;
-    ::substrait::Expression::MaskExpression::StructSelect struct_select =
-        mask_expr.select();
-    std::cout << "Struct Item Size: " << struct_select.struct_items_size() << std::endl;
-    return ExtractStructSelect(struct_select);
-  } else {
-    return Status::Invalid("substrait::Expression::MaskExpression has no select");
-  }
-}
-
 Result<std::shared_ptr<Schema>> SchemaFromProjectExpressions(
     const std::vector<compute::Expression>& expressions,
     const std::shared_ptr<Schema>& base_schema) {
@@ -247,7 +201,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       if (read.has_projection()) {
         ::substrait::Expression::MaskExpression mask_expr = read.projection();
-        ARROW_ASSIGN_OR_RAISE(auto proj_exprs, FromProtoMaskExpression(mask_expr));
+        ARROW_ASSIGN_OR_RAISE(auto proj_exprs,
+                              FromProto(mask_expr, ext_set, conversion_options));
         std::cout << "Proj Expr: " << std::endl;
         for (const auto& expr : proj_exprs) {
           std::cout << expr.ToString() << std::endl;
