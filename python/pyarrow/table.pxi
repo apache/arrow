@@ -4760,7 +4760,7 @@ cdef class Table(_PandasConvertible):
 
         res = _pc()._exec_plan._sort_source(self, output_type=Table,
                                             sort_options=_pc().SortOptions(
-                                                sort_keys=sorting
+                                                sort_keys=sorting, **kwargs
                                             ))
         return res
 

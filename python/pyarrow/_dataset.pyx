@@ -448,7 +448,7 @@ cdef class Dataset(_Weakrefable):
         filtered_dataset._scan_options = dict(filter=new_filter)
         return filtered_dataset
 
-    def sort_by(self, sorting):
+    def sort_by(self, sorting, **kwargs):
         """
         Sort the Dataset by one or multiple columns.
 
@@ -473,7 +473,7 @@ cdef class Dataset(_Weakrefable):
 
         res = _pc()._exec_plan._sort_source(self, output_type=InMemoryDataset,
                                             sort_options=_pc().SortOptions(
-                                                sort_keys=sorting
+                                                sort_keys=sorting, **kwargs
                                             ))
         return res
 
