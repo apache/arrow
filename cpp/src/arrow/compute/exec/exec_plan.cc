@@ -159,6 +159,9 @@ struct ExecPlanImpl : public ExecPlan {
           // away soon (or at least be replaced by a sub-scheduler to facilitate OT)
           for (auto& n : nodes_) {
             RETURN_NOT_OK(n->Init());
+          }
+          // schedule only after all nodes are initialized, to avoid hanging tasks
+          for (auto& n : nodes_) {
             async_scheduler->AddSimpleTask([&] { return n->finished(); });
           }
 

@@ -232,7 +232,8 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches,
                     const AsofJoinNodeOptions join_options) {
-  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
+  ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
+  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), io_executor.get());
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   Declaration join{"asofjoin", join_options};
@@ -279,8 +280,9 @@ void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
                        const AsofJoinNodeOptions& join_options,
                        const std::string& expected_error_str,
                        bool fail_on_plan_creation = false) {
-  ExecContext exec_ctx;
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+  ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
+  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), io_executor.get());
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   Declaration join{"asofjoin", join_options};
   join.inputs.emplace_back(Declaration{

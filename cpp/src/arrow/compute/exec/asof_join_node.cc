@@ -1039,6 +1039,9 @@ class AsofJoinNode : public ExecNode {
                bool may_rehash);
 
   Status Init() override {
+    if (plan()->exec_context()->executor() == nullptr) {
+      return Status::Invalid("AsOfJoinNode requires a non-null executor");
+    }
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
