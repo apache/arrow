@@ -189,15 +189,21 @@ get attention from appropriate contributors.
 Issue lifecycle
 ===============
 
-Both bug reports and feature requests follow a defined lifecycle. If the issue
-is currently worked on it has a developer assigned. When the issue has reached
-a terminal status, it is labeled as closed.
+Both bug reports and feature requests follow a defined lifecycle. If an issue
+is currently worked on, it should have a developer assigned. When an issue has
+reached a terminal status, it is closed with one of two outcomes:
 
-* **Closed as completed** - indicates the issue is complete and the PR that
-  resolved the issue should be added in a following comment.
+* **Closed as completed** - indicates the issue is complete; the PR that
+  resolved the issue should have been automatically linked by GitHub
+  (assuming the PR correctly mentioned the issue number).
 
-* **closed as not planned** - indicates the issue is complete,
-  but *without* action being taken.
+  If you are merging a PR it is good practice to add a comment
+  to the linked issue about which PR is resolving it. This way
+  GitHub crates a notification for anybody that collaborated on
+  the issue.
+
+* **closed as not planned** - indicates the issue is closed and should
+  not receive any further updates, but *without* action being taken.
 
 .. _issue-assignment:
 
