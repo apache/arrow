@@ -27,6 +27,7 @@ add_arrow_compute_test(scalar_test
                        scalar_if_else_test.cc
                        scalar_nested_test.cc
                        scalar_random_test.cc
+                       scalar_round_arithmetic_test.cc
                        scalar_set_lookup_test.cc
                        scalar_string_test.cc
                        scalar_temporal_test.cc
