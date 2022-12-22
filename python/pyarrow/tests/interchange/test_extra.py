@@ -224,7 +224,7 @@ def test_roundtrip_pandas_boolean():
 @pytest.mark.pandas
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 def test_roundtrip_pandas_datetime(unit):
-    # pandas always creates datetime64 in "us"
+    # pandas always creates datetime64 in "ns"
     # resolution, timezones are not yet supported
 
     if Version(pd.__version__) < Version("1.5.0"):
@@ -233,7 +233,7 @@ def test_roundtrip_pandas_datetime(unit):
 
     dt_arr = [dt(2007, 7, 13), dt(2007, 7, 14), dt(2007, 7, 15)]
     table = pa.table({"a": pa.array(dt_arr, type=pa.timestamp(unit))})
-    expected = pa.table({"a": pa.array(dt_arr, type=pa.timestamp('us'))})
+    expected = pa.table({"a": pa.array(dt_arr, type=pa.timestamp('ns'))})
 
     from pandas.core.interchange.from_dataframe import (
         from_dataframe as pandas_from_dataframe

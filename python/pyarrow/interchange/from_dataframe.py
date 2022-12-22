@@ -27,11 +27,10 @@ from pyarrow.interchange.column import (
     ColumnNullType,
 )
 
-import ctypes
-import numpy as np
 import pyarrow as pa
 import re
 
+import pyarrow.compute as pc
 from pyarrow.interchange.column import Dtype
 
 
@@ -54,7 +53,7 @@ _PYARROW_DTYPES: dict[DtypeKind, dict[int, Any]] = {
     DtypeKind.FLOAT: {16: pa.float16(),
                       32: pa.float32(),
                       64: pa.float64()},
-    DtypeKind.BOOL: {1: pa.bool_()},
+    DtypeKind.BOOL: {1: pa.uint8()},
     DtypeKind.STRING: {8: pa.string()},
 }
 
@@ -105,7 +104,7 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
     """
     batches = []
     for chunk in df.get_chunks():
-        batch = protocol_df_chunk_to_pyarrow(chunk, allow_copy)
+        batch = protocol_df_chunk_to_pyarrow(chunk)
         batches.append(batch)
 
     table = pa.Table.from_batches(batches)
@@ -114,7 +113,6 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
 
 def protocol_df_chunk_to_pyarrow(
     df: DataFrameObject,
-    allow_copy: bool = True
 ) -> pa.Table:
     """
     Convert interchange protocol chunk to ``pa.RecordBatch``.
@@ -127,10 +125,8 @@ def protocol_df_chunk_to_pyarrow(
     -------
     pa.RecordBatch
     """
-    # We need a dict of columns here, with each column being a PyArrow
-    # or NumPy array.
-    columns: dict[str, pa.Array | np.ndarray] = {}
-    buffers = []  # hold on to buffers, keeps memory alive
+    # We need a dict of columns here, with each column being a pa.Array
+    columns: dict[str, pa.Array] = {}
     for name in df.column_names():
         if not isinstance(name, str):
             raise ValueError(f"Column {name} is not a string")
@@ -144,26 +140,22 @@ def protocol_df_chunk_to_pyarrow(
             DtypeKind.FLOAT,
             DtypeKind.STRING,
         ):
-            columns[name], buf = column_to_array(col, allow_copy)
+            columns[name] = column_to_array(col)
         elif dtype == DtypeKind.BOOL:
-            columns[name], buf = bool_8_column_to_array(col, allow_copy)
+            columns[name] = bool_8_column_to_array(col)
         elif dtype == DtypeKind.CATEGORICAL:
-            columns[name], buf = categorical_column_to_dictionary(
-                col, allow_copy)
+            columns[name] = categorical_column_to_dictionary(col)
         elif dtype == DtypeKind.DATETIME:
-            columns[name], buf = datetime_column_to_array(col, allow_copy)
+            columns[name] = datetime_column_to_array(col)
         else:
             raise NotImplementedError(f"Data type {dtype} not handled yet")
-
-        buffers.append(buf)
 
     return pa.RecordBatch.from_pydict(columns)
 
 
 def column_to_array(
     col: ColumnObject,
-    allow_copy: bool = True
-) -> tuple[pa.Array, Any]:
+) -> pa.Array:
     """
     Convert a column holding one of the primitive dtypes to a PyArrow array.
     A primitive type is one of: int, uint, float, bool (1 bit).
@@ -174,23 +166,19 @@ def column_to_array(
 
     Returns
     -------
-    tuple
-        Tuple of pa.Array holding the data and the memory owner object
-        that keeps the memory alive.
+    pa.Array
     """
     buffers = col.get_buffers()
     null_count = col.null_count
     data = buffers_to_array(buffers, col.size(),
                             col.describe_null,
-                            col.dtype, col.offset,
-                            allow_copy, null_count)
-    return data, buffers
+                            col.offset, null_count)
+    return data
 
 
 def bool_8_column_to_array(
     col: ColumnObject,
-    allow_copy: bool = True
-) -> tuple[pa.Array, Any]:
+) -> pa.Array:
     """
     Convert a column holding boolean dtype with bit width = 8 to a
     PyArrow array.
@@ -201,57 +189,36 @@ def bool_8_column_to_array(
 
     Returns
     -------
-    tuple
-        Tuple of pa.Array holding the data and the memory owner object
-        that keeps the memory alive.
+    pa.Array
     """
-    if not allow_copy:
-        raise RuntimeError(
-            "PyArrow Array will always be created out of a NumPy ndarray "
-            "and a copy is required which is forbidden by allow_copy=False"
-        )
     buffers = col.get_buffers()
 
-    # Data buffer
-    data_buff, data_dtype = buffers["data"]
-    offset = col.offset
-    data_bit_width = data_dtype[1]
-
-    data = buffer_to_ndarray(data_buff,
-                             data_bit_width,
-                             offset)
+    data = buffers_to_array(buffers, col.size(),
+                            col.describe_null,
+                            col.offset)
+    data = pc.cast(data, pa.bool_())
 
     # Validity buffer
     try:
         validity_buff, validity_dtype = buffers["validity"]
     except TypeError:
         validity_buff = None
-
-    null_kind, sentinel_val = col.describe_null
-    bytemask = None
+    validity_pa_buff = validity_buff
 
     if validity_buff:
-        if null_kind in (ColumnNullType.USE_BYTEMASK,
-                         ColumnNullType.USE_BITMASK):
+        validity_pa_buff = validity_buffer(validity_buff,
+                                           validity_dtype,
+                                           col.describe_null,
+                                           col.offset)
 
-            validity_bit_width = validity_dtype[1]
-            bytemask = buffer_to_ndarray(validity_buff,
-                                         validity_bit_width,
-                                         offset)
-            if sentinel_val == 0:
-                bytemask = np.invert(bytemask)
-        else:
-            raise NotImplementedError(f"{null_kind} null representation "
-                                      "is not yet supported for boolean "
-                                      "dtype.")
-    # Output
-    return pa.array(data, mask=bytemask), buffers
+    return pa.Array.from_buffers(pa.bool_(), col.size(),
+                                 [validity_pa_buff, data.buffers()[1]],
+                                 offset=col.offset)
 
 
 def categorical_column_to_dictionary(
     col: ColumnObject,
-    allow_copy: bool = True
-) -> tuple[pa.DictionaryArray, Any]:
+) -> pa.DictionaryArray:
     """
     Convert a column holding categorical data to a pa.DictionaryArray.
 
@@ -261,9 +228,7 @@ def categorical_column_to_dictionary(
 
     Returns
     -------
-    tuple
-        Tuple of pa.DictionaryArray holding the data and the memory owner
-        object that keeps the memory alive.
+    pa.DictionaryArray
     """
     categorical = col.describe_categorical
     null_kind, sentinel_val = col.describe_null
@@ -273,33 +238,45 @@ def categorical_column_to_dictionary(
             "Non-dictionary categoricals not supported yet")
 
     cat_column = categorical["categories"]
-    dictionary = column_to_array(cat_column)[0]
+    dictionary = column_to_array(cat_column)
 
     buffers = col.get_buffers()
-    indices = buffers_to_array(buffers, col.size(),
-                               col.describe_null,
-                               col.dtype, col.offset,
-                               allow_copy)
 
-    if null_kind == ColumnNullType.USE_SENTINEL:
-        if not allow_copy:
-            raise RuntimeError(
-                "PyArrow Array will always be created out of a NumPy ndarray "
-                "and a copy is required which is forbidden by allow_copy=False"
-            )
-        bytemask = [value == sentinel_val for value in indices.to_pylist()]
-        indices = pa.array(indices.to_pylist(), mask=bytemask)
+    # Construct a pyarrow Buffer for the indices
+    data_buff, data_type = buffers["data"]
+    data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize,
+                                       base=data_buff)
+    kind, bit_width, _, _ = data_type
+    indices_type = _PYARROW_DTYPES.get(kind, {}).get(bit_width, None)
 
-    dict_array = pa.DictionaryArray.from_arrays(indices, dictionary)
-    return dict_array, buffers
+    # Construct a pyarrow buffer for validity mask
+    try:
+        validity_buff, validity_dtype = buffers["validity"]
+    except TypeError:
+        validity_buff = None
+
+    validity_pa_buff = validity_buff
+    if validity_buff:
+        validity_pa_buff = validity_buffer(validity_buff,
+                                           validity_dtype,
+                                           col.describe_null,
+                                           col.offset)
+
+    # Constructing a pa.DictionaryArray from data and validity buffer
+    dtype = pa.dictionary(indices_type, dictionary.type,
+                          categorical["is_ordered"])
+    dict_array = pa.DictionaryArray.from_buffers(dtype, col.size(),
+                                                 [validity_pa_buff,
+                                                     data_pa_buffer],
+                                                 dictionary, col.offset)
+    return dict_array
 
 
 def datetime_column_to_array(
     col: ColumnObject,
-    allow_copy: bool = True
-) -> tuple[pa.Array, Any]:
+) -> pa.Array:
     """
-    Convert a column holding DateTime data to a NumPy array.
+    Convert a column holding DateTime data to a pa.Array.
 
     Parameters
     ----------
@@ -307,9 +284,7 @@ def datetime_column_to_array(
 
     Returns
     -------
-    tuple
-        Tuple of pa.Array holding the data and the memory owner object
-        that keeps the memory alive.
+    pa.Array
     """
     buffers = col.get_buffers()
     data_buff, data_type = buffers["data"]
@@ -323,55 +298,21 @@ def datetime_column_to_array(
     data_dtype = pa.timestamp(unit, tz=tz)
 
     # Data buffer
-    data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize)
+    data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize,
+                                       base=data_buff)
 
     # Validity buffer
     validity_pa_buff = validity_buff
-    bytemask = None
     if validity_pa_buff:
-        validity_pa_buff, bytemask = validity_buffer(validity_buff,
-                                                     validity_dtype,
-                                                     col.describe_null,
-                                                     col.offset)
-
-    null_kind, sentinel_val = col.describe_null
-    # If sentinel values are used to represent missing values
-    # then validity buffer and bytemask are None and we will
-    # substitute the mask buffer with the sentinel mask buffer
-    if null_kind == ColumnNullType.USE_SENTINEL:
-        import pyarrow.compute as pc
-
-        int_arr = pa.Array.from_buffers(pa.int64(),
-                                        col.size(),
-                                        [None, data_pa_buffer],
-                                        offset=col.offset)
-        bytemask = pc.equal(int_arr, sentinel_val)
-        # Will need to invert once using the mask buffer
-        # to construct an array:
-        # sentinel_arr = pc.equal(int_arr, sentinel_val)
-        # bytemask = pc.invert(sentinel_arr)
+        validity_pa_buff = validity_buffer(validity_buff,
+                                           validity_dtype,
+                                           col.describe_null,
+                                           col.offset)
 
     # Constructing a pa.Array from data and validity buffer
-    array = pa.Array.from_buffers(
-        data_dtype,
-        col.size(),
-        [validity_pa_buff, data_pa_buffer],
-        offset=col.offset,
-    )
-
-
-
-    # In case a bytemask was constructed with validity_buffer() call
-    # or with sentinel_value then we have to add the mask to the array
-    if bytemask is not None:
-        if not allow_copy:
-            raise RuntimeError(
-                "PyArrow Array will always be created out of a NumPy ndarray "
-                "and a copy is required which is forbidden by allow_copy=False"
-            )
-        return pa.array(array.to_pylist(), mask=bytemask), buffers
-    else:
-        return array, buffers
+    return pa.Array.from_buffers(data_dtype, col.size(),
+                                 [validity_pa_buff, data_pa_buffer],
+                                 offset=col.offset)
 
 
 def parse_datetime_format_str(format_str):
@@ -396,9 +337,7 @@ def buffers_to_array(
     buffers: ColumnBuffers,
     length: int,
     describe_null: ColumnNullType,
-    validity_dtype: Dtype,
     offset: int = 0,
-    allow_copy: bool = True,
     null_count: int = -1
 ) -> pa.Array:
     """
@@ -414,14 +353,8 @@ def buffers_to_array(
     describe_null: ColumnNullType
         Null representation the column dtype uses,
         as a tuple ``(kind, value)``
-    validity_dtype : Dtype,
-        Dtype description as a tuple ``(kind, bit-width, format string,
-        endianness)``.
     offset : int, default: 0
         Number of elements to offset from the start of the buffer.
-    allow_copy : bool, default: True
-        Whether to allow copying the memory to perform the conversion
-        (if false then zero-copy approach is requested).
     null_count : int, default: -1
 
     Returns
@@ -444,7 +377,7 @@ def buffers_to_array(
     except TypeError:
         offset_buff = None
 
-    kind, bit_width, _, _ = data_type
+    kind, bit_width, f_string, _ = data_type
 
     data_dtype = _PYARROW_DTYPES.get(kind, {}).get(bit_width, None)
     if data_dtype is None:
@@ -452,24 +385,25 @@ def buffers_to_array(
             f"Conversion for {data_type} is not yet supported.")
 
     # Construct a pyarrow Buffer
-    data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize)
+    data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize,
+                                       base=data_buff)
 
     # Construct a validity pyarrow Buffer or a bytemask, if exists
     validity_pa_buff = validity_buff
-    _, _, validity_f_string, _ = validity_dtype
-    bytemask = None
     if validity_pa_buff:
-        validity_pa_buff, bytemask = validity_buffer(validity_buff,
-                                                     validity_dtype,
-                                                     describe_null,
-                                                     offset)
+        validity_pa_buff = validity_buffer(validity_buff,
+                                           validity_dtype,
+                                           describe_null,
+                                           offset)
 
     # Construct a pyarrow Array from buffers
     if offset_buff:
         # If an offset buffer exists, construct an offset pyarrow Buffer
         # and add it to the construction of an array
-        offset_pa_buffer = pa.py_buffer(offset_buff._x)
-        if validity_f_string == 'U':
+        offset_pa_buffer = pa.foreign_buffer(offset_buff.ptr,
+                                             offset_buff.bufsize,
+                                             base=offset_buff)
+        if f_string == 'U':
             if not null_count:
                 null_count = -1
             array = pa.LargeStringArray.from_buffers(
@@ -495,27 +429,18 @@ def buffers_to_array(
             offset=offset,
         )
 
-    # In case a bytemask was constructed with validity_buffer() call
-    # then we have to add the mask to the array
-    if bytemask is not None:
-        if not allow_copy:
-            raise RuntimeError(
-                "PyArrow Array will always be created out of a NumPy ndarray "
-                "and a copy is required which is forbidden by allow_copy=False"
-            )
-        return pa.array(array.to_pylist(), mask=bytemask)
-    else:
-        return array
+    return array
 
 
 def validity_buffer(
     validity_buff: BufferObject,
     validity_dtype: Dtype,
     describe_null: ColumnNullType,
+    length: int,
     offset: int = 0,
-) -> tuple[pa.Buffer, np.ndarray]:
+) -> pa.Buffer:
     """
-    Build a PyArrow buffer or a NumPy array from the passed buffer.
+    Build a PyArrow buffer from the passed buffer.
 
     Parameters
     ----------
@@ -527,72 +452,40 @@ def validity_buffer(
     describe_null : ColumnNullType
         Null representation the column dtype uses,
         as a tuple ``(kind, value)``
+    length : int
+        The number of values in the array.
     offset : int, default: 0
         Number of elements to offset from the start of the buffer.
 
     Returns
     -------
-    tuple
-        Tuple of a pyarrow buffer and a np.ndarray defining a mask.
-        Ony one of both can be not None.
+    pa.Buffer
     """
     null_kind, sentinel_val = describe_null
-    validity_kind, validity_bit_width, _, _ = validity_dtype
+    validity_kind, _, _, _ = validity_dtype
     assert validity_kind == DtypeKind.BOOL
 
-    bytemask = None
-    if null_kind == ColumnNullType.USE_BYTEMASK:
+    if null_kind == ColumnNullType.USE_BYTEMASK or (
+        null_kind == ColumnNullType.USE_BITMASK and sentinel_val == 1
+    ):
 
-        bytemask = buffer_to_ndarray(validity_buff,
-                                     validity_bit_width,
-                                     offset)
-        if sentinel_val == 0:
-            bytemask = np.invert(bytemask)
-        validity_pa_buff = None
+        validity_pa_buff = pa.foreign_buffer(validity_buff.ptr,
+                                             validity_buff.bufsize,
+                                             base=validity_buff)
+        mask = pa.Array.from_buffers(pa.uint8(), length,
+                                     [None, validity_pa_buff],
+                                     offset=offset)
+        if sentinel_val == 1:
+            mask = pc.invert(mask)
+        mask_bool = pc.cast(mask, pa.bool_())
+        validity_buff = mask_bool.buffers()[1]
 
     elif null_kind == ColumnNullType.USE_BITMASK and sentinel_val == 0:
-        validity_pa_buff = pa.foreign_buffer(
-            validity_buff.ptr, validity_buff.bufsize)
+        validity_buff = pa.foreign_buffer(validity_buff.ptr,
+                                          validity_buff.bufsize,
+                                          base=validity_buff)
     else:
         raise NotImplementedError(
             f"{describe_null} null representation is not yet supported.")
 
-    return validity_pa_buff, bytemask
-
-
-def buffer_to_ndarray(
-    validity_buff: BufferObject,
-    bit_width: int,
-    offset: int = 0,
-) -> np.ndarray:
-    """
-    Build a NumPy array from the passed buffer.
-
-    Parameters
-    ----------
-    validity_buff : BufferObject
-        Tuple of underlying validity buffer and associated dtype.
-    bit_width : int
-        The number of bits of the buffer dtype as an integer.
-    offset : int, default: 0
-        Number of elements to offset from the start of the buffer.
-
-    Returns
-    -------
-    np.ndarray
-    """
-    # TODO: No DLPack yet, so need to construct a new ndarray from
-    # the data pointer and size in the buffer plus the dtype on the
-    # column. Use DLPack as NumPy supports it since
-    # https://github.com/numpy/numpy/pull/19083
-    ctypes_type = np.ctypeslib.as_ctypes_type(bool)
-    data_pointer = ctypes.cast(
-        validity_buff.ptr + (offset * bit_width // 8),
-        ctypes.POINTER(ctypes_type)
-    )
-
-    data = np.ctypeslib.as_array(
-        data_pointer, shape=(validity_buff.bufsize // (bit_width // 8),)
-    )
-
-    return data
+    return validity_buff
