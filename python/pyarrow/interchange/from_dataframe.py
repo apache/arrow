@@ -334,6 +334,23 @@ def datetime_column_to_array(
                                                      col.describe_null,
                                                      col.offset)
 
+    null_kind, sentinel_val = col.describe_null
+    # If sentinel values are used to represent missing values
+    # then validity buffer and bytemask are None and we will
+    # substitute the mask buffer with the sentinel mask buffer
+    if null_kind == ColumnNullType.USE_SENTINEL:
+        import pyarrow.compute as pc
+
+        int_arr = pa.Array.from_buffers(pa.int64(),
+                                        col.size(),
+                                        [None, data_pa_buffer],
+                                        offset=col.offset)
+        bytemask = pc.equal(int_arr, sentinel_val)
+        # Will need to invert once using the mask buffer
+        # to construct an array:
+        # sentinel_arr = pc.equal(int_arr, sentinel_val)
+        # bytemask = pc.invert(sentinel_arr)
+
     # Constructing a pa.Array from data and validity buffer
     array = pa.Array.from_buffers(
         data_dtype,
@@ -342,16 +359,7 @@ def datetime_column_to_array(
         offset=col.offset,
     )
 
-    null_kind, sentinel_val = col.describe_null
-    if null_kind == ColumnNullType.USE_SENTINEL:
-        # pandas iNaT
-        if sentinel_val == -9223372036854775808:
-            bytemask = np.isnan(np.array([str(e) for e in array.to_pylist()],
-                                dtype="datetime64[ns]"))
-        else:
-            raise NotImplementedError(
-                f"Sentinel value {sentinel_val} for datetime is not yet "
-                "supported.")
+
 
     # In case a bytemask was constructed with validity_buffer() call
     # or with sentinel_value then we have to add the mask to the array
