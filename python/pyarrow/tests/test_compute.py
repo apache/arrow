@@ -1739,7 +1739,8 @@ def test_cast():
     assert pc.cast(arr, options=allow_overflow_options) == pa.array(
         [-1], type='int32')
 
-    arr = pa.array([datetime.datetime(2010, 1, 1), datetime.datetime(2015, 1, 1)])
+    arr = pa.array(
+        [datetime.datetime(2010, 1, 1), datetime.datetime(2015, 1, 1)])
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
     assert pc.cast(arr, 'timestamp[ms]') == expected
 

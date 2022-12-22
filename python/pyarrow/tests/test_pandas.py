@@ -1505,10 +1505,10 @@ class TestConvertDateTimeLikeTypes:
                 pd.NaT
             ]
         })
-        # 'check_dtype=False' because pandas >= 2 uses datetime.timezone instead of
-        # pytz.FixedOffset, and thus the dtype is not exactly identical
-        # (pyarrow still defaults to pytz)
-        # TODO remove once https://github.com/apache/arrow/issues/15047 is fixed
+        # 'check_dtype=False' because pandas >= 2 uses datetime.timezone
+        # instead of pytz.FixedOffset, and thus the dtype is not exactly
+        # identical (pyarrow still defaults to pytz)
+        # TODO remove if https://github.com/apache/arrow/issues/15047 is fixed
         _check_pandas_roundtrip(df, check_dtype=False)
         _check_serialize_components_roundtrip(df)
 
