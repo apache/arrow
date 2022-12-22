@@ -116,7 +116,12 @@ class _PyArrowDataFrame:
         """
         Return the number of chunks the DataFrame consists of.
         """
-        return self._df.column(0).num_chunks
+        # pyarrow.Table can have columns with different number
+        # of chunks so we take the number of chunks that
+        # .to_batches() returns as it takes the min chunk size
+        # of all the columns (to_batches is a zero copy method)
+        batches = self._df.to_batches()
+        return len(batches)
 
     def column_names(self) -> Iterable[str]:
         """
