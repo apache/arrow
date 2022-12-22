@@ -177,7 +177,7 @@ def test_pandas_roundtrip(uint, int, float, np_float):
         }
     )
 
-    from pandas.core.interchange.from_dataframe import (
+    from pandas.api.interchange import (
         from_dataframe as pandas_from_dataframe
     )
     pandas_df = pandas_from_dataframe(table)
@@ -204,7 +204,7 @@ def test_roundtrip_pandas_boolean():
     table = pa.table({"a": [True, False, True]})
     expected = pa.table({"a": pa.array([1, 0, 1], type=pa.uint8())})
 
-    from pandas.core.interchange.from_dataframe import (
+    from pandas.api.interchange import (
         from_dataframe as pandas_from_dataframe
     )
     pandas_df = pandas_from_dataframe(table)
@@ -235,7 +235,7 @@ def test_roundtrip_pandas_datetime(unit):
     table = pa.table({"a": pa.array(dt_arr, type=pa.timestamp(unit))})
     expected = pa.table({"a": pa.array(dt_arr, type=pa.timestamp('ns'))})
 
-    from pandas.core.interchange.from_dataframe import (
+    from pandas.api.interchange import (
         from_dataframe as pandas_from_dataframe
     )
     pandas_df = pandas_from_dataframe(table)
@@ -263,7 +263,7 @@ def test_pandas_assertion_error_large_string():
     arr = pa.array(data, type=pa.large_string())
     table = pa.table([arr], names=["large_string"])
 
-    from pandas.core.interchange.from_dataframe import (
+    from pandas.api.interchange import (
         from_dataframe as pandas_from_dataframe
     )
 
