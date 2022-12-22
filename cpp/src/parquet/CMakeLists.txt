@@ -190,7 +190,7 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   # CMake 3.11 or later.
   set(AVX2_FLAGS "${ARROW_AVX2_FLAG}")
   if(NOT MSVC)
-    string(APPEND AVX2_FLAGS ${CMAKE_CXX_FLAGS_RELEASE})
+    string(APPEND AVX2_FLAGS " ${CMAKE_CXX_FLAGS_RELEASE}")
   endif()
   set_source_files_properties(level_comparison_avx2.cc
                               PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
