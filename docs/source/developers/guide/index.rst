@@ -128,7 +128,7 @@ of adding a basic feature.
 
    Communication is very important. You may need some help solving problems
    you encounter on the way (this happens to developers all the time). Also,
-   if you have a JIRA issue you want to solve, then it is advisable to let the team
+   if you have a GitHub issue you want to solve, then it is advisable to let the team
    know you are working on it and may need some help.
 
    See possible channels of :ref:`communication`.
