@@ -135,7 +135,7 @@ def _ensure_filesystem(
 
 
 def _resolve_filesystem_and_path(
-    path, filesystem=None, allow_legacy_filesystem=False
+    path, filesystem=None, allow_legacy_filesystem=False, memory_map=False
 ):
     """
     Return filesystem/path from path which could be an URI or a plain
@@ -151,7 +151,8 @@ def _resolve_filesystem_and_path(
 
     if filesystem is not None:
         filesystem = _ensure_filesystem(
-            filesystem, allow_legacy_filesystem=allow_legacy_filesystem
+            filesystem, use_mmap=memory_map,
+            allow_legacy_filesystem=allow_legacy_filesystem
         )
         if isinstance(filesystem, LocalFileSystem):
             path = _stringify_path(path)
@@ -169,7 +170,8 @@ def _resolve_filesystem_and_path(
     # if filesystem is not given, try to automatically determine one
     # first check if the file exists as a local (relative) file path
     # if not then try to parse the path as an URI
-    filesystem = LocalFileSystem()
+    filesystem = LocalFileSystem(use_mmap=memory_map)
+
     try:
         file_info = filesystem.get_file_info(path)
     except ValueError:  # ValueError means path is likely an URI

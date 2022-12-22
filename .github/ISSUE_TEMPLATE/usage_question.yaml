@@ -79,6 +79,7 @@ body:
         - Parquet
         - Python
         - R
+        - Release
         - Ruby
         - Swift
         - Website

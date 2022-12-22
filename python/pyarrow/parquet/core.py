@@ -257,6 +257,10 @@ class ParquetFile:
         If not None, override the maximum total size of containers allocated
         when decoding Thrift structures. The default limit should be
         sufficient for most Parquet files.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
 
     Examples
     --------
@@ -304,7 +308,16 @@ class ParquetFile:
                  read_dictionary=None, memory_map=False, buffer_size=0,
                  pre_buffer=False, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
-                 thrift_container_size_limit=None):
+                 thrift_container_size_limit=None, filesystem=None):
+
+        self._close_source = getattr(source, 'closed', True)
+
+        filesystem, source = _resolve_filesystem_and_path(
+            source, filesystem, memory_map)
+        if filesystem is not None:
+            source = filesystem.open_input_file(source)
+            self._close_source = True  # We opened it here, ensure we close it.
+
         self.reader = ParquetReader()
         self.reader.open(
             source, use_memory_map=memory_map,
@@ -315,7 +328,6 @@ class ParquetFile:
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
         )
-        self._close_source = getattr(source, 'closed', True)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
 

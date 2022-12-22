@@ -22,6 +22,8 @@ test_that("install_pyarrow", {
   # Windows CI machine doesn't pick up the right python or something
   skip_on_os("windows")
   skip_if_not_installed("reticulate")
+  # PyArrow doesn't support Python 3.6 or earlier
+  skip_on_python_older_than("3.7")
 
   venv <- try(reticulate::virtualenv_create("arrow-test"))
   # Bail out if virtualenv isn't available

@@ -425,7 +425,7 @@ cdef class FileSystem(_Weakrefable):
         """
         Create a new FileSystem from URI or Path.
 
-        Recognized URI schemes are "file", "mock", "s3fs", "hdfs" and "viewfs".
+        Recognized URI schemes are "file", "mock", "s3fs", "gs", "gcs", "hdfs" and "viewfs".
         In addition, the argument can be a pathlib.Path object, or a string
         describing an absolute local path.
 
@@ -795,7 +795,7 @@ cdef class FileSystem(_Weakrefable):
         -------
         stream : NativeFile
 
-        Examples        
+        Examples
         --------
         Print the data from the file with `open_input_stream()`:
 
@@ -912,7 +912,7 @@ cdef class FileSystem(_Weakrefable):
         -------
         stream : NativeFile
 
-        Examples        
+        Examples
         --------
         Append new data to a FileSystem subclass with nonempty file:
 
@@ -1134,7 +1134,7 @@ cdef class SubTreeFileSystem(FileSystem):
     >>> from pyarrow import fs
     >>> local = fs.LocalFileSystem()
     >>> with local.open_output_stream('/tmp/local_fs.dat') as stream:
-    ...     stream.write(b'data') 
+    ...     stream.write(b'data')
     4
 
     Create a directory and a SubTreeFileSystem instance:

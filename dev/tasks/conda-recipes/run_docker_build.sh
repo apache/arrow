@@ -16,6 +16,7 @@ build_dir=${1}
 THISDIR="$( cd "$( dirname "$0" )" >/dev/null && pwd )"
 ARROW_ROOT=$(cd "$THISDIR/../../.."; pwd;)
 FEEDSTOCK_ROOT=$THISDIR
+RECIPE_ROOT=$THISDIR
 
 docker info
 
@@ -64,6 +65,7 @@ docker run ${DOCKER_RUN_ARGS} \
            -v "${ARROW_ROOT}":/arrow:rw,z \
            -v "${build_dir}":/build:rw \
            -e FEEDSTOCK_ROOT="/arrow/dev/tasks/conda-recipes" \
+           -e RECIPE_ROOT="/arrow/dev/tasks/conda-recipes" \
            -e CONFIG \
            -e R_CONFIG \
            -e HOST_USER_ID \

@@ -128,7 +128,7 @@ C++ we must create the binding manually to use it in that implementation.
       As mentioned before, the underlying code is written in C++.
       Python then connects to it via Cython. If you
       are not familiar with it you can ask for help and remember,
-      **look for similar Pull Requests and JIRA issues!**
+      **look for similar Pull Requests and GitHub issues!**
 
       **Adding tests**
 

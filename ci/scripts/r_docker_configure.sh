@@ -87,22 +87,8 @@ if [[ -n "$DEVTOOLSET_VERSION" ]]; then
   fi
 fi
 
-if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
-  # Install curl and openssl for S3/GCS support
-  if [ "$PACKAGE_MANAGER" = "apt-get" ]; then
-    apt-get install -y libcurl4-openssl-dev libssl-dev
-  else
-    $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
-  fi
-
-  # The Dockerfile should have put this file here
-  if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
-    ${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh latest /usr/local
-  fi
-
-  if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_gcs_testbench.sh" ] && [ "`which pip`" ]; then
-    ${ARROW_SOURCE_HOME}/ci/scripts/install_gcs_testbench.sh default
-  fi
+if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh" ]; then
+  "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh"
 fi
 
 # Install rsync for bundling cpp source and curl to make sure it is installed on all images
