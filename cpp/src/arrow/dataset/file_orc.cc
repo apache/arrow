@@ -218,7 +218,7 @@ Future<std::optional<int64_t>> OrcFileFormat::CountRows(
 
 std::shared_ptr<FileWriteOptions> OrcFileFormat::DefaultWriteOptions() {
   // TODO (https://issues.apache.org/jira/browse/ARROW-13796)
-  return nullptr;
+  std::shared_ptr<FileWriteOptions>(nullptr);
 }
 
 Result<std::shared_ptr<FileWriter>> OrcFileFormat::MakeWriter(
