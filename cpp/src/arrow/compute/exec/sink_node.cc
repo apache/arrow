@@ -26,6 +26,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/order_by_impl.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
@@ -380,7 +381,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
 
  protected:
   void Finish(const Status& finish_st) {
-    plan_->async_scheduler()->AddSimpleTask([this, &finish_st] {
+    plan_->query_context()->async_scheduler()->AddSimpleTask([this, &finish_st] {
       return consumer_->Finish().Then(
           [this, finish_st]() {
             finished_.MarkFinished(finish_st);
@@ -405,7 +406,7 @@ static Result<ExecNode*> MakeTableConsumingSinkNode(
     const compute::ExecNodeOptions& options) {
   RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "TableConsumingSinkNode"));
   const auto& sink_options = checked_cast<const TableSinkNodeOptions&>(options);
-  MemoryPool* pool = plan->exec_context()->memory_pool();
+  MemoryPool* pool = plan->query_context()->memory_pool();
   auto tb_consumer =
       std::make_shared<TableSinkNodeConsumer>(sink_options.output_table, pool);
   auto consuming_sink_node_options = ConsumingSinkNodeOptions{tb_consumer};
@@ -436,8 +437,8 @@ struct OrderBySinkNode final : public SinkNode {
     RETURN_NOT_OK(ValidateOrderByOptions(sink_options));
     ARROW_ASSIGN_OR_RAISE(
         std::unique_ptr<OrderByImpl> impl,
-        OrderByImpl::MakeSort(plan->exec_context(), inputs[0]->output_schema(),
-                              sink_options.sort_options));
+        OrderByImpl::MakeSort(plan->query_context()->exec_context(),
+                              inputs[0]->output_schema(), sink_options.sort_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
                                               sink_options.generator);
   }
@@ -466,10 +467,10 @@ struct OrderBySinkNode final : public SinkNode {
       return Status::Invalid("Backpressure cannot be applied to an OrderBySinkNode");
     }
     RETURN_NOT_OK(ValidateSelectKOptions(sink_options));
-    ARROW_ASSIGN_OR_RAISE(
-        std::unique_ptr<OrderByImpl> impl,
-        OrderByImpl::MakeSelectK(plan->exec_context(), inputs[0]->output_schema(),
-                                 sink_options.select_k_options));
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<OrderByImpl> impl,
+                          OrderByImpl::MakeSelectK(plan->query_context()->exec_context(),
+                                                   inputs[0]->output_schema(),
+                                                   sink_options.select_k_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
                                               sink_options.generator);
   }
@@ -491,7 +492,7 @@ struct OrderBySinkNode final : public SinkNode {
     DCHECK_EQ(input, inputs_[0]);
 
     auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
-                                           plan()->exec_context()->memory_pool());
+                                           plan()->query_context()->memory_pool());
     if (ErrorIfNotOk(maybe_batch.status())) {
       StopProducing();
       if (input_counter_.Cancel()) {
