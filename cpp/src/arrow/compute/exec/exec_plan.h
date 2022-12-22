@@ -50,7 +50,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   virtual ~ExecPlan() = default;
 
-  QueryContext* query_context() { return query_context_.get(); }
+  QueryContext* query_context();
 
   /// Make an empty exec plan
   static Result<std::shared_ptr<ExecPlan>> Make(
@@ -101,10 +101,6 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
   std::string ToString() const;
-
- protected:
-  std::unique_ptr<QueryContext> query_context_;
-  explicit ExecPlan(QueryOptions options, ExecContext* exec_ctx);
 };
 
 class ARROW_EXPORT ExecNode {

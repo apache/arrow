@@ -52,7 +52,7 @@ namespace {
 struct ExecPlanImpl : public ExecPlan {
   explicit ExecPlanImpl(QueryOptions options, ExecContext* exec_context,
                         std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
-      : ExecPlan(options, exec_context), metadata_(std::move(metadata)) {}
+      : metadata_(std::move(metadata)), query_context_(options, *exec_context) {}
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
@@ -296,6 +296,7 @@ struct ExecPlanImpl : public ExecPlan {
   uint32_t auto_label_counter_ = 0;
   util::tracing::Span span_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
+  QueryContext query_context_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -337,8 +338,7 @@ const ExecPlan::NodeVector& ExecPlan::sources() const {
 
 const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->sinks_; }
 
-ExecPlan::ExecPlan(QueryOptions options, ExecContext* exec_ctx)
-    : query_context_(std::make_unique<QueryContext>(options, *exec_ctx)) {}
+QueryContext* ExecPlan::query_context() { return &ToDerived(this)->query_context_; }
 
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
