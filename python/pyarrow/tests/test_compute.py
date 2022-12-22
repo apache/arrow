@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from datetime import datetime
+import datetime
 from functools import lru_cache, partial
 import inspect
 import itertools
@@ -1739,7 +1739,7 @@ def test_cast():
     assert pc.cast(arr, options=allow_overflow_options) == pa.array(
         [-1], type='int32')
 
-    arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
+    arr = pa.array([datetime.datetime(2010, 1, 1), datetime.datetime(2015, 1, 1)])
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
     assert pc.cast(arr, 'timestamp[ms]') == expected
 
@@ -1784,13 +1784,14 @@ def test_strptime():
     arr = pa.array(["5/1/2020", None, "12/13/1900"])
 
     got = pc.strptime(arr, format='%m/%d/%Y', unit='s')
-    expected = pa.array([datetime(2020, 5, 1), None, datetime(1900, 12, 13)],
-                        type=pa.timestamp('s'))
+    expected = pa.array(
+        [datetime.datetime(2020, 5, 1), None, datetime.datetime(1900, 12, 13)],
+        type=pa.timestamp('s'))
     assert got == expected
     # Positional format
     assert pc.strptime(arr, '%m/%d/%Y', unit='s') == got
 
-    expected = pa.array([datetime(2020, 1, 5), None, None],
+    expected = pa.array([datetime.datetime(2020, 1, 5), None, None],
                         type=pa.timestamp('s'))
     got = pc.strptime(arr, format='%d/%m/%Y', unit='s', error_is_null=True)
     assert got == expected
@@ -1933,7 +1934,11 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
 
     if ts.dt.tz:
-        is_dst = ts.apply(lambda x: x.dst().seconds > 0)
+        if ts.dt.tz is datetime.timezone.utc:
+            # datetime with utc returns None for dst()
+            is_dst = [False] * len(ts)
+        else:
+            is_dst = ts.apply(lambda x: x.dst().seconds > 0)
         assert pc.is_dst(tsa).equals(pa.array(is_dst))
 
     day_of_week_options = pc.DayOfWeekOptions(
@@ -2747,7 +2752,7 @@ def test_list_element():
 
 
 def test_count_distinct():
-    seed = datetime.now()
+    seed = datetime.datetime.now()
     samples = [seed.replace(year=y) for y in range(1992, 2092)]
     arr = pa.array(samples, pa.timestamp("ns"))
     assert pc.count_distinct(arr) == pa.scalar(len(samples), type=pa.int64())
