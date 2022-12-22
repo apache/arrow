@@ -2064,6 +2064,11 @@ class TestConvertListTypes:
         assert result3.equals(expected3)
 
     def test_infer_lists(self):
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
         data = OrderedDict([
             ('nan_ints', [[None, 1], [2, 3]]),
             ('ints', [[0, 1], [2, 3]]),
@@ -2113,6 +2118,11 @@ class TestConvertListTypes:
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
     def test_to_list_of_structs_pandas(self):
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
         ints = pa.array([1, 2, 3], pa.int32())
         strings = pa.array([['a', 'b'], ['c', 'd'], ['e', 'f']],
                            pa.list_(pa.string()))
@@ -2182,6 +2192,11 @@ class TestConvertListTypes:
             assert result.equals(expected)
 
     def test_nested_large_list(self):
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
         s = (pa.array([[[1, 2, 3], [4]], None],
                       type=pa.large_list(pa.large_list(pa.int64())))
              .to_pandas())
