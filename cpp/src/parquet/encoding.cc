@@ -2186,7 +2186,7 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
   while (idx < num_values) {
     UT value = static_cast<UT>(src[idx]);
     // Calculate deltas. The possible overflow is handled by use of unsigned integers
-    // making subtraction operations well defined and correct even in case of overflow.
+    // making subtraction operations well-defined and correct even in case of overflow.
     // Encoded integers will wrap back around on decoding.
     // See http://en.wikipedia.org/wiki/Modular_arithmetic#Integers_modulo_n
     deltas_[values_current_block_] = value - current_value_;
@@ -2281,6 +2281,11 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   const size_t offset_bytes = kMaxPageHeaderWriterSize - header_writer.bytes_written();
   std::memcpy(buffer->mutable_data() + offset_bytes, header_buffer_,
               header_writer.bytes_written());
+
+  // Reset counter of cached values
+  total_value_count_ = 0;
+  // Reserve enough space at the beginning of the buffer for largest possible header.
+  PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
 
   // Excess bytes at the beginning are sliced off and ignored.
   return SliceBuffer(buffer, offset_bytes);
