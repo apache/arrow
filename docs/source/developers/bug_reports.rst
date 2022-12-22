@@ -173,9 +173,10 @@ Arrow is an expansive project supporting many languages and organized into a
 number of components. Identifying the affected component(s) helps new issues
 get attention from appropriate contributors.
 
-* Use a **Component** label to indicate the area of the project that your
-  issue pertains to (for example "Component: Python" or "Component: C++").
-* Also prefix the issue title with the component name in brackets, for example
+* **Component label**, which can be added by a committer of the Apache Arrow
+  project, is used to indicate the area of the project that your issue pertains
+  to (for example "Component: Python" or "Component: C++").
+* Prefix the issue title with the component name in brackets, for example
   ``[Python] issue summary`` ; this helps when navigating lists of open issues,
   and it also makes our changelogs more readable. Most prefixes are exactly the
   same as the **Component** name, with the following exceptions:
