@@ -4200,8 +4200,11 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
           input_schema, {{FieldRef(0), {FieldRef(1)}}, {FieldRef(0), {FieldRef(1)}}}));
   auto expected_table = TableFromJSON(
       out_schema, {"[[2, 1, 1.1, 1.2], [4, 1, 2.1, 1.2], [6, 2, 3.1, 3.2]]"});
-  CheckRoundTripResult(std::move(expected_table), *compute::default_exec_context(), buf,
-                       {}, conversion_options);
+      // TODO(ARROW-15732) asof join currently requires a threaded exec context but it should
+      // not (and we can move back to the default exec context) after ARROW-15732 merges
+  compute::ExecContext exec_ctx(default_memory_pool(),
+                                ::arrow::internal::GetCpuThreadPool());
+  CheckRoundTripResult(std::move(expected_table), exec_ctx, buf, {}, conversion_options);
 }
 
 }  // namespace engine
