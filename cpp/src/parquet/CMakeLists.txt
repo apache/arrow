@@ -181,27 +181,27 @@ set(PARQUET_SRCS
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
   list(APPEND PARQUET_SRCS level_comparison_avx2.cc level_conversion_bmi2.cc)
-  # We need CXX_FLAGS_RELEASE here to prevent the one-definition-rule
-  # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CXX_FLAGS_RELEASE
+  # We need CMAKE_CXX_FLAGS_RELEASE here to prevent the one-definition-rule
+  # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
   set_source_files_properties(level_comparison_avx2.cc
                               PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                          COMPILE_FLAGS
-                                         "${ARROW_AVX2_FLAG} ${CXX_FLAGS_RELEASE}")
+                                         "${ARROW_AVX2_FLAG} ${CMAKE_CXX_FLAGS_RELEASE}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
   # imply BMI2.
   #
-  # We need CXX_FLAGS_RELEASE here to prevent the one-definition-rule
-  # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CXX_FLAGS_RELEASE
+  # We need CMAKE_CXX_FLAGS_RELEASE here to prevent the one-definition-rule
+  # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
   set_source_files_properties(level_conversion_bmi2.cc
                               PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                          COMPILE_FLAGS
-                                         "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2 -mbmi2 ${CXX_FLAGS_RELEASE}"
+                                         "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2 -mbmi2 ${CMAKE_CXX_FLAGS_RELEASE}"
   )
 endif()
 
