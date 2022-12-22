@@ -775,14 +775,6 @@ cdef class FileWriteOptions(_Weakrefable):
 
     @staticmethod
     cdef wrap(const shared_ptr[CFileWriteOptions]& sp):
-
-        if sp.get() == nullptr:
-            # DefaultWriteOptions() may return `nullptr` which means that
-            # the format does not yet support writing datasets.
-            raise NotImplementedError(
-                "Writing datasets not yet implemented for this file format."
-            )
-
         type_name = frombytes(sp.get().type_name())
 
         classes = {
@@ -895,7 +887,15 @@ cdef class FileFormat(_Weakrefable):
         return Fragment.wrap(move(c_fragment))
 
     def make_write_options(self):
-        return FileWriteOptions.wrap(self.format.DefaultWriteOptions())
+        sp_write_options = self.format.DefaultWriteOptions()
+        if sp_write_options.get() == nullptr:
+           # DefaultWriteOptions() may return `nullptr` which means that
+           # the format does not yet support writing datasets.
+           raise NotImplementedError(
+               "Writing datasets not yet implemented for this file format."
+            )
+        return FileWriteOptions.wrap(sp_write_options)
+
 
     @property
     def default_extname(self):
