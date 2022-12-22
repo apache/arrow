@@ -371,3 +371,24 @@ test_that("full joins handle keep", {
     )
   }
 })
+
+test_that("right_join correctly coalesces keys", {
+  tbl1 <- tibble::tibble(x = 1:10, y = letters[1:10])
+  tbl2 <- tibble::tibble(x = 1:3, z = letters[11:13])
+
+  compare_dplyr_binding(
+    .input %>%
+      right_join(tbl1, by = "x") %>%
+      arrange(x) %>%
+      collect(),
+    tbl2
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      right_join(tbl1, by = "x", keep = TRUE) %>%
+      arrange(x.x) %>%
+      collect(),
+    tbl2
+  )
+})

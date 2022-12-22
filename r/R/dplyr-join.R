@@ -72,7 +72,18 @@ right_join.arrow_dplyr_query <- function(x,
                                          suffix = c(".x", ".y"),
                                          ...,
                                          keep = FALSE) {
-  do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "RIGHT_OUTER")
+
+  # Initially keep join keys so we can coalesce them after when keep=FALSE
+  query <- do_join(x, y, by, copy, suffix, ..., keep = TRUE, join_type = "RIGHT_OUTER")
+
+  # If we are doing a right outer join and not keeping the join keys of
+  # both sides, we need to coalesce. Otherwise, rows that exist in the
+  # RHS will have NAs for the join keys.
+  if (!keep) {
+    query$selected_columns <- post_join_projection(names(x), names(y), handle_join_by(by, x, y), suffix)
+  }
+
+  query
 }
 right_join.Dataset <- right_join.ArrowTabular <- right_join.RecordBatchReader <- right_join.arrow_dplyr_query
 
