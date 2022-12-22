@@ -25,6 +25,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
@@ -335,6 +336,9 @@ const ExecPlan::NodeVector& ExecPlan::sources() const {
 }
 
 const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->sinks_; }
+
+ExecPlan::ExecPlan(QueryOptions options, ExecContext* exec_ctx)
+    : query_context_(std::make_unique<QueryContext>(options, *exec_ctx)) {}
 
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 

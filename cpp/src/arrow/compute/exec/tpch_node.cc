@@ -31,6 +31,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/datum.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/formatting.h"

@@ -27,8 +27,6 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/query_context.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
@@ -52,7 +50,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   virtual ~ExecPlan() = default;
 
-  QueryContext* query_context() { return &query_context_; }
+  QueryContext* query_context() { return query_context_.get(); }
 
   /// Make an empty exec plan
   static Result<std::shared_ptr<ExecPlan>> Make(
@@ -105,9 +103,8 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   std::string ToString() const;
 
  protected:
-  QueryContext query_context_;
-  explicit ExecPlan(QueryOptions options, ExecContext* exec_ctx)
-      : query_context_(options, *exec_ctx) {}
+  std::unique_ptr<QueryContext> query_context_;
+  explicit ExecPlan(QueryOptions options, ExecContext* exec_ctx);
 };
 
 class ARROW_EXPORT ExecNode {

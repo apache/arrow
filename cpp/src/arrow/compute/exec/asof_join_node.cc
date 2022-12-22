@@ -29,6 +29,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/light_array.h"
