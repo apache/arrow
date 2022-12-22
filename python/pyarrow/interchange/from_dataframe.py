@@ -256,7 +256,14 @@ def categorical_column_to_dictionary(
         validity_buff = None
 
     validity_pa_buff = validity_buff
-    if validity_buff:
+    if null_kind == ColumnNullType.USE_SENTINEL:
+        indices = buffers_to_array(buffers, col.size(),
+                                   col.describe_null,
+                                   col.offset)
+        sentinel_arr = pc.equal(indices, sentinel_val)
+        mask_bool = pc.invert(sentinel_arr)
+        validity_pa_buff = mask_bool.buffers()[1]
+    elif validity_buff:
         validity_pa_buff = validity_buffer(validity_buff,
                                            validity_dtype,
                                            col.describe_null,
@@ -303,7 +310,16 @@ def datetime_column_to_array(
 
     # Validity buffer
     validity_pa_buff = validity_buff
-    if validity_pa_buff:
+    null_kind, sentinel_val = col.describe_null
+    if null_kind == ColumnNullType.USE_SENTINEL:
+        int_arr = pa.Array.from_buffers(pa.int64(),
+                                        col.size(),
+                                        [None, data_pa_buffer],
+                                        offset=col.offset)
+        sentinel_arr = pc.equal(int_arr, sentinel_val)
+        mask_bool = pc.invert(sentinel_arr)
+        validity_pa_buff = mask_bool.buffers()[1]
+    elif validity_buff:
         validity_pa_buff = validity_buffer(validity_buff,
                                            validity_dtype,
                                            col.describe_null,
@@ -388,6 +404,18 @@ def buffers_to_array(
     data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize,
                                        base=data_buff)
 
+    # Check for float NaN values
+    null_kind, _ = describe_null
+    if null_kind == ColumnNullType.USE_NAN:
+        pyarrow_data = pa.Array.from_buffers(
+            data_dtype,
+            length,
+            [None, data_pa_buffer],
+            offset=offset,
+        )
+        mask = pc.is_nan(pyarrow_data)
+        mask = pc.invert(mask)
+        validity_pa_buff = mask.buffers()[1]
     # Construct a validity pyarrow Buffer or a bytemask, if exists
     validity_pa_buff = validity_buff
     if validity_pa_buff:
@@ -468,16 +496,15 @@ def validity_buffer(
     if null_kind == ColumnNullType.USE_BYTEMASK or (
         null_kind == ColumnNullType.USE_BITMASK and sentinel_val == 1
     ):
-
         validity_pa_buff = pa.foreign_buffer(validity_buff.ptr,
                                              validity_buff.bufsize,
                                              base=validity_buff)
         mask = pa.Array.from_buffers(pa.uint8(), length,
                                      [None, validity_pa_buff],
                                      offset=offset)
-        if sentinel_val == 1:
-            mask = pc.invert(mask)
         mask_bool = pc.cast(mask, pa.bool_())
+        if sentinel_val == 1:
+            mask_bool = pc.invert(mask_bool)
         validity_buff = mask_bool.buffers()[1]
 
     elif null_kind == ColumnNullType.USE_BITMASK and sentinel_val == 0:

@@ -280,8 +280,8 @@ def test_pandas_assertion_error_large_string():
 @pytest.mark.parametrize(
     "float, np_float", [
         (pa.float16(), np.float16),
-        # (pa.float32(), np.float32),   #errors due to inequality in nan
-        # (pa.float64(), np.float64)    #errors due to inequality in nan
+        (pa.float32(), np.float32),
+        (pa.float64(), np.float64)
     ]
 )
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
@@ -296,7 +296,8 @@ def test_pyarrow_roundtrip(uint, int, float, np_float, unit, tz):
         {
             "a": pa.array(arr, type=uint),
             "b": pa.array(arr, type=int),
-            "c": pa.array(np.array(arr, dtype=np_float), type=float),
+            "c": pa.array(np.array(arr, dtype=np_float),
+                          type=float, from_pandas=True),
             "d": [True, False, True],
             "e": ["a", "", "c"],
             "f": pa.array(dt_arr, type=pa.timestamp(unit, tz=tz))
