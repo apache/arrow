@@ -185,6 +185,9 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
+  #
+  # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
+  # CMake 3.11 or later.
   set_source_files_properties(level_comparison_avx2.cc
                               PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                          COMPILE_FLAGS
@@ -198,6 +201,9 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
+  #
+  # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
+  # CMake 3.11 or later.
   set_source_files_properties(level_conversion_bmi2.cc
                               PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                          COMPILE_FLAGS
