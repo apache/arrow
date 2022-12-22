@@ -188,10 +188,13 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   #
   # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
   # CMake 3.11 or later.
+  set(AVX2_FLAGS "${ARROW_AVX2_FLAG}")
+  if(NOT MSVC)
+    string(APPEND AVX2_FLAGS ${CMAKE_CXX_FLAGS_RELEASE})
+  endif()
   set_source_files_properties(level_comparison_avx2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                         COMPILE_FLAGS
-                                         "${ARROW_AVX2_FLAG} ${CMAKE_CXX_FLAGS_RELEASE}")
+                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
+                                                                    "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
@@ -204,11 +207,10 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   #
   # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
   # CMake 3.11 or later.
+  set(BMI2_FLAGS "${AVX2_FLAGS} -DARROW_HAVE_BMI2 -mbmi2")
   set_source_files_properties(level_conversion_bmi2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                         COMPILE_FLAGS
-                                         "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2 -mbmi2 ${CMAKE_CXX_FLAGS_RELEASE}"
-  )
+                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
+                                                                    "${BMI2_FLAGS}")
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
