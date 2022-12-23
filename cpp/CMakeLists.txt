@@ -489,10 +489,11 @@ endif()
 include(BuildUtils)
 enable_testing()
 
-# For arrow.pc. Requires.private and Libs.private are used when
-# "pkg-config --libs --static arrow" is used.
-set(ARROW_PC_REQUIRES_PRIVATE)
-set(ARROW_PC_LIBS_PRIVATE)
+# For arrow.pc. Cflags.private, Libs.private and Requires.private are
+# used when "pkg-config --cflags --libs --static arrow" is used.
+set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
+set(ARROW_PC_LIBS_PRIVATE "")
+set(ARROW_PC_REQUIRES_PRIVATE "")
 
 include(ThirdpartyToolchain)
 
