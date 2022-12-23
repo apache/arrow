@@ -291,6 +291,8 @@ def test_fspath(tempdir, use_legacy_dataset):
 ])
 @pytest.mark.parametrize("name", ("data.parquet", "例.parquet"))
 def test_relative_paths(tempdir, use_legacy_dataset, filesystem, name):
+    if use_legacy_dataset and isinstance(filesystem, fs.FileSystem):
+        pytest.skip("Passing new filesystem not supported for legacy reader")
     # reading and writing from relative paths
     table = pa.table({"a": [1, 2, 3]})
     path = tempdir / name
